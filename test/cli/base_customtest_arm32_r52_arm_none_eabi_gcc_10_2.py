@@ -139,6 +139,10 @@ class BaseCustomeTestArm32R52_ArmNoneEabiGcc10_2:
         self.assert_var('/static/file2.cpp/file2StaticBool', EmbeddedDataType.boolean, value_at_loc=True)
 
     def test_func_static(self):
+        # Values that are commented out have been optimized and are now only constants.
+        # Forgot to call file2func1 in the test binary main
+        # TODO : Rebuild and rerun with a main that calls file2func1 to avoid const optimization.
+
         #self.assert_var('/static/file2.cpp/file2func1()/file2func1Var', EmbeddedDataType.sint32, value_at_loc=-88778877)
         #self.assert_var('/static/file2.cpp/file2func1(int)/file2func1Var', EmbeddedDataType.float64, value_at_loc=963258741.123)
         self.assert_var('/static/main.cpp/main/staticIntInMainFunc', EmbeddedDataType.sint32, value_at_loc=22222)
