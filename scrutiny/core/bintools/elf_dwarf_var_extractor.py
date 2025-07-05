@@ -20,6 +20,7 @@ import logging
 import inspect
 from dataclasses import dataclass
 from inspect import currentframe
+from fnmatch import fnmatch
 
 from scrutiny.core.bintools.demangler import GccDemangler
 from scrutiny.core.varmap import VarMap
@@ -202,11 +203,15 @@ class ElfDwarfVarExtractor:
     struct_die_map: Dict[DIE, Struct]
     cppfilt: Optional[str]
     logger: logging.Logger
+    _ignore_cu_patterns:List[str]
+    _path_ignore_patterns:List[str]
 
     _context:Context
 
     def __init__(self, filename: Optional[str] = None, 
-                 cppfilt: Optional[str] = None
+                 cppfilt: Optional[str] = None,
+                 ignore_cu_patterns:List[str] = [],
+                 path_ignore_patterns:List[str] = []
                  ) -> None:
         self.varmap = VarMap()    # This is what we want to generate.
         self.die2typeid_map = {}
@@ -215,6 +220,8 @@ class ElfDwarfVarExtractor:
         self.enum_die_map = {}
         self.struct_die_map = {}
         self.cppfilt = cppfilt
+        self._ignore_cu_patterns=ignore_cu_patterns
+        self._path_ignore_patterns = path_ignore_patterns
         self.logger = logging.getLogger(self.__class__.__name__)
         self._context = Context(    # Default
             arch=Architecture.UNKNOWN,
@@ -520,12 +527,27 @@ class ElfDwarfVarExtractor:
 
             bad_support_warning_written = False
             for cu in self.dwarfinfo.iter_CUs():
+                die = cu.get_top_DIE()
+
+                # Check if we need to skip the Compile Unit
+                cu_raw_name = self.get_name(die, '')
+                if cu_raw_name != '':
+                    cu_basename = os.path.basename(cu_raw_name)
+                    must_skip = False
+                    for pattern in  self._ignore_cu_patterns:
+                        if cu_basename==pattern or fnmatch(cu_raw_name, pattern):
+                            must_skip = True
+                            break
+                    if must_skip:
+                        self.logger.debug(f"Skipping Compile Unit: {cu_raw_name}")
+                        continue
+                
+                # Process the Compile Unit
                 self._context.cu_compiler = self._identify_compiler(cu)
                 if cu.header['version'] not in (2, 3, 4):
                     if not bad_support_warning_written:
                         bad_support_warning_written = True
                         self.logger.warning(f"DWARF format version {cu.header['version']} is not well supported, output may be incomplete")
-                die = cu.get_top_DIE()
                 self.extract_var_recursive(die)  # Recursion start point
 
     def _identify_arch(self) -> Architecture:
@@ -561,6 +583,22 @@ class ElfDwarfVarExtractor:
 
         return Endianness.Little    #  Little is the most common, default on this
 
+    def _allowed_by_filters(self, path_segments:List[str], name:str, location:VariableLocation) -> bool:
+        """Tells if we can register a variable to the varmap and log the reason for not allowing if applicable."""
+        fullname = self.varmap.make_fullname(path_segments, name)
+
+        allow = True
+        for ignore_pattern in self._path_ignore_patterns:
+            if fnmatch(fullname, ignore_pattern):
+                self.logger.debug(f"{fullname} matches ignore pattern {ignore_pattern}. Skipping")
+                allow = False
+                break
+
+        if location.is_null():
+            self.logger.warning(f"Ignoring {fullname} because it is located at address 0")
+            allow = False
+
+        return allow
 
     def extract_var_recursive(self, die: DIE) -> None:
         # Finds all "variable" tags and create an entry in the varmap.
@@ -868,28 +906,26 @@ class ElfDwarfVarExtractor:
             assert member.byte_offset is not None
             assert member.original_type_name is not None
             location.add_offset(member.byte_offset)
+            
+            if self._allowed_by_filters(path_segments, member.name, location):
+                self.varmap.add_variable(
+                    path_segments=path_segments,
+                    name=member.name,
+                    original_type_name=member.original_type_name,
+                    location=location,
+                    bitoffset=member.bitoffset,
+                    bitsize=member.bitsize,
+                    enum=member.enum
+                )
 
-            if self.logger.isEnabledFor(logging.DEBUG):  # pragma: no cover
-                fullpath = '/'.join(path_segments + [member.name])
-                self.logger.debug(f"Registering {fullpath}")
-            self.varmap.add_variable(
-                path_segments=path_segments,
-                name=member.name,
-                original_type_name=member.original_type_name,
-                location=location,
-                bitoffset=member.bitoffset,
-                bitsize=member.bitsize,
-                enum=member.enum
-            )
-
-    def register_variable(self,
+    def maybe_register_variable(self,
                           name: str,
                           path_segments: List[str],
                           location: VariableLocation,
                           original_type_name: str,
                           enum: Optional[EmbeddedEnum]
                           ) -> None:
-        """Adds a variable to the varmap.
+        """Adds a variable to the varmap if it satisfies the filters provided by the users.
 
             :param name: Name of the variable
             :param path_segments: List of str representing each level of display tree
@@ -897,19 +933,17 @@ class ElfDwarfVarExtractor:
             :param original_type_name: The name of the underlying type. Must be a name coming from the binary. Will resolve to an EmbeddedDataType
             :param enum: Optional enum to associate with the type
         """
-        if self.logger.isEnabledFor(logging.DEBUG):  # pragma: no cover
-            fullpath = '/'.join(path_segments + [name])
-            self.logger.debug(f"Registering {fullpath}")
-        self.varmap.add_variable(
-            path_segments=path_segments,
-            name=name,
-            location=location,
-            original_type_name=original_type_name,
-            enum=enum
-        )
+        if self._allowed_by_filters(path_segments, name, location):
+            self.varmap.add_variable(
+                path_segments=path_segments,
+                name=name,
+                location=location,
+                original_type_name=original_type_name,
+                enum=enum
+            )
 
     def get_location(self, die: DIE) -> Optional[VariableLocation]:
-        """Try t extract the location from a die. Returns ``None`` if not available"""
+        """Try to extract the location from a die. Returns ``None`` if not available"""
         if Attrs.DW_AT_location in die.attributes:
             dieloc = (die.attributes[Attrs.DW_AT_location].value)
 
@@ -971,7 +1005,8 @@ class ElfDwarfVarExtractor:
                     else:
                         raise ElfParsingError("Impossible to process base type")
 
-                    self.register_variable(
+                    
+                    self.maybe_register_variable(
                         name=name,
                         path_segments=path_segments,
                         location=location,

@@ -162,10 +162,17 @@ class VarMap:
                      bitoffset: Optional[int] = None,
                      enum: Optional[EmbeddedEnum] = None
                      ) -> None:
+        fullname = self.make_fullname(path_segments, name)
+
+        if self.logger.isEnabledFor(logging.DEBUG):  # pragma: no cover
+            self.logger.debug(f"Adding {fullname}")
+    
         if not self.is_known_type(original_type_name):
             raise ValueError('Cannot add variable of type %s. Type has not been registered yet' % (original_type_name))
 
-        fullname = self.make_fullname(path_segments, name)
+        if location.is_null():
+            raise ValueError('Cannot add variable at address 0')
+
         if fullname in self.variables:
             self.logger.warning('duplicate entry %s' % fullname)
 

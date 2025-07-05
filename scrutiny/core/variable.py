@@ -45,6 +45,10 @@ class VariableLocation:
 
         self.address = address
 
+    def is_null(self) -> bool:
+        """Return true if address is null"""
+        return self.address == 0
+
     def get_address(self) -> int:
         """Return the address in a numerical format"""
         return self.address

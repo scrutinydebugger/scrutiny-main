@@ -26,12 +26,13 @@ class InstallSFD(BaseCommand):
         self.args = args
         self.parser = argparse.ArgumentParser(prog=self.get_prog())
         self.parser.add_argument('file', help='Scrutiny Firmware Description (SFD) file to be installed')
+        self.parser.add_argument('-f', action='store_true', help='Do not print a warning if another SFD with the same ID is already installed')
 
     def run(self) -> Optional[int]:
         from scrutiny.server.sfd_storage import SFDStorage
 
         args = self.parser.parse_args(self.args)
-        SFDStorage.install(args.file)
-        self.getLogger().info(f"SFD file {args.file} installed")
+        sfd = SFDStorage.install(args.file, args.f)
+        self.getLogger().info(f"SFD file {args.file} installed. (ID: {sfd.get_firmware_id_ascii()})")
 
         return 0
