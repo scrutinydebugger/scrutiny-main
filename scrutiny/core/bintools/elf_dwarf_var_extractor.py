@@ -820,7 +820,7 @@ class ElfDwarfVarExtractor:
             return None
 
         # We are looking at a forward declared member.
-        if Attrs.DW_AT_declaration in die.attributes and die.attributes[Attrs.DW_AT_declaration].value == True:
+        if Attrs.DW_AT_declaration in die.attributes and bool(die.attributes[Attrs.DW_AT_declaration].value) == True:
             return None
 
         if is_in_union:
@@ -876,8 +876,11 @@ class ElfDwarfVarExtractor:
     # using the members offsets to find the final address that we will apply to the output var
     def register_struct_var(self, die: DIE, type_die: DIE, location: VariableLocation) -> None:
         """Register an instance of a struct at a given location"""
+        if location.is_null():
+            self.logger.warning(f"Skipping structure at location NULL address. {die}")
+            return 
+        
         path_segments = self.make_varpath(die)
-        #path_segments.append(self.get_name_no_none(die))
         struct = self.struct_die_map[type_die]
         startpoint = Struct.Member(struct.name, is_substruct=True, bitoffset=None, bitsize=None, substruct=struct)
 
@@ -965,6 +968,10 @@ class ElfDwarfVarExtractor:
 
     def die_process_variable(self, die: DIE, location: Optional[VariableLocation] = None) -> None:
         """Process a variable die and insert a variable in the varmap object if it has an absolute address"""
+        # We are looking at a forward declaration. Nothing we can do with that. drop it.
+        if Attrs.DW_AT_declaration in die.attributes and bool(die.attributes[Attrs.DW_AT_declaration].value) == True:
+            return
+        
         if location is None:
             location = self.get_location(die)
 
