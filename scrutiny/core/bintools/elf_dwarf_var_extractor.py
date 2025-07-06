@@ -67,6 +67,7 @@ class Tags:
     DW_TAG_pointer_type = 'DW_TAG_pointer_type'
     DW_TAG_member = 'DW_TAG_member'
     DW_TAG_inheritance = 'DW_TAG_inheritance'
+    DW_TAG_typedef = 'DW_TAG_typedef'
 
 class DwarfEncoding(Enum):
     DW_ATE_address = 0x1
@@ -103,6 +104,7 @@ class TypeDescriptor:
     type: TypeOfVar
     enum_die: Optional[DIE]
     type_die: DIE
+    typedef_die:Optional[DIE]
 
 class Architecture(Enum):
     UNKNOWN=auto()
@@ -334,7 +336,7 @@ class ElfDwarfVarExtractor:
         self._log_debug_process_die(die)
         return die.get_DIE_from_attribute(Attrs.DW_AT_abstract_origin)
 
-    def get_name(self, die: DIE, default: Optional[str] = None, nolog: bool = False, raise_if_none:bool = False) -> Optional[str]:
+    def get_name(self, die: DIE, default: Optional[str] = None, nolog: bool = False, raise_if_none:bool = False, no_tag_default:bool=False) -> Optional[str]:
         if not nolog:
             self._log_debug_process_die(die)
         if Attrs.DW_AT_name in die.attributes:
@@ -343,7 +345,7 @@ class ElfDwarfVarExtractor:
         if default is not None:
             return default
         
-        if die.tag in self.DEFAULTS_NAMES:
+        if die.tag in self.DEFAULTS_NAMES and no_tag_default is False:
             return self.DEFAULTS_NAMES[die.tag]
         
         if raise_if_none:
@@ -641,17 +643,36 @@ class ElfDwarfVarExtractor:
         self.die2typeid_map[die] = self.varmap.get_type_id(name)
         self.die2vartype_map[die] = basetype
     
-
-    def die_process_enum(self, die: DIE) -> None:
-        self._log_debug_process_die(die)
-        name = self.get_name_no_none(die)
+    def read_enum_die_name(self, die:DIE, typedef_die:Optional[DIE]=None) -> str:
+        """Reads the name of the enum die and also enumerator die"""
+        mangled_name:Optional[str] = None
+        name = self.get_name(die, no_tag_default=True)
+        if name is None and typedef_die is not None:
+            name = self.get_name(typedef_die, no_tag_default=True)
         
-        if self._context.cu_compiler == Compiler.TI_C28_CGT:
-            # cl2000 embeds the full mangled path in the DW_AT_NAME attribute, 
-            # ex : _ZN13FileNamespace14File3TestClass16File3EnumInClassE = FileNamespace::File3TestClass::File3EnumInClass
-            demangled_name = self.demangler.demangle(name)
-            name = self.split_demangled_name(demangled_name)[-1]
+        if name is not None:
+            if self._context.cu_compiler == Compiler.TI_C28_CGT:
+                if Attrs.DW_AT_name in die.attributes:
+                    # cl2000 embeds the full mangled path in the DW_AT_NAME attribute, 
+                    # ex : _ZN13FileNamespace14File3TestClass16File3EnumInClassE = FileNamespace::File3TestClass::File3EnumInClass
+                    mangled_name = cast(str, die.attributes[Attrs.DW_AT_name].value.decode('ascii'))
+        else:
+            if Attrs.DW_AT_linkage_name in die.attributes:
+                mangled_name = cast(str, die.attributes[Attrs.DW_AT_linkage_name].value.decode('ascii'))
 
+        if mangled_name is not None:
+            demangled_name = self.demangler.demangle(mangled_name)
+            name = self.split_demangled_name(demangled_name)[-1]
+        
+        if name is None:
+            name = self.get_name_no_none(die)
+
+        return name
+
+    def die_process_enum(self, die: DIE, typedef_die:Optional[DIE]) -> None:
+        self._log_debug_process_die(die)
+    
+        name = self.read_enum_die_name(die, typedef_die)
         if die not in self.enum_die_map and name is not None:
             enum = EmbeddedEnum(name)
 
@@ -659,16 +680,16 @@ class ElfDwarfVarExtractor:
                 if child.tag != Tags.DW_TAG_enumerator:
                     continue
 
-                name = self.get_name_no_none(child)
+                enumerator_name = self.get_name_no_none(child)
                 if self._context.cu_compiler == Compiler.TI_C28_CGT:
                     # cl2000 embeds the full mangled path in the DW_AT_NAME attribute, 
                     # ex :_ZN13FileNamespace14File3TestClass3BBBE = FileNamespace::File3TestClass::BBB
-                    demangled_name = self.demangler.demangle(name)
-                    name = self.split_demangled_name(demangled_name)[-1]
+                    demangled_name = self.demangler.demangle(enumerator_name)
+                    enumerator_name = self.split_demangled_name(demangled_name)[-1]
 
                 if Attrs.DW_AT_const_value in child.attributes:
                     value = cast(int, child.attributes[Attrs.DW_AT_const_value].value)
-                    enum.add_value(name=name, value=value)
+                    enum.add_value(name=enumerator_name, value=value)
                 else:
                     self.logger.error('Enumerator without value')
 
@@ -679,25 +700,28 @@ class ElfDwarfVarExtractor:
         self._log_debug_process_die(die)
         prevdie = die
         enum: Optional[DIE] = None
+        typedef_die:Optional[DIE] = None
         while True:
             nextdie = prevdie.get_DIE_from_attribute(Attrs.DW_AT_type)
             if nextdie.tag == Tags.DW_TAG_structure_type:
-                return TypeDescriptor(TypeOfVar.Struct, enum, nextdie)
+                return TypeDescriptor(TypeOfVar.Struct, enum, nextdie, typedef_die=typedef_die)
             elif nextdie.tag == Tags.DW_TAG_class_type:
-                return TypeDescriptor(TypeOfVar.Class, enum, nextdie)
+                return TypeDescriptor(TypeOfVar.Class, enum, nextdie, typedef_die=typedef_die)
             elif nextdie.tag == Tags.DW_TAG_array_type:
-                return TypeDescriptor(TypeOfVar.Array, enum, nextdie)
+                return TypeDescriptor(TypeOfVar.Array, enum, nextdie, typedef_die=typedef_die)
             elif nextdie.tag == Tags.DW_TAG_base_type:
-                return TypeDescriptor(TypeOfVar.BaseType, enum, nextdie)
+                return TypeDescriptor(TypeOfVar.BaseType, enum, nextdie, typedef_die=typedef_die)
             elif nextdie.tag == Tags.DW_TAG_pointer_type:
-                return TypeDescriptor(TypeOfVar.Pointer, enum, nextdie)
+                return TypeDescriptor(TypeOfVar.Pointer, enum, nextdie, typedef_die=typedef_die)
             elif nextdie.tag == Tags.DW_TAG_union_type:
-                return TypeDescriptor(TypeOfVar.Union, enum, nextdie)
+                return TypeDescriptor(TypeOfVar.Union, enum, nextdie, typedef_die=typedef_die)
+            elif nextdie.tag == Tags.DW_TAG_typedef:
+                typedef_die = nextdie
             elif nextdie.tag == Tags.DW_TAG_enumeration_type:
                 enum = nextdie  # Will resolve on next iteration (if a type is available)
                 if Attrs.DW_AT_type not in nextdie.attributes:  # Clang dwarfv2 may not have type, but has a byte size
                     if Attrs.DW_AT_byte_size in nextdie.attributes:
-                        return TypeDescriptor(TypeOfVar.EnumOnly, enum, type_die=enum)
+                        return TypeDescriptor(TypeOfVar.EnumOnly, enum, type_die=enum, typedef_die=typedef_die)
                     else:
                         raise ElfParsingError(f"Cannot find the enum underlying type {enum}")
 
@@ -801,7 +825,7 @@ class ElfDwarfVarExtractor:
             typename = None
         elif type_desc.type in (TypeOfVar.BaseType, TypeOfVar.EnumOnly):
             if type_desc.enum_die is not None:
-                self.die_process_enum(type_desc.enum_die)
+                self.die_process_enum(type_desc.enum_die, type_desc.typedef_die)
                 enum = self.enum_die_map[type_desc.enum_die]
 
             if type_desc.type == TypeOfVar.BaseType:
@@ -969,9 +993,7 @@ class ElfDwarfVarExtractor:
     def die_process_variable(self, die: DIE, location: Optional[VariableLocation] = None) -> None:
         """Process a variable die and insert a variable in the varmap object if it has an absolute address"""
         # We are looking at a forward declaration. Nothing we can do with that. drop it.
-        if Attrs.DW_AT_declaration in die.attributes and bool(die.attributes[Attrs.DW_AT_declaration].value) == True:
-            return
-        
+
         if location is None:
             location = self.get_location(die)
 
@@ -999,7 +1021,7 @@ class ElfDwarfVarExtractor:
 
                     enum: Optional[EmbeddedEnum] = None
                     if type_desc.enum_die is not None:
-                        self.die_process_enum(type_desc.enum_die)
+                        self.die_process_enum(type_desc.enum_die, type_desc.typedef_die)
                         enum = self.enum_die_map[type_desc.enum_die]
 
                     if type_desc.type == TypeOfVar.BaseType:   # Most common case
