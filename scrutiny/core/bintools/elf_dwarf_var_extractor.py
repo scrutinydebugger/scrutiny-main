@@ -644,7 +644,7 @@ class ElfDwarfVarExtractor:
         self.die2vartype_map[die] = basetype
     
     def read_enum_die_name(self, die:DIE, typedef_die:Optional[DIE]=None) -> str:
-        """Reads the name of the enum die and also enumerator die"""
+        """Reads the name of the enum die"""
         mangled_name:Optional[str] = None
         name = self.get_name(die, no_tag_default=True)
         if name is None and typedef_die is not None:
