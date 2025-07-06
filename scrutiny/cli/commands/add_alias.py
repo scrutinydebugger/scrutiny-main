@@ -33,7 +33,7 @@ class AddAlias(BaseCommand):
         self.parser = argparse.ArgumentParser(prog=self.get_prog())
         self.parser.add_argument(
             'destination', help='Where to add the alias. Can be an SFD file, a folder of a in-making SFD file or a firmware ID to alter an already installed SFD file.')
-        self.parser.add_argument('--file', help='The input alias file in .json format')
+        self.parser.add_argument('--file', nargs='+', help='The input alias files in .json format')
 
         self.parser.add_argument('--fullpath', help='The alias fullpath')
         self.parser.add_argument('--target', help='The target of the alias')
@@ -69,11 +69,13 @@ class AddAlias(BaseCommand):
             varmap = sfd.varmap
             all_aliases = sfd.get_aliases()
         else:
-            raise Exception('Inexistent destination for alias %s' % args.destination)
+            raise Exception(f'Inexistent destination for alias {args.destination}')
 
         if args.file is not None:
-            with open(args.file, 'rb') as f:
-                new_aliases = FirmwareDescription.read_aliases(f, varmap)
+            for filename in args.file:
+                new_aliases = {}
+                with open(filename, 'rb') as f:
+                    new_aliases.update(FirmwareDescription.read_aliases(f, varmap))
         elif args.fullpath is not None:
             if args.target is None:
                 raise Exception('No target specified')
@@ -99,7 +101,7 @@ class AddAlias(BaseCommand):
             try:
                 alias.validate()
             except Exception as e:
-                self.logger.error('Alias %s is invalid. %s' % (alias.get_fullpath(), str(e)))
+                self.logger.error(f'Alias {alias.get_fullpath()} is invalid. {e}')
                 continue
 
             try:
@@ -109,7 +111,7 @@ class AddAlias(BaseCommand):
                 continue
 
             if k in all_aliases:
-                self.logger.error('Duplicate alias with path %s' % k)
+                self.logger.error(f'Duplicate alias with path {k}')
                 continue
 
             all_aliases[alias.get_fullpath()] = alias

@@ -32,12 +32,18 @@ class Elf2VarMap(BaseCommand):
         self.parser.add_argument('--cppfilt', default=None, help='The path to the c++filt demangler used when parsing a binary produced by GCC')
         self.parser.add_argument('--output', default=None, help='The varmap output file. Will go to STDOUT if not set')
         self.parser.add_argument('--indent', default=4, type=int, help='Number of spaces for JSON indentation')
+        self.parser.add_argument('--cu_ignore_patterns', nargs="*", default=[], help='List of compile unit to ignore. Can be a filename or a glob pattern ')
+        self.parser.add_argument('--path_ignore_patterns', nargs="*", default=[], help='List of variable paths to be ignored. Can be a glob pattern. example: /static/main.cpp/namespace1/*')
 
     def run(self) -> Optional[int]:
         from scrutiny.core.bintools.elf_dwarf_var_extractor import ElfDwarfVarExtractor
 
         args = self.parser.parse_args(self.args)
-        extractor = ElfDwarfVarExtractor(args.file, cppfilt=args.cppfilt)
+        extractor = ElfDwarfVarExtractor(args.file, 
+                                         cppfilt=args.cppfilt, 
+                                         ignore_cu_patterns=args.cu_ignore_patterns,
+                                         path_ignore_patterns=args.path_ignore_patterns,
+                                         )
         varmap = extractor.get_varmap()
 
         if args.output is None:
