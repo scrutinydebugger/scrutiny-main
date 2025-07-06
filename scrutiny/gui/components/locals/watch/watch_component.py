@@ -299,6 +299,8 @@ class WatchComponent(ScrutinyGUIBaseLocalComponent):
         if isinstance(item_inserted, FolderStandardItem):
             if item_inserted.is_expanded():
                 self._tree.expand(item_inserted.index())
+        elif isinstance(item_inserted, WatchableStandardItem):
+            item_inserted.setToolTip(item_inserted.fqn)
 
     def _row_about_to_be_removed_slot(self, parent: QModelIndex, first_row_index: int, last_row_index: int) -> None:
         # This slot is called only on the node removed, not on the children.

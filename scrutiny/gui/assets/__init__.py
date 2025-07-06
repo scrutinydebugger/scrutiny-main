@@ -123,6 +123,7 @@ class Icons(enum.Enum):
     EmbeddedGraph = "embedded-graph"
     ContinuousGraph = "continuous-graph"
     Watch = "watch"
+    Copy = "copy"
 
 
 def icon_filename(name: Icons, format: IconFormat, iconset: IconSet) -> Path:
