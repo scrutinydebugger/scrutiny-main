@@ -530,7 +530,7 @@ class ElfDwarfVarExtractor:
                 die = cu.get_top_DIE()
 
                 # Check if we need to skip the Compile Unit
-                cu_raw_name = self.get_name(die, '')
+                cu_raw_name = cast(str, self.get_name(die, ''))
                 if cu_raw_name != '':
                     cu_basename = os.path.basename(cu_raw_name)
                     must_skip = False
