@@ -71,10 +71,10 @@ class AddAlias(BaseCommand):
             all_aliases = sfd.get_aliases()
         else:
             raise Exception(f'Inexistent destination for alias {args.destination}')
-
+        
+        new_aliases = {}
         if args.file is not None:
             for filename in args.file:
-                new_aliases = {}
                 with open(filename, 'rb') as f:
                     new_aliases.update(FirmwareDescription.read_aliases(f, varmap))
         elif args.fullpath is not None:
@@ -90,7 +90,6 @@ class AddAlias(BaseCommand):
                 max=args.max
             )
 
-            new_aliases = {}
             new_aliases[alias.get_fullpath()] = alias
         else:
             raise Exception('Alias must be defined through a file or command line by specifying the --target option.')
