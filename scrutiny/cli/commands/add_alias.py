@@ -48,6 +48,7 @@ class AddAlias(BaseCommand):
         from scrutiny.server.sfd_storage import SFDStorage
 
         args = self.parser.parse_args(self.args)
+        return_code = 0
 
         if args.fullpath is not None and args.file is not None:
             raise Exception('Alias must be defined by a file (--file) or command line parameters (--fullpath + others), but not both.')
@@ -70,10 +71,10 @@ class AddAlias(BaseCommand):
             all_aliases = sfd.get_aliases()
         else:
             raise Exception(f'Inexistent destination for alias {args.destination}')
-
+        
+        new_aliases = {}
         if args.file is not None:
             for filename in args.file:
-                new_aliases = {}
                 with open(filename, 'rb') as f:
                     new_aliases.update(FirmwareDescription.read_aliases(f, varmap))
         elif args.fullpath is not None:
@@ -89,7 +90,6 @@ class AddAlias(BaseCommand):
                 max=args.max
             )
 
-            new_aliases = {}
             new_aliases[alias.get_fullpath()] = alias
         else:
             raise Exception('Alias must be defined through a file or command line by specifying the --target option.')
@@ -101,16 +101,19 @@ class AddAlias(BaseCommand):
             try:
                 alias.validate()
             except Exception as e:
+                return_code = 1
                 self.logger.error(f'Alias {alias.get_fullpath()} is invalid. {e}')
                 continue
 
             try:
                 alias.set_target_type(FirmwareDescription.get_alias_target_type(alias, varmap))
             except Exception as e:
+                return_code=1
                 tools.log_exception(self.logger, e, f'Cannot deduce type of alias {alias.get_fullpath()} referring to {alias.get_target()}.')
                 continue
 
             if k in all_aliases:
+                return_code = 1
                 self.logger.error(f'Duplicate alias with path {k}')
                 continue
 
@@ -127,4 +130,4 @@ class AddAlias(BaseCommand):
         elif SFDStorage.is_installed(args.destination):
             SFDStorage.install_sfd(sfd, ignore_exist=True)
 
-        return 0
+        return return_code

@@ -18,8 +18,9 @@ import logging
 import enum
 
 from PySide6.QtCore import QMimeData, QModelIndex, QPersistentModelIndex, Qt, Signal, QPoint, QObject, QAbstractItemModel
-from PySide6.QtWidgets import QWidget, QMenu, QAbstractItemDelegate, QComboBox, QStyleOptionViewItem, QStyledItemDelegate
-from PySide6.QtGui import QStandardItem, QPalette, QContextMenuEvent, QDragMoveEvent, QDropEvent, QDragEnterEvent, QKeyEvent, QStandardItem, QAction
+from PySide6.QtWidgets import QWidget, QMenu, QAbstractItemDelegate, QComboBox, QStyleOptionViewItem, QStyledItemDelegate, QApplication
+from PySide6.QtGui import (QStandardItem, QPalette, QContextMenuEvent, QDragMoveEvent, QDropEvent, 
+                           QDragEnterEvent, QKeyEvent, QStandardItem, QAction)
 
 from scrutiny.sdk import WatchableConfiguration, EmbeddedEnum
 from scrutiny.gui.core.scrutiny_drag_data import ScrutinyDragData, WatchableListDescriptor
@@ -176,7 +177,8 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
 
     def contextMenuEvent(self, event: QContextMenuEvent) -> None:
         context_menu = QMenu(self)
-        selected_indexes_no_nested = self.model().remove_nested_indexes(self.selectedIndexes())
+        selected_indexes = self.selectedIndexes()
+        selected_indexes_no_nested = self.model().remove_nested_indexes(selected_indexes)
         nesting_col = self.model().nesting_col()
         selected_items_no_nested = [self.model().itemFromIndex(index) for index in selected_indexes_no_nested if index.column() == nesting_col]
 
@@ -185,16 +187,37 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
         def new_folder_action_slot() -> None:
             self._new_folder(self.NEW_FOLDER_DEFAULT_NAME, parent, insert_row)
 
-        def remove_actionslot() -> None:
+        def remove_action_slot() -> None:
             for item in selected_items_no_nested:
                 self.model().removeRow(item.row(), item.index().parent())
+        
+        def copy_path_clipboard_slot() -> None:
+            paths:List[str] = []
+            for index in selected_indexes:
+                item = self.model().itemFromIndex(index)
+                if isinstance(item, WatchableStandardItem):
+                    path = WatchableRegistry.FQN.parse(item.fqn).path
+                    paths.append(path)
+            
+            if len(paths) > 0:
+                QApplication.clipboard().setText('\n'.join(paths))
 
         new_folder_action = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.Folder), "New Folder")
         new_folder_action.triggered.connect(new_folder_action_slot)
 
         remove_action = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.RedX), "Remove")
         remove_action.setEnabled(len(selected_items_no_nested) > 0)
-        remove_action.triggered.connect(remove_actionslot)
+        remove_action.triggered.connect(remove_action_slot)
+
+        copy_path_clipboard_action = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.Copy), "Copy path")
+        copy_path_clipboard_action.setEnabled(False)
+        copy_path_clipboard_action.triggered.connect(copy_path_clipboard_slot)
+        for index in selected_indexes:
+            item = self.model().itemFromIndex(index)
+            if isinstance(item, WatchableStandardItem): # At least one watchable, enough to enable
+                copy_path_clipboard_action.setEnabled(True)
+                break
+
 
         self.display_context_menu(context_menu, event.pos())
         event.accept()
