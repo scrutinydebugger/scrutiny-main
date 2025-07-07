@@ -29,6 +29,11 @@ from scrutiny import tools
 
 GetSignalDatatypeFn = Callable[[], List[EmbeddedDataType]]
 
+@dataclass
+class TimingEstimation:
+    duration:float
+    nb_samples:int
+    truncated:bool
 
 @dataclass
 class ValidationResult:
@@ -217,6 +222,7 @@ class GraphConfigWidget(QWidget):
         self._cmb_xaxis_type.addItem("Measured Time", XAxisType.MeasuredTime)
         self._cmb_xaxis_type.addItem("Signal", XAxisType.Signal)
 
+        self._txt_acquisition_timeout.textChanged.connect(self._acquisition_timeout_changed_slot)
         self._cmb_trigger_condition.setCurrentIndex(self._cmb_trigger_condition.findData(TriggerCondition.AlwaysTrue))
         self._cmb_trigger_condition.currentIndexChanged.connect(self._trigger_condition_changed_slot)
         self._cmb_sampling_rate.currentIndexChanged.connect(self._sampling_rate_changed_slot)
@@ -276,6 +282,9 @@ class GraphConfigWidget(QWidget):
 
         self.update_content()
 
+    def _acquisition_timeout_changed_slot(self) -> None:
+        self.update_content()
+
     def _trigger_condition_changed_slot(self) -> None:
         self.update_content()
 
@@ -329,7 +338,7 @@ class GraphConfigWidget(QWidget):
 
         return sampling_rate.frequency
 
-    def _compute_estimated_duration(self) -> Optional[Tuple[int, float]]:
+    def _compute_estimated_duration(self) -> Optional[TimingEstimation]:
         """Compute how long the acquisition will be considering:
          - Buffer size
          - Sampling rate
@@ -375,16 +384,28 @@ class GraphConfigWidget(QWidget):
             if sample_size == 0:
                 return None
 
-            nb_sample_max = buffer_size // sample_size
-            duration = nb_sample_max / effective_rate
+            nb_samples = buffer_size // sample_size
+            duration = nb_samples / effective_rate
+            truncated = False
+         
             try:
                 timeout = float(self._txt_acquisition_timeout.text())
                 if timeout > 0:
+                    if timeout < duration:
+                        truncated=True
                     duration = min(duration, timeout)
+                    nb_samples = math.floor(min(nb_samples, duration * effective_rate))
+                    nb_samples = max(nb_samples, 1)
+                    if nb_samples == 1:
+                        duration = 0
             except Exception:
                 pass
 
-            return nb_sample_max, duration
+            return TimingEstimation(
+                duration = duration,
+                nb_samples=nb_samples,
+                truncated=truncated
+            )
         else:
             return None
 
@@ -416,11 +437,11 @@ class GraphConfigWidget(QWidget):
                 effective_sampling_rate_label_txt = tools.format_eng_unit(effective_rate, decimal=1, unit="Hz")
 
                 if self._get_signal_dtype_fn is not None:
-                    duration = self._compute_estimated_duration()
-                    if duration is not None:
-                        nb_samples, estimated_duration_sec = duration
-                        duration_txt = tools.format_eng_unit(estimated_duration_sec, decimal=1, unit="s")
-                        estimated_duration_label_txt = f"~{duration_txt} ({nb_samples} samples)"
+                    estimation = self._compute_estimated_duration()
+                    if estimation is not None:
+                        duration_txt = tools.format_eng_unit(estimation.duration, decimal=1, unit="s")
+                        symbol = '~' if not estimation.truncated else '>'
+                        estimated_duration_label_txt = f"{symbol}{duration_txt} ({estimation.nb_samples} samples)"
 
         self._lbl_effective_sampling_rate.setText(effective_sampling_rate_label_txt)
         self._lbl_estimated_duration.setText(estimated_duration_label_txt)
