@@ -1010,7 +1010,7 @@ class ScrutinyClient:
             if self._last_server_info is not None:
                 if self._last_server_info.datalogging.state != self._server_info.datalogging.state:
                     # Passage from/to NA are logged as debug only to keep the info log clean
-                    loglevel = logging.DEBUG if DataloggerState.NA in (
+                    loglevel = logging.DEBUG if DataloggingState.NA in (
                         self._last_server_info.datalogging.state, self._server_info.datalogging.state) else logging.INFO
                     self._trigger_event(self.Events.DataloggerStateChanged(self._server_info.datalogging), loglevel=loglevel)
                 elif self._last_server_info.datalogging.completion_ratio != self._server_info.datalogging.completion_ratio:

@@ -26,7 +26,7 @@ from scrutiny.gui.dialogs.device_info_dialog import DeviceInfoDialog
 from scrutiny.gui.dialogs.sfd_content_dialog import SFDContentDialog
 from scrutiny.gui.themes import scrutiny_get_theme
 from scrutiny.gui import assets
-from scrutiny.sdk import ServerState, DeviceCommState, SFDInfo, DataloggingInfo, DataloggerState, DeviceLinkType, BaseLinkConfig
+from scrutiny.sdk import ServerState, DeviceCommState, SFDInfo, DataloggingInfo, DataloggingState, DeviceLinkType, BaseLinkConfig
 from scrutiny import sdk
 from scrutiny.sdk.client import ScrutinyClient
 
@@ -269,7 +269,6 @@ class StatusBar(QStatusBar):
         self.addWidget(self._device_status_label)
         self.addWidget(self._sfd_status_label)
         self.addWidget(self._datalogger_status_label)  # Right aligned
-        self.addWidget(self._datalogger_status_label)  # Right aligned
         self.addPermanentWidget(self._message_label, 1)
 
         # Allow the window to shrink horizontally. Prevented by the status bar otherwise.
@@ -488,12 +487,12 @@ class StatusBar(QStatusBar):
             ratio = round(value.completion_ratio * 100)
             completion_str = f" {ratio}%"
         state_str = {
-            DataloggerState.NA: "N/A",
-            DataloggerState.Standby: "Standby",
-            DataloggerState.WaitForTrigger: "Wait For Trigger",
-            DataloggerState.Acquiring: "Acquiring",
-            DataloggerState.DataReady: "Data Ready",
-            DataloggerState.Error: "Error",
+            DataloggingState.NA: "N/A",
+            DataloggingState.Standby: "Standby",
+            DataloggingState.WaitForTrigger: "Wait For Trigger",
+            DataloggingState.Acquiring: "Acquiring",
+            DataloggingState.Downloading: "Downloading",
+            DataloggingState.Error: "Error",
         }
 
         if value.state not in state_str:
@@ -531,7 +530,7 @@ class StatusBar(QStatusBar):
             self.set_device_label(DeviceCommState.NA)
             self.set_device_comm_link_label(DeviceLinkType.NONE, False, sdk.NoneLinkConfig())
             self.set_sfd_label(value=None)
-            self.set_datalogging_label(DataloggingInfo(state=DataloggerState.NA, completion_ratio=None))
+            self.set_datalogging_label(DataloggingInfo(state=DataloggingState.NA, completion_ratio=None))
         else:   # Server manager is running healthy
             self._server_disconnect_action.setEnabled(True)
             self._server_connect_action.setEnabled(False)
@@ -555,7 +554,7 @@ class StatusBar(QStatusBar):
                 self.set_device_label(DeviceCommState.NA)
                 self.set_device_comm_link_label(DeviceLinkType.NONE, False, sdk.NoneLinkConfig())
                 self.set_sfd_label(value=None)
-                self.set_datalogging_label(DataloggingInfo(state=DataloggerState.NA, completion_ratio=None))
+                self.set_datalogging_label(DataloggingInfo(state=DataloggingState.NA, completion_ratio=None))
                 self._sfd_status_label.setEnabled(False)
             else:
                 # Do some maintenance on some state variable

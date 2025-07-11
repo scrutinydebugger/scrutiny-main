@@ -495,31 +495,31 @@ def parse_inform_server_status(response: api_typing.S2C.InformServerStatus) -> s
             return sdk.DeviceCommState.Connecting   # This is not a mistake Connected->Connecting, for sdk simplicity
         if api_val == API.DeviceCommStatus.CONNECTED_READY:
             return sdk.DeviceCommState.ConnectedReady
-        raise sdk.exceptions.BadResponseError('Unsupported device communication status "{api_val}"')
+        raise sdk.exceptions.BadResponseError(f'Unsupported device communication status "{api_val}"')
 
     _check_response_dict(cmd, response, 'loaded_sfd_firmware_id', (str, type(None)))
 
-    _check_response_dict(cmd, response, 'device_datalogging_status.datalogger_state', str)
+    _check_response_dict(cmd, response, 'device_datalogging_status.datalogging_state', str)
     _check_response_dict(cmd, response, 'device_datalogging_status.completion_ratio', [NoneType, float])
 
-    def _datalogging_status(api_val: api_typing.DataloggerState) -> sdk.DataloggerState:
+    def _datalogging_status(api_val: api_typing.DataloggingState) -> sdk.DataloggingState:
         if api_val == API.DataloggingStatus.UNAVAILABLE:
-            return sdk.DataloggerState.NA
+            return sdk.DataloggingState.NA
         elif api_val == API.DataloggingStatus.STANDBY:
-            return sdk.DataloggerState.Standby
+            return sdk.DataloggingState.Standby
         elif api_val == API.DataloggingStatus.WAITING_FOR_TRIGGER:
-            return sdk.DataloggerState.WaitForTrigger
+            return sdk.DataloggingState.WaitForTrigger
         elif api_val == API.DataloggingStatus.ACQUIRING:
-            return sdk.DataloggerState.Acquiring
-        elif api_val == API.DataloggingStatus.DATA_READY:
-            return sdk.DataloggerState.DataReady
+            return sdk.DataloggingState.Acquiring
+        elif api_val == API.DataloggingStatus.DOWNLOADING:
+            return sdk.DataloggingState.Downloading
         elif api_val == API.DataloggingStatus.ERROR:
-            return sdk.DataloggerState.Error
-        raise sdk.exceptions.BadResponseError('Unsupported datalogger state "{api_val}"')
+            return sdk.DataloggingState.Error
+        raise sdk.exceptions.BadResponseError(f'Unsupported datalogging state "{api_val}"')
 
     datalogging = sdk.DataloggingInfo(
         completion_ratio=response['device_datalogging_status']['completion_ratio'],
-        state=_datalogging_status(response['device_datalogging_status']['datalogger_state'])
+        state=_datalogging_status(response['device_datalogging_status']['datalogging_state'])
     )
 
     _check_response_dict(cmd, response, 'device_comm_link.link_type', str)

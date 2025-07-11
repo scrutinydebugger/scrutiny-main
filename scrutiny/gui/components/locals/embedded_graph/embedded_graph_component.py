@@ -23,7 +23,7 @@ from scrutiny import sdk
 from scrutiny.sdk import EmbeddedDataType
 from scrutiny.sdk.datalogging import (
     DataloggingConfig, DataloggingRequest, DataloggingAcquisition, XAxisType, FixedFreqSamplingRate,
-    DataloggerState, DataloggingStorageEntry, TriggerCondition
+    DataloggingState, DataloggingStorageEntry, TriggerCondition
 )
 from scrutiny.sdk.client import ScrutinyClient
 
@@ -1140,18 +1140,25 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
         info = self.server_manager.get_server_info()
         if info is None:
             return
+        percent: Optional[int] = None
+        ratio = info.datalogging.completion_ratio
+        if ratio is not None:
+            percent = int(round(max(min(ratio, 1), 0) * 100))
         if self._state.waiting_on_graph:
-            if info.datalogging.state == DataloggerState.Standby:
+            if info.datalogging.state == DataloggingState.Standby:
                 self._chart_status_overlay.set(None, "")
-            elif info.datalogging.state == DataloggerState.WaitForTrigger:
+            elif info.datalogging.state == DataloggingState.WaitForTrigger:
                 self._chart_status_overlay.set(assets.Icons.ThreeDots, "Waiting for trigger...")
-            elif info.datalogging.state == DataloggerState.Acquiring:
+            elif info.datalogging.state == DataloggingState.Acquiring:
                 s = "Acquiring"
-                ratio = info.datalogging.completion_ratio
-                if ratio is not None:
-                    percent = int(round(max(min(ratio, 1), 0) * 100))
-                    s += f" ({int(percent)}%)"
+                if percent is not None:
+                    s += f" ({percent}%)"
                 self._chart_status_overlay.set(assets.Icons.ThreeDots, s)
+            elif info.datalogging.state == DataloggingState.Downloading:
+                s = "Downloading"
+                if percent is not None:
+                    s += f" ({percent}%)"
+                self._chart_status_overlay.set(assets.Icons.Download, s)
 
     def _callback_acquire_request_failed(self,
                                          request: Optional[DataloggingRequest],

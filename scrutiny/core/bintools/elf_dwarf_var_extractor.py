@@ -872,7 +872,7 @@ class ElfDwarfVarExtractor:
             if Attrs.DW_AT_bit_size not in die.attributes:
                 raise ElfParsingError(f'Missing {Attrs.DW_AT_bit_size} for bitfield {name}')
 
-            bitsize = die.attributes[Attrs.DW_AT_bit_size].value
+            bitsize = int(die.attributes[Attrs.DW_AT_bit_size].value)
 
             if Attrs.DW_AT_bit_offset in die.attributes:
                 bitoffset = int(die.attributes[Attrs.DW_AT_bit_offset].value)

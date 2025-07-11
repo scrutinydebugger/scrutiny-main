@@ -31,6 +31,7 @@ from scrutiny import tools
 
 from scrutiny.tools.typing import *
 
+DataloggingStateChangedCallback = Callable[[api_datalogging.DataloggingState, Optional[float]], None]
 
 class FsmState(enum.Enum):
     INIT = enum.auto()
@@ -59,6 +60,8 @@ class DataloggingManager:
     logger: logging.Logger  # Logger
     state: FsmState
     previous_state: FsmState
+    _previous_datalogging_state_and_completion:Tuple[api_datalogging.DataloggingState, Optional[float]]
+    _datalogging_state_changed_callbacks:List[DataloggingStateChangedCallback]
 
     TIME_PRECISION_DIGIT = 9    # Device precision is 1e-7. 9 digits is more than enough.
 
@@ -70,6 +73,8 @@ class DataloggingManager:
         self.active_request = None
         self.state = FsmState.INIT
         self.previous_state = FsmState.INIT
+        self._previous_datalogging_state_and_completion = self.get_datalogging_state()
+        self._datalogging_state_changed_callbacks = []
         DataloggingStorage.initialize()
 
     def is_valid_sample_rate_id(self, identifier: int) -> bool:
@@ -355,6 +360,15 @@ class DataloggingManager:
             self.logger.error("Unknown FSM state %s" % self.state)
             next_state = FsmState.INIT
 
+        api_datalogging_state_and_completion = self.get_datalogging_state()
+        
+        if api_datalogging_state_and_completion != self._previous_datalogging_state_and_completion:
+            for callback in self._datalogging_state_changed_callbacks:
+                datalogging_state = api_datalogging_state_and_completion[0]
+                state_completion = api_datalogging_state_and_completion[1]
+                callback(datalogging_state, state_completion)
+        self._previous_datalogging_state_and_completion = api_datalogging_state_and_completion
+
         if next_state != self.state:
             if self.logger.isEnabledFor(logging.DEBUG):  # pragma: no cover
                 self.logger.debug("Moving FSM from %s to %s" % (self.state.name, next_state.name))
@@ -542,3 +556,34 @@ class DataloggingManager:
 
                             output.append(rate)
         return output
+
+
+    def get_datalogging_state(self) -> Tuple[api_datalogging.DataloggingState, Optional[float]]:
+        if self.state != FsmState.DEVICE_CONNECTED_WITH_DATALOGGING:
+            return (api_datalogging.DataloggingState.NA, None)
+
+        dl_state = self.device_handler.get_datalogger_state()
+        acquire_pu = self.device_handler.get_datalogging_acquisition_completion_ratio()
+        download_pu = self.device_handler.get_datalogging_acquisition_download_progress()
+        
+        if dl_state in [device_datalogging.DataloggerState.IDLE, device_datalogging.DataloggerState.CONFIGURED]:
+            return (api_datalogging.DataloggingState.STANDBY, None)
+
+        if dl_state in [device_datalogging.DataloggerState.ARMED]:
+            return (api_datalogging.DataloggingState.WAIT_FOR_TRIGGER, None)
+
+        if dl_state in [device_datalogging.DataloggerState.TRIGGERED]:
+            return (api_datalogging.DataloggingState.ACQUIRING, acquire_pu)
+        
+        if dl_state in [device_datalogging.DataloggerState.ACQUISITION_COMPLETED]:
+            return (api_datalogging.DataloggingState.DOWNLOADING, download_pu)
+        
+        if dl_state in [device_datalogging.DataloggerState.ERROR]:
+            return (api_datalogging.DataloggingState.ERROR, None)
+        
+        return (api_datalogging.DataloggingState.NA, None)
+
+
+    def register_datalogging_state_change_callback(self, callback: DataloggingStateChangedCallback) -> None:
+        """Register a callback to be called when the state or the completion ratio of the datalogger changes"""
+        self._datalogging_state_changed_callbacks.append(callback)

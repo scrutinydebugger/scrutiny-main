@@ -146,12 +146,12 @@ class API:
         unexpected_error_count: int
 
     class DataloggingStatus:
-        UNAVAILABLE: api_typing.DataloggerState = 'unavailable'
-        STANDBY: api_typing.DataloggerState = 'standby'
-        WAITING_FOR_TRIGGER: api_typing.DataloggerState = 'waiting_for_trigger'
-        ACQUIRING: api_typing.DataloggerState = 'acquiring'
-        DATA_READY: api_typing.DataloggerState = 'data_ready'
-        ERROR: api_typing.DataloggerState = 'error'
+        UNAVAILABLE: api_typing.DataloggingState = 'unavailable'
+        STANDBY: api_typing.DataloggingState = 'standby'
+        WAITING_FOR_TRIGGER: api_typing.DataloggingState = 'waiting_for_trigger'
+        ACQUIRING: api_typing.DataloggingState = 'acquiring'
+        DOWNLOADING: api_typing.DataloggingState = 'downloading'
+        ERROR: api_typing.DataloggingState = 'error'
 
     class DeviceCommStatus:
         UNKNOWN: api_typing.DeviceCommStatus = 'unknown'
@@ -210,17 +210,17 @@ class API:
     APISTR_2_DEVICE_CONN_STATUS: Dict[api_typing.DeviceCommStatus, DeviceHandler.ConnectionStatus] = {
         v: k for k, v in DEVICE_CONN_STATUS_2_APISTR.items()}
 
-    DATALOGGER_STATE_2_APISTR: Dict[device_datalogging.DataloggerState, api_typing.DataloggerState] = {
-        device_datalogging.DataloggerState.IDLE: DataloggingStatus.STANDBY,
-        device_datalogging.DataloggerState.CONFIGURED: DataloggingStatus.STANDBY,
-        device_datalogging.DataloggerState.ARMED: DataloggingStatus.WAITING_FOR_TRIGGER,
-        device_datalogging.DataloggerState.TRIGGERED: DataloggingStatus.ACQUIRING,
-        device_datalogging.DataloggerState.ACQUISITION_COMPLETED: DataloggingStatus.DATA_READY,
-        device_datalogging.DataloggerState.ERROR: DataloggingStatus.ERROR,
+    DATALOGGING_STATE_2_APISTR: Dict[api_datalogging.DataloggingState, api_typing.DataloggingState] = {
+        api_datalogging.DataloggingState.NA: DataloggingStatus.UNAVAILABLE,
+        api_datalogging.DataloggingState.STANDBY: DataloggingStatus.STANDBY,
+        api_datalogging.DataloggingState.WAIT_FOR_TRIGGER: DataloggingStatus.WAITING_FOR_TRIGGER,
+        api_datalogging.DataloggingState.ACQUIRING: DataloggingStatus.ACQUIRING,
+        api_datalogging.DataloggingState.DOWNLOADING: DataloggingStatus.DOWNLOADING,
+        api_datalogging.DataloggingState.ERROR: DataloggingStatus.ERROR
     }
 
-    APISTR_2_DATALOGGER_STATE: Dict[api_typing.DataloggerState, device_datalogging.DataloggerState] = {
-        v: k for k, v in DATALOGGER_STATE_2_APISTR.items()}
+    APISTR_2_DATALOGGER_STATE: Dict[api_typing.DataloggingState, api_datalogging.DataloggingState] = {
+        v: k for k, v in DATALOGGING_STATE_2_APISTR.items()}
 
     datalogging_supported_conditions: Dict[api_typing.DataloggingCondition, DataloggingSupportedTriggerCondition] = {
         'true': DataloggingSupportedTriggerCondition(condition_id=api_datalogging.TriggerConditionID.AlwaysTrue, nb_operands=0),
@@ -333,7 +333,7 @@ class API:
         self.sfd_handler.register_sfd_loaded_callback(self.sfd_loaded_callback)
         self.sfd_handler.register_sfd_unloaded_callback(self.sfd_unloaded_callback)
         self.device_handler.register_device_state_change_callback(self.device_state_changed_callback)
-        self.device_handler.register_datalogger_state_change_callback(self.datalogger_state_changed_callback)
+        self.datalogging_manager.register_datalogging_state_change_callback(self.datalogging_state_changed_callback)
 
     @classmethod
     def get_datatype_name(cls, datatype: EmbeddedDataType) -> api_typing.Datatype:
@@ -365,13 +365,12 @@ class API:
         if new_status in [DeviceHandler.ConnectionStatus.DISCONNECTED, DeviceHandler.ConnectionStatus.CONNECTED_READY]:
             self.send_server_status_to_all_clients()
 
-    def datalogger_state_changed_callback(self,
-                                          datalogger_state: Optional[device_datalogging.DataloggerState],
+    def datalogging_state_changed_callback(self,
+                                          datalogging_state: api_datalogging.DataloggingState,
                                           completion_ratio: Optional[float]) -> None:
         """Called when the datalogger state or completion ratio changes"""
         self.logger.debug("Datalogger state change callback called")
-        if datalogger_state is not None:
-            self.send_server_status_to_all_clients()
+        self.send_server_status_to_all_clients()
 
     def get_client_handler(self) -> AbstractClientHandler:
         return self.client_handler
@@ -1731,10 +1730,9 @@ class API:
             link_config = cast(api_typing.LinkConfig, device_comm_link.get_config())
             link_operational = device_comm_link.operational()
 
-        datalogger_state_api = API.DataloggingStatus.UNAVAILABLE
-        datalogger_state = self.device_handler.get_datalogger_state()
-        if datalogger_state is not None:
-            datalogger_state_api = self.DATALOGGER_STATE_2_APISTR.get(datalogger_state, API.DataloggingStatus.UNAVAILABLE)
+        datalogging_state_and_completion = self.datalogging_manager.get_datalogging_state()
+        datalogging_state_api = self.DATALOGGING_STATE_2_APISTR.get(datalogging_state_and_completion[0], API.DataloggingStatus.UNAVAILABLE)
+        completion_ratio = datalogging_state_and_completion[1]
 
         response: api_typing.S2C.InformServerStatus = {
             'cmd': self.Command.Api2Client.INFORM_SERVER_STATUS,
@@ -1743,8 +1741,8 @@ class API:
             'device_session_id': self.device_handler.get_comm_session_id(),  # str when connected_ready. None when not connected_ready
             'loaded_sfd_firmware_id': loaded_sfd_firmware_id,
             'device_datalogging_status': {
-                'datalogger_state': datalogger_state_api,
-                'completion_ratio': self.device_handler.get_datalogging_acquisition_completion_ratio()
+                'datalogging_state': datalogging_state_api,
+                'completion_ratio': completion_ratio
             },
             'device_comm_link': {
                 'link_type': cast(api_typing.LinkType, device_link_type),
