@@ -179,12 +179,16 @@ class Alias:
 
     def compute_user_to_device(self, value: Union[int, float, bool], apply_saturation: bool = True) -> Union[int, float, bool]:
         """Transform the value received from the user before writing it to the device. Applies min, max, gain, offset"""
-        if isinstance(value, int) or isinstance(value, float):
+        if isinstance(value, (int, float)) and not isinstance(value, bool) :    # bools are int!
             if apply_saturation:
                 value = min(value, self.get_max())
                 value = max(value, self.get_min())
-            value -= self.get_offset()
-            value /= self.get_gain()
+            offset = self.get_offset()
+            gain = self.get_gain()
+            if offset != 0:
+                value -= offset
+            if gain != 1:
+                value /= gain
         return value
 
     def compute_device_to_user(self, value: Union[int, float, bool]) -> Union[int, float, bool]:
