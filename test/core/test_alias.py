@@ -167,6 +167,13 @@ class TestAlias(ScrutinyUnitTest):
         self.assertEqual(alias.compute_device_to_user(10), 30.0)
         self.assertEqual(alias.compute_device_to_user(200), 410)
 
+        alias = Alias(fullpath='aaa', target='asd') # No value modifier. Type unchanged
+        self.assertIsInstance(alias.compute_user_to_device(50.0), float)
+        self.assertIsInstance(alias.compute_user_to_device(50), int)
+        self.assertIsInstance(alias.compute_device_to_user(50.0), float)
+        self.assertIsInstance(alias.compute_device_to_user(50), int)
+
+
 
 if __name__ == '__main__':
     import unittest
