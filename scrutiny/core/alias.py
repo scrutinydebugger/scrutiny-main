@@ -189,8 +189,13 @@ class Alias:
 
     def compute_device_to_user(self, value: Union[int, float, bool]) -> Union[int, float, bool]:
         """Converts to value read from the device into a value that can be shown to the user. Applies gain and offset"""
-        if isinstance(value, int) or isinstance(value, float):
-            value *= self.get_gain()
-            value += self.get_offset()
+        if isinstance(value, (int, float)) and not isinstance(value, bool) :    # bools are int!
+            gain = self.get_gain()
+            offset = self.get_offset()
+            if gain != 1:
+                value *= gain
+            if offset != 0:
+                value += offset
+
             # No min max on purpose. We want to report the real value
         return value
