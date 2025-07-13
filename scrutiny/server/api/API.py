@@ -145,7 +145,7 @@ class API:
         invalid_request_count: int
         unexpected_error_count: int
 
-    class DataloggingStatus:
+    class DataloggingStateString:
         UNAVAILABLE: api_typing.DataloggingState = 'unavailable'
         STANDBY: api_typing.DataloggingState = 'standby'
         WAITING_FOR_TRIGGER: api_typing.DataloggingState = 'waiting_for_trigger'
@@ -212,13 +212,13 @@ class API:
         v: k for k, v in DEVICE_CONN_STATUS_2_APISTR.items()}
 
     DATALOGGING_STATE_2_APISTR: Dict[api_datalogging.DataloggingState, api_typing.DataloggingState] = {
-        api_datalogging.DataloggingState.NA: DataloggingStatus.UNAVAILABLE,
-        api_datalogging.DataloggingState.STANDBY: DataloggingStatus.STANDBY,
-        api_datalogging.DataloggingState.WAIT_FOR_TRIGGER: DataloggingStatus.WAITING_FOR_TRIGGER,
-        api_datalogging.DataloggingState.ACQUIRING: DataloggingStatus.ACQUIRING,
-        api_datalogging.DataloggingState.DOWNLOADING: DataloggingStatus.DOWNLOADING,
-        api_datalogging.DataloggingState.DATA_READY: DataloggingStatus.DATA_READY,
-        api_datalogging.DataloggingState.ERROR: DataloggingStatus.ERROR
+        api_datalogging.DataloggingState.NA: DataloggingStateString.UNAVAILABLE,
+        api_datalogging.DataloggingState.Standby: DataloggingStateString.STANDBY,
+        api_datalogging.DataloggingState.WaitForTrigger: DataloggingStateString.WAITING_FOR_TRIGGER,
+        api_datalogging.DataloggingState.Acquiring: DataloggingStateString.ACQUIRING,
+        api_datalogging.DataloggingState.Downloading: DataloggingStateString.DOWNLOADING,
+        api_datalogging.DataloggingState.DataReady: DataloggingStateString.DATA_READY,
+        api_datalogging.DataloggingState.Error: DataloggingStateString.ERROR
     }
 
     APISTR_2_DATALOGGER_STATE: Dict[api_typing.DataloggingState, api_datalogging.DataloggingState] = {
@@ -1733,7 +1733,7 @@ class API:
             link_operational = device_comm_link.operational()
 
         datalogging_state_and_completion = self.datalogging_manager.get_datalogging_state()
-        datalogging_state_api = self.DATALOGGING_STATE_2_APISTR.get(datalogging_state_and_completion[0], API.DataloggingStatus.UNAVAILABLE)
+        datalogging_state_api = self.DATALOGGING_STATE_2_APISTR.get(datalogging_state_and_completion[0], API.DataloggingStateString.UNAVAILABLE)
         completion_ratio = datalogging_state_and_completion[1]
 
         response: api_typing.S2C.InformServerStatus = {

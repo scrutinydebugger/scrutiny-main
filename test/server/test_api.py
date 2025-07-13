@@ -1144,7 +1144,7 @@ class TestAPI(ScrutinyUnitTest):
         self.assertIsNone(response['device_info'])
 
     def test_get_server_status(self):
-        self.fake_datalogging_manager.set_datalogging_state(api_datalogging.DataloggingState.ACQUIRING, 0.5)
+        self.fake_datalogging_manager.set_datalogging_state(api_datalogging.DataloggingState.Acquiring, 0.5)
         self.wait_and_load_inform_server_status()   # Datalogger state change trigers a message
 
         dummy_sfd1_filename = get_artifact('test_sfd_1.sfd')
@@ -1222,7 +1222,7 @@ class TestAPI(ScrutinyUnitTest):
             SFDStorage.uninstall(sfd2.get_firmware_id_ascii())
 
             # Changing the datalogger state should trigger a status message
-            self.fake_datalogging_manager.set_datalogging_state(api_datalogging.DataloggingState.DOWNLOADING, 0.2)
+            self.fake_datalogging_manager.set_datalogging_state(api_datalogging.DataloggingState.Downloading, 0.2)
             response = cast(api_typing.S2C.InformServerStatus, self.wait_and_load_response())
             self.assert_no_error(response)
             self.assertIn('datalogging_status', response)

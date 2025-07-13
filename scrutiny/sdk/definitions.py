@@ -46,6 +46,7 @@ from dataclasses import dataclass
 from scrutiny.core.basic_types import MemoryRegion, EmbeddedDataType, WatchableType
 from scrutiny.core.embedded_enum import EmbeddedEnum
 from scrutiny.core.firmware_description import SFDMetadata, SFDGenerationInfo
+from scrutiny.core.datalogging import DataloggingState
 from scrutiny.tools import validation
 import abc
 from binascii import hexlify
@@ -120,25 +121,6 @@ class ValueStatus(enum.Enum):
             raise RuntimeError(f"Unknown value status {self}")
 
         return error
-
-
-class DataloggingState(enum.Enum):
-    """(Enum) The state in which the server datalogging manager currently is"""
-
-    NA = 0
-    """The state is not available"""
-    Standby = 1
-    """The datalogger is doing nothing"""
-    WaitForTrigger = 2
-    """The datalogger is logging and actively monitor for the trigger condition to end the acquisition"""
-    Acquiring = 3
-    """The datalogger is actively logging and the acquisition is ending since the trigger event has been fired"""
-    Downloading = 4
-    """The datalogger has finished logging and data is being transferred to the server"""
-    DataReady = 5
-    """The server has finished downloading the latest acquisition and is ready to provide it to a client"""
-    Error = 6
-    """The datalogger has encountered a problem and is not operational"""
 
 
 class DeviceLinkType(enum.Enum):

@@ -376,7 +376,7 @@ class DataloggingManager:
 
         if self._data_ready:
             for callback in self._datalogging_state_changed_callbacks:
-                callback(api_datalogging.DataloggingState.DATA_READY, None)
+                callback(api_datalogging.DataloggingState.DataReady, None)
             self._data_ready = False
 
         if next_state != self.state:
@@ -577,19 +577,19 @@ class DataloggingManager:
         download_pu = self.device_handler.get_datalogging_acquisition_download_progress()
         
         if dl_state in [device_datalogging.DataloggerState.IDLE, device_datalogging.DataloggerState.CONFIGURED]:
-            return (api_datalogging.DataloggingState.STANDBY, None)
+            return (api_datalogging.DataloggingState.Standby, None)
 
         if dl_state in [device_datalogging.DataloggerState.ARMED]:
-            return (api_datalogging.DataloggingState.WAIT_FOR_TRIGGER, None)
+            return (api_datalogging.DataloggingState.WaitForTrigger, None)
 
         if dl_state in [device_datalogging.DataloggerState.TRIGGERED]:
-            return (api_datalogging.DataloggingState.ACQUIRING, acquire_pu)
+            return (api_datalogging.DataloggingState.Acquiring, acquire_pu)
         
         if dl_state in [device_datalogging.DataloggerState.ACQUISITION_COMPLETED]:
-            return (api_datalogging.DataloggingState.DOWNLOADING, download_pu)
+            return (api_datalogging.DataloggingState.Downloading, download_pu)
         
         if dl_state in [device_datalogging.DataloggerState.ERROR]:
-            return (api_datalogging.DataloggingState.ERROR, None)
+            return (api_datalogging.DataloggingState.Error, None)
         
         return (api_datalogging.DataloggingState.NA, None)
 

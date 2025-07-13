@@ -19,13 +19,14 @@ __all__ = [
     'SignalDefinitionWithAxis',
     'AcquisitionRequest',
     'AxisDefinition',
-    'DataloggingAcquisition'
+    'DataloggingAcquisition',
+    'DataloggingState'
 ]
 
 from enum import Enum
 from dataclasses import dataclass
 
-from scrutiny.core.datalogging import DataloggingAcquisition, AxisDefinition
+from scrutiny.core.datalogging import DataloggingAcquisition, AxisDefinition, DataloggingState
 from scrutiny.server.device.device_info import ExecLoopType
 from scrutiny.server.datastore.datastore_entry import DatastoreEntry
 import scrutiny.server.datalogging.definitions.device as device_datalogging
@@ -100,14 +101,3 @@ class AcquisitionRequest:
         for signal in self.signals:
             axis_set.add(signal.axis)
         return list(axis_set)
-
-
-class DataloggingState(Enum):
-    """The public state of the server datalogging capabilities. For client broadcast"""
-    NA = 0
-    STANDBY = 1
-    WAIT_FOR_TRIGGER = 2
-    ACQUIRING = 3
-    DOWNLOADING = 4
-    DATA_READY = 5
-    ERROR = 6

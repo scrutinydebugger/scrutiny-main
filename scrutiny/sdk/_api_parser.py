@@ -503,17 +503,17 @@ def parse_inform_server_status(response: api_typing.S2C.InformServerStatus) -> s
     _check_response_dict(cmd, response, 'datalogging_status.completion_ratio', [NoneType, float])
 
     def _datalogging_status(api_val: api_typing.DataloggingState) -> sdk.DataloggingState:
-        if api_val == API.DataloggingStatus.UNAVAILABLE:
+        if api_val == API.DataloggingStateString.UNAVAILABLE:
             return sdk.DataloggingState.NA
-        elif api_val == API.DataloggingStatus.STANDBY:
+        elif api_val == API.DataloggingStateString.STANDBY:
             return sdk.DataloggingState.Standby
-        elif api_val == API.DataloggingStatus.WAITING_FOR_TRIGGER:
+        elif api_val == API.DataloggingStateString.WAITING_FOR_TRIGGER:
             return sdk.DataloggingState.WaitForTrigger
-        elif api_val == API.DataloggingStatus.ACQUIRING:
+        elif api_val == API.DataloggingStateString.ACQUIRING:
             return sdk.DataloggingState.Acquiring
-        elif api_val == API.DataloggingStatus.DOWNLOADING:
+        elif api_val == API.DataloggingStateString.DOWNLOADING:
             return sdk.DataloggingState.Downloading
-        elif api_val == API.DataloggingStatus.ERROR:
+        elif api_val == API.DataloggingStateString.ERROR:
             return sdk.DataloggingState.Error
         raise sdk.exceptions.BadResponseError(f'Unsupported datalogging state "{api_val}"')
 
