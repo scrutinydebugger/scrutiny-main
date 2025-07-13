@@ -151,6 +151,7 @@ class API:
         WAITING_FOR_TRIGGER: api_typing.DataloggingState = 'waiting_for_trigger'
         ACQUIRING: api_typing.DataloggingState = 'acquiring'
         DOWNLOADING: api_typing.DataloggingState = 'downloading'
+        DATA_READY: api_typing.DataloggingState = 'data_ready'
         ERROR: api_typing.DataloggingState = 'error'
 
     class DeviceCommStatus:
@@ -216,6 +217,7 @@ class API:
         api_datalogging.DataloggingState.WAIT_FOR_TRIGGER: DataloggingStatus.WAITING_FOR_TRIGGER,
         api_datalogging.DataloggingState.ACQUIRING: DataloggingStatus.ACQUIRING,
         api_datalogging.DataloggingState.DOWNLOADING: DataloggingStatus.DOWNLOADING,
+        api_datalogging.DataloggingState.DATA_READY: DataloggingStatus.DATA_READY,
         api_datalogging.DataloggingState.ERROR: DataloggingStatus.ERROR
     }
 
@@ -1740,7 +1742,7 @@ class API:
             'device_status': self.DEVICE_CONN_STATUS_2_APISTR[self.device_handler.get_connection_status()],
             'device_session_id': self.device_handler.get_comm_session_id(),  # str when connected_ready. None when not connected_ready
             'loaded_sfd_firmware_id': loaded_sfd_firmware_id,
-            'device_datalogging_status': {
+            'datalogging_status': {
                 'datalogging_state': datalogging_state_api,
                 'completion_ratio': completion_ratio
             },

@@ -27,7 +27,7 @@ from scrutiny.core.basic_types import EmbeddedDataType, Endianness, WatchableTyp
 from scrutiny.server.api.dummy_client_handler import DummyConnection, DummyClientHandler, AbstractClientHandler
 from scrutiny.server.device.device_handler import (DeviceHandler, DeviceStateChangedCallback, RawMemoryReadRequest,
                                                    RawMemoryWriteRequest, RawMemoryReadRequestCompletionCallback, RawMemoryWriteRequestCompletionCallback,
-                                                   UserCommandCallback, DataloggerStateChangedCallback)
+                                                   UserCommandCallback)
 from scrutiny.server.device.device_info import DeviceInfo, FixedFreqLoop, VariableFreqLoop
 from scrutiny.server.protocol.comm_handler import CommHandler
 from scrutiny.server.active_sfd_handler import ActiveSFDHandler
@@ -41,6 +41,7 @@ import scrutiny.server.datalogging.definitions.device as device_datalogging
 from test.artifacts import get_artifact
 from test import ScrutinyUnitTest
 from scrutiny.server.datalogging.datalogging_storage import DataloggingStorage
+from scrutiny.server.datalogging.datalogging_manager import DataloggingStateChangedCallback
 from datetime import datetime
 import scrutiny.server.api.typing as api_typing
 from scrutiny.tools.typing import *
@@ -57,10 +58,8 @@ class StubbedDeviceHandler:
     link_type: str
     link_config: Dict[Any, Any]
     reject_link_config: bool
-    datalogger_state: device_datalogging.DataloggerState
     datalogging_setup: Optional[device_datalogging.DataloggingSetup]
     device_state_change_callbacks: List[DeviceStateChangedCallback]
-    datalogger_state_change_callbacks: List[DataloggerStateChangedCallback]
     comm_link: DummyLink
     device_info: DeviceInfo
 
@@ -82,7 +81,6 @@ class StubbedDeviceHandler:
             max_signal_count=32
         )
         self.device_state_change_callbacks = []
-        self.datalogger_state_change_callbacks = []
         self.read_memory_queue = queue.Queue()
         self.write_memory_queue = queue.Queue()
         self.user_command_history_queue = queue.Queue()
@@ -147,14 +145,6 @@ class StubbedDeviceHandler:
     def get_datalogging_setup(self) -> Optional[device_datalogging.DataloggingSetup]:
         return self.device_info.datalogging_setup
 
-    def get_datalogger_state(self) -> device_datalogging.DataloggerState:
-        return self.datalogger_state
-
-    def set_datalogger_state(self, state: device_datalogging.DataloggerState) -> None:
-        self.datalogger_state = state
-        for callback in self.datalogger_state_change_callbacks:
-            callback(state, self.get_datalogging_acquisition_completion_ratio())
-
     def get_device_id(self) -> str:
         return self.device_id
 
@@ -182,9 +172,6 @@ class StubbedDeviceHandler:
 
     def register_device_state_change_callback(self, callback):
         self.device_state_change_callbacks.append(callback)
-
-    def register_datalogger_state_change_callback(self, callback):
-        self.datalogger_state_change_callbacks.append(callback)
 
     def read_memory(self, address: int, size: int, callback: Optional[RawMemoryReadRequestCompletionCallback]):
         req = RawMemoryReadRequest(
@@ -220,6 +207,9 @@ class StubbedDataloggingManager:
     fake_device_handler: StubbedDeviceHandler
     datalogging_setup: device_datalogging.DataloggingSetup
     request_queue: "queue.Queue[api_datalogging.AcquisitionRequest]"
+    datalogging_state_changed_callbacks:List[DataloggingStateChangedCallback]
+    datalogging_state:api_datalogging.DataloggingState
+    datalogging_state_completion:Optional[float]
 
     callback_queue: "queue.Queue[Tuple[api_datalogging.APIAcquisitionRequestCompletionCallback, bool, core_datalogging.DataloggingAcquisition]]"
 
@@ -228,6 +218,9 @@ class StubbedDataloggingManager:
         self.fake_device_handler = fake_device_handler
         self.request_queue = queue.Queue()
         self.callback_queue = queue.Queue()
+        self.datalogging_state_changed_callbacks = []
+        self.datalogging_state = api_datalogging.DataloggingState.NA
+        self.datalogging_state_completion = None
 
     def get_device_setup(self) -> Optional[device_datalogging.DataloggingSetup]:
         return self.fake_device_handler.get_datalogging_setup()
@@ -303,6 +296,17 @@ class StubbedDataloggingManager:
             i += 1
         return sampling_rates
 
+    def register_datalogging_state_change_callback(self, callback:DataloggingStateChangedCallback) -> None:
+        self.datalogging_state_changed_callbacks.append(callback)
+
+    def set_datalogging_state(self, state:api_datalogging.DataloggingState, completion:Optional[float]) -> None:
+        self.datalogging_state = state
+        self.datalogging_state_completion = completion
+        for callback in self.datalogging_state_changed_callbacks:
+            callback(state, completion)
+    
+    def get_datalogging_state(self) -> Tuple[api_datalogging.DataloggingState, Optional[float]]:
+        return (self.datalogging_state, self.datalogging_state_completion)
 
 @dataclass
 class FakeServer:
@@ -1140,7 +1144,7 @@ class TestAPI(ScrutinyUnitTest):
         self.assertIsNone(response['device_info'])
 
     def test_get_server_status(self):
-        self.fake_device_handler.set_datalogger_state(device_datalogging.DataloggerState.TRIGGERED)
+        self.fake_datalogging_manager.set_datalogging_state(api_datalogging.DataloggingState.ACQUIRING, 0.5)
         self.wait_and_load_inform_server_status()   # Datalogger state change trigers a message
 
         dummy_sfd1_filename = get_artifact('test_sfd_1.sfd')
@@ -1170,11 +1174,11 @@ class TestAPI(ScrutinyUnitTest):
             self.assertEqual(response['device_status'], 'connected_ready')
             self.assertIn('device_session_id', response)
             self.assertIsNotNone(response['device_session_id'])
-            self.assertIn('device_datalogging_status', response)
-            self.assertIn('datalogger_state', response['device_datalogging_status'])
-            self.assertIn('completion_ratio', response['device_datalogging_status'])
-            self.assertEqual(response['device_datalogging_status']['datalogger_state'], 'acquiring')
-            self.assertEqual(response['device_datalogging_status']['completion_ratio'], 0.5)
+            self.assertIn('datalogging_status', response)
+            self.assertIn('datalogging_state', response['datalogging_status'])
+            self.assertIn('completion_ratio', response['datalogging_status'])
+            self.assertEqual(response['datalogging_status']['datalogging_state'], 'acquiring')
+            self.assertEqual(response['datalogging_status']['completion_ratio'], 0.5)
             self.assertIn('loaded_sfd_firmware_id', response)
             self.assertEqual(response['loaded_sfd_firmware_id'], sfd2.get_firmware_id_ascii())
             self.assertIn('device_comm_link', response)
@@ -1218,16 +1222,15 @@ class TestAPI(ScrutinyUnitTest):
             SFDStorage.uninstall(sfd2.get_firmware_id_ascii())
 
             # Changing the datalogger state should trigger a status message
-            self.fake_device_handler.set_datalogger_state(device_datalogging.DataloggerState.ARMED)
+            self.fake_datalogging_manager.set_datalogging_state(api_datalogging.DataloggingState.DOWNLOADING, 0.2)
             response = cast(api_typing.S2C.InformServerStatus, self.wait_and_load_response())
             self.assert_no_error(response)
-            self.assertIn('device_datalogging_status', response)
-            self.assertIsInstance(response['device_datalogging_status'], dict)
-            self.assertIn('datalogger_state', response['device_datalogging_status'])
-            self.assertIn('completion_ratio', response['device_datalogging_status'])
-            self.assertEqual(response['device_datalogging_status']['datalogger_state'], 'waiting_for_trigger')
-            self.assertEqual(response['device_datalogging_status']['completion_ratio'],
-                             self.fake_device_handler.get_datalogging_acquisition_completion_ratio())
+            self.assertIn('datalogging_status', response)
+            self.assertIsInstance(response['datalogging_status'], dict)
+            self.assertIn('datalogging_state', response['datalogging_status'])
+            self.assertIn('completion_ratio', response['datalogging_status'])
+            self.assertEqual(response['datalogging_status']['datalogging_state'], 'downloading')
+            self.assertEqual(response['datalogging_status']['completion_ratio'], 0.2)
 
             # Changing the connection status should trigger a status message
             self.fake_device_handler.set_connection_status(DeviceHandler.ConnectionStatus.DISCONNECTED)

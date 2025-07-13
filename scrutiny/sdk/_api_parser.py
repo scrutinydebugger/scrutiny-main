@@ -499,8 +499,8 @@ def parse_inform_server_status(response: api_typing.S2C.InformServerStatus) -> s
 
     _check_response_dict(cmd, response, 'loaded_sfd_firmware_id', (str, type(None)))
 
-    _check_response_dict(cmd, response, 'device_datalogging_status.datalogging_state', str)
-    _check_response_dict(cmd, response, 'device_datalogging_status.completion_ratio', [NoneType, float])
+    _check_response_dict(cmd, response, 'datalogging_status.datalogging_state', str)
+    _check_response_dict(cmd, response, 'datalogging_status.completion_ratio', [NoneType, float])
 
     def _datalogging_status(api_val: api_typing.DataloggingState) -> sdk.DataloggingState:
         if api_val == API.DataloggingStatus.UNAVAILABLE:
@@ -518,8 +518,8 @@ def parse_inform_server_status(response: api_typing.S2C.InformServerStatus) -> s
         raise sdk.exceptions.BadResponseError(f'Unsupported datalogging state "{api_val}"')
 
     datalogging = sdk.DataloggingInfo(
-        completion_ratio=response['device_datalogging_status']['completion_ratio'],
-        state=_datalogging_status(response['device_datalogging_status']['datalogging_state'])
+        completion_ratio=response['datalogging_status']['completion_ratio'],
+        state=_datalogging_status(response['datalogging_status']['datalogging_state'])
     )
 
     _check_response_dict(cmd, response, 'device_comm_link.link_type', str)

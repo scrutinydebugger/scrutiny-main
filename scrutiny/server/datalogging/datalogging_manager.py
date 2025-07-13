@@ -60,6 +60,7 @@ class DataloggingManager:
     logger: logging.Logger  # Logger
     state: FsmState
     previous_state: FsmState
+    _data_ready:bool
     _previous_datalogging_state_and_completion:Tuple[api_datalogging.DataloggingState, Optional[float]]
     _datalogging_state_changed_callbacks:List[DataloggingStateChangedCallback]
 
@@ -75,6 +76,7 @@ class DataloggingManager:
         self.previous_state = FsmState.INIT
         self._previous_datalogging_state_and_completion = self.get_datalogging_state()
         self._datalogging_state_changed_callbacks = []
+        self._data_ready = False
         DataloggingStorage.initialize()
 
     def is_valid_sample_rate_id(self, identifier: int) -> bool:
@@ -221,6 +223,9 @@ class DataloggingManager:
                 trigger_index = max(0, min(metadata.number_of_points - metadata.points_after_trigger, metadata.number_of_points) - 1)
                 acquisition.set_trigger_index(trigger_index)
                 DataloggingStorage.save(acquisition)
+
+                self._data_ready = True
+                
             else:
                 # acquisition will be None here
                 self.logger.info("Failed to acquire acquisition. " + str(detail_msg))
@@ -368,6 +373,11 @@ class DataloggingManager:
                 state_completion = api_datalogging_state_and_completion[1]
                 callback(datalogging_state, state_completion)
         self._previous_datalogging_state_and_completion = api_datalogging_state_and_completion
+
+        if self._data_ready:
+            for callback in self._datalogging_state_changed_callbacks:
+                callback(api_datalogging.DataloggingState.DATA_READY, None)
+            self._data_ready = False
 
         if next_state != self.state:
             if self.logger.isEnabledFor(logging.DEBUG):  # pragma: no cover

@@ -87,8 +87,8 @@ class TestinteractWithDevice(ScrutinyIntegrationTestWithTestSFD1):
         self.assertEqual(response['device_status'], 'connected_ready')
         self.assertEqual(response['device_session_id'], self.server.device_handler.get_comm_session_id())
 
-        self.assertIn(response['device_datalogging_status']['datalogger_state'], ['standby', 'unavailable'])
-        self.assertEqual(response['device_datalogging_status']['completion_ratio'], None)
+        self.assertIn(response['datalogging_status']['datalogging_state'], ['standby', 'unavailable'])
+        self.assertEqual(response['datalogging_status']['completion_ratio'], None)
         loaded_sfd = self.server.sfd_handler.get_loaded_sfd()
         self.assertEqual(response['loaded_sfd_firmware_id'], loaded_sfd.get_firmware_id_ascii())
 

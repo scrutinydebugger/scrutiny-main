@@ -104,9 +104,10 @@ class AcquisitionRequest:
 
 class DataloggingState(Enum):
     """The public state of the server datalogging capabilities. For client broadcast"""
-    NA = 0,
+    NA = 0
     STANDBY = 1
     WAIT_FOR_TRIGGER = 2
     ACQUIRING = 3
     DOWNLOADING = 4
-    ERROR = 5
+    DATA_READY = 5
+    ERROR = 6
