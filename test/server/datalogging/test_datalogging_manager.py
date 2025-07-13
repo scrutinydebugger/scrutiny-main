@@ -15,9 +15,54 @@ from scrutiny.core.variable import Variable
 from scrutiny.core.basic_types import *
 from test import ScrutinyUnitTest
 from scrutiny.core.alias import Alias
+from scrutiny.server.device.device_handler import DeviceHandler, DeviceInfo
 
 from scrutiny.server.datalogging.datalogging_manager import DataloggingManager
 from scrutiny.tools.typing import *
+
+
+class StubbedDeviceHandler:
+    connection_status:DeviceHandler.ConnectionStatus
+    device_info:DeviceInfo
+
+    def __init__(self):
+        self.connection_status = DeviceHandler.ConnectionStatus.UNKNOWN
+        self.device_info = DeviceInfo()
+
+        self.device_info.device_id = 'aaa'
+        self.device_info.display_name = 'unit test'
+        self.device_info.max_tx_data_size = 64
+        self.device_info.max_rx_data_size = 64
+        self.device_info.max_bitrate_bps = 0
+        self.device_info.rx_timeout_us = 50000
+        self.device_info.heartbeat_timeout_us = 50000000
+        self.device_info.address_size_bits = 32
+        self.device_info.protocol_major = 1
+        self.device_info.protocol_minor = 0
+        self.device_info.supported_feature_map = {
+            '_64bits' : True,
+            'datalogging' : True,
+            'memory_write': True,
+            'user_command' : False
+        }
+        self.device_info.forbidden_memory_regions = []
+        self.device_info.readonly_memory_regions = []
+        self.device_info.runtime_published_values = []
+        self.device_info.loops = []
+        self.device_info.datalogging_setup = device_datalogging.DataloggingSetup(
+            buffer_size=4096, 
+            encoding=device_datalogging.Encoding.RAW,
+            max_signal_count=32
+        ) 
+
+    def get_connection_status(self) -> DeviceHandler.ConnectionStatus:
+        return self.connection_status
+
+    def set_connection_status(self, status:DeviceHandler.ConnectionStatus) -> None:
+        self.connection_status = status
+
+    def get_device_info(self) -> DeviceInfo:
+        return self.device_info
 
 
 class TestDataloggingManager(ScrutinyUnitTest):
@@ -34,6 +79,7 @@ class TestDataloggingManager(ScrutinyUnitTest):
         return DatastoreRPVEntry(path, RuntimePublishedValue(rpv_id, datatype))
 
     def setUp(self):
+        self.device_handler = StubbedDeviceHandler()
         self.datastore = Datastore()
 
         self.var1_u32 = self.make_varbit_entry('/var/abc/var1_u32', 0x100000, EmbeddedDataType.uint32,
@@ -243,6 +289,23 @@ class TestDataloggingManager(ScrutinyUnitTest):
                 self.assertEqual(signals[signalmap[self.alias_var4_s16]].address, alias.refentry.get_address())
                 self.assertEqual(signals[signalmap[self.alias_var4_s16]].size, alias.refentry.get_data_type().get_size_byte())
 
+
+    def test_read_state(self) : 
+        self.device_handler.set_connection_status(DeviceHandler.ConnectionStatus.UNKNOWN)
+        datalogging_manager = DataloggingManager(self.datastore, self.device_handler)
+        datalogging_manager.process()
+        state, completion = datalogging_manager.get_datalogging_state()
+        self.assertEqual(state, api_datalogging.DataloggingState.NA)
+        self.assertIsNone(completion)
+
+        self.device_handler.set_connection_status(DeviceHandler.ConnectionStatus.CONNECTED_READY)
+        datalogging_manager.process()
+        
+        state, completion = datalogging_manager.get_datalogging_state()
+
+        self.assertEqual(state, api_datalogging.DataloggingState.Standby)
+        self.assertIsNone(completion)
+        
 
 if __name__ == '__main__':
     import unittest

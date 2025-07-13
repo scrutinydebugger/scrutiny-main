@@ -597,3 +597,15 @@ class DataloggingManager:
     def register_datalogging_state_change_callback(self, callback: DataloggingStateChangedCallback) -> None:
         """Register a callback to be called when the state or the completion ratio of the datalogger changes"""
         self._datalogging_state_changed_callbacks.append(callback)
+
+    def is_device_connected(self) -> bool:
+        """Tells if a device is connected and the datalogging manager is ready to operate with it"""
+        return self.state in [FsmState.DEVICE_CONNECTED_WITH_DATALOGGING, FsmState.DEVICE_CONNECTED_NO_DATALOGGING]
+    
+    def is_device_connected_with_datalogging(self) -> bool:
+        """Tells if the datalogging manager sees a device connected that has datalogging feature and ready to operate it"""
+        return self.state == FsmState.DEVICE_CONNECTED_WITH_DATALOGGING
+    
+    def is_device_connected_without_datalogging(self) -> bool:
+        """Tells if the datalogging manager sees a device connected that without datalogging feature. """
+        return self.state == FsmState.DEVICE_CONNECTED_NO_DATALOGGING
