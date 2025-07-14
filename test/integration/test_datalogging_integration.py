@@ -503,7 +503,6 @@ class TestDataloggingIntegration(ScrutinyIntegrationTestWithTestSFD1):
                     first_wft_index = state_list.index('waiting_for_trigger')
                     self.assertNotEqual(first_wft_index, -1)
                     assert_all_equal_not_empty(state_list[0:first_wft_index], 'standby')
-                    self.assertEqual(state_list[0], 'standby')
                     state_list = state_list[first_wft_index:]
                 
                 first_wft_index = state_list.index('waiting_for_trigger')
