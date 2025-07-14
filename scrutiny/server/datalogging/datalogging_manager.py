@@ -375,8 +375,6 @@ class DataloggingManager:
         self._previous_datalogging_state_and_completion = api_datalogging_state_and_completion
 
         if self._data_ready:
-            for callback in self._datalogging_state_changed_callbacks:
-                callback(api_datalogging.DataloggingState.DataReady, None)
             self._data_ready = False
 
         if next_state != self.state:
@@ -586,7 +584,10 @@ class DataloggingManager:
             return (api_datalogging.DataloggingState.Acquiring, acquire_pu)
         
         if dl_state in [device_datalogging.DataloggerState.ACQUISITION_COMPLETED]:
-            return (api_datalogging.DataloggingState.Downloading, download_pu)
+            if self._data_ready:
+                return (api_datalogging.DataloggingState.DataReady, None)
+            else:
+                return (api_datalogging.DataloggingState.Downloading, download_pu)
         
         if dl_state in [device_datalogging.DataloggerState.ERROR]:
             return (api_datalogging.DataloggingState.Error, None)

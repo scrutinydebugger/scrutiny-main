@@ -500,7 +500,7 @@ def parse_inform_server_status(response: api_typing.S2C.InformServerStatus) -> s
     _check_response_dict(cmd, response, 'loaded_sfd_firmware_id', (str, type(None)))
 
     _check_response_dict(cmd, response, 'datalogging_status.datalogging_state', str)
-    _check_response_dict(cmd, response, 'datalogging_status.completion_ratio', [NoneType, float])
+    _check_response_dict(cmd, response, 'datalogging_status.completion_ratio', [NoneType, (float, int)])
 
     def _datalogging_status(api_val: api_typing.DataloggingState) -> sdk.DataloggingState:
         if api_val == API.DataloggingStateString.UNAVAILABLE:
@@ -513,12 +513,18 @@ def parse_inform_server_status(response: api_typing.S2C.InformServerStatus) -> s
             return sdk.DataloggingState.Acquiring
         elif api_val == API.DataloggingStateString.DOWNLOADING:
             return sdk.DataloggingState.Downloading
+        elif api_val == API.DataloggingStateString.DATA_READY:
+            return sdk.DataloggingState.DataReady
         elif api_val == API.DataloggingStateString.ERROR:
             return sdk.DataloggingState.Error
         raise sdk.exceptions.BadResponseError(f'Unsupported datalogging state "{api_val}"')
+    
+    completion_ratio = response['datalogging_status']['completion_ratio']
+    if completion_ratio is not None:
+        completion_ratio=  float(completion_ratio)
 
     datalogging = sdk.DataloggingInfo(
-        completion_ratio=response['datalogging_status']['completion_ratio'],
+        completion_ratio=completion_ratio,
         state=_datalogging_status(response['datalogging_status']['datalogging_state'])
     )
 
