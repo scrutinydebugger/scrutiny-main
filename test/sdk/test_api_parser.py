@@ -441,8 +441,8 @@ class TestApiParser(ScrutinyUnitTest):
                 "device_status": "connected_ready",
                 "device_session_id": "3d41973c65ba42218ab65c829a8c385e",
                 "loaded_sfd_firmware_id": "b5c76f482e39e9d6a9115db5b8b7dc35",
-                "device_datalogging_status": {
-                    "datalogger_state": "standby",
+                "datalogging_status": {
+                    "datalogging_state": "standby",
                     "completion_ratio": 0.56
                 },
                 "device_comm_link": {
@@ -469,7 +469,7 @@ class TestApiParser(ScrutinyUnitTest):
         self.assertIsNotNone(info.sfd_firmware_id)
         self.assertEqual(info.sfd_firmware_id, "b5c76f482e39e9d6a9115db5b8b7dc35")
 
-        self.assertEqual(info.datalogging.state, DataloggerState.Standby)
+        self.assertEqual(info.datalogging.state, DataloggingState.Standby)
         self.assertEqual(info.datalogging.completion_ratio, 0.56)
 
         self.assertIsNotNone(info.device_link)
@@ -495,7 +495,7 @@ class TestApiParser(ScrutinyUnitTest):
         self.assertEqual(info.device_comm_state, DeviceCommState.NA)
 
         msg = base()
-        msg["device_datalogging_status"]["completion_ratio"] = None
+        msg["datalogging_status"]["completion_ratio"] = None
         info = parser.parse_inform_server_status(msg)
         self.assertIsNone(info.datalogging.completion_ratio)
 

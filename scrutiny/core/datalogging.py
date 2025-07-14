@@ -12,11 +12,13 @@ __all__ = [
     'DataSeries',
     'DataSeriesWithAxis',
     'DataloggingAcquisition',
-    'LoggedWatchable'
+    'LoggedWatchable',
+    'DataloggingState'
 ]
 
 import zlib
 import struct
+import enum
 from uuid import uuid4
 from dataclasses import dataclass
 from datetime import datetime
@@ -245,3 +247,22 @@ class DataloggingAcquisition:
         with open(filename, 'w', encoding='utf8', newline='') as f:
             writer = csv.writer(f, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
             self.write_csv(writer)
+
+
+class DataloggingState(enum.Enum):
+    """(Enum) The state in which the server datalogging manager currently is"""
+
+    NA = 0
+    """The state is not available"""
+    Standby = 1
+    """The datalogger is doing nothing"""
+    WaitForTrigger = 2
+    """The datalogger is logging and actively monitor for the trigger condition to end the acquisition"""
+    Acquiring = 3
+    """The datalogger is actively logging and the acquisition is ending since the trigger event has been fired"""
+    Downloading = 4
+    """The datalogger has finished logging and data is being transferred to the server"""
+    Error = 5
+    """The datalogger has encountered a problem and is not operational"""
+
+    

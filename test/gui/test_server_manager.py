@@ -216,13 +216,13 @@ class TestServerManager(ScrutinyBaseGuiTest):
         self.fake_client._simulate_receive_status()  # Load default status
 
         for i in range(5):
-            self.fake_client._simulate_datalogger_state_changed(sdk.DataloggingInfo(sdk.DataloggerState.WaitForTrigger, None))
+            self.fake_client._simulate_datalogger_state_changed(sdk.DataloggingInfo(sdk.DataloggingState.WaitForTrigger, None))
             self.wait_events_and_clear([EventType.DATALOGGING_STATE_CHANGED], timeout=2)
 
-            self.fake_client._simulate_datalogger_state_changed(sdk.DataloggingInfo(sdk.DataloggerState.Acquiring, 0.5))
+            self.fake_client._simulate_datalogger_state_changed(sdk.DataloggingInfo(sdk.DataloggingState.Acquiring, 0.5))
             self.wait_events_and_clear([EventType.DATALOGGING_STATE_CHANGED], timeout=2)
 
-            self.fake_client._simulate_datalogger_state_changed(sdk.DataloggingInfo(sdk.DataloggerState.Acquiring, 0.75))
+            self.fake_client._simulate_datalogger_state_changed(sdk.DataloggingInfo(sdk.DataloggingState.Acquiring, 0.75))
             self.wait_events_and_clear([EventType.DATALOGGING_STATE_CHANGED], timeout=2)
 
         self.server_manager.stop()

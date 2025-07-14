@@ -354,15 +354,15 @@ class ScrutinyClient:
                 return f"Server has unloaded a Firmware Decription with firmware ID: {self.firmware_id}"
 
         @dataclass(frozen=True)
-        class DataloggerStateChanged:
-            """Triggered when the datalogger state changes or when the completion ratio is updated while acquiring"""
+        class DataloggingStateChanged:
+            """Triggered when the server datalogging service changes state or when the acquisition/download completion ratio is updated"""
 
             _filter_flag = 0x40
             details: sdk.DataloggingInfo
-            """The state of the datalogger and the completion ratio"""
+            """The state of the datalogging service and the completion ratio"""
 
             def msg(self) -> str:
-                msg = f"Datalogger state changed: {self.details.state.name}"
+                msg = f"Datalogging state changed: {self.details.state.name}"
                 if self.details.completion_ratio is not None:
                     msg += f" ({round(self.details.completion_ratio * 100)}%)"
                 return msg
@@ -408,8 +408,8 @@ class ScrutinyClient:
         """Listen for events of type :class:`SFDLoadedEvent<scrutiny.sdk.client.ScrutinyClient.Events.SFDLoadedEvent>`"""
         LISTEN_SFD_UNLOADED = SFDUnLoadedEvent._filter_flag
         """Listen for events of type :class:`SFDUnLoadedEvent<scrutiny.sdk.client.ScrutinyClient.Events.SFDUnLoadedEvent>`"""
-        LISTEN_DATALOGGER_STATE_CHANGED = DataloggerStateChanged._filter_flag
-        """Listen for events of type :class:`DataloggerStateChanged<scrutiny.sdk.client.ScrutinyClient.Events.DataloggerStateChanged>`"""
+        LISTEN_DATALOGGING_STATE_CHANGED = DataloggingStateChanged._filter_flag
+        """Listen for events of type :class:`DataloggingStateChanged<scrutiny.sdk.client.ScrutinyClient.Events.DataloggingStateChanged>`"""
         LISTEN_STATUS_UPDATE_CHANGED = StatusUpdateEvent._filter_flag
         """Listen for events of type :class:`StatusUpdateEvent<scrutiny.sdk.client.ScrutinyClient.Events.StatusUpdateEvent>`"""
         LISTEN_DATALOGGING_LIST_CHANGED = DataloggingListChanged._filter_flag
@@ -419,7 +419,7 @@ class ScrutinyClient:
 
         _ANY_EVENTS = Union[
             ConnectedEvent, DisconnectedEvent, DeviceReadyEvent, DeviceGoneEvent,
-            SFDLoadedEvent, SFDUnLoadedEvent, DataloggerStateChanged, StatusUpdateEvent,
+            SFDLoadedEvent, SFDUnLoadedEvent, DataloggingStateChanged, StatusUpdateEvent,
             DataloggingListChanged
         ]
 
@@ -1010,11 +1010,11 @@ class ScrutinyClient:
             if self._last_server_info is not None:
                 if self._last_server_info.datalogging.state != self._server_info.datalogging.state:
                     # Passage from/to NA are logged as debug only to keep the info log clean
-                    loglevel = logging.DEBUG if DataloggerState.NA in (
+                    loglevel = logging.DEBUG if DataloggingState.NA in (
                         self._last_server_info.datalogging.state, self._server_info.datalogging.state) else logging.INFO
-                    self._trigger_event(self.Events.DataloggerStateChanged(self._server_info.datalogging), loglevel=loglevel)
+                    self._trigger_event(self.Events.DataloggingStateChanged(self._server_info.datalogging), loglevel=loglevel)
                 elif self._last_server_info.datalogging.completion_ratio != self._server_info.datalogging.completion_ratio:
-                    self._trigger_event(self.Events.DataloggerStateChanged(self._server_info.datalogging), loglevel=logging.DEBUG)
+                    self._trigger_event(self.Events.DataloggingStateChanged(self._server_info.datalogging), loglevel=logging.DEBUG)
         else:
             if self._last_server_info is not None:
                 if self._last_server_info.device_session_id is not None:

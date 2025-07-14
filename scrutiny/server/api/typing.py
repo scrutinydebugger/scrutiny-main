@@ -32,14 +32,14 @@ Datatype = Literal[
 ]
 
 DeviceCommStatus = Literal['unknown', 'disconnected', 'connecting', 'connected', 'connected_ready']
-DataloggerState = Literal["unavailable", "standby", "waiting_for_trigger", "acquiring", "data_ready", "error"]
+DataloggingState = Literal["unavailable", "standby", "waiting_for_trigger", "acquiring", "downloading", "error"]
 DataloggingCondition = Literal['true', 'eq', 'neq', 'get', 'gt', 'let', 'lt', 'within', 'cmt']
 DataloggingEncoding = Literal['raw']
 LoopType = Literal['fixed_freq', 'variable_freq']
 
 
 class DataloggingStatus(TypedDict):
-    datalogger_state: DataloggerState
+    datalogging_state: DataloggingState
     completion_ratio: Optional[float]
 
 
@@ -304,7 +304,7 @@ class S2C:
         device_status: DeviceCommStatus
         device_session_id: Optional[str]
         loaded_sfd_firmware_id: Optional[str]
-        device_datalogging_status: DataloggingStatus
+        datalogging_status: DataloggingStatus
         device_comm_link: DeviceCommLinkDef   # Dict is Any,Any.  Should be EmptyDict.
 
     class GetDeviceInfo(BaseS2CMessage):

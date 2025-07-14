@@ -506,7 +506,7 @@ class ServerManager:
                 self._thread_event_sfd_loaded()
             elif isinstance(event, ScrutinyClient.Events.SFDUnLoadedEvent):
                 self._thread_event_sfd_unloaded()
-            elif isinstance(event, ScrutinyClient.Events.DataloggerStateChanged):
+            elif isinstance(event, ScrutinyClient.Events.DataloggingStateChanged):
                 self._signals.datalogging_state_changed.emit()
             elif isinstance(event, ScrutinyClient.Events.StatusUpdateEvent):
                 self._signals.status_received.emit()

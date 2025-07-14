@@ -394,6 +394,132 @@ class TestDataloggingIntegration(ScrutinyIntegrationTestWithTestSFD1):
             self.wait_device_disconnected()
             self.server.device_handler.expect_no_timeout = True
 
+    def test_datalogging_state_all_sent_in_right_order(self):
+        with DataloggingStorage.use_temp_storage():
+            self.wait_for_datalogging_ready()
+            for iteration in range(3):
+                logger.debug(f"Starting iteration={iteration}")
+                # Request acquisition
+                loop_id = 1
+                self.assertGreater(len(self.emulated_device.loops), loop_id)
+                self.assertTrue(self.emulated_device.loops[loop_id].support_datalogging)
+
+                decimation = 2
+                req: api_typing.C2S.RequestDataloggingAcquisition = {
+                    'cmd': API.Command.Client2Api.REQUEST_DATALOGGING_ACQUISITION,
+                    'reqid': 123,
+                    'name': 'potato',
+                    'decimation': decimation,
+                    'probe_location': 0.25,
+                    'trigger_hold_time': 0.2,
+                    'sampling_rate_id': loop_id,
+                    'timeout': 0,
+                    'condition': 'eq',
+                    'yaxes': [
+                        {'name': 'Axis1', 'id': 100},
+                        {'name': 'Axis2', 'id': 200}
+                    ],
+                    'operands': [
+                        {
+                            'type': 'watchable',
+                            'value': self.entry_u16.get_display_path()
+                        },
+                        {
+                            'type': 'literal',
+                            'value': 0x1234
+                        }],
+                    'signals': [
+                        dict(path=self.entry_u32.get_display_path(), name='u32', axis_id=100),
+                        dict(path=self.entry_float32.get_display_path(), name='f32', axis_id=100),
+                        dict(path=self.entry_alias_rpv1000.get_display_path(), name='rpv1000', axis_id=200),
+                        dict(path=self.entry_alias_uint8.get_display_path(), name='u8', axis_id=200)
+                    ],
+                    'x_axis_type': 'ideal_time',
+                    'x_axis_signal': None,    # We use time
+                }
+
+                self.assertEqual(self.emulated_device.get_rpv_definition(0x1000).datatype, EmbeddedDataType.float64)
+                self.emulated_device.write_memory(self.entry_u32.get_address(), bytes([0, 0, 0, 0]))
+                self.emulated_device.write_memory(self.entry_float32.get_address(), bytes([0, 0, 0, 0]))
+                self.emulated_device.write_memory(self.entry_u8.get_address(), bytes([0]))
+                self.emulated_device.write_memory(self.entry_u16.get_address(), bytes([0, 0]))
+                self.emulated_device.write_rpv(0x1000, 0)
+
+                config_id_before = self.emulated_device.datalogger.config_id
+                self.send_request(req)  # Send the acquisition request here
+
+                response = self.wait_and_load_response(API.Command.Api2Client.REQUEST_DATALOGGING_ACQUISITION_RESPONSE)
+                self.assert_no_error(response)
+                response = cast(api_typing.S2C.RequestDataloggingAcquisition, response)
+                request_token = response['request_token']
+
+                def config_id_changed():
+                    return config_id_before != self.emulated_device.datalogger.config_id
+                self.wait_true(config_id_changed, timeout=2)
+                self.assertNotEqual(self.emulated_device.datalogger.config_id, config_id_before)
+                self.assertFalse(self.emulated_device.datalogger.triggered())
+                # This line should trigger the acquisition
+                self.emulated_device.write_memory(self.entry_u16.get_address(), Codecs.get(
+                    EmbeddedDataType.uint16, Endianness.Little).encode(0x1234)
+                    )
+                self.wait_for(req['trigger_hold_time'])  # Leave some time for the device thread to catch the change.
+
+                self.wait_true(self.emulated_device.datalogger.triggered, timeout=1)
+                self.assertTrue(self.emulated_device.datalogger.triggered())
+                
+                state_list:List[str] = []
+                last_completion=None
+                acquisition_complete_received = False
+                t1 = time.monotonic()
+                while  time.monotonic() - t1 < 5:
+                    response = self.wait_and_load_response([API.Command.Api2Client.INFORM_SERVER_STATUS, API.Command.Api2Client.INFORM_DATALOGGING_ACQUISITION_COMPLETE])
+                    self.assert_no_error(response)
+                    if response['cmd'] == API.Command.Api2Client.INFORM_SERVER_STATUS:
+                        state = response['datalogging_status']['datalogging_state']
+                        completion = response['datalogging_status']['completion_ratio']
+                        if last_completion is not None and completion is not None:
+                            self.assertGreater(completion, last_completion)
+                        last_completion = completion
+                        state_list.append(state)
+                        logger.debug(f"Received : {state} - {completion}" )
+                        if acquisition_complete_received and state == 'standby':
+                            break
+                    
+                    if response['cmd'] == API.Command.Api2Client.INFORM_DATALOGGING_ACQUISITION_COMPLETE:
+                        acquisition_complete_received = True
+                # We expect : 
+                #    - standby              (iteration 0 only)
+                #    - waiting_for_trigger  (multiple time)
+                #    - acquiring            (multiple time)
+                #    - downloading          (multiple time)
+                #    - standby              (multiple time)
+
+                def assert_all_equal_not_empty(thelist, val):
+                    self.assertGreater(len(thelist), 0)
+                    for item in thelist:
+                        self.assertEqual(item, val)
+
+                if iteration == 0:
+                    first_wft_index = state_list.index('waiting_for_trigger')
+                    self.assertNotEqual(first_wft_index, -1)
+                    assert_all_equal_not_empty(state_list[0:first_wft_index], 'standby')
+                    state_list = state_list[first_wft_index:]
+                
+                first_wft_index = state_list.index('waiting_for_trigger')
+                first_acquiring_index = state_list.index('acquiring')
+                first_downloading_index = state_list.index('downloading')
+                first_standby_index = state_list.index('standby')
+
+                self.assertNotEqual(first_wft_index, -1)
+                self.assertNotEqual(first_acquiring_index, -1)
+                self.assertNotEqual(first_downloading_index, -1)
+                self.assertNotEqual(first_standby_index, -1)
+
+                assert_all_equal_not_empty(state_list[first_wft_index:first_acquiring_index], 'waiting_for_trigger')
+                assert_all_equal_not_empty(state_list[first_acquiring_index:first_downloading_index], 'acquiring')
+                assert_all_equal_not_empty(state_list[first_downloading_index:first_standby_index], 'downloading')
+                assert_all_equal_not_empty(state_list[first_standby_index:], 'standby')
+
     def tearDown(self) -> None:
         super().tearDown()
 

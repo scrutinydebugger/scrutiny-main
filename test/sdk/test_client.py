@@ -30,6 +30,7 @@ import scrutiny.server.datalogging.definitions.device as device_datalogging
 import scrutiny.server.datalogging.definitions.api as api_datalogging
 from scrutiny.server.sfd_storage import SFDStorage
 from scrutiny.server.datalogging.datalogging_storage import DataloggingStorage
+from scrutiny.server.datalogging.datalogging_manager import DataloggingStateChangedCallback
 from scrutiny.server.server import ScrutinyServer
 from scrutiny.server.api import API, APIConfig
 from scrutiny.server.api.abstract_client_handler import AbstractClientHandler
@@ -38,7 +39,7 @@ import scrutiny.server.datastore.datastore as datastore
 from scrutiny.server.api.tcp_client_handler import TCPClientHandler
 from scrutiny.server.device.device_handler import (
     DeviceHandler, DeviceStateChangedCallback, RawMemoryReadRequest,
-    RawMemoryWriteRequest, UserCommandCallback, DataloggerStateChangedCallback
+    RawMemoryWriteRequest, UserCommandCallback
 )
 from scrutiny.server.device.submodules.memory_writer import RawMemoryWriteRequestCompletionCallback
 from scrutiny.server.device.submodules.memory_reader import RawMemoryReadRequestCompletionCallback
@@ -102,7 +103,6 @@ class FakeDeviceHandler:
     write_logs: List[Union[WriteMemoryLog, WriteRPVLog]]
     read_logs: List[ReadMemoryLog]
     device_state_change_callbacks: List[DeviceStateChangedCallback]
-    datalogger_state_change_callbacks: List[DataloggerStateChangedCallback]
     read_memory_queue: "queue.Queue[RawMemoryReadRequest]"
     write_memory_queue: "queue.Queue[RawMemoryWriteRequest]"
     fake_mem: MemoryContent
@@ -126,7 +126,6 @@ class FakeDeviceHandler:
         self.device_conn_status = DeviceHandler.ConnectionStatus.DISCONNECTED
         self.comm_session_id = None
         self.device_state_change_callbacks = []
-        self.datalogger_state_change_callbacks = []
         self.set_connection_status(DeviceHandler.ConnectionStatus.CONNECTED_READY)
         self.write_logs = []
         self.read_logs = []
@@ -213,18 +212,6 @@ class FakeDeviceHandler:
     def get_connection_status(self):
         return self.device_conn_status
 
-    def set_datalogger_state(self, state: Optional[device_datalogging.DataloggerState], ratio: Optional[float]):
-        old_state = self.datalogger_state
-        old_ratio = self.datalogging_completion_ratio
-        self.datalogger_state = state
-        self.datalogging_completion_ratio = ratio
-        if ratio is not None:
-            assert self.datalogger_state in [device_datalogging.DataloggerState.TRIGGERED, device_datalogging.DataloggerState.ACQUISITION_COMPLETED]
-
-        if state is not None and (old_state != state or old_ratio != ratio):
-            for callback in self.datalogger_state_change_callbacks:
-                callback(self.datalogger_state, self.datalogging_completion_ratio)
-
     def set_connection_status(self, status: DeviceHandler.ConnectionStatus):
         previous_state = self.device_conn_status
         if status == DeviceHandler.ConnectionStatus.CONNECTED_READY:
@@ -242,9 +229,6 @@ class FakeDeviceHandler:
 
     def register_device_state_change_callback(self, callback: DeviceStateChangedCallback) -> None:
         self.device_state_change_callbacks.append(callback)
-
-    def register_datalogger_state_change_callback(self, callback: DataloggerStateChangedCallback) -> None:
-        self.datalogger_state_change_callbacks.append(callback)
 
     def get_comm_session_id(self):
         return self.comm_session_id
@@ -359,6 +343,9 @@ class FakeDataloggingManager:
     datastore: "datastore.Datastore"
     device_handler: FakeDeviceHandler
     acquisition_request_queue: "queue.Queue[Tuple[api_datalogging.AcquisitionRequest, api_datalogging.APIAcquisitionRequestCompletionCallback]]"
+    datalogging_state_changed_callbacks:List[DataloggingStateChangedCallback]
+    datalogging_state:api_datalogging.DataloggingState
+    datalogging_state_completion:Optional[float]
 
     SAMPLING_RATES = [
         api_datalogging.SamplingRate("100Hz", 100, api_datalogging.ExecLoopType.FIXED_FREQ, device_identifier=0),
@@ -370,6 +357,21 @@ class FakeDataloggingManager:
         self.datastore = datastore
         self.device_handler = device_handler
         self.acquisition_request_queue = queue.Queue()
+        self.datalogging_state_changed_callbacks = []
+        self.datalogging_state = api_datalogging.DataloggingState.NA
+        self.datalogging_state_completion = None
+
+    def register_datalogging_state_change_callback(self, callback:DataloggingStateChangedCallback) -> None:
+        self.datalogging_state_changed_callbacks.append(callback)
+
+    def set_datalogging_state(self, state:api_datalogging.DataloggingState, completion:Optional[float]) -> None:
+        self.datalogging_state = state
+        self.datalogging_state_completion = completion
+        for callback in self.datalogging_state_changed_callbacks:
+            callback(state, completion)
+        
+    def get_datalogging_state(self) -> Tuple[api_datalogging.DataloggingState, Optional[float]]:
+        return (self.datalogging_state, self.datalogging_state_completion)
 
     def get_device_setup(self):
         return self.device_handler.get_datalogging_setup()
@@ -711,8 +713,9 @@ class TestClient(ScrutinyUnitTest):
         self.assertEqual(server_info.device_link.config.host, '127.0.0.1')
         self.assertEqual(server_info.device_link.config.port, 5555)
 
-        self.assertIsNone(server_info.datalogging.completion_ratio)
-        self.assertEqual(server_info.datalogging.state, sdk.DataloggerState.Standby)
+        
+        self.assertEqual(server_info.datalogging.state, sdk.DataloggingState.NA)
+        self.assertIsNone(server_info.datalogging.completion_ratio, None)
 
         self.assertIsNotNone(server_info.sfd_firmware_id)
 
@@ -2212,25 +2215,25 @@ class TestClient(ScrutinyUnitTest):
         self.assertIsNone(evt)
         self.assertFalse(self.client.has_event_pending())
         self.client.listen_events(ScrutinyClient.Events.LISTEN_ALL, disabled_events=ScrutinyClient.Events.LISTEN_STATUS_UPDATE_CHANGED)
-        self.device_handler.set_datalogger_state(device_datalogging.DataloggerState.ARMED, None)
+        self.datalogging_manager.set_datalogging_state(api_datalogging.DataloggingState.WaitForTrigger, None)
         evt = self.client.read_event(timeout=EVENT_READ_TIMEOUT)
-        self.assertIsInstance(evt, ScrutinyClient.Events.DataloggerStateChanged)
-        assert isinstance(evt, ScrutinyClient.Events.DataloggerStateChanged)
-        self.assertEqual(evt.details.state, sdk.DataloggerState.WaitForTrigger)
+        self.assertIsInstance(evt, ScrutinyClient.Events.DataloggingStateChanged)
+        assert isinstance(evt, ScrutinyClient.Events.DataloggingStateChanged)
+        self.assertEqual(evt.details.state, sdk.DataloggingState.WaitForTrigger)
         self.assertIsNone(evt.details.completion_ratio)
 
-        self.device_handler.set_datalogger_state(device_datalogging.DataloggerState.TRIGGERED, 0.5)
+        self.datalogging_manager.set_datalogging_state(api_datalogging.DataloggingState.Acquiring, 0.5)
         evt = self.client.read_event(timeout=EVENT_READ_TIMEOUT)
-        self.assertIsInstance(evt, ScrutinyClient.Events.DataloggerStateChanged)
-        assert isinstance(evt, ScrutinyClient.Events.DataloggerStateChanged)
-        self.assertEqual(evt.details.state, sdk.DataloggerState.Acquiring)
+        self.assertIsInstance(evt, ScrutinyClient.Events.DataloggingStateChanged)
+        assert isinstance(evt, ScrutinyClient.Events.DataloggingStateChanged)
+        self.assertEqual(evt.details.state, sdk.DataloggingState.Acquiring)
         self.assertEqual(evt.details.completion_ratio, 0.5)
 
-        self.device_handler.set_datalogger_state(device_datalogging.DataloggerState.TRIGGERED, 0.75)
+        self.datalogging_manager.set_datalogging_state(api_datalogging.DataloggingState.Acquiring, 0.75)
         evt = self.client.read_event(timeout=EVENT_READ_TIMEOUT)
-        self.assertIsInstance(evt, ScrutinyClient.Events.DataloggerStateChanged)
-        assert isinstance(evt, ScrutinyClient.Events.DataloggerStateChanged)
-        self.assertEqual(evt.details.state, sdk.DataloggerState.Acquiring)
+        self.assertIsInstance(evt, ScrutinyClient.Events.DataloggingStateChanged)
+        assert isinstance(evt, ScrutinyClient.Events.DataloggingStateChanged)
+        self.assertEqual(evt.details.state, sdk.DataloggingState.Acquiring)
         self.assertEqual(evt.details.completion_ratio, 0.75)
 
         self.sfd_handler.unload()
@@ -2310,6 +2313,7 @@ class TestClient(ScrutinyUnitTest):
             DataloggingStorage.save(acq2)
 
             self.assertEqual(DataloggingStorage.count(), 2)
+            self.client.clear_event_queue()
             self.assertFalse(self.client.has_event_pending())
 
             self.client.delete_datalogging_acquisition('acq1')

@@ -12,7 +12,7 @@ __all__ = [
     'WatchableType',
     'ValueStatus',
     'DeviceCommState',
-    'DataloggerState',
+    'DataloggingState',
     'DeviceLinkType',
     'DataloggingListChangeType',
     'SupportedFeatureMap',
@@ -46,6 +46,7 @@ from dataclasses import dataclass
 from scrutiny.core.basic_types import MemoryRegion, EmbeddedDataType, WatchableType
 from scrutiny.core.embedded_enum import EmbeddedEnum
 from scrutiny.core.firmware_description import SFDMetadata, SFDGenerationInfo
+from scrutiny.core.datalogging import DataloggingState
 from scrutiny.tools import validation
 import abc
 from binascii import hexlify
@@ -122,23 +123,6 @@ class ValueStatus(enum.Enum):
         return error
 
 
-class DataloggerState(enum.Enum):
-    """(Enum) The state in which the C++ datalogger inside the device firmware actually is"""
-
-    NA = 0
-    """The state is not available"""
-    Standby = 1
-    """The datalogger is doing nothing"""
-    WaitForTrigger = 2
-    """The datalogger is logging and actively monitor for the trigger condition to end the acquisition"""
-    Acquiring = 3
-    """The datalogger is actively logging and the acquisition is ending since the trigger event has been fired"""
-    DataReady = 4
-    """The datalogger has finished logging and data is ready to be read"""
-    Error = 5
-    """The datalogger has encountered a problem and is not operational"""
-
-
 class DeviceLinkType(enum.Enum):
     """(Enum) The type of communication link used between the server and the device"""
 
@@ -157,7 +141,7 @@ class DeviceLinkType(enum.Enum):
     # SPI = 6 # Todo
 
 
-class DataloggingListChangeType(enum.Enum):
+class   DataloggingListChangeType(enum.Enum):
     """(Enum) The type of change that was performed on the server datalogging storage """
 
     DELETE = 0
@@ -192,7 +176,7 @@ class SupportedFeatureMap:
 class DataloggingInfo:
     """(Immutable struct) Information about the datalogger that are volatile (change during the normal operation)"""
 
-    state: DataloggerState
+    state: DataloggingState
     """The state of the datalogger in the device"""
 
     completion_ratio: Optional[float]
@@ -201,7 +185,7 @@ class DataloggingInfo:
 
 class DataloggingEncoding(enum.Enum):
     """(Enum) Defines the data format used to store the samples in the datalogging buffer.
-    This structure is a provision for the future where new encoding methods may be implementated (supporting compression for example)
+    This structure is a provision for the future where new encoding methods may be implemented (supporting compression for example)
     """
     RAW = 1
 

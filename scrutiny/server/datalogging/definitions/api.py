@@ -19,13 +19,14 @@ __all__ = [
     'SignalDefinitionWithAxis',
     'AcquisitionRequest',
     'AxisDefinition',
-    'DataloggingAcquisition'
+    'DataloggingAcquisition',
+    'DataloggingState'
 ]
 
 from enum import Enum
 from dataclasses import dataclass
 
-from scrutiny.core.datalogging import DataloggingAcquisition, AxisDefinition
+from scrutiny.core.datalogging import DataloggingAcquisition, AxisDefinition, DataloggingState
 from scrutiny.server.device.device_info import ExecLoopType
 from scrutiny.server.datastore.datastore_entry import DatastoreEntry
 import scrutiny.server.datalogging.definitions.device as device_datalogging

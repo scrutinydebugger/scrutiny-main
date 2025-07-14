@@ -112,7 +112,7 @@ It includes:
 
 -----
 
-.. autoclass:: scrutiny.sdk.DataloggerState
+.. autoclass:: scrutiny.sdk.DataloggingState
     :exclude-members: __init__, __new__
     :members:
     :member-order: bysource

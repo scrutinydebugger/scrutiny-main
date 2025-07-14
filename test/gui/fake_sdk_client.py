@@ -27,7 +27,7 @@ from scrutiny.tools.typing import *
 default_server_info = sdk.ServerInfo(
     device_comm_state=sdk.DeviceCommState.Disconnected,
     device_session_id=None,
-    datalogging=sdk.DataloggingInfo(sdk.DataloggerState.NA, completion_ratio=None),
+    datalogging=sdk.DataloggingInfo(sdk.DataloggingState.NA, completion_ratio=None),
     sfd_firmware_id=None,
     device_link=sdk.DeviceLinkInfo(type=sdk.DeviceLinkType.UDP, config=dict(host='localhost', prot=1234), operational=True)
 )
@@ -384,7 +384,7 @@ class FakeSDKClient(tools.UnitTestStub):
             device_session_id=self.server_info.device_session_id,
             sfd_firmware_id=self.server_info.sfd_firmware_id
         )
-        self.trigger_event(ScrutinyClient.Events.DataloggerStateChanged(datalogger_info))
+        self.trigger_event(ScrutinyClient.Events.DataloggingStateChanged(datalogger_info))
 
     def watch(self, path: str) -> StubbedWatchableHandle:
         logger.debug(f"Fake call to watch({path})")
