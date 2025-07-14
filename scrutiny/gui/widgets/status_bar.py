@@ -492,7 +492,6 @@ class StatusBar(QStatusBar):
             DataloggingState.WaitForTrigger: "Wait For Trigger",
             DataloggingState.Acquiring: "Acquiring",
             DataloggingState.Downloading: "Downloading",
-            DataloggingState.DataReady: "Data Ready",
             DataloggingState.Error: "Error",
         }
 

@@ -262,9 +262,7 @@ class DataloggingState(enum.Enum):
     """The datalogger is actively logging and the acquisition is ending since the trigger event has been fired"""
     Downloading = 4
     """The datalogger has finished logging and data is being transferred to the server"""
-    DataReady = 5
-    """The server has finished downloading the latest acquisition and is ready to provide it to a client"""
-    Error = 6
+    Error = 5
     """The datalogger has encountered a problem and is not operational"""
 
     

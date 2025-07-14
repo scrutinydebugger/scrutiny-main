@@ -32,7 +32,7 @@ Datatype = Literal[
 ]
 
 DeviceCommStatus = Literal['unknown', 'disconnected', 'connecting', 'connected', 'connected_ready']
-DataloggingState = Literal["unavailable", "standby", "waiting_for_trigger", "acquiring", "downloading", "data_ready", "error"]
+DataloggingState = Literal["unavailable", "standby", "waiting_for_trigger", "acquiring", "downloading", "error"]
 DataloggingCondition = Literal['true', 'eq', 'neq', 'get', 'gt', 'let', 'lt', 'within', 'cmt']
 DataloggingEncoding = Literal['raw']
 LoopType = Literal['fixed_freq', 'variable_freq']

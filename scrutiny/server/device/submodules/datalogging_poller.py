@@ -212,22 +212,20 @@ class DataloggingPoller:
         return self.device_datalogging_state
 
     def get_download_progress_pu(self) -> Optional[float]:
-        if not  self.is_retrieving_data():
+        if self.state not in (_FSMState.READ_METADATA, _FSMState.RETRIEVING_DATA, _FSMState.DATA_RETRIEVAL_FINISHED_SUCCESS):
             return None
         
         if self.acquisition_metadata is None:
-            return None
+            return 0
 
         if self.acquisition_metadata.data_size == 0 :
-            return None
+            return 0
         
         if self.state == _FSMState.DATA_RETRIEVAL_FINISHED_SUCCESS:
             return 1
         
-        return min(1, max(0, len(self.bytes_received)/self.acquisition_metadata.data_size))
-
-    def is_retrieving_data(self) -> bool:
-        return self.state in (_FSMState.READ_METADATA, _FSMState.RETRIEVING_DATA)
+        ratio = len(self.bytes_received)/self.acquisition_metadata.data_size
+        return min(1, max(0, ratio))    # Saturate just in case
 
     def get_completion_ratio(self) -> Optional[float]:
         """Returns a value between 0 and 1 indicating how far the acquisition is frm being completed once the trigger event has been launched"""
@@ -345,6 +343,7 @@ class DataloggingPoller:
 
             elif self.state == _FSMState.REQUEST_RESET:
                 if state_entry:
+                    self.bytes_received = bytearray()
                     msg = "Datalogger has been reset"
                     if self.cancel_requested:
                         msg = "Acquisition got canceled"
@@ -555,6 +554,7 @@ class DataloggingPoller:
                     assert self.acquisition_metadata is not None
                     self.logger.debug("Successfully read the acquisition. Calling callback with success=True")
                     self.mark_active_acquisition_success(self.bytes_received, self.acquisition_metadata)
+                    self.bytes_received = bytearray()
 
                 next_state = _FSMState.REQUEST_RESET  # Make sure to restart in a known state. Reset even if everything was fine
             else:

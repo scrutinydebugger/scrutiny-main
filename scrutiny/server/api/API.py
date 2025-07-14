@@ -151,7 +151,6 @@ class API:
         WAITING_FOR_TRIGGER: api_typing.DataloggingState = 'waiting_for_trigger'
         ACQUIRING: api_typing.DataloggingState = 'acquiring'
         DOWNLOADING: api_typing.DataloggingState = 'downloading'
-        DATA_READY: api_typing.DataloggingState = 'data_ready'
         ERROR: api_typing.DataloggingState = 'error'
 
     class DeviceCommStatus:
@@ -217,7 +216,6 @@ class API:
         api_datalogging.DataloggingState.WaitForTrigger: DataloggingStateString.WAITING_FOR_TRIGGER,
         api_datalogging.DataloggingState.Acquiring: DataloggingStateString.ACQUIRING,
         api_datalogging.DataloggingState.Downloading: DataloggingStateString.DOWNLOADING,
-        api_datalogging.DataloggingState.DataReady: DataloggingStateString.DATA_READY,
         api_datalogging.DataloggingState.Error: DataloggingStateString.ERROR
     }
 

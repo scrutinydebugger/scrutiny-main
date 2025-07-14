@@ -141,7 +141,7 @@ class DeviceLinkType(enum.Enum):
     # SPI = 6 # Todo
 
 
-class DataloggingListChangeType(enum.Enum):
+class   DataloggingListChangeType(enum.Enum):
     """(Enum) The type of change that was performed on the server datalogging storage """
 
     DELETE = 0

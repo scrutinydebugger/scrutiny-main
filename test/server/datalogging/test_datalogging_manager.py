@@ -634,9 +634,6 @@ class TestDataloggingManager(ScrutinyUnitTest):
             self.datalogging_manager.process()
             self.assertTrue(last_callback_call.called)
 
-            assert_state_change_and_clear(api_datalogging.DataloggingState.DataReady, None)
-            self.assertTrue(last_callback_call.success)
-
             self.device_handler.set_datalogger_state(device_datalogging.DataloggerState.IDLE)
             self.datalogging_manager.process()
             assert_state_change_and_clear(api_datalogging.DataloggingState.Standby, None)

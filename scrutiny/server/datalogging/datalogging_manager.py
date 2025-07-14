@@ -60,7 +60,6 @@ class DataloggingManager:
     logger: logging.Logger  # Logger
     state: FsmState
     previous_state: FsmState
-    _data_ready:bool
     _previous_datalogging_state_and_completion:Tuple[api_datalogging.DataloggingState, Optional[float]]
     _datalogging_state_changed_callbacks:List[DataloggingStateChangedCallback]
 
@@ -76,7 +75,6 @@ class DataloggingManager:
         self.previous_state = FsmState.INIT
         self._previous_datalogging_state_and_completion = self.get_datalogging_state()
         self._datalogging_state_changed_callbacks = []
-        self._data_ready = False
         DataloggingStorage.initialize()
 
     def is_valid_sample_rate_id(self, identifier: int) -> bool:
@@ -222,10 +220,7 @@ class DataloggingManager:
                 # -1 because we are 0 based. min(a,b)-1 = min(a-1, b-1)
                 trigger_index = max(0, min(metadata.number_of_points - metadata.points_after_trigger, metadata.number_of_points) - 1)
                 acquisition.set_trigger_index(trigger_index)
-                DataloggingStorage.save(acquisition)
-
-                self._data_ready = True
-                
+                DataloggingStorage.save(acquisition)                
             else:
                 # acquisition will be None here
                 self.logger.info("Failed to acquire acquisition. " + str(detail_msg))
@@ -373,9 +368,6 @@ class DataloggingManager:
                 state_completion = api_datalogging_state_and_completion[1]
                 callback(datalogging_state, state_completion)
         self._previous_datalogging_state_and_completion = api_datalogging_state_and_completion
-
-        if self._data_ready:
-            self._data_ready = False
 
         if next_state != self.state:
             if self.logger.isEnabledFor(logging.DEBUG):  # pragma: no cover
@@ -571,8 +563,6 @@ class DataloggingManager:
             return (api_datalogging.DataloggingState.NA, None)
 
         dl_state = self.device_handler.get_datalogger_state()
-        acquire_pu = self.device_handler.get_datalogging_acquisition_completion_ratio()
-        download_pu = self.device_handler.get_datalogging_acquisition_download_progress()
         
         if dl_state in [device_datalogging.DataloggerState.IDLE, device_datalogging.DataloggerState.CONFIGURED]:
             return (api_datalogging.DataloggingState.Standby, None)
@@ -581,13 +571,12 @@ class DataloggingManager:
             return (api_datalogging.DataloggingState.WaitForTrigger, None)
 
         if dl_state in [device_datalogging.DataloggerState.TRIGGERED]:
+            acquire_pu = self.device_handler.get_datalogging_acquisition_completion_ratio()
             return (api_datalogging.DataloggingState.Acquiring, acquire_pu)
         
         if dl_state in [device_datalogging.DataloggerState.ACQUISITION_COMPLETED]:
-            if self._data_ready:
-                return (api_datalogging.DataloggingState.DataReady, None)
-            else:
-                return (api_datalogging.DataloggingState.Downloading, download_pu)
+            download_pu = self.device_handler.get_datalogging_acquisition_download_progress()
+            return (api_datalogging.DataloggingState.Downloading, download_pu)
         
         if dl_state in [device_datalogging.DataloggerState.ERROR]:
             return (api_datalogging.DataloggingState.Error, None)
