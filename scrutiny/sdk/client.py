@@ -341,7 +341,7 @@ class ScrutinyClient:
             """The firmware ID that matches the SFD"""
 
             def msg(self) -> str:
-                return f"Server has loaded a Firmware Decription with firmware ID: {self.firmware_id}"
+                return f"Server has loaded a Firmware Description with firmware ID: {self.firmware_id}"
 
         @dataclass(frozen=True)
         class SFDUnLoadedEvent:
@@ -351,7 +351,7 @@ class ScrutinyClient:
             """The firmware ID that matches the SFD"""
 
             def msg(self) -> str:
-                return f"Server has unloaded a Firmware Decription with firmware ID: {self.firmware_id}"
+                return f"Server has unloaded a Firmware Description with firmware ID: {self.firmware_id}"
 
         @dataclass(frozen=True)
         class DataloggingStateChanged:
@@ -487,7 +487,7 @@ class ScrutinyClient:
     _active_batch_context: Optional[BatchWriteContext]  # The active write batch. All writes are appended to it if not None
 
     _listeners: List[listeners.BaseListener]   # List of registered listeners
-    _event_queue: "queue.Queue[Events._ANY_EVENTS]"  # A queue containing all the events lsitened for
+    _event_queue: "queue.Queue[Events._ANY_EVENTS]"  # A queue containing all the events listened for
     _enabled_events: int                             # Flags indicating what events to listen for
     _datarate_measurements: DataRateMeasurements     # A measurement of the datarate with the server
     _server_timebase: RelativeTimebase          # A timebase that can convert server precise timings to unix timestamp.
@@ -761,6 +761,7 @@ class ScrutinyClient:
         if self._request_status_timer.is_timed_out() or self._require_status_update:
             self._require_status_update = False
             self._request_status_timer.stop()
+            self.logger.debug("Requesting server status update")
             req = self._make_request(API.Command.Client2Api.GET_SERVER_STATUS)
             self._send(req)  # No callback, we have a continuous listener
 
@@ -1340,7 +1341,12 @@ class ScrutinyClient:
             raise sdk.exceptions.TimeoutException(f'Did not receive a Welcome message from the server. Timeout={self._timeout}s')
 
         if wait_status:
-            self.wait_server_status_update()
+            # Same logic as wait_server_status_update(), but without clearing the flag since we want at least 1 update.
+            timeout = self._UPDATE_SERVER_STATUS_INTERVAL + 2
+            self._threading_events.server_status_updated.wait(timeout=timeout)
+            if not self._threading_events.server_status_updated.is_set():
+                raise sdk.exceptions.TimeoutException(f"Server status did not update within a {timeout} seconds delay")
+            
         return self
 
     def disconnect(self) -> None:
@@ -2208,7 +2214,7 @@ class ScrutinyClient:
         :raise TypeError: Given parameter not of the expected type
         :raise OperationFailure: If the command completion fails
 
-        :return: A dictionnary containing the number of watchables, classified by type
+        :return: A dictionary containing the number of watchables, classified by type
         """
         req = self._make_request(API.Command.Client2Api.GET_WATCHABLE_COUNT)
 
