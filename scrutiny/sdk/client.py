@@ -1341,7 +1341,12 @@ class ScrutinyClient:
             raise sdk.exceptions.TimeoutException(f'Did not receive a Welcome message from the server. Timeout={self._timeout}s')
 
         if wait_status:
-            self.wait_server_status_update()
+            # Same logic as wait_server_status_update(), but without clearing the flag since we want at least 1 update.
+            timeout = self._UPDATE_SERVER_STATUS_INTERVAL + 2
+            self._threading_events.server_status_updated.wait(timeout=timeout)
+            if not self._threading_events.server_status_updated.is_set():
+                raise sdk.exceptions.TimeoutException(f"Server status did not update within a {timeout} seconds delay")
+            
         return self
 
     def disconnect(self) -> None:
