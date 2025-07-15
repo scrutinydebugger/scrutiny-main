@@ -39,7 +39,7 @@ class CSVConfig:
     """CSV delimiter"""
     quotechar: str = '"'
     """CSV quote char"""
-    quoting: int = csv.QUOTE_NONNUMERIC
+    quoting: "_csv._QuotingType" = csv.QUOTE_NONNUMERIC
     """The quoting strategy. Refers to the python csv module. Default: ``csv.QUOTE_NONNUMERIC``"""
 
 
