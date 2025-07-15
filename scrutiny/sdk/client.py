@@ -1562,6 +1562,7 @@ class ScrutinyClient:
         """
         timeout = validation.assert_float_range(timeout, 'timeout', minval=0)
         self._threading_events.server_status_updated.clear()
+        self.logger.debug("Waiting for status after connect")
         self._threading_events.server_status_updated.wait(timeout=timeout)
 
         if not self._threading_events.server_status_updated.is_set():
