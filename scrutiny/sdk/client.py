@@ -341,7 +341,7 @@ class ScrutinyClient:
             """The firmware ID that matches the SFD"""
 
             def msg(self) -> str:
-                return f"Server has loaded a Firmware Decription with firmware ID: {self.firmware_id}"
+                return f"Server has loaded a Firmware Description with firmware ID: {self.firmware_id}"
 
         @dataclass(frozen=True)
         class SFDUnLoadedEvent:
@@ -351,7 +351,7 @@ class ScrutinyClient:
             """The firmware ID that matches the SFD"""
 
             def msg(self) -> str:
-                return f"Server has unloaded a Firmware Decription with firmware ID: {self.firmware_id}"
+                return f"Server has unloaded a Firmware Description with firmware ID: {self.firmware_id}"
 
         @dataclass(frozen=True)
         class DataloggingStateChanged:
@@ -487,7 +487,7 @@ class ScrutinyClient:
     _active_batch_context: Optional[BatchWriteContext]  # The active write batch. All writes are appended to it if not None
 
     _listeners: List[listeners.BaseListener]   # List of registered listeners
-    _event_queue: "queue.Queue[Events._ANY_EVENTS]"  # A queue containing all the events lsitened for
+    _event_queue: "queue.Queue[Events._ANY_EVENTS]"  # A queue containing all the events listened for
     _enabled_events: int                             # Flags indicating what events to listen for
     _datarate_measurements: DataRateMeasurements     # A measurement of the datarate with the server
     _server_timebase: RelativeTimebase          # A timebase that can convert server precise timings to unix timestamp.
@@ -2215,7 +2215,7 @@ class ScrutinyClient:
         :raise TypeError: Given parameter not of the expected type
         :raise OperationFailure: If the command completion fails
 
-        :return: A dictionnary containing the number of watchables, classified by type
+        :return: A dictionary containing the number of watchables, classified by type
         """
         req = self._make_request(API.Command.Client2Api.GET_WATCHABLE_COUNT)
 
