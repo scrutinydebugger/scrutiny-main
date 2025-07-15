@@ -761,6 +761,7 @@ class ScrutinyClient:
         if self._request_status_timer.is_timed_out() or self._require_status_update:
             self._require_status_update = False
             self._request_status_timer.stop()
+            self.logger.debug("Requesting server status update")
             req = self._make_request(API.Command.Client2Api.GET_SERVER_STATUS)
             self._send(req)  # No callback, we have a continuous listener
 
