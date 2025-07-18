@@ -104,7 +104,6 @@ class TypeDescriptor:
     type: TypeOfVar
     enum_die: Optional[DIE]
     type_die: DIE
-    typedef_die:Optional[DIE]
 
 class Architecture(Enum):
     UNKNOWN=auto()
@@ -115,6 +114,7 @@ class Compiler(Enum):
     TI_C28_CGT=auto()
     CLANG=auto()
     GCC=auto()
+    Tasking=auto()
 
 def get_linenumber() -> int:
     """Return the line number of the caller"""
@@ -207,6 +207,7 @@ class ElfDwarfVarExtractor:
     logger: logging.Logger
     _ignore_cu_patterns:List[str]
     _path_ignore_patterns:List[str]
+    _anonymous_type_typedef_map:Dict[DIE, List[DIE] ]
 
     _context:Context
 
@@ -218,6 +219,7 @@ class ElfDwarfVarExtractor:
         self.varmap = VarMap()    # This is what we want to generate.
         self.die2typeid_map = {}
         self.die2vartype_map = {}
+        self._anonymous_type_typedef_map = {}
         self.cu_name_map = {}   # maps a CompileUnit object to it's unique display name
         self.enum_die_map = {}
         self.struct_die_map = {}
@@ -336,7 +338,13 @@ class ElfDwarfVarExtractor:
         self._log_debug_process_die(die)
         return die.get_DIE_from_attribute(Attrs.DW_AT_abstract_origin)
 
-    def get_name(self, die: DIE, default: Optional[str] = None, nolog: bool = False, raise_if_none:bool = False, no_tag_default:bool=False) -> Optional[str]:
+    def get_name(self, 
+                 die: DIE, 
+                 default: Optional[str] = None, 
+                 nolog: bool = False, 
+                 raise_if_none:bool = False, 
+                 no_tag_default:bool=False) -> Optional[str]:
+        
         if not nolog:
             self._log_debug_process_die(die)
         if Attrs.DW_AT_name in die.attributes:
@@ -344,7 +352,14 @@ class ElfDwarfVarExtractor:
 
         if default is not None:
             return default
-        
+
+        # Check if we have a DIE already identified as an anonymous class/struct/union/enum. Use the typedef if there4
+        if die in self._anonymous_type_typedef_map:
+            typedef_die = self._anonymous_type_typedef_map[die][0]
+            name =  self.get_name(typedef_die, default=default, nolog=nolog, raise_if_none=raise_if_none)
+            if name is not None:
+                return name
+
         if die.tag in self.DEFAULTS_NAMES and no_tag_default is False:
             return self.DEFAULTS_NAMES[die.tag]
         
@@ -550,6 +565,7 @@ class ElfDwarfVarExtractor:
                     if not bad_support_warning_written:
                         bad_support_warning_written = True
                         self.logger.warning(f"DWARF format version {cu.header['version']} is not well supported, output may be incomplete")
+                self.build_typedef_map_recursive(die)
                 self.extract_var_recursive(die)  # Recursion start point
 
     def _identify_arch(self) -> Architecture:
@@ -572,6 +588,8 @@ class ElfDwarfVarExtractor:
                 return Compiler.CLANG
             if 'gnu' in producer:
                 return Compiler.GCC
+            if 'tasking' in producer:
+                return Compiler.Tasking
             
         return Compiler.UNKNOWN
     
@@ -601,6 +619,16 @@ class ElfDwarfVarExtractor:
             allow = False
 
         return allow
+
+    def build_typedef_map_recursive(self, die:DIE) -> None:
+        if die.tag == Tags.DW_TAG_typedef:
+            self.die_process_typedef(die)
+        
+        for child in die.iter_children():
+            try:
+                self.build_typedef_map_recursive(child)
+            except Exception as e:
+                tools.log_exception(self.logger, e, f"Failed to scan typedefs var under {child}.")
 
     def extract_var_recursive(self, die: DIE) -> None:
         # Finds all "variable" tags and create an entry in the varmap.
@@ -643,13 +671,11 @@ class ElfDwarfVarExtractor:
         self.die2typeid_map[die] = self.varmap.get_type_id(name)
         self.die2vartype_map[die] = basetype
     
-    def read_enum_die_name(self, die:DIE, typedef_die:Optional[DIE]=None) -> str:
+    def read_enum_die_name(self, die:DIE) -> str:
         """Reads the name of the enum die"""
         mangled_name:Optional[str] = None
         name = self.get_name(die, no_tag_default=True)
-        if name is None and typedef_die is not None:
-            name = self.get_name(typedef_die, no_tag_default=True)
-        
+
         if name is not None:
             if self._context.cu_compiler == Compiler.TI_C28_CGT:
                 if Attrs.DW_AT_name in die.attributes:
@@ -669,11 +695,12 @@ class ElfDwarfVarExtractor:
 
         return name
 
-    def die_process_enum(self, die: DIE, typedef_die:Optional[DIE]) -> None:
+    def die_process_enum(self, die: DIE) -> None:
         self._log_debug_process_die(die)
     
-        name = self.read_enum_die_name(die, typedef_die)
-        if die not in self.enum_die_map and name is not None:
+        name = self.read_enum_die_name(die)
+
+        if die not in self.enum_die_map:
             enum = EmbeddedEnum(name)
 
             for child in die.iter_children():
@@ -700,28 +727,25 @@ class ElfDwarfVarExtractor:
         self._log_debug_process_die(die)
         prevdie = die
         enum: Optional[DIE] = None
-        typedef_die:Optional[DIE] = None
         while True:
             nextdie = prevdie.get_DIE_from_attribute(Attrs.DW_AT_type)
             if nextdie.tag == Tags.DW_TAG_structure_type:
-                return TypeDescriptor(TypeOfVar.Struct, enum, nextdie, typedef_die=typedef_die)
+                return TypeDescriptor(TypeOfVar.Struct, enum, nextdie)
             elif nextdie.tag == Tags.DW_TAG_class_type:
-                return TypeDescriptor(TypeOfVar.Class, enum, nextdie, typedef_die=typedef_die)
+                return TypeDescriptor(TypeOfVar.Class, enum, nextdie)
             elif nextdie.tag == Tags.DW_TAG_array_type:
-                return TypeDescriptor(TypeOfVar.Array, enum, nextdie, typedef_die=typedef_die)
+                return TypeDescriptor(TypeOfVar.Array, enum, nextdie)
             elif nextdie.tag == Tags.DW_TAG_base_type:
-                return TypeDescriptor(TypeOfVar.BaseType, enum, nextdie, typedef_die=typedef_die)
+                return TypeDescriptor(TypeOfVar.BaseType, enum, nextdie)
             elif nextdie.tag == Tags.DW_TAG_pointer_type:
-                return TypeDescriptor(TypeOfVar.Pointer, enum, nextdie, typedef_die=typedef_die)
+                return TypeDescriptor(TypeOfVar.Pointer, enum, nextdie)
             elif nextdie.tag == Tags.DW_TAG_union_type:
-                return TypeDescriptor(TypeOfVar.Union, enum, nextdie, typedef_die=typedef_die)
-            elif nextdie.tag == Tags.DW_TAG_typedef:
-                typedef_die = nextdie
+                return TypeDescriptor(TypeOfVar.Union, enum, nextdie)
             elif nextdie.tag == Tags.DW_TAG_enumeration_type:
                 enum = nextdie  # Will resolve on next iteration (if a type is available)
                 if Attrs.DW_AT_type not in nextdie.attributes:  # Clang dwarfv2 may not have type, but has a byte size
                     if Attrs.DW_AT_byte_size in nextdie.attributes:
-                        return TypeDescriptor(TypeOfVar.EnumOnly, enum, type_die=enum, typedef_die=typedef_die)
+                        return TypeDescriptor(TypeOfVar.EnumOnly, enum, type_die=enum)
                     else:
                         raise ElfParsingError(f"Cannot find the enum underlying type {enum}")
 
@@ -825,7 +849,7 @@ class ElfDwarfVarExtractor:
             typename = None
         elif type_desc.type in (TypeOfVar.BaseType, TypeOfVar.EnumOnly):
             if type_desc.enum_die is not None:
-                self.die_process_enum(type_desc.enum_die, type_desc.typedef_die)
+                self.die_process_enum(type_desc.enum_die)
                 enum = self.enum_die_map[type_desc.enum_die]
 
             if type_desc.type == TypeOfVar.BaseType:
@@ -1021,7 +1045,7 @@ class ElfDwarfVarExtractor:
 
                     enum: Optional[EmbeddedEnum] = None
                     if type_desc.enum_die is not None:
-                        self.die_process_enum(type_desc.enum_die, type_desc.typedef_die)
+                        self.die_process_enum(type_desc.enum_die)
                         enum = self.enum_die_map[type_desc.enum_die]
 
                     if type_desc.type == TypeOfVar.BaseType:   # Most common case
@@ -1045,6 +1069,17 @@ class ElfDwarfVarExtractor:
                 else:
                     self.logger.warning(
                         f"Line {get_linenumber()}: Found a variable with a type die {self._make_name_for_log(type_desc.type_die)} (type={type_desc.type.name}). Not supported yet")
+
+    def die_process_typedef(self, die:DIE) -> None:
+        if Attrs.DW_AT_type in die.attributes:
+            type_die = die.get_DIE_from_attribute(Attrs.DW_AT_type)
+            # Any type that can be declared as anonymous
+            if type_die.tag in (Tags.DW_TAG_class_type, Tags.DW_TAG_structure_type, Tags.DW_TAG_union_type, Tags.DW_TAG_enumeration_type):
+                is_anonymous = self.get_name(type_die, default='') == ''
+                if is_anonymous:
+                    if type_die not in self._anonymous_type_typedef_map:
+                        self._anonymous_type_typedef_map[type_die] = []
+                    self._anonymous_type_typedef_map[type_die].append(die)
 
     def make_varpath_recursive(self, die:DIE, segments:List[str]) -> List[str]:
         if die.tag == Tags.DW_TAG_compile_unit:
