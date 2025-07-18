@@ -1,87 +1,13 @@
 
-import elftools.elf
-import elftools.elf.elffile
 import unittest
 
-from scrutiny.core.varmap import VarMap
 from scrutiny.core.basic_types import *
 from scrutiny.core.variable import *
-from scrutiny.core.bintools.elf_dwarf_var_extractor import ElfDwarfVarExtractor
-from scrutiny.core.memory_content import MemoryContent
-from scrutiny.exceptions import EnvionmentNotSetUpException
-from test import SkipOnException
-import elftools
 
+from test.cli.base_varmap_test import BaseVarmapTest
 
-class BaseCustomeTestArm32R52_ArmNoneEabiGcc10_2:
-
-    @classmethod
-    def setUpClass(cls):
-        cls.init_exception = None
-        try:
-            extractor = ElfDwarfVarExtractor(cls.bin_filename, cppfilt='arm-none-eabi-c++filt')
-            varmap = extractor.get_varmap()
-            cls.varmap = VarMap(varmap.get_json())
-            cls.memdump = MemoryContent(cls.memdump_filename)
-        except Exception as e:
-            cls.init_exception = e  # Let's remember the exception and throw it for each test for good logging.
-
-    @SkipOnException(EnvionmentNotSetUpException)
-    def setUp(self) -> None:
-        if self.init_exception is not None:
-            raise self.init_exception
-
-    def load_var(self, fullname):
-        return self.varmap.get_var(fullname)
-
-    def assert_var(self, fullname, thetype, addr=None, bitsize=None, bitoffset=None, value_at_loc=None, float_tol=0.00001):
-        v = self.load_var(fullname)
-        self.assertEqual(thetype, v.get_type())
-
-        if bitsize is not None:
-            self.assertEqual(v.bitsize, bitsize)
-
-        if bitoffset is not None:
-            self.assertEqual(v.bitoffset, bitoffset)
-
-        if addr is not None:
-            self.assertEqual(addr, v.get_address())
-
-        if value_at_loc is not None:
-            data = self.memdump.read(v.get_address(), v.get_size())
-            val = v.decode(data)
-            if thetype in [EmbeddedDataType.float32, EmbeddedDataType.float64]:
-                self.assertAlmostEqual(val, value_at_loc, delta=float_tol)
-            else:
-                self.assertEqual(val, value_at_loc)
-        return v
-
-    def assert_dwarf_version(self, binname: str, version: int):
-        with open(binname, 'rb') as f:
-            elffile = elftools.elf.elffile.ELFFile(f)
-
-            self.assertTrue(elffile.has_dwarf_info())
-
-            dwarfinfo = elffile.get_dwarf_info()
-            tested_count = 0
-            for cu in dwarfinfo.iter_CUs():
-                top_die = cu.get_top_DIE()
-                if 'DW_AT_comp_dir' in top_die.attributes:
-                    comp_dir = top_die.attributes['DW_AT_comp_dir'].value.decode()
-                    if '/home/py' in comp_dir:  # Filter out Compile Units provided by the compiler that are all dwarf4
-                        tested_count +=1
-                        self.assertEqual(cu.header['version'], version)
-            
-            self.assertGreater(tested_count, 3, "No compile unit were tested against the dwarf version. Double check the filter used.")
-
-    def assert_is_enum(self, v):
-        self.assertIsNotNone(v.enum)
-
-    def assert_has_enum(self, v, name: str, value: int):
-        self.assert_is_enum(v)
-        value2 = v.enum.get_value(name)
-        self.assertIsNotNone(value2)
-        self.assertEqual(value2, value)
+class BaseCustomeTestArm32R52_ArmNoneEabiGcc10_2(BaseVarmapTest):
+    _CPP_FILT = 'arm-none-eabi-c++filt'
 
     # char is uint8
     # long is int32

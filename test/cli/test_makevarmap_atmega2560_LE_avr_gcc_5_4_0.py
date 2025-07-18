@@ -8,15 +8,11 @@
 
 import unittest
 
-from scrutiny.core.varmap import VarMap
 from scrutiny.core.basic_types import *
 from scrutiny.core.variable import *
-from scrutiny.core.bintools.elf_dwarf_var_extractor import ElfDwarfVarExtractor
-from scrutiny.core.memory_content import MemoryContent
-from scrutiny.exceptions import EnvionmentNotSetUpException
-from test import SkipOnException
 from test.artifacts import get_artifact
 from test import ScrutinyUnitTest
+from test.cli.base_varmap_test import BaseVarmapTest
 
 from scrutiny.tools.typing import *
 
@@ -152,65 +148,13 @@ known_enums = {
 }
 
 
-class TestMakeVarMap_ATMega2560_LE_avr_gcc_5_4_0(ScrutinyUnitTest):
+class TestMakeVarMap_ATMega2560_LE_avr_gcc_5_4_0(BaseVarmapTest, ScrutinyUnitTest):
     init_exception: Optional[Exception]
     bin_filename = get_artifact('scrutiny-nsec2024_untagged.elf')
+    memdump_filename = None #  Not available
 
-    @classmethod
-    def setUpClass(cls):
-        cls.init_exception = None
-        try:
-            extractor = ElfDwarfVarExtractor(cls.bin_filename, cppfilt='avr-c++filt')
-            varmap = extractor.get_varmap()
-            cls.varmap = VarMap(varmap.get_json())
-        except Exception as e:
-            cls.init_exception = e  # Let's remember the exception and throw it for each test for good logging.
-
-    @SkipOnException(EnvionmentNotSetUpException)
-    def setUp(self) -> None:
-        if self.init_exception is not None:
-            raise self.init_exception
-
-    def load_var(self, fullname):
-        return self.varmap.get_var(fullname)
-
-    def assert_var(self, fullname, thetype, addr=None, bitsize=None, bitoffset=None, enum: Optional[str] = None):
-        v = self.load_var(fullname)
-        self.assertEqual(thetype, v.get_type())
-
-        if bitsize is not None:
-            self.assertEqual(v.bitsize, bitsize)
-
-        if bitoffset is not None:
-            self.assertEqual(v.bitoffset, bitoffset)
-
-        if addr is not None:
-            self.assertEqual(addr, v.get_address())
-
-        if enum is not None:
-            self.assertIn(enum, known_enums)
-            self.assertIsNotNone(v.enum)
-            for key, value in known_enums[enum].items():
-                value2 = v.enum.get_value(key)
-                self.assertIsNotNone(value2)
-                self.assertEqual(value2, value)
-        else:
-            self.assertIsNone(v.enum)
-
-        return v
-
-    def assert_is_enum(self, v):
-        self.assertIsNotNone(v.enum)
-
-    def assert_has_enum(self, v, name: str, value: int):
-        self.assert_is_enum(v)
-        value2 = v.enum.get_value(name)
-        self.assertIsNotNone(value2)
-        self.assertEqual(value2, value)
-
-    def test_env(self):
-        self.assertEqual(self.varmap.endianness, Endianness.Little)
-
+    _CPP_FILT = 'avr-c++filt'
+   
     def test_main_cpp(self):
         self.assert_var('/static/main.cpp/task_100hz()/var_100hz', EmbeddedDataType.uint32)
         self.assert_var('/static/main.cpp/task_1hz()/var_1hz', EmbeddedDataType.uint32)

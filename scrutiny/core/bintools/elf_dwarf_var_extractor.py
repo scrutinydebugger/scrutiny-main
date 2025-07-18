@@ -207,7 +207,7 @@ class ElfDwarfVarExtractor:
     logger: logging.Logger
     _ignore_cu_patterns:List[str]
     _path_ignore_patterns:List[str]
-    _anonymous_type_typedef_map:Dict[DIE, List[DIE] ]
+    _anonymous_type_typedef_map:Dict[DIE, DIE]
 
     _context:Context
 
@@ -353,9 +353,9 @@ class ElfDwarfVarExtractor:
         if default is not None:
             return default
 
-        # Check if we have a DIE already identified as an anonymous class/struct/union/enum. Use the typedef if there4
+        # Check if we have a DIE already identified as an anonymous class/struct/union/enum. Use the typedef if there is one
         if die in self._anonymous_type_typedef_map:
-            typedef_die = self._anonymous_type_typedef_map[die][0]
+            typedef_die = self._anonymous_type_typedef_map[die]
             name =  self.get_name(typedef_die, default=default, nolog=nolog, raise_if_none=raise_if_none)
             if name is not None:
                 return name
@@ -700,7 +700,7 @@ class ElfDwarfVarExtractor:
     
         name = self.read_enum_die_name(die)
 
-        if die not in self.enum_die_map:
+        if die not in self.enum_die_map and name is not None:
             enum = EmbeddedEnum(name)
 
             for child in die.iter_children():
@@ -1070,16 +1070,14 @@ class ElfDwarfVarExtractor:
                     self.logger.warning(
                         f"Line {get_linenumber()}: Found a variable with a type die {self._make_name_for_log(type_desc.type_die)} (type={type_desc.type.name}). Not supported yet")
 
-    def die_process_typedef(self, die:DIE) -> None:
-        if Attrs.DW_AT_type in die.attributes:
-            type_die = die.get_DIE_from_attribute(Attrs.DW_AT_type)
+    def die_process_typedef(self, typedef_die:DIE) -> None:
+        if Attrs.DW_AT_type in typedef_die.attributes:
+            type_die = typedef_die.get_DIE_from_attribute(Attrs.DW_AT_type)
             # Any type that can be declared as anonymous
             if type_die.tag in (Tags.DW_TAG_class_type, Tags.DW_TAG_structure_type, Tags.DW_TAG_union_type, Tags.DW_TAG_enumeration_type):
                 is_anonymous = self.get_name(type_die, no_tag_default=True) is None
                 if is_anonymous:
-                    if type_die not in self._anonymous_type_typedef_map:
-                        self._anonymous_type_typedef_map[type_die] = []
-                    self._anonymous_type_typedef_map[type_die].append(die)
+                    self._anonymous_type_typedef_map[type_die] = typedef_die
 
     def make_varpath_recursive(self, die:DIE, segments:List[str]) -> List[str]:
         if die.tag == Tags.DW_TAG_compile_unit:
