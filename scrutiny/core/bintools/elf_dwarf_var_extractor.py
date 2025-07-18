@@ -1075,7 +1075,7 @@ class ElfDwarfVarExtractor:
             type_die = die.get_DIE_from_attribute(Attrs.DW_AT_type)
             # Any type that can be declared as anonymous
             if type_die.tag in (Tags.DW_TAG_class_type, Tags.DW_TAG_structure_type, Tags.DW_TAG_union_type, Tags.DW_TAG_enumeration_type):
-                is_anonymous = self.get_name(type_die, default='') == ''
+                is_anonymous = self.get_name(type_die, no_tag_default=True) is None
                 if is_anonymous:
                     if type_die not in self._anonymous_type_typedef_map:
                         self._anonymous_type_typedef_map[type_die] = []
