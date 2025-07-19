@@ -18,7 +18,7 @@ import logging
 import copy
 import enum
 import queue
-from sortedcontainers import SortedSet  # type: ignore
+from sortedcontainers import SortedSet
 
 from scrutiny.server.protocol import *
 from scrutiny.server.timebase import server_timebase
@@ -158,8 +158,9 @@ class MemoryReader:
     max_request_payload_size: int   # Maximum size for a request payload gotten from the InfoPoller
     max_response_payload_size: int  # Maximum size for a response payload gotten from the InfoPoller
     forbidden_regions: List[MemoryRegion]    # List of memory regions to avoid. Gotten from InfoPoller
-    watched_var_entries_sorted_by_address: SortedSet    # Set of entries referring variables sorted by address
-    watched_rpv_entries_sorted_by_id: SortedSet         # Set of entries referring RuntimePublishedValues (RPV) sorted by ID
+    watched_var_entries_sorted_by_address: SortedSet[DataStoreEntrySortableByAddress]    # Set of entries referring variables sorted by address
+    # Set of entries referring RuntimePublishedValues (RPV) sorted by ID
+    watched_rpv_entries_sorted_by_id: SortedSet[DataStoreEntrySortableByRpvId]
     memory_read_cursor: int     # Cursor used for round-robin inside the SortedSet of Variables datastore entries
     rpv_read_cursor: int        # Cursor used for round-robin inside the SortedSet of RPV datastore entries
     entries_in_pending_read_var_request: List[DatastoreVariableEntry]   # List of memory entries in the request we're waiting for
@@ -363,7 +364,7 @@ class MemoryReader:
         memory_to_read = MemoryContent(retain_data=False)  # We'll use that for agglomeration
         while len(entries_in_request) + skipped_entries_count < len(self.watched_var_entries_sorted_by_address):
             # .entry because we use a wrapper for SortedSet
-            candidate_entry = cast(DatastoreVariableEntry, self.watched_var_entries_sorted_by_address[self.memory_read_cursor].entry)
+            candidate_entry = self.watched_var_entries_sorted_by_address[self.memory_read_cursor].entry
             must_skip = False
 
             # Check for forbidden region. They disallow read and write
@@ -423,7 +424,7 @@ class MemoryReader:
             self.rpv_read_cursor = 0
 
         while len(entries_in_request) < len(self.watched_rpv_entries_sorted_by_id):
-            next_entry = cast(DatastoreRPVEntry, self.watched_rpv_entries_sorted_by_id[self.rpv_read_cursor].entry)
+            next_entry = self.watched_rpv_entries_sorted_by_id[self.rpv_read_cursor].entry
 
             candidate_list = entries_in_request + [next_entry]
             rpv_candidate_list = [x.get_rpv() for x in candidate_list]

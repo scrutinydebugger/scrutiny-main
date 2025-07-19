@@ -33,6 +33,7 @@ from scrutiny.tools.typing import *
 
 DataloggingStateChangedCallback = Callable[[api_datalogging.DataloggingState, Optional[float]], None]
 
+
 class FsmState(enum.Enum):
     INIT = enum.auto()
     WAIT_DEVICE_CONNECTED = enum.auto()
@@ -60,8 +61,8 @@ class DataloggingManager:
     logger: logging.Logger  # Logger
     state: FsmState
     previous_state: FsmState
-    _previous_datalogging_state_and_completion:Tuple[api_datalogging.DataloggingState, Optional[float]]
-    _datalogging_state_changed_callbacks:List[DataloggingStateChangedCallback]
+    _previous_datalogging_state_and_completion: Tuple[api_datalogging.DataloggingState, Optional[float]]
+    _datalogging_state_changed_callbacks: List[DataloggingStateChangedCallback]
 
     TIME_PRECISION_DIGIT = 9    # Device precision is 1e-7. 9 digits is more than enough.
 
@@ -220,7 +221,7 @@ class DataloggingManager:
                 # -1 because we are 0 based. min(a,b)-1 = min(a-1, b-1)
                 trigger_index = max(0, min(metadata.number_of_points - metadata.points_after_trigger, metadata.number_of_points) - 1)
                 acquisition.set_trigger_index(trigger_index)
-                DataloggingStorage.save(acquisition)                
+                DataloggingStorage.save(acquisition)
             else:
                 # acquisition will be None here
                 self.logger.info("Failed to acquire acquisition. " + str(detail_msg))
@@ -361,7 +362,7 @@ class DataloggingManager:
             next_state = FsmState.INIT
 
         api_datalogging_state_and_completion = self.get_datalogging_state()
-        
+
         if api_datalogging_state_and_completion != self._previous_datalogging_state_and_completion:
             for callback in self._datalogging_state_changed_callbacks:
                 datalogging_state = api_datalogging_state_and_completion[0]
@@ -557,13 +558,12 @@ class DataloggingManager:
                             output.append(rate)
         return output
 
-
     def get_datalogging_state(self) -> Tuple[api_datalogging.DataloggingState, Optional[float]]:
         if self.state != FsmState.DEVICE_CONNECTED_WITH_DATALOGGING:
             return (api_datalogging.DataloggingState.NA, None)
 
         dl_state = self.device_handler.get_datalogger_state()
-        
+
         if dl_state in [device_datalogging.DataloggerState.IDLE, device_datalogging.DataloggerState.CONFIGURED]:
             return (api_datalogging.DataloggingState.Standby, None)
 
@@ -573,16 +573,15 @@ class DataloggingManager:
         if dl_state in [device_datalogging.DataloggerState.TRIGGERED]:
             acquire_pu = self.device_handler.get_datalogging_acquisition_completion_ratio()
             return (api_datalogging.DataloggingState.Acquiring, acquire_pu)
-        
+
         if dl_state in [device_datalogging.DataloggerState.ACQUISITION_COMPLETED]:
             download_pu = self.device_handler.get_datalogging_acquisition_download_progress()
             return (api_datalogging.DataloggingState.Downloading, download_pu)
-        
+
         if dl_state in [device_datalogging.DataloggerState.ERROR]:
             return (api_datalogging.DataloggingState.Error, None)
-        
-        return (api_datalogging.DataloggingState.NA, None)
 
+        return (api_datalogging.DataloggingState.NA, None)
 
     def register_datalogging_state_change_callback(self, callback: DataloggingStateChangedCallback) -> None:
         """Register a callback to be called when the state or the completion ratio of the datalogger changes"""
@@ -591,11 +590,11 @@ class DataloggingManager:
     def is_device_connected(self) -> bool:
         """Tells if a device is connected and the datalogging manager is ready to operate with it"""
         return self.state in [FsmState.DEVICE_CONNECTED_WITH_DATALOGGING, FsmState.DEVICE_CONNECTED_NO_DATALOGGING]
-    
+
     def is_device_connected_with_datalogging(self) -> bool:
         """Tells if the datalogging manager sees a device connected that has datalogging feature and ready to operate it"""
         return self.state == FsmState.DEVICE_CONNECTED_WITH_DATALOGGING
-    
+
     def is_device_connected_without_datalogging(self) -> bool:
         """Tells if the datalogging manager sees a device connected that without datalogging feature. """
         return self.state == FsmState.DEVICE_CONNECTED_NO_DATALOGGING

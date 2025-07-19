@@ -264,5 +264,3 @@ class DataloggingState(enum.Enum):
     """The datalogger has finished logging and data is being transferred to the server"""
     Error = 5
     """The datalogger has encountered a problem and is not operational"""
-
-    

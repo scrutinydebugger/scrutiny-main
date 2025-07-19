@@ -11,6 +11,7 @@ class TestCustomeTestArm32R52_ArmNoneEabiGcc10_2_Dwarf3(BaseCustomeTestArm32R52_
     def test_dwarf_version(self):
         self.assert_dwarf_version(self.bin_filename, 3)
 
+
 if __name__ == '__main__':
     import unittest
     unittest.main()

@@ -419,7 +419,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
                 signal_tree_model.removeRows(0, signal_tree_model.rowCount())
                 self.logger.warning(f"Invalid signal list. {e}")
                 raise e
-            
+
             self._signal_tree.update_all_availabilities()
 
         if log_and_suppress_exceptions.exception_logged:

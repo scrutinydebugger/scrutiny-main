@@ -166,7 +166,7 @@ class VarMap:
 
         if self.logger.isEnabledFor(logging.DEBUG):  # pragma: no cover
             self.logger.debug(f"Adding {fullname}")
-    
+
         if not self.is_known_type(original_type_name):
             raise ValueError('Cannot add variable of type %s. Type has not been registered yet' % (original_type_name))
 
@@ -289,6 +289,16 @@ class VarMap:
             enum_def = self.enums[enum_id]
             return EmbeddedEnum.from_def(enum_def)
         return None
+
+    def get_enum_by_name(self, name: str) -> Generator[EmbeddedEnum, None, None]:
+        found = False
+        for enumdef in self.enums.values():
+            if name == enumdef['name']:
+                found = True
+                yield EmbeddedEnum.from_def(enumdef)
+
+        if not found:
+            raise KeyError(f"No enum with name {name}")
 
     def iterate_vars(self) -> Generator[Tuple[str, Variable], None, None]:
         for fullname in self.variables:
