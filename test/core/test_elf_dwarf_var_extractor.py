@@ -8,7 +8,7 @@
 
 import re
 from test import ScrutinyUnitTest
-from scrutiny.core.bintools.elf_dwarf_var_extractor import ElfDwarfVarExtractor, CuName
+from scrutiny.core.bintools.elf_dwarf_var_extractor import ElfDwarfVarExtractor
 
 from scrutiny.tools.typing import *
 

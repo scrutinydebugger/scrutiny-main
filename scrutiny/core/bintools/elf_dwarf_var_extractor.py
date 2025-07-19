@@ -153,6 +153,16 @@ class CuName:
         if not isinstance(other, CuName):
             return False
         return self.fullpath == other.fullpath
+    
+    def __lt__(self, other:object) -> bool:
+        if not isinstance(other, CuName):
+            return False
+        return self.fullpath < other.fullpath
+    
+    def __gt__(self, other:object) -> bool:
+        if not isinstance(other, CuName):
+            return False
+        return self.fullpath > other.fullpath
 
     def __init__(self, fullpath: str) -> None:
         self.fullpath = fullpath    # Must stay untouched.
