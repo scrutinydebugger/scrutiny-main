@@ -8,83 +8,34 @@
 
 import unittest
 
-import elftools.elf
-import elftools.elf.elffile
-
-from scrutiny.core.varmap import VarMap
 from scrutiny.core.basic_types import *
 from scrutiny.core.variable import *
-from scrutiny.core.bintools.elf_dwarf_var_extractor import ElfDwarfVarExtractor
-from scrutiny.core.memory_content import MemoryContent
-from scrutiny.exceptions import EnvionmentNotSetUpException
-from test import SkipOnException
-import elftools
-
 from scrutiny.tools.typing import *
+from test.cli.base_varmap_test import BaseVarmapTest, KnownEnumTypedDict
+
+KNOWN_ENUMS: KnownEnumTypedDict = {
+    'EnumA': {
+        'name': 'EnumA',
+        'values': {
+            "eVal1": 0,
+            "eVal2": 1,
+            "eVal3": 100,
+            "eVal4": 101
+        }
+    },
+    'File3EnumInClass': {
+        "name": "File3EnumInClass",
+        "values": {
+            "AAA": 0,
+            "BBB": 1,
+            "CCC": 2
+        }
+    }
+}
 
 
-class BaseTestAppMakeVarmapTest:
-    init_exception: Optional[Exception]
-
-    @classmethod
-    def setUpClass(cls):
-        cls.init_exception = None
-        try:
-            extractor = ElfDwarfVarExtractor(cls.bin_filename)
-            varmap = extractor.get_varmap()
-            cls.varmap = VarMap(varmap.get_json())
-            cls.memdump = MemoryContent(cls.memdump_filename)
-        except Exception as e:
-            cls.init_exception = e  # Let's remember the exception and throw it for each test for good logging.
-
-    @SkipOnException(EnvionmentNotSetUpException)
-    def setUp(self) -> None:
-        if self.init_exception is not None:
-            raise self.init_exception
-
-    def load_var(self, fullname):
-        return self.varmap.get_var(fullname)
-
-    def assert_var(self, fullname, thetype, addr=None, bitsize=None, bitoffset=None, value_at_loc=None, float_tol=0.00001):
-        v = self.load_var(fullname)
-        self.assertEqual(thetype, v.get_type())
-
-        if bitsize is not None:
-            self.assertEqual(v.bitsize, bitsize)
-
-        if bitoffset is not None:
-            self.assertEqual(v.bitoffset, bitoffset)
-
-        if addr is not None:
-            self.assertEqual(addr, v.get_address())
-
-        if value_at_loc is not None:
-            data = self.memdump.read(v.get_address(), v.get_size())
-            val = v.decode(data)
-            if thetype in [EmbeddedDataType.float32, EmbeddedDataType.float64]:
-                self.assertAlmostEqual(val, value_at_loc, delta=float_tol)
-            else:
-                self.assertEqual(val, value_at_loc)
-        return v
-
-    def assert_dwarf_version(self, binname: str, version: int):
-        with open(binname, 'rb') as f:
-            elffile = elftools.elf.elffile.ELFFile(f)
-
-            self.assertTrue(elffile.has_dwarf_info())
-
-            dwarfinfo = elffile.get_dwarf_info()
-            for cu in dwarfinfo.iter_CUs():
-                self.assertEqual(cu.header['version'], version)
-
-    def assert_is_enum(self, v):
-        self.assertIsNotNone(v.enum)
-
-    def assert_has_enum(self, v, name: str, value: int):
-        self.assert_is_enum(v)
-        value2 = v.enum.get_value(name)
-        self.assertIsNotNone(value2)
-        self.assertEqual(value2, value)
+class BaseTestAppMakeVarmapTest(BaseVarmapTest):
+    known_enums = KNOWN_ENUMS
 
     def test_env(self):
         self.assertEqual(self.varmap.endianness, Endianness.Little)
@@ -155,11 +106,7 @@ class BaseTestAppMakeVarmapTest:
                         EmbeddedDataType.uint64, value_at_loc=945612345)
 
     def assert_is_enumA(self, fullpath, value_at_loc=None):
-        v = self.assert_var(fullpath, EmbeddedDataType.uint32, value_at_loc=value_at_loc)
-        self.assert_has_enum(v, 'eVal1', 0)
-        self.assert_has_enum(v, 'eVal2', 1)
-        self.assert_has_enum(v, 'eVal3', 100)
-        self.assert_has_enum(v, 'eVal4', 101)
+        return self.assert_var(fullpath, EmbeddedDataType.uint32, value_at_loc=value_at_loc, enum='EnumA')
 
     def test_enum(self):
         self.assert_is_enumA('/global/NamespaceInFile2/instance_enumA', value_at_loc=1)
@@ -244,8 +191,7 @@ class BaseTestAppMakeVarmapTest:
         self.assertEqual(v1.get_address(), v2.get_address())
         self.assertEqual(v1.get_address(), v3.get_address())
 
-        v = self.assert_var('/global/file3_test_class/m_file3testclass_inclassenum', EmbeddedDataType.uint32, value_at_loc=1)
-        self.assert_file3_is_EnumInClass(v)
+        self.assert_var('/global/file3_test_class/m_file3testclass_inclassenum', EmbeddedDataType.uint32, value_at_loc=1, enum='File3EnumInClass')
 
         self.assert_var('/global/file3_test_class/m_file3_complex_struct/field1', EmbeddedDataType.uint32, value_at_loc=0x11223344)
         self.assert_var('/global/file3_test_class/m_file3_complex_struct/field2', EmbeddedDataType.uint32, value_at_loc=0x55667788)
@@ -253,26 +199,11 @@ class BaseTestAppMakeVarmapTest:
         self.assert_var('/global/file3_test_class/m_file3_complex_struct/field3/field3_u16/p0', EmbeddedDataType.uint16, value_at_loc=0xBCC2)
         self.assert_var('/global/file3_test_class/m_file3_complex_struct/field3/field3_u32', EmbeddedDataType.uint32, value_at_loc=0xAA34BCC2)
 
-        v1 = self.assert_var('/global/file3_test_class/m_file3_complex_struct/field3/field3_enum_bitfields/p0', EmbeddedDataType.uint32,
-                             value_at_loc=2, bitoffset=0, bitsize=5)
-        v2 = self.assert_var('/global/file3_test_class/m_file3_complex_struct/field3/field3_enum_bitfields/p1', EmbeddedDataType.uint32,
-                             value_at_loc=0x66, bitoffset=5, bitsize=7)
-        v3 = self.assert_var('/global/file3_test_class/m_file3_complex_struct/field3/field3_enum_bitfields/p2', EmbeddedDataType.uint32,
-                             value_at_loc=0x34B, bitoffset=12, bitsize=10)
-        v4 = self.assert_var('/global/file3_test_class/m_file3_complex_struct/field3/field3_enum_bitfields/p3', EmbeddedDataType.uint32,
-                             value_at_loc=0x2A8, bitoffset=22, bitsize=10)
-
-        self.assert_file3_is_EnumInClass(v1)
-        self.assert_file3_is_EnumInClass(v2)
-        self.assert_file3_is_EnumInClass(v3)
-        self.assert_file3_is_EnumInClass(v4)
-
-    def assert_file3_is_EnumInClass(self, v):
-        self.assert_has_enum(v, 'AAA', 0)
-        self.assert_has_enum(v, 'BBB', 1)
-        self.assert_has_enum(v, 'CCC', 2)
-
-
-if __name__ == '__main__':
-    import unittest
-    unittest.main()
+        self.assert_var('/global/file3_test_class/m_file3_complex_struct/field3/field3_enum_bitfields/p0', EmbeddedDataType.uint32,
+                        value_at_loc=2, bitoffset=0, bitsize=5, enum='File3EnumInClass')
+        self.assert_var('/global/file3_test_class/m_file3_complex_struct/field3/field3_enum_bitfields/p1', EmbeddedDataType.uint32,
+                        value_at_loc=0x66, bitoffset=5, bitsize=7, enum='File3EnumInClass')
+        self.assert_var('/global/file3_test_class/m_file3_complex_struct/field3/field3_enum_bitfields/p2', EmbeddedDataType.uint32,
+                        value_at_loc=0x34B, bitoffset=12, bitsize=10, enum='File3EnumInClass')
+        self.assert_var('/global/file3_test_class/m_file3_complex_struct/field3/field3_enum_bitfields/p3', EmbeddedDataType.uint32,
+                        value_at_loc=0x2A8, bitoffset=22, bitsize=10, enum='File3EnumInClass')

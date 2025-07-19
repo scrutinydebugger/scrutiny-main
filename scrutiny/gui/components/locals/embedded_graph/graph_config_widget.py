@@ -29,11 +29,13 @@ from scrutiny import tools
 
 GetSignalDatatypeFn = Callable[[], List[EmbeddedDataType]]
 
+
 @dataclass
 class TimingEstimation:
-    duration:float
-    nb_samples:int
-    truncated:bool
+    duration: float
+    nb_samples: int
+    truncated: bool
+
 
 @dataclass
 class ValidationResult:
@@ -387,12 +389,12 @@ class GraphConfigWidget(QWidget):
             nb_samples = buffer_size // sample_size
             duration = nb_samples / effective_rate
             truncated = False
-         
+
             try:
                 timeout = float(self._txt_acquisition_timeout.text())
                 if timeout > 0:
                     if timeout < duration:
-                        truncated=True
+                        truncated = True
                     duration = min(duration, timeout)
                     nb_samples = math.floor(min(nb_samples, duration * effective_rate))
                     nb_samples = max(nb_samples, 1)
@@ -402,7 +404,7 @@ class GraphConfigWidget(QWidget):
                 pass
 
             return TimingEstimation(
-                duration = duration,
+                duration=duration,
                 nb_samples=nb_samples,
                 truncated=truncated
             )

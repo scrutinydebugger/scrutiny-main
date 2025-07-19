@@ -343,9 +343,9 @@ class FakeDataloggingManager:
     datastore: "datastore.Datastore"
     device_handler: FakeDeviceHandler
     acquisition_request_queue: "queue.Queue[Tuple[api_datalogging.AcquisitionRequest, api_datalogging.APIAcquisitionRequestCompletionCallback]]"
-    datalogging_state_changed_callbacks:List[DataloggingStateChangedCallback]
-    datalogging_state:api_datalogging.DataloggingState
-    datalogging_state_completion:Optional[float]
+    datalogging_state_changed_callbacks: List[DataloggingStateChangedCallback]
+    datalogging_state: api_datalogging.DataloggingState
+    datalogging_state_completion: Optional[float]
 
     SAMPLING_RATES = [
         api_datalogging.SamplingRate("100Hz", 100, api_datalogging.ExecLoopType.FIXED_FREQ, device_identifier=0),
@@ -361,15 +361,15 @@ class FakeDataloggingManager:
         self.datalogging_state = api_datalogging.DataloggingState.NA
         self.datalogging_state_completion = None
 
-    def register_datalogging_state_change_callback(self, callback:DataloggingStateChangedCallback) -> None:
+    def register_datalogging_state_change_callback(self, callback: DataloggingStateChangedCallback) -> None:
         self.datalogging_state_changed_callbacks.append(callback)
 
-    def set_datalogging_state(self, state:api_datalogging.DataloggingState, completion:Optional[float]) -> None:
+    def set_datalogging_state(self, state: api_datalogging.DataloggingState, completion: Optional[float]) -> None:
         self.datalogging_state = state
         self.datalogging_state_completion = completion
         for callback in self.datalogging_state_changed_callbacks:
             callback(state, completion)
-        
+
     def get_datalogging_state(self) -> Tuple[api_datalogging.DataloggingState, Optional[float]]:
         return (self.datalogging_state, self.datalogging_state_completion)
 
@@ -713,7 +713,6 @@ class TestClient(ScrutinyUnitTest):
         self.assertEqual(server_info.device_link.config.host, '127.0.0.1')
         self.assertEqual(server_info.device_link.config.port, 5555)
 
-        
         self.assertEqual(server_info.datalogging.state, sdk.DataloggingState.NA)
         self.assertIsNone(server_info.datalogging.completion_ratio, None)
 

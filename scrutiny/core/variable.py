@@ -157,6 +157,7 @@ class Struct:
             self.is_unnamed = is_unnamed
 
     name: str
+    is_anonymous: bool
     members: Dict[str, "Struct.Member"]
 
     def __init__(self, name: str) -> None:
