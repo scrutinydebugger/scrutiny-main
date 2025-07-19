@@ -12,11 +12,23 @@ from scrutiny.core.basic_types import *
 from scrutiny.core.variable import *
 
 from scrutiny.tools.typing import *
-from test.cli.base_varmap_test import BaseVarmapTest
+from test.cli.base_varmap_test import BaseVarmapTest, KnownEnumTypedDict
+
+KNOWN_ENUMS:KnownEnumTypedDict = {
+    'EnumA' : {
+        'name' : 'EnumA',
+        'values' : {
+            "eVal1" : 0,
+            "eVal2" : 1,
+            "eVal3" : 100,
+            "eVal4" : 101       
+        }
+    }
+}
+
 
 class BaseCTestAppMakeVarmapTest(BaseVarmapTest):
-    init_exception: Optional[Exception]
-
+    known_enums = KNOWN_ENUMS
 
     def test_file1_globals_basic_types(self):
         self.assert_var('/global/file1GlobalChar', EmbeddedDataType.sint8, value_at_loc=-10)
@@ -73,11 +85,7 @@ class BaseCTestAppMakeVarmapTest(BaseVarmapTest):
         self.assert_var('/static/file1.c/funcInFile1/staticLongInFuncFile1', EmbeddedDataType.sint64, value_at_loc=-0x123456789abcdef)
 
     def assert_is_enumA(self, fullpath, value_at_loc=None):
-        v = self.assert_var(fullpath, EmbeddedDataType.uint32, value_at_loc=value_at_loc)
-        self.assert_has_enum(v, 'eVal1', 0)
-        self.assert_has_enum(v, 'eVal2', 1)
-        self.assert_has_enum(v, 'eVal3', 100)
-        self.assert_has_enum(v, 'eVal4', 101)
+        return self.assert_var(fullpath, EmbeddedDataType.uint32, value_at_loc=value_at_loc, enum='EnumA')
 
     def test_enum(self):
         self.assert_is_enumA('/global/instance_enumA', value_at_loc=101)

@@ -13,6 +13,7 @@ from elftools.dwarf.die import DIE
 from elftools.dwarf.compileunit import CompileUnit
 from elftools.dwarf.dwarfinfo import DWARFInfo
 from elftools.elf.elffile import ELFFile
+from ordered_set import OrderedSet
 
 import os
 from enum import Enum, auto
@@ -139,20 +140,30 @@ class CuName:
     _class_internal_id = 0
     PATH_JOIN_CHAR = '_'
 
-    cu: CompileUnit
     fullpath: str
     filename: str
     display_name: str
     segments: List[str]
+    numbered_name:Optional[str]
 
-    def __init__(self, cu: CompileUnit, fullpath: str) -> None:
-        self.cu = cu
-        self.fullpath = os.path.normpath(fullpath)
+    def __hash__(self) -> int:
+        return self.fullpath.__hash__()
+
+    def __eq__(self, other:object) -> bool:
+        if not isinstance(other, CuName):
+            return False
+        return self.fullpath == other.fullpath
+
+    def __init__(self, fullpath: str) -> None:
+        self.fullpath = fullpath    # Must stay untouched.
         self.filename = os.path.basename(self.fullpath)
         self.display_name = self.filename
-        self.segments = os.path.split(self.fullpath)[0].split(os.sep)
+        self.segments = os.path.split(os.path.normpath(self.fullpath))[0].split(os.sep)
+        self.numbered_name = None
 
     def get_display_name(self) -> str:
+        if self.numbered_name is not None:
+            return self.numbered_name
         return self.display_name.replace('/', '-')
 
     def get_fullpath(self) -> str:
@@ -167,14 +178,16 @@ class CuName:
                 raise ElfParsingError('Cannot go up')
             self.display_name = self.PATH_JOIN_CHAR.join([last_dir, self.display_name])
         else:
-            raise ElfParsingError('Cannot go up')
 
-    def make_unique_numbered_name(self, name_set: Set[str]) -> str:
+            raise ElfParsingError('Cannot go up')
+    
+    def make_unique_numbered_name(self, name_set: Set[str]) -> None:
         i = 0
         while True:
             candidate = 'cu%d_%s' % (i, self.filename)
             if candidate not in name_set:
-                return candidate
+                self.numbered_name = candidate
+                return
             i += 1
 
 
@@ -193,7 +206,7 @@ class ElfDwarfVarExtractor:
 
     STATIC = 'static'
     GLOBAL = 'global'
-    MAX_CU_DISPLAY_NAME_LENGTH = 40
+    MAX_CU_DISPLAY_NAME_LENGTH = 64
     DW_OP_ADDR = 3
     DW_OP_plus_uconst = 0x23
 
@@ -260,7 +273,7 @@ class ElfDwarfVarExtractor:
     def make_cu_name_map(self, dwarfinfo: DWARFInfo) -> None:
         """ Builds a dictionary that maps a CompileUnit object to a unique displayable name """
 
-        fullpath_cu_tuple_list = []
+        fullpath_cu_map:Dict[str, List[CompileUnit]] = {}
         cu: CompileUnit
         for cu in dwarfinfo.iter_CUs():
             topdie: DIE = cu.get_top_DIE()
@@ -268,64 +281,59 @@ class ElfDwarfVarExtractor:
                 raise ElfParsingError('Top die should be a compile unit')
 
             comp_dir = None
-            name = self.get_name_no_none(topdie, 'unnamed_cu')
+            name = self.get_name_no_none(topdie, default='unnamed_cu')
             if Attrs.DW_AT_comp_dir in topdie.attributes:
                 comp_dir = topdie.attributes[Attrs.DW_AT_comp_dir].value.decode('utf8')
-                fullpath = os.path.join(comp_dir, name)
+                fullpath = os.path.normpath(os.path.join(comp_dir, name))
             else:
                 fullpath = os.path.abspath(name)
 
-            fullpath_cu_tuple_list.append((fullpath, cu))
+            if fullpath not in fullpath_cu_map:
+                fullpath_cu_map[fullpath] = []
+            fullpath_cu_map[fullpath].append(cu)
+        
+        fullpath_to_displayname_map = self.make_unique_display_name(list(fullpath_cu_map.keys()))
 
-        displayname_cu_tuple_list = self.make_unique_display_name(fullpath_cu_tuple_list)
-
-        for item in displayname_cu_tuple_list:
-            self.cu_name_map[item[1]] = item[0]
+        for fullpath, cu_list in fullpath_cu_map.items():
+            for cu in cu_list:
+                self.cu_name_map[cu] = fullpath_to_displayname_map[fullpath]
 
     @classmethod
-    def make_unique_display_name(cls, fullpath_cu_tuple_list: List[Tuple[str, CompileUnit]]) -> List[Tuple[str, CompileUnit]]:
-        displayname_map: Dict[str, List[CuName]] = {}
+    def make_unique_display_name(cls, fullpath_list: List[str]) -> Dict[str, str]:
+        cuname_set = OrderedSet([CuName(x) for x in sorted(fullpath_list)])
+        outmap:Dict[str, str] = {}
 
-        for item in fullpath_cu_tuple_list:
-            cuname = CuName(fullpath=item[0], cu=item[1])
-            display_name = cuname.get_display_name()
-            if display_name not in displayname_map:
-                displayname_map[display_name] = []
-            displayname_map[display_name].append(cuname)
+        display_name_set:Set[str] = set()
+        while len(cuname_set) > 0:
+            consumed_set:Set[CuName] = set()
+            for cuname in cuname_set:
+                display_name = cuname.get_display_name()
+                
+                identical_name_set:Set[CuName] = set()
+                for cuname2 in cuname_set:
+                    if cuname2.get_display_name() == display_name:
+                        identical_name_set.add(cuname2)
+                
+                if len(identical_name_set) == 1:
+                    display_name_set.add(display_name)
+                    consumed_set.add(cuname)
+                    outmap[cuname.fullpath] = display_name
+            
+            for consumed in consumed_set:
+                cuname_set.remove(consumed)
+            
+            # Those that are left had duplicate name.
+            # Change the name and try again
+            for cuname in cuname_set:   
+                try:
+                    cuname.go_up()
+                    if len(cuname.get_display_name()) > cls.MAX_CU_DISPLAY_NAME_LENGTH:
+                        raise ElfParsingError('Name too long')
+                except Exception:
+                    cuname.make_unique_numbered_name(display_name_set)
+                    
+        return outmap
 
-        while True:
-            duplicate_names = set()
-            name_set = set()
-            for display_name in displayname_map:
-                name_set.add(display_name)
-                if len(displayname_map[display_name]) > 1:
-                    duplicate_names.add(display_name)
-
-            if len(duplicate_names) == 0:
-                break
-
-            for display_name in duplicate_names:
-                for cuname in displayname_map[display_name]:
-                    try:
-                        cuname.go_up()
-                        newname = cuname.get_display_name()
-                        if len(newname) > cls.MAX_CU_DISPLAY_NAME_LENGTH:
-                            raise ElfParsingError('Name too long')
-                    except Exception:
-                        newname = cuname.make_unique_numbered_name(name_set)
-
-                    name_set.add(newname)
-
-                    if newname not in displayname_map:
-                        displayname_map[newname] = []
-                    displayname_map[newname].append(cuname)
-
-                del displayname_map[display_name]
-
-        displayname_cu_tuple_list: List[Tuple[str, CompileUnit]] = []
-        for displayname in displayname_map:
-            displayname_cu_tuple_list.append((displayname, displayname_map[displayname][0].cu))
-        return displayname_cu_tuple_list
 
     def get_cu_name(self, die: DIE) -> str:
         return self.cu_name_map[die.cu]
@@ -1080,26 +1088,32 @@ class ElfDwarfVarExtractor:
                     self._anonymous_type_typedef_map[type_die] = typedef_die
 
     def make_varpath_recursive(self, die:DIE, segments:List[str]) -> List[str]:
-        if die.tag == Tags.DW_TAG_compile_unit:
+        """Start from a variable DIE and go up the DWARF structure to build a path"""
+        
+        if die.tag == Tags.DW_TAG_compile_unit: # Top level reached, we're done
             return segments
         
+        # Check if we have a linkage name. Those are complete and no further scan is required if available.
         name = self.get_demangled_linkage_name(die)
         if name is not None:
             parts = self.split_demangled_name(name)
             return parts + segments
 
+        # Try to get the name of the die and use it as a level of the path
         name = self.get_name(die)
         if name is None:
             if Attrs.DW_AT_specification in die.attributes:
                 spec_die = self.get_die_at_spec(die)
                 name = self.get_name(spec_die) 
         
+        # There is a name avaialble, we add it to the path and keep going
         if name is not None:
             segments.insert(0, name)
             parent = die.get_parent()
             if parent is not None:
                 return self.make_varpath_recursive(parent, segments=segments)
 
+        # Nothing available here. We're done
         return segments
 
 

@@ -12,148 +12,199 @@ from scrutiny.core.basic_types import *
 from scrutiny.core.variable import *
 from test.artifacts import get_artifact
 from test import ScrutinyUnitTest
-from test.cli.base_varmap_test import BaseVarmapTest
+from test.cli.base_varmap_test import BaseVarmapTest, KnownEnumTypedDict
 
 from scrutiny.tools.typing import *
 
 
-known_enums = {
+KNOWN_ENUMS:KnownEnumTypedDict = {
     "Bno055DriverError": {
-        "NO_ERROR": 0,
-        "NO_INIT": 1,
-        "NOT_READY": 2,
-        "FAILED_READ_INFO": 3,
-        "INTERRUPT_READ_ENABLED": 4
+        "name": 'Error',
+        "values":{
+            "NO_ERROR": 0,
+            "NO_INIT": 1,
+            "NOT_READY": 2,
+            "FAILED_READ_INFO": 3,
+            "INTERRUPT_READ_ENABLED": 4
+        }
     },
 
     "SystemStatusCode": {
-        "SystemIdle": 0,
-        "SystemError": 1,
-        "InitializingPeripherals": 2,
-        "SystemInitialization": 3,
-        "ExecutingSelfTest": 4,
-        "SensorFusionAlgorithmRunning": 5,
-        "SystemRunningWithoutSensorFusion": 6
+        "name": 'Vals',
+        "values":{
+            "SystemIdle": 0,
+            "SystemError": 1,
+            "InitializingPeripherals": 2,
+            "SystemInitialization": 3,
+            "ExecutingSelfTest": 4,
+            "SensorFusionAlgorithmRunning": 5,
+            "SystemRunningWithoutSensorFusion": 6
+        }
     },
 
     "SystemErrorCode": {
-        "NoError": 0,
-        "PeripheralInitError": 1,
-        "SystemInitError": 2,
-        "SelfTestFailed": 3,
-        "RegisterMapValueOOR": 4,
-        "RegisterMapAddrOOR": 5,
-        "RegisterMapWriteError": 6,
-        "LowPowerNotAvailableForSelectedOM": 7,
-        "AccelerometerPowerModeNotAvailable": 8,
-        "FusionAlgorithmError": 9,
-        "SensorConfigurationError": 10
+        "name" : "Vals",
+        "values" : {
+            "NoError": 0,
+            "PeripheralInitError": 1,
+            "SystemInitError": 2,
+            "SelfTestFailed": 3,
+            "RegisterMapValueOOR": 4,
+            "RegisterMapAddrOOR": 5,
+            "RegisterMapWriteError": 6,
+            "LowPowerNotAvailableForSelectedOM": 7,
+            "AccelerometerPowerModeNotAvailable": 8,
+            "FusionAlgorithmError": 9,
+            "SensorConfigurationError": 10
+        }
     },
 
     "InterruptReadState": {
-        "IDLE": 0,
-        "READ_ACCEL": 1,
-        "READ_GYRO": 2,
-        "READ_MAG": 3,
-        "ERROR": 4
+        "name" : 'InterruptReadState',
+        "values": { 
+            "IDLE": 0,
+            "READ_ACCEL": 1,
+            "READ_GYRO": 2,
+            "READ_MAG": 3,
+            "ERROR": 4
+        }
     },
 
     "InterruptReadMode": {
-        "SINGLE": 0,
-        "CONTINUOUS": 1
+        "name" : 'InterruptReadMode',
+        "values" : {
+            "SINGLE": 0,
+            "CONTINUOUS": 1
+        }
     },
 
     "CommHandlerState": {
-        "Idle": 0,
-        "Receiving": 1,
-        "Transmitting": 2
+        "name":"State",
+        "values" : {
+            "Idle": 0,
+            "Receiving": 1,
+            "Transmitting": 2
+        }
     },
 
     "CommHandlerRxFSMState": {
-        "WaitForCommand": 0,
-        "WaitForSubfunction": 1,
-        "WaitForLength": 2,
-        "WaitForData": 3,
-        "WaitForCRC": 4,
-        "WaitForProcess": 5,
-        "Error": 6
+        "name" : "RxFSMState",
+        "values" : {
+            "WaitForCommand": 0,
+            "WaitForSubfunction": 1,
+            "WaitForLength": 2,
+            "WaitForData": 3,
+            "WaitForCRC": 4,
+            "WaitForProcess": 5,
+            "Error": 6
+        }
     },
 
     "CommHandlerRxError": {
-        "None": 0,
-        "Overflow": 1,
-        "Disabled": 2
+        "name" : "RxError",
+        "values" : {
+            "None": 0,
+            "Overflow": 1,
+            "Disabled": 2,
+            "InvalidCommand": 3,
+        }
     },
 
     "CommHandlerTxError": {
-        "None": 0,
-        "Overflow": 1,
-        "Busy": 2,
-        "Disabled": 3
+        "name" : "TxError",
+        "values" : {
+            "None": 0,
+            "Overflow": 1,
+            "Busy": 2,
+            "Disabled": 3
+        }
     },
 
     "DataloggerState": {
-        "IDLE": 0,
-        "CONFIGURED": 1,
-        "ARMED": 2,
-        "TRIGGERED": 3,
-        "ACQUISITION_COMPLETED": 4,
-        "ERROR": 5
+        "name" : "State",
+        "values" : {
+            "IDLE": 0,
+            "CONFIGURED": 1,
+            "ARMED": 2,
+            "TRIGGERED": 3,
+            "ACQUISITION_COMPLETED": 4,
+            "ERROR": 5
+        }
     },
-
-    "LoggableType": {
-        "MEMORY": 0,
-        "RPV": 1,
-        "TIME": 2
-    },
+    
+    #   TODO : To enable when arrays are supported
+    #    "LoggableType": {
+    #        "name" : "LoggableType",
+    #        "values" : {
+    #            "MEMORY": 0,
+    #            "RPV": 1,
+    #            "TIME": 2
+    #        }
+    #    },
 
     "SupportedTriggerConditions": {
-        "AlwaysTrue": 0,
-        "Equal": 1,
-        "NotEqual": 2,
-        "LessThan": 3,
-        "LessOrEqualThan": 4,
-        "GreaterThan": 5,
-        "GreaterOrEqualThan": 6,
-        "ChangeMoreThan": 7,
-        "IsWithin": 8
+        "name":"SupportedTriggerConditions",
+        "values" : {
+            "AlwaysTrue": 0,
+            "Equal": 1,
+            "NotEqual": 2,
+            "LessThan": 3,
+            "LessOrEqualThan": 4,
+            "GreaterThan": 5,
+            "GreaterOrEqualThan": 6,
+            "ChangeMoreThan": 7,
+            "IsWithin": 8
+        }
     },
 
-    "OperandType": {
-        "LITERAL": 0,
-        "VAR": 1,
-        "VARBIT": 2,
-        "RPV": 3
-    },
+# TODO : Enable when arrays are supported
+#    "OperandType": {
+#        "name":"OperandType",
+#        "values" : {
+#            "LITERAL": 0,
+#            "VAR": 1,
+#            "VARBIT": 2,
+#            "RPV": 3
+#        }
+#    },
 
     "DataloggingError": {
-        "NoError": 0,
-        "UnexpectedRelease": 1,
-        "UnexpectedClaim": 2
+        "name":"DataloggingError",
+        "values" : {
+            "NoError": 0,
+            "UnexpectedRelease": 1,
+            "UnexpectedClaim": 2
+        }
     },
 
     "Main2LoopMessageID": {
-        "RELEASE_DATALOGGER_OWNERSHIP": 0,
-        "TAKE_DATALOGGER_OWNERSHIP": 1,
-        "DATALOGGER_ARM_TRIGGER": 2,
-        "DATALOGGER_DISARM_TRIGGER": 3
+        "name":"Main2LoopMessageID",
+        "values" : {
+            "RELEASE_DATALOGGER_OWNERSHIP": 0,
+            "TAKE_DATALOGGER_OWNERSHIP": 1,
+            "DATALOGGER_ARM_TRIGGER": 2,
+            "DATALOGGER_DISARM_TRIGGER": 3
+        }
     },
 
     "Loop2MainMessageID": {
-        "DATALOGGER_OWNERSHIP_TAKEN": 0,
-        "DATALOGGER_OWNERSHIP_RELEASED": 1,
-        "DATALOGGER_DATA_ACQUIRED": 2,
-        "DATALOGGER_STATUS_UPDATE": 3
+        "name" : "Loop2MainMessageID",
+        "values" : {
+            "DATALOGGER_OWNERSHIP_TAKEN": 0,
+            "DATALOGGER_OWNERSHIP_RELEASED": 1,
+            "DATALOGGER_DATA_ACQUIRED": 2,
+            "DATALOGGER_STATUS_UPDATE": 3
+        }
     }
 }
 
 
 class TestMakeVarMap_ATMega2560_LE_avr_gcc_5_4_0(BaseVarmapTest, ScrutinyUnitTest):
-    init_exception: Optional[Exception]
     bin_filename = get_artifact('scrutiny-nsec2024_untagged.elf')
-    memdump_filename = None #  Not available
+    memdump_filename = None 
+    known_enums = KNOWN_ENUMS
 
-    _CPP_FILT = 'avr-c++filt'
+    _CPP_FILT = 'c++filt'
    
     def test_main_cpp(self):
         self.assert_var('/static/main.cpp/task_100hz()/var_100hz', EmbeddedDataType.uint32)

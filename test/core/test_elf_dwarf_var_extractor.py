@@ -8,7 +8,7 @@
 
 import re
 from test import ScrutinyUnitTest
-from scrutiny.core.bintools.elf_dwarf_var_extractor import ElfDwarfVarExtractor
+from scrutiny.core.bintools.elf_dwarf_var_extractor import ElfDwarfVarExtractor, CuName
 
 from scrutiny.tools.typing import *
 
@@ -16,35 +16,33 @@ class TestElf2VarMap(ScrutinyUnitTest):
 
     def test_unique_cu_name(self):
         unique_name_regex = re.compile(r'cu(\d+)_(.+)')
+        path1 = '/aaa/bbb/ccc'
+        path2 = '/aaa/bbb/ddd'
+        path3 = '/aaa/xxx/ccc'
+        path4 = '/aaa/bbb/ccc/ddd/x'
+        path5 = '/aaa/bbb/ccc/ddd/x'
+        path6 = '/ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc/ddd/x'
 
-        a, b, c, d, e, f = object(), object(), object(), object(), object(), object()
-
-        fullpath_cu_tuple_list = [
-            ('/aaa/bbb/ccc', a),
-            ('/aaa/bbb/ddd', b),
-            ('/aaa/xxx/ccc', c),
-            ('/aaa/bbb/ccc/ddd/x', d),
-            ('/aaa/bbb/ccc/ddd/x', e),
-            ('/ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc/ddd/x', f)  # Name too long
+        fullpath_list = [
+            path1,
+            path2,
+            path3,
+            path4,
+            path5,
+            path6,
         ]
 
-        display_name_cu = ElfDwarfVarExtractor.make_unique_display_name(fullpath_cu_tuple_list)
-        objmap = {}
-        for item in display_name_cu:
-            objmap[item[1]] = item[0]
+        fullpath_2_displaypath_map = ElfDwarfVarExtractor.make_unique_display_name(fullpath_list)
 
-       # self.assertEqual(objmap[a], 'bbb_ccc')
-        self.assertEqual(objmap[c], 'xxx_ccc')
-        self.assertEqual(objmap[b], 'ddd')
-        self.assertTrue(unique_name_regex.match(objmap[d]))
-        self.assertTrue(unique_name_regex.match(objmap[e]))
-        self.assertTrue(unique_name_regex.match(objmap[f]))
+        self.assertEqual(len(fullpath_2_displaypath_map), 5)
+      
+        self.assertEqual(fullpath_2_displaypath_map[path1], 'bbb_ccc')
+        self.assertEqual(fullpath_2_displaypath_map[path2], 'ddd')
+        self.assertEqual(fullpath_2_displaypath_map[path3], 'xxx_ccc')
+        self.assertIsNotNone(fullpath_2_displaypath_map[path4], 'ccc_ddd_x' )
+        self.assertIsNotNone(unique_name_regex.match(fullpath_2_displaypath_map[path6]))
 
-        name_set = set()
-        for obj in objmap:
-            name = objmap[obj]
-            self.assertNotIn(name, name_set, 'Duplicate name %s' % name)
-            name_set.add(name)
+
 
     def test_split_demangled_name(self):
         cases:List[Tuple[str, List[str]]] = [
