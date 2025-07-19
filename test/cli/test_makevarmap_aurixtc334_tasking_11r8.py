@@ -36,9 +36,15 @@ KNOWN_ENUMS: KnownEnumTypedDict = {
             "Ifx_RxSel_h": 7
         }
     },
-    # "_ZN16NamespaceInFile25EnumAE" : {
-    #
-    # },
+     "EnumA" : {
+         'name': 'EnumA',
+         'values' : {
+             'eVal1' : 0,
+             'eVal2' : 1,
+             'eVal3' : 100,
+             'eVal4' : 101
+         }
+     },
     "IfxScuCcu_PllInputClockSelection": {
         "name": "IfxScuCcu_PllInputClockSelection",
         "values": {

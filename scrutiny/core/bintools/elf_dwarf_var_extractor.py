@@ -718,7 +718,7 @@ class ElfDwarfVarExtractor:
         name = self.get_name(die, no_tag_default=True)
 
         if name is not None:
-            if self._context.cu_compiler == Compiler.TI_C28_CGT:
+            if self._context.cu_compiler in [Compiler.TI_C28_CGT, Compiler.Tasking]:
                 if Attrs.DW_AT_name in die.attributes:
                     # cl2000 embeds the full mangled path in the DW_AT_NAME attribute,
                     # ex : _ZN13FileNamespace14File3TestClass16File3EnumInClassE = FileNamespace::File3TestClass::File3EnumInClass
@@ -751,7 +751,7 @@ class ElfDwarfVarExtractor:
                     continue
 
                 enumerator_name = self.get_name_no_none(child)
-                if self._context.cu_compiler == Compiler.TI_C28_CGT:
+                if self._context.cu_compiler in [Compiler.TI_C28_CGT, Compiler.Tasking]:
                     # cl2000 embeds the full mangled path in the DW_AT_NAME attribute,
                     # ex :_ZN13FileNamespace14File3TestClass3BBBE = FileNamespace::File3TestClass::BBB
                     demangled_name = self.demangler.demangle(enumerator_name)
