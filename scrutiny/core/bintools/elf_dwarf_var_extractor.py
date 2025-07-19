@@ -13,7 +13,7 @@ from elftools.dwarf.die import DIE
 from elftools.dwarf.compileunit import CompileUnit
 from elftools.dwarf.dwarfinfo import DWARFInfo
 from elftools.elf.elffile import ELFFile
-from ordered_set import OrderedSet
+from sortedcontainers import SortedSet
 
 import os
 from enum import Enum, auto
@@ -300,7 +300,7 @@ class ElfDwarfVarExtractor:
 
     @classmethod
     def make_unique_display_name(cls, fullpath_list: List[str]) -> Dict[str, str]:
-        cuname_set = OrderedSet([CuName(x) for x in sorted(fullpath_list)])
+        cuname_set = SortedSet([CuName(x) for x in sorted(fullpath_list)])
         outmap:Dict[str, str] = {}
 
         display_name_set:Set[str] = set()
@@ -330,7 +330,10 @@ class ElfDwarfVarExtractor:
                     if len(cuname.get_display_name()) > cls.MAX_CU_DISPLAY_NAME_LENGTH:
                         raise ElfParsingError('Name too long')
                 except Exception:
-                    cuname.make_unique_numbered_name(display_name_set)
+                    # Does not affect the given set. 
+                    # Only mark the Compile Unit as using a numbered name. 
+                    # This numbered name will be consumed on next loop iteration.
+                    cuname.make_unique_numbered_name(display_name_set)  
                     
         return outmap
 
