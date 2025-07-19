@@ -1,3 +1,11 @@
+#    test_makevarmap_aurixtc334_tasking_11r8.py
+#        A test suite testing Tasking compiler V1.1r8 on a Aurix TC334
+#
+#   - License : MIT - See LICENSE file.
+#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#   Copyright (c) 2022 Scrutiny Debugger
+
 import unittest
 
 from scrutiny.core.basic_types import *
@@ -36,15 +44,15 @@ KNOWN_ENUMS: KnownEnumTypedDict = {
             "Ifx_RxSel_h": 7
         }
     },
-     "EnumA" : {
-         'name': 'EnumA',
-         'values' : {
-             'eVal1' : 0,
-             'eVal2' : 1,
-             'eVal3' : 100,
-             'eVal4' : 101
-         }
-     },
+    "EnumA": {
+        'name': 'EnumA',
+        'values': {
+            'eVal1': 0,
+            'eVal2': 1,
+            'eVal3': 100,
+            'eVal4': 101
+        }
+    },
     "IfxScuCcu_PllInputClockSelection": {
         "name": "IfxScuCcu_PllInputClockSelection",
         "values": {

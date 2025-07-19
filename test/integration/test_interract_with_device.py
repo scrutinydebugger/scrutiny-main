@@ -1,4 +1,4 @@
-#    test_interact_with_device.py
+#    test_interract_with_device.py
 #        Make sure we can do some API calls related to the device that are not read/writes.
 #
 #   - License : MIT - See LICENSE file.

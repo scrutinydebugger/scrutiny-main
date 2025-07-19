@@ -1,3 +1,11 @@
+#    sortedcontainers.pyi
+#        A stub file for 3rdparty sorted containers module
+#
+#   - License : MIT - See LICENSE file.
+#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#   Copyright (c) 2025 Scrutiny Debugger
+
 from typing import Generic, TypeVar, Iterable, Iterator, Union, Optional, Callable
 
 T = TypeVar('T')
