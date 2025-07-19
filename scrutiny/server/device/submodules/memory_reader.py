@@ -363,7 +363,7 @@ class MemoryReader:
         memory_to_read = MemoryContent(retain_data=False)  # We'll use that for agglomeration
         while len(entries_in_request) + skipped_entries_count < len(self.watched_var_entries_sorted_by_address):
             # .entry because we use a wrapper for SortedSet
-            candidate_entry = cast(DatastoreVariableEntry, self.watched_var_entries_sorted_by_address[self.memory_read_cursor].entry)
+            candidate_entry = self.watched_var_entries_sorted_by_address[self.memory_read_cursor].entry
             must_skip = False
 
             # Check for forbidden region. They disallow read and write
@@ -423,7 +423,7 @@ class MemoryReader:
             self.rpv_read_cursor = 0
 
         while len(entries_in_request) < len(self.watched_rpv_entries_sorted_by_id):
-            next_entry = cast(DatastoreRPVEntry, self.watched_rpv_entries_sorted_by_id[self.rpv_read_cursor].entry)
+            next_entry = self.watched_rpv_entries_sorted_by_id[self.rpv_read_cursor].entry
 
             candidate_list = entries_in_request + [next_entry]
             rpv_candidate_list = [x.get_rpv() for x in candidate_list]
