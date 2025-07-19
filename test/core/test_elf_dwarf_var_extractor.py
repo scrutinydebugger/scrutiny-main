@@ -12,6 +12,7 @@ from scrutiny.core.bintools.elf_dwarf_var_extractor import ElfDwarfVarExtractor
 
 from scrutiny.tools.typing import *
 
+
 class TestElf2VarMap(ScrutinyUnitTest):
 
     def test_unique_cu_name(self):
@@ -35,25 +36,25 @@ class TestElf2VarMap(ScrutinyUnitTest):
         fullpath_2_displaypath_map = ElfDwarfVarExtractor.make_unique_display_name(fullpath_list)
 
         self.assertEqual(len(fullpath_2_displaypath_map), 5)
-      
+
         self.assertEqual(fullpath_2_displaypath_map[path1], 'bbb_ccc')
         self.assertEqual(fullpath_2_displaypath_map[path2], 'ddd')
         self.assertEqual(fullpath_2_displaypath_map[path3], 'xxx_ccc')
-        self.assertIsNotNone(fullpath_2_displaypath_map[path4], 'ccc_ddd_x' )
+        self.assertIsNotNone(fullpath_2_displaypath_map[path4], 'ccc_ddd_x')
         self.assertIsNotNone(unique_name_regex.match(fullpath_2_displaypath_map[path6]))
 
-
-
     def test_split_demangled_name(self):
-        cases:List[Tuple[str, List[str]]] = [
+        cases: List[Tuple[str, List[str]]] = [
             ("aaa::bbb::ccc", ['aaa', 'bbb', 'ccc']),
             ("aaa::bbb(qqq::www, yyy::zzz::kkk)::ccc", ['aaa', 'bbb(qqq::www, yyy::zzz::kkk)', 'ccc']),
-            ("aaa::bbb<AAA::BBB<CCC::DDD>>(qqq::www<EEE::FFF>, yyy::zzz::kkk)::ccc", ['aaa', 'bbb<AAA::BBB<CCC::DDD>>(qqq::www<EEE::FFF>, yyy::zzz::kkk)', 'ccc'])
+            ("aaa::bbb<AAA::BBB<CCC::DDD>>(qqq::www<EEE::FFF>, yyy::zzz::kkk)::ccc", [
+             'aaa', 'bbb<AAA::BBB<CCC::DDD>>(qqq::www<EEE::FFF>, yyy::zzz::kkk)', 'ccc'])
         ]
         for case in cases:
             strin, expected = case[0], case[1]
             segments = ElfDwarfVarExtractor.split_demangled_name(strin)
             self.assertEqual(segments, expected)
+
 
 if __name__ == '__main__':
     import unittest

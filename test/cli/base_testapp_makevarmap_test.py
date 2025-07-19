@@ -11,19 +11,19 @@ import unittest
 from scrutiny.core.basic_types import *
 from scrutiny.core.variable import *
 from scrutiny.tools.typing import *
-from test.cli.base_varmap_test import BaseVarmapTest,KnownEnumTypedDict
+from test.cli.base_varmap_test import BaseVarmapTest, KnownEnumTypedDict
 
-KNOWN_ENUMS:KnownEnumTypedDict = {
-    'EnumA' : {
-        'name' : 'EnumA',
-        'values' : {
-            "eVal1" : 0,
-            "eVal2" : 1,
-            "eVal3" : 100,
-            "eVal4" : 101       
+KNOWN_ENUMS: KnownEnumTypedDict = {
+    'EnumA': {
+        'name': 'EnumA',
+        'values': {
+            "eVal1": 0,
+            "eVal2": 1,
+            "eVal3": 100,
+            "eVal4": 101
         }
     },
-    'File3EnumInClass' : {
+    'File3EnumInClass': {
         "name": "File3EnumInClass",
         "values": {
             "AAA": 0,
@@ -33,8 +33,9 @@ KNOWN_ENUMS:KnownEnumTypedDict = {
     }
 }
 
+
 class BaseTestAppMakeVarmapTest(BaseVarmapTest):
-    known_enums=KNOWN_ENUMS
+    known_enums = KNOWN_ENUMS
 
     def test_env(self):
         self.assertEqual(self.varmap.endianness, Endianness.Little)
@@ -199,10 +200,10 @@ class BaseTestAppMakeVarmapTest(BaseVarmapTest):
         self.assert_var('/global/file3_test_class/m_file3_complex_struct/field3/field3_u32', EmbeddedDataType.uint32, value_at_loc=0xAA34BCC2)
 
         self.assert_var('/global/file3_test_class/m_file3_complex_struct/field3/field3_enum_bitfields/p0', EmbeddedDataType.uint32,
-                             value_at_loc=2, bitoffset=0, bitsize=5, enum='File3EnumInClass')
+                        value_at_loc=2, bitoffset=0, bitsize=5, enum='File3EnumInClass')
         self.assert_var('/global/file3_test_class/m_file3_complex_struct/field3/field3_enum_bitfields/p1', EmbeddedDataType.uint32,
-                             value_at_loc=0x66, bitoffset=5, bitsize=7, enum='File3EnumInClass')
+                        value_at_loc=0x66, bitoffset=5, bitsize=7, enum='File3EnumInClass')
         self.assert_var('/global/file3_test_class/m_file3_complex_struct/field3/field3_enum_bitfields/p2', EmbeddedDataType.uint32,
-                             value_at_loc=0x34B, bitoffset=12, bitsize=10, enum='File3EnumInClass')
+                        value_at_loc=0x34B, bitoffset=12, bitsize=10, enum='File3EnumInClass')
         self.assert_var('/global/file3_test_class/m_file3_complex_struct/field3/field3_enum_bitfields/p3', EmbeddedDataType.uint32,
-                             value_at_loc=0x2A8, bitoffset=22, bitsize=10, enum='File3EnumInClass')
+                        value_at_loc=0x2A8, bitoffset=22, bitsize=10, enum='File3EnumInClass')

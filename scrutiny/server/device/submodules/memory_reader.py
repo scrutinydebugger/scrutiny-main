@@ -159,7 +159,8 @@ class MemoryReader:
     max_response_payload_size: int  # Maximum size for a response payload gotten from the InfoPoller
     forbidden_regions: List[MemoryRegion]    # List of memory regions to avoid. Gotten from InfoPoller
     watched_var_entries_sorted_by_address: SortedSet[DataStoreEntrySortableByAddress]    # Set of entries referring variables sorted by address
-    watched_rpv_entries_sorted_by_id: SortedSet[DataStoreEntrySortableByRpvId]         # Set of entries referring RuntimePublishedValues (RPV) sorted by ID
+    # Set of entries referring RuntimePublishedValues (RPV) sorted by ID
+    watched_rpv_entries_sorted_by_id: SortedSet[DataStoreEntrySortableByRpvId]
     memory_read_cursor: int     # Cursor used for round-robin inside the SortedSet of Variables datastore entries
     rpv_read_cursor: int        # Cursor used for round-robin inside the SortedSet of RPV datastore entries
     entries_in_pending_read_var_request: List[DatastoreVariableEntry]   # List of memory entries in the request we're waiting for

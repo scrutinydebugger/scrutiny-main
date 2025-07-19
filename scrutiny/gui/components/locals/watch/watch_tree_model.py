@@ -19,7 +19,7 @@ import enum
 
 from PySide6.QtCore import QMimeData, QModelIndex, QPersistentModelIndex, Qt, Signal, QPoint, QObject, QAbstractItemModel
 from PySide6.QtWidgets import QWidget, QMenu, QAbstractItemDelegate, QComboBox, QStyleOptionViewItem, QStyledItemDelegate, QApplication
-from PySide6.QtGui import (QStandardItem, QPalette, QContextMenuEvent, QDragMoveEvent, QDropEvent, 
+from PySide6.QtGui import (QStandardItem, QPalette, QContextMenuEvent, QDragMoveEvent, QDropEvent,
                            QDragEnterEvent, QKeyEvent, QStandardItem, QAction)
 
 from scrutiny.sdk import WatchableConfiguration, EmbeddedEnum
@@ -76,7 +76,6 @@ class ValueStandardItem(QStandardItem):
         else:
             pass  # Basic type values. Just cast to string for display
         self.setData(display_txt, Qt.ItemDataRole.EditRole)
-
 
     def get_value(self) -> Optional[ValType]:
         """Return the data in its original data type that has been stored with set_value"""
@@ -147,11 +146,11 @@ class ValueEditDelegate(QStyledItemDelegate):
         if not isinstance(item, ValueStandardItem):
             super().setModelData(editor, model, index)
             return
-        
+
         enum_data = cast(Optional[EmbeddedEnum], index.data(ENUM_DATA_ROLE))
         if enum_data is None or not isinstance(editor, QComboBox):
             super().setModelData(editor, model, index)
-            item.set_value(model.data(index, Qt.ItemDataRole.EditRole)) # Read back the default behavior and store in real value
+            item.set_value(model.data(index, Qt.ItemDataRole.EditRole))  # Read back the default behavior and store in real value
         else:
             # Combobox, currentData() return the numerical value
             val = cast(Optional[ValType], editor.currentData())
@@ -190,15 +189,15 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
         def remove_action_slot() -> None:
             for item in selected_items_no_nested:
                 self.model().removeRow(item.row(), item.index().parent())
-        
+
         def copy_path_clipboard_slot() -> None:
-            paths:List[str] = []
+            paths: List[str] = []
             for index in selected_indexes:
                 item = self.model().itemFromIndex(index)
                 if isinstance(item, WatchableStandardItem):
                     path = WatchableRegistry.FQN.parse(item.fqn).path
                     paths.append(path)
-            
+
             if len(paths) > 0:
                 QApplication.clipboard().setText('\n'.join(paths))
 
@@ -214,10 +213,9 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
         copy_path_clipboard_action.triggered.connect(copy_path_clipboard_slot)
         for index in selected_indexes:
             item = self.model().itemFromIndex(index)
-            if isinstance(item, WatchableStandardItem): # At least one watchable, enough to enable
+            if isinstance(item, WatchableStandardItem):  # At least one watchable, enough to enable
                 copy_path_clipboard_action.setEnabled(True)
                 break
-
 
         self.display_context_menu(context_menu, event.pos())
         event.accept()

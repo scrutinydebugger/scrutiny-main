@@ -17,10 +17,10 @@ from test.cli.base_varmap_test import BaseVarmapTest, KnownEnumTypedDict
 from scrutiny.tools.typing import *
 
 
-KNOWN_ENUMS:KnownEnumTypedDict = {
+KNOWN_ENUMS: KnownEnumTypedDict = {
     "Bno055DriverError": {
         "name": 'Error',
-        "values":{
+        "values": {
             "NO_ERROR": 0,
             "NO_INIT": 1,
             "NOT_READY": 2,
@@ -31,7 +31,7 @@ KNOWN_ENUMS:KnownEnumTypedDict = {
 
     "SystemStatusCode": {
         "name": 'Vals',
-        "values":{
+        "values": {
             "SystemIdle": 0,
             "SystemError": 1,
             "InitializingPeripherals": 2,
@@ -43,8 +43,8 @@ KNOWN_ENUMS:KnownEnumTypedDict = {
     },
 
     "SystemErrorCode": {
-        "name" : "Vals",
-        "values" : {
+        "name": "Vals",
+        "values": {
             "NoError": 0,
             "PeripheralInitError": 1,
             "SystemInitError": 2,
@@ -60,8 +60,8 @@ KNOWN_ENUMS:KnownEnumTypedDict = {
     },
 
     "InterruptReadState": {
-        "name" : 'InterruptReadState',
-        "values": { 
+        "name": 'InterruptReadState',
+        "values": {
             "IDLE": 0,
             "READ_ACCEL": 1,
             "READ_GYRO": 2,
@@ -71,16 +71,16 @@ KNOWN_ENUMS:KnownEnumTypedDict = {
     },
 
     "InterruptReadMode": {
-        "name" : 'InterruptReadMode',
-        "values" : {
+        "name": 'InterruptReadMode',
+        "values": {
             "SINGLE": 0,
             "CONTINUOUS": 1
         }
     },
 
     "CommHandlerState": {
-        "name":"State",
-        "values" : {
+        "name": "State",
+        "values": {
             "Idle": 0,
             "Receiving": 1,
             "Transmitting": 2
@@ -88,8 +88,8 @@ KNOWN_ENUMS:KnownEnumTypedDict = {
     },
 
     "CommHandlerRxFSMState": {
-        "name" : "RxFSMState",
-        "values" : {
+        "name": "RxFSMState",
+        "values": {
             "WaitForCommand": 0,
             "WaitForSubfunction": 1,
             "WaitForLength": 2,
@@ -101,8 +101,8 @@ KNOWN_ENUMS:KnownEnumTypedDict = {
     },
 
     "CommHandlerRxError": {
-        "name" : "RxError",
-        "values" : {
+        "name": "RxError",
+        "values": {
             "None": 0,
             "Overflow": 1,
             "Disabled": 2,
@@ -111,8 +111,8 @@ KNOWN_ENUMS:KnownEnumTypedDict = {
     },
 
     "CommHandlerTxError": {
-        "name" : "TxError",
-        "values" : {
+        "name": "TxError",
+        "values": {
             "None": 0,
             "Overflow": 1,
             "Busy": 2,
@@ -121,8 +121,8 @@ KNOWN_ENUMS:KnownEnumTypedDict = {
     },
 
     "DataloggerState": {
-        "name" : "State",
-        "values" : {
+        "name": "State",
+        "values": {
             "IDLE": 0,
             "CONFIGURED": 1,
             "ARMED": 2,
@@ -131,7 +131,7 @@ KNOWN_ENUMS:KnownEnumTypedDict = {
             "ERROR": 5
         }
     },
-    
+
     #   TODO : To enable when arrays are supported
     #    "LoggableType": {
     #        "name" : "LoggableType",
@@ -143,8 +143,8 @@ KNOWN_ENUMS:KnownEnumTypedDict = {
     #    },
 
     "SupportedTriggerConditions": {
-        "name":"SupportedTriggerConditions",
-        "values" : {
+        "name": "SupportedTriggerConditions",
+        "values": {
             "AlwaysTrue": 0,
             "Equal": 1,
             "NotEqual": 2,
@@ -157,20 +157,20 @@ KNOWN_ENUMS:KnownEnumTypedDict = {
         }
     },
 
-# TODO : Enable when arrays are supported
-#    "OperandType": {
-#        "name":"OperandType",
-#        "values" : {
-#            "LITERAL": 0,
-#            "VAR": 1,
-#            "VARBIT": 2,
-#            "RPV": 3
-#        }
-#    },
+    # TODO : Enable when arrays are supported
+    #    "OperandType": {
+    #        "name":"OperandType",
+    #        "values" : {
+    #            "LITERAL": 0,
+    #            "VAR": 1,
+    #            "VARBIT": 2,
+    #            "RPV": 3
+    #        }
+    #    },
 
     "DataloggingError": {
-        "name":"DataloggingError",
-        "values" : {
+        "name": "DataloggingError",
+        "values": {
             "NoError": 0,
             "UnexpectedRelease": 1,
             "UnexpectedClaim": 2
@@ -178,8 +178,8 @@ KNOWN_ENUMS:KnownEnumTypedDict = {
     },
 
     "Main2LoopMessageID": {
-        "name":"Main2LoopMessageID",
-        "values" : {
+        "name": "Main2LoopMessageID",
+        "values": {
             "RELEASE_DATALOGGER_OWNERSHIP": 0,
             "TAKE_DATALOGGER_OWNERSHIP": 1,
             "DATALOGGER_ARM_TRIGGER": 2,
@@ -188,8 +188,8 @@ KNOWN_ENUMS:KnownEnumTypedDict = {
     },
 
     "Loop2MainMessageID": {
-        "name" : "Loop2MainMessageID",
-        "values" : {
+        "name": "Loop2MainMessageID",
+        "values": {
             "DATALOGGER_OWNERSHIP_TAKEN": 0,
             "DATALOGGER_OWNERSHIP_RELEASED": 1,
             "DATALOGGER_DATA_ACQUIRED": 2,
@@ -201,11 +201,11 @@ KNOWN_ENUMS:KnownEnumTypedDict = {
 
 class TestMakeVarMap_ATMega2560_LE_avr_gcc_5_4_0(BaseVarmapTest, ScrutinyUnitTest):
     bin_filename = get_artifact('scrutiny-nsec2024_untagged.elf')
-    memdump_filename = None 
+    memdump_filename = None
     known_enums = KNOWN_ENUMS
 
     _CPP_FILT = 'c++filt'
-   
+
     def test_main_cpp(self):
         self.assert_var('/static/main.cpp/task_100hz()/var_100hz', EmbeddedDataType.uint32)
         self.assert_var('/static/main.cpp/task_1hz()/var_1hz', EmbeddedDataType.uint32)

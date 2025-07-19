@@ -42,6 +42,7 @@ class _FSMState(Enum):
     DATA_RETRIEVAL_FINISHED_SUCCESS = auto()
     REQUEST_RESET = auto()
 
+
 DeviceAcquisitionRequestCompletionCallback = Callable[[bool, str,
                                                        Optional[List[List[bytes]]], Optional[device_datalogging.AcquisitionMetadata]], None]
 DataloggingReceiveSetupCallback = Callable[[device_datalogging.DataloggingSetup], None]
@@ -214,17 +215,17 @@ class DataloggingPoller:
     def get_download_progress_pu(self) -> Optional[float]:
         if self.state not in (_FSMState.READ_METADATA, _FSMState.RETRIEVING_DATA, _FSMState.DATA_RETRIEVAL_FINISHED_SUCCESS):
             return None
-        
+
         if self.acquisition_metadata is None:
             return 0
 
-        if self.acquisition_metadata.data_size == 0 :
+        if self.acquisition_metadata.data_size == 0:
             return 0
-        
+
         if self.state == _FSMState.DATA_RETRIEVAL_FINISHED_SUCCESS:
             return 1
-        
-        ratio = len(self.bytes_received)/self.acquisition_metadata.data_size
+
+        ratio = len(self.bytes_received) / self.acquisition_metadata.data_size
         return min(1, max(0, ratio))    # Saturate just in case
 
     def get_completion_ratio(self) -> Optional[float]:

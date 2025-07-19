@@ -366,8 +366,8 @@ class API:
             self.send_server_status_to_all_clients()
 
     def datalogging_state_changed_callback(self,
-                                          datalogging_state: api_datalogging.DataloggingState,
-                                          completion_ratio: Optional[float]) -> None:
+                                           datalogging_state: api_datalogging.DataloggingState,
+                                           completion_ratio: Optional[float]) -> None:
         """Called when the datalogger state or completion ratio changes"""
         self.logger.debug("Datalogger state change callback called")
         self.send_server_status_to_all_clients()

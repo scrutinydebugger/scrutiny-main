@@ -312,7 +312,7 @@ class DeviceHandler:
         if self.device_info.datalogging_setup is None:
             return None
         return copy.copy(self.device_info.datalogging_setup)
-    
+
     def get_datalogging_acquisition_download_progress(self) -> Optional[float]:
         return self.datalogging_poller.get_download_progress_pu()
 

@@ -516,10 +516,10 @@ def parse_inform_server_status(response: api_typing.S2C.InformServerStatus) -> s
         elif api_val == API.DataloggingStateString.ERROR:
             return sdk.DataloggingState.Error
         raise sdk.exceptions.BadResponseError(f'Unsupported datalogging state "{api_val}"')
-    
+
     completion_ratio = response['datalogging_status']['completion_ratio']
     if completion_ratio is not None:
-        completion_ratio=  float(completion_ratio)
+        completion_ratio = float(completion_ratio)
 
     datalogging = sdk.DataloggingInfo(
         completion_ratio=completion_ratio,

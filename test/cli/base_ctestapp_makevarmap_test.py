@@ -14,14 +14,14 @@ from scrutiny.core.variable import *
 from scrutiny.tools.typing import *
 from test.cli.base_varmap_test import BaseVarmapTest, KnownEnumTypedDict
 
-KNOWN_ENUMS:KnownEnumTypedDict = {
-    'EnumA' : {
-        'name' : 'EnumA',
-        'values' : {
-            "eVal1" : 0,
-            "eVal2" : 1,
-            "eVal3" : 100,
-            "eVal4" : 101       
+KNOWN_ENUMS: KnownEnumTypedDict = {
+    'EnumA': {
+        'name': 'EnumA',
+        'values': {
+            "eVal1": 0,
+            "eVal2": 1,
+            "eVal3": 100,
+            "eVal4": 101
         }
     }
 }

@@ -6,6 +6,7 @@ from scrutiny.core.variable import *
 
 from test.cli.base_varmap_test import BaseVarmapTest
 
+
 class BaseCustomeTestArm32R52_ArmNoneEabiGcc10_2(BaseVarmapTest):
     _CPP_FILT = 'arm-none-eabi-c++filt'
 
@@ -52,7 +53,7 @@ class BaseCustomeTestArm32R52_ArmNoneEabiGcc10_2(BaseVarmapTest):
         self.assert_var('/static/file1.cpp/file1StaticBool', EmbeddedDataType.boolean, value_at_loc=True)
 
     def test_file2_static_basic_types(self):
-        self.assert_var('/static/file2.cpp/file2StaticChar', EmbeddedDataType.uint8, value_at_loc=0xBE) # -66 in uint8=be
+        self.assert_var('/static/file2.cpp/file2StaticChar', EmbeddedDataType.uint8, value_at_loc=0xBE)  # -66 in uint8=be
         self.assert_var('/static/file2.cpp/file2StaticInt', EmbeddedDataType.sint32, value_at_loc=-8745)
         self.assert_var('/static/file2.cpp/file2StaticShort', EmbeddedDataType.sint16, value_at_loc=-9876)
         self.assert_var('/static/file2.cpp/file2StaticLong', EmbeddedDataType.sint32, value_at_loc=-12345678)
@@ -69,12 +70,13 @@ class BaseCustomeTestArm32R52_ArmNoneEabiGcc10_2(BaseVarmapTest):
         # Forgot to call file2func1 in the test binary main
         # TODO : Rebuild and rerun with a main that calls file2func1 to avoid const optimization.
 
-        #self.assert_var('/static/file2.cpp/file2func1()/file2func1Var', EmbeddedDataType.sint32, value_at_loc=-88778877)
-        #self.assert_var('/static/file2.cpp/file2func1(int)/file2func1Var', EmbeddedDataType.float64, value_at_loc=963258741.123)
+        # self.assert_var('/static/file2.cpp/file2func1()/file2func1Var', EmbeddedDataType.sint32, value_at_loc=-88778877)
+        # self.assert_var('/static/file2.cpp/file2func1(int)/file2func1Var', EmbeddedDataType.float64, value_at_loc=963258741.123)
         self.assert_var('/static/main.cpp/main/staticIntInMainFunc', EmbeddedDataType.sint32, value_at_loc=22222)
-        #self.assert_var('/static/main.cpp/mainfunc1()/mainfunc1Var', EmbeddedDataType.sint32, value_at_loc=7777777)
-        #self.assert_var('/static/main.cpp/mainfunc1(int)/mainfunc1Var', EmbeddedDataType.float64, value_at_loc=8888888.88)
-        self.assert_var('/static/file1.cpp/funcInFile1(int, int)/staticLongInFuncFile1', EmbeddedDataType.sint64, value_at_loc=-0x123456789abcdef)  # long long
+        # self.assert_var('/static/main.cpp/mainfunc1()/mainfunc1Var', EmbeddedDataType.sint32, value_at_loc=7777777)
+        # self.assert_var('/static/main.cpp/mainfunc1(int)/mainfunc1Var', EmbeddedDataType.float64, value_at_loc=8888888.88)
+        self.assert_var('/static/file1.cpp/funcInFile1(int, int)/staticLongInFuncFile1',
+                        EmbeddedDataType.sint64, value_at_loc=-0x123456789abcdef)  # long long
 
     def test_namespace(self):
         self.assert_var('/global/NamespaceInFile1/NamespaceInFile1Nested1/file1GlobalNestedVar1', EmbeddedDataType.uint32, value_at_loc=1111111111)

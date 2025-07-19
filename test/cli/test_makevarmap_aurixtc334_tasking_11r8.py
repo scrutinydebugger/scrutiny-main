@@ -9,10 +9,10 @@ from test.cli.base_varmap_test import BaseVarmapTest, KnownEnumTypedDict
 from scrutiny.tools.typing import *
 
 
-KNOWN_ENUMS:KnownEnumTypedDict = {
-    "IfxPort_OutputIdx" : {
-        "name" : "IfxPort_OutputIdx",
-        "values" : {
+KNOWN_ENUMS: KnownEnumTypedDict = {
+    "IfxPort_OutputIdx": {
+        "name": "IfxPort_OutputIdx",
+        "values": {
             "IfxPort_OutputIdx_general": 128,
             "IfxPort_OutputIdx_alt1": 136,
             "IfxPort_OutputIdx_alt2": 144,
@@ -23,9 +23,9 @@ KNOWN_ENUMS:KnownEnumTypedDict = {
             "IfxPort_OutputIdx_alt7": 184
         }
     },
-    "Ifx_RxSel" : {
-        "name" : "Ifx_RxSel",
-        "values" : {
+    "Ifx_RxSel": {
+        "name": "Ifx_RxSel",
+        "values": {
             "Ifx_RxSel_a": 0,
             "Ifx_RxSel_b": 1,
             "Ifx_RxSel_c": 2,
@@ -36,27 +36,27 @@ KNOWN_ENUMS:KnownEnumTypedDict = {
             "Ifx_RxSel_h": 7
         }
     },
-   # "_ZN16NamespaceInFile25EnumAE" : {
-#
-   # },
-    "IfxScuCcu_PllInputClockSelection" : {
-        "name" : "IfxScuCcu_PllInputClockSelection",
-        "values" : {
+    # "_ZN16NamespaceInFile25EnumAE" : {
+    #
+    # },
+    "IfxScuCcu_PllInputClockSelection": {
+        "name": "IfxScuCcu_PllInputClockSelection",
+        "values": {
             "IfxScuCcu_PllInputClockSelection_fOsc1": 0,
             "IfxScuCcu_PllInputClockSelection_fOsc0": 1,
             "IfxScuCcu_PllInputClockSelection_fSysclk": 2
         }
     },
-    "IfxScuCcu_ModEn" : {
-        "name" : "IfxScuCcu_ModEn",
-        "values" : {
+    "IfxScuCcu_ModEn": {
+        "name": "IfxScuCcu_ModEn",
+        "values": {
             "IfxScuCcu_ModEn_disabled": 0,
             "IfxScuCcu_ModEn_enabled": 1
         }
     },
-    "IfxScuCcu_ModulationAmplitude" : {
-        "name" : "IfxScuCcu_ModulationAmplitude",
-        "values" : {
+    "IfxScuCcu_ModulationAmplitude": {
+        "name": "IfxScuCcu_ModulationAmplitude",
+        "values": {
             "IfxScuCcu_ModulationAmplitude_0p5": 0,
             "IfxScuCcu_ModulationAmplitude_1p0": 1,
             "IfxScuCcu_ModulationAmplitude_1p25": 2,
@@ -66,16 +66,16 @@ KNOWN_ENUMS:KnownEnumTypedDict = {
             "IfxScuCcu_ModulationAmplitude_count": 6
         }
     },
-    "IfxAsclin_DataBufferMode" : {
-        "name" : "IfxAsclin_DataBufferMode",
-        "values" : {
+    "IfxAsclin_DataBufferMode": {
+        "name": "IfxAsclin_DataBufferMode",
+        "values": {
             "IfxAsclin_DataBufferMode_normal": 0,
             "IfxAsclin_DataBufferMode_timeStampSingle": 1
         }
     },
-    "_dbg_nr_t" : {
-        "name" : "_dbg_nr_t",
-        "values" : {
+    "_dbg_nr_t": {
+        "name": "_dbg_nr_t",
+        "values": {
             "_DBG_EXIT": 1,
             "_DBG_CLOCK": 2,
             "_DBG_OPEN": 3,
@@ -101,8 +101,8 @@ class TestMakeVarMap_AurixTC334_Tasking_v11r8(BaseVarmapTest, ScrutinyUnitTest):
     known_enums = KNOWN_ENUMS
 
     _CPP_FILT = 'c++filt'
-    #_CPP_FILT = 'c++filt'
-   
+    # _CPP_FILT = 'c++filt'
+
     def test_file1_globals_basic_types(self):
         self.assert_var('/global/file1GlobalChar', EmbeddedDataType.sint8, value_at_loc=-10)
         self.assert_var('/global/file1GlobalInt', EmbeddedDataType.sint32, value_at_loc=-1000)
@@ -115,7 +115,7 @@ class TestMakeVarMap_AurixTC334_Tasking_v11r8(BaseVarmapTest, ScrutinyUnitTest):
         self.assert_var('/global/file1GlobalFloat', EmbeddedDataType.float32, value_at_loc=3.1415926)
         self.assert_var('/global/file1GlobalDouble', EmbeddedDataType.float32, value_at_loc=1.71)
         self.assert_var('/global/file1GlobalBool', EmbeddedDataType.sint8, value_at_loc=1)  # bool are char with tasking
-    
+
     def test_file2_globals_basic_types(self):
         self.assert_var('/global/file2GlobalChar', EmbeddedDataType.sint8, value_at_loc=20)
         self.assert_var('/global/file2GlobalInt', EmbeddedDataType.sint32, value_at_loc=2000)
@@ -154,7 +154,7 @@ class TestMakeVarMap_AurixTC334_Tasking_v11r8(BaseVarmapTest, ScrutinyUnitTest):
         self.assert_var('/static/file2.cpp/file2StaticFloat', EmbeddedDataType.float32, value_at_loc=2.22222)
         self.assert_var('/static/file2.cpp/file2StaticDouble', EmbeddedDataType.float32, value_at_loc=3.3333)
         self.assert_var('/static/file2.cpp/file2StaticBool', EmbeddedDataType.sint8, value_at_loc=1)
-        
+
 
 if __name__ == '__main__':
     import unittest

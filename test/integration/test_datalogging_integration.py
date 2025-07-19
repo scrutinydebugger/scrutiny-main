@@ -461,18 +461,19 @@ class TestDataloggingIntegration(ScrutinyIntegrationTestWithTestSFD1):
                 # This line should trigger the acquisition
                 self.emulated_device.write_memory(self.entry_u16.get_address(), Codecs.get(
                     EmbeddedDataType.uint16, Endianness.Little).encode(0x1234)
-                    )
+                )
                 self.wait_for(req['trigger_hold_time'])  # Leave some time for the device thread to catch the change.
 
                 self.wait_true(self.emulated_device.datalogger.triggered, timeout=1)
                 self.assertTrue(self.emulated_device.datalogger.triggered())
-                
-                state_list:List[str] = []
-                last_completion=None
+
+                state_list: List[str] = []
+                last_completion = None
                 acquisition_complete_received = False
                 t1 = time.monotonic()
-                while  time.monotonic() - t1 < 5:
-                    response = self.wait_and_load_response([API.Command.Api2Client.INFORM_SERVER_STATUS, API.Command.Api2Client.INFORM_DATALOGGING_ACQUISITION_COMPLETE])
+                while time.monotonic() - t1 < 5:
+                    response = self.wait_and_load_response([API.Command.Api2Client.INFORM_SERVER_STATUS,
+                                                           API.Command.Api2Client.INFORM_DATALOGGING_ACQUISITION_COMPLETE])
                     self.assert_no_error(response)
                     if response['cmd'] == API.Command.Api2Client.INFORM_SERVER_STATUS:
                         state = response['datalogging_status']['datalogging_state']
@@ -481,13 +482,13 @@ class TestDataloggingIntegration(ScrutinyIntegrationTestWithTestSFD1):
                             self.assertGreater(completion, last_completion)
                         last_completion = completion
                         state_list.append(state)
-                        logger.debug(f"Received : {state} - {completion}" )
+                        logger.debug(f"Received : {state} - {completion}")
                         if acquisition_complete_received and state == 'standby':
                             break
-                    
+
                     if response['cmd'] == API.Command.Api2Client.INFORM_DATALOGGING_ACQUISITION_COMPLETE:
                         acquisition_complete_received = True
-                # We expect : 
+                # We expect :
                 #    - standby              (iteration 0 only)
                 #    - waiting_for_trigger  (multiple time)
                 #    - acquiring            (multiple time)
@@ -504,7 +505,7 @@ class TestDataloggingIntegration(ScrutinyIntegrationTestWithTestSFD1):
                     self.assertNotEqual(first_wft_index, -1)
                     assert_all_equal_not_empty(state_list[0:first_wft_index], 'standby')
                     state_list = state_list[first_wft_index:]
-                
+
                 first_wft_index = state_list.index('waiting_for_trigger')
                 first_acquiring_index = state_list.index('acquiring')
                 first_downloading_index = state_list.index('downloading')

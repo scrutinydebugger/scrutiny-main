@@ -1346,7 +1346,7 @@ class ScrutinyClient:
             self._threading_events.server_status_updated.wait(timeout=timeout)
             if not self._threading_events.server_status_updated.is_set():
                 raise sdk.exceptions.TimeoutException(f"Server status did not update within a {timeout} seconds delay")
-            
+
         return self
 
     def disconnect(self) -> None:

@@ -25,23 +25,24 @@ from dataclasses import dataclass
 import random
 from scrutiny.core.codecs import UIntCodec
 
+
 class StubbedDeviceHandler:
 
     @dataclass
     class DataloggingRequest:
-        loop_id:int
-        config:device_datalogging.Configuration
-        callback:DeviceAcquisitionRequestCompletionCallback
+        loop_id: int
+        config: device_datalogging.Configuration
+        callback: DeviceAcquisitionRequestCompletionCallback
 
-    _connection_status:DeviceHandler.ConnectionStatus
-    device_info:DeviceInfo
-    _ready_for_datalogging_acquisition_request:bool
-    _datalogger_state:device_datalogging.DataloggerState
-    _datalogging_acquisition_completion_ratio:Optional[float]
-    _datalogging_acquisition_download_progress:Optional[float]
-    reset_datalogging_call_count:int
-    last_request_received:Optional[DataloggingRequest]
-    _datalogging_request_in_progress:bool
+    _connection_status: DeviceHandler.ConnectionStatus
+    device_info: DeviceInfo
+    _ready_for_datalogging_acquisition_request: bool
+    _datalogger_state: device_datalogging.DataloggerState
+    _datalogging_acquisition_completion_ratio: Optional[float]
+    _datalogging_acquisition_download_progress: Optional[float]
+    reset_datalogging_call_count: int
+    last_request_received: Optional[DataloggingRequest]
+    _datalogging_request_in_progress: bool
 
     def __init__(self):
         self._connection_status = DeviceHandler.ConnectionStatus.UNKNOWN
@@ -65,10 +66,10 @@ class StubbedDeviceHandler:
         self.device_info.protocol_major = 1
         self.device_info.protocol_minor = 0
         self.device_info.supported_feature_map = {
-            '_64bits' : True,
-            'datalogging' : True,
+            '_64bits': True,
+            'datalogging': True,
             'memory_write': True,
-            'user_command' : False
+            'user_command': False
         }
         self.device_info.forbidden_memory_regions = []
         self.device_info.readonly_memory_regions = []
@@ -80,15 +81,15 @@ class StubbedDeviceHandler:
             VariableFreqLoop(name="variable loop 1", support_datalogging=True)
         ]
         self.device_info.datalogging_setup = device_datalogging.DataloggingSetup(
-            buffer_size=4096, 
+            buffer_size=4096,
             encoding=device_datalogging.Encoding.RAW,
             max_signal_count=32
-        ) 
+        )
 
     def get_connection_status(self) -> DeviceHandler.ConnectionStatus:
         return self._connection_status
 
-    def set_connection_status(self, status:DeviceHandler.ConnectionStatus) -> None:
+    def set_connection_status(self, status: DeviceHandler.ConnectionStatus) -> None:
         self._connection_status = status
 
     def get_device_info(self) -> DeviceInfo:
@@ -96,35 +97,35 @@ class StubbedDeviceHandler:
 
     def datalogging_in_error(self) -> bool:
         return self._datalogger_state == device_datalogging.DataloggerState.ERROR
-    
+
     def is_ready_for_datalogging_acquisition_request(self) -> bool:
         return self._ready_for_datalogging_acquisition_request
 
-    def set_ready_for_datalogging_acquisition_request(self, val:bool) -> None:
+    def set_ready_for_datalogging_acquisition_request(self, val: bool) -> None:
         self._ready_for_datalogging_acquisition_request = val
 
     def get_datalogger_state(self) -> device_datalogging.DataloggerState:
         return self._datalogger_state
-    
-    def set_datalogger_state(self, val:device_datalogging.DataloggerState) -> None:
+
+    def set_datalogger_state(self, val: device_datalogging.DataloggerState) -> None:
         self._datalogger_state = val
-    
+
     def get_datalogging_acquisition_completion_ratio(self) -> float:
         return self._datalogging_acquisition_completion_ratio
 
-    def set_datalogging_acquisition_completion_ratio(self, val:float) -> None:
+    def set_datalogging_acquisition_completion_ratio(self, val: float) -> None:
         self._datalogging_acquisition_completion_ratio = val
-    
+
     def get_datalogging_acquisition_download_progress(self) -> float:
         return self._datalogging_acquisition_download_progress
 
-    def set_datalogging_acquisition_download_progress(self, val:float) -> None:
+    def set_datalogging_acquisition_download_progress(self, val: float) -> None:
         self._datalogging_acquisition_download_progress = val
 
     def reset_datalogging(self):
         self._datalogger_state = device_datalogging.DataloggerState.IDLE
         self.reset_datalogging_call_count += 1
-    
+
     def request_datalogging_acquisition(self, loop_id: int, config: device_datalogging.Configuration, callback: DeviceAcquisitionRequestCompletionCallback) -> None:
         self.last_request_received = self.DataloggingRequest(
             loop_id=loop_id,
@@ -135,8 +136,9 @@ class StubbedDeviceHandler:
     def datalogging_request_in_progress(self) -> bool:
         return self._datalogging_request_in_progress
 
-    def set_datalogging_request_in_progress(self, val:bool) -> None:
+    def set_datalogging_request_in_progress(self, val: bool) -> None:
         self._datalogging_request_in_progress = val
+
 
 class TestDataloggingManager(ScrutinyUnitTest):
 
@@ -243,17 +245,16 @@ class TestDataloggingManager(ScrutinyUnitTest):
             ]
         )
 
-    def make_random_data_for_request(self, req:api_datalogging.AcquisitionRequest, nb_points:int = 100) -> Tuple[List[List[bytes]], device_datalogging.AcquisitionMetadata]:
+    def make_random_data_for_request(self, req: api_datalogging.AcquisitionRequest, nb_points: int = 100) -> Tuple[List[List[bytes]], device_datalogging.AcquisitionMetadata]:
         time_codec = UIntCodec(4, Endianness.Little)
-        data:List[List[bytes]] = []
-        data_size=0
-       
+        data: List[List[bytes]] = []
+        data_size = 0
 
         for signal_def in req.signals:
             entry = signal_def.entry
             if isinstance(entry, DatastoreAliasEntry):  # dereference alias
                 entry = entry.refentry
-                
+
             if isinstance(entry, DatastoreVariableEntry):
                 dtype = entry.get_data_type()
                 codec = entry.codec
@@ -262,13 +263,13 @@ class TestDataloggingManager(ScrutinyUnitTest):
                 codec = entry.codec
             else:
                 raise NotImplementedError("Unsupported entry type")
-            
-            points:List[bytes] = []
+
+            points: List[bytes] = []
             for i in range(nb_points):
-                
+
                 randval = random.random()
                 if dtype == EmbeddedDataType.boolean:
-                    points.append(codec.encode(i %2 == 0))
+                    points.append(codec.encode(i % 2 == 0))
                 elif dtype.is_float():
                     points.append(codec.encode(randval))
                 elif dtype.is_integer():
@@ -276,26 +277,25 @@ class TestDataloggingManager(ScrutinyUnitTest):
                     if not dtype.is_signed():
                         intval = abs(intval)
 
-                    points.append(codec.encode(intval ))
+                    points.append(codec.encode(intval))
                 else:
                     raise NotImplementedError(f"Unsupported data type: {dtype}")
             data.append(points)
 
         if req.x_axis_type == api_datalogging.XAxisType.MeasuredTime:
-            points:List[bytes] = []
+            points: List[bytes] = []
             for i in range(nb_points):
                 points.append(time_codec.encode(i))
             data.append(points)
 
-        data_size += sum([ sum([len(point_data) for point_data in series]) for series in data]) 
-        
+        data_size += sum([sum([len(point_data) for point_data in series]) for series in data])
 
         meta = device_datalogging.AcquisitionMetadata(
             acquisition_id=0,
             config_id=1,
             data_size=data_size,
             number_of_points=nb_points,
-            points_after_trigger = nb_points//2
+            points_after_trigger=nb_points // 2
         )
 
         return data, meta
@@ -420,14 +420,13 @@ class TestDataloggingManager(ScrutinyUnitTest):
                 self.assertEqual(signals[signalmap[self.alias_var4_s16]].address, alias.refentry.get_address())
                 self.assertEqual(signals[signalmap[self.alias_var4_s16]].size, alias.refentry.get_data_type().get_size_byte())
 
-    def _process_until(self, fn, max_iter:int) -> None:
-        i=0
-        while not fn() and i<max_iter:
+    def _process_until(self, fn, max_iter: int) -> None:
+        i = 0
+        while not fn() and i < max_iter:
             self.datalogging_manager.process()
             i += 1
         self.datalogging_manager.process()
         self.assertTrue(fn())
-
 
     def _wait_connected_without_datalogging(self, max_iter=5):
         self._process_until(self.datalogging_manager.is_device_connected_without_datalogging, max_iter)
@@ -439,8 +438,8 @@ class TestDataloggingManager(ScrutinyUnitTest):
         self.assertTrue(self.datalogging_manager.is_device_connected_with_datalogging())
         self.assertFalse(self.datalogging_manager.is_device_connected_without_datalogging())
 
-    def test_read_state(self) : 
-        # Check that we can translate the datalogger state to a server state 
+    def test_read_state(self):
+        # Check that we can translate the datalogger state to a server state
         self.device_handler.set_connection_status(DeviceHandler.ConnectionStatus.UNKNOWN)
         self.datalogging_manager.process()
         state, completion = self.datalogging_manager.get_datalogging_state()
@@ -450,10 +449,10 @@ class TestDataloggingManager(ScrutinyUnitTest):
         self.device_handler.set_connection_status(DeviceHandler.ConnectionStatus.CONNECTED_READY)
         self.device_handler.set_ready_for_datalogging_acquisition_request(True)
         self.device_handler.set_datalogger_state(device_datalogging.DataloggerState.IDLE)
-        
+
         self._wait_connected_with_datalogging()
         self.datalogging_manager.process()
-        
+
         self.assertEqual(self.datalogging_manager.get_datalogging_state(), (api_datalogging.DataloggingState.Standby, None))
 
         self.device_handler.set_datalogger_state(device_datalogging.DataloggerState.CONFIGURED)
@@ -464,17 +463,16 @@ class TestDataloggingManager(ScrutinyUnitTest):
 
         self.device_handler.set_datalogger_state(device_datalogging.DataloggerState.TRIGGERED)
         self.assertEqual(self.datalogging_manager.get_datalogging_state(), (api_datalogging.DataloggingState.Acquiring, 0))
-        
+
         self.device_handler.set_datalogging_acquisition_completion_ratio(0.1)
         self.assertEqual(self.datalogging_manager.get_datalogging_state(), (api_datalogging.DataloggingState.Acquiring, 0.1))
 
         self.device_handler.set_datalogging_acquisition_completion_ratio(0.2)
         self.assertEqual(self.datalogging_manager.get_datalogging_state(), (api_datalogging.DataloggingState.Acquiring, 0.2))
-        
 
         self.device_handler.set_datalogger_state(device_datalogging.DataloggerState.ACQUISITION_COMPLETED)
         self.assertEqual(self.datalogging_manager.get_datalogging_state(), (api_datalogging.DataloggingState.Downloading, 0))
-        
+
         self.device_handler.set_datalogging_acquisition_download_progress(0.1)
         self.assertEqual(self.datalogging_manager.get_datalogging_state(), (api_datalogging.DataloggingState.Downloading, 0.1))
 
@@ -483,40 +481,37 @@ class TestDataloggingManager(ScrutinyUnitTest):
 
         self.device_handler.set_datalogger_state(device_datalogging.DataloggerState.ERROR)
         self.assertEqual(self.datalogging_manager.get_datalogging_state(), (api_datalogging.DataloggingState.Error, None))
-        
 
     def test_datalogging_not_available(self):
         # Check that we manager a device without datalogging support
         self.device_handler.device_info.supported_feature_map['datalogging'] = False
         self.device_handler.set_connection_status(DeviceHandler.ConnectionStatus.CONNECTED_READY)
-        
+
         self._wait_connected_without_datalogging()
         self.datalogging_manager.process()
 
         self.assertEqual(self.datalogging_manager.get_datalogging_state(), (api_datalogging.DataloggingState.NA, None))
-
 
     def test_reset_datalogger_in_case_of_error(self):
         # Check that we reset the datalogger if it goes into error
         self.device_handler.set_connection_status(DeviceHandler.ConnectionStatus.CONNECTED_READY)
         self.device_handler.set_ready_for_datalogging_acquisition_request(True)
         self.device_handler.set_datalogger_state(device_datalogging.DataloggerState.IDLE)
-        
+
         self._wait_connected_with_datalogging()
 
         self.assertEqual(self.datalogging_manager.get_datalogging_state(), (api_datalogging.DataloggingState.Standby, None))
 
         self.device_handler.set_datalogger_state(device_datalogging.DataloggerState.ERROR)
         self.assertNotEqual(self.datalogging_manager.get_datalogging_state(), (api_datalogging.DataloggingState.Standby, None))
-        
+
         def reset_called() -> bool:
             return self.device_handler.reset_datalogging_call_count > 0
         self._process_until(reset_called, max_iter=5)
-        
+
         self.assertFalse(self.datalogging_manager.is_device_connected_with_datalogging())
         self._wait_connected_with_datalogging()
         self.assertEqual(self.datalogging_manager.get_datalogging_state(), (api_datalogging.DataloggingState.Standby, None))
-
 
     def test_make_acquisition(self):
         # Do an acquisition cycle through a stubbed device handler. ensure the callback is called at the right time
@@ -533,7 +528,7 @@ class TestDataloggingManager(ScrutinyUnitTest):
                 core_datalogging.AxisDefinition("Axis2", axis_id=200),
                 core_datalogging.AxisDefinition("Axis3", axis_id=300)
             ]
-            
+
             req = api_datalogging.AcquisitionRequest(
                 name="some_request",
                 decimation=2,
@@ -557,33 +552,32 @@ class TestDataloggingManager(ScrutinyUnitTest):
 
             @dataclass
             class CallbackContent:
-                called:bool = False
-                success:bool = False
-                failure_reason:str = ""
-                acq:Optional[api_datalogging.DataloggingAcquisition] = None
+                called: bool = False
+                success: bool = False
+                failure_reason: str = ""
+                acq: Optional[api_datalogging.DataloggingAcquisition] = None
 
             @dataclass
             class StateContent:
-                updated:bool = False
-                state:api_datalogging.DataloggingState = api_datalogging.DataloggingState.NA
-                completion:Optional[float] = None
-            
+                updated: bool = False
+                state: api_datalogging.DataloggingState = api_datalogging.DataloggingState.NA
+                completion: Optional[float] = None
+
             last_callback_call = CallbackContent()
             last_state = StateContent()
-            
-            def completion_callback(success:bool, failure_reason:str, acq:Optional[api_datalogging.DataloggingAcquisition] ):
+
+            def completion_callback(success: bool, failure_reason: str, acq: Optional[api_datalogging.DataloggingAcquisition]):
                 last_callback_call.called = True
                 last_callback_call.success = success
                 last_callback_call.failure_reason = failure_reason
                 last_callback_call.acq = acq
-            
 
-            def state_change_callback(state:api_datalogging.DataloggingState, completion:Optional[float]):
+            def state_change_callback(state: api_datalogging.DataloggingState, completion: Optional[float]):
                 last_state.updated = True
                 last_state.state = state
                 last_state.completion = completion
 
-            def assert_state_change_and_clear(state:api_datalogging.DataloggingState, completion:Optional[float]):
+            def assert_state_change_and_clear(state: api_datalogging.DataloggingState, completion: Optional[float]):
                 self.assertTrue(last_state.updated)
                 self.assertEqual(last_state.state, state)
                 self.assertEqual(last_state.completion, completion)
@@ -626,7 +620,7 @@ class TestDataloggingManager(ScrutinyUnitTest):
             self.device_handler.set_datalogging_acquisition_download_progress(1)
             self.datalogging_manager.process()
             assert_state_change_and_clear(api_datalogging.DataloggingState.Downloading, 1)
-            
+
             data, meta = self.make_random_data_for_request(req, nb_points=100)
 
             self.assertFalse(last_callback_call.called)
@@ -637,7 +631,6 @@ class TestDataloggingManager(ScrutinyUnitTest):
             self.device_handler.set_datalogger_state(device_datalogging.DataloggerState.IDLE)
             self.datalogging_manager.process()
             assert_state_change_and_clear(api_datalogging.DataloggingState.Standby, None)
-        
 
 
 if __name__ == '__main__':

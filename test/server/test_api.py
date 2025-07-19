@@ -207,9 +207,9 @@ class StubbedDataloggingManager:
     fake_device_handler: StubbedDeviceHandler
     datalogging_setup: device_datalogging.DataloggingSetup
     request_queue: "queue.Queue[api_datalogging.AcquisitionRequest]"
-    datalogging_state_changed_callbacks:List[DataloggingStateChangedCallback]
-    datalogging_state:api_datalogging.DataloggingState
-    datalogging_state_completion:Optional[float]
+    datalogging_state_changed_callbacks: List[DataloggingStateChangedCallback]
+    datalogging_state: api_datalogging.DataloggingState
+    datalogging_state_completion: Optional[float]
 
     callback_queue: "queue.Queue[Tuple[api_datalogging.APIAcquisitionRequestCompletionCallback, bool, core_datalogging.DataloggingAcquisition]]"
 
@@ -296,17 +296,18 @@ class StubbedDataloggingManager:
             i += 1
         return sampling_rates
 
-    def register_datalogging_state_change_callback(self, callback:DataloggingStateChangedCallback) -> None:
+    def register_datalogging_state_change_callback(self, callback: DataloggingStateChangedCallback) -> None:
         self.datalogging_state_changed_callbacks.append(callback)
 
-    def set_datalogging_state(self, state:api_datalogging.DataloggingState, completion:Optional[float]) -> None:
+    def set_datalogging_state(self, state: api_datalogging.DataloggingState, completion: Optional[float]) -> None:
         self.datalogging_state = state
         self.datalogging_state_completion = completion
         for callback in self.datalogging_state_changed_callbacks:
             callback(state, completion)
-    
+
     def get_datalogging_state(self) -> Tuple[api_datalogging.DataloggingState, Optional[float]]:
         return (self.datalogging_state, self.datalogging_state_completion)
+
 
 @dataclass
 class FakeServer:

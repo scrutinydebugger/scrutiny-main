@@ -13,19 +13,21 @@ from scrutiny.core.variable import *
 from scrutiny.core.embedded_enum import *
 from scrutiny.tools.typing import *
 
-class KnownEnumTypedDictEntry(TypedDict):
-    name:str
-    values:Dict[str, int]
 
-KnownEnumTypedDict:TypeAlias = Dict[str, KnownEnumTypedDictEntry]
-    
+class KnownEnumTypedDictEntry(TypedDict):
+    name: str
+    values: Dict[str, int]
+
+
+KnownEnumTypedDict: TypeAlias = Dict[str, KnownEnumTypedDictEntry]
+
 
 class BaseVarmapTest:
-    varmap:VarMap
-    bin_filename:str
-    memdump_filename:Optional[str]
-    memdump:Optional[MemoryContent]
-    known_enums:Optional[KnownEnumTypedDict]
+    varmap: VarMap
+    bin_filename: str
+    memdump_filename: Optional[str]
+    memdump: Optional[MemoryContent]
+    known_enums: Optional[KnownEnumTypedDict]
 
     _CPP_FILT = 'c++filt'   # Can be overriden
 
@@ -48,8 +50,8 @@ class BaseVarmapTest:
     def setUp(self) -> None:
         if self.init_exception is not None:
             raise self.init_exception
-        
-    def load_var(self, fullname:str):
+
+    def load_var(self, fullname: str):
         return self.varmap.get_var(fullname)
 
     def assert_var(self, fullname, thetype, addr=None, bitsize=None, bitoffset=None, value_at_loc=None, float_tol=0.00001, enum: Optional[str] = None):
@@ -64,7 +66,7 @@ class BaseVarmapTest:
 
         if addr is not None:
             self.assertEqual(addr, v.get_address())
-      
+
         if enum is not None:
             self.assertIn(enum, self.known_enums)
             self.assertIsNotNone(v.enum)
@@ -97,10 +99,10 @@ class BaseVarmapTest:
             for cu in dwarfinfo.iter_CUs():
                 self.assertEqual(cu.header['version'], version)
 
-    def assert_is_enum(self, v:Variable):
+    def assert_is_enum(self, v: Variable):
         self.assertIsNotNone(v.enum)
 
-    def assert_has_enum(self, v:Variable, name: str, value: int):
+    def assert_has_enum(self, v: Variable, name: str, value: int):
         self.assert_is_enum(v)
         venum = v.get_enum()
         self.assertIsNotNone(venum)
@@ -108,10 +110,10 @@ class BaseVarmapTest:
         self.assertIsNotNone(value2)
         self.assertEqual(value2, value)
 
-    def _compare_known_enum(self, known_enum:KnownEnumTypedDictEntry, embedded_enum:EmbeddedEnum) -> bool:
+    def _compare_known_enum(self, known_enum: KnownEnumTypedDictEntry, embedded_enum: EmbeddedEnum) -> bool:
         if known_enum['name'] != embedded_enum.get_name():
             return False
-        
+
         if sorted(list(known_enum['values'].keys())) != sorted(list(embedded_enum.vals.keys())):
             return False
 
@@ -126,7 +128,7 @@ class BaseVarmapTest:
     def test_all_enums(self):
         if self.known_enums is None:
             return
-        
+
         for unique_id, known_enum in self.known_enums.items():
             enum_found_and_ok = False
             enum_name = known_enum['name']
@@ -134,6 +136,6 @@ class BaseVarmapTest:
                 if self._compare_known_enum(known_enum, candidate):
                     enum_found_and_ok = True
                     break
-                
+
             if not enum_found_and_ok:
                 self.assertTrue(enum_found_and_ok, f"Enum {unique_id} (name={enum_name}) not found in varmap with the same definition")
