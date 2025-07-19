@@ -420,7 +420,7 @@ class ElfDwarfVarExtractor:
         if mangled_encoded is None:
             if self._context.cu_compiler == Compiler.Tasking:
                 if Attrs.DW_AT_name in die.attributes:
-                    name = die.attributes[Attrs.DW_AT_name].value.decode('ascii')
+                    name = cast(bytes, die.attributes[Attrs.DW_AT_name].value).decode('ascii')
                     if name.startswith('_Z'):   # Speed optimization to avoid invoking the demangler for everything
                         return name
 
