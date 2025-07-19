@@ -416,6 +416,14 @@ class ElfDwarfVarExtractor:
             if Attrs.DW_AT_MIPS_linkage_name in die.attributes:
                 mangled_encoded = die.attributes[Attrs.DW_AT_MIPS_linkage_name].value
 
+        # Tasking compiler encode the mangled name in DW_AT_Name  (-_-)
+        if mangled_encoded is None:
+            if self._context.cu_compiler == Compiler.Tasking:
+                if Attrs.DW_AT_name in die.attributes:
+                    name = die.attributes[Attrs.DW_AT_name].value.decode('ascii')
+                    if name.startswith('_Z'):   # Speed optimization to avoid invoking the demangler for everything
+                        return name
+
         if isinstance(mangled_encoded, bytes):
             return mangled_encoded.decode('ascii')
 
@@ -465,6 +473,12 @@ class ElfDwarfVarExtractor:
 
         outname += name[bracket_exit_pos:].replace('::', ';')
         return outname.split(';')
+
+    def post_process_splitted_demangled_name(self, parts: List[str]) -> List[str]:
+        if self._context.cu_compiler == Compiler.Tasking:
+            # Tasking do something like that : /static/file1.cpp/_INTERNAL_9_file1_cpp_49335e60/NamespaceInFile1/NamespaceInFile1Nested1/file1StaticNestedVar1
+            return [x for x in parts if not x.startswith('_INTERNAL_')]
+        return parts
 
     def is_external(self, die: DIE) -> bool:
         """Tells if the die is accessible from outside the compile unit. If it is, it's global, otherwise it's static."""
@@ -715,7 +729,9 @@ class ElfDwarfVarExtractor:
 
         if mangled_name is not None:
             demangled_name = self.demangler.demangle(mangled_name)
-            name = self.split_demangled_name(demangled_name)[-1]
+            parts = self.split_demangled_name(demangled_name)
+            self.post_process_splitted_demangled_name(parts)
+            name = parts[-1]
 
         if name is None:
             name = self.get_name_no_none(die)
@@ -739,7 +755,9 @@ class ElfDwarfVarExtractor:
                     # cl2000 embeds the full mangled path in the DW_AT_NAME attribute,
                     # ex :_ZN13FileNamespace14File3TestClass3BBBE = FileNamespace::File3TestClass::BBB
                     demangled_name = self.demangler.demangle(enumerator_name)
-                    enumerator_name = self.split_demangled_name(demangled_name)[-1]
+                    parts = self.split_demangled_name(demangled_name)
+                    parts = self.post_process_splitted_demangled_name(parts)
+                    enumerator_name = parts[-1]
 
                 if Attrs.DW_AT_const_value in child.attributes:
                     value = cast(int, child.attributes[Attrs.DW_AT_const_value].value)
@@ -1115,6 +1133,7 @@ class ElfDwarfVarExtractor:
         name = self.get_demangled_linkage_name(die)
         if name is not None:
             parts = self.split_demangled_name(name)
+            parts = self.post_process_splitted_demangled_name(parts)
             return parts + segments
 
         # Try to get the name of the die and use it as a level of the path

@@ -54,9 +54,20 @@ class BaseVarmapTest:
     def load_var(self, fullname: str):
         return self.varmap.get_var(fullname)
 
-    def assert_var(self, fullname, thetype, addr=None, bitsize=None, bitoffset=None, value_at_loc=None, float_tol=0.00001, enum: Optional[str] = None):
+    def assert_var(self,
+                   fullname,
+                   thetype: Optional[EmbeddedDataType] = None,
+                   addr=None,
+                   bitsize=None,
+                   bitoffset=None,
+                   value_at_loc=None,
+                   float_tol: Optional[float] = None,
+                   enum: Optional[str] = None):
         v = self.load_var(fullname)
-        self.assertEqual(thetype, v.get_type())
+        if thetype is not None:
+            self.assertEqual(thetype, v.get_type())
+            if thetype in [EmbeddedDataType.float32, EmbeddedDataType.float64] and float_tol is None:
+                float_tol = 0.00001
 
         if bitsize is not None:
             self.assertEqual(v.bitsize, bitsize)
@@ -83,7 +94,7 @@ class BaseVarmapTest:
                 raise ValueError("No memdump available")
             data = self.memdump.read(v.get_address(), v.get_size())
             val = v.decode(data)
-            if thetype in [EmbeddedDataType.float32, EmbeddedDataType.float64]:
+            if float_tol is not None:
                 self.assertAlmostEqual(val, value_at_loc, delta=float_tol)
             else:
                 self.assertEqual(val, value_at_loc)
