@@ -6,12 +6,13 @@
 #
 #   Copyright (c) 2022 Scrutiny Debugger
 
-__all__ = ['BaseDemangler', 'GccDemangler']
+__all__ = ['BaseDemangler', 'PurePythonItaniumDemangler']
 
 import subprocess
 import shutil
 import abc
 
+from scrutiny.core.bintools.itanium_demangler import parse as itanium_demangler_parse
 from scrutiny.tools.typing import *
 
 
@@ -22,7 +23,7 @@ class BaseDemangler(abc.ABC):
     def get_error(self) -> str:
         return "virtual class"
 
-    def demangle(self, mangler: str) -> str:
+    def demangle(self, mangled: str) -> str:
         raise NotImplementedError('Trying to demangle with base class')
 
 
@@ -61,3 +62,14 @@ class GccDemangler(BaseDemangler):
         self.process = subprocess.Popen([self.binary_name, '--format', 'gnu-v3', '-n'],
                                         stdout=subprocess.PIPE, stdin=subprocess.PIPE, universal_newlines=True)
         return self.process.communicate(input=mangled)[0]
+
+
+class PurePythonItaniumDemangler(BaseDemangler):
+    def can_run(self) -> bool:
+        return True
+
+    def get_error(self) -> str:
+        return ''
+
+    def demangle(self, mangled: str) -> str:
+        return str(itanium_demangler_parse(mangled))

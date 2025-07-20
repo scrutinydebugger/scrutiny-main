@@ -1,0 +1,260 @@
+# Python Itanium Demangler test suite
+# Copyright  WhiteQuark (https://github.com/whitequark)
+# Original project : https://github.com/whitequark/python-itanium_demangler
+# Modified by Pier-Yves Lessard for the purpose of Scrutiny Debugger
+#
+# License : 0BSD:
+#
+#       Copyright (C) 2018 whitequark@whitequark.org
+#
+#       Permission to use, copy, modify, and/or distribute this software for
+#       any purpose with or without fee is hereby granted.
+#
+#       THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+#       WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+#       MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+#       ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+#       WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
+#       AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT
+#       OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+#
+
+
+from scrutiny.core.bintools.itanium_demangler import parse, _operators, _builtin_types
+
+from test import ScrutinyUnitTest
+
+
+class TestDemangler(ScrutinyUnitTest):
+    def assertParses(self, mangled, ast):
+        result = parse(mangled)
+        self.assertEqual(result, ast)
+
+    def assertDemangles(self, mangled, demangled):
+        result = parse(mangled)
+        if result is not None:
+            result = str(result)
+        self.assertEqual(result, demangled)
+
+    def test_name(self):
+        self.assertDemangles('_Z3foo', 'foo')
+        self.assertDemangles('_Z3x', None)
+
+    def test_ctor_dtor(self):
+        self.assertDemangles('_ZN3fooC1E', 'foo::{ctor}')
+        self.assertDemangles('_ZN3fooC2E', 'foo::{base ctor}')
+        self.assertDemangles('_ZN3fooC3E', 'foo::{allocating ctor}')
+        self.assertDemangles('_ZN3fooD0E', 'foo::{deleting dtor}')
+        self.assertDemangles('_ZN3fooD1E', 'foo::{dtor}')
+        self.assertDemangles('_ZN3fooD2E', 'foo::{base dtor}')
+        self.assertDemangles('_ZN3fooC1IcEEc', 'foo::{ctor}<char>(char)')
+        self.assertDemangles('_ZN3fooD1IcEEc', 'foo::{dtor}<char>(char)')
+
+    def test_operator(self):
+        for op in _operators:
+            if _operators[op] in ['new', 'new[]', 'delete', 'delete[]']:
+                continue
+            self.assertDemangles('_Z' + op, 'operator' + _operators[op])
+        self.assertDemangles('_Znw', 'operator new')
+        self.assertDemangles('_Zna', 'operator new[]')
+        self.assertDemangles('_Zdl', 'operator delete')
+        self.assertDemangles('_Zda', 'operator delete[]')
+        self.assertDemangles('_Zcvi', 'operator int')
+
+    def test_std_substs(self):
+        self.assertDemangles('_ZSt3foo', 'std::foo')
+        self.assertDemangles('_ZStN3fooE', 'std::foo')
+        self.assertDemangles('_ZSs', 'std::string')
+        self.assertParses('_ZSt', None)
+        self.assertDemangles('_Z3fooISt6vectorE', 'foo<std::vector>')
+        self.assertDemangles('_ZSaIhE', 'std::allocator<unsigned char>')
+
+    def test_nested_name(self):
+        self.assertDemangles('_ZN3fooE', 'foo')
+        self.assertDemangles('_ZN3foo5bargeE', 'foo::barge')
+        self.assertDemangles('_ZN3fooIcE5bargeE', 'foo<char>::barge')
+        self.assertDemangles('_ZNK3fooE', 'foo const')
+        self.assertDemangles('_ZNV3fooE', 'foo volatile')
+        self.assertDemangles('_ZNKR3fooE', 'foo const&')
+        self.assertDemangles('_ZNKO3fooE', 'foo const&&')
+        self.assertParses('_ZNKO3foo', None)
+
+    def test_template_args(self):
+        self.assertDemangles('_Z3fooIcE', 'foo<char>')
+        self.assertDemangles('_ZN3fooIcEE', 'foo<char>')
+        self.assertParses('_Z3fooI', None)
+
+    def test_builtin_types(self):
+        for ty in _builtin_types:
+            self.assertDemangles('_Z1fI' + ty + 'E', 'f<' + str(_builtin_types[ty]) + '>')
+
+    def test_qualified_type(self):
+        self.assertDemangles('_Z1fIriE', 'f<int restrict>')
+        self.assertDemangles('_Z1fIKiE', 'f<int const>')
+        self.assertDemangles('_Z1fIViE', 'f<int volatile>')
+        self.assertDemangles('_Z1fIVVViE', 'f<int volatile>')
+
+    def test_function_type(self):
+        self.assertDemangles('_Z1fv', 'f()')
+        self.assertDemangles('_Z1fi', 'f(int)')
+        self.assertDemangles('_Z1fic', 'f(int, char)')
+        self.assertDemangles('_ZN1fEic', 'f(int, char)')
+        self.assertDemangles('_ZN1fIEEic', 'int f<>(char)')
+        self.assertDemangles('_ZN1fIEC1Eic', 'f<>::{ctor}(int, char)')
+
+    def test_indirect_type(self):
+        self.assertDemangles('_Z1fIPiE', 'f<int*>')
+        self.assertDemangles('_Z1fIPPiE', 'f<int**>')
+        self.assertDemangles('_Z1fIRiE', 'f<int&>')
+        self.assertDemangles('_Z1fIOiE', 'f<int&&>')
+        self.assertDemangles('_Z1fIKRiE', 'f<int& const>')
+        self.assertDemangles('_Z1fIRKiE', 'f<int const&>')
+
+    def test_literal(self):
+        self.assertDemangles('_Z1fILi1EE', 'f<(int)1>')
+        self.assertDemangles('_Z1fIL_Z1gEE', 'f<g>')
+
+    def test_argpack(self):
+        self.assertDemangles('_Z1fILb0EJciEE', 'f<(bool)0, char, int>')
+        self.assertDemangles('_Z1fILb0EIciEE', 'f<(bool)0, char, int>')
+        self.assertDemangles('_Z1fIJciEEvDpOT_', 'void f<char, int>(char, int)')
+        self.assertDemangles('_Z1fIIciEEvDpOT_', 'void f<char, int>(char, int)')
+
+    def test_special(self):
+        self.assertDemangles('_ZTV1f', 'vtable for f')
+        self.assertDemangles('_ZTT1f', 'vtt for f')
+        self.assertDemangles('_ZTI1f', 'typeinfo for f')
+        self.assertDemangles('_ZTS1f', 'typeinfo name for f')
+        self.assertDemangles('_ZThn16_1fv', 'non-virtual thunk for f()')
+        self.assertDemangles('_ZTv16_8_1fv', 'virtual thunk for f()')
+        self.assertDemangles('_ZGV1f', 'guard variable for f')
+        self.assertDemangles('_ZGTt1fv', 'transaction clone for f()')
+
+    def test_template_param(self):
+        self.assertDemangles('_ZN1fIciEEvT_PT0_', 'void f<char, int>(char, int*)')
+        self.assertParses('_ZN1fIciEEvT_PT0', None)
+
+    def test_substitution(self):
+        self.assertDemangles('_Z3fooIEvS_', 'void foo<>(foo)')
+        self.assertDemangles('_ZN3foo3barIES_E', 'foo::bar<>::foo')
+        self.assertDemangles('_ZN3foo3barIES0_E', 'foo::bar<>::foo::bar')
+        self.assertDemangles('_ZN3foo3barIES1_E', 'foo::bar<>::foo::bar<>')
+        self.assertParses('_ZN3foo3barIES_ES2_', None)
+        self.assertDemangles('_Z3fooIS_E', 'foo<foo>')
+        self.assertDemangles('_ZSt3fooIS_E', 'std::foo<std::foo>')
+        self.assertDemangles('_Z3fooIPiEvS0_', 'void foo<int*>(int*)')
+        self.assertDemangles('_Z3fooISaIcEEvS0_',
+                             'void foo<std::allocator<char>>(std::allocator<char>)')
+        self.assertDemangles('_Z3fooI3barS0_E', 'foo<bar, bar>')
+        self.assertDemangles('_ZN2n11fEPNS_1bEPNS_2n21cEPNS2_2n31dE',
+                             'n1::f(n1::b*, n1::n2::c*, n1::n2::n3::d*)')
+        self.assertDemangles('_ZN1f1gES_IFvvEE', 'f::g(f<void ()>)')
+        self.assertDemangles('_ZplIcET_S0_', 'char operator+<char>(char)')
+        self.assertParses('_ZplIcET_S1_', None)
+        # Operator template results don't get added to substitutions
+        self.assertParses('_ZStplIcEvS0_', None)
+
+    def test_abi_tag(self):
+        self.assertDemangles('_Z3fooB5cxx11v', 'foo[abi:cxx11]()')
+
+    def test_const(self):
+        self.assertDemangles('_ZL3foo', 'foo')
+
+    def test_operator_template(self):
+        self.assertDemangles('_ZmiIiE', 'operator-<int>')
+        self.assertDemangles('_ZmiIiEvv', 'void operator-<int>()')
+        self.assertDemangles('_ZmiIiEvKT_RT_', 'void operator-<int>(int const, int&)')
+        self.assertDemangles('_ZcviIiE', 'operator int<int>')
+        self.assertDemangles('_ZcviIiEv', 'operator int<int>()')
+        self.assertDemangles('_ZcviIiET_T_', 'operator int<int>(int, int)')
+
+    def test_array(self):
+        self.assertDemangles('_Z1fA1_c', 'f(char[(int)1])')
+        self.assertDemangles('_Z1fRA1_c', 'f(char(&)[(int)1])')
+        self.assertDemangles('_Z1fIA1_cS0_E', 'f<char[(int)1], char[(int)1]>')
+        self.assertParses('_Z1fA1c', None)
+
+    def test_function(self):
+        self.assertDemangles('_Z1fFvvE', 'f(void ())')
+        self.assertDemangles('_Z1fPFvvE', 'f(void (*)())')
+        self.assertDemangles('_Z1fPPFvvE', 'f(void (**)())')
+        self.assertDemangles('_Z1fRPFvvE', 'f(void (*&)())')
+        self.assertDemangles('_Z1fKFvvE', 'f(void () const)')
+
+    def test_member_data(self):
+        self.assertDemangles('_Z1fM3fooi', 'f(int foo::*)')
+        self.assertDemangles('_Z1fMN3foo3barEi', 'f(int foo::bar::*)')
+        self.assertDemangles('_Z1fM3fooN3bar1XE', 'f(bar::X foo::*)')
+        self.assertDemangles('_Z1fM3fooIcE3bar', 'f(bar foo<char>::*)')
+        self.assertDemangles('_Z1fM3foo3barIlE', 'f(bar<long> foo::*)')
+        self.assertDemangles('_Z3fooPM2ABi', 'foo(int AB::**)')
+
+    def test_member_function(self):
+        self.assertDemangles('_Z1fM3fooFvvE', 'f(void (foo::*)())')
+        self.assertDemangles('_Z1fMN3foo3barEFvvE', 'f(void (foo::bar::*)())')
+        self.assertDemangles('_Z3fooRM3barFviE', 'foo(void (bar::*&)(int))')
+
+    def test_tasking(self):
+        self.assertDemangles('_Z11funcInFile1ii', 'funcInFile1(int, int)')
+        self.assertDemangles('_Z14file1SetValuesv', 'file1SetValues()')
+        self.assertDemangles('_Z10file2func1v', 'file2func1()')
+        self.assertDemangles('_Z10file2func1i', 'file2func1(int)')
+        self.assertDemangles('_Z14file2SetValuesv', 'file2SetValues()')
+        self.assertDemangles('_Z14file3SetValuesv', 'file3SetValues()')
+        self.assertDemangles('_ZN13FileNamespace14File3TestClassUt_Ut_Ut_E',
+                             'FileNamespace::File3TestClass::{unnamed type#1}::{unnamed type#1}::{unnamed type#1}')
+        self.assertDemangles('_ZN13FileNamespace14File3TestClassUt_Ut_Ut0_E',
+                             'FileNamespace::File3TestClass::{unnamed type#1}::{unnamed type#1}::{unnamed type#2}')
+        self.assertDemangles('_ZN13FileNamespace14File3TestClassUt_Ut_Ut1_E',
+                             'FileNamespace::File3TestClass::{unnamed type#1}::{unnamed type#1}::{unnamed type#3}')
+        self.assertDemangles('_ZN13FileNamespace14File3TestClassUt_Ut_E', 'FileNamespace::File3TestClass::{unnamed type#1}::{unnamed type#1}')
+        self.assertDemangles('_ZN13FileNamespace14File3TestClassUt_E', 'FileNamespace::File3TestClass::{unnamed type#1}')
+        self.assertDemangles('_ZN13FileNamespace14File3TestClassE', 'FileNamespace::File3TestClass')
+        self.assertDemangles('_ZN29File3AnonymousBitfieldInUnionUt_E', 'File3AnonymousBitfieldInUnion::{unnamed type#1}')
+        self.assertDemangles('_ZN13FileNamespace14File3TestClassUt_Ut_Ut_E',
+                             'FileNamespace::File3TestClass::{unnamed type#1}::{unnamed type#1}::{unnamed type#1}')
+        self.assertDemangles('_ZN13FileNamespace14File3TestClassUt_Ut_Ut0_E',
+                             'FileNamespace::File3TestClass::{unnamed type#1}::{unnamed type#1}::{unnamed type#2}')
+        self.assertDemangles('_ZN13FileNamespace14File3TestClassUt_Ut_Ut1_E',
+                             'FileNamespace::File3TestClass::{unnamed type#1}::{unnamed type#1}::{unnamed type#3}')
+        self.assertDemangles('_ZN13FileNamespace14File3TestClassUt_Ut_E', 'FileNamespace::File3TestClass::{unnamed type#1}::{unnamed type#1}')
+        self.assertDemangles('_ZN13FileNamespace14File3TestClassUt_E', 'FileNamespace::File3TestClass::{unnamed type#1}')
+        self.assertDemangles('_ZN13FileNamespace14File3TestClassE', 'FileNamespace::File3TestClass')
+        self.assertDemangles('_ZN7StructCUt_Ut_E', 'StructC::{unnamed type#1}::{unnamed type#1}')
+        self.assertDemangles('_ZN7StructCUt_E', 'StructC::{unnamed type#1}')
+        self.assertDemangles('_ZN15namespaceAFile211classBFile212ClassBAFile2E', 'namespaceAFile2::classBFile2::ClassBAFile2')
+        self.assertDemangles('_ZN15namespaceAFile211classBFile2E', 'namespaceAFile2::classBFile2')
+        self.assertDemangles('_ZN16NamespaceInFile25EnumAE', 'NamespaceInFile2::EnumA')
+        self.assertDemangles('_ZN16NamespaceInFile25eVal1E', 'NamespaceInFile2::eVal1')
+        self.assertDemangles('_ZN16NamespaceInFile25eVal2E', 'NamespaceInFile2::eVal2')
+        self.assertDemangles('_ZN16NamespaceInFile25eVal3E', 'NamespaceInFile2::eVal3')
+        self.assertDemangles('_ZN16NamespaceInFile25eVal4E', 'NamespaceInFile2::eVal4')
+        self.assertDemangles('_Z31__register_finalization_routinev', '__register_finalization_routine()')
+        self.assertDemangles('_Z7memdumpjj', 'memdump(unsigned int, unsigned int)')
+        self.assertDemangles('_ZN30_INTERNAL_9_file1_cpp_49335e6016NamespaceInFile123NamespaceInFile1Nested121file1StaticNestedVar1E',
+                             '_INTERNAL_9_file1_cpp_49335e60::NamespaceInFile1::NamespaceInFile1Nested1::file1StaticNestedVar1')
+        self.assertDemangles('_Z11funcInFile1ii', 'funcInFile1(int, int)')
+        self.assertDemangles('_Z23__finalize_destructionsPP20a_needed_destructionPv', '__finalize_destructions(a_needed_destruction**, void*)')
+        self.assertDemangles('_ZN30_INTERNAL_9_file2_cpp_d0d1386116NamespaceInFile220staticInstance_enumAE',
+                             '_INTERNAL_9_file2_cpp_d0d13861::NamespaceInFile2::staticInstance_enumA')
+        self.assertDemangles('_ZN16NamespaceInFile123NamespaceInFile1Nested121file1GlobalNestedVar1E',
+                             'NamespaceInFile1::NamespaceInFile1Nested1::file1GlobalNestedVar1')
+        self.assertDemangles('_Z10file2func1i', 'file2func1(int)')
+        self.assertDemangles('_Z9mainfunc1i', 'mainfunc1(int)')
+        self.assertDemangles('_Z14file1SetValuesv', 'file1SetValues()')
+        self.assertDemangles('_Z14file2SetValuesv', 'file2SetValues()')
+        self.assertDemangles('_Z14file3SetValuesv', 'file3SetValues()')
+        self.assertDemangles('_Z15init_all_valuesv', 'init_all_values()')
+        self.assertDemangles('_ZN16NamespaceInFile214instance_enumAE', 'NamespaceInFile2::instance_enumA')
+        self.assertDemangles('_Z10file2func1v', 'file2func1()')
+        self.assertDemangles('_Z9mainfunc1v', 'mainfunc1()')
+        self.assertDemangles('_Z12__call_ctorsv', '__call_ctors()')
+        self.assertDemangles('_Z31__register_finalization_routinev', '__register_finalization_routine()')
+        self.assertDemangles('_Z12__call_dtorsv', '__call_dtors()')
+        self.assertDemangles('_Z12__call_ctorsv', '__call_ctors()')
+        self.assertDemangles('_ZZ5_mainE11main_called', '_main::main_called')
+
+
+if __name__ == '__main__':
+    import unittest
+    unittest.main()
