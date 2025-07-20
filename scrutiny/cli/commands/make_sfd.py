@@ -11,6 +11,7 @@ __all__ = ['MakeSFD']
 import argparse
 from .base_command import BaseCommand
 from scrutiny.tools.typing import *
+from scrutiny import tools
 
 
 class MakeSFD(BaseCommand):
@@ -31,13 +32,21 @@ class MakeSFD(BaseCommand):
     def run(self) -> Optional[int]:
         from scrutiny.core.firmware_description import FirmwareDescription
         args = self.parser.parse_args(self.args)
-        sfd = FirmwareDescription(args.folder)
-        sfd.write(args.output)
-        self.getLogger().info(f"SFD File {args.output} written")
-
-        if args.install:
-            from scrutiny.server.sfd_storage import SFDStorage
-            SFDStorage.install(args.output)
-            self.getLogger().info(f"{args.output} installed")
+        
+        try:
+            sfd = FirmwareDescription(args.folder)
+            sfd.write(args.output)
+            self.getLogger().info(f"SFD File {args.output} written")
+        except Exception as e:
+            tools.log_exception(self.getLogger(), e, f"Failed to produce the Scrutiny Firmware Description (SFD) \"{args.output}\".")
+            return 1            
+        try:
+            if args.install:
+                from scrutiny.server.sfd_storage import SFDStorage
+                SFDStorage.install(args.output)
+                self.getLogger().info(f"{args.output} installed")
+        except Exception as e:
+            tools.log_exception(self.getLogger(), e, f"Failed to Install SFD \"{args.output}\".")
+            return 1                
 
         return 0

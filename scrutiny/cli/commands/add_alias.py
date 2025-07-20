@@ -49,85 +49,88 @@ class AddAlias(BaseCommand):
 
         args = self.parser.parse_args(self.args)
         return_code = 0
+        try:
+            if args.fullpath is not None and args.file is not None:
+                raise Exception('Alias must be defined by a file (--file) or command line parameters (--fullpath + others), but not both.')
 
-        if args.fullpath is not None and args.file is not None:
-            raise Exception('Alias must be defined by a file (--file) or command line parameters (--fullpath + others), but not both.')
+            all_aliases = {}
+            if os.path.isdir(args.destination):
+                varmap = FirmwareDescription.read_varmap_from_filesystem(args.destination)
+                target_alias_file = os.path.join(args.destination, FirmwareDescription.alias_file)
 
-        all_aliases = {}
-        if os.path.isdir(args.destination):
-            varmap = FirmwareDescription.read_varmap_from_filesystem(args.destination)
-            target_alias_file = os.path.join(args.destination, FirmwareDescription.alias_file)
+                if os.path.isfile(target_alias_file):
+                    with open(target_alias_file, 'rb') as f:
+                        all_aliases = FirmwareDescription.read_aliases(f, varmap)
+            elif os.path.isfile(args.destination):
+                sfd = FirmwareDescription(args.destination)
+                varmap = sfd.varmap
+                all_aliases = sfd.get_aliases()
+            elif SFDStorage.is_installed(args.destination):
+                sfd = SFDStorage.get(args.destination)
+                varmap = sfd.varmap
+                all_aliases = sfd.get_aliases()
+            else:
+                raise Exception(f'Inexistent destination for alias {args.destination}')
+            
+            new_aliases = {}
+            if args.file is not None:
+                for filename in args.file:
+                    with open(filename, 'rb') as f:
+                        new_aliases.update(FirmwareDescription.read_aliases(f, varmap))
+            elif args.fullpath is not None:
+                if args.target is None:
+                    raise Exception('No target specified')
 
-            if os.path.isfile(target_alias_file):
-                with open(target_alias_file, 'rb') as f:
-                    all_aliases = FirmwareDescription.read_aliases(f, varmap)
-        elif os.path.isfile(args.destination):
-            sfd = FirmwareDescription(args.destination)
-            varmap = sfd.varmap
-            all_aliases = sfd.get_aliases()
-        elif SFDStorage.is_installed(args.destination):
-            sfd = SFDStorage.get(args.destination)
-            varmap = sfd.varmap
-            all_aliases = sfd.get_aliases()
-        else:
-            raise Exception(f'Inexistent destination for alias {args.destination}')
+                alias = Alias(
+                    fullpath=args.fullpath,
+                    target=args.target,
+                    gain=args.gain,
+                    offset=args.offset,
+                    min=args.min,
+                    max=args.max
+                )
 
-        new_aliases = {}
-        if args.file is not None:
-            for filename in args.file:
-                with open(filename, 'rb') as f:
-                    new_aliases.update(FirmwareDescription.read_aliases(f, varmap))
-        elif args.fullpath is not None:
-            if args.target is None:
-                raise Exception('No target specified')
+                new_aliases[alias.get_fullpath()] = alias
+            else:
+                raise Exception('Alias must be defined through a file or command line by specifying the --target option.')
 
-            alias = Alias(
-                fullpath=args.fullpath,
-                target=args.target,
-                gain=args.gain,
-                offset=args.offset,
-                min=args.min,
-                max=args.max
-            )
+            for k in new_aliases:
+                alias = new_aliases[k]
+                assert k == alias.get_fullpath()
 
-            new_aliases[alias.get_fullpath()] = alias
-        else:
-            raise Exception('Alias must be defined through a file or command line by specifying the --target option.')
+                try:
+                    alias.validate()
+                except Exception as e:
+                    return_code = 1
+                    self.logger.error(f'Alias {alias.get_fullpath()} is invalid. {e}')
+                    continue
 
-        for k in new_aliases:
-            alias = new_aliases[k]
-            assert k == alias.get_fullpath()
+                try:
+                    alias.set_target_type(FirmwareDescription.get_alias_target_type(alias, varmap))
+                except Exception as e:
+                    return_code=1
+                    tools.log_exception(self.logger, e, f'Cannot deduce type of alias {alias.get_fullpath()} referring to {alias.get_target()}.')
+                    continue
 
-            try:
-                alias.validate()
-            except Exception as e:
-                return_code = 1
-                self.logger.error(f'Alias {alias.get_fullpath()} is invalid. {e}')
-                continue
+                if k in all_aliases:
+                    return_code = 1
+                    self.logger.error(f'Duplicate alias with path {k}')
+                    continue
 
-            try:
-                alias.set_target_type(FirmwareDescription.get_alias_target_type(alias, varmap))
-            except Exception as e:
-                return_code = 1
-                tools.log_exception(self.logger, e, f'Cannot deduce type of alias {alias.get_fullpath()} referring to {alias.get_target()}.')
-                continue
+                all_aliases[alias.get_fullpath()] = alias
 
-            if k in all_aliases:
-                return_code = 1
-                self.logger.error(f'Duplicate alias with path {k}')
-                continue
+            if os.path.isdir(args.destination):
+                with open(target_alias_file, 'wb') as f:
+                    f.write(FirmwareDescription.serialize_aliases(all_aliases))
 
-            all_aliases[alias.get_fullpath()] = alias
+            elif os.path.isfile(args.destination):
+                sfd.append_aliases(new_aliases)
+                sfd.write(args.destination)
 
-        if os.path.isdir(args.destination):
-            with open(target_alias_file, 'wb') as f:
-                f.write(FirmwareDescription.serialize_aliases(all_aliases))
-
-        elif os.path.isfile(args.destination):
-            sfd.append_aliases(new_aliases)
-            sfd.write(args.destination)
-
-        elif SFDStorage.is_installed(args.destination):
-            SFDStorage.install_sfd(sfd, ignore_exist=True)
+            elif SFDStorage.is_installed(args.destination):
+                SFDStorage.install_sfd(sfd, ignore_exist=True)
+        except Exception as e:
+            tools.log_exception(self.getLogger(), e, f"Failed to add aliases.")
+            return 1
 
         return return_code

@@ -35,10 +35,9 @@ class InstallSFD(BaseCommand):
         args = self.parser.parse_args(self.args)
         try:
             sfd = SFDStorage.install(args.file, args.f)
+            self.getLogger().info(f"SFD file {args.file} installed. (ID: {sfd.get_firmware_id_ascii()})")
         except Exception as e:
-            tools.log_exception(self.getLogger(), e, f"Failed to Install SFD \"{args.file}\".")
+            tools.log_exception(self.getLogger(), e, f"Failed to install the Scrutiny Firmware Description (SFD) file \"{args.file}\".")
             return 1
         
-        self.getLogger().info(f"SFD file {args.file} installed. (ID: {sfd.get_firmware_id_ascii()})")
-
         return 0

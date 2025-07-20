@@ -15,6 +15,7 @@ import logging
 
 from .base_command import BaseCommand
 from scrutiny.tools.typing import *
+from scrutiny import tools
 
 
 class Elf2VarMap(BaseCommand):
@@ -46,20 +47,24 @@ class Elf2VarMap(BaseCommand):
                                          ignore_cu_patterns=args.cu_ignore_patterns,
                                          path_ignore_patterns=args.path_ignore_patterns,
                                          )
-        varmap = extractor.get_varmap()
+        try:
+            varmap = extractor.get_varmap()
 
-        if args.output is None:
-            print(varmap.get_json())
-        else:
-            if os.path.isdir(args.output):
-                output_file = os.path.join(args.output, 'varmap.json')
+            if args.output is None:
+                print(varmap.get_json())
             else:
-                output_file = args.output
+                if os.path.isdir(args.output):
+                    output_file = os.path.join(args.output, 'varmap.json')
+                else:
+                    output_file = args.output
 
-            if os.path.isfile(output_file):
-                logging.warning('File %s already exist. Overwritting' % output_file)
+                if os.path.isfile(output_file):
+                    logging.warning('File %s already exist. Overwritting' % output_file)
 
-            varmap.write(output_file, indent=args.indent)
-            self.getLogger().info(f"Varmap file {output_file} written")
+                varmap.write(output_file, indent=args.indent)
+                self.getLogger().info(f"Varmap file {output_file} written")
+        except Exception as e:
+            tools.log_exception(self.getLogger(), e, f"Failed to produce VarMap file.")
+            return 1
 
         return 0
