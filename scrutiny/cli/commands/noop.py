@@ -1,3 +1,12 @@
+#    noop.py
+#        A command that does nothing. It's sole purpose is to ease the integration with CMake
+#        that is picky when using generator statements
+#
+#   - License : MIT - See LICENSE file.
+#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#   Copyright (c) 2025 Scrutiny Debugger
+
 __all__ = ['NoopCommand']
 
 import argparse

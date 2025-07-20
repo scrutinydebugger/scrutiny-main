@@ -13,7 +13,9 @@
     "exclude_patterns": [
         "*__init__.py",
         "*__init__.py",
-        "scrutiny/sdk/docs/*"
+        "scrutiny/sdk/docs/*",
+        "test/core/test_itanium_demangler.py",
+        "scrutiny/core/bintools/itanium_demangler.py"
     ],
     "license": "MIT - See LICENSE file",
     "project": "Scrutiny Debugger",
@@ -170,7 +172,7 @@
         "test/cli/test_cli.py": {
             "docstring": "Test the Command Line Interface"
         },
-        "test/cli/test_elf_dwarf_var_extractor.py": {
+        "test/core/test_elf_dwarf_var_extractor.py": {
             "docstring": "Test the extraction of dwarf symbols from a .elf file"
         },
         "test/server/test_api.py": {
@@ -380,7 +382,7 @@
         "scrutiny/sdk/write_request.py": {
             "docstring": "A object representing a request to write a watchable element."
         },
-        "test/integration/test_interact_with_device.py": {
+        "test/integration/test_interract_with_device.py": {
             "docstring": "Make sure we can do some API calls related to the device that are not read/writes."
         },
         "test/core/test_datalogging.py": {
@@ -608,9 +610,6 @@
         "scrutiny/tools/timebase.py": {
             "docstring": "A generic timebase object that can be used to follow relative time interval and map them to real datetime"
         },
-        "test/scrutiny_runner.py": {
-            "docstring": "Custom unit test handlers that extends the default unittest framework "
-        },
         "scrutiny/gui/widgets/feedback_label.py": {
             "docstring": "A label that can display messages to the suer with success/warning/info/error facilities"
         },
@@ -814,6 +813,33 @@
         },
         "test/gui/test_watch_component.py": {
             "docstring": "A test suite for the Watch Component"
+        },
+        "test/cli/base_varmap_test.py": {
+            "docstring": "A base class shared amongst all test suites that test a varmap"
+        },
+        "test/cli/test_customtest_arm32_r52_arm_none_eabi_gcc_10_2_dwarf4.py": {
+            "docstring": "A test suite testing arm-none-eabi-gcc on a ARM Cortex R52. Dwarf 4 format"
+        },
+        "test/cli/test_makevarmap_aurixtc334_tasking_11r8.py": {
+            "docstring": "A test suite testing Tasking compiler V1.1r8 on a Aurix TC334"
+        },
+        "test/cli/base_customtest_arm32_r52_arm_none_eabi_gcc_10_2.py": {
+            "docstring": "A test suite testing arm-none-eabi-gcc on a ARM Cortex R52"
+        },
+        "test/cli/test_customtest_arm32_r52_arm_none_eabi_gcc_10_2_dwarf3.py": {
+            "docstring": "A test suite testing arm-none-eabi-gcc on a ARM Cortex R52. Dwarf 3 format"
+        },
+        "test/cli/test_customtest_arm32_r52_arm_none_eabi_gcc_10_2_dwarf2.py": {
+            "docstring": "A test suite testing arm-none-eabi-gcc on a ARM Cortex R52. Dwarf 2 format"
+        },
+        "scrutiny/cli/commands/noop.py": {
+            "docstring": "A command that does nothing. It's sole purpose is to ease the integration with CMake that is picky when using generator statements"
+        },
+        "scripts/make_windows_installer_name.sh": {
+            "docstring": "A script that compute the release name for a windows installer."
+        },
+        "stubs/sortedcontainers.pyi": {
+            "docstring": "A stub file for 3rdparty sorted containers module"
         }
     }
 }

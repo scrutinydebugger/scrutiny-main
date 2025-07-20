@@ -1,3 +1,10 @@
+#    base_customtest_arm32_r52_arm_none_eabi_gcc_10_2.py
+#        A test suite testing arm-none-eabi-gcc on a ARM Cortex R52
+#
+#   - License : MIT - See LICENSE file.
+#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#   Copyright (c) 2022 Scrutiny Debugger
 
 import unittest
 
