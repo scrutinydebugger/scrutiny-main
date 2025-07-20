@@ -12,6 +12,7 @@ __all__ = ['InstallSFD']
 import argparse
 from .base_command import BaseCommand
 from scrutiny.tools.typing import *
+from scrutiny import tools
 
 
 class InstallSFD(BaseCommand):
@@ -32,7 +33,12 @@ class InstallSFD(BaseCommand):
         from scrutiny.server.sfd_storage import SFDStorage
 
         args = self.parser.parse_args(self.args)
-        sfd = SFDStorage.install(args.file, args.f)
+        try:
+            sfd = SFDStorage.install(args.file, args.f)
+        except Exception as e:
+            tools.log_exception(self.getLogger(), e, f"Failed to Install SFD \"{args.file}\".")
+            return 1
+        
         self.getLogger().info(f"SFD file {args.file} installed. (ID: {sfd.get_firmware_id_ascii()})")
 
         return 0
