@@ -156,7 +156,7 @@ class TestCLI(ScrutinyUnitTest):
                 demo_bin = get_artifact('demobin.elf')
                 temp_bin = os.path.join(tempdirname, 'demobin.elf')
                 sfd_name = os.path.join(tempdirname, 'myfile.sfd')
-                alias_file_1 = get_artifact(os.path.join('sfd_material', 'alias1.json'))
+                alias_file_1 = get_artifact(os.path.join('sfd_material', 'demobin_aliases.json'))
                 shutil.copyfile(demo_bin, temp_bin)
 
                 with open(get_artifact('demobin_firmwareid')) as f:

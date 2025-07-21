@@ -13,6 +13,8 @@ RUN apt-get update && apt-get install -y \
     libsqlite3-dev \
     gcc-avr \
     libglib2.0-dev  \
+    gcc-arm-none-eabi   \
+    gcc-avr \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /tmp/

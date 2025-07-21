@@ -13,6 +13,7 @@ import os
 
 from .base_command import BaseCommand
 from scrutiny.tools.typing import *
+from scrutiny import tools
 
 
 class TagFirmwareID(BaseCommand):
@@ -35,20 +36,24 @@ class TagFirmwareID(BaseCommand):
         from scrutiny.core.firmware_parser import FirmwareParser
 
         args = self.parser.parse_args(self.args)
-        src = os.path.normpath(args.src)
-        if args.inplace:
-            if args.dst is not None:
-                raise Exception('No output file must be provided when using --inplace')
-        else:
-            if args.dst is None:
-                raise Exception('Output file is required')
+        try:
+            src = os.path.normpath(args.src)
+            if args.inplace:
+                if args.dst is not None:
+                    raise Exception('No output file must be provided when using --inplace')
+            else:
+                if args.dst is None:
+                    raise Exception('Output file is required')
 
-        parser = FirmwareParser(src)
-        if not parser.has_placeholder():
-            parser.throw_no_tag_error()
+            parser = FirmwareParser(src)
+            if not parser.has_placeholder():
+                parser.throw_no_tag_error()
 
-        parser.write_tagged(args.dst)   # inplace if None
-        binname = args.dst if args.dst is not None else src
-        self.getLogger().info(f"Binary {binname} tagged with firmware ID: {parser.get_firmware_id_ascii()}")
+            parser.write_tagged(args.dst)   # inplace if None
+            binname = args.dst if args.dst is not None else src
+            self.getLogger().info(f"Binary {binname} tagged with firmware ID: {parser.get_firmware_id_ascii()}")
+        except Exception as e:
+            tools.log_exception(self.getLogger(), e, f"Failed to tag the firmware file with its a unique hash (firmware ID).")
+            return 1    
 
         return 0

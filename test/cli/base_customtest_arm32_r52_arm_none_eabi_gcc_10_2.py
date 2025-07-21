@@ -11,11 +11,32 @@ import unittest
 from scrutiny.core.basic_types import *
 from scrutiny.core.variable import *
 
-from test.cli.base_varmap_test import BaseVarmapTest
+from test.cli.base_varmap_test import BaseVarmapTest, KnownEnumTypedDict
+
+KNOWN_ENUMS: KnownEnumTypedDict = {
+    'EnumA': {
+        'name': 'EnumA',
+        'values': {
+            "eVal1": 0,
+            "eVal2": 1,
+            "eVal3": 100,
+            "eVal4": 101
+        }
+    },
+    'File3EnumInClass': {
+        "name": "File3EnumInClass",
+        "values": {
+            "AAA": 0,
+            "BBB": 1,
+            "CCC": 2
+        }
+    }
+}
 
 
 class BaseCustomeTestArm32R52_ArmNoneEabiGcc10_2(BaseVarmapTest):
     _CPP_FILT = 'arm-none-eabi-c++filt'
+    known_enums=KNOWN_ENUMS
 
     # char is uint8
     # long is int32
@@ -89,19 +110,6 @@ class BaseCustomeTestArm32R52_ArmNoneEabiGcc10_2(BaseVarmapTest):
         self.assert_var('/global/NamespaceInFile1/NamespaceInFile1Nested1/file1GlobalNestedVar1', EmbeddedDataType.uint32, value_at_loc=1111111111)
         self.assert_var('/static/file1.cpp/NamespaceInFile1/NamespaceInFile1Nested1/file1StaticNestedVar1',
                         EmbeddedDataType.uint32, value_at_loc=945612345)
-
-    def assert_is_enumA(self, fullpath, value_at_loc=None):
-        v = self.assert_var(fullpath, EmbeddedDataType.uint8, value_at_loc=value_at_loc)
-        self.assert_has_enum(v, 'eVal1', 0)
-        self.assert_has_enum(v, 'eVal2', 1)
-        self.assert_has_enum(v, 'eVal3', 100)
-        self.assert_has_enum(v, 'eVal4', 101)
-
-    def test_enum(self):
-        self.assert_is_enumA('/global/NamespaceInFile2/instance_enumA', value_at_loc=1)
-        self.assert_is_enumA('/global/instance2_enumA', value_at_loc=101)
-        self.assert_is_enumA('/static/file2.cpp/staticInstance2_enumA', value_at_loc=0)
-        self.assert_is_enumA('/static/file2.cpp/NamespaceInFile2/staticInstance_enumA', value_at_loc=100)
 
     def test_structA(self):
         v = self.assert_var('/global/file1StructAInstance/structAMemberInt', EmbeddedDataType.sint32, value_at_loc=-654)
@@ -180,8 +188,7 @@ class BaseCustomeTestArm32R52_ArmNoneEabiGcc10_2(BaseVarmapTest):
         self.assertEqual(v1.get_address(), v2.get_address())
         self.assertEqual(v1.get_address(), v3.get_address())
 
-        v = self.assert_var('/global/file3_test_class/m_file3testclass_inclassenum', EmbeddedDataType.uint32, value_at_loc=1)
-        self.assert_file3_is_EnumInClass(v)
+        self.assert_var('/global/file3_test_class/m_file3testclass_inclassenum', EmbeddedDataType.uint32, value_at_loc=1, enum='File3EnumInClass')
 
         self.assert_var('/global/file3_test_class/m_file3_complex_struct/field1', EmbeddedDataType.uint32, value_at_loc=0x11223344)
         self.assert_var('/global/file3_test_class/m_file3_complex_struct/field2', EmbeddedDataType.uint32, value_at_loc=0x55667788)
@@ -189,21 +196,11 @@ class BaseCustomeTestArm32R52_ArmNoneEabiGcc10_2(BaseVarmapTest):
         self.assert_var('/global/file3_test_class/m_file3_complex_struct/field3/field3_u16/p0', EmbeddedDataType.uint16, value_at_loc=0xBCC2)
         self.assert_var('/global/file3_test_class/m_file3_complex_struct/field3/field3_u32', EmbeddedDataType.uint32, value_at_loc=0xAA34BCC2)
 
-        v1 = self.assert_var('/global/file3_test_class/m_file3_complex_struct/field3/field3_enum_bitfields/p0', EmbeddedDataType.uint32,
-                             value_at_loc=2, bitoffset=0, bitsize=5)
-        v2 = self.assert_var('/global/file3_test_class/m_file3_complex_struct/field3/field3_enum_bitfields/p1', EmbeddedDataType.uint32,
-                             value_at_loc=0x66, bitoffset=5, bitsize=7)
-        v3 = self.assert_var('/global/file3_test_class/m_file3_complex_struct/field3/field3_enum_bitfields/p2', EmbeddedDataType.uint32,
-                             value_at_loc=0x34B, bitoffset=12, bitsize=10)
-        v4 = self.assert_var('/global/file3_test_class/m_file3_complex_struct/field3/field3_enum_bitfields/p3', EmbeddedDataType.uint32,
-                             value_at_loc=0x2A8, bitoffset=22, bitsize=10)
-
-        self.assert_file3_is_EnumInClass(v1)
-        self.assert_file3_is_EnumInClass(v2)
-        self.assert_file3_is_EnumInClass(v3)
-        self.assert_file3_is_EnumInClass(v4)
-
-    def assert_file3_is_EnumInClass(self, v):
-        self.assert_has_enum(v, 'AAA', 0)
-        self.assert_has_enum(v, 'BBB', 1)
-        self.assert_has_enum(v, 'CCC', 2)
+        self.assert_var('/global/file3_test_class/m_file3_complex_struct/field3/field3_enum_bitfields/p0', EmbeddedDataType.uint32,
+                        value_at_loc=2, bitoffset=0, bitsize=5, enum='File3EnumInClass')
+        self.assert_var('/global/file3_test_class/m_file3_complex_struct/field3/field3_enum_bitfields/p1', EmbeddedDataType.uint32,
+                        value_at_loc=0x66, bitoffset=5, bitsize=7, enum='File3EnumInClass')
+        self.assert_var('/global/file3_test_class/m_file3_complex_struct/field3/field3_enum_bitfields/p2', EmbeddedDataType.uint32,
+                        value_at_loc=0x34B, bitoffset=12, bitsize=10, enum='File3EnumInClass')
+        self.assert_var('/global/file3_test_class/m_file3_complex_struct/field3/field3_enum_bitfields/p3', EmbeddedDataType.uint32,
+                        value_at_loc=0x2A8, bitoffset=22, bitsize=10, enum='File3EnumInClass')

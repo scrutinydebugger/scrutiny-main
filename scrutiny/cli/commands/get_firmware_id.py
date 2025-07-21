@@ -16,7 +16,7 @@ import os
 
 from .base_command import BaseCommand
 from scrutiny.tools.typing import *
-
+from scrutiny import tools
 
 class GetFirmwareId(BaseCommand):
     _cmd_name_ = 'get-firmware-id'
@@ -36,26 +36,30 @@ class GetFirmwareId(BaseCommand):
 
     def run(self) -> Optional[int]:
         from scrutiny.core.firmware_parser import FirmwareParser
-
+    
         args = self.parser.parse_args(self.args)
         filename = os.path.normpath(args.filename)
 
-        if args.output is None:
-            output_file = None
-        elif os.path.isdir(args.output):
-            output_file = os.path.join(args.output, self.DEFAULT_NAME)
-        else:
-            output_file = args.output
+        try:
+            if args.output is None:
+                output_file = None
+            elif os.path.isdir(args.output):
+                output_file = os.path.join(args.output, self.DEFAULT_NAME)
+            else:
+                output_file = args.output
 
-        parser = FirmwareParser(filename)
-        if not parser.has_placeholder():
-            parser.throw_no_tag_error()
+            parser = FirmwareParser(filename)
+            if not parser.has_placeholder():
+                parser.throw_no_tag_error()
 
-        if output_file is None:
-            print(parser.get_firmware_id_ascii(), flush=True, end='')
-        else:
-            with open(output_file, 'w') as f:
-                f.write(parser.get_firmware_id_ascii())
-            self.getLogger().info(f"Firmware ID {parser.get_firmware_id_ascii()} written to {output_file}")
+            if output_file is None:
+                print(parser.get_firmware_id_ascii(), flush=True, end='')
+            else:
+                with open(output_file, 'w') as f:
+                    f.write(parser.get_firmware_id_ascii())
+                self.getLogger().info(f"Firmware ID {parser.get_firmware_id_ascii()} written to {output_file}")
+        except Exception as e:
+            tools.log_exception(self.getLogger(), e, f"Failed to get Firmware ID from \"{filename}\".")
+            return 1
 
         return 0

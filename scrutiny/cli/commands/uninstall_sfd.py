@@ -12,6 +12,7 @@ import argparse
 
 from .base_command import BaseCommand
 from scrutiny.tools.typing import *
+from scrutiny import tools
 
 
 class UninstallSFD(BaseCommand):
@@ -31,11 +32,16 @@ class UninstallSFD(BaseCommand):
     def run(self) -> Optional[int]:
         from scrutiny.server.sfd_storage import SFDStorage
         args = self.parser.parse_args(self.args)
-        is_installed = SFDStorage.is_installed(args.firmwareid)
-        if is_installed:
-            SFDStorage.uninstall(args.firmwareid, ignore_not_exist=args.quiet)
-            self.getLogger().info(f"SFD {args.firmwareid} uninstalled")
-        else:
-            self.getLogger().info(f"SFD {args.firmwareid} was not installed")
+
+        try:
+            is_installed = SFDStorage.is_installed(args.firmwareid)
+            if is_installed:
+                SFDStorage.uninstall(args.firmwareid, ignore_not_exist=args.quiet)
+                self.getLogger().info(f"SFD {args.firmwareid} uninstalled")
+            else:
+                self.getLogger().info(f"SFD {args.firmwareid} was not installed")
+        except Exception as e:
+            tools.log_exception(self.getLogger(), e, f"Failed to uninstall the Scrutiny Firmware Description (SFD) with ID: \"{args.firmwareid}\".")
+            return 1    
 
         return 0

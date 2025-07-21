@@ -17,6 +17,7 @@ import platform
 
 from .base_command import BaseCommand
 from scrutiny.tools.typing import *
+from scrutiny import tools
 
 
 class MakeMetadata(BaseCommand):
@@ -44,34 +45,38 @@ class MakeMetadata(BaseCommand):
         import scrutiny
         from scrutiny.core.firmware_description import MetadataTypedDict
         args = self.parser.parse_args(self.args)
-
-        if args.output is None:
-            output_file = self.DEFAULT_NAME
-        elif os.path.isdir(args.output):
-            output_file = os.path.join(args.output, self.DEFAULT_NAME)
-        else:
-            output_file = args.output
-
+        
         try:
-            scrutiny_version = scrutiny.__version__
-        except Exception:
-            self.getLogger().warning("Could not find the scrutiny version")
-            scrutiny_version = '0.0.0'
+            if args.output is None:
+                output_file = self.DEFAULT_NAME
+            elif os.path.isdir(args.output):
+                output_file = os.path.join(args.output, self.DEFAULT_NAME)
+            else:
+                output_file = args.output
 
-        metadata: MetadataTypedDict = {
-            'project_name': args.project_name,
-            'author': args.author,
-            'version': args.version,
-            'generation_info': {
-                'time': round(datetime.datetime.now().timestamp()),
-                'python_version': platform.python_version(),
-                'scrutiny_version': scrutiny_version,
-                'system_type': platform.system()
+            try:
+                scrutiny_version = scrutiny.__version__
+            except Exception:
+                self.getLogger().warning("Could not find the scrutiny version")
+                scrutiny_version = '0.0.0'
+
+            metadata: MetadataTypedDict = {
+                'project_name': args.project_name,
+                'author': args.author,
+                'version': args.version,
+                'generation_info': {
+                    'time': round(datetime.datetime.now().timestamp()),
+                    'python_version': platform.python_version(),
+                    'scrutiny_version': scrutiny_version,
+                    'system_type': platform.system()
+                }
             }
-        }
 
-        with open(output_file, 'w') as f:
-            f.write(json.dumps(metadata, indent=4))
-        self.getLogger().info(f"Metadata file {output_file} written")
+            with open(output_file, 'w') as f:
+                f.write(json.dumps(metadata, indent=4))
+            self.getLogger().info(f"Metadata file {output_file} written")
+        except Exception as e:
+            tools.log_exception(self.getLogger(), e, f"Failed to produce the metadata file.")
+            return 1
 
         return 0
