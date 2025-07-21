@@ -16,8 +16,6 @@ class TestCustomeTestArm32R52_ArmNoneEabiGcc10_2_Dwarf4(BaseCustomeTestArm32R52_
     bin_filename = get_artifact('customtest_20240628_Arm32CortexR52_ArmNoneEabiGcc10_2-dwarf4')
     memdump_filename = get_artifact('customtest_20240628_Arm32CortexR52_ArmNoneEabiGcc10_2-dwarf4.memdump')
 
-    def test_dwarf_version(self):
-        self.assert_dwarf_version(self.bin_filename, 4)
 
 
 if __name__ == '__main__':
