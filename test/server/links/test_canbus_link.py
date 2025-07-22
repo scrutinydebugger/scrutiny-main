@@ -14,12 +14,12 @@ def _check_vcan_possible():
     try:
         bus = SocketcanBus(TEST_VCAN)
         bus.shutdown()
-        return True
-    except OSError:
-        return False
+        return (True, "")
+    except OSError as e:
+        return (False, f"Cannot use interface {TEST_VCAN} for testiing. {str(e)}")
 
 
-_vcan_possible = _check_vcan_possible()
+_vcan_possible, _vcan_impossible_reason = _check_vcan_possible()
 
 socketcan_vcan0_config:canbus_link.CanBusConfigDict = {
     'interface' : 'socketcan',
@@ -105,7 +105,7 @@ class TestCanbusLink(ScrutinyUnitTest):
         self.assertEqual(msg.data, data)
 
 
-    @unittest.skipUnless(_vcan_possible, f"Cannot use interface {TEST_VCAN} interface for testing")
+    @unittest.skipUnless(_vcan_possible, _vcan_impossible_reason)
     def test_read_write(self):
         link = canbus_link.CanBusLink(socketcan_vcan0_config)
         self.assertFalse(link.operational())
@@ -125,7 +125,7 @@ class TestCanbusLink(ScrutinyUnitTest):
         data = link.read(1.0)
         self.assertEqual(data, b'ABCDEFGH')
 
-    @unittest.skipUnless(_vcan_possible, f"Cannot use interface {TEST_VCAN} interface for testing")
+    @unittest.skipUnless(_vcan_possible, _vcan_impossible_reason)
     def test_detect_broken(self):
         link = canbus_link.CanBusLink(socketcan_vcan0_config)
         link.initialize()
