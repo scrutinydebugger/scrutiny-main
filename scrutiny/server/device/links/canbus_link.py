@@ -55,8 +55,6 @@ class CanBusConfigDict(TypedDict):
     rxid:int
     extended_id:bool
     fd:bool
-    min_frame_size:Optional[int]
-    padding_byte:Optional[int]
     
     subconfig:Dict[str, Any]
 
@@ -67,8 +65,6 @@ class CanBusConfig:
     rxid:int
     extended_id:bool
     fd:bool
-    min_frame_size:Optional[int]
-    padding_byte:Optional[int]
     
     subconfig:ANY_SUBCONFIG
 
@@ -79,8 +75,6 @@ class CanBusConfig:
             'rxid' : self.rxid,
             'txid' : self.txid,
             'fd' : self.fd,
-            'min_frame_size' : self.min_frame_size,
-            'padding_byte' : self.padding_byte,
             'subconfig' : self.subconfig.to_dict()
         }
 
@@ -93,8 +87,6 @@ class CanBusConfig:
             'rxid' : int,
             'extended_id' : bool,
             'fd' : bool,
-            'padding_byte' : (int, type(None)),
-            'min_frame_size' : (int, type(None)),
             'subconfig' : dict
         }
         validation.assert_type(d, 'config', dict)  
@@ -104,22 +96,7 @@ class CanBusConfig:
         for k in d.keys():
             if k not in expected_keys:
                 raise ValueError(f"Unsupported parameter {k}")
-            
-        min_frame_size = d['min_frame_size']
-        padding_byte = d['padding_byte']
-        if min_frame_size is not None:
-            if padding_byte is None:
-                padding_byte = 0xCC
-            
-            if d['fd']:
-                if min_frame_size not in [1,2,3,4,5,6,7,8,12,16,20,24,32,64]:
-                    raise ValueError(f"min_frame_size is invalid for CAN FD")
-            else:
-                if min_frame_size not in [1,2,3,4,5,6,7,8]:
-                    raise ValueError(f"min_frame_size is invalid for CAN 2.0")
-
-            validation.assert_int_range(padding_byte, 'padding_byte', minval=0, maxval=0xFF )
-
+    
         subcfg_class:Optional[Type[Any]] = None
         for class_candidate in BaseSubconfig.__subclasses__():
             if class_candidate.get_type_name() == d['interface']:
@@ -136,8 +113,6 @@ class CanBusConfig:
             rxid=d['rxid'],
             txid=d['txid'],
             fd=d['fd'],
-            min_frame_size=min_frame_size,
-            padding_byte=padding_byte,
             subconfig=subconfig
         )
 
@@ -161,7 +136,6 @@ class CanBusLink(AbstractLink):
         self._initialized = False
         self.logger = logging.getLogger(self.__class__.__name__)
         self._init_timestamp = time.monotonic()
-        self._ll_maxlen = 8
 
         self.config = CanBusConfig.from_dict(cast(CanBusConfigDict, config))
 
@@ -199,13 +173,6 @@ class CanBusLink(AbstractLink):
             
             chunk_data = data[:chunk_size]
             data = data[chunk_size:]
-
-            if self.config.min_frame_size is not None:
-                assert self.config.padding_byte is not None
-                if len(chunk_data) < self.config.min_frame_size:
-                    npad = len(chunk_data) - self.config.min_frame_size
-                    chunk_data += bytes([self.config.padding_byte] * npad)
-            
             yield chunk_data
 
     def get_config(self) -> LinkConfig:
@@ -228,13 +195,17 @@ class CanBusLink(AbstractLink):
         """ Tells if this comm channel is in proper state to be functional"""
         if self._bus is None:
             return False
-        return self._bus.state != can.BusState.ERROR and self.initialized()
+        is_shutdown = getattr(self._bus, '_is_shutdown', False) # No api to know if it is shutdown
+        return self._bus.state != can.BusState.ERROR and not is_shutdown and self.initialized()
 
     def read(self, timeout: Optional[float] = None) -> Optional[bytes]:
         """ Reads bytes in a blocking fashion from the comm channel. None if no data available after timeout"""
         if not self.operational():
             return None
-
+        assert self._bus is not None
+        msg = self._bus.recv(timeout)
+        if msg is not None:
+            return bytes(msg.data)
         return None
     
     def write(self, data: bytes) -> None:

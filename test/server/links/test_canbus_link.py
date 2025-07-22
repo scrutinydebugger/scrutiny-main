@@ -1,17 +1,12 @@
 
 import unittest
-import traceback
 
 from scrutiny.server.device.links import  canbus_link
-from test import logger
 import os
-import time
-import platform
 import can 
 from can.interfaces.socketcan import SocketcanBus
 from test import ScrutinyUnitTest
 from scrutiny.tools.typing import *
-
 
 TEST_VCAN = os.environ.get('UNITTEST_VCAN', 'vcan0')
 
@@ -32,8 +27,6 @@ socketcan_vcan0_config:canbus_link.CanBusConfigDict = {
     'txid' : 0x456,
     'extended_id' : False,
     'fd'  : False,
-    'min_frame_size' : None,
-    'padding_byte': None,
     'subconfig' : {
         'channel' : 'vcan0',
     }
@@ -63,8 +56,6 @@ class TestCanbusLink(ScrutinyUnitTest):
             'txid' : 0x456,
             'extended_id' : False,
             'fd'  : False,
-            'min_frame_size' : 8,
-            'padding_byte': 0xAB,
             'subconfig' : {
                 'channel' : 'vcan0'
             }
@@ -75,8 +66,6 @@ class TestCanbusLink(ScrutinyUnitTest):
         self.assertEqual(config.txid, 0x456)
         self.assertEqual(config.extended_id, False)
         self.assertEqual(config.fd, False)
-        self.assertEqual(config.min_frame_size, 8)
-        self.assertEqual(config.padding_byte, 0xAB)
         self.assertIsInstance(config.subconfig, canbus_link.SocketCanSubConfig)
         self.assertEqual(config.subconfig.channel, 'vcan0')
         
@@ -96,23 +85,6 @@ class TestCanbusLink(ScrutinyUnitTest):
         with self.assertRaises(Exception):
             d = base()
             d['ishouldntbehere'] = 'hello'
-            canbus_link.CanBusConfig.from_dict(d)
-
-        with self.assertRaises(Exception):
-            d = base()
-            d['min_frame_size'] = 12
-            d['fd'] = False
-            canbus_link.CanBusConfig.from_dict(d)
-
-        d = base()
-        d['min_frame_size'] = 12
-        d['fd'] = True
-        canbus_link.CanBusConfig.from_dict(d)
-
-        with self.assertRaises(Exception):
-            d = base()
-            d['min_frame_size'] = 13
-            d['fd'] = True
             canbus_link.CanBusConfig.from_dict(d)
 
         d = base()
@@ -148,12 +120,18 @@ class TestCanbusLink(ScrutinyUnitTest):
         link.write(b'123456789abcd')
         self.assert_msg_received(b'12345678')
         self.assert_msg_received(b'9abcd')
-        
 
+        self.bus.send(can.Message(arbitration_id=socketcan_vcan0_config['rxid'], data=b'ABCDEFGH', is_extended_id=False))
+        data = link.read(1.0)
+        self.assertEqual(data, b'ABCDEFGH')
+
+    @unittest.skipUnless(_vcan_possible, f"Cannot use interface {TEST_VCAN} interface for testing")
     def test_detect_broken(self):
-        pass
-
+        link = canbus_link.CanBusLink(socketcan_vcan0_config)
+        link.initialize()
+        self.assertTrue(link.operational())
+        link._bus.shutdown()
+        self.assertFalse(link.operational())
 
 if __name__ == '__main__':
-    import unittest
     unittest.main()
