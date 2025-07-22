@@ -15,6 +15,7 @@ RUN apt-get update && apt-get install -y \
     libglib2.0-dev  \
     gcc-arm-none-eabi   \
     gcc-avr \
+    iproute2 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /tmp/
