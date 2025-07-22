@@ -128,9 +128,9 @@ class TestCanbusLink(ScrutinyUnitTest):
     @unittest.skipUnless(_vcan_possible, _vcan_impossible_reason)
     def test_detect_broken(self):
         link = canbus_link.CanBusLink(socketcan_vcan0_config)
-        assert link._bus is not None
         link.initialize()
         self.assertTrue(link.operational())
+        assert link._bus is not None
         link._bus.shutdown()
         self.assertFalse(link.operational())
 
