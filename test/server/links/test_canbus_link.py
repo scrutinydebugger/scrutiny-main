@@ -16,7 +16,7 @@ def _check_vcan_possible():
         bus.shutdown()
         return (True, "")
     except OSError as e:
-        return (False, f"Cannot use interface {TEST_VCAN} for testiing. {str(e)}")
+        return (False, f"Cannot use interface {TEST_VCAN} for testing. {str(e)}")
 
 
 _vcan_possible, _vcan_impossible_reason = _check_vcan_possible()
@@ -34,7 +34,7 @@ socketcan_vcan0_config:canbus_link.CanBusConfigDict = {
 
 
 class TestCanbusLink(ScrutinyUnitTest):
-    bus:Optional[can.BusABC]
+    bus:can.BusABC
 
     def setUp(self):
         self.bus = None
@@ -128,6 +128,7 @@ class TestCanbusLink(ScrutinyUnitTest):
     @unittest.skipUnless(_vcan_possible, _vcan_impossible_reason)
     def test_detect_broken(self):
         link = canbus_link.CanBusLink(socketcan_vcan0_config)
+        assert link._bus is not None
         link.initialize()
         self.assertTrue(link.operational())
         link._bus.shutdown()

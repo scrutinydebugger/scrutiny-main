@@ -6,12 +6,20 @@ pipeline {
         stage ('Docker') {
             agent {
                 dockerfile {
-                    args '-e HOME=/tmp -e BUILD_CONTEXT=ci'
+                    args '-e HOME=/tmp -e BUILD_CONTEXT=ci --cap-add=NET_ADMIN -u 0:0'
                     additionalBuildArgs '--target build-tests'
                     reuseNode true
                 }
             }
             stages {
+                stage('Setup vcan'){
+                    steps {
+                        sh '''
+                        ip link add dev vcan0 type vcan || true
+                        ip link set up vcan0
+                        '''
+                    }
+                }
                 stage('Testing'){
                     parallel{
                         stage ('Python 3.13') {
