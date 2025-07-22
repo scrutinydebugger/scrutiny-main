@@ -1,0 +1,159 @@
+
+import unittest
+import traceback
+
+from scrutiny.server.device.links import  canbus_link
+from test import logger
+import os
+import time
+import platform
+import can 
+from can.interfaces.socketcan import SocketcanBus
+from test import ScrutinyUnitTest
+from scrutiny.tools.typing import *
+
+
+TEST_VCAN = os.environ.get('UNITTEST_VCAN', 'vcan0')
+
+def _check_vcan_possible():
+    try:
+        bus = SocketcanBus(TEST_VCAN)
+        bus.shutdown()
+        return True
+    except OSError:
+        return False
+
+
+_vcan_possible = _check_vcan_possible()
+
+socketcan_vcan0_config:canbus_link.CanBusConfigDict = {
+    'interface' : 'socketcan',
+    'rxid' : 0x123,
+    'txid' : 0x456,
+    'extended_id' : False,
+    'fd'  : False,
+    'min_frame_size' : None,
+    'padding_byte': None,
+    'subconfig' : {
+        'channel' : 'vcan0',
+    }
+}
+
+
+class TestCanbusLink(ScrutinyUnitTest):
+    bus:Optional[can.BusABC]
+
+    def setUp(self):
+        self.bus = None
+        try:
+            self.bus = SocketcanBus(TEST_VCAN)
+        except Exception:
+            pass
+
+    def tearDown(self) -> None:
+        if self.bus is not None:
+            self.bus.shutdown()
+        return super().tearDown()
+
+    def test_config(self):
+        def base() -> canbus_link.CanBusConfigDict:
+            return {
+            'interface' : 'socketcan',
+            'rxid' : 0x123,
+            'txid' : 0x456,
+            'extended_id' : False,
+            'fd'  : False,
+            'min_frame_size' : 8,
+            'padding_byte': 0xAB,
+            'subconfig' : {
+                'channel' : 'vcan0'
+            }
+        }
+        config = canbus_link.CanBusConfig.from_dict(base())
+        self.assertEqual(config.interface, 'socketcan')
+        self.assertEqual(config.rxid, 0x123)
+        self.assertEqual(config.txid, 0x456)
+        self.assertEqual(config.extended_id, False)
+        self.assertEqual(config.fd, False)
+        self.assertEqual(config.min_frame_size, 8)
+        self.assertEqual(config.padding_byte, 0xAB)
+        self.assertIsInstance(config.subconfig, canbus_link.SocketCanSubConfig)
+        self.assertEqual(config.subconfig.channel, 'vcan0')
+        
+        self.assertEqual(base(), config.to_dict())
+
+        for k in  ['interface', 'rxid', 'txid', 'extended_id', 'subconfig', 'fd']:
+            with self.assertRaises(Exception):
+                d = base()
+                del d[k]
+                canbus_link.CanBusConfig.from_dict(d)
+
+        with self.assertRaises(Exception):
+            d = base()
+            d['interface'] = 'idontexist'
+            canbus_link.CanBusConfig.from_dict(d)
+
+        with self.assertRaises(Exception):
+            d = base()
+            d['ishouldntbehere'] = 'hello'
+            canbus_link.CanBusConfig.from_dict(d)
+
+        with self.assertRaises(Exception):
+            d = base()
+            d['min_frame_size'] = 12
+            d['fd'] = False
+            canbus_link.CanBusConfig.from_dict(d)
+
+        d = base()
+        d['min_frame_size'] = 12
+        d['fd'] = True
+        canbus_link.CanBusConfig.from_dict(d)
+
+        with self.assertRaises(Exception):
+            d = base()
+            d['min_frame_size'] = 13
+            d['fd'] = True
+            canbus_link.CanBusConfig.from_dict(d)
+
+        d = base()
+        d['interface'] = 'vector'
+        d['subconfig'] = {
+            'channel' : 1,
+            'bitrate' : 500000
+        }
+        config = canbus_link.CanBusConfig.from_dict(d)
+        self.assertIsInstance(config.subconfig, canbus_link.VectorSubConfig)
+        self.assertEqual(config.subconfig.channel, 1)
+        self.assertEqual(config.subconfig.bitrate, 500000)
+
+
+    def assert_msg_received(self, data:bytes, timeout:int=1):
+        msg = self.bus.recv(timeout=timeout)
+        self.assertIsNotNone(msg)
+        self.assertEqual(msg.data, data)
+
+
+    @unittest.skipUnless(_vcan_possible, f"Cannot use interface {TEST_VCAN} interface for testing")
+    def test_read_write(self):
+        link = canbus_link.CanBusLink(socketcan_vcan0_config)
+        self.assertFalse(link.operational())
+        self.assertFalse(link.initialized())
+        link.initialize()
+        self.assertTrue(link.operational())
+        self.assertTrue(link.initialized())
+
+        link.write(b'asd')
+        self.assert_msg_received(b'asd')
+
+        link.write(b'123456789abcd')
+        self.assert_msg_received(b'12345678')
+        self.assert_msg_received(b'9abcd')
+        
+
+    def test_detect_broken(self):
+        pass
+
+
+if __name__ == '__main__':
+    import unittest
+    unittest.main()
