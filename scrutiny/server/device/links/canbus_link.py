@@ -7,6 +7,7 @@ import logging
 import can
 import time
 from dataclasses import dataclass, asdict
+import abc
 
 from scrutiny.server.device.links.abstract_link import AbstractLink, LinkConfig
 from scrutiny.tools.typing import *
@@ -45,7 +46,7 @@ class VectorSubConfig(BaseSubconfig):
     def __post_init__(self) -> None:
         validation.assert_type(self.channel, 'channel', (str, int))
         validation.assert_type(self.bitrate, 'bitrate', int)
-    
+
 
 ANY_SUBCONFIG:TypeAlias = Union[SocketCanSubConfig, VectorSubConfig]
 
@@ -55,6 +56,7 @@ class CanBusConfigDict(TypedDict):
     rxid:int
     extended_id:bool
     fd:bool
+    bitrate_switch:bool
     
     subconfig:Dict[str, Any]
 
@@ -65,8 +67,20 @@ class CanBusConfig:
     rxid:int
     extended_id:bool
     fd:bool
+    bitrate_switch:bool
     
     subconfig:ANY_SUBCONFIG
+
+    def __post_init__(self):
+        if not self.fd and self.bitrate_switch:
+            raise ValueError("Bitrate switch is not possible without CAN FD enabled")
+        
+        if not self.extended_id:
+            validation.assert_int_range(self.rxid, 'rxid', 0, 0x7FF)
+            validation.assert_int_range(self.txid, 'txid', 0, 0x7FF)
+        else:
+            validation.assert_int_range(self.rxid, 'rxid', 0, 0x1FFFFFFF)
+            validation.assert_int_range(self.txid, 'txid', 0, 0x1FFFFFFF)
 
     def to_dict(self) -> CanBusConfigDict:
         return {
@@ -75,6 +89,7 @@ class CanBusConfig:
             'rxid' : self.rxid,
             'txid' : self.txid,
             'fd' : self.fd,
+            'bitrate_switch': self.bitrate_switch,
             'subconfig' : self.subconfig.to_dict()
         }
 
@@ -87,6 +102,7 @@ class CanBusConfig:
             'rxid' : int,
             'extended_id' : bool,
             'fd' : bool,
+            'bitrate_switch' : bool,
             'subconfig' : dict
         }
         validation.assert_type(d, 'config', dict)  
@@ -105,7 +121,10 @@ class CanBusConfig:
         if subcfg_class is None:
             raise NotImplementedError(f"Unsupported interface type {d['interface']}")
 
-        subconfig = cast(ANY_SUBCONFIG, subcfg_class(**d['subconfig']))   # Validation happens here
+        try:
+            subconfig = cast(ANY_SUBCONFIG, subcfg_class(**d['subconfig']))   # Validation happens here
+        except Exception as e:
+            raise ValueError(f"Invalid sub configuration for interface of type {d['interface']} : {e}") from e 
 
         return CanBusConfig(
             interface=d['interface'],
@@ -113,6 +132,7 @@ class CanBusConfig:
             rxid=d['rxid'],
             txid=d['txid'],
             fd=d['fd'],
+            bitrate_switch=d['bitrate_switch'],
             subconfig=subconfig
         )
 
@@ -139,7 +159,7 @@ class CanBusLink(AbstractLink):
 
         self.config = CanBusConfig.from_dict(cast(CanBusConfigDict, config))
 
-    def _get_nearest_can_fd_size(self, size: int) -> int:
+    def _get_nearest_can_fd_size_greater_or_equal_to(self, size: int) -> int:
         if size <= 8:
             return size
         if size <= 12: return 12
@@ -150,6 +170,18 @@ class CanBusLink(AbstractLink):
         if size <= 48: return 48
         if size <= 64: return 64
         raise ValueError(f"Impossible data size for CAN FD : {size} ")
+
+    def _get_nearest_can_fd_size_smaller_or_equal_to(self, size: int) -> int:
+        if size <= 8:
+            return size
+        if size >= 12: return 12
+        if size >= 16: return 16
+        if size >= 20: return 20
+        if size >= 24: return 24
+        if size >= 32: return 32
+        if size >= 48: return 48
+        if size >= 64: return 64
+        raise ValueError(f"Impossible data size for CAN FD : {size} ")    
 
     def _get_dlc(self, size:int) -> int:
         if size >= 1 and size <= 8: return size
@@ -166,7 +198,7 @@ class CanBusLink(AbstractLink):
 
     def _chunk_data(self, data:bytes) -> Generator[bytes, None, None]:
         while len(data) > 0:
-            chunk_size = self._get_nearest_can_fd_size(len(data))
+            chunk_size = self._get_nearest_can_fd_size_smaller_or_equal_to(len(data))
             if not self.config.fd:
                 if chunk_size > 8:
                     chunk_size = 8
@@ -219,7 +251,8 @@ class CanBusLink(AbstractLink):
                         is_extended_id=self.config.extended_id,
                         is_fd=self.config.fd,
                         data=chunk,
-                        dlc=self._get_dlc(len(chunk))
+                        dlc=self._get_dlc(len(chunk)),
+                        bitrate_switch=self.config.bitrate_switch
                     )
                 )
 

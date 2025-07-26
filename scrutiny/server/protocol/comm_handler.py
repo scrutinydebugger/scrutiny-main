@@ -211,6 +211,9 @@ class CommHandler:
         elif link_type == 'rtt':
             from scrutiny.server.device.links.rtt_link import RttLink
             link_class = RttLink
+        elif link_type == 'canbus':
+            from scrutiny.server.device.links.canbus_link import CanBusLink
+            link_class = CanBusLink
         elif link_type == 'dummy':
             from scrutiny.server.device.links.dummy_link import DummyLink
             link_class = DummyLink
