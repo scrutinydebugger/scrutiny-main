@@ -648,6 +648,8 @@ def parse_inform_server_status(response: api_typing.S2C.InformServerStatus) -> s
         interface = _can_interface_type(cast(api_typing.CANInterfaceType, canbus_config['interface']))
 
 
+        subconfig:api_typing.CANBUS_ANY_SUBCONFIG_DICT
+        interface_config:Union[sdk.CANLinkConfig.SocketCANConfig, sdk.CANLinkConfig.VectorConfig]
         if interface == sdk.CANLinkConfig.CANInterface.SocketCAN:
             subconfig = cast(api_typing.CanBusSocketCanSubconfig, canbus_config['subconfig'])
             _check_response_dict(cmd, subconfig, 'channel', str)

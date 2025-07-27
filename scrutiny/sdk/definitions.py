@@ -532,7 +532,7 @@ class RTTLinkConfig(BaseLinkConfig):
 
 
 @dataclass(frozen=True)
-class CANLinkConfig:
+class CANLinkConfig(BaseLinkConfig):
     """(Immutable struct) The configuration structure for a device link of type :attr:`CAN<scrutiny.sdk.DeviceLinkType.CAN>`"""
 
     @dataclass(frozen=True)

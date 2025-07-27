@@ -61,7 +61,6 @@ class VectorSubConfig(BaseSubconfig):
         validation.assert_dict_key(d, 'bitrate', int)
         validation.assert_dict_key(d, 'data_bitrate', int)
     
-        validation.assert_dict_key(d, 'channel', str)
         return VectorSubConfig(
             channel=d['channel'],
             bitrate=d['bitrate'],
