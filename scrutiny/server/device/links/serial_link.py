@@ -16,20 +16,8 @@ import serial   # type: ignore
 import time
 
 from scrutiny.server.device.links.abstract_link import AbstractLink, LinkConfig
+from scrutiny.server.device.links.typing import SerialConfigDict
 from scrutiny.tools.typing import *
-
-
-class SerialConfig(TypedDict):
-    """
-    Config given the the SerialLink object.
-    Can be set through the API or config file with JSON format
-    """
-    portname: str
-    baudrate: int
-    stopbits: str
-    databits: int
-    parity: str
-    start_delay: float
 
 
 class SerialLink(AbstractLink):
@@ -38,7 +26,7 @@ class SerialLink(AbstractLink):
     Based on pyserial module
     """
     logger: logging.Logger
-    config: SerialConfig
+    config: SerialConfigDict
     _initialized: bool
     _init_timestamp: float
 
@@ -111,7 +99,7 @@ class SerialLink(AbstractLink):
         self.logger = logging.getLogger(self.__class__.__name__)
         self._init_timestamp = time.monotonic()
 
-        self.config = cast(SerialConfig, {
+        self.config = cast(SerialConfigDict, {
             'portname': str(config['portname']),
             'baudrate': int(config['baudrate']),
             'stopbits': str(config.get('stopbits', '1')),

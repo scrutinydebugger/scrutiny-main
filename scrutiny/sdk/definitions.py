@@ -27,6 +27,7 @@ __all__ = [
     'SerialLinkConfig',
     'RTTLinkConfig',
     'NoneLinkConfig',
+    'CANLinkConfig',
     'SupportedLinkConfig',
     'DeviceLinkInfo',
     'ServerInfo',
@@ -137,7 +138,8 @@ class DeviceLinkType(enum.Enum):
     """Serial port"""
     RTT = 4
     """Segger JLink Real-Time Transfer port"""
-    # CAN = 5 # Todo
+    CAN = 5
+    """CAN Bus"""
     # SPI = 6 # Todo
 
 
@@ -524,8 +526,59 @@ class RTTLinkConfig(BaseLinkConfig):
             'jlink_interface': self.jlink_interface.value
         }
 
+# region CAN bus
 
-SupportedLinkConfig = Union[UDPLinkConfig, TCPLinkConfig, SerialLinkConfig, RTTLinkConfig, NoneLinkConfig]
+
+
+
+@dataclass(frozen=True)
+class CANLinkConfig:
+    """(Immutable struct) The configuration structure for a device link of type :attr:`CAN<scrutiny.sdk.DeviceLinkType.CAN>`"""
+
+    @dataclass(frozen=True)
+    class SocketCANConfig:
+        channel:str
+
+        def __post_init__(self) -> None:
+            validation.assert_type(self.channel, 'channel', str)
+
+    @dataclass(frozen=True)
+    class VectorConfig:
+        channel:Union[str, int]
+        bitrate:int
+        data_bitrate:int
+
+        def __post_init__(self) -> None:
+            validation.assert_type(self.channel, 'channel', (str, int))
+            validation.assert_type(self.bitrate, 'bitrate', int)
+            validation.assert_type(self.data_bitrate, 'data_bitrate', int)
+
+    class CANInterface(enum.Enum):
+        """Type of CAN interface instantiated with python-can."""
+        
+        SocketCAN = 0
+        """Connect to a SocketCAN network interface."""
+        Vector = 1
+        """Use Vector hardware through the Vector XL API. The XL Driver library must be installed on the server"""
+
+    interface: CANInterface
+    """The type of CAN interface used to access the CAN bus"""
+    txid : int
+    """The CAN ID used to transmit data from the server to the device"""
+    rxid: int
+    """The CAN ID used to transmit data from the device to the server"""
+    extended_id:bool
+    """A flag indicating if we use extended IDs (29 bits). Standard IDs (11 bits) are used when ``False``"""
+    fd:bool
+    """A flag indicating if we use CAN FD. Use of CAN 2.0 when ``False``"""
+    bitrate_switch:bool
+    """A flag telling if the server should do bitrate switch when transmitting. Only possible with CAN FD"""
+    interface_config: Union[SocketCANConfig, VectorConfig]
+    """A configuration specific to the interface"""
+
+#endregion
+
+SupportedLinkConfig = Union[UDPLinkConfig, TCPLinkConfig, SerialLinkConfig, RTTLinkConfig, NoneLinkConfig, CANLinkConfig]
 
 
 @dataclass(frozen=True)

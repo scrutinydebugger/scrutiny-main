@@ -10,6 +10,7 @@ from dataclasses import dataclass, asdict
 import abc
 
 from scrutiny.server.device.links.abstract_link import AbstractLink, LinkConfig
+from scrutiny.server.device.links.typing import * 
 from scrutiny.tools.typing import *
 from scrutiny.tools import validation
 
@@ -22,9 +23,8 @@ class BaseSubconfig:
         
         return str(getattr(cls, '_TYPENAME'))
     
-    def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
-
+    def to_dict(self) -> CANBUS_ANY_SUBCONFIG_DICT:
+        return cast(CANBUS_ANY_SUBCONFIG_DICT, asdict(self))
 
 @dataclass
 class SocketCanSubConfig(BaseSubconfig):
@@ -34,31 +34,43 @@ class SocketCanSubConfig(BaseSubconfig):
 
     def __post_init__(self) -> None:
         validation.assert_type(self.channel, 'channel', str)
-
-
+    
+    @classmethod
+    def from_dict(cls, d:SocketCanSubconfigDict) -> Self:
+        validation.assert_dict_key(d, 'channel', str)
+        return cls(
+            channel=d['channel']
+        )
+    
 @dataclass
 class VectorSubConfig(BaseSubconfig):
     _TYPENAME = 'vector'
 
     channel:Union[str, int]
     bitrate:int
+    data_bitrate:int
 
     def __post_init__(self) -> None:
         validation.assert_type(self.channel, 'channel', (str, int))
         validation.assert_type(self.bitrate, 'bitrate', int)
+        validation.assert_type(self.data_bitrate, 'data_bitrate', int)
 
+    @classmethod
+    def from_dict(cls, d:VectorSubconfigDict) -> "VectorSubConfig":
+        validation.assert_dict_key(d, 'channel', (str, int))
+        validation.assert_dict_key(d, 'bitrate', int)
+        validation.assert_dict_key(d, 'data_bitrate', int)
+    
+        validation.assert_dict_key(d, 'channel', str)
+        return VectorSubConfig(
+            channel=d['channel'],
+            bitrate=d['bitrate'],
+            data_bitrate=d['data_bitrate']
+        )
+    
+#endregion
 
 ANY_SUBCONFIG:TypeAlias = Union[SocketCanSubConfig, VectorSubConfig]
-
-class CanBusConfigDict(TypedDict):
-    interface:str
-    txid:int
-    rxid:int
-    extended_id:bool
-    fd:bool
-    bitrate_switch:bool
-    
-    subconfig:Dict[str, Any]
 
 @dataclass
 class CanBusConfig:
@@ -122,7 +134,7 @@ class CanBusConfig:
             raise NotImplementedError(f"Unsupported interface type {d['interface']}")
 
         try:
-            subconfig = cast(ANY_SUBCONFIG, subcfg_class(**d['subconfig']))   # Validation happens here
+            subconfig = cast(ANY_SUBCONFIG, subcfg_class.from_dict(d['subconfig']))   # Validation happens here
         except Exception as e:
             raise ValueError(f"Invalid sub configuration for interface of type {d['interface']} : {e}") from e 
 
@@ -159,18 +171,6 @@ class CanBusLink(AbstractLink):
 
         self.config = CanBusConfig.from_dict(cast(CanBusConfigDict, config))
 
-    def _get_nearest_can_fd_size_greater_or_equal_to(self, size: int) -> int:
-        if size <= 8:
-            return size
-        if size <= 12: return 12
-        if size <= 16: return 16
-        if size <= 20: return 20
-        if size <= 24: return 24
-        if size <= 32: return 32
-        if size <= 48: return 48
-        if size <= 64: return 64
-        raise ValueError(f"Impossible data size for CAN FD : {size} ")
-
     def _get_nearest_can_fd_size_smaller_or_equal_to(self, size: int) -> int:
         if size <= 8:
             return size
@@ -183,19 +183,6 @@ class CanBusLink(AbstractLink):
         if size >= 16: return 16
         if size >= 12: return 12
         raise ValueError(f"Impossible data size for CAN FD : {size} ")    
-
-    def _get_dlc(self, size:int) -> int:
-        if size >= 1 and size <= 8: return size
-        if self.config.fd:
-            if size == 12: return 9
-            elif size == 16: return 10
-            elif size == 20: return 11
-            elif size == 24: return 12
-            elif size == 32: return 13
-            elif size == 48: return 14
-            elif size == 64: return 15
-        raise ValueError(f"Invalid data size {size}")
-
 
     def _chunk_data(self, data:bytes) -> Generator[bytes, None, None]:
         while len(data) > 0:
@@ -212,7 +199,7 @@ class CanBusLink(AbstractLink):
         return cast(LinkConfig, self.config.to_dict())
 
     def initialize(self) -> None:
-        """ Called by the device Handler when initiating communication. Should reset the channel to a working state"""
+        """Called by the device Handler when initiating communication. Should reset the channel to a working state"""
 
         self._bus = self.make_bus(self.config)
         self._initialized = True
@@ -256,7 +243,6 @@ class CanBusLink(AbstractLink):
                         is_extended_id=self.config.extended_id,
                         is_fd=self.config.fd,
                         data=chunk,
-                        #dlc=self._get_dlc(len(chunk)),
                         bitrate_switch=self.config.bitrate_switch
                     )
                 )
@@ -307,7 +293,8 @@ class CanBusLink(AbstractLink):
                 channel=config.subconfig.channel,
                 fd=config.fd,
                 bitrate=config.subconfig.bitrate,
-                can_filters=filters
+                can_filters=filters,
+                data_bitrate=config.subconfig.data_bitrate
             )
 
         raise NotImplementedError(f"Unsupported bus type: {config.interface}")
