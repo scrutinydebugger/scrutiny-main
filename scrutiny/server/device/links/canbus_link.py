@@ -71,7 +71,7 @@ class CanBusConfig:
     
     subconfig:ANY_SUBCONFIG
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if not self.fd and self.bitrate_switch:
             raise ValueError("Bitrate switch is not possible without CAN FD enabled")
         
@@ -174,13 +174,14 @@ class CanBusLink(AbstractLink):
     def _get_nearest_can_fd_size_smaller_or_equal_to(self, size: int) -> int:
         if size <= 8:
             return size
-        if size >= 12: return 12
-        if size >= 16: return 16
-        if size >= 20: return 20
-        if size >= 24: return 24
-        if size >= 32: return 32
-        if size >= 48: return 48
+        if size < 12: return 8
         if size >= 64: return 64
+        if size >= 48: return 48
+        if size >= 32: return 32
+        if size >= 24: return 24
+        if size >= 20: return 20
+        if size >= 16: return 16
+        if size >= 12: return 12
         raise ValueError(f"Impossible data size for CAN FD : {size} ")    
 
     def _get_dlc(self, size:int) -> int:
@@ -221,6 +222,7 @@ class CanBusLink(AbstractLink):
         """ Put the comm channel to a resource-free non-working state"""
         if self._bus is not None:
             self._bus.shutdown()
+            self._bus = None
         self._initialized = False
 
     def operational(self) -> bool:
@@ -235,10 +237,13 @@ class CanBusLink(AbstractLink):
         if not self.operational():
             return None
         assert self._bus is not None
+
         msg = self._bus.recv(timeout)
-        if msg is not None:
-            return bytes(msg.data)
-        return None
+        if msg is None:
+            return None
+        if msg.is_error_frame:
+            return None
+        return bytes(msg.data)
     
     def write(self, data: bytes) -> None:
         """ Write data to the comm channel."""
@@ -251,7 +256,7 @@ class CanBusLink(AbstractLink):
                         is_extended_id=self.config.extended_id,
                         is_fd=self.config.fd,
                         data=chunk,
-                        dlc=self._get_dlc(len(chunk)),
+                        #dlc=self._get_dlc(len(chunk)),
                         bitrate_switch=self.config.bitrate_switch
                     )
                 )
@@ -290,7 +295,8 @@ class CanBusLink(AbstractLink):
             return SocketcanBus(
                 channel=config.subconfig.channel,
                 ignore_rx_error_frames=True,
-                can_filters=filters
+                can_filters=filters,
+                fd=config.fd
             )
         
         elif config.interface == VectorSubConfig.get_type_name():
