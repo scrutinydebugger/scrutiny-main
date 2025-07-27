@@ -100,7 +100,8 @@ class TestCanbusLink(ScrutinyUnitTest):
         d['interface'] = 'vector'
         d['subconfig'] = {
             'channel' : 1,
-            'bitrate' : 500000
+            'bitrate' : 500000,
+            'data_bitrate' : 500000
         }
         config = canbus_link.CanBusConfig.from_dict(d)
         self.assertIsInstance(config.subconfig, canbus_link.VectorSubConfig)
