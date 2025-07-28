@@ -342,6 +342,8 @@ class CanBusConfigPane(BaseConfigPane):
             super().__init__(*args, **kwargs)
             self._txt_channel = ValidableLineEdit(soft_validator=NotEmptyValidator())
             self._txt_channel.setText('can0')
+            layout = QFormLayout(self)
+            layout.addRow("Channel", self._txt_channel)
 
         def load_config(self, config:sdk.CANLinkConfig) -> None:
             assert isinstance(config, sdk.CANLinkConfig)
@@ -373,12 +375,18 @@ class CanBusConfigPane(BaseConfigPane):
         @tools.copy_type(QWidget.__init__)
         def __init__(self, *args, **kwargs) -> None:
             super().__init__(*args, **kwargs)
+            layout = QFormLayout(self)
+
             self._txt_channel = ValidableLineEdit(soft_validator=NotEmptyValidator())
             self._txt_bitrate = ValidableLineEdit(soft_validator=NotEmptyValidator(), hard_validator=QIntValidator(bottom=10000))
             self._txt_data_bitrate = ValidableLineEdit(soft_validator=NotEmptyValidator(), hard_validator=QIntValidator(bottom=10000))
             self._txt_channel.setText('0')
             self._txt_bitrate.setText('500000')
             self._txt_data_bitrate.setText('500000')
+
+            layout.addRow("Channel", self._txt_channel)
+            layout.addRow("Bitrate (bps)", self._txt_bitrate)
+            layout.addRow("Data Bitrate (bps)", self._txt_data_bitrate)
         
         def load_config(self, config:sdk.CANLinkConfig) -> None:
             assert isinstance(config, sdk.CANLinkConfig)
@@ -428,8 +436,8 @@ class CanBusConfigPane(BaseConfigPane):
         self._cmb_can_interface.addItem("SocketCAN", sdk.CANLinkConfig.CANInterface.SocketCAN)
         self._cmb_can_interface.addItem("Vector", sdk.CANLinkConfig.CANInterface.Vector)
 
-        self._spin_txid = QSpinBox(prefix="0x", minimum=0, displayIntegerBase=16)
-        self._spin_rxid = QSpinBox(prefix="0x", minimum=0, displayIntegerBase=16)
+        self._spin_txid = QSpinBox(prefix="0x", minimum=0, displayIntegerBase=16, maximum=0x7FF)
+        self._spin_rxid = QSpinBox(prefix="0x", minimum=0, displayIntegerBase=16, maximum=0x7FF)
 
         self._chk_extended_id = QCheckBox("Extended ID (29bits)")
         self._chk_fd = QCheckBox("CAN FD")
@@ -451,7 +459,12 @@ class CanBusConfigPane(BaseConfigPane):
         layout.addRow(self._chk_bitrate_switch)
         layout.addRow(subconfig_container)
 
-        self._update_subconfig_pane()
+        self._cmb_can_interface.currentIndexChanged.connect(self._update_ui)
+        self._chk_extended_id.checkStateChanged.connect(self._update_ui)
+        self._chk_fd.checkStateChanged.connect(self._update_ui)
+        self._chk_bitrate_switch.checkStateChanged.connect(self._update_ui)
+
+        self._update_ui()
 
     def _get_active_subconfig_pane(self) -> Union[SocketCanSubconfigPane, VectorSubconfigPane]:
         interface = cast(sdk.CANLinkConfig.CANInterface, self._cmb_can_interface.currentData())
@@ -460,6 +473,23 @@ class CanBusConfigPane(BaseConfigPane):
         elif interface == sdk.CANLinkConfig.CANInterface.Vector:
             return self._subconfig_vector_pane
         raise NotImplementedError(f"Unsupported subconfig pane for interface {interface}")
+
+    def _update_ui(self):
+        extended_id = self._chk_extended_id.isChecked()
+        can_id_max = 0x7FF
+        if extended_id:
+            can_id_max = 0x1FFFFFFF
+        self._spin_rxid.setMaximum(can_id_max)
+        self._spin_txid.setMaximum(can_id_max)
+
+        can_fd = self._chk_fd.isChecked()
+        if not can_fd:
+            self._chk_bitrate_switch.setChecked(False)
+        
+        self._chk_bitrate_switch.setEnabled(can_fd)
+
+        self._update_subconfig_pane()
+
 
     def _update_subconfig_pane(self):
         for i in range(self._subconfig_layout.count()):

@@ -550,6 +550,11 @@ class CANLinkConfig(BaseLinkConfig):
 
         def __post_init__(self) -> None:
             validation.assert_type(self.channel, 'channel', str)
+        
+        def _to_api_format(self) -> Dict[str, Any]:
+            return {
+                'channel' : self.channel
+            }
 
     @dataclass(frozen=True)
     class VectorConfig:
@@ -561,6 +566,13 @@ class CANLinkConfig(BaseLinkConfig):
             validation.assert_type(self.channel, 'channel', (str, int))
             validation.assert_type(self.bitrate, 'bitrate', int)
             validation.assert_type(self.data_bitrate, 'data_bitrate', int)
+        
+        def _to_api_format(self) -> Dict[str, Any]:
+            return {
+                'channel' : self.channel,
+                'bitrate' : self.bitrate,
+                'data_bitrate' : self.data_bitrate
+            }
 
     INTERFACE_CONFIG_MAP = {
         CANInterface.SocketCAN : SocketCANConfig,
@@ -580,6 +592,28 @@ class CANLinkConfig(BaseLinkConfig):
         validation.assert_type(self.bitrate_switch, 'bitrate_switch', bool) 
 
         validation.assert_type(self.interface_config, 'interface_config', self.INTERFACE_CONFIG_MAP[self.interface])
+    
+    def _to_api_format(self) -> Dict[str, Any]:
+        inteface_str = ""
+        if self.interface == CANLinkConfig.CANInterface.SocketCAN:
+            inteface_str = "socketcan"
+        elif self.interface == CANLinkConfig.CANInterface.Vector:
+            inteface_str = "vector"
+        else:
+            raise NotImplementedError(f"Unsupported interface type {self.interface}")
+
+        return {
+            'interface' : inteface_str,
+            'txid' : self.txid,
+            'rxid' : self.rxid,
+            'extended_id' : self.extended_id,
+            'fd' : self.fd,
+            'bitrate_switch' : self.bitrate_switch,
+            'subconfig' : self.interface_config._to_api_format()
+
+        }
+
+
 
     interface: CANInterface
     """The type of CAN interface used to access the CAN bus"""

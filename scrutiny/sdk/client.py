@@ -2058,7 +2058,8 @@ class ScrutinyClient:
             DeviceLinkType.UDP: ('udp', sdk.UDPLinkConfig),
             DeviceLinkType.TCP: ('tcp', sdk.TCPLinkConfig),
             DeviceLinkType.RTT: ('rtt', sdk.RTTLinkConfig),
-            DeviceLinkType._Dummy: ('dummy', type(None))
+            DeviceLinkType._Dummy: ('dummy', type(None)),
+            DeviceLinkType.CAN: ('canbus', sdk.CANLinkConfig)
         }
 
         if link_type not in api_map:
