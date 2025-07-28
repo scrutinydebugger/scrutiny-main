@@ -173,8 +173,8 @@ class TestCanbusLink(ScrutinyUnitTest):
             payload = random.randbytes(i)
             self.link.write(payload)
             payload2 = self.read_nbytes(i)
-            self.assertIsNone(self.bus.recv(timeout=0))   # No extra message pending
-            self.assertEqual(payload, payload2)
+            self.assertIsNone(self.bus.recv(timeout=0), f"i={i}")   # No extra message pending
+            self.assertEqual(payload, payload2, f"i={i}")
 
     
     @unittest.skipUnless(_vcan_possible, _vcan_impossible_reason)
@@ -192,8 +192,8 @@ class TestCanbusLink(ScrutinyUnitTest):
             payload = random.randbytes(i)
             self.link.write(payload)
             payload2 = self.read_nbytes(i)
-            self.assertIsNone(self.bus.recv(timeout=0))   # No extra message pending
-            self.assertEqual(payload, payload2)
+            self.assertIsNone(self.bus.recv(timeout=0), f"i={i}")   # No extra message pending
+            self.assertEqual(payload, payload2, f"i={i}")
         
         self.assertIsNone(self.bus.recv(timeout=0.2))
 
