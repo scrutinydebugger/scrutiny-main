@@ -535,6 +535,15 @@ class RTTLinkConfig(BaseLinkConfig):
 class CANLinkConfig(BaseLinkConfig):
     """(Immutable struct) The configuration structure for a device link of type :attr:`CAN<scrutiny.sdk.DeviceLinkType.CAN>`"""
 
+    class CANInterface(enum.Enum):
+        """Type of CAN interface instantiated with python-can."""
+        
+        SocketCAN = 0
+        """Connect to a SocketCAN network interface."""
+        Vector = 1
+        """Use Vector hardware through the Vector XL API. The XL Driver library must be installed on the server"""
+
+
     @dataclass(frozen=True)
     class SocketCANConfig:
         channel:str
@@ -553,13 +562,24 @@ class CANLinkConfig(BaseLinkConfig):
             validation.assert_type(self.bitrate, 'bitrate', int)
             validation.assert_type(self.data_bitrate, 'data_bitrate', int)
 
-    class CANInterface(enum.Enum):
-        """Type of CAN interface instantiated with python-can."""
+    INTERFACE_CONFIG_MAP = {
+        CANInterface.SocketCAN : SocketCANConfig,
+        CANInterface.Vector : VectorConfig,
+    }
+    
+    def __post_init__(self) -> None:
+        if not isinstance(self.interface, CANLinkConfig.CANInterface):
+            raise ValueError("Invalid CAN interface")
         
-        SocketCAN = 0
-        """Connect to a SocketCAN network interface."""
-        Vector = 1
-        """Use Vector hardware through the Vector XL API. The XL Driver library must be installed on the server"""
+        can_max = 0x1FFFFFFF if self.extended_id else 0x7FF
+        validation.assert_int_range(self.txid, 'txid', minval=0, maxval=can_max)
+        validation.assert_int_range(self.rxid, 'rxid', minval=0, maxval=can_max)
+
+        validation.assert_type(self.extended_id, 'extended_id', bool) 
+        validation.assert_type(self.fd, 'fd', bool) 
+        validation.assert_type(self.bitrate_switch, 'bitrate_switch', bool) 
+
+        validation.assert_type(self.interface_config, 'interface_config', self.INTERFACE_CONFIG_MAP[self.interface])
 
     interface: CANInterface
     """The type of CAN interface used to access the CAN bus"""
