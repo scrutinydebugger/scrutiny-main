@@ -32,7 +32,7 @@ def _check_vcan_possible():
 _vcan_possible, _vcan_impossible_reason = _check_vcan_possible()
 
 
-def socketcan_vcan0_config() -> canbus_link.CanBusConfigDict:
+def socketcan_config() -> canbus_link.CanBusConfigDict:
     return {
         'interface': 'socketcan',
         'rxid': 0x123,
@@ -41,7 +41,7 @@ def socketcan_vcan0_config() -> canbus_link.CanBusConfigDict:
         'fd': False,
         'bitrate_switch': False,
         'subconfig': {
-            'channel': 'vcan0',
+            'channel': TEST_VCAN,
         }
     }
 
@@ -138,7 +138,7 @@ class TestCanbusLink(ScrutinyUnitTest):
 
     @unittest.skipUnless(_vcan_possible, _vcan_impossible_reason)
     def test_read_write(self):
-        self.link = canbus_link.CanBusLink(socketcan_vcan0_config())
+        self.link = canbus_link.CanBusLink(socketcan_config())
         self.assertFalse(self.link.operational())
         self.assertFalse(self.link.initialized())
         self.link.initialize()
@@ -152,14 +152,14 @@ class TestCanbusLink(ScrutinyUnitTest):
         self.assert_msg_received(b'12345678')
         self.assert_msg_received(b'9abcd')
 
-        config = socketcan_vcan0_config()
+        config = socketcan_config()
         self.bus.send(can.Message(arbitration_id=config['rxid'], data=b'ABCDEFGH', is_extended_id=False))
         data = self.link.read(1.0)
         self.assertEqual(data, b'ABCDEFGH')
 
     @unittest.skipUnless(_vcan_possible, _vcan_impossible_reason)
     def test_detect_broken(self):
-        self.link = canbus_link.CanBusLink(socketcan_vcan0_config())
+        self.link = canbus_link.CanBusLink(socketcan_config())
         self.link.initialize()
         self.assertTrue(self.link.operational())
         assert self.link._bus is not None
@@ -174,7 +174,7 @@ class TestCanbusLink(ScrutinyUnitTest):
         self.bus.shutdown()
         self.bus = SocketcanBus(TEST_VCAN)
 
-        self.link = canbus_link.CanBusLink(socketcan_vcan0_config())
+        self.link = canbus_link.CanBusLink(socketcan_config())
         self.link.initialize()
 
         for i in range(32):
@@ -186,7 +186,7 @@ class TestCanbusLink(ScrutinyUnitTest):
 
     @unittest.skipUnless(_vcan_possible, _vcan_impossible_reason)
     def test_message_chunking_can_fd(self):
-        config = socketcan_vcan0_config()
+        config = socketcan_config()
         config['fd'] = True
 
         self.link = canbus_link.CanBusLink(config)
