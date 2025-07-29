@@ -564,8 +564,11 @@ class CANLinkConfig(BaseLinkConfig):
 
         def __post_init__(self) -> None:
             validation.assert_type(self.channel, 'channel', (str, int))
-            validation.assert_type(self.bitrate, 'bitrate', int)
-            validation.assert_type(self.data_bitrate, 'data_bitrate', int)
+            if isinstance(self.channel, int):
+                validation.assert_int_range(self.channel, 'channel', minval=0)
+
+            validation.assert_int_range(self.bitrate, 'bitrate', minval=0)
+            validation.assert_int_range(self.data_bitrate, 'data_bitrate', minval=0)
         
         def _to_api_format(self) -> Dict[str, Any]:
             return {
@@ -581,7 +584,7 @@ class CANLinkConfig(BaseLinkConfig):
     
     def __post_init__(self) -> None:
         if not isinstance(self.interface, CANLinkConfig.CANInterface):
-            raise ValueError("Invalid CAN interface")
+            raise TypeError("Invalid CAN interface")
         
         can_max = 0x1FFFFFFF if self.extended_id else 0x7FF
         validation.assert_int_range(self.txid, 'txid', minval=0, maxval=can_max)
