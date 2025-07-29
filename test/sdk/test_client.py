@@ -2049,17 +2049,15 @@ class TestClient(ScrutinyUnitTest):
         self.assertEqual(configout['subconfig']['bitrate'], 500000)
         self.assertEqual(configout['subconfig']['data_bitrate'], 1000000)
 
-
-
     def test_configure_device_link_can_errors(self):
         def base_socketcan(
-            interface = sdk.CANLinkConfig.CANInterface.SocketCAN,
-            txid = 0x100,
-            rxid = 0x101,
-            extended_id = False,
-            fd = True,
-            bitrate_switch = True,
-            interface_config  = sdk.CANLinkConfig.SocketCANConfig(channel='can0')               
+            interface=sdk.CANLinkConfig.CANInterface.SocketCAN,
+            txid=0x100,
+            rxid=0x101,
+            extended_id=False,
+            fd=True,
+            bitrate_switch=True,
+            interface_config=sdk.CANLinkConfig.SocketCANConfig(channel='can0')
         ) -> sdk.CANLinkConfig:
             return sdk.CANLinkConfig(
                 interface=interface,
@@ -2072,46 +2070,46 @@ class TestClient(ScrutinyUnitTest):
             )
 
         with self.assertRaises(sdk.exceptions.OperationFailure):
-            configin = base_socketcan(interface_config=sdk.CANLinkConfig.SocketCANConfig(channel='raise')) # Special name that cause a failure on the server side
+            configin = base_socketcan(interface_config=sdk.CANLinkConfig.SocketCANConfig(
+                channel='raise'))  # Special name that cause a failure on the server side
             self.client.configure_device_link(sdk.DeviceLinkType.CAN, configin)
 
-    
         for val in ['asd', 1, None, [], {}]:
-            with self.assertRaises(TypeError,  msg=f"val={val}"):
+            with self.assertRaises(TypeError, msg=f"val={val}"):
                 base_socketcan(interface=val)
 
         # TXID
         for val in ['asd', None, [], {}, 1.2]:
-            with self.assertRaises(TypeError,  msg=f"val={val}"):
+            with self.assertRaises(TypeError, msg=f"val={val}"):
                 base_socketcan(txid=val)
         base_socketcan(txid=0x7FF, extended_id=False)
-       
+
         base_socketcan(txid=0x0, extended_id=False)
         for val in [-1, 0x800]:
-            with self.assertRaises(ValueError,  msg=f"val={val}"):
+            with self.assertRaises(ValueError, msg=f"val={val}"):
                 base_socketcan(txid=val)
-        
+
         base_socketcan(txid=0, extended_id=True)
         base_socketcan(txid=0x1FFFFFFF, extended_id=True)
         for val in [-1, 0x20000000]:
-            with self.assertRaises(ValueError,  msg=f"val={val}"):
+            with self.assertRaises(ValueError, msg=f"val={val}"):
                 base_socketcan(txid=val, extended_id=True)
 
         # RXID
         for val in ['asd', None, [], {}, 1.2]:
-            with self.assertRaises(TypeError,  msg=f"val={val}"):
+            with self.assertRaises(TypeError, msg=f"val={val}"):
                 base_socketcan(rxid=val)
-       
+
         base_socketcan(rxid=0x7FF, extended_id=False)
         base_socketcan(rxid=0x0, extended_id=False)
         for val in [-1, 0x800]:
-            with self.assertRaises(ValueError,  msg=f"val={val}"):
+            with self.assertRaises(ValueError, msg=f"val={val}"):
                 base_socketcan(rxid=val)
-        
+
         base_socketcan(rxid=0, extended_id=True)
         base_socketcan(rxid=0x1FFFFFFF, extended_id=True)
         for val in [-1, 0x20000000]:
-            with self.assertRaises(ValueError,  msg=f"val={val}"):
+            with self.assertRaises(ValueError, msg=f"val={val}"):
                 base_socketcan(rxid=val, extended_id=True)
 
         # Bool fields
@@ -2119,8 +2117,8 @@ class TestClient(ScrutinyUnitTest):
         for field in bool_fields:
             for val in ['asd', None, [], {}, 1.2, 3]:
                 with self.assertRaises(TypeError, msg=f"field={field}, 'val={val}"):
-                    base_socketcan(**{field:val})
-        
+                    base_socketcan(**{field: val})
+
         for val in ['asd', None, [], {}, 1.2, 3]:
             with self.assertRaises(TypeError, msg=f"val={val}"):
                 base_socketcan(interface_config=val)
@@ -2128,9 +2126,8 @@ class TestClient(ScrutinyUnitTest):
         with self.assertRaises(TypeError):
             base_socketcan(interface_config=sdk.CANLinkConfig.VectorConfig(channel=0, bitrate=100, data_bitrate=100))
 
+        # Test of subconfigs now
 
-        ## Test of subconfigs now
-        
         # Socketcan
         for val in [True, None, [], {}, 1.2, 3]:
             with self.assertRaises(TypeError, msg=f"val={val}"):
@@ -2140,7 +2137,7 @@ class TestClient(ScrutinyUnitTest):
         for val in [True, None, [], {}, 1.2]:
             with self.assertRaises(TypeError, msg=f"val={val}"):
                 sdk.CANLinkConfig.VectorConfig(channel=val, bitrate=100, data_bitrate=100)
-        
+
         for val in [True, None, [], {}, 1.2, 'asd']:
             with self.assertRaises(TypeError, msg=f"val={val}"):
                 sdk.CANLinkConfig.VectorConfig(channel=0, bitrate=val, data_bitrate=100)
@@ -2151,10 +2148,10 @@ class TestClient(ScrutinyUnitTest):
 
         with self.assertRaises(ValueError):
             sdk.CANLinkConfig.VectorConfig(channel=-1, bitrate=100, data_bitrate=100)
-        
+
         with self.assertRaises(ValueError):
             sdk.CANLinkConfig.VectorConfig(channel=0, bitrate=-1, data_bitrate=100)
-        
+
         with self.assertRaises(ValueError):
             sdk.CANLinkConfig.VectorConfig(channel=0, bitrate=100, data_bitrate=-1)
 

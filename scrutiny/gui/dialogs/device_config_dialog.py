@@ -331,34 +331,33 @@ class RTTConfigPane(BaseConfigPane):
         self._target_device_text_box.validate_expect_valid()
 
 
-
 class CanBusConfigPane(BaseConfigPane):
 
     class SocketCanSubconfigPane(QWidget):
-        _txt_channel:ValidableLineEdit
+        _txt_channel: ValidableLineEdit
 
         @tools.copy_type(QWidget.__init__)
-        def __init__(self, *args:Any, **kwargs:Any) -> None:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
             super().__init__(*args, **kwargs)
             self._txt_channel = ValidableLineEdit(soft_validator=NotEmptyValidator())
             self._txt_channel.setText('can0')
             layout = QFormLayout(self)
             layout.addRow("Channel", self._txt_channel)
 
-        def load_config(self, config:sdk.CANLinkConfig) -> None:
+        def load_config(self, config: sdk.CANLinkConfig) -> None:
             assert isinstance(config, sdk.CANLinkConfig)
             assert config.interface == sdk.CANLinkConfig.CANInterface.SocketCAN
-            assert isinstance(config.interface_config, sdk.CANLinkConfig.SocketCANConfig) 
+            assert isinstance(config.interface_config, sdk.CANLinkConfig.SocketCANConfig)
 
             self._txt_channel.setText(config.interface_config.channel)
 
         def get_subconfig(self) -> sdk.CANLinkConfig.SocketCANConfig:
             return sdk.CANLinkConfig.SocketCANConfig(
-                channel = self._txt_channel.text()
+                channel=self._txt_channel.text()
             )
-        
+
         @classmethod
-        def make_subconfig_valid(cls, subconfig:sdk.CANLinkConfig.SocketCANConfig) -> sdk.CANLinkConfig.SocketCANConfig:
+        def make_subconfig_valid(cls, subconfig: sdk.CANLinkConfig.SocketCANConfig) -> sdk.CANLinkConfig.SocketCANConfig:
             channel = subconfig.channel
             if not isinstance(channel, str):
                 channel = 'can0'
@@ -366,14 +365,13 @@ class CanBusConfigPane(BaseConfigPane):
                 channel=channel
             )
 
-
     class VectorSubconfigPane(QWidget):
-        _txt_channel:ValidableLineEdit
-        _txt_bitrate:ValidableLineEdit
-        _txt_data_bitrate:ValidableLineEdit
+        _txt_channel: ValidableLineEdit
+        _txt_bitrate: ValidableLineEdit
+        _txt_data_bitrate: ValidableLineEdit
 
         @tools.copy_type(QWidget.__init__)
-        def __init__(self, *args:Any, **kwargs:Any) -> None:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
             super().__init__(*args, **kwargs)
             layout = QFormLayout(self)
 
@@ -387,26 +385,25 @@ class CanBusConfigPane(BaseConfigPane):
             layout.addRow("Channel", self._txt_channel)
             layout.addRow("Bitrate (bps)", self._txt_bitrate)
             layout.addRow("Data Bitrate (bps)", self._txt_data_bitrate)
-        
-        def load_config(self, config:sdk.CANLinkConfig) -> None:
+
+        def load_config(self, config: sdk.CANLinkConfig) -> None:
             assert isinstance(config, sdk.CANLinkConfig)
             assert config.interface == sdk.CANLinkConfig.CANInterface.Vector
-            assert isinstance(config.interface_config, sdk.CANLinkConfig.VectorConfig) 
+            assert isinstance(config.interface_config, sdk.CANLinkConfig.VectorConfig)
 
             self._txt_channel.setText(str(config.interface_config.channel))
             self._txt_bitrate.setText(str(config.interface_config.bitrate))
             self._txt_data_bitrate.setText(str(config.interface_config.data_bitrate))
 
-
         def get_subconfig(self) -> sdk.CANLinkConfig.VectorConfig:
             return sdk.CANLinkConfig.VectorConfig(
-                channel = self._txt_channel.text(),
-                bitrate = int(self._txt_bitrate.text()),
-                data_bitrate = int(self._txt_data_bitrate.text())
+                channel=self._txt_channel.text(),
+                bitrate=int(self._txt_bitrate.text()),
+                data_bitrate=int(self._txt_data_bitrate.text())
             )
 
         @classmethod
-        def make_subconfig_valid(cls, subconfig:sdk.CANLinkConfig.VectorConfig) -> sdk.CANLinkConfig.VectorConfig:
+        def make_subconfig_valid(cls, subconfig: sdk.CANLinkConfig.VectorConfig) -> sdk.CANLinkConfig.VectorConfig:
             outconfig = sdk.CANLinkConfig.VectorConfig(
                 channel=subconfig.channel,
                 bitrate=max(int(subconfig.bitrate), 0),
@@ -420,10 +417,9 @@ class CanBusConfigPane(BaseConfigPane):
     _chk_extended_id: QCheckBox
     _chk_fd: QCheckBox
     _chk_bitrate_switch: QCheckBox
-    _subconfig_layout:QStackedLayout
-    _subconfig_socketcan_pane:SocketCanSubconfigPane
-    _subconfig_vector_pane:VectorSubconfigPane
-
+    _subconfig_layout: QStackedLayout
+    _subconfig_socketcan_pane: SocketCanSubconfigPane
+    _subconfig_vector_pane: VectorSubconfigPane
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
@@ -485,19 +481,17 @@ class CanBusConfigPane(BaseConfigPane):
         can_fd = self._chk_fd.isChecked()
         if not can_fd:
             self._chk_bitrate_switch.setChecked(False)
-        
+
         self._chk_bitrate_switch.setEnabled(can_fd)
 
         self._update_subconfig_pane()
-
 
     def _update_subconfig_pane(self) -> None:
         for i in range(self._subconfig_layout.count()):
             subconfig_pane = self._subconfig_layout.widget(i)
             subconfig_pane.setVisible(False)
-        
-        self._get_active_subconfig_pane().setVisible(True)
 
+        self._get_active_subconfig_pane().setVisible(True)
 
     def get_config(self) -> Optional[sdk.CANLinkConfig]:
         interface = cast(sdk.CANLinkConfig.CANInterface, self._cmb_can_interface.currentData())
@@ -506,7 +500,6 @@ class CanBusConfigPane(BaseConfigPane):
         canfd = self._chk_fd.isChecked()
         bitrate_switch = self._chk_bitrate_switch.isChecked() and canfd
 
-        
         return sdk.CANLinkConfig(
             interface=interface,
             txid=self._spin_txid.value(),
@@ -520,7 +513,6 @@ class CanBusConfigPane(BaseConfigPane):
     def load_config(self, config: Optional[sdk.BaseLinkConfig]) -> None:
         config = self.make_config_valid(config)
         assert isinstance(config, sdk.CANLinkConfig)
-
 
     @classmethod
     def make_config_valid(cls, config: Optional[sdk.BaseLinkConfig]) -> sdk.BaseLinkConfig:
@@ -539,12 +531,12 @@ class CanBusConfigPane(BaseConfigPane):
         if not extended_id:
             txid = min(max(config.txid, 0), 0x7FF)
             rxid = min(max(config.rxid, 0), 0x7FF)
-        
+
         bitrate_switch = config.bitrate_switch
         if not can_fd:
             bitrate_switch = False
 
-        interface_config:Union[sdk.CANLinkConfig.SocketCANConfig, sdk.CANLinkConfig.VectorConfig]
+        interface_config: Union[sdk.CANLinkConfig.SocketCANConfig, sdk.CANLinkConfig.VectorConfig]
         if isinstance(config.interface_config, sdk.CANLinkConfig.SocketCANConfig):
             interface_config = cls.SocketCanSubconfigPane.make_subconfig_valid(config.interface_config)
         elif isinstance(config.interface_config, sdk.CANLinkConfig.VectorConfig):
@@ -558,13 +550,14 @@ class CanBusConfigPane(BaseConfigPane):
             rxid=rxid,
             extended_id=extended_id,
             fd=can_fd,
-            bitrate_switch = bitrate_switch,
+            bitrate_switch=bitrate_switch,
             interface_config=interface_config
         )
 
     def visual_validation(self) -> None:
         # Called when OK is clicked
         pass
+
 
 class DeviceConfigDialog(QDialog):
 
@@ -607,7 +600,7 @@ class DeviceConfigDialog(QDialog):
         sdk.DeviceLinkType.UDP: UDPConfigPane,
         sdk.DeviceLinkType.Serial: SerialConfigPane,
         sdk.DeviceLinkType.RTT: RTTConfigPane,
-        sdk.DeviceLinkType.CAN : CanBusConfigPane
+        sdk.DeviceLinkType.CAN: CanBusConfigPane
     }
 
     _link_type_combo_box: QComboBox
@@ -697,7 +690,7 @@ class DeviceConfigDialog(QDialog):
             )
         )
 
-        interface_config:Union[sdk.CANLinkConfig.SocketCANConfig, sdk.CANLinkConfig.VectorConfig]
+        interface_config: Union[sdk.CANLinkConfig.SocketCANConfig, sdk.CANLinkConfig.VectorConfig]
         can_interface = sdk.CANLinkConfig.CANInterface(self._preferences.get_int(self.PersistentPreferences.CAN_INTERFACE, 0))
         if can_interface == sdk.CANLinkConfig.CANInterface.SocketCAN:
             interface_config = sdk.CANLinkConfig.SocketCANConfig(
@@ -713,7 +706,7 @@ class DeviceConfigDialog(QDialog):
             raise NotImplementedError(f"Unsupported CAN interface {can_interface}")
 
         self._configs[sdk.DeviceLinkType.CAN] = sdk.CANLinkConfig(
-            interface = can_interface,
+            interface=can_interface,
             txid=self._preferences.get_int(self.PersistentPreferences.CAN_TXID, 0),
             rxid=self._preferences.get_int(self.PersistentPreferences.CAN_RXID, 0),
             extended_id=self._preferences.get_bool(self.PersistentPreferences.CAN_EXTENDED_ID, False),

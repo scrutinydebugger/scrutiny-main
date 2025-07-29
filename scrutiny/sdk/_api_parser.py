@@ -642,14 +642,13 @@ def parse_inform_server_status(response: api_typing.S2C.InformServerStatus) -> s
                 return sdk.CANLinkConfig.CANInterface.SocketCAN
             if api_val_lower == 'vector':
                 return sdk.CANLinkConfig.CANInterface.Vector
-            
+
             raise sdk.exceptions.BadResponseError(f'Unsupported CAN interface type "{api_val}"')
-        
+
         interface = _can_interface_type(cast(api_typing.CANInterfaceType, canbus_config['interface']))
 
-
-        subconfig:api_typing.CANBUS_ANY_SUBCONFIG_DICT
-        interface_config:Union[sdk.CANLinkConfig.SocketCANConfig, sdk.CANLinkConfig.VectorConfig]
+        subconfig: api_typing.CANBUS_ANY_SUBCONFIG_DICT
+        interface_config: Union[sdk.CANLinkConfig.SocketCANConfig, sdk.CANLinkConfig.VectorConfig]
         if interface == sdk.CANLinkConfig.CANInterface.SocketCAN:
             subconfig = cast(api_typing.CanBusSocketCanSubconfig, canbus_config['subconfig'])
             _check_response_dict(cmd, subconfig, 'channel', str)
@@ -667,7 +666,7 @@ def parse_inform_server_status(response: api_typing.S2C.InformServerStatus) -> s
                 data_bitrate=subconfig['data_bitrate']
             )
         else:
-            raise NotImplementedError(f"Unsupported interface type: {interface}") #  should not happen. Validated above
+            raise NotImplementedError(f"Unsupported interface type: {interface}")  # should not happen. Validated above
 
         link_config = sdk.CANLinkConfig(
             interface=interface,

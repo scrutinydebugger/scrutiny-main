@@ -8,9 +8,9 @@
 
 import unittest
 
-from scrutiny.server.device.links import  canbus_link
+from scrutiny.server.device.links import canbus_link
 import os
-import can 
+import can
 from can.interfaces.socketcan import SocketcanBus
 from test import ScrutinyUnitTest
 from scrutiny.tools.typing import *
@@ -18,6 +18,7 @@ import time
 import random
 
 TEST_VCAN = os.environ.get('UNITTEST_VCAN', 'vcan0')
+
 
 def _check_vcan_possible():
     try:
@@ -30,23 +31,24 @@ def _check_vcan_possible():
 
 _vcan_possible, _vcan_impossible_reason = _check_vcan_possible()
 
-def socketcan_vcan0_config() ->canbus_link.CanBusConfigDict:
-    return  {
-        'interface' : 'socketcan',
-        'rxid' : 0x123,
-        'txid' : 0x456,
-        'extended_id' : False,
-        'fd'  : False,
+
+def socketcan_vcan0_config() -> canbus_link.CanBusConfigDict:
+    return {
+        'interface': 'socketcan',
+        'rxid': 0x123,
+        'txid': 0x456,
+        'extended_id': False,
+        'fd': False,
         'bitrate_switch': False,
-        'subconfig' : {
-            'channel' : 'vcan0',
+        'subconfig': {
+            'channel': 'vcan0',
         }
     }
 
 
 class TestCanbusLink(ScrutinyUnitTest):
-    bus:can.BusABC
-    link:Optional[canbus_link.CanBusLink]
+    bus: can.BusABC
+    link: Optional[canbus_link.CanBusLink]
 
     def setUp(self):
         self.bus = None
@@ -64,18 +66,18 @@ class TestCanbusLink(ScrutinyUnitTest):
         return super().tearDown()
 
     def test_config(self):
-        def base () -> canbus_link.CanBusConfigDict:
+        def base() -> canbus_link.CanBusConfigDict:
             return {
-            'interface' : 'socketcan',
-            'rxid' : 0x123,
-            'txid' : 0x456,
-            'extended_id' : False,
-            'fd'  : False,
-            'bitrate_switch' : False,
-            'subconfig' : {
-                'channel' : 'vcan0'
+                'interface': 'socketcan',
+                'rxid': 0x123,
+                'txid': 0x456,
+                'extended_id': False,
+                'fd': False,
+                'bitrate_switch': False,
+                'subconfig': {
+                    'channel': 'vcan0'
+                }
             }
-        }
         config = canbus_link.CanBusConfig.from_dict(base())
         self.assertEqual(config.interface, 'socketcan')
         self.assertEqual(config.rxid, 0x123)
@@ -84,10 +86,10 @@ class TestCanbusLink(ScrutinyUnitTest):
         self.assertEqual(config.fd, False)
         self.assertIsInstance(config.subconfig, canbus_link.SocketCanSubConfig)
         self.assertEqual(config.subconfig.channel, 'vcan0')
-        
+
         self.assertEqual(base(), config.to_dict())
 
-        for k in  ['interface', 'rxid', 'txid', 'extended_id', 'subconfig', 'fd']:
+        for k in ['interface', 'rxid', 'txid', 'extended_id', 'subconfig', 'fd']:
             with self.assertRaises(Exception):
                 d = base()
                 del d[k]
@@ -106,23 +108,21 @@ class TestCanbusLink(ScrutinyUnitTest):
         d = base()
         d['interface'] = 'vector'
         d['subconfig'] = {
-            'channel' : 1,
-            'bitrate' : 500000,
-            'data_bitrate' : 500000
+            'channel': 1,
+            'bitrate': 500000,
+            'data_bitrate': 500000
         }
         config = canbus_link.CanBusConfig.from_dict(d)
         self.assertIsInstance(config.subconfig, canbus_link.VectorSubConfig)
         self.assertEqual(config.subconfig.channel, 1)
         self.assertEqual(config.subconfig.bitrate, 500000)
 
-
-    def assert_msg_received(self, data:bytes, timeout:int=1):
+    def assert_msg_received(self, data: bytes, timeout: int = 1):
         msg = self.bus.recv(timeout=timeout)
         self.assertIsNotNone(msg)
         self.assertEqual(msg.data, data)
 
-
-    def read_nbytes(self, nbytes:int, timeout:float=1) -> bytes:
+    def read_nbytes(self, nbytes: int, timeout: float = 1) -> bytes:
         data = bytearray()
         t1 = time.monotonic()
         while len(data) < nbytes:
@@ -132,7 +132,7 @@ class TestCanbusLink(ScrutinyUnitTest):
             msg = self.bus.recv(timeout=new_timeout)
             if msg is not None:
                 data += msg.data
-        
+
         return bytes(data)
 
     @unittest.skipUnless(_vcan_possible, _vcan_impossible_reason)
@@ -164,15 +164,15 @@ class TestCanbusLink(ScrutinyUnitTest):
         assert self.link._bus is not None
         self.link._bus.shutdown()
         self.assertFalse(self.link.operational())
-    
+
     @unittest.skipUnless(_vcan_possible, _vcan_impossible_reason)
     def test_message_chunking_can_standard(self):
-        
+
         self.bus.shutdown()
         self.bus = SocketcanBus(TEST_VCAN, fd=True)
         self.bus.shutdown()
         self.bus = SocketcanBus(TEST_VCAN)
-    
+
         self.link = canbus_link.CanBusLink(socketcan_vcan0_config())
         self.link.initialize()
 
@@ -183,7 +183,6 @@ class TestCanbusLink(ScrutinyUnitTest):
             self.assertIsNone(self.bus.recv(timeout=0), f"i={i}")   # No extra message pending
             self.assertEqual(payload, payload2, f"i={i}")
 
-    
     @unittest.skipUnless(_vcan_possible, _vcan_impossible_reason)
     def test_message_chunking_can_fd(self):
         config = socketcan_vcan0_config()
@@ -201,7 +200,7 @@ class TestCanbusLink(ScrutinyUnitTest):
             payload2 = self.read_nbytes(i)
             self.assertIsNone(self.bus.recv(timeout=0), f"i={i}")   # No extra message pending
             self.assertEqual(payload, payload2, f"i={i}")
-        
+
         self.assertIsNone(self.bus.recv(timeout=0.2))
 
 

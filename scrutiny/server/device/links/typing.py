@@ -11,29 +11,33 @@ from scrutiny.tools.typing import *
 
 # region CAN bus
 class SocketCanSubconfigDict(TypedDict):
-    channel:str
+    channel: str
 
 
 class VectorSubconfigDict(TypedDict):
-    channel:Union[str, int]
-    bitrate:int
-    data_bitrate:int
+    channel: Union[str, int]
+    bitrate: int
+    data_bitrate: int
 
-CANBUS_ANY_SUBCONFIG_DICT:TypeAlias = Union[SocketCanSubconfigDict, VectorSubconfigDict]
+
+CANBUS_ANY_SUBCONFIG_DICT: TypeAlias = Union[SocketCanSubconfigDict, VectorSubconfigDict]
+
 
 class CanBusConfigDict(TypedDict):
-    interface:str
-    txid:int
-    rxid:int
-    extended_id:bool
-    fd:bool
-    bitrate_switch:bool
-    
-    subconfig:CANBUS_ANY_SUBCONFIG_DICT
+    interface: str
+    txid: int
+    rxid: int
+    extended_id: bool
+    fd: bool
+    bitrate_switch: bool
 
-#endregion
+    subconfig: CANBUS_ANY_SUBCONFIG_DICT
+
+# endregion
 
 # region Serial
+
+
 class SerialConfigDict(TypedDict):
     """
     Config given the the SerialLink object.
@@ -46,7 +50,7 @@ class SerialConfigDict(TypedDict):
     parity: str
     start_delay: float
 
-#endregion
+# endregion
 
 
 # region UDP
@@ -58,9 +62,11 @@ class UdpConfigDict(TypedDict):
     host: str
     port: int
 
-#endregion
+# endregion
 
 # region RTT
+
+
 class RttConfigDict(TypedDict):
     """
     Config given the the RttLink object.
@@ -69,4 +75,4 @@ class RttConfigDict(TypedDict):
     target_device: str
     jlink_interface: str
 
-#endregion
+# endregion

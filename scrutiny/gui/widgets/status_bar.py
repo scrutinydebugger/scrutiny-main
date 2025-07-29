@@ -473,7 +473,7 @@ class StatusBar(QStatusBar):
                 bitrate = '%.2f' % (config.interface_config.bitrate / 1000)
                 bitrate = bitrate.rstrip('0').rstrip('.')
                 bitrate += 'kbps'
-            
+
             txt = f"{prefix} CAN {can_type} {id_size} | {config.interface.name} @{bitrate} | Tx:{txid} Rx:{rxid}"
             self._device_comm_link_label.set_text(txt)
         else:

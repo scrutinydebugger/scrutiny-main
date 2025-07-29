@@ -529,38 +529,35 @@ class RTTLinkConfig(BaseLinkConfig):
 # region CAN bus
 
 
-
-
 @dataclass(frozen=True)
 class CANLinkConfig(BaseLinkConfig):
     """(Immutable struct) The configuration structure for a device link of type :attr:`CAN<scrutiny.sdk.DeviceLinkType.CAN>`"""
 
     class CANInterface(enum.Enum):
         """Type of CAN interface instantiated with python-can."""
-        
+
         SocketCAN = 0
         """Connect to a SocketCAN network interface."""
         Vector = 1
         """Use Vector hardware through the Vector XL API. The XL Driver library must be installed on the server"""
 
-
     @dataclass(frozen=True)
     class SocketCANConfig:
-        channel:str
+        channel: str
 
         def __post_init__(self) -> None:
             validation.assert_type(self.channel, 'channel', str)
-        
+
         def _to_api_format(self) -> Dict[str, Any]:
             return {
-                'channel' : self.channel
+                'channel': self.channel
             }
 
     @dataclass(frozen=True)
     class VectorConfig:
-        channel:Union[str, int]
-        bitrate:int
-        data_bitrate:int
+        channel: Union[str, int]
+        bitrate: int
+        data_bitrate: int
 
         def __post_init__(self) -> None:
             validation.assert_type(self.channel, 'channel', (str, int))
@@ -569,33 +566,33 @@ class CANLinkConfig(BaseLinkConfig):
 
             validation.assert_int_range(self.bitrate, 'bitrate', minval=0)
             validation.assert_int_range(self.data_bitrate, 'data_bitrate', minval=0)
-        
+
         def _to_api_format(self) -> Dict[str, Any]:
             return {
-                'channel' : self.channel,
-                'bitrate' : self.bitrate,
-                'data_bitrate' : self.data_bitrate
+                'channel': self.channel,
+                'bitrate': self.bitrate,
+                'data_bitrate': self.data_bitrate
             }
 
     INTERFACE_CONFIG_MAP = {
-        CANInterface.SocketCAN : SocketCANConfig,
-        CANInterface.Vector : VectorConfig,
+        CANInterface.SocketCAN: SocketCANConfig,
+        CANInterface.Vector: VectorConfig,
     }
-    
+
     def __post_init__(self) -> None:
         if not isinstance(self.interface, CANLinkConfig.CANInterface):
             raise TypeError("Invalid CAN interface")
-        
+
         can_max = 0x1FFFFFFF if self.extended_id else 0x7FF
         validation.assert_int_range(self.txid, 'txid', minval=0, maxval=can_max)
         validation.assert_int_range(self.rxid, 'rxid', minval=0, maxval=can_max)
 
-        validation.assert_type(self.extended_id, 'extended_id', bool) 
-        validation.assert_type(self.fd, 'fd', bool) 
-        validation.assert_type(self.bitrate_switch, 'bitrate_switch', bool) 
+        validation.assert_type(self.extended_id, 'extended_id', bool)
+        validation.assert_type(self.fd, 'fd', bool)
+        validation.assert_type(self.bitrate_switch, 'bitrate_switch', bool)
 
         validation.assert_type(self.interface_config, 'interface_config', self.INTERFACE_CONFIG_MAP[self.interface])
-    
+
     def _to_api_format(self) -> Dict[str, Any]:
         inteface_str = ""
         if self.interface == CANLinkConfig.CANInterface.SocketCAN:
@@ -606,34 +603,33 @@ class CANLinkConfig(BaseLinkConfig):
             raise NotImplementedError(f"Unsupported interface type {self.interface}")
 
         return {
-            'interface' : inteface_str,
-            'txid' : self.txid,
-            'rxid' : self.rxid,
-            'extended_id' : self.extended_id,
-            'fd' : self.fd,
-            'bitrate_switch' : self.bitrate_switch,
-            'subconfig' : self.interface_config._to_api_format()
+            'interface': inteface_str,
+            'txid': self.txid,
+            'rxid': self.rxid,
+            'extended_id': self.extended_id,
+            'fd': self.fd,
+            'bitrate_switch': self.bitrate_switch,
+            'subconfig': self.interface_config._to_api_format()
 
         }
 
-
-
     interface: CANInterface
     """The type of CAN interface used to access the CAN bus"""
-    txid : int
+    txid: int
     """The CAN ID used to transmit data from the server to the device"""
     rxid: int
     """The CAN ID used to transmit data from the device to the server"""
-    extended_id:bool
+    extended_id: bool
     """A flag indicating if we use extended IDs (29 bits). Standard IDs (11 bits) are used when ``False``"""
-    fd:bool
+    fd: bool
     """A flag indicating if we use CAN FD. Use of CAN 2.0 when ``False``"""
-    bitrate_switch:bool
+    bitrate_switch: bool
     """A flag telling if the server should do bitrate switch when transmitting. Only possible with CAN FD"""
     interface_config: Union[SocketCANConfig, VectorConfig]
     """A configuration specific to the interface"""
 
-#endregion
+# endregion
+
 
 SupportedLinkConfig = Union[UDPLinkConfig, TCPLinkConfig, SerialLinkConfig, RTTLinkConfig, NoneLinkConfig, CANLinkConfig]
 

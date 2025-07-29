@@ -652,8 +652,8 @@ class TestApiParser(ScrutinyUnitTest):
                         "extended_id": False,
                         "fd": False,
                         "bitrate_switch": False,
-                        'subconfig' : {
-                            "channel" : "vcan0"
+                        'subconfig': {
+                            "channel": "vcan0"
                         }
                     }
                 }
@@ -661,7 +661,7 @@ class TestApiParser(ScrutinyUnitTest):
 
         msg = base()
         parsed = parser.parse_inform_server_status(msg)
-        
+
         self.assertEqual(parsed.device_link.type, sdk.DeviceLinkType.CAN)
         self.assertIsInstance(parsed.device_link.config, sdk.CANLinkConfig)
 
@@ -679,7 +679,8 @@ class TestApiParser(ScrutinyUnitTest):
 
         class Delete:
             pass
-        def test_val_for_field(field:str, vals:List[Any]):
+
+        def test_val_for_field(field: str, vals: List[Any]):
             for val in vals:
                 msg = base()
                 if val == Delete:
@@ -697,8 +698,7 @@ class TestApiParser(ScrutinyUnitTest):
         test_val_for_field('bitrate_switch', ["hello", None, 1, 2.5, [], {}, Delete])
         test_val_for_field('subconfig', ["hello", None, 1, 2.5, [], True, Delete])
 
-
-        def test_val_for_subconfig_field(field:str, vals:List[Any]):
+        def test_val_for_subconfig_field(field: str, vals: List[Any]):
             for val in vals:
                 msg = base()
                 if val == Delete:
@@ -709,7 +709,6 @@ class TestApiParser(ScrutinyUnitTest):
                     parser.parse_inform_server_status(msg)
 
         test_val_for_subconfig_field('channel', [1, None, True, 2.5, [], {}, Delete])
-
 
     def test_parse_inform_server_status_canbus_link_vector(self):
         def base() -> api_typing.S2C.InformServerStatus:
@@ -733,10 +732,10 @@ class TestApiParser(ScrutinyUnitTest):
                         "extended_id": False,
                         "fd": False,
                         "bitrate_switch": False,
-                        'subconfig' : {
-                            "channel" : 1,
-                            'bitrate':500000,
-                            'data_bitrate':1000000
+                        'subconfig': {
+                            "channel": 1,
+                            'bitrate': 500000,
+                            'data_bitrate': 1000000
                         }
                     }
                 }
@@ -744,7 +743,7 @@ class TestApiParser(ScrutinyUnitTest):
 
         msg = base()
         parsed = parser.parse_inform_server_status(msg)
-        
+
         self.assertEqual(parsed.device_link.type, sdk.DeviceLinkType.CAN)
         self.assertIsInstance(parsed.device_link.config, sdk.CANLinkConfig)
 
@@ -764,7 +763,8 @@ class TestApiParser(ScrutinyUnitTest):
 
         class Delete:
             pass
-        def test_val_for_field(field:str, vals:List[Any]):
+
+        def test_val_for_field(field: str, vals: List[Any]):
             for val in vals:
                 msg = base()
                 if val == Delete:
@@ -782,8 +782,7 @@ class TestApiParser(ScrutinyUnitTest):
         test_val_for_field('bitrate_switch', ["hello", None, 1, 2.5, [], {}, Delete])
         test_val_for_field('subconfig', ["hello", None, 1, 2.5, [], True, Delete])
 
-
-        def test_val_for_subconfig_field(field:str, vals:List[Any]):
+        def test_val_for_subconfig_field(field: str, vals: List[Any]):
             for val in vals:
                 msg = base()
                 if val == Delete:
@@ -796,8 +795,6 @@ class TestApiParser(ScrutinyUnitTest):
         test_val_for_subconfig_field('channel', [None, True, 2.5, [], {}, Delete])
         test_val_for_subconfig_field('bitrate', ["hello", None, True, 2.5, [], {}, Delete])
         test_val_for_subconfig_field('data_bitrate', ["hello", None, True, 2.5, [], {}, Delete])
-
-
 
     def test_parse_read_datalogging_acquisition_content(self):
         now = datetime.now()

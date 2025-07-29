@@ -18,9 +18,10 @@ from dataclasses import dataclass, asdict
 import abc
 
 from scrutiny.server.device.links.abstract_link import AbstractLink, LinkConfig
-from scrutiny.server.device.links.typing import * 
+from scrutiny.server.device.links.typing import *
 from scrutiny.tools.typing import *
 from scrutiny.tools import validation
+
 
 @dataclass
 class BaseSubconfig:
@@ -28,35 +29,37 @@ class BaseSubconfig:
     def get_type_name(cls) -> str:
         if not hasattr(cls, '_TYPENAME'):
             raise RuntimeError("Subconfig with no type name")
-        
+
         return str(getattr(cls, '_TYPENAME'))
-    
+
     def to_dict(self) -> CANBUS_ANY_SUBCONFIG_DICT:
         return cast(CANBUS_ANY_SUBCONFIG_DICT, asdict(self))
+
 
 @dataclass
 class SocketCanSubConfig(BaseSubconfig):
     _TYPENAME = 'socketcan'
 
-    channel:str
+    channel: str
 
     def __post_init__(self) -> None:
         validation.assert_type(self.channel, 'channel', str)
-    
+
     @classmethod
-    def from_dict(cls, d:SocketCanSubconfigDict) -> Self:
+    def from_dict(cls, d: SocketCanSubconfigDict) -> Self:
         validation.assert_dict_key(d, 'channel', str)
         return cls(
             channel=d['channel']
         )
-    
+
+
 @dataclass
 class VectorSubConfig(BaseSubconfig):
     _TYPENAME = 'vector'
 
-    channel:Union[str, int]
-    bitrate:int
-    data_bitrate:int
+    channel: Union[str, int]
+    bitrate: int
+    data_bitrate: int
 
     def __post_init__(self) -> None:
         validation.assert_type(self.channel, 'channel', (str, int))
@@ -64,36 +67,38 @@ class VectorSubConfig(BaseSubconfig):
         validation.assert_type(self.data_bitrate, 'data_bitrate', int)
 
     @classmethod
-    def from_dict(cls, d:VectorSubconfigDict) -> "VectorSubConfig":
+    def from_dict(cls, d: VectorSubconfigDict) -> "VectorSubConfig":
         validation.assert_dict_key(d, 'channel', (str, int))
         validation.assert_dict_key(d, 'bitrate', int)
         validation.assert_dict_key(d, 'data_bitrate', int)
-    
+
         return VectorSubConfig(
             channel=d['channel'],
             bitrate=d['bitrate'],
             data_bitrate=d['data_bitrate']
         )
-    
-#endregion
 
-ANY_SUBCONFIG:TypeAlias = Union[SocketCanSubConfig, VectorSubConfig]
+# endregion
+
+
+ANY_SUBCONFIG: TypeAlias = Union[SocketCanSubConfig, VectorSubConfig]
+
 
 @dataclass
 class CanBusConfig:
-    interface:str
-    txid:int
-    rxid:int
-    extended_id:bool
-    fd:bool
-    bitrate_switch:bool
-    
-    subconfig:ANY_SUBCONFIG
+    interface: str
+    txid: int
+    rxid: int
+    extended_id: bool
+    fd: bool
+    bitrate_switch: bool
+
+    subconfig: ANY_SUBCONFIG
 
     def __post_init__(self) -> None:
         if not self.fd and self.bitrate_switch:
             raise ValueError("Bitrate switch is not possible without CAN FD enabled")
-        
+
         if not self.extended_id:
             validation.assert_int_range(self.rxid, 'rxid', 0, 0x7FF)
             validation.assert_int_range(self.txid, 'txid', 0, 0x7FF)
@@ -104,35 +109,35 @@ class CanBusConfig:
     def to_dict(self) -> CanBusConfigDict:
         return {
             'interface': self.interface,
-            'extended_id' : self.extended_id, 
-            'rxid' : self.rxid,
-            'txid' : self.txid,
-            'fd' : self.fd,
+            'extended_id': self.extended_id,
+            'rxid': self.rxid,
+            'txid': self.txid,
+            'fd': self.fd,
             'bitrate_switch': self.bitrate_switch,
-            'subconfig' : self.subconfig.to_dict()
+            'subconfig': self.subconfig.to_dict()
         }
 
     @classmethod
-    def from_dict(cls, d:CanBusConfigDict) -> "CanBusConfig":
+    def from_dict(cls, d: CanBusConfigDict) -> "CanBusConfig":
 
-        expected_keys:Dict[str, Any] = {
-            'interface' : str,
-            'txid' : int,
-            'rxid' : int,
-            'extended_id' : bool,
-            'fd' : bool,
-            'bitrate_switch' : bool,
-            'subconfig' : dict
+        expected_keys: Dict[str, Any] = {
+            'interface': str,
+            'txid': int,
+            'rxid': int,
+            'extended_id': bool,
+            'fd': bool,
+            'bitrate_switch': bool,
+            'subconfig': dict
         }
-        validation.assert_type(d, 'config', dict)  
-        for k,t in expected_keys.items():
+        validation.assert_type(d, 'config', dict)
+        for k, t in expected_keys.items():
             validation.assert_dict_key(d, k, t)
-        
+
         for k in d.keys():
             if k not in expected_keys:
                 raise ValueError(f"Unsupported parameter {k}")
-    
-        subcfg_class:Optional[Type[Any]] = None
+
+        subcfg_class: Optional[Type[Any]] = None
         for class_candidate in BaseSubconfig.__subclasses__():
             if class_candidate.get_type_name() == d['interface']:
                 subcfg_class = class_candidate
@@ -143,7 +148,7 @@ class CanBusConfig:
         try:
             subconfig = cast(ANY_SUBCONFIG, subcfg_class.from_dict(d['subconfig']))   # Validation happens here
         except Exception as e:
-            raise ValueError(f"Invalid sub configuration for interface of type {d['interface']} : {e}") from e 
+            raise ValueError(f"Invalid sub configuration for interface of type {d['interface']} : {e}") from e
 
         return CanBusConfig(
             interface=d['interface'],
@@ -162,7 +167,7 @@ class CanBusLink(AbstractLink):
     _initialized: bool
     _init_timestamp: float
     _bus: Optional[can.BusABC]
-    _ll_maxlen:int
+    _ll_maxlen: int
 
     @classmethod
     def make(cls, config: LinkConfig) -> "CanBusLink":
@@ -189,15 +194,15 @@ class CanBusLink(AbstractLink):
         if size >= 20: return 20
         if size >= 16: return 16
         if size >= 12: return 12
-        raise ValueError(f"Impossible data size for CAN FD : {size} ")    
+        raise ValueError(f"Impossible data size for CAN FD : {size} ")
 
-    def _chunk_data(self, data:bytes) -> Generator[bytes, None, None]:
+    def _chunk_data(self, data: bytes) -> Generator[bytes, None, None]:
         while len(data) > 0:
             chunk_size = self._get_nearest_can_fd_size_smaller_or_equal_to(len(data))
             if not self.config.fd:
                 if chunk_size > 8:
                     chunk_size = 8
-            
+
             chunk_data = data[:chunk_size]
             data = data[chunk_size:]
             yield chunk_data
@@ -223,7 +228,7 @@ class CanBusLink(AbstractLink):
         """ Tells if this comm channel is in proper state to be functional"""
         if self._bus is None:
             return False
-        is_shutdown = getattr(self._bus, '_is_shutdown', False) # No api to know if it is shutdown
+        is_shutdown = getattr(self._bus, '_is_shutdown', False)  # No api to know if it is shutdown
         return self._bus.state != can.BusState.ERROR and not is_shutdown and self.initialized()
 
     def read(self, timeout: Optional[float] = None) -> Optional[bytes]:
@@ -238,7 +243,7 @@ class CanBusLink(AbstractLink):
         if msg.is_error_frame:
             return None
         return bytes(msg.data)
-    
+
     def write(self, data: bytes) -> None:
         """ Write data to the comm channel."""
         if self.operational():
@@ -266,18 +271,17 @@ class CanBusLink(AbstractLink):
         """Raises an exception if the configuration is not adequate"""
         if not isinstance(config, dict):
             raise ValueError('Configuration is not a valid dictionary')
-        
+
         CanBusConfig.from_dict(cast(CanBusConfigDict, config))
 
-
     @classmethod
-    def make_bus(cls, config:CanBusConfig) -> can.BusABC:
+    def make_bus(cls, config: CanBusConfig) -> can.BusABC:
 
-        filters:List[can.typechecking.CanFilterExtended] = [
+        filters: List[can.typechecking.CanFilterExtended] = [
             {
-                'can_id' : config.rxid, 
-                'can_mask' : 0x1FFFFFFF if config.extended_id else 0x7FF, 
-                'extended':config.extended_id
+                'can_id': config.rxid,
+                'can_mask': 0x1FFFFFFF if config.extended_id else 0x7FF,
+                'extended': config.extended_id
             }
         ]
 
@@ -291,7 +295,7 @@ class CanBusLink(AbstractLink):
                 can_filters=filters,
                 fd=config.fd
             )
-        
+
         elif config.interface == VectorSubConfig.get_type_name():
             from can.interfaces.vector import VectorBus
             assert isinstance(config.subconfig, VectorSubConfig)

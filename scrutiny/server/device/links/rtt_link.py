@@ -47,7 +47,6 @@ def _get_jlink_class():  # type:ignore
     return JLINK_CLASS.theclass
 
 
-
 class RttLink(AbstractLink):
     """
     Communication channel to talk with a device through a J-Link RTT
