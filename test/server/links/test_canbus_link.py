@@ -131,6 +131,7 @@ class TestCanbusLink(ScrutinyUnitTest):
                 raise TimeoutError(f"Did not received {nbytes} bytes after {timeout} sec")
             msg = self.bus.recv(timeout=new_timeout)
             if msg is not None:
+                t1 = time.monotonic()
                 data += msg.data
 
         return bytes(data)
