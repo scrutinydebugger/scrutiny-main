@@ -1,3 +1,10 @@
+#    test_canbus_link.py
+#        A test suite for testing the CAN bus communication
+#
+#   - License : MIT - See LICENSE file.
+#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#   Copyright (c) 2025 Scrutiny Debugger
 
 import unittest
 

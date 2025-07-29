@@ -617,7 +617,7 @@
             "docstring": "Logger that dumps the values of the watchables into either one or multiple CSV files"
         },
         "test/gui/test_graph_decimator.py": {
-            "docstring": "Test suite for the continuuos graph data decimator"
+            "docstring": "Test suite for the continuous graph data decimator"
         },
         "scrutiny/gui/app_settings.py": {
             "docstring": "Global settings for the GUI."
@@ -701,7 +701,7 @@
             "docstring": "A base class for a component that are embedded in the gUI, not the dashboard"
         },
         "scrutiny/gui/components/locals/base_local_component.py": {
-            "docstring": "A base class for a component that can be added to the dashboard multiple ltimes"
+            "docstring": "A base class for a component that can be added to the dashboard multiple times"
         },
         "scrutiny/gui/dashboard/dashboard.py": {
             "docstring": "The Scrutiny Dashboard. Main feature allowing to display Components.\n Uses Qt Advanced Docking System. Supports save/reload "
@@ -840,6 +840,15 @@
         },
         "stubs/sortedcontainers.pyi": {
             "docstring": "A stub file for 3rdparty sorted containers module"
+        },
+        "test/server/links/test_canbus_link.py": {
+            "docstring": "A test suite for testing the CAN bus communication"
+        },
+        "scrutiny/server/device/links/canbus_link.py": {
+            "docstring": "An abstraction layer that provides CAN Bus communication with a device"
+        },
+        "scrutiny/server/device/links/typing.py": {
+            "docstring": "Type hint definitions for link configurations that are passed across the application"
         }
     }
 }

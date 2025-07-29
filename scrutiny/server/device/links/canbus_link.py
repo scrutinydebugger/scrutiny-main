@@ -1,3 +1,11 @@
+#    canbus_link.py
+#        An abstraction layer that provides CAN Bus communication with a device
+#
+#   - License : MIT - See LICENSE file.
+#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#   Copyright (c) 2025 Scrutiny Debugger
+
 __all__ = [
     'CanBusConfig',
     'CanBusLink'

@@ -1,5 +1,5 @@
 #    base_local_component.py
-#        A base class for a component that can be added to the dashboard multiple ltimes
+#        A base class for a component that can be added to the dashboard multiple times
 #
 #   - License : MIT - See LICENSE file.
 #   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
