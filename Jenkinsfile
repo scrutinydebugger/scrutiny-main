@@ -23,6 +23,7 @@ pipeline {
                         ip link set up vcan2
                         ip link add dev vcan3 type vcan || true
                         ip link set up vcan3
+                        chown 1000:1000
                         '''
                     }
                 }

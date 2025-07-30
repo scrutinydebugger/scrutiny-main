@@ -26,7 +26,7 @@ def _check_vcan_possible():
         bus.shutdown()
         return (True, "")
     except OSError as e:
-        return (False, f"Cannot use interface {TEST_VCAN} for testing. {str(e)}")
+        return (False, f"Cannot use interface {TEST_VCAN} for testing. {e}")
 
 
 _vcan_possible, _vcan_impossible_reason = _check_vcan_possible()
