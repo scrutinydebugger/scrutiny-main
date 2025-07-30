@@ -13,6 +13,9 @@ from scrutiny.tools.typing import *
 class SocketCanSubconfigDict(TypedDict):
     channel: str
 
+class VirtualCanSubconfigDict(TypedDict):
+    channel: str
+
 
 class VectorSubconfigDict(TypedDict):
     channel: Union[str, int]
@@ -20,11 +23,11 @@ class VectorSubconfigDict(TypedDict):
     data_bitrate: int
 
 
-CANBUS_ANY_SUBCONFIG_DICT: TypeAlias = Union[SocketCanSubconfigDict, VectorSubconfigDict]
+CANBUS_ANY_SUBCONFIG_DICT: TypeAlias = Union[SocketCanSubconfigDict, VectorSubconfigDict, VirtualCanSubconfigDict]
 
 
 class CanBusConfigDict(TypedDict):
-    interface: str
+    interface: Literal['socketcan', 'vector', 'virtual']
     txid: int
     rxid: int
     extended_id: bool

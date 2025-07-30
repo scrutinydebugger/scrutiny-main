@@ -14,7 +14,6 @@ RUN apt-get update && apt-get install -y \
     gcc-avr \
     libglib2.0-dev  \
     gcc-arm-none-eabi   \
-    gcc-avr \
     iproute2 \
     && rm -rf /var/lib/apt/lists/*
 

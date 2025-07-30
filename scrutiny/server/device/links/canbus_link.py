@@ -37,7 +37,7 @@ class BaseSubconfig:
 
 
 @dataclass
-class SocketCanSubConfig(BaseSubconfig):
+class SocketCanSubconfig(BaseSubconfig):
     _TYPENAME = 'socketcan'
 
     channel: str
@@ -47,6 +47,22 @@ class SocketCanSubConfig(BaseSubconfig):
 
     @classmethod
     def from_dict(cls, d: SocketCanSubconfigDict) -> Self:
+        validation.assert_dict_key(d, 'channel', str)
+        return cls(
+            channel=d['channel']
+        )
+
+@dataclass
+class VirtualCanSubConfig(BaseSubconfig):
+    _TYPENAME = 'virtual'
+
+    channel: str
+
+    def __post_init__(self) -> None:
+        validation.assert_type(self.channel, 'channel', str)
+
+    @classmethod
+    def from_dict(cls, d: VirtualCanSubconfigDict) -> Self:
         validation.assert_dict_key(d, 'channel', str)
         return cls(
             channel=d['channel']
@@ -81,7 +97,7 @@ class VectorSubConfig(BaseSubconfig):
 # endregion
 
 
-ANY_SUBCONFIG: TypeAlias = Union[SocketCanSubConfig, VectorSubConfig]
+ANY_SUBCONFIG: TypeAlias = Union[SocketCanSubconfig, VectorSubConfig]
 
 
 @dataclass
@@ -285,9 +301,9 @@ class CanBusLink(AbstractLink):
             }
         ]
 
-        if config.interface == SocketCanSubConfig.get_type_name():
+        if config.interface == SocketCanSubconfig.get_type_name():
             from can.interfaces.socketcan import SocketcanBus
-            assert isinstance(config.subconfig, SocketCanSubConfig)
+            assert isinstance(config.subconfig, SocketCanSubconfig)
 
             return SocketcanBus(
                 channel=config.subconfig.channel,
@@ -307,5 +323,13 @@ class CanBusLink(AbstractLink):
                 can_filters=filters,
                 data_bitrate=config.subconfig.data_bitrate
             )
+        elif config.interface == VirtualCanSubConfig.get_type_name():
+            from can.interfaces.virtual import VirtualBus
+            assert isinstance(config.subconfig, VirtualCanSubConfig)
 
+            return VirtualBus(
+                channel=config.subconfig.channel,
+                protocol=can.CanProtocol.CAN_20 if not config.fd else can.CanProtocol.CAN_FD
+            )
+        
         raise NotImplementedError(f"Unsupported bus type: {config.interface}")

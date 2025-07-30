@@ -6,27 +6,12 @@ pipeline {
         stage ('Docker') {
             agent {
                 dockerfile {
-                    args '-e HOME=/tmp -e BUILD_CONTEXT=ci --cap-add=NET_ADMIN -u 0:0'
+                    args '-e HOME=/tmp -e BUILD_CONTEXT=ci'
                     additionalBuildArgs '--target build-tests'
                     reuseNode true
                 }
             }
             stages {
-                stage('Setup vcan'){
-                    steps {
-                        sh '''
-                        ip link add dev vcan0 type vcan || true
-                        ip link set up vcan0
-                        ip link add dev vcan1 type vcan || true
-                        ip link set up vcan1
-                        ip link add dev vcan2 type vcan || true
-                        ip link set up vcan2
-                        ip link add dev vcan3 type vcan || true
-                        ip link set up vcan3
-                        chown 1000:1000
-                        '''
-                    }
-                }
                 stage('Testing'){
                     parallel{
                         stage ('Python 3.13') {

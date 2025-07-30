@@ -11,26 +11,13 @@ import unittest
 from scrutiny.server.device.links import canbus_link
 import os
 import can
-from can.interfaces.socketcan import SocketcanBus
+from can.interfaces.virtual import VirtualBus
 from test import ScrutinyUnitTest
 from scrutiny.tools.typing import *
 import time
 import random
 
-TEST_VCAN = os.environ.get('UNITTEST_VCAN', 'vcan0')
-
-
-def _check_vcan_possible():
-    try:
-        bus = SocketcanBus(TEST_VCAN)
-        bus.shutdown()
-        return (True, "")
-    except OSError as e:
-        return (False, f"Cannot use interface {TEST_VCAN} for testing. {e}")
-
-
-_vcan_possible, _vcan_impossible_reason = _check_vcan_possible()
-
+VIRTUIAL_CHANNEL_NAME = 'unittest'
 
 def socketcan_config() -> canbus_link.CanBusConfigDict:
     return {
@@ -41,10 +28,22 @@ def socketcan_config() -> canbus_link.CanBusConfigDict:
         'fd': False,
         'bitrate_switch': False,
         'subconfig': {
-            'channel': TEST_VCAN,
+            'channel': 'can0',
         }
     }
 
+def virtual_config() -> canbus_link.CanBusConfigDict:
+    return {
+        'interface': 'virtual',
+        'rxid': 0x123,
+        'txid': 0x456,
+        'extended_id': False,
+        'fd': False,
+        'bitrate_switch': False,
+        'subconfig': {
+            'channel': VIRTUIAL_CHANNEL_NAME,
+        }
+    }
 
 class TestCanbusLink(ScrutinyUnitTest):
     bus: can.BusABC
@@ -54,7 +53,7 @@ class TestCanbusLink(ScrutinyUnitTest):
         self.bus = None
         self.link = None
         try:
-            self.bus = SocketcanBus(TEST_VCAN)
+            self.bus = VirtualBus(VIRTUIAL_CHANNEL_NAME)
         except Exception:
             pass
 
@@ -84,7 +83,7 @@ class TestCanbusLink(ScrutinyUnitTest):
         self.assertEqual(config.txid, 0x456)
         self.assertEqual(config.extended_id, False)
         self.assertEqual(config.fd, False)
-        self.assertIsInstance(config.subconfig, canbus_link.SocketCanSubConfig)
+        self.assertIsInstance(config.subconfig, canbus_link.SocketCanSubconfig)
         self.assertEqual(config.subconfig.channel, 'vcan0')
 
         self.assertEqual(base(), config.to_dict())
@@ -136,9 +135,8 @@ class TestCanbusLink(ScrutinyUnitTest):
 
         return bytes(data)
 
-    @unittest.skipUnless(_vcan_possible, _vcan_impossible_reason)
     def test_read_write(self):
-        self.link = canbus_link.CanBusLink(socketcan_config())
+        self.link = canbus_link.CanBusLink(virtual_config())
         self.assertFalse(self.link.operational())
         self.assertFalse(self.link.initialized())
         self.link.initialize()
@@ -152,29 +150,21 @@ class TestCanbusLink(ScrutinyUnitTest):
         self.assert_msg_received(b'12345678')
         self.assert_msg_received(b'9abcd')
 
-        config = socketcan_config()
+        config = virtual_config()
         self.bus.send(can.Message(arbitration_id=config['rxid'], data=b'ABCDEFGH', is_extended_id=False))
         data = self.link.read(1.0)
         self.assertEqual(data, b'ABCDEFGH')
 
-    @unittest.skipUnless(_vcan_possible, _vcan_impossible_reason)
     def test_detect_broken(self):
-        self.link = canbus_link.CanBusLink(socketcan_config())
+        self.link = canbus_link.CanBusLink(virtual_config())
         self.link.initialize()
         self.assertTrue(self.link.operational())
         assert self.link._bus is not None
         self.link._bus.shutdown()
         self.assertFalse(self.link.operational())
 
-    @unittest.skipUnless(_vcan_possible, _vcan_impossible_reason)
     def test_message_chunking_can_standard(self):
-
-        self.bus.shutdown()
-        self.bus = SocketcanBus(TEST_VCAN, fd=True)
-        self.bus.shutdown()
-        self.bus = SocketcanBus(TEST_VCAN)
-
-        self.link = canbus_link.CanBusLink(socketcan_config())
+        self.link = canbus_link.CanBusLink(virtual_config())
         self.link.initialize()
 
         for i in range(32):
@@ -184,16 +174,15 @@ class TestCanbusLink(ScrutinyUnitTest):
             self.assertIsNone(self.bus.recv(timeout=0), f"i={i}")   # No extra message pending
             self.assertEqual(payload, payload2, f"i={i}")
 
-    @unittest.skipUnless(_vcan_possible, _vcan_impossible_reason)
     def test_message_chunking_can_fd(self):
-        config = socketcan_config()
+        config = virtual_config()
         config['fd'] = True
 
         self.link = canbus_link.CanBusLink(config)
         self.link.initialize()
 
         self.bus.shutdown()
-        self.bus = SocketcanBus(TEST_VCAN, fd=True)
+        self.bus = VirtualBus(VIRTUIAL_CHANNEL_NAME, protocol=can.CanProtocol.CAN_FD)
 
         for i in range(1024):
             payload = random.randbytes(i)
