@@ -16,6 +16,7 @@ from test import ScrutinyUnitTest
 from scrutiny.tools.typing import *
 import time
 import random
+import scrutiny.server.device.links.typing as link_typing
 
 VIRTUIAL_CHANNEL_NAME = 'unittest'
 
@@ -52,6 +53,7 @@ class TestCanbusLink(ScrutinyUnitTest):
     def setUp(self):
         self.bus = None
         self.link = None
+        canbus_link.use_stubbed_canbus_class(False)
         try:
             self.bus = VirtualBus(VIRTUIAL_CHANNEL_NAME)
         except Exception:
@@ -62,6 +64,7 @@ class TestCanbusLink(ScrutinyUnitTest):
             self.bus.shutdown()
         if self.link is not None:
             self.link.destroy()
+        canbus_link.use_stubbed_canbus_class(False)
         return super().tearDown()
 
     def test_config(self):
@@ -193,6 +196,60 @@ class TestCanbusLink(ScrutinyUnitTest):
 
         self.assertIsNone(self.bus.recv(timeout=0.2))
 
+
+    def test_socket_can_bus(self):
+        canbus_link.use_stubbed_canbus_class(True)
+        config:link_typing.CanBusConfigDict = {
+            'interface' : 'socketcan',
+            'txid' : 0x100,
+            'rxid' : 0x200,
+            'fd' : False,
+            'extended_id' : False,
+            'bitrate_switch' : False,
+            'subconfig' : {
+                'channel' : 'can0'
+            }
+            
+        }
+        link = canbus_link.CanBusLink(config)
+        link.initialize()
+        bus = link.get_bus()
+        self.assertIsInstance(bus, canbus_link.StubbedCanBus)
+        assert isinstance(bus, canbus_link.StubbedCanBus)
+        kwargs = bus.get_init_kwargs()
+        self.assertIn('channel', kwargs)
+        self.assertIn(kwargs['channel'], 'can0')
+
+
+    def test_vector_bus(self):
+        canbus_link.use_stubbed_canbus_class(True)
+        config:link_typing.CanBusConfigDict = {
+            'interface' : 'vector',
+            'txid' : 0x100,
+            'rxid' : 0x200,
+            'fd' : False,
+            'extended_id' : False,
+            'bitrate_switch' : False,
+            'subconfig' : {
+                'channel' : 0,
+                'bitrate' : 500000,
+                'data_bitrate' : 1000000
+            }
+            
+        }
+        link = canbus_link.CanBusLink(config)
+        link.initialize()
+        bus = link.get_bus()
+        self.assertIsInstance(bus, canbus_link.StubbedCanBus)
+        assert isinstance(bus, canbus_link.StubbedCanBus)
+        self.assertEqual(len(bus.get_init_args()), 0)   # Just in case. 
+        kwargs = bus.get_init_kwargs()
+        self.assertIn('channel', kwargs)
+        self.assertIn('bitrate', kwargs)
+        self.assertIn('data_bitrate', kwargs)
+        self.assertEqual(kwargs['channel'], 0)
+        self.assertEqual(kwargs['bitrate'], 500000)
+        self.assertEqual(kwargs['data_bitrate'], 1000000)
 
 if __name__ == '__main__':
     unittest.main()
