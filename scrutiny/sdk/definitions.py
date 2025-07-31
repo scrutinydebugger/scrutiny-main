@@ -540,6 +540,8 @@ class CANLinkConfig(BaseLinkConfig):
         """Connect to a SocketCAN network interface."""
         Vector = 1
         """Use Vector hardware through the Vector XL API. The XL Driver library must be installed on the server"""
+        KVaser = 2
+        """Use KVaser hardware"""
 
     @dataclass(frozen=True)
     class SocketCANConfig:
@@ -573,11 +575,38 @@ class CANLinkConfig(BaseLinkConfig):
                 'bitrate': self.bitrate,
                 'data_bitrate': self.data_bitrate
             }
+        
+    
+    @dataclass(frozen=True)
+    class KVaserConfig:
+        channel: int
+        bitrate: int
+        data_bitrate: int
+        fd_non_iso: bool
+
+        def __post_init__(self) -> None:
+            validation.assert_type(self.channel, 'channel', int)
+            validation.assert_type(self.fd_non_iso, 'fd_non_iso', bool)
+            if isinstance(self.channel, int):
+                validation.assert_int_range(self.channel, 'channel', minval=0)
+
+            validation.assert_int_range(self.bitrate, 'bitrate', minval=0)
+            validation.assert_int_range(self.data_bitrate, 'data_bitrate', minval=0)
+
+        def _to_api_format(self) -> Dict[str, Any]:
+            return {
+                'channel': self.channel,
+                'bitrate': self.bitrate,
+                'data_bitrate': self.data_bitrate,
+                'fd_non_iso' : self.fd_non_iso
+            }
 
     INTERFACE_CONFIG_MAP = {
         CANInterface.SocketCAN: SocketCANConfig,
         CANInterface.Vector: VectorConfig,
+        CANInterface.KVaser: KVaserConfig,
     }
+
 
     def __post_init__(self) -> None:
         if not isinstance(self.interface, CANLinkConfig.CANInterface):
@@ -599,6 +628,8 @@ class CANLinkConfig(BaseLinkConfig):
             inteface_str = "socketcan"
         elif self.interface == CANLinkConfig.CANInterface.Vector:
             inteface_str = "vector"
+        elif self.interface == CANLinkConfig.CANInterface.KVaser:
+            inteface_str = "kvaser"
         else:
             raise NotImplementedError(f"Unsupported interface type {self.interface}")
 
@@ -625,7 +656,7 @@ class CANLinkConfig(BaseLinkConfig):
     """A flag indicating if we use CAN FD. Use of CAN 2.0 when ``False``"""
     bitrate_switch: bool
     """A flag telling if the server should do bitrate switch when transmitting. Only possible with CAN FD"""
-    interface_config: Union[SocketCANConfig, VectorConfig]
+    interface_config: Union[SocketCANConfig, VectorConfig, KVaserConfig]
     """A configuration specific to the interface"""
 
 # endregion

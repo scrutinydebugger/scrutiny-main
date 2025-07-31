@@ -9,7 +9,7 @@
 from scrutiny.tools.typing import *
 
 
-SUPPORTED_INTERFACES: TypeAlias = Literal['socketcan', 'vector', 'virtual']
+SUPPORTED_INTERFACES: TypeAlias = Literal['socketcan', 'vector', 'kvaser', 'virtual']
 # region CAN bus
 
 

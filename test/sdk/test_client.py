@@ -2049,6 +2049,59 @@ class TestClient(ScrutinyUnitTest):
         self.assertEqual(configout['subconfig']['bitrate'], 500000)
         self.assertEqual(configout['subconfig']['data_bitrate'], 1000000)
 
+
+    def test_configure_device_link_can_kvaser(self):
+        # SocketCAN
+        configin = sdk.CANLinkConfig(
+            interface=sdk.CANLinkConfig.CANInterface.KVaser,
+            txid=0x100,
+            rxid=0x101,
+            extended_id=False,
+            fd=True,
+            bitrate_switch=True,
+            interface_config=sdk.CANLinkConfig.KVaserConfig(
+                channel=1,
+                bitrate=500000,
+                data_bitrate=1000000,
+                fd_non_iso=False
+            )
+        )
+
+        self.client.configure_device_link(sdk.DeviceLinkType.CAN, configin)
+        self.assertFalse(self.device_handler.comm_configure_queue.empty())
+        link_type, configout = self.device_handler.comm_configure_queue.get(block=False)
+
+        expected_fields = [
+            'interface',
+            'txid',
+            'rxid',
+            'extended_id',
+            'fd',
+            'bitrate_switch',
+            'subconfig',
+        ]
+
+        for field in expected_fields:
+            self.assertIn(field, configout)
+
+        self.assertEqual(link_type, 'canbus')
+        self.assertEqual(configout['interface'], 'kvaser')
+        self.assertEqual(configout['txid'], 0x100)
+        self.assertEqual(configout['rxid'], 0x101)
+        self.assertEqual(configout['extended_id'], False)
+        self.assertEqual(configout['fd'], True)
+        self.assertEqual(configout['bitrate_switch'], True)
+
+        self.assertIn('channel', configout['subconfig'])
+        self.assertIn('bitrate', configout['subconfig'])
+        self.assertIn('data_bitrate', configout['subconfig'])
+        self.assertIn('fd_non_iso', configout['subconfig'])
+
+        self.assertEqual(configout['subconfig']['channel'], 1)
+        self.assertEqual(configout['subconfig']['bitrate'], 500000)
+        self.assertEqual(configout['subconfig']['data_bitrate'], 1000000)        
+        self.assertEqual(configout['subconfig']['fd_non_iso'], False)        
+
     def test_configure_device_link_can_errors(self):
         def base_socketcan(
             interface=sdk.CANLinkConfig.CANInterface.SocketCAN,

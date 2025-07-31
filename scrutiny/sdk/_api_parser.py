@@ -642,13 +642,15 @@ def parse_inform_server_status(response: api_typing.S2C.InformServerStatus) -> s
                 return sdk.CANLinkConfig.CANInterface.SocketCAN
             if api_val_lower == 'vector':
                 return sdk.CANLinkConfig.CANInterface.Vector
+            if api_val_lower == 'kvaser':
+                return sdk.CANLinkConfig.CANInterface.KVaser
 
             raise sdk.exceptions.BadResponseError(f'Unsupported CAN interface type "{api_val}"')
 
         interface = _can_interface_type(cast(api_typing.CANInterfaceType, canbus_config['interface']))
 
         subconfig: api_typing.CANBUS_ANY_SUBCONFIG_DICT
-        interface_config: Union[sdk.CANLinkConfig.SocketCANConfig, sdk.CANLinkConfig.VectorConfig]
+        interface_config: Union[sdk.CANLinkConfig.SocketCANConfig, sdk.CANLinkConfig.VectorConfig, sdk.CANLinkConfig.KVaserConfig]
         if interface == sdk.CANLinkConfig.CANInterface.SocketCAN:
             subconfig = cast(api_typing.CanBusSocketCanSubconfig, canbus_config['subconfig'])
             _check_response_dict(cmd, subconfig, 'channel', str)
@@ -664,6 +666,18 @@ def parse_inform_server_status(response: api_typing.S2C.InformServerStatus) -> s
                 channel=subconfig['channel'],
                 bitrate=subconfig['bitrate'],
                 data_bitrate=subconfig['data_bitrate']
+            )
+        elif interface == sdk.CANLinkConfig.CANInterface.KVaser:
+            subconfig = cast(api_typing.CanBusKVaserSubconfig, canbus_config['subconfig'])
+            _check_response_dict(cmd, subconfig, 'channel', int)
+            _check_response_dict(cmd, subconfig, 'bitrate', int)
+            _check_response_dict(cmd, subconfig, 'data_bitrate', int)
+            _check_response_dict(cmd, subconfig, 'fd_non_iso', bool)
+            interface_config = sdk.CANLinkConfig.KVaserConfig(
+                channel=subconfig['channel'],
+                bitrate=subconfig['bitrate'],
+                data_bitrate=subconfig['data_bitrate'],
+                fd_non_iso=subconfig['fd_non_iso']
             )
         else:
             raise NotImplementedError(f"Unsupported interface type: {interface}")  # should not happen. Validated above
