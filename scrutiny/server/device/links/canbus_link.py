@@ -93,6 +93,35 @@ class SocketCanSubconfig(BaseSubconfig):
             channel=d['channel']
         )
 
+@dataclass
+class KVaserCanSubconfig(BaseSubconfig):
+    _TYPENAME = 'kvaser'
+
+    channel:int
+    bitrate: int
+    data_bitrate: int
+    fd_non_iso:bool
+
+
+    def __post_init__(self) -> None:
+        validation.assert_type(self.channel, 'channel', int)
+        validation.assert_type(self.bitrate, 'bitrate', int)
+        validation.assert_type(self.data_bitrate, 'data_bitrate', int)
+        validation.assert_type(self.fd_non_iso, 'fd_non_iso', bool)
+
+    @classmethod
+    def from_dict(cls, d: KVaserCanSubconfigDict) -> "KVaserCanSubconfig":
+        validation.assert_dict_key(d, 'channel', int)
+        validation.assert_dict_key(d, 'bitrate', int)
+        validation.assert_dict_key(d, 'data_bitrate', int)
+        validation.assert_dict_key(d, 'fd_non_iso', bool)
+
+        return KVaserCanSubconfig(
+            channel=d['channel'],
+            bitrate=d['bitrate'],
+            data_bitrate=d['data_bitrate'],
+            fd_non_iso=d['fd_non_iso']
+        )
 
 @dataclass
 class VirtualCanSubConfig(BaseSubconfig):
@@ -139,7 +168,7 @@ class VectorSubConfig(BaseSubconfig):
 # endregion
 
 
-ANY_SUBCONFIG: TypeAlias = Union[SocketCanSubconfig, VectorSubConfig]
+ANY_SUBCONFIG: TypeAlias = Union[SocketCanSubconfig, VectorSubConfig, KVaserCanSubconfig]
 
 
 @dataclass
@@ -370,6 +399,21 @@ class CanBusLink(AbstractLink):
                 can_filters=filters,
                 data_bitrate=config.subconfig.data_bitrate
             )
+        
+        elif config.interface == KVaserCanSubconfig.get_type_name():
+            from can.interfaces.kvaser import KvaserBus
+            MyKvaserBus = KvaserBus if not _use_stubbed_canbus_class else StubbedCanBus
+            assert isinstance(config.subconfig, KVaserCanSubconfig)
+
+            return MyKvaserBus(
+                channel=config.subconfig.channel,
+                fd=config.fd,
+                fd_non_iso=config.subconfig.fd_non_iso,
+                bitrate=config.subconfig.bitrate,
+                can_filters=filters,
+                data_bitrate=config.subconfig.data_bitrate
+            )
+
         elif config.interface == VirtualCanSubConfig.get_type_name():
             from can.interfaces.virtual import VirtualBus
             assert isinstance(config.subconfig, VirtualCanSubConfig)

@@ -205,13 +205,12 @@ class TestCanbusLink(ScrutinyUnitTest):
             'interface': 'socketcan',
             'txid': 0x100,
             'rxid': 0x200,
-            'fd': False,
+            'fd': True,
             'extended_id': False,
             'bitrate_switch': False,
             'subconfig': {
                 'channel': 'can0'
             }
-
         }
         link = canbus_link.CanBusLink(config)
         link.initialize()
@@ -220,7 +219,22 @@ class TestCanbusLink(ScrutinyUnitTest):
         assert isinstance(bus, canbus_link.StubbedCanBus)
         kwargs = bus.get_init_kwargs()
         self.assertIn('channel', kwargs)
+        self.assertIn('ignore_rx_error_frames', kwargs)
+        self.assertIn('fd', kwargs)
         self.assertIn(kwargs['channel'], 'can0')
+        self.assertEqual(kwargs['ignore_rx_error_frames'], True)
+        self.assertEqual(kwargs['fd'], True)
+
+        self.assertIsInstance(kwargs['can_filters'], list)
+        self.assertEqual(len(kwargs['can_filters']), 1)
+        filter = kwargs['can_filters'][0]
+        self.assertIsInstance(filter, dict)
+        self.assertIn('can_id', filter)
+        self.assertIn('can_mask', filter)
+        self.assertIn('extended', filter)
+        self.assertEqual(filter['can_id'], 0x200)
+        self.assertEqual(filter['can_mask'], 0x7FF)
+        self.assertEqual(filter['extended'], False)
 
     def test_vector_bus(self):
         canbus_link.use_stubbed_canbus_class(True)
@@ -247,11 +261,71 @@ class TestCanbusLink(ScrutinyUnitTest):
         kwargs = bus.get_init_kwargs()
         self.assertIn('channel', kwargs)
         self.assertIn('bitrate', kwargs)
+        self.assertIn('fd', kwargs)
         self.assertIn('data_bitrate', kwargs)
+        self.assertIn('can_filters', kwargs)
         self.assertEqual(kwargs['channel'], 0)
+        self.assertEqual(kwargs['fd'], False)
         self.assertEqual(kwargs['bitrate'], 500000)
         self.assertEqual(kwargs['data_bitrate'], 1000000)
 
+        self.assertIsInstance(kwargs['can_filters'], list)
+        self.assertEqual(len(kwargs['can_filters']), 1)
+        filter = kwargs['can_filters'][0]
+        self.assertIsInstance(filter, dict)
+        self.assertIn('can_id', filter)
+        self.assertIn('can_mask', filter)
+        self.assertIn('extended', filter)
+        self.assertEqual(filter['can_id'], 0x200)
+        self.assertEqual(filter['can_mask'], 0x7FF)
+        self.assertEqual(filter['extended'], False)
+
+    def test_kvaser_bus(self):
+        canbus_link.use_stubbed_canbus_class(True)
+        config: link_typing.CanBusConfigDict = {
+            'interface': 'kvaser',
+            'txid': 0x12345,
+            'rxid': 0x23456,
+            'fd': False,
+            'extended_id': True,
+            'bitrate_switch': False,
+            'subconfig': {
+                'channel': 0,
+                'bitrate': 500000,
+                'data_bitrate': 1000000,
+                'fd_non_iso' : False
+            }
+
+        }
+        link = canbus_link.CanBusLink(config)
+        link.initialize()
+        bus = link.get_bus()
+        self.assertIsInstance(bus, canbus_link.StubbedCanBus)
+        assert isinstance(bus, canbus_link.StubbedCanBus)
+        self.assertEqual(len(bus.get_init_args()), 0)   # Just in case.
+        kwargs = bus.get_init_kwargs()
+        self.assertIn('channel', kwargs)
+        self.assertIn('bitrate', kwargs)
+        self.assertIn('fd', kwargs)
+        self.assertIn('data_bitrate', kwargs)
+        self.assertIn('fd_non_iso', kwargs)
+        self.assertIn('can_filters', kwargs)
+        self.assertEqual(kwargs['channel'], 0)
+        self.assertEqual(kwargs['fd'], False)
+        self.assertEqual(kwargs['bitrate'], 500000)
+        self.assertEqual(kwargs['data_bitrate'], 1000000)
+        self.assertEqual(kwargs['fd_non_iso'], False)
+
+        self.assertIsInstance(kwargs['can_filters'], list)
+        self.assertEqual(len(kwargs['can_filters']), 1)
+        filter = kwargs['can_filters'][0]
+        self.assertIsInstance(filter, dict)
+        self.assertIn('can_id', filter)
+        self.assertIn('can_mask', filter)
+        self.assertIn('extended', filter)
+        self.assertEqual(filter['can_id'], 0x23456)
+        self.assertEqual(filter['can_mask'], 0x1FFFFFFF)
+        self.assertEqual(filter['extended'], True)
 
 if __name__ == '__main__':
     unittest.main()

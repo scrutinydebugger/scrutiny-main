@@ -16,18 +16,21 @@ SUPPORTED_INTERFACES: TypeAlias = Literal['socketcan', 'vector', 'virtual']
 class SocketCanSubconfigDict(TypedDict):
     channel: str
 
-
-class VirtualCanSubconfigDict(TypedDict):
-    channel: str
-
-
 class VectorSubconfigDict(TypedDict):
     channel: Union[str, int]
     bitrate: int
     data_bitrate: int
 
+class KVaserCanSubconfigDict(TypedDict):
+    channel: int
+    bitrate: int
+    data_bitrate: int
+    fd_non_iso:bool
 
-CANBUS_ANY_SUBCONFIG_DICT: TypeAlias = Union[SocketCanSubconfigDict, VectorSubconfigDict, VirtualCanSubconfigDict]
+class VirtualCanSubconfigDict(TypedDict):
+    channel: str
+
+CANBUS_ANY_SUBCONFIG_DICT: TypeAlias = Union[SocketCanSubconfigDict, VectorSubconfigDict, KVaserCanSubconfigDict, VirtualCanSubconfigDict]
 
 
 class CanBusConfigDict(TypedDict):
