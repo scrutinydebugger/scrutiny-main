@@ -43,7 +43,7 @@ class StubbedCanBus(can.BusABC):
 
     def __init__(self, *args:Any, **kwargs:Any) -> None:
         self._init_args = cast(List[Any], args)
-        self._init_kwargs = cast(Dict[str, Any], kwargs)
+        self._init_kwargs =  kwargs
         self._write_callback = None
         self._read_callback = None
 
