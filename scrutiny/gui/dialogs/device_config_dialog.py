@@ -485,6 +485,7 @@ class CanBusConfigPane(BaseConfigPane):
         self._cmb_can_interface.setCurrentIndex(0)
         self._cmb_can_interface.addItem("SocketCAN", sdk.CANLinkConfig.CANInterface.SocketCAN)
         self._cmb_can_interface.addItem("Vector", sdk.CANLinkConfig.CANInterface.Vector)
+        self._cmb_can_interface.addItem("KVaser", sdk.CANLinkConfig.CANInterface.KVaser)
 
         self._spin_txid = QSpinBox(prefix="0x", minimum=0, displayIntegerBase=16, maximum=0x7FF)
         self._spin_rxid = QSpinBox(prefix="0x", minimum=0, displayIntegerBase=16, maximum=0x7FF)
@@ -663,6 +664,10 @@ class DeviceConfigDialog(QDialog):
         CAN_VECTOR_CHANNEL = 'can_vector_channel'
         CAN_VECTOR_BITRATE = 'can_vector_bitrate'
         CAN_VECTOR_DATA_BITRATE = 'can_vector_data_bitrate'
+        CAN_KVASER_CHANNEL = 'can_kvaser_channel'
+        CAN_KVASER_BITRATE = 'can_kvaser_bitrate'
+        CAN_KVASER_DATA_BITRATE = 'can_kvaser_data_bitrate'
+        CAN_KVASER_FD_NON_ISO = 'can_kvaser_fd_non_iso'
 
         @classmethod
         def get_all(cls) -> List[str]:
@@ -764,7 +769,7 @@ class DeviceConfigDialog(QDialog):
             )
         )
 
-        interface_config: Union[sdk.CANLinkConfig.SocketCANConfig, sdk.CANLinkConfig.VectorConfig]
+        interface_config: Union[sdk.CANLinkConfig.SocketCANConfig, sdk.CANLinkConfig.VectorConfig, sdk.CANLinkConfig.KVaserConfig]
         can_interface = sdk.CANLinkConfig.CANInterface(self._preferences.get_int(self.PersistentPreferences.CAN_INTERFACE, 0))
         if can_interface == sdk.CANLinkConfig.CANInterface.SocketCAN:
             interface_config = sdk.CANLinkConfig.SocketCANConfig(
@@ -775,6 +780,13 @@ class DeviceConfigDialog(QDialog):
                 channel=self._preferences.get_str(self.PersistentPreferences.CAN_VECTOR_CHANNEL, '0'),
                 bitrate=self._preferences.get_int(self.PersistentPreferences.CAN_VECTOR_BITRATE, 500000),
                 data_bitrate=self._preferences.get_int(self.PersistentPreferences.CAN_VECTOR_DATA_BITRATE, 500000)
+            )
+        elif can_interface == sdk.CANLinkConfig.CANInterface.KVaser:
+            interface_config = sdk.CANLinkConfig.KVaserConfig(
+                channel=self._preferences.get_int(self.PersistentPreferences.CAN_KVASER_CHANNEL, 0),
+                bitrate=self._preferences.get_int(self.PersistentPreferences.CAN_KVASER_BITRATE, 500000),
+                data_bitrate=self._preferences.get_int(self.PersistentPreferences.CAN_KVASER_DATA_BITRATE, 500000),
+                fd_non_iso=self._preferences.get_bool(self.PersistentPreferences.CAN_KVASER_FD_NON_ISO, False)
             )
         else:
             raise NotImplementedError(f"Unsupported CAN interface {can_interface}")
@@ -818,6 +830,27 @@ class DeviceConfigDialog(QDialog):
         rtt_config = cast(sdk.RTTLinkConfig, self._configs[sdk.DeviceLinkType.RTT])
         self._preferences.set_str(self.PersistentPreferences.RTT_TARGET_DEVICE, rtt_config.target_device)
         self._preferences.set_str(self.PersistentPreferences.RTT_JLINK_INTERFACE, rtt_config.jlink_interface.to_str())
+
+        can_config = cast(sdk.CANLinkConfig, self._configs[sdk.DeviceLinkType.CAN])
+        self._preferences.set_int(self.PersistentPreferences.CAN_INTERFACE, can_config.interface.value)
+        self._preferences.set_int(self.PersistentPreferences.CAN_TXID, can_config.txid)
+        self._preferences.set_int(self.PersistentPreferences.CAN_RXID, can_config.rxid)
+        self._preferences.set_bool(self.PersistentPreferences.CAN_BITRATE_SWITCH, can_config.bitrate_switch)
+        self._preferences.set_bool(self.PersistentPreferences.CAN_EXTENDED_ID, can_config.extended_id)
+        self._preferences.set_bool(self.PersistentPreferences.CAN_FD, can_config.fd)
+
+        if isinstance(can_config.interface_config, sdk.CANLinkConfig.SocketCANConfig):
+             self._preferences.set_str(self.PersistentPreferences.CAN_SOCKETCAN_CHANNEL, can_config.interface_config.channel)
+        elif isinstance(can_config.interface_config, sdk.CANLinkConfig.VectorConfig):
+             self._preferences.set_str(self.PersistentPreferences.CAN_VECTOR_CHANNEL, str(can_config.interface_config.channel))
+             self._preferences.set_int(self.PersistentPreferences.CAN_VECTOR_BITRATE, can_config.interface_config.bitrate)
+             self._preferences.set_int(self.PersistentPreferences.CAN_VECTOR_DATA_BITRATE, can_config.interface_config.data_bitrate)
+        elif isinstance(can_config.interface_config, sdk.CANLinkConfig.KVaserConfig):
+             self._preferences.set_str(self.PersistentPreferences.CAN_KVASER_CHANNEL, str(can_config.interface_config.channel))
+             self._preferences.set_int(self.PersistentPreferences.CAN_KVASER_BITRATE, can_config.interface_config.bitrate)
+             self._preferences.set_int(self.PersistentPreferences.CAN_KVASER_DATA_BITRATE, can_config.interface_config.data_bitrate)
+             self._preferences.set_bool(self.PersistentPreferences.CAN_KVASER_FD_NON_ISO, can_config.interface_config.fd_non_iso)
+
 
     def _get_selected_link_type(self) -> sdk.DeviceLinkType:
         return cast(sdk.DeviceLinkType, self._link_type_combo_box.currentData())
