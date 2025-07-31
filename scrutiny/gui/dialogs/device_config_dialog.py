@@ -410,6 +410,59 @@ class CanBusConfigPane(BaseConfigPane):
                 data_bitrate=max(int(subconfig.data_bitrate), 0),
             )
             return outconfig
+        
+
+    class KVaserSubconfigPane(QWidget):
+        _txt_channel: ValidableLineEdit
+        _txt_bitrate: ValidableLineEdit
+        _txt_data_bitrate: ValidableLineEdit
+        _chk_fd_non_iso: QCheckBox
+
+        @tools.copy_type(QWidget.__init__)
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            super().__init__(*args, **kwargs)
+            layout = QFormLayout(self)
+
+            self._txt_channel = ValidableLineEdit(soft_validator=NotEmptyValidator(), hard_validator=QIntValidator(bottom=0))
+            self._txt_bitrate = ValidableLineEdit(soft_validator=NotEmptyValidator(), hard_validator=QIntValidator(bottom=10000))
+            self._txt_data_bitrate = ValidableLineEdit(soft_validator=NotEmptyValidator(), hard_validator=QIntValidator(bottom=10000))
+            self._chk_fd_non_iso = QCheckBox()
+            self._txt_channel.setText('0')
+            self._txt_bitrate.setText('500000')
+            self._txt_data_bitrate.setText('500000')
+
+            layout.addRow("Channel", self._txt_channel)
+            layout.addRow("Bitrate (bps)", self._txt_bitrate)
+            layout.addRow("Data Bitrate (bps)", self._txt_data_bitrate)
+            layout.addRow("Non ISO FD (Bosch)", self._chk_fd_non_iso)
+
+        def load_config(self, config: sdk.CANLinkConfig) -> None:
+            assert isinstance(config, sdk.CANLinkConfig)
+            assert config.interface == sdk.CANLinkConfig.CANInterface.KVaser
+            assert isinstance(config.interface_config, sdk.CANLinkConfig.KVaserConfig)
+
+            self._txt_channel.setText(str(config.interface_config.channel))
+            self._txt_bitrate.setText(str(config.interface_config.bitrate))
+            self._txt_data_bitrate.setText(str(config.interface_config.data_bitrate))
+            self._chk_fd_non_iso.setChecked(config.interface_config.fd_non_iso and config.fd)
+
+        def get_subconfig(self) -> sdk.CANLinkConfig.KVaserConfig:
+            return sdk.CANLinkConfig.KVaserConfig(
+                channel=int(self._txt_channel.text()),
+                bitrate=int(self._txt_bitrate.text()),
+                data_bitrate=int(self._txt_data_bitrate.text()),
+                fd_non_iso=self._chk_fd_non_iso.isChecked()
+            )
+
+        @classmethod
+        def make_subconfig_valid(cls, subconfig: sdk.CANLinkConfig.KVaserConfig) -> sdk.CANLinkConfig.KVaserConfig:
+            outconfig = sdk.CANLinkConfig.KVaserConfig(
+                channel=subconfig.channel,
+                bitrate=max(int(subconfig.bitrate), 0),
+                data_bitrate=max(int(subconfig.data_bitrate), 0),
+                fd_non_iso=subconfig.fd_non_iso
+            )
+            return outconfig        
 
     _cmb_can_interface: QComboBox
     _spin_txid: QSpinBox
@@ -420,6 +473,7 @@ class CanBusConfigPane(BaseConfigPane):
     _subconfig_layout: QStackedLayout
     _subconfig_socketcan_pane: SocketCanSubconfigPane
     _subconfig_vector_pane: VectorSubconfigPane
+    _subconfig_kvaser_pane: KVaserSubconfigPane
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
@@ -443,9 +497,11 @@ class CanBusConfigPane(BaseConfigPane):
         self._subconfig_layout = QStackedLayout(subconfig_container)
         self._subconfig_socketcan_pane = self.SocketCanSubconfigPane()
         self._subconfig_vector_pane = self.VectorSubconfigPane()
+        self._subconfig_kvaser_pane = self.KVaserSubconfigPane()
 
         self._subconfig_layout.addWidget(self._subconfig_socketcan_pane)
         self._subconfig_layout.addWidget(self._subconfig_vector_pane)
+        self._subconfig_layout.addWidget(self._subconfig_kvaser_pane)
 
         layout.addRow(QLabel("Interface: "), self._cmb_can_interface)
         layout.addRow(QLabel("Tx ID: "), self._spin_txid)
@@ -462,12 +518,14 @@ class CanBusConfigPane(BaseConfigPane):
 
         self._update_ui()
 
-    def _get_active_subconfig_pane(self) -> Union[SocketCanSubconfigPane, VectorSubconfigPane]:
+    def _get_active_subconfig_pane(self) -> Union[SocketCanSubconfigPane, VectorSubconfigPane, KVaserSubconfigPane]:
         interface = cast(sdk.CANLinkConfig.CANInterface, self._cmb_can_interface.currentData())
         if interface == sdk.CANLinkConfig.CANInterface.SocketCAN:
             return self._subconfig_socketcan_pane
         elif interface == sdk.CANLinkConfig.CANInterface.Vector:
             return self._subconfig_vector_pane
+        elif interface == sdk.CANLinkConfig.CANInterface.KVaser:
+            return self._subconfig_kvaser_pane
         raise NotImplementedError(f"Unsupported subconfig pane for interface {interface}")
 
     def _update_ui(self) -> None:
@@ -536,11 +594,13 @@ class CanBusConfigPane(BaseConfigPane):
         if not can_fd:
             bitrate_switch = False
 
-        interface_config: Union[sdk.CANLinkConfig.SocketCANConfig, sdk.CANLinkConfig.VectorConfig]
+        interface_config: Union[sdk.CANLinkConfig.SocketCANConfig, sdk.CANLinkConfig.VectorConfig, sdk.CANLinkConfig.KVaserConfig]
         if isinstance(config.interface_config, sdk.CANLinkConfig.SocketCANConfig):
             interface_config = cls.SocketCanSubconfigPane.make_subconfig_valid(config.interface_config)
         elif isinstance(config.interface_config, sdk.CANLinkConfig.VectorConfig):
             interface_config = cls.VectorSubconfigPane.make_subconfig_valid(config.interface_config)
+        elif isinstance(config.interface_config, sdk.CANLinkConfig.KVaserConfig):
+            interface_config = cls.KVaserSubconfigPane.make_subconfig_valid(config.interface_config)
         else:
             raise NotImplementedError("Unsupported subconfig")
 
