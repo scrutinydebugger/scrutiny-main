@@ -24,40 +24,41 @@ from scrutiny import tools
 
 _use_stubbed_canbus_class = tools.MutableBool(False)
 
-def use_stubbed_canbus_class(val:bool) -> None:
+
+def use_stubbed_canbus_class(val: bool) -> None:
     _use_stubbed_canbus_class.val = val
 
 
 class StubbedCanBus(can.BusABC):
-    _write_callback : Optional[Callable[[can.Message, Optional[float]], None]]
-    _read_callback : Optional[Callable[[Optional[float]], Optional[can.Message]]]
+    _write_callback: Optional[Callable[[can.Message, Optional[float]], None]]
+    _read_callback: Optional[Callable[[Optional[float]], Optional[can.Message]]]
 
-    _init_args:List[Any]
-    _init_kwargs:Dict[str, Any]
+    _init_args: List[Any]
+    _init_kwargs: Dict[str, Any]
 
-    def get_init_args(self) ->List[Any]:
+    def get_init_args(self) -> List[Any]:
         return self._init_args
 
-    def get_init_kwargs(self) ->Dict[str, Any]:
+    def get_init_kwargs(self) -> Dict[str, Any]:
         return self._init_kwargs
 
-    def __init__(self, *args:Any, **kwargs:Any) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         self._init_args = cast(List[Any], args)
-        self._init_kwargs =  kwargs
+        self._init_kwargs = kwargs
         self._write_callback = None
         self._read_callback = None
 
-    def set_write_callback(self, callback:Callable[[can.Message, Optional[float]], None]) -> None:
+    def set_write_callback(self, callback: Callable[[can.Message, Optional[float]], None]) -> None:
         self._write_callback = callback
-        
-    def set_read_callback(self, callback:Callable[[Optional[float]], Optional[can.Message]]) -> None:
+
+    def set_read_callback(self, callback: Callable[[Optional[float]], Optional[can.Message]]) -> None:
         self._read_callback = callback
 
-    def send(self, msg:can.Message, timeout:Optional[float]=None) -> None:
+    def send(self, msg: can.Message, timeout: Optional[float] = None) -> None:
         if self._write_callback is not None:
             self._write_callback(msg, timeout)
-    
-    def _recv_internal(self, timeout:Optional[float]) -> Tuple[Optional[can.Message], bool]:
+
+    def _recv_internal(self, timeout: Optional[float]) -> Tuple[Optional[can.Message], bool]:
         if self._read_callback is None:
             return (None, False)
         return (self._read_callback(timeout), False)
@@ -91,6 +92,7 @@ class SocketCanSubconfig(BaseSubconfig):
         return cls(
             channel=d['channel']
         )
+
 
 @dataclass
 class VirtualCanSubConfig(BaseSubconfig):
@@ -265,7 +267,7 @@ class CanBusLink(AbstractLink):
 
     def get_config(self) -> LinkConfig:
         return cast(LinkConfig, self.config.to_dict())
-    
+
     def get_bus(self) -> Optional[can.BusABC]:
         return self._bus
 
@@ -376,5 +378,5 @@ class CanBusLink(AbstractLink):
                 channel=config.subconfig.channel,
                 protocol=can.CanProtocol.CAN_20 if not config.fd else can.CanProtocol.CAN_FD
             )
-        
+
         raise NotImplementedError(f"Unsupported bus type: {config.interface}")

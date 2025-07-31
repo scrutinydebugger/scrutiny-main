@@ -9,10 +9,13 @@
 from scrutiny.tools.typing import *
 
 
-SUPPORTED_INTERFACES:TypeAlias = Literal['socketcan', 'vector', 'virtual']
+SUPPORTED_INTERFACES: TypeAlias = Literal['socketcan', 'vector', 'virtual']
 # region CAN bus
+
+
 class SocketCanSubconfigDict(TypedDict):
     channel: str
+
 
 class VirtualCanSubconfigDict(TypedDict):
     channel: str
