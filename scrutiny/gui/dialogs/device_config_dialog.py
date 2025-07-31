@@ -572,6 +572,20 @@ class CanBusConfigPane(BaseConfigPane):
         config = self.make_config_valid(config)
         assert isinstance(config, sdk.CANLinkConfig)
 
+        interface_index = self._cmb_can_interface.findData(config.interface)
+        if interface_index != -1:
+            self._cmb_can_interface.setCurrentIndex(interface_index)
+        self._spin_txid.setValue(config.txid)
+        self._spin_rxid.setValue(config.rxid)
+        self._chk_bitrate_switch.setChecked(config.bitrate_switch)
+        self._chk_extended_id.setChecked(config.extended_id)
+        self._chk_fd.setChecked(config.fd)
+
+        subconfig_pane = self._get_active_subconfig_pane()
+        subconfig_pane.load_config(config)
+
+        self._update_ui()
+
     @classmethod
     def make_config_valid(cls, config: Optional[sdk.BaseLinkConfig]) -> sdk.BaseLinkConfig:
         assert isinstance(config, sdk.CANLinkConfig)
