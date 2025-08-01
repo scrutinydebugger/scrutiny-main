@@ -9,7 +9,7 @@
 from scrutiny.tools.typing import *
 
 
-SUPPORTED_INTERFACES: TypeAlias = Literal['socketcan', 'vector', 'kvaser', 'virtual']
+SUPPORTED_INTERFACES: TypeAlias = Literal['socketcan', 'vector', 'kvaser', 'pcan', 'virtual']
 # region CAN bus
 
 
@@ -27,10 +27,20 @@ class KVaserCanSubconfigDict(TypedDict):
     data_bitrate: int
     fd_non_iso:bool
 
+class PCANCanSubconfigDict(TypedDict):
+    channel: str
+    bitrate: int
+
 class VirtualCanSubconfigDict(TypedDict):
     channel: str
 
-CANBUS_ANY_SUBCONFIG_DICT: TypeAlias = Union[SocketCanSubconfigDict, VectorSubconfigDict, KVaserCanSubconfigDict, VirtualCanSubconfigDict]
+CANBUS_ANY_SUBCONFIG_DICT: TypeAlias = Union[
+    SocketCanSubconfigDict, 
+    VectorSubconfigDict, 
+    KVaserCanSubconfigDict,
+    PCANCanSubconfigDict, 
+    VirtualCanSubconfigDict
+    ]
 
 
 class CanBusConfigDict(TypedDict):

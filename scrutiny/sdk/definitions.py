@@ -542,6 +542,8 @@ class CANLinkConfig(BaseLinkConfig):
         """Use Vector hardware through the Vector XL API. The XL Driver library must be installed on the server"""
         KVaser = 2
         """Use KVaser hardware"""
+        PCAN = 3
+        """Use PCAN through the PCAN API"""
 
     @dataclass(frozen=True)
     class SocketCANConfig:
@@ -598,11 +600,8 @@ class CANLinkConfig(BaseLinkConfig):
         """Enable non-ISO CAN FD mode (Bosch). ISO CAN FD if ``False``"""
 
         def __post_init__(self) -> None:
-            validation.assert_type(self.channel, 'channel', int)
+            validation.assert_int_range(self.channel, 'channel', minval=0)
             validation.assert_type(self.fd_non_iso, 'fd_non_iso', bool)
-            if isinstance(self.channel, int):
-                validation.assert_int_range(self.channel, 'channel', minval=0)
-
             validation.assert_int_range(self.bitrate, 'bitrate', minval=0)
             validation.assert_int_range(self.data_bitrate, 'data_bitrate', minval=0)
 
@@ -614,10 +613,30 @@ class CANLinkConfig(BaseLinkConfig):
                 'fd_non_iso' : self.fd_non_iso
             }
 
+    @dataclass(frozen=True)
+    class PCANConfig:
+        """(Immutable struct) A PCAN specific configuration. Refer to ``python-can`` documentation for more details."""
+
+        channel: str
+        """The channel number"""
+        bitrate: int
+        """The bitrate in bit/sec"""
+
+        def __post_init__(self) -> None:
+            validation.assert_type(self.channel, 'channel', str)
+            validation.assert_int_range(self.bitrate, 'bitrate', minval=0)
+
+        def _to_api_format(self) -> Dict[str, Any]:
+            return {
+                'channel': self.channel,
+                'bitrate': self.bitrate
+            }
+
     INTERFACE_CONFIG_MAP = {
         CANInterface.SocketCAN: SocketCANConfig,
         CANInterface.Vector: VectorConfig,
         CANInterface.KVaser: KVaserConfig,
+        CANInterface.PCAN: PCANConfig,
     }
 
 
@@ -643,6 +662,8 @@ class CANLinkConfig(BaseLinkConfig):
             inteface_str = "vector"
         elif self.interface == CANLinkConfig.CANInterface.KVaser:
             inteface_str = "kvaser"
+        elif self.interface == CANLinkConfig.CANInterface.PCAN:
+            inteface_str = "pcan"
         else:
             raise NotImplementedError(f"Unsupported interface type {self.interface}")
 
@@ -669,7 +690,7 @@ class CANLinkConfig(BaseLinkConfig):
     """A flag indicating if we use CAN FD. Use of CAN 2.0 when ``False``"""
     bitrate_switch: bool
     """A flag telling if the server should do bitrate switch when transmitting. Only possible with CAN FD"""
-    interface_config: Union[SocketCANConfig, VectorConfig, KVaserConfig]
+    interface_config: Union[SocketCANConfig, VectorConfig, KVaserConfig, PCANConfig]
     """A configuration specific to the interface"""
 
 # endregion

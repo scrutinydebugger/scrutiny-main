@@ -124,6 +124,28 @@ class KVaserCanSubconfig(BaseSubconfig):
         )
 
 @dataclass
+class PCANCanSubconfig(BaseSubconfig):
+    _TYPENAME = 'pcan'
+
+    channel:str
+    bitrate: int
+
+    def __post_init__(self) -> None:
+        validation.assert_type(self.channel, 'channel', str)
+        validation.assert_type(self.bitrate, 'bitrate', int)
+
+    @classmethod
+    def from_dict(cls, d: PCANCanSubconfigDict) -> "PCANCanSubconfig":
+        validation.assert_dict_key(d, 'channel', str)
+        validation.assert_dict_key(d, 'bitrate', int)
+
+        return PCANCanSubconfig(
+            channel=d['channel'],
+            bitrate=d['bitrate']
+        )
+
+
+@dataclass
 class VirtualCanSubConfig(BaseSubconfig):
     _TYPENAME = 'virtual'
 
@@ -412,6 +434,18 @@ class CanBusLink(AbstractLink):
                 bitrate=config.subconfig.bitrate,
                 can_filters=filters,
                 data_bitrate=config.subconfig.data_bitrate
+            )
+       
+        elif config.interface == PCANCanSubconfig.get_type_name():
+            from can.interfaces.pcan import PcanBus
+            MyPcanBus = PcanBus if not _use_stubbed_canbus_class else StubbedCanBus
+            assert isinstance(config.subconfig, PCANCanSubconfig)
+
+            return MyPcanBus(
+                channel=config.subconfig.channel,
+                fd=config.fd,
+                bitrate=config.subconfig.bitrate,
+                can_filters=filters,
             )
 
         elif config.interface == VirtualCanSubConfig.get_type_name():

@@ -1962,7 +1962,6 @@ class TestClient(ScrutinyUnitTest):
             )
 
     def test_configure_device_link_can_socketcan(self):
-        # SocketCAN
         configin = sdk.CANLinkConfig(
             interface=sdk.CANLinkConfig.CANInterface.SocketCAN,
             txid=0x100,
@@ -2001,7 +2000,6 @@ class TestClient(ScrutinyUnitTest):
         self.assertEqual(configout['subconfig']['channel'], 'can0')
 
     def test_configure_device_link_can_vector(self):
-        # SocketCAN
         configin = sdk.CANLinkConfig(
             interface=sdk.CANLinkConfig.CANInterface.Vector,
             txid=0x100,
@@ -2051,7 +2049,6 @@ class TestClient(ScrutinyUnitTest):
 
 
     def test_configure_device_link_can_kvaser(self):
-        # SocketCAN
         configin = sdk.CANLinkConfig(
             interface=sdk.CANLinkConfig.CANInterface.KVaser,
             txid=0x100,
@@ -2101,6 +2098,51 @@ class TestClient(ScrutinyUnitTest):
         self.assertEqual(configout['subconfig']['bitrate'], 500000)
         self.assertEqual(configout['subconfig']['data_bitrate'], 1000000)        
         self.assertEqual(configout['subconfig']['fd_non_iso'], False)        
+
+    def test_configure_device_link_can_pcan(self):
+        configin = sdk.CANLinkConfig(
+            interface=sdk.CANLinkConfig.CANInterface.PCAN,
+            txid=0x100,
+            rxid=0x101,
+            extended_id=False,
+            fd=True,
+            bitrate_switch=True,
+            interface_config=sdk.CANLinkConfig.PCANConfig(
+                channel='PCAN_USBBUS1',
+                bitrate=500000
+            )
+        )
+
+        self.client.configure_device_link(sdk.DeviceLinkType.CAN, configin)
+        self.assertFalse(self.device_handler.comm_configure_queue.empty())
+        link_type, configout = self.device_handler.comm_configure_queue.get(block=False)
+
+        expected_fields = [
+            'interface',
+            'txid',
+            'rxid',
+            'extended_id',
+            'fd',
+            'bitrate_switch',
+            'subconfig',
+        ]
+
+        for field in expected_fields:
+            self.assertIn(field, configout)
+
+        self.assertEqual(link_type, 'canbus')
+        self.assertEqual(configout['interface'], 'pcan')
+        self.assertEqual(configout['txid'], 0x100)
+        self.assertEqual(configout['rxid'], 0x101)
+        self.assertEqual(configout['extended_id'], False)
+        self.assertEqual(configout['fd'], True)
+        self.assertEqual(configout['bitrate_switch'], True)
+
+        self.assertIn('channel', configout['subconfig'])
+        self.assertIn('bitrate', configout['subconfig'])
+
+        self.assertEqual(configout['subconfig']['channel'], 'PCAN_USBBUS1')
+        self.assertEqual(configout['subconfig']['bitrate'], 500000)      
 
     def test_configure_device_link_can_errors(self):
         def base_socketcan(

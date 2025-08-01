@@ -644,13 +644,20 @@ def parse_inform_server_status(response: api_typing.S2C.InformServerStatus) -> s
                 return sdk.CANLinkConfig.CANInterface.Vector
             if api_val_lower == 'kvaser':
                 return sdk.CANLinkConfig.CANInterface.KVaser
+            if api_val_lower == 'pcan':
+                return sdk.CANLinkConfig.CANInterface.PCAN
 
             raise sdk.exceptions.BadResponseError(f'Unsupported CAN interface type "{api_val}"')
 
         interface = _can_interface_type(cast(api_typing.CANInterfaceType, canbus_config['interface']))
 
         subconfig: api_typing.CANBUS_ANY_SUBCONFIG_DICT
-        interface_config: Union[sdk.CANLinkConfig.SocketCANConfig, sdk.CANLinkConfig.VectorConfig, sdk.CANLinkConfig.KVaserConfig]
+        interface_config: Union[
+            sdk.CANLinkConfig.SocketCANConfig, 
+            sdk.CANLinkConfig.VectorConfig, 
+            sdk.CANLinkConfig.KVaserConfig,
+            sdk.CANLinkConfig.PCANConfig
+            ]
         if interface == sdk.CANLinkConfig.CANInterface.SocketCAN:
             subconfig = cast(api_typing.CanBusSocketCanSubconfig, canbus_config['subconfig'])
             _check_response_dict(cmd, subconfig, 'channel', str)
@@ -678,6 +685,14 @@ def parse_inform_server_status(response: api_typing.S2C.InformServerStatus) -> s
                 bitrate=subconfig['bitrate'],
                 data_bitrate=subconfig['data_bitrate'],
                 fd_non_iso=subconfig['fd_non_iso']
+            )
+        elif interface == sdk.CANLinkConfig.CANInterface.PCAN:
+            subconfig = cast(api_typing.CanBusPCANSubconfig, canbus_config['subconfig'])
+            _check_response_dict(cmd, subconfig, 'channel', str)
+            _check_response_dict(cmd, subconfig, 'bitrate', int)
+            interface_config = sdk.CANLinkConfig.PCANConfig(
+                channel=subconfig['channel'],
+                bitrate=subconfig['bitrate']
             )
         else:
             raise NotImplementedError(f"Unsupported interface type: {interface}")  # should not happen. Validated above
