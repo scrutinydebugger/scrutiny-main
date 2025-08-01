@@ -534,7 +534,7 @@ class CANLinkConfig(BaseLinkConfig):
     """(Immutable struct) The configuration structure for a device link of type :attr:`CAN<scrutiny.sdk.DeviceLinkType.CAN>`"""
 
     class CANInterface(enum.Enum):
-        """Type of CAN interface instantiated with python-can."""
+        """Type of CAN interface instantiated with ``python-can``."""
 
         SocketCAN = 0
         """Connect to a SocketCAN network interface."""
@@ -545,7 +545,9 @@ class CANLinkConfig(BaseLinkConfig):
 
     @dataclass(frozen=True)
     class SocketCANConfig:
+        """(Immutable struct) A SocketCAN specific configuration. Refer to ``python-can`` documentation for more details."""
         channel: str
+        """The name of the network interface"""
 
         def __post_init__(self) -> None:
             validation.assert_type(self.channel, 'channel', str)
@@ -557,9 +559,14 @@ class CANLinkConfig(BaseLinkConfig):
 
     @dataclass(frozen=True)
     class VectorConfig:
+        """(Immutable struct) A Vector specific configuration. Refer to ``python-can`` documentation for more details."""
+
         channel: Union[str, int]
+        """The name of the channel or channel number"""
         bitrate: int
+        """The bitrate in bit/sec"""
         data_bitrate: int
+        """The data bitrate in bit/sec for CAN FD (requires a bitrate switch)"""
 
         def __post_init__(self) -> None:
             validation.assert_type(self.channel, 'channel', (str, int))
@@ -579,10 +586,16 @@ class CANLinkConfig(BaseLinkConfig):
     
     @dataclass(frozen=True)
     class KVaserConfig:
+        """(Immutable struct) A KVaser specific configuration. Refer to ``python-can`` documentation for more details."""
+
         channel: int
+        """The channel number"""
         bitrate: int
+        """The bitrate in bit/sec"""
         data_bitrate: int
+        """The data bitrate in bit/sec for CAN FD (requires a bitrate switch)"""
         fd_non_iso: bool
+        """Enable non-ISO CAN FD mode (Bosch). ISO CAN FD if ``False``"""
 
         def __post_init__(self) -> None:
             validation.assert_type(self.channel, 'channel', int)

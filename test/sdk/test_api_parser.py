@@ -20,7 +20,7 @@ from scrutiny.sdk.definitions import *
 import scrutiny.server.api.typing as api_typing
 import scrutiny.sdk
 import scrutiny.sdk.datalogging
-sdk = scrutiny.sdk  # Workaround for vscode linter an submodule on alias
+sdk = scrutiny.sdk  # Workaround for vscode linter and submodule on alias
 
 from test import ScrutinyUnitTest
 from scrutiny.tools.typing import *
