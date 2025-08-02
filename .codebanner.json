@@ -505,9 +505,6 @@
         "test/server/links/test_rtt_link.py": {
             "docstring": "Test suite to test Segger Rtt Link "
         },
-        "scrutiny/gui/dialogs/device_config_dialog.py": {
-            "docstring": "A dialog meant to change the link between the server and the device and its configuration.\n Contains no app logic, has callback to integrate with an app."
-        },
         "scrutiny/gui/dialogs/about_dialog.py": {
             "docstring": "About window, contains data about the software, including all versions numbers"
         },
@@ -849,6 +846,24 @@
         },
         "scrutiny/server/device/links/typing.py": {
             "docstring": "Type hint definitions for link configurations that are passed across the application"
+        },
+        "scrutiny/gui/dialogs/device_config/rtt.py": {
+            "docstring": "A Widget to configure a Seger RTT communication"
+        },
+        "scrutiny/gui/dialogs/device_config/device_config_dialog.py": {
+            "docstring": "A dialog to configure the communication between the server and the device"
+        },
+        "scrutiny/gui/dialogs/device_config/canbus.py": {
+            "docstring": "A Widget to configure a CAN bus communication"
+        },
+        "scrutiny/gui/dialogs/device_config/tcp_udp.py": {
+            "docstring": "A Widget to configure a TCP/UDP communication"
+        },
+        "scrutiny/gui/dialogs/device_config/serial.py": {
+            "docstring": "A Widget to configure a Serial port communication"
+        },
+        "scrutiny/gui/dialogs/device_config/base_config_pane.py": {
+            "docstring": "A base class for all configuration widget used in the device_config_dialog"
         }
     }
 }
