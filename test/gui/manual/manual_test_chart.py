@@ -18,7 +18,7 @@ app = make_manual_test_app()
 import logging
 from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QSplitter, QLabel
 from PySide6.QtCore import Qt, QPointF, QRectF
-from scrutiny.gui.dialogs.device_config_dialog import DeviceConfigDialog
+from scrutiny.gui.dialogs.device_config.device_config_dialog import DeviceConfigDialog
 from scrutiny import sdk
 from scrutiny.gui.widgets.base_chart import *
 from scrutiny.gui.widgets.graph_signal_tree import GraphSignalTree, ChartSeriesWatchableStandardItem

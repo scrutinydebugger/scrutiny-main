@@ -21,7 +21,7 @@ from scrutiny.gui.core.server_manager import ServerManager
 from scrutiny.gui.core.local_server_runner import LocalServerRunner
 from scrutiny.gui.core.user_messages_manager import UserMessagesManager, UserMessage
 from scrutiny.gui.dialogs.server_config_dialog import ServerConfigDialog
-from scrutiny.gui.dialogs.device_config_dialog import DeviceConfigDialog
+from scrutiny.gui.dialogs.device_config.device_config_dialog import DeviceConfigDialog
 from scrutiny.gui.dialogs.device_info_dialog import DeviceInfoDialog
 from scrutiny.gui.dialogs.sfd_content_dialog import SFDContentDialog
 from scrutiny.gui.themes import scrutiny_get_theme

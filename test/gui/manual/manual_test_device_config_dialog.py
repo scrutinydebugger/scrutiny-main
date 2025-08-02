@@ -17,7 +17,7 @@ app = make_manual_test_app()
 
 import logging
 from PySide6.QtWidgets import QMainWindow, QPushButton, QWidget, QVBoxLayout
-from scrutiny.gui.dialogs.device_config_dialog import DeviceConfigDialog
+from scrutiny.gui.dialogs.device_config.device_config_dialog import DeviceConfigDialog
 from scrutiny import sdk
 
 
@@ -38,6 +38,7 @@ layout.addWidget(btn_show)
 layout.addWidget(btn_fail)
 layout.addWidget(btn_success)
 dialog = DeviceConfigDialog(apply_callback=config_applied)
+dialog.setModal(False)
 dialog.set_config(sdk.DeviceLinkType.UDP, sdk.UDPLinkConfig(host="google.com", port=80))
 dialog.set_config(sdk.DeviceLinkType.TCP, sdk.TCPLinkConfig(host="localhost", port=1234))
 
