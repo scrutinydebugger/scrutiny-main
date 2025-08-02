@@ -1,11 +1,10 @@
 #    device_config_dialog.py
-#        A dialog meant to change the link between the server and the device and its configuration.
-#        Contains no app logic, has callback to integrate with an app.
+#        A dialog to configure the communication between the server and the device
 #
 #   - License : MIT - See LICENSE file.
 #   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
 #
-#   Copyright (c) 2024 Scrutiny Debugger
+#   Copyright (c) 2025 Scrutiny Debugger
 
 __all__ = ['DeviceConfigDialog']
 

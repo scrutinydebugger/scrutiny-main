@@ -1,3 +1,11 @@
+#    canbus.py
+#        A Widget to configure a CAN bus communication
+#
+#   - License : MIT - See LICENSE file.
+#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#   Copyright (c) 2025 Scrutiny Debugger
+
 __all__ = ['CanBusConfigPane']
 
 from PySide6.QtWidgets import QWidget, QComboBox, QFormLayout, QLabel, QCheckBox, QSpinBox, QStackedLayout
