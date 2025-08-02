@@ -543,7 +543,9 @@ class CANLinkConfig(BaseLinkConfig):
         KVaser = 2
         """Use KVaser hardware"""
         PCAN = 3
-        """Use PCAN through the PCAN API"""
+        """Use PCAN hardware through the PCAN API"""
+        ETAS = 4
+        """Use ETAS hardware through the ETAS DLL."""
 
     @dataclass(frozen=True)
     class SocketCANConfig:
@@ -632,11 +634,36 @@ class CANLinkConfig(BaseLinkConfig):
                 'bitrate': self.bitrate
             }
 
+    @dataclass(frozen=True)
+    class ETASConfig:
+        """(Immutable struct) A ETAS specific configuration. Refer to ``python-can`` documentation for more details."""
+
+        channel: str
+        """The channel number"""
+        bitrate: int
+        """The bitrate in bit/sec"""
+        data_bitrate: int
+        """The data bitrate in bit/sec for CAN FD (requires a bitrate switch)"""
+
+        def __post_init__(self) -> None:
+            validation.assert_type(self.channel, 'channel', str)
+            validation.assert_int_range(self.bitrate, 'bitrate', minval=0)
+            validation.assert_int_range(self.data_bitrate, 'data_bitrate', minval=0)
+
+        def _to_api_format(self) -> Dict[str, Any]:
+            return {
+                'channel': self.channel,
+                'bitrate': self.bitrate,
+                'data_bitrate': self.data_bitrate,
+            }
+
+
     INTERFACE_CONFIG_MAP = {
         CANInterface.SocketCAN: SocketCANConfig,
         CANInterface.Vector: VectorConfig,
         CANInterface.KVaser: KVaserConfig,
         CANInterface.PCAN: PCANConfig,
+        CANInterface.ETAS: ETASConfig,
     }
 
 
@@ -664,6 +691,8 @@ class CANLinkConfig(BaseLinkConfig):
             inteface_str = "kvaser"
         elif self.interface == CANLinkConfig.CANInterface.PCAN:
             inteface_str = "pcan"
+        elif self.interface == CANLinkConfig.CANInterface.ETAS:
+            inteface_str = "etas"
         else:
             raise NotImplementedError(f"Unsupported interface type {self.interface}")
 
@@ -689,7 +718,7 @@ class CANLinkConfig(BaseLinkConfig):
     """A flag indicating if we use CAN FD. Use of CAN 2.0 when ``False``"""
     bitrate_switch: bool
     """A flag telling if the server should do bitrate switch when transmitting. Only possible with CAN FD"""
-    interface_config: Union[SocketCANConfig, VectorConfig, KVaserConfig, PCANConfig]
+    interface_config: Union[SocketCANConfig, VectorConfig, KVaserConfig, PCANConfig, ETASConfig]
     """A configuration specific to the interface"""
 
 # endregion

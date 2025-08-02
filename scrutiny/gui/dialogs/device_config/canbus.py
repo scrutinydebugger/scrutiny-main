@@ -19,6 +19,277 @@ from scrutiny.gui.tools.validators import NotEmptyValidator
 from scrutiny.gui.themes import scrutiny_get_theme
 from scrutiny.tools.typing import *
 from scrutiny import tools
+    
+
+ANY_CAN_SUBCONFIG:TypeAlias = Union[
+            sdk.CANLinkConfig.SocketCANConfig, 
+            sdk.CANLinkConfig.VectorConfig, 
+            sdk.CANLinkConfig.KVaserConfig, 
+            sdk.CANLinkConfig.PCANConfig,
+            sdk.CANLinkConfig.ETASConfig,
+            ]
+
+class SocketCanSubconfigPane(QWidget):
+    _txt_channel: ValidableLineEdit
+
+    @tools.copy_type(QWidget.__init__)
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self._txt_channel = ValidableLineEdit(soft_validator=NotEmptyValidator())
+        self._txt_channel.setText('can0')
+        layout = QFormLayout(self)
+        layout.addRow("Channel", self._txt_channel)
+
+    def load_config(self, config: sdk.CANLinkConfig) -> None:
+        assert isinstance(config, sdk.CANLinkConfig)
+        assert config.interface == sdk.CANLinkConfig.CANInterface.SocketCAN
+        assert isinstance(config.interface_config, sdk.CANLinkConfig.SocketCANConfig)
+
+        self._txt_channel.setText(config.interface_config.channel)
+
+    def get_subconfig(self) -> Optional[sdk.CANLinkConfig.SocketCANConfig]:
+        if not self._txt_channel.is_valid():
+            return None
+        
+        return sdk.CANLinkConfig.SocketCANConfig(
+            channel=self._txt_channel.text()
+        )
+    
+    def visual_validation(self) -> None:
+        self._txt_channel.validate_expect_valid()
+
+    @classmethod
+    def make_subconfig_valid(cls, subconfig: sdk.CANLinkConfig.SocketCANConfig) -> sdk.CANLinkConfig.SocketCANConfig:
+        channel = subconfig.channel
+        if not isinstance(channel, str):
+            channel = 'can0'
+        return sdk.CANLinkConfig.SocketCANConfig(
+            channel=channel
+        )
+
+class VectorSubconfigPane(QWidget):
+    _txt_channel: ValidableLineEdit
+    _txt_bitrate: ValidableLineEdit
+    _txt_data_bitrate: ValidableLineEdit
+
+    @tools.copy_type(QWidget.__init__)
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        layout = QFormLayout(self)
+
+        self._txt_channel = ValidableLineEdit(soft_validator=NotEmptyValidator())
+        self._txt_bitrate = ValidableLineEdit(soft_validator=NotEmptyValidator(), hard_validator=QIntValidator(bottom=10000))
+        self._txt_data_bitrate = ValidableLineEdit(soft_validator=NotEmptyValidator(), hard_validator=QIntValidator(bottom=10000))
+        self._txt_channel.setText('0')
+        self._txt_bitrate.setText('500000')
+        self._txt_data_bitrate.setText('500000')
+
+        layout.addRow("Channel", self._txt_channel)
+        layout.addRow("Bitrate (bps)", self._txt_bitrate)
+        layout.addRow("Data Bitrate (bps)", self._txt_data_bitrate)
+
+    def load_config(self, config: sdk.CANLinkConfig) -> None:
+        assert isinstance(config, sdk.CANLinkConfig)
+        assert config.interface == sdk.CANLinkConfig.CANInterface.Vector
+        assert isinstance(config.interface_config, sdk.CANLinkConfig.VectorConfig)
+
+        self._txt_channel.setText(str(config.interface_config.channel))
+        self._txt_bitrate.setText(str(config.interface_config.bitrate))
+        self._txt_data_bitrate.setText(str(config.interface_config.data_bitrate))
+
+    def get_subconfig(self) -> Optional[sdk.CANLinkConfig.VectorConfig]:
+        for txtbox in [self._txt_channel, self._txt_bitrate, self._txt_data_bitrate]:
+            if not txtbox.is_valid():
+                return None
+
+        return sdk.CANLinkConfig.VectorConfig(
+            channel=self._txt_channel.text(),
+            bitrate=int(self._txt_bitrate.text()),
+            data_bitrate=int(self._txt_data_bitrate.text())
+        )
+
+    @classmethod
+    def make_subconfig_valid(cls, subconfig: sdk.CANLinkConfig.VectorConfig) -> sdk.CANLinkConfig.VectorConfig:
+        outconfig = sdk.CANLinkConfig.VectorConfig(
+            channel=subconfig.channel,
+            bitrate=max(int(subconfig.bitrate), 0),
+            data_bitrate=max(int(subconfig.data_bitrate), 0),
+        )
+        return outconfig
+    
+    def visual_validation(self) -> None:
+        self._txt_channel.validate_expect_valid()
+        self._txt_bitrate.validate_expect_valid()
+        self._txt_data_bitrate.validate_expect_valid()
+    
+class KVaserSubconfigPane(QWidget):
+    _txt_channel: ValidableLineEdit
+    _txt_bitrate: ValidableLineEdit
+    _txt_data_bitrate: ValidableLineEdit
+    _chk_fd_non_iso: QCheckBox
+
+    @tools.copy_type(QWidget.__init__)
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        layout = QFormLayout(self)
+
+        self._txt_channel = ValidableLineEdit(soft_validator=NotEmptyValidator(), hard_validator=QIntValidator(bottom=0))
+        self._txt_bitrate = ValidableLineEdit(soft_validator=NotEmptyValidator(), hard_validator=QIntValidator(bottom=10000))
+        self._txt_data_bitrate = ValidableLineEdit(soft_validator=NotEmptyValidator(), hard_validator=QIntValidator(bottom=10000))
+        self._chk_fd_non_iso = QCheckBox()
+        self._txt_channel.setText('0')
+        self._txt_bitrate.setText('500000')
+        self._txt_data_bitrate.setText('500000')
+
+        layout.addRow("Channel", self._txt_channel)
+        layout.addRow("Bitrate (bps)", self._txt_bitrate)
+        layout.addRow("Data Bitrate (bps)", self._txt_data_bitrate)
+        layout.addRow("Non ISO FD (Bosch)", self._chk_fd_non_iso)
+
+    def load_config(self, config: sdk.CANLinkConfig) -> None:
+        assert isinstance(config, sdk.CANLinkConfig)
+        assert config.interface == sdk.CANLinkConfig.CANInterface.KVaser
+        assert isinstance(config.interface_config, sdk.CANLinkConfig.KVaserConfig)
+
+        self._txt_channel.setText(str(config.interface_config.channel))
+        self._txt_bitrate.setText(str(config.interface_config.bitrate))
+        self._txt_data_bitrate.setText(str(config.interface_config.data_bitrate))
+        self._chk_fd_non_iso.setChecked(config.interface_config.fd_non_iso and config.fd)
+
+    def get_subconfig(self) -> Optional[sdk.CANLinkConfig.KVaserConfig]:
+        for txtbox in [self._txt_channel, self._txt_bitrate, self._txt_data_bitrate]:
+            if not txtbox.is_valid():
+                return None
+
+        return sdk.CANLinkConfig.KVaserConfig(
+            channel=int(self._txt_channel.text()),
+            bitrate=int(self._txt_bitrate.text()),
+            data_bitrate=int(self._txt_data_bitrate.text()),
+            fd_non_iso=self._chk_fd_non_iso.isChecked()
+        )
+
+    @classmethod
+    def make_subconfig_valid(cls, subconfig: sdk.CANLinkConfig.KVaserConfig) -> sdk.CANLinkConfig.KVaserConfig:
+        outconfig = sdk.CANLinkConfig.KVaserConfig(
+            channel=subconfig.channel,
+            bitrate=max(int(subconfig.bitrate), 0),
+            data_bitrate=max(int(subconfig.data_bitrate), 0),
+            fd_non_iso=subconfig.fd_non_iso
+        )
+        return outconfig        
+
+    def visual_validation(self) -> None:
+        for txtbox in [self._txt_channel, self._txt_bitrate, self._txt_data_bitrate]:
+            txtbox.validate_expect_valid()
+            
+class PCANSubconfigPane(QWidget):
+    _txt_channel: ValidableLineEdit
+    _txt_bitrate: ValidableLineEdit
+
+    @tools.copy_type(QWidget.__init__)
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        layout = QFormLayout(self)
+
+        self._txt_channel = ValidableLineEdit(soft_validator=NotEmptyValidator())
+        self._txt_bitrate = ValidableLineEdit(soft_validator=NotEmptyValidator(), hard_validator=QIntValidator(bottom=10000))
+        self._txt_channel.setText('0')
+        self._txt_bitrate.setText('500000')
+
+        layout.addRow("Channel", self._txt_channel)
+        layout.addRow("Bitrate (bps)", self._txt_bitrate)
+
+    def load_config(self, config: sdk.CANLinkConfig) -> None:
+        assert isinstance(config, sdk.CANLinkConfig)
+        assert config.interface == sdk.CANLinkConfig.CANInterface.PCAN
+        assert isinstance(config.interface_config, sdk.CANLinkConfig.PCANConfig)
+
+        self._txt_channel.setText(config.interface_config.channel)
+        self._txt_bitrate.setText(str(config.interface_config.bitrate))
+
+    def get_subconfig(self) -> Optional[sdk.CANLinkConfig.PCANConfig]:
+        for txtbox in [self._txt_channel, self._txt_bitrate]:
+            if not txtbox.is_valid():
+                return None
+            
+        return sdk.CANLinkConfig.PCANConfig(
+            channel=self._txt_channel.text(),
+            bitrate=int(self._txt_bitrate.text())
+        )
+
+    @classmethod
+    def make_subconfig_valid(cls, subconfig: sdk.CANLinkConfig.PCANConfig) -> sdk.CANLinkConfig.PCANConfig:
+        outconfig = sdk.CANLinkConfig.PCANConfig(
+            channel=subconfig.channel,
+            bitrate=max(int(subconfig.bitrate), 0)
+        )
+        return outconfig    
+
+    def visual_validation(self) -> None:
+        for txtbox in [self._txt_channel, self._txt_bitrate]:
+            txtbox.validate_expect_valid()    
+
+class ETASSubconfigPane(QWidget):
+    _txt_channel: ValidableLineEdit
+    _txt_bitrate: ValidableLineEdit
+    _txt_data_bitrate: ValidableLineEdit
+
+    @tools.copy_type(QWidget.__init__)
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        layout = QFormLayout(self)
+
+        self._txt_channel = ValidableLineEdit(soft_validator=NotEmptyValidator())
+        self._txt_bitrate = ValidableLineEdit(soft_validator=NotEmptyValidator(), hard_validator=QIntValidator(bottom=10000))
+        self._txt_data_bitrate = ValidableLineEdit(soft_validator=NotEmptyValidator(), hard_validator=QIntValidator(bottom=10000))
+        self._txt_channel.setText('0')
+        self._txt_bitrate.setText('500000')
+        self._txt_data_bitrate.setText('500000')
+
+        layout.addRow("Channel", self._txt_channel)
+        layout.addRow("Bitrate (bps)", self._txt_bitrate)
+        layout.addRow("Data Bitrate (bps)", self._txt_data_bitrate)
+
+    def load_config(self, config: sdk.CANLinkConfig) -> None:
+        assert isinstance(config, sdk.CANLinkConfig)
+        assert config.interface == sdk.CANLinkConfig.CANInterface.ETAS
+        assert isinstance(config.interface_config, sdk.CANLinkConfig.ETASConfig)
+
+        self._txt_channel.setText(str(config.interface_config.channel))
+        self._txt_bitrate.setText(str(config.interface_config.bitrate))
+        self._txt_data_bitrate.setText(str(config.interface_config.data_bitrate))
+
+    def get_subconfig(self) -> Optional[sdk.CANLinkConfig.ETASConfig]:
+        for txtbox in [self._txt_channel, self._txt_bitrate, self._txt_data_bitrate]:
+            if not txtbox.is_valid():
+                return None
+            
+        return sdk.CANLinkConfig.ETASConfig(
+            channel=self._txt_channel.text(),
+            bitrate=int(self._txt_bitrate.text()),
+            data_bitrate=int(self._txt_data_bitrate.text()),
+        )
+
+    @classmethod
+    def make_subconfig_valid(cls, subconfig: sdk.CANLinkConfig.ETASConfig) -> sdk.CANLinkConfig.ETASConfig:
+        outconfig = sdk.CANLinkConfig.ETASConfig(
+            channel=subconfig.channel,
+            bitrate=max(int(subconfig.bitrate), 0),
+            data_bitrate=max(int(subconfig.data_bitrate), 0),
+        )
+        return outconfig    
+
+    def visual_validation(self) -> None:
+        for txtbox in [self._txt_channel, self._txt_bitrate, self._txt_data_bitrate]:
+            txtbox.validate_expect_valid()    
+
+ANY_SUBCONFIG_PANE:TypeAlias = Union[
+    SocketCanSubconfigPane,
+    VectorSubconfigPane,
+    KVaserSubconfigPane,
+    PCANSubconfigPane,
+    ETASSubconfigPane
+]
 
 class CanBusConfigPane(BaseConfigPane):
 
@@ -43,206 +314,10 @@ class CanBusConfigPane(BaseConfigPane):
         
         PCAN_CHANNEL = 'pcan_channel'
         PCAN_BITRATE = 'pcan_bitrate'
-
-    class SocketCanSubconfigPane(QWidget):
-        _txt_channel: ValidableLineEdit
-
-        @tools.copy_type(QWidget.__init__)
-        def __init__(self, *args: Any, **kwargs: Any) -> None:
-            super().__init__(*args, **kwargs)
-            self._txt_channel = ValidableLineEdit(soft_validator=NotEmptyValidator())
-            self._txt_channel.setText('can0')
-            layout = QFormLayout(self)
-            layout.addRow("Channel", self._txt_channel)
-
-        def load_config(self, config: sdk.CANLinkConfig) -> None:
-            assert isinstance(config, sdk.CANLinkConfig)
-            assert config.interface == sdk.CANLinkConfig.CANInterface.SocketCAN
-            assert isinstance(config.interface_config, sdk.CANLinkConfig.SocketCANConfig)
-
-            self._txt_channel.setText(config.interface_config.channel)
-
-        def get_subconfig(self) -> Optional[sdk.CANLinkConfig.SocketCANConfig]:
-            if not self._txt_channel.is_valid():
-                return None
-            
-            return sdk.CANLinkConfig.SocketCANConfig(
-                channel=self._txt_channel.text()
-            )
         
-        def visual_validation(self) -> None:
-            self._txt_channel.validate_expect_valid()
-
-        @classmethod
-        def make_subconfig_valid(cls, subconfig: sdk.CANLinkConfig.SocketCANConfig) -> sdk.CANLinkConfig.SocketCANConfig:
-            channel = subconfig.channel
-            if not isinstance(channel, str):
-                channel = 'can0'
-            return sdk.CANLinkConfig.SocketCANConfig(
-                channel=channel
-            )
-
-    class VectorSubconfigPane(QWidget):
-        _txt_channel: ValidableLineEdit
-        _txt_bitrate: ValidableLineEdit
-        _txt_data_bitrate: ValidableLineEdit
-
-        @tools.copy_type(QWidget.__init__)
-        def __init__(self, *args: Any, **kwargs: Any) -> None:
-            super().__init__(*args, **kwargs)
-            layout = QFormLayout(self)
-
-            self._txt_channel = ValidableLineEdit(soft_validator=NotEmptyValidator())
-            self._txt_bitrate = ValidableLineEdit(soft_validator=NotEmptyValidator(), hard_validator=QIntValidator(bottom=10000))
-            self._txt_data_bitrate = ValidableLineEdit(soft_validator=NotEmptyValidator(), hard_validator=QIntValidator(bottom=10000))
-            self._txt_channel.setText('0')
-            self._txt_bitrate.setText('500000')
-            self._txt_data_bitrate.setText('500000')
-
-            layout.addRow("Channel", self._txt_channel)
-            layout.addRow("Bitrate (bps)", self._txt_bitrate)
-            layout.addRow("Data Bitrate (bps)", self._txt_data_bitrate)
-
-        def load_config(self, config: sdk.CANLinkConfig) -> None:
-            assert isinstance(config, sdk.CANLinkConfig)
-            assert config.interface == sdk.CANLinkConfig.CANInterface.Vector
-            assert isinstance(config.interface_config, sdk.CANLinkConfig.VectorConfig)
-
-            self._txt_channel.setText(str(config.interface_config.channel))
-            self._txt_bitrate.setText(str(config.interface_config.bitrate))
-            self._txt_data_bitrate.setText(str(config.interface_config.data_bitrate))
-
-        def get_subconfig(self) -> Optional[sdk.CANLinkConfig.VectorConfig]:
-            for txtbox in [self._txt_channel, self._txt_bitrate, self._txt_data_bitrate]:
-                if not txtbox.is_valid():
-                    return None
-
-            return sdk.CANLinkConfig.VectorConfig(
-                channel=self._txt_channel.text(),
-                bitrate=int(self._txt_bitrate.text()),
-                data_bitrate=int(self._txt_data_bitrate.text())
-            )
-
-        @classmethod
-        def make_subconfig_valid(cls, subconfig: sdk.CANLinkConfig.VectorConfig) -> sdk.CANLinkConfig.VectorConfig:
-            outconfig = sdk.CANLinkConfig.VectorConfig(
-                channel=subconfig.channel,
-                bitrate=max(int(subconfig.bitrate), 0),
-                data_bitrate=max(int(subconfig.data_bitrate), 0),
-            )
-            return outconfig
-        
-        def visual_validation(self) -> None:
-            self._txt_channel.validate_expect_valid()
-            self._txt_bitrate.validate_expect_valid()
-            self._txt_data_bitrate.validate_expect_valid()
-        
-    class KVaserSubconfigPane(QWidget):
-        _txt_channel: ValidableLineEdit
-        _txt_bitrate: ValidableLineEdit
-        _txt_data_bitrate: ValidableLineEdit
-        _chk_fd_non_iso: QCheckBox
-
-        @tools.copy_type(QWidget.__init__)
-        def __init__(self, *args: Any, **kwargs: Any) -> None:
-            super().__init__(*args, **kwargs)
-            layout = QFormLayout(self)
-
-            self._txt_channel = ValidableLineEdit(soft_validator=NotEmptyValidator(), hard_validator=QIntValidator(bottom=0))
-            self._txt_bitrate = ValidableLineEdit(soft_validator=NotEmptyValidator(), hard_validator=QIntValidator(bottom=10000))
-            self._txt_data_bitrate = ValidableLineEdit(soft_validator=NotEmptyValidator(), hard_validator=QIntValidator(bottom=10000))
-            self._chk_fd_non_iso = QCheckBox()
-            self._txt_channel.setText('0')
-            self._txt_bitrate.setText('500000')
-            self._txt_data_bitrate.setText('500000')
-
-            layout.addRow("Channel", self._txt_channel)
-            layout.addRow("Bitrate (bps)", self._txt_bitrate)
-            layout.addRow("Data Bitrate (bps)", self._txt_data_bitrate)
-            layout.addRow("Non ISO FD (Bosch)", self._chk_fd_non_iso)
-
-        def load_config(self, config: sdk.CANLinkConfig) -> None:
-            assert isinstance(config, sdk.CANLinkConfig)
-            assert config.interface == sdk.CANLinkConfig.CANInterface.KVaser
-            assert isinstance(config.interface_config, sdk.CANLinkConfig.KVaserConfig)
-
-            self._txt_channel.setText(str(config.interface_config.channel))
-            self._txt_bitrate.setText(str(config.interface_config.bitrate))
-            self._txt_data_bitrate.setText(str(config.interface_config.data_bitrate))
-            self._chk_fd_non_iso.setChecked(config.interface_config.fd_non_iso and config.fd)
-
-        def get_subconfig(self) -> Optional[sdk.CANLinkConfig.KVaserConfig]:
-            for txtbox in [self._txt_channel, self._txt_bitrate, self._txt_data_bitrate]:
-                if not txtbox.is_valid():
-                    return None
-
-            return sdk.CANLinkConfig.KVaserConfig(
-                channel=int(self._txt_channel.text()),
-                bitrate=int(self._txt_bitrate.text()),
-                data_bitrate=int(self._txt_data_bitrate.text()),
-                fd_non_iso=self._chk_fd_non_iso.isChecked()
-            )
-
-        @classmethod
-        def make_subconfig_valid(cls, subconfig: sdk.CANLinkConfig.KVaserConfig) -> sdk.CANLinkConfig.KVaserConfig:
-            outconfig = sdk.CANLinkConfig.KVaserConfig(
-                channel=subconfig.channel,
-                bitrate=max(int(subconfig.bitrate), 0),
-                data_bitrate=max(int(subconfig.data_bitrate), 0),
-                fd_non_iso=subconfig.fd_non_iso
-            )
-            return outconfig        
-
-        def visual_validation(self) -> None:
-            for txtbox in [self._txt_channel, self._txt_bitrate, self._txt_data_bitrate]:
-                txtbox.validate_expect_valid()
-                
-    class PCANSubconfigPane(QWidget):
-        _txt_channel: ValidableLineEdit
-        _txt_bitrate: ValidableLineEdit
-
-        @tools.copy_type(QWidget.__init__)
-        def __init__(self, *args: Any, **kwargs: Any) -> None:
-            super().__init__(*args, **kwargs)
-            layout = QFormLayout(self)
-
-            self._txt_channel = ValidableLineEdit(soft_validator=NotEmptyValidator(), hard_validator=QIntValidator(bottom=0))
-            self._txt_bitrate = ValidableLineEdit(soft_validator=NotEmptyValidator(), hard_validator=QIntValidator(bottom=10000))
-            self._txt_channel.setText('0')
-            self._txt_bitrate.setText('500000')
-
-            layout.addRow("Channel", self._txt_channel)
-            layout.addRow("Bitrate (bps)", self._txt_bitrate)
-
-        def load_config(self, config: sdk.CANLinkConfig) -> None:
-            assert isinstance(config, sdk.CANLinkConfig)
-            assert config.interface == sdk.CANLinkConfig.CANInterface.PCAN
-            assert isinstance(config.interface_config, sdk.CANLinkConfig.PCANConfig)
-
-            self._txt_channel.setText(str(config.interface_config.channel))
-            self._txt_bitrate.setText(str(config.interface_config.bitrate))
-
-        def get_subconfig(self) -> Optional[sdk.CANLinkConfig.PCANConfig]:
-            for txtbox in [self._txt_channel, self._txt_bitrate]:
-                if not txtbox.is_valid():
-                    return None
-                
-            return sdk.CANLinkConfig.PCANConfig(
-                channel=self._txt_channel.text(),
-                bitrate=int(self._txt_bitrate.text())
-            )
-
-        @classmethod
-        def make_subconfig_valid(cls, subconfig: sdk.CANLinkConfig.PCANConfig) -> sdk.CANLinkConfig.PCANConfig:
-            outconfig = sdk.CANLinkConfig.PCANConfig(
-                channel=subconfig.channel,
-                bitrate=max(int(subconfig.bitrate), 0)
-            )
-            return outconfig    
-
-        def visual_validation(self) -> None:
-            for txtbox in [self._txt_channel, self._txt_bitrate]:
-                txtbox.validate_expect_valid()    
+        ETAS_CHANNEL = 'etas_channel'
+        ETAS_BITRATE = 'etas_bitrate'
+        ETAS_DATA_BITRATE = 'etas_data_bitrate'
 
     _cmb_can_interface: QComboBox
     _spin_txid: QSpinBox
@@ -255,6 +330,7 @@ class CanBusConfigPane(BaseConfigPane):
     _subconfig_vector_pane: VectorSubconfigPane
     _subconfig_kvaser_pane: KVaserSubconfigPane
     _subconfig_pcan_pane: PCANSubconfigPane
+    _subconfig_etas_pane: ETASSubconfigPane
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
@@ -268,6 +344,7 @@ class CanBusConfigPane(BaseConfigPane):
         self._cmb_can_interface.addItem("Vector", sdk.CANLinkConfig.CANInterface.Vector)
         self._cmb_can_interface.addItem("KVaser", sdk.CANLinkConfig.CANInterface.KVaser)
         self._cmb_can_interface.addItem("PCAN", sdk.CANLinkConfig.CANInterface.PCAN)
+        self._cmb_can_interface.addItem("ETAS", sdk.CANLinkConfig.CANInterface.ETAS)
 
         self._spin_txid = QSpinBox(prefix="0x", minimum=0, displayIntegerBase=16, maximum=0x7FF)
         self._spin_rxid = QSpinBox(prefix="0x", minimum=0, displayIntegerBase=16, maximum=0x7FF)
@@ -278,15 +355,17 @@ class CanBusConfigPane(BaseConfigPane):
 
         subconfig_container = QWidget()
         self._subconfig_layout = QStackedLayout(subconfig_container)
-        self._subconfig_socketcan_pane = self.SocketCanSubconfigPane()
-        self._subconfig_vector_pane = self.VectorSubconfigPane()
-        self._subconfig_kvaser_pane = self.KVaserSubconfigPane()
-        self._subconfig_pcan_pane = self.PCANSubconfigPane()
+        self._subconfig_socketcan_pane = SocketCanSubconfigPane()
+        self._subconfig_vector_pane = VectorSubconfigPane()
+        self._subconfig_kvaser_pane = KVaserSubconfigPane()
+        self._subconfig_pcan_pane = PCANSubconfigPane()
+        self._subconfig_etas_pane = ETASSubconfigPane()
 
         self._subconfig_layout.addWidget(self._subconfig_socketcan_pane)
         self._subconfig_layout.addWidget(self._subconfig_vector_pane)
         self._subconfig_layout.addWidget(self._subconfig_kvaser_pane)
         self._subconfig_layout.addWidget(self._subconfig_pcan_pane)
+        self._subconfig_layout.addWidget(self._subconfig_etas_pane)
 
         layout.addRow(QLabel("Interface: "), self._cmb_can_interface)
         layout.addRow(QLabel("Tx ID: "), self._spin_txid)
@@ -303,7 +382,7 @@ class CanBusConfigPane(BaseConfigPane):
 
         self._update_ui()
 
-    def _get_active_subconfig_pane(self) -> Union[SocketCanSubconfigPane, VectorSubconfigPane, KVaserSubconfigPane, PCANSubconfigPane]:
+    def _get_active_subconfig_pane(self) -> ANY_SUBCONFIG_PANE:
         interface = cast(sdk.CANLinkConfig.CANInterface, self._cmb_can_interface.currentData())
         if interface == sdk.CANLinkConfig.CANInterface.SocketCAN:
             return self._subconfig_socketcan_pane
@@ -313,6 +392,8 @@ class CanBusConfigPane(BaseConfigPane):
             return self._subconfig_kvaser_pane
         elif interface == sdk.CANLinkConfig.CANInterface.PCAN:
             return self._subconfig_pcan_pane
+        elif interface == sdk.CANLinkConfig.CANInterface.ETAS:
+            return self._subconfig_etas_pane
         raise NotImplementedError(f"Unsupported subconfig pane for interface {interface}")
 
     def _update_ui(self) -> None:
@@ -402,15 +483,17 @@ class CanBusConfigPane(BaseConfigPane):
         if not can_fd:
             bitrate_switch = False
 
-        interface_config: Union[sdk.CANLinkConfig.SocketCANConfig, sdk.CANLinkConfig.VectorConfig, sdk.CANLinkConfig.KVaserConfig, sdk.CANLinkConfig.PCANConfig]
+        interface_config: ANY_CAN_SUBCONFIG
         if isinstance(config.interface_config, sdk.CANLinkConfig.SocketCANConfig):
-            interface_config = cls.SocketCanSubconfigPane.make_subconfig_valid(config.interface_config)
+            interface_config = SocketCanSubconfigPane.make_subconfig_valid(config.interface_config)
         elif isinstance(config.interface_config, sdk.CANLinkConfig.VectorConfig):
-            interface_config = cls.VectorSubconfigPane.make_subconfig_valid(config.interface_config)
+            interface_config = VectorSubconfigPane.make_subconfig_valid(config.interface_config)
         elif isinstance(config.interface_config, sdk.CANLinkConfig.KVaserConfig):
-            interface_config = cls.KVaserSubconfigPane.make_subconfig_valid(config.interface_config)
+            interface_config = KVaserSubconfigPane.make_subconfig_valid(config.interface_config)
         elif isinstance(config.interface_config, sdk.CANLinkConfig.PCANConfig):
-            interface_config = cls.PCANSubconfigPane.make_subconfig_valid(config.interface_config)
+            interface_config = PCANSubconfigPane.make_subconfig_valid(config.interface_config)
+        elif isinstance(config.interface_config, sdk.CANLinkConfig.ETASConfig):
+            interface_config = ETASSubconfigPane.make_subconfig_valid(config.interface_config)
         else:
             raise NotImplementedError("Unsupported subconfig")
 
@@ -462,6 +545,10 @@ class CanBusConfigPane(BaseConfigPane):
         elif isinstance(can_config.interface_config, sdk.CANLinkConfig.PCANConfig):
              namespace.set_str(cls.PersistentDataKeys.PCAN_CHANNEL, can_config.interface_config.channel)
              namespace.set_int(cls.PersistentDataKeys.PCAN_BITRATE, can_config.interface_config.bitrate)
+        elif isinstance(can_config.interface_config, sdk.CANLinkConfig.ETASConfig):
+             namespace.set_str(cls.PersistentDataKeys.ETAS_CHANNEL, can_config.interface_config.channel)
+             namespace.set_int(cls.PersistentDataKeys.ETAS_BITRATE, can_config.interface_config.bitrate)
+             namespace.set_int(cls.PersistentDataKeys.ETAS_DATA_BITRATE, can_config.interface_config.data_bitrate)
         else:
             raise NotImplementedError("Unsupported CAN interface {can_interface}")
 
@@ -472,7 +559,8 @@ class CanBusConfigPane(BaseConfigPane):
     def initialize_config(cls) -> sdk.BaseLinkConfig:
         namespace = gui_persistent_data.get_namespace(cls.__name__)
 
-        interface_config: Union[sdk.CANLinkConfig.SocketCANConfig, sdk.CANLinkConfig.VectorConfig, sdk.CANLinkConfig.KVaserConfig, sdk.CANLinkConfig.PCANConfig]
+        interface_config: ANY_CAN_SUBCONFIG
+        
         can_interface = sdk.CANLinkConfig.CANInterface(namespace.get_int(cls.PersistentDataKeys.INTERFACE, 0))
        
         if can_interface == sdk.CANLinkConfig.CANInterface.SocketCAN:
@@ -499,6 +587,13 @@ class CanBusConfigPane(BaseConfigPane):
             interface_config = sdk.CANLinkConfig.PCANConfig(
                 channel=namespace.get_str(cls.PersistentDataKeys.PCAN_CHANNEL, '<channel>'),
                 bitrate=namespace.get_int(cls.PersistentDataKeys.PCAN_BITRATE, 500000)
+            )
+        
+        elif can_interface == sdk.CANLinkConfig.CANInterface.ETAS:
+            interface_config = sdk.CANLinkConfig.ETASConfig(
+                channel=namespace.get_str(cls.PersistentDataKeys.ETAS_CHANNEL, '<channel>'),
+                bitrate=namespace.get_int(cls.PersistentDataKeys.ETAS_BITRATE, 500000),
+                data_bitrate=namespace.get_int(cls.PersistentDataKeys.ETAS_BITRATE, 500000),
             )
         
         else:

@@ -368,5 +368,51 @@ class TestCanbusLink(ScrutinyUnitTest):
         self.assertEqual(filter['can_mask'], 0x1FFFFFFF)
         self.assertEqual(filter['extended'], True)
 
+
+
+    def test_etas_bus(self):
+        canbus_link.use_stubbed_canbus_class(True)
+        config: link_typing.CanBusConfigDict = {
+            'interface': 'etas',
+            'txid': 0x12345,
+            'rxid': 0x23456,
+            'fd': True,
+            'extended_id': True,
+            'bitrate_switch': True,
+            'subconfig': {
+                'channel': 'ETAS://ETH/ES910:abcd/CAN:1',
+                'bitrate': 125000,
+                'data_bitrate': 500000,
+            }
+
+        }
+        link = canbus_link.CanBusLink(config)
+        link.initialize()
+        bus = link.get_bus()
+        self.assertIsInstance(bus, canbus_link.StubbedCanBus)
+        assert isinstance(bus, canbus_link.StubbedCanBus)
+        self.assertEqual(len(bus.get_init_args()), 0)   # Just in case.
+        kwargs = bus.get_init_kwargs()
+        self.assertIn('channel', kwargs)
+        self.assertIn('bitrate', kwargs)
+        self.assertIn('data_bitrate', kwargs)
+        self.assertIn('fd', kwargs)
+        self.assertIn('can_filters', kwargs)
+        self.assertEqual(kwargs['channel'], 'ETAS://ETH/ES910:abcd/CAN:1')
+        self.assertEqual(kwargs['fd'], True)
+        self.assertEqual(kwargs['bitrate'], 125000)
+        self.assertEqual(kwargs['data_bitrate'], 500000)
+
+        self.assertIsInstance(kwargs['can_filters'], list)
+        self.assertEqual(len(kwargs['can_filters']), 1)
+        filter = kwargs['can_filters'][0]
+        self.assertIsInstance(filter, dict)
+        self.assertIn('can_id', filter)
+        self.assertIn('can_mask', filter)
+        self.assertIn('extended', filter)
+        self.assertEqual(filter['can_id'], 0x23456)
+        self.assertEqual(filter['can_mask'], 0x1FFFFFFF)
+        self.assertEqual(filter['extended'], True)        
+
 if __name__ == '__main__':
     unittest.main()

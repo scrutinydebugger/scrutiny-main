@@ -25,6 +25,7 @@ CanBusSocketCanSubconfig = scrutiny.server.device.links.typing.SocketCanSubconfi
 CanBusVectorSubconfig = scrutiny.server.device.links.typing.VectorSubconfigDict
 CanBusKVaserSubconfig = scrutiny.server.device.links.typing.KVaserCanSubconfigDict
 CanBusPCANSubconfig = scrutiny.server.device.links.typing.PCANCanSubconfigDict
+CanBusETASSubconfig = scrutiny.server.device.links.typing.ETASCanSubconfigDict
 CANBUS_ANY_SUBCONFIG_DICT = scrutiny.server.device.links.typing.CANBUS_ANY_SUBCONFIG_DICT
 
 LinkConfig = Union[EmptyDict, UdpLinkConfig, SerialLinkConfig, RttLinkConfig, CanBusLinkConfig]

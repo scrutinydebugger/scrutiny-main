@@ -144,6 +144,31 @@ class PCANCanSubconfig(BaseSubconfig):
             bitrate=d['bitrate']
         )
 
+@dataclass
+class ETASCanSubconfig(BaseSubconfig):
+    _TYPENAME = 'etas'
+
+    channel:str
+    bitrate: int
+    data_bitrate: int
+
+    def __post_init__(self) -> None:
+        validation.assert_type(self.channel, 'channel', str)
+        validation.assert_type(self.bitrate, 'bitrate', int)
+        validation.assert_type(self.data_bitrate, 'data_bitrate', int)
+
+    @classmethod
+    def from_dict(cls, d: ETASCanSubconfigDict) -> "ETASCanSubconfig":
+        validation.assert_dict_key(d, 'channel', str)
+        validation.assert_dict_key(d, 'bitrate', int)
+        validation.assert_dict_key(d, 'data_bitrate', int)
+
+        return ETASCanSubconfig(
+            channel=d['channel'],
+            bitrate=d['bitrate'],
+            data_bitrate=d['data_bitrate']
+        )
+
 
 @dataclass
 class VirtualCanSubConfig(BaseSubconfig):
@@ -190,7 +215,7 @@ class VectorSubConfig(BaseSubconfig):
 # endregion
 
 
-ANY_SUBCONFIG: TypeAlias = Union[SocketCanSubconfig, VectorSubConfig, KVaserCanSubconfig]
+ANY_SUBCONFIG: TypeAlias = Union[SocketCanSubconfig, VectorSubConfig, KVaserCanSubconfig, PCANCanSubconfig, ETASCanSubconfig]
 
 
 @dataclass
@@ -398,9 +423,13 @@ class CanBusLink(AbstractLink):
         ]
 
         if config.interface == SocketCanSubconfig.get_type_name():
-            from can.interfaces.socketcan import SocketcanBus
-            MySocketCanBus = SocketcanBus if not _use_stubbed_canbus_class else StubbedCanBus
             assert isinstance(config.subconfig, SocketCanSubconfig)
+
+            if not _use_stubbed_canbus_class:
+                from can.interfaces.socketcan import SocketcanBus
+                MySocketCanBus = SocketcanBus 
+            else:
+                MySocketCanBus = StubbedCanBus # type: ignore
 
             return MySocketCanBus(
                 channel=config.subconfig.channel,
@@ -410,9 +439,13 @@ class CanBusLink(AbstractLink):
             )
 
         elif config.interface == VectorSubConfig.get_type_name():
-            from can.interfaces.vector import VectorBus
-            MyVectorCanBus = VectorBus if not _use_stubbed_canbus_class else StubbedCanBus
             assert isinstance(config.subconfig, VectorSubConfig)
+
+            if not _use_stubbed_canbus_class:
+                from can.interfaces.vector import VectorBus
+                MyVectorCanBus = VectorBus 
+            else:
+                MyVectorCanBus = StubbedCanBus # type: ignore
 
             return MyVectorCanBus(
                 channel=config.subconfig.channel,
@@ -423,9 +456,13 @@ class CanBusLink(AbstractLink):
             )
         
         elif config.interface == KVaserCanSubconfig.get_type_name():
-            from can.interfaces.kvaser import KvaserBus
-            MyKvaserBus = KvaserBus if not _use_stubbed_canbus_class else StubbedCanBus
             assert isinstance(config.subconfig, KVaserCanSubconfig)
+
+            if not _use_stubbed_canbus_class:
+                from can.interfaces.kvaser import KvaserBus
+                MyKvaserBus = KvaserBus 
+            else:
+                MyKvaserBus = StubbedCanBus # type: ignore
 
             return MyKvaserBus(
                 channel=config.subconfig.channel,
@@ -437,14 +474,34 @@ class CanBusLink(AbstractLink):
             )
        
         elif config.interface == PCANCanSubconfig.get_type_name():
-            from can.interfaces.pcan import PcanBus
-            MyPcanBus = PcanBus if not _use_stubbed_canbus_class else StubbedCanBus
             assert isinstance(config.subconfig, PCANCanSubconfig)
+
+            if not _use_stubbed_canbus_class:
+                from can.interfaces.pcan import PcanBus
+                MyPcanBus = PcanBus 
+            else:
+                MyPcanBus = StubbedCanBus # type: ignore
 
             return MyPcanBus(
                 channel=config.subconfig.channel,
                 fd=config.fd,
                 bitrate=config.subconfig.bitrate,
+                can_filters=filters,
+            )
+
+        elif config.interface == ETASCanSubconfig.get_type_name():
+            assert isinstance(config.subconfig, ETASCanSubconfig)
+            if not _use_stubbed_canbus_class:
+                from can.interfaces.etas import EtasBus
+                MyEtasBus = EtasBus 
+            else:
+                MyEtasBus = StubbedCanBus # type: ignore
+                
+            return MyEtasBus(
+                channel=config.subconfig.channel,
+                fd=config.fd,
+                bitrate=config.subconfig.bitrate,
+                data_bitrate=config.subconfig.data_bitrate,
                 can_filters=filters,
             )
 

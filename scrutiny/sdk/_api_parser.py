@@ -646,6 +646,8 @@ def parse_inform_server_status(response: api_typing.S2C.InformServerStatus) -> s
                 return sdk.CANLinkConfig.CANInterface.KVaser
             if api_val_lower == 'pcan':
                 return sdk.CANLinkConfig.CANInterface.PCAN
+            if api_val_lower == 'etas':
+                return sdk.CANLinkConfig.CANInterface.ETAS
 
             raise sdk.exceptions.BadResponseError(f'Unsupported CAN interface type "{api_val}"')
 
@@ -656,7 +658,8 @@ def parse_inform_server_status(response: api_typing.S2C.InformServerStatus) -> s
             sdk.CANLinkConfig.SocketCANConfig, 
             sdk.CANLinkConfig.VectorConfig, 
             sdk.CANLinkConfig.KVaserConfig,
-            sdk.CANLinkConfig.PCANConfig
+            sdk.CANLinkConfig.PCANConfig,
+            sdk.CANLinkConfig.ETASConfig,
             ]
         if interface == sdk.CANLinkConfig.CANInterface.SocketCAN:
             subconfig = cast(api_typing.CanBusSocketCanSubconfig, canbus_config['subconfig'])
@@ -693,6 +696,16 @@ def parse_inform_server_status(response: api_typing.S2C.InformServerStatus) -> s
             interface_config = sdk.CANLinkConfig.PCANConfig(
                 channel=subconfig['channel'],
                 bitrate=subconfig['bitrate']
+            )
+        elif interface == sdk.CANLinkConfig.CANInterface.ETAS:
+            subconfig = cast(api_typing.CanBusETASSubconfig, canbus_config['subconfig'])
+            _check_response_dict(cmd, subconfig, 'channel', str)
+            _check_response_dict(cmd, subconfig, 'bitrate', int)
+            _check_response_dict(cmd, subconfig, 'data_bitrate', int)
+            interface_config = sdk.CANLinkConfig.ETASConfig(
+                channel=subconfig['channel'],
+                bitrate=subconfig['bitrate'],
+                data_bitrate=subconfig['data_bitrate']
             )
         else:
             raise NotImplementedError(f"Unsupported interface type: {interface}")  # should not happen. Validated above

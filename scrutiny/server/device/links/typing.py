@@ -31,6 +31,11 @@ class PCANCanSubconfigDict(TypedDict):
     channel: str
     bitrate: int
 
+class ETASCanSubconfigDict(TypedDict):
+    channel: str
+    bitrate: int
+    data_bitrate: int
+
 class VirtualCanSubconfigDict(TypedDict):
     channel: str
 
@@ -39,6 +44,7 @@ CANBUS_ANY_SUBCONFIG_DICT: TypeAlias = Union[
     VectorSubconfigDict, 
     KVaserCanSubconfigDict,
     PCANCanSubconfigDict, 
+    ETASCanSubconfigDict,
     VirtualCanSubconfigDict
     ]
 
