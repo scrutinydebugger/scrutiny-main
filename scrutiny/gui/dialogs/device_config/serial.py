@@ -12,13 +12,24 @@ from PySide6.QtWidgets import QLabel, QFormLayout, QWidget, QComboBox
 from PySide6.QtGui import QIntValidator, QDoubleValidator
 
 from scrutiny import sdk
+from scrutiny.gui.core.persistent_data import gui_persistent_data
 from scrutiny.gui.widgets.validable_line_edit import ValidableLineEdit
 from scrutiny.gui.tools.validators import NotEmptyValidator
 from scrutiny.gui.dialogs.device_config.base_config_pane import BaseConfigPane
 from scrutiny.tools.typing import *
-
+from scrutiny import tools
 
 class SerialConfigPane(BaseConfigPane):
+
+    class PersistentDataKeys:
+        PORT = 'port'
+        BAUDRATE = 'baudrate'
+        START_DELAY = 'start_delay'
+        STOPBIT = 'stopbit'
+        PARITY = 'parity'
+        DATABITS = 'databits'
+
+
     _port_name_textbox: ValidableLineEdit
     _baudrate_textbox: ValidableLineEdit
     _stopbits_combo_box: QComboBox
@@ -131,3 +142,37 @@ class SerialConfigPane(BaseConfigPane):
         self._port_name_textbox.validate_expect_valid()
         self._baudrate_textbox.validate_expect_valid()
         self._start_delay_textbox.validate_expect_valid()
+
+    @classmethod
+    def save_to_persistent_data(cls, config:sdk.BaseLinkConfig) -> None:
+        serial_config = cast(sdk.SerialLinkConfig, config)
+        namespace = gui_persistent_data.get_namespace(cls.__name__)        
+        namespace.set_str(cls.PersistentDataKeys.PORT, serial_config.port)
+        namespace.set_int(cls.PersistentDataKeys.BAUDRATE, serial_config.baudrate)
+        namespace.set_float(cls.PersistentDataKeys.START_DELAY, serial_config.start_delay)
+        namespace.set_str(cls.PersistentDataKeys.PARITY, serial_config.parity.to_str())
+        namespace.set_int(cls.PersistentDataKeys.DATABITS, serial_config.databits.to_int())
+        namespace.set_float(cls.PersistentDataKeys.STOPBIT, serial_config.stopbits.to_float())
+        namespace.prune(tools.get_class_attr(cls.PersistentDataKeys))
+
+
+    @classmethod
+    def initialize_config(cls) -> sdk.BaseLinkConfig:
+        namespace = gui_persistent_data.get_namespace(cls.__name__)
+        return sdk.SerialLinkConfig(
+            port=namespace.get_str(cls.PersistentDataKeys.PORT, '<port>'),
+            baudrate=namespace.get_int(cls.PersistentDataKeys.BAUDRATE, 115200),
+            start_delay=namespace.get_float(cls.PersistentDataKeys.START_DELAY, 0),
+            parity=sdk.SerialLinkConfig.Parity.from_str(
+                namespace.get_str(cls.PersistentDataKeys.PARITY, sdk.SerialLinkConfig.Parity.NONE.to_str()),
+                sdk.SerialLinkConfig.Parity.NONE    # preference file could be corrupted
+            ),
+            stopbits=sdk.SerialLinkConfig.StopBits.from_float(
+                namespace.get_float(cls.PersistentDataKeys.STOPBIT, sdk.SerialLinkConfig.StopBits.ONE.to_float()),
+                default=sdk.SerialLinkConfig.StopBits.ONE   # preference file could be corrupted
+            ),
+            databits=sdk.SerialLinkConfig.DataBits.from_int(
+                namespace.get_int(cls.PersistentDataKeys.DATABITS, sdk.SerialLinkConfig.DataBits.EIGHT.to_int()),
+                default=sdk.SerialLinkConfig.DataBits.EIGHT   # preference file could be corrupted
+            )
+        )

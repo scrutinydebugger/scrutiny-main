@@ -13,10 +13,12 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QIntValidator
 
 from scrutiny import sdk
+from scrutiny.gui.core.persistent_data import gui_persistent_data
 from scrutiny.gui.widgets.validable_line_edit import ValidableLineEdit
 from scrutiny.gui.tools.validators import IpPortValidator, NotEmptyValidator
 from scrutiny.gui.dialogs.device_config.base_config_pane import BaseConfigPane
 from scrutiny.tools.typing import *
+from scrutiny import tools
 
 
 class IPConfigPane(BaseConfigPane):
@@ -66,7 +68,12 @@ class IPConfigPane(BaseConfigPane):
         self._port_textbox.validate_expect_valid()
         self._hostname_textbox.validate_expect_valid()
 
+
 class TCPConfigPane(IPConfigPane):
+    class PersistentDataKeys:
+        TCP_HOST = 'tcp_hostname'
+        TCP_PORT = 'tcp_port'
+
     def get_config(self) -> Optional[sdk.TCPLinkConfig]:
         port = self.get_port()
         if port is None:
@@ -95,8 +102,33 @@ class TCPConfigPane(IPConfigPane):
             host=hostname,
             port=port
         )
+    
+    @classmethod
+    def save_to_persistent_data(cls, config:sdk.BaseLinkConfig) -> None:
+        tcp_config = cast(sdk.TCPLinkConfig, config)
+        namespace = gui_persistent_data.get_namespace(cls.__name__)
+        namespace.set_str(cls.PersistentDataKeys.TCP_HOST, tcp_config.host)
+        namespace.set_int(cls.PersistentDataKeys.TCP_PORT, tcp_config.port)
+        namespace.prune(tools.get_class_attr(cls.PersistentDataKeys))
+
+    
+    @classmethod
+    def initialize_config(cls) -> sdk.BaseLinkConfig:
+        namespace = gui_persistent_data.get_namespace(cls.__name__)
+        hostname = namespace.get_str(cls.PersistentDataKeys.TCP_HOST, default='localhost')
+        port = namespace.get_int(cls.PersistentDataKeys.TCP_PORT, default=0)
+
+        return sdk.TCPLinkConfig(
+            host=hostname,
+            port=port
+        )
+        
 
 class UDPConfigPane(IPConfigPane):
+    class PersistentDataKeys:
+        UDP_HOST = 'udp_hostname'
+        UDP_PORT = 'udp_port'
+
     def get_config(self) -> Optional[sdk.UDPLinkConfig]:
         port = self.get_port()
         if port is None:
@@ -120,6 +152,25 @@ class UDPConfigPane(IPConfigPane):
         hostname = config.host
         if len(hostname) == 0:
             hostname = 'localhost'
+
+        return sdk.UDPLinkConfig(
+            host=hostname,
+            port=port
+        )
+
+    @classmethod
+    def save_to_persistent_data(cls, config:sdk.BaseLinkConfig) -> None:
+        udp_config = cast(sdk.UDPLinkConfig, config)
+        namespace = gui_persistent_data.get_namespace(cls.__name__)
+        namespace.set_str(cls.PersistentDataKeys.UDP_HOST, udp_config.host)
+        namespace.set_int(cls.PersistentDataKeys.UDP_PORT, udp_config.port)
+        namespace.prune(tools.get_class_attr(cls.PersistentDataKeys))
+    
+    @classmethod
+    def initialize_config(cls) -> sdk.BaseLinkConfig:
+        namespace = gui_persistent_data.get_namespace(cls.__name__)
+        hostname = namespace.get_str(cls.PersistentDataKeys.UDP_HOST, default='localhost')
+        port = namespace.get_int(cls.PersistentDataKeys.UDP_PORT, default=0)
 
         return sdk.UDPLinkConfig(
             host=hostname,

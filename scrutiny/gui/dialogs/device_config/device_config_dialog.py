@@ -33,45 +33,16 @@ class NoConfigPane(BaseConfigPane):
     def load_config(self, config: Optional[sdk.BaseLinkConfig]) -> None:
         self.make_config_valid(config)
 
+    @classmethod
+    def save_to_persistent_data(self, config:sdk.BaseLinkConfig) -> None:
+        pass
+    
+    @classmethod
+    def initialize_config(cls) -> sdk.BaseLinkConfig:
+        return sdk.NoneLinkConfig()
+
 
 class DeviceConfigDialog(QDialog):
-
-    class PersistentPreferences:
-        UDP_HOST = 'udp_hostname'
-        UDP_PORT = 'udp_port'
-
-        TCP_HOST = 'tcp_hostname'
-        TCP_PORT = 'tcp_port'
-
-        SERIAL_PORT = 'serial_port'
-        SERIAL_BAUDRATE = 'serial_baudrate'
-        SERIAL_START_DELAY = 'serial_start_delay'
-        SERIAL_STOPBIT = 'serial_stopbit'
-        SERIAL_PARITY = 'serial_parity'
-        SERIAL_DATABITS = 'serial_databits'
-
-        RTT_TARGET_DEVICE = 'rtt_target_device'
-        RTT_JLINK_INTERFACE = 'rtt_jlink_interface'
-
-        CAN_INTERFACE = 'can_interface'
-        CAN_TXID = 'can_txid'
-        CAN_RXID = 'can_rxid'
-        CAN_EXTENDED_ID = 'can_extended_id'
-        CAN_FD = 'can_fd'
-        CAN_BITRATE_SWITCH = 'can_bitrate_switch'
-
-        CAN_SOCKETCAN_CHANNEL = 'can_socketcan_channel'
-        CAN_VECTOR_CHANNEL = 'can_vector_channel'
-        CAN_VECTOR_BITRATE = 'can_vector_bitrate'
-        CAN_VECTOR_DATA_BITRATE = 'can_vector_data_bitrate'
-        CAN_KVASER_CHANNEL = 'can_kvaser_channel'
-        CAN_KVASER_BITRATE = 'can_kvaser_bitrate'
-        CAN_KVASER_DATA_BITRATE = 'can_kvaser_data_bitrate'
-        CAN_KVASER_FD_NON_ISO = 'can_kvaser_fd_non_iso'
-
-        @classmethod
-        def get_all(cls) -> List[str]:
-            return [attr for attr in dir(cls) if not callable(getattr(cls, attr)) and not attr.startswith("__")]
 
     CONFIG_TYPE_TO_WIDGET: Dict[sdk.DeviceLinkType, Type[BaseConfigPane]] = {
         sdk.DeviceLinkType.NONE: NoConfigPane,
@@ -90,7 +61,7 @@ class DeviceConfigDialog(QDialog):
     _feedback_label: FeedbackLabel
     _btn_ok: QPushButton
     _btn_cancel: QPushButton
-    _preferences: AppPersistentData
+    _persistent_data: AppPersistentData
 
     def __init__(self,
                  parent: Optional[QWidget] = None,
@@ -98,7 +69,6 @@ class DeviceConfigDialog(QDialog):
                  ) -> None:
         super().__init__(parent)
         self.setModal(True)
-        self._preferences = gui_persistent_data.get_namespace(self.__class__.__name__)
         self._apply_callback = apply_callback
         self.logger = logging.getLogger(self.__class__.__name__)
         self.setMinimumWidth(250)
@@ -133,124 +103,27 @@ class DeviceConfigDialog(QDialog):
         self._configs = {}
         # Preload some default configs to avoid having a blank form
         self._configs[sdk.DeviceLinkType.NONE] = sdk.NoneLinkConfig()
-        self._configs[sdk.DeviceLinkType.UDP] = sdk.UDPLinkConfig(
-            host=self._preferences.get_str(self.PersistentPreferences.UDP_HOST, 'localhost'),
-            port=self._preferences.get_int(self.PersistentPreferences.UDP_PORT, 12345),
-        )
-
-        self._configs[sdk.DeviceLinkType.TCP] = sdk.TCPLinkConfig(
-            host=self._preferences.get_str(self.PersistentPreferences.TCP_HOST, 'localhost'),
-            port=self._preferences.get_int(self.PersistentPreferences.TCP_PORT, 12345),
-        )
-
-        self._configs[sdk.DeviceLinkType.Serial] = sdk.SerialLinkConfig(
-            port=self._preferences.get_str(self.PersistentPreferences.SERIAL_PORT, '<port>'),
-            baudrate=self._preferences.get_int(self.PersistentPreferences.SERIAL_BAUDRATE, 115200),
-            start_delay=self._preferences.get_float(self.PersistentPreferences.SERIAL_START_DELAY, 0),
-            parity=sdk.SerialLinkConfig.Parity.from_str(
-                self._preferences.get_str(self.PersistentPreferences.SERIAL_PARITY, sdk.SerialLinkConfig.Parity.NONE.to_str()),
-                sdk.SerialLinkConfig.Parity.NONE    # preference file could be corrupted
-            ),
-            stopbits=sdk.SerialLinkConfig.StopBits.from_float(
-                self._preferences.get_float(self.PersistentPreferences.SERIAL_STOPBIT, sdk.SerialLinkConfig.StopBits.ONE.to_float()),
-                default=sdk.SerialLinkConfig.StopBits.ONE   # preference file could be corrupted
-            ),
-            databits=sdk.SerialLinkConfig.DataBits.from_int(
-                self._preferences.get_int(self.PersistentPreferences.SERIAL_DATABITS, sdk.SerialLinkConfig.DataBits.EIGHT.to_int()),
-                default=sdk.SerialLinkConfig.DataBits.EIGHT   # preference file could be corrupted
-            )
-        )
-
-        self._configs[sdk.DeviceLinkType.RTT] = sdk.RTTLinkConfig(
-            target_device=self._preferences.get_str(self.PersistentPreferences.RTT_TARGET_DEVICE, '<device>'),
-            jlink_interface=sdk.RTTLinkConfig.JLinkInterface.from_str(
-                self._preferences.get_str(self.PersistentPreferences.RTT_JLINK_INTERFACE, sdk.RTTLinkConfig.JLinkInterface.SWD.to_str()),
-                sdk.RTTLinkConfig.JLinkInterface.SWD
-            )
-        )
-
-        interface_config: Union[sdk.CANLinkConfig.SocketCANConfig, sdk.CANLinkConfig.VectorConfig, sdk.CANLinkConfig.KVaserConfig]
-        can_interface = sdk.CANLinkConfig.CANInterface(self._preferences.get_int(self.PersistentPreferences.CAN_INTERFACE, 0))
-        if can_interface == sdk.CANLinkConfig.CANInterface.SocketCAN:
-            interface_config = sdk.CANLinkConfig.SocketCANConfig(
-                channel=self._preferences.get_str(self.PersistentPreferences.CAN_SOCKETCAN_CHANNEL, 'can0')
-            )
-        elif can_interface == sdk.CANLinkConfig.CANInterface.Vector:
-            interface_config = sdk.CANLinkConfig.VectorConfig(
-                channel=self._preferences.get_str(self.PersistentPreferences.CAN_VECTOR_CHANNEL, '0'),
-                bitrate=self._preferences.get_int(self.PersistentPreferences.CAN_VECTOR_BITRATE, 500000),
-                data_bitrate=self._preferences.get_int(self.PersistentPreferences.CAN_VECTOR_DATA_BITRATE, 500000)
-            )
-        elif can_interface == sdk.CANLinkConfig.CANInterface.KVaser:
-            interface_config = sdk.CANLinkConfig.KVaserConfig(
-                channel=self._preferences.get_int(self.PersistentPreferences.CAN_KVASER_CHANNEL, 0),
-                bitrate=self._preferences.get_int(self.PersistentPreferences.CAN_KVASER_BITRATE, 500000),
-                data_bitrate=self._preferences.get_int(self.PersistentPreferences.CAN_KVASER_DATA_BITRATE, 500000),
-                fd_non_iso=self._preferences.get_bool(self.PersistentPreferences.CAN_KVASER_FD_NON_ISO, False)
-            )
-        else:
-            raise NotImplementedError(f"Unsupported CAN interface {can_interface}")
-
-        self._configs[sdk.DeviceLinkType.CAN] = sdk.CANLinkConfig(
-            interface=can_interface,
-            txid=self._preferences.get_int(self.PersistentPreferences.CAN_TXID, 0),
-            rxid=self._preferences.get_int(self.PersistentPreferences.CAN_RXID, 0),
-            extended_id=self._preferences.get_bool(self.PersistentPreferences.CAN_EXTENDED_ID, False),
-            fd=self._preferences.get_bool(self.PersistentPreferences.CAN_FD, False),
-            bitrate_switch=self._preferences.get_bool(self.PersistentPreferences.CAN_BITRATE_SWITCH, False),
-            interface_config=interface_config
-        )
+        self._configs[sdk.DeviceLinkType.UDP] = UDPConfigPane.initialize_config()
+        self._configs[sdk.DeviceLinkType.TCP] = TCPConfigPane.initialize_config()
+        self._configs[sdk.DeviceLinkType.Serial] = SerialConfigPane.initialize_config()
+        self._configs[sdk.DeviceLinkType.RTT] = RTTConfigPane.initialize_config()
+        self._configs[sdk.DeviceLinkType.CAN] = CanBusConfigPane.initialize_config()
 
         self._link_type_combo_box.currentIndexChanged.connect(self._combobox_changed)
         self._active_pane = NoConfigPane()
         self.swap_config_pane(sdk.DeviceLinkType.NONE)
 
-        self._preferences.prune(self.PersistentPreferences.get_all())    # Remove extra keys
-        self._commit_configs_to_preferences()   # Override any corrupted values
+        self._commit_configs_to_persistent_data()   # Override any corrupted values
 
-    def _commit_configs_to_preferences(self) -> None:
+    def _commit_configs_to_persistent_data(self) -> None:
         """Put the actual state of the dialog inside the persistent preferences system
         so that they get reloaded on next app startup"""
-        udp_config = cast(sdk.UDPLinkConfig, self._configs[sdk.DeviceLinkType.UDP])
-        self._preferences.set_str(self.PersistentPreferences.UDP_HOST, udp_config.host)
-        self._preferences.set_int(self.PersistentPreferences.UDP_PORT, udp_config.port)
 
-        tcp_config = cast(sdk.TCPLinkConfig, self._configs[sdk.DeviceLinkType.TCP])
-        self._preferences.set_str(self.PersistentPreferences.TCP_HOST, tcp_config.host)
-        self._preferences.set_int(self.PersistentPreferences.TCP_PORT, tcp_config.port)
-
-        serial_config = cast(sdk.SerialLinkConfig, self._configs[sdk.DeviceLinkType.Serial])
-        self._preferences.set_str(self.PersistentPreferences.SERIAL_PORT, serial_config.port)
-        self._preferences.set_int(self.PersistentPreferences.SERIAL_BAUDRATE, serial_config.baudrate)
-        self._preferences.set_float(self.PersistentPreferences.SERIAL_START_DELAY, serial_config.start_delay)
-        self._preferences.set_str(self.PersistentPreferences.SERIAL_PARITY, serial_config.parity.to_str())
-        self._preferences.set_int(self.PersistentPreferences.SERIAL_DATABITS, serial_config.databits.to_int())
-        self._preferences.set_float(self.PersistentPreferences.SERIAL_STOPBIT, serial_config.stopbits.to_float())
-
-        rtt_config = cast(sdk.RTTLinkConfig, self._configs[sdk.DeviceLinkType.RTT])
-        self._preferences.set_str(self.PersistentPreferences.RTT_TARGET_DEVICE, rtt_config.target_device)
-        self._preferences.set_str(self.PersistentPreferences.RTT_JLINK_INTERFACE, rtt_config.jlink_interface.to_str())
-
-        can_config = cast(sdk.CANLinkConfig, self._configs[sdk.DeviceLinkType.CAN])
-        self._preferences.set_int(self.PersistentPreferences.CAN_INTERFACE, can_config.interface.value)
-        self._preferences.set_int(self.PersistentPreferences.CAN_TXID, can_config.txid)
-        self._preferences.set_int(self.PersistentPreferences.CAN_RXID, can_config.rxid)
-        self._preferences.set_bool(self.PersistentPreferences.CAN_BITRATE_SWITCH, can_config.bitrate_switch)
-        self._preferences.set_bool(self.PersistentPreferences.CAN_EXTENDED_ID, can_config.extended_id)
-        self._preferences.set_bool(self.PersistentPreferences.CAN_FD, can_config.fd)
-
-        if isinstance(can_config.interface_config, sdk.CANLinkConfig.SocketCANConfig):
-             self._preferences.set_str(self.PersistentPreferences.CAN_SOCKETCAN_CHANNEL, can_config.interface_config.channel)
-        elif isinstance(can_config.interface_config, sdk.CANLinkConfig.VectorConfig):
-             self._preferences.set_str(self.PersistentPreferences.CAN_VECTOR_CHANNEL, str(can_config.interface_config.channel))
-             self._preferences.set_int(self.PersistentPreferences.CAN_VECTOR_BITRATE, can_config.interface_config.bitrate)
-             self._preferences.set_int(self.PersistentPreferences.CAN_VECTOR_DATA_BITRATE, can_config.interface_config.data_bitrate)
-        elif isinstance(can_config.interface_config, sdk.CANLinkConfig.KVaserConfig):
-             self._preferences.set_str(self.PersistentPreferences.CAN_KVASER_CHANNEL, str(can_config.interface_config.channel))
-             self._preferences.set_int(self.PersistentPreferences.CAN_KVASER_BITRATE, can_config.interface_config.bitrate)
-             self._preferences.set_int(self.PersistentPreferences.CAN_KVASER_DATA_BITRATE, can_config.interface_config.data_bitrate)
-             self._preferences.set_bool(self.PersistentPreferences.CAN_KVASER_FD_NON_ISO, can_config.interface_config.fd_non_iso)
-
+        UDPConfigPane.save_to_persistent_data(self._configs[sdk.DeviceLinkType.UDP])
+        TCPConfigPane.save_to_persistent_data(self._configs[sdk.DeviceLinkType.TCP])
+        SerialConfigPane.save_to_persistent_data(self._configs[sdk.DeviceLinkType.Serial])
+        RTTConfigPane.save_to_persistent_data(self._configs[sdk.DeviceLinkType.RTT])
+        CanBusConfigPane.save_to_persistent_data(self._configs[sdk.DeviceLinkType.CAN])
 
     def _get_selected_link_type(self) -> sdk.DeviceLinkType:
         return cast(sdk.DeviceLinkType, self._link_type_combo_box.currentData())
@@ -289,7 +162,7 @@ class DeviceConfigDialog(QDialog):
             self._configs[link_type] = config
             self._btn_ok.setEnabled(False)
             self._set_waiting_status()
-            self._commit_configs_to_preferences()
+            self._commit_configs_to_persistent_data()
             if self._apply_callback is not None:
                 self._apply_callback(self)
 

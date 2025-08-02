@@ -675,7 +675,6 @@ class CANLinkConfig(BaseLinkConfig):
             'fd': self.fd,
             'bitrate_switch': self.bitrate_switch,
             'subconfig': self.interface_config._to_api_format()
-
         }
 
     interface: CANInterface

@@ -11,12 +11,19 @@ __all__ = ['RTTConfigPane']
 from PySide6.QtWidgets import QLabel, QFormLayout, QWidget, QComboBox
 
 from scrutiny import sdk
+from scrutiny.gui.core.persistent_data import gui_persistent_data
 from scrutiny.gui.widgets.validable_line_edit import ValidableLineEdit
 from scrutiny.gui.tools.validators import NotEmptyValidator
 from scrutiny.gui.dialogs.device_config.base_config_pane import BaseConfigPane
 from scrutiny.tools.typing import *
+from scrutiny import tools
 
 class RTTConfigPane(BaseConfigPane):
+
+    class PersistentDataKeys:
+        TARGET_DEVICE = 'target_device'
+        JLINK_INTERFACE = 'jlink_interface'
+
     _target_device_text_box: ValidableLineEdit
     _jlink_interface_combo_box: QComboBox
 
@@ -71,3 +78,25 @@ class RTTConfigPane(BaseConfigPane):
     def visual_validation(self) -> None:
         # Called when OK is clicked
         self._target_device_text_box.validate_expect_valid()
+
+
+
+    @classmethod
+    def save_to_persistent_data(cls, config:sdk.BaseLinkConfig) -> None:
+        rtt_config = cast(sdk.RTTLinkConfig, config)
+        namespace = gui_persistent_data.get_namespace(cls.__name__)
+        
+        namespace.set_str(cls.PersistentDataKeys.TARGET_DEVICE, rtt_config.target_device)
+        namespace.set_str(cls.PersistentDataKeys.JLINK_INTERFACE, rtt_config.jlink_interface.to_str())
+        namespace.prune(tools.get_class_attr(cls.PersistentDataKeys))
+
+    @classmethod
+    def initialize_config(cls) -> sdk.BaseLinkConfig:
+        namespace = gui_persistent_data.get_namespace(cls.__name__)
+        return sdk.RTTLinkConfig(
+                target_device=namespace.get_str(cls.PersistentDataKeys.TARGET_DEVICE, '<device>'),
+                jlink_interface=sdk.RTTLinkConfig.JLinkInterface.from_str(
+                    namespace.get_str(cls.PersistentDataKeys.JLINK_INTERFACE, sdk.RTTLinkConfig.JLinkInterface.SWD.to_str()),
+                    sdk.RTTLinkConfig.JLinkInterface.SWD
+                )
+            )

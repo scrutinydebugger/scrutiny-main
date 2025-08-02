@@ -320,3 +320,6 @@ class NullableMutable(Generic[T]):
 
     def __init__(self, val: Optional[T]) -> None:
         self.val = val
+
+def get_class_attr(cls:Type[Any]) -> List[str]:
+    return [attr for attr in dir(cls) if not callable(getattr(cls, attr)) and not attr.startswith("__")]
