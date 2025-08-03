@@ -93,7 +93,7 @@ class TCPConfigPane(IPConfigPane):
     @classmethod
     def make_config_valid(cls, config: Optional[sdk.BaseLinkConfig]) -> sdk.BaseLinkConfig:
         assert isinstance(config, sdk.TCPLinkConfig)
-        port = max(min(config.port, 0xFFFF), 0)
+        port = max(min(config.port, 0xFFFF), 1)
         hostname = config.host
         if len(hostname) == 0:
             hostname = 'localhost'
@@ -109,14 +109,14 @@ class TCPConfigPane(IPConfigPane):
         namespace = gui_persistent_data.get_namespace(cls.__name__)
         namespace.set_str(cls.PersistentDataKeys.TCP_HOST, tcp_config.host)
         namespace.set_int(cls.PersistentDataKeys.TCP_PORT, tcp_config.port)
-        namespace.prune(tools.get_class_attr(cls.PersistentDataKeys))
+        namespace.prune(tools.get_class_attr_vals(cls.PersistentDataKeys))
 
     
     @classmethod
     def initialize_config(cls) -> sdk.BaseLinkConfig:
         namespace = gui_persistent_data.get_namespace(cls.__name__)
         hostname = namespace.get_str(cls.PersistentDataKeys.TCP_HOST, default='localhost')
-        port = namespace.get_int(cls.PersistentDataKeys.TCP_PORT, default=0)
+        port = namespace.get_int(cls.PersistentDataKeys.TCP_PORT, default=1234)
 
         return sdk.TCPLinkConfig(
             host=hostname,
@@ -148,7 +148,7 @@ class UDPConfigPane(IPConfigPane):
     @classmethod
     def make_config_valid(cls, config: Optional[sdk.BaseLinkConfig]) -> sdk.BaseLinkConfig:
         assert isinstance(config, sdk.UDPLinkConfig)
-        port = max(min(config.port, 0xFFFF), 0)
+        port = max(min(config.port, 0xFFFF), 1)
         hostname = config.host
         if len(hostname) == 0:
             hostname = 'localhost'
@@ -164,13 +164,13 @@ class UDPConfigPane(IPConfigPane):
         namespace = gui_persistent_data.get_namespace(cls.__name__)
         namespace.set_str(cls.PersistentDataKeys.UDP_HOST, udp_config.host)
         namespace.set_int(cls.PersistentDataKeys.UDP_PORT, udp_config.port)
-        namespace.prune(tools.get_class_attr(cls.PersistentDataKeys))
+        namespace.prune(tools.get_class_attr_vals(cls.PersistentDataKeys))
     
     @classmethod
     def initialize_config(cls) -> sdk.BaseLinkConfig:
         namespace = gui_persistent_data.get_namespace(cls.__name__)
         hostname = namespace.get_str(cls.PersistentDataKeys.UDP_HOST, default='localhost')
-        port = namespace.get_int(cls.PersistentDataKeys.UDP_PORT, default=0)
+        port = namespace.get_int(cls.PersistentDataKeys.UDP_PORT, default=1234)
 
         return sdk.UDPLinkConfig(
             host=hostname,

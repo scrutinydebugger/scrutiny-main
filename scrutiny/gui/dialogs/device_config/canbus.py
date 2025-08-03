@@ -242,7 +242,7 @@ class ETASSubconfigPane(QWidget):
         self._txt_channel = ValidableLineEdit(soft_validator=NotEmptyValidator())
         self._txt_bitrate = ValidableLineEdit(soft_validator=NotEmptyValidator(), hard_validator=QIntValidator(bottom=10000))
         self._txt_data_bitrate = ValidableLineEdit(soft_validator=NotEmptyValidator(), hard_validator=QIntValidator(bottom=10000))
-        self._txt_channel.setText('0')
+        self._txt_channel.setText('')
         self._txt_bitrate.setText('500000')
         self._txt_data_bitrate.setText('500000')
 
@@ -320,17 +320,29 @@ class CanBusConfigPane(BaseConfigPane):
         ETAS_DATA_BITRATE = 'etas_data_bitrate'
 
     _cmb_can_interface: QComboBox
+    """Combobox for selecting CAN bus interface type"""
     _spin_txid: QSpinBox
+    """SpinBox for configuring CAN bus transmit ID"""
     _spin_rxid: QSpinBox
+    """`SpinBox for configuring CAN bus receive ID"""
     _chk_extended_id: QCheckBox
+    """`CheckBox to select extended (29bits ID)"""
     _chk_fd: QCheckBox
+    """Checkbox to enable CAN FD"""
     _chk_bitrate_switch: QCheckBox
+    """Checkbox to enable bitrate switching for CAN FD"""
     _subconfig_layout: QStackedLayout
+    """The layout that will stack different interface-specific configuration panes"""
     _subconfig_socketcan_pane: SocketCanSubconfigPane
+    """SocketCAN specific configuration pane"""
     _subconfig_vector_pane: VectorSubconfigPane
+    """Vector specific configuration pane"""
     _subconfig_kvaser_pane: KVaserSubconfigPane
+    """KVaser specific configuration pane"""
     _subconfig_pcan_pane: PCANSubconfigPane
+    """PCAN specific configuration pane"""
     _subconfig_etas_pane: ETASSubconfigPane
+    """ETAS specific configuration pane"""
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
@@ -552,7 +564,7 @@ class CanBusConfigPane(BaseConfigPane):
         else:
             raise NotImplementedError("Unsupported CAN interface {can_interface}")
 
-        namespace.prune(tools.get_class_attr(cls.PersistentDataKeys))
+        namespace.prune(tools.get_class_attr_vals(cls.PersistentDataKeys))
 
     
     @classmethod

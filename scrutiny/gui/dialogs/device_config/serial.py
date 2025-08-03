@@ -153,7 +153,7 @@ class SerialConfigPane(BaseConfigPane):
         namespace.set_str(cls.PersistentDataKeys.PARITY, serial_config.parity.to_str())
         namespace.set_int(cls.PersistentDataKeys.DATABITS, serial_config.databits.to_int())
         namespace.set_float(cls.PersistentDataKeys.STOPBIT, serial_config.stopbits.to_float())
-        namespace.prune(tools.get_class_attr(cls.PersistentDataKeys))
+        namespace.prune(tools.get_class_attr_vals(cls.PersistentDataKeys))
 
 
     @classmethod

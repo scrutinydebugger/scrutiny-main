@@ -71,7 +71,7 @@ class RTTConfigPane(BaseConfigPane):
     def make_config_valid(cls, config: Optional[sdk.BaseLinkConfig]) -> sdk.BaseLinkConfig:
         assert isinstance(config, sdk.RTTLinkConfig)
         return sdk.RTTLinkConfig(
-            target_device="<device>" if len(config.target_device) else config.target_device,
+            target_device="<device>" if len(config.target_device) == 0 else config.target_device,
             jlink_interface=config.jlink_interface
         )
 
@@ -88,7 +88,7 @@ class RTTConfigPane(BaseConfigPane):
         
         namespace.set_str(cls.PersistentDataKeys.TARGET_DEVICE, rtt_config.target_device)
         namespace.set_str(cls.PersistentDataKeys.JLINK_INTERFACE, rtt_config.jlink_interface.to_str())
-        namespace.prune(tools.get_class_attr(cls.PersistentDataKeys))
+        namespace.prune(tools.get_class_attr_vals(cls.PersistentDataKeys))
 
     @classmethod
     def initialize_config(cls) -> sdk.BaseLinkConfig:

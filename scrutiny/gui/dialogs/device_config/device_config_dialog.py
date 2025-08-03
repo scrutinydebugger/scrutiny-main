@@ -10,6 +10,7 @@ __all__ = ['DeviceConfigDialog']
 
 import logging
 import traceback
+from dataclasses import dataclass
 
 from PySide6.QtWidgets import QDialog, QWidget, QComboBox, QVBoxLayout, QDialogButtonBox, QPushButton
 
@@ -34,23 +35,29 @@ class NoConfigPane(BaseConfigPane):
         self.make_config_valid(config)
 
     @classmethod
-    def save_to_persistent_data(self, config:sdk.BaseLinkConfig) -> None:
+    def save_to_persistent_data(cls, config:sdk.BaseLinkConfig) -> None:
         pass
     
     @classmethod
     def initialize_config(cls) -> sdk.BaseLinkConfig:
         return sdk.NoneLinkConfig()
 
+@dataclass
+class SupportedLinkType:
+    ui_pane:Type[BaseConfigPane]
+    display_name: str
+    sort_order: int
+
 
 class DeviceConfigDialog(QDialog):
 
-    CONFIG_TYPE_TO_WIDGET: Dict[sdk.DeviceLinkType, Type[BaseConfigPane]] = {
-        sdk.DeviceLinkType.NONE: NoConfigPane,
-        sdk.DeviceLinkType.TCP: TCPConfigPane,
-        sdk.DeviceLinkType.UDP: UDPConfigPane,
-        sdk.DeviceLinkType.Serial: SerialConfigPane,
-        sdk.DeviceLinkType.RTT: RTTConfigPane,
-        sdk.DeviceLinkType.CAN: CanBusConfigPane
+    SUPPORTED_LINKS: Dict[sdk.DeviceLinkType, SupportedLinkType] = {
+        sdk.DeviceLinkType.NONE: SupportedLinkType(ui_pane=NoConfigPane, display_name='None', sort_order=0),
+      #  sdk.DeviceLinkType.TCP: SupportedLinkType(ui_pane=TCPConfigPane, display_name="TCP/IP", sort_order=1), # Not supported by the server yet
+        sdk.DeviceLinkType.UDP: SupportedLinkType(ui_pane=UDPConfigPane, display_name="UDP/IP", sort_order=2),
+        sdk.DeviceLinkType.Serial: SupportedLinkType(ui_pane=SerialConfigPane, display_name="Serial", sort_order=3),
+        sdk.DeviceLinkType.RTT: SupportedLinkType(ui_pane=RTTConfigPane, display_name="JLink RTT", sort_order=4),
+        sdk.DeviceLinkType.CAN: SupportedLinkType(ui_pane=CanBusConfigPane, display_name="CAN", sort_order=5)
     }
 
     _link_type_combo_box: QComboBox
@@ -75,13 +82,9 @@ class DeviceConfigDialog(QDialog):
         vlayout = QVBoxLayout(self)
         # Combobox at the top
         self._link_type_combo_box = QComboBox()
-        self._link_type_combo_box.addItem("None", sdk.DeviceLinkType.NONE)
-        self._link_type_combo_box.addItem("Serial", sdk.DeviceLinkType.Serial)
-        self._link_type_combo_box.addItem("UDP/IP", sdk.DeviceLinkType.UDP)
-        self._link_type_combo_box.addItem("TCP/IP", sdk.DeviceLinkType.TCP)
-        self._link_type_combo_box.addItem("JLink RTT", sdk.DeviceLinkType.RTT)
-        self._link_type_combo_box.addItem("CAN", sdk.DeviceLinkType.CAN)
-
+        for link_type, link_info in sorted(self.SUPPORTED_LINKS.items(), key=lambda x: x[1].sort_order):
+            self._link_type_combo_box.addItem(link_info.display_name, link_type)
+        
         # Bottom part that changes based on combo box selection
         self._config_container = QWidget()
         self._config_container.setLayout(QVBoxLayout())
@@ -102,12 +105,8 @@ class DeviceConfigDialog(QDialog):
 
         self._configs = {}
         # Preload some default configs to avoid having a blank form
-        self._configs[sdk.DeviceLinkType.NONE] = sdk.NoneLinkConfig()
-        self._configs[sdk.DeviceLinkType.UDP] = UDPConfigPane.initialize_config()
-        self._configs[sdk.DeviceLinkType.TCP] = TCPConfigPane.initialize_config()
-        self._configs[sdk.DeviceLinkType.Serial] = SerialConfigPane.initialize_config()
-        self._configs[sdk.DeviceLinkType.RTT] = RTTConfigPane.initialize_config()
-        self._configs[sdk.DeviceLinkType.CAN] = CanBusConfigPane.initialize_config()
+        for link_type, link_info in self.SUPPORTED_LINKS.items():
+            self._configs[link_type] = link_info.ui_pane.initialize_config()
 
         self._link_type_combo_box.currentIndexChanged.connect(self._combobox_changed)
         self._active_pane = NoConfigPane()
@@ -119,12 +118,9 @@ class DeviceConfigDialog(QDialog):
         """Put the actual state of the dialog inside the persistent preferences system
         so that they get reloaded on next app startup"""
 
-        UDPConfigPane.save_to_persistent_data(self._configs[sdk.DeviceLinkType.UDP])
-        TCPConfigPane.save_to_persistent_data(self._configs[sdk.DeviceLinkType.TCP])
-        SerialConfigPane.save_to_persistent_data(self._configs[sdk.DeviceLinkType.Serial])
-        RTTConfigPane.save_to_persistent_data(self._configs[sdk.DeviceLinkType.RTT])
-        CanBusConfigPane.save_to_persistent_data(self._configs[sdk.DeviceLinkType.CAN])
-
+        for link_type, link_info in self.SUPPORTED_LINKS.items():
+            link_info.ui_pane.save_to_persistent_data(self._configs[link_type])
+          
     def _get_selected_link_type(self) -> sdk.DeviceLinkType:
         return cast(sdk.DeviceLinkType, self._link_type_combo_box.currentData())
 
@@ -141,7 +137,7 @@ class DeviceConfigDialog(QDialog):
                 pane.deleteLater()
 
         # Create an instance of the pane associated with the link type
-        self._active_pane = self.CONFIG_TYPE_TO_WIDGET[link_type]()
+        self._active_pane = self.SUPPORTED_LINKS[link_type].ui_pane()
         layout = self._config_container.layout()
         assert layout is not None
         layout.addWidget(self._active_pane)
@@ -199,7 +195,7 @@ class DeviceConfigDialog(QDialog):
         if link_type not in self._configs:
             raise ValueError("Unsupported config type")
 
-        valid_config = self.CONFIG_TYPE_TO_WIDGET[link_type].make_config_valid(config)
+        valid_config = self.SUPPORTED_LINKS[link_type].ui_pane.make_config_valid(config)
         self._configs[link_type] = valid_config
 
     def get_type_and_config(self) -> Tuple[sdk.DeviceLinkType, Optional[sdk.BaseLinkConfig]]:
