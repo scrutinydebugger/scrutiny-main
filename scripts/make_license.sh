@@ -22,6 +22,7 @@ packages=(
     pylink-square
     PySide6-QtAds
     PySide6
+    python-can
 )
 
 cp LICENSE ${OUTFILE}
