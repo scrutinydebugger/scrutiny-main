@@ -319,7 +319,7 @@ class BaseLinkConfig(abc.ABC):
 @dataclass(frozen=True)
 class NoneLinkConfig(BaseLinkConfig):
     """(Immutable struct) An Empty object acting as configuration structure for a device link of type :attr:`NONE<scrutiny.sdk.DeviceLinkType.NONE>`
-    Exists only to differentiate ``None`` (data not available) from ``NoneLinkConfig`` (data available - no link configured)
+    Exists only to differentiate ``None`` (data not available) from :class:`NoneLinkConfig<scrutiny.sdk.NoneLinkConfig>` (data available - no link configured)
     """
 
     def _to_api_format(self) -> Dict[str, Any]:
@@ -549,7 +549,12 @@ class CANLinkConfig(BaseLinkConfig):
 
     @dataclass(frozen=True)
     class SocketCANConfig:
-        """(Immutable struct) A SocketCAN specific configuration. Refer to ``python-can`` documentation for more details."""
+        """
+        (Immutable struct) A SocketCAN specific configuration used when 
+        :attr:`CANLinkConfig.interface<scrutiny.sdk.CANLinkConfig.interface>` = :attr:`SocketCAN<scrutiny.sdk.CANLinkConfig.CANInterface.SocketCAN>`.
+
+        Refer to ``python-can`` documentation for more details.
+        """
         channel: str
         """The name of the network interface"""
 
@@ -563,7 +568,12 @@ class CANLinkConfig(BaseLinkConfig):
 
     @dataclass(frozen=True)
     class VectorConfig:
-        """(Immutable struct) A Vector specific configuration. Refer to ``python-can`` documentation for more details."""
+        """
+        (Immutable struct) A Vector specific configuration used when 
+        :attr:`CANLinkConfig.interface<scrutiny.sdk.CANLinkConfig.interface>` = :attr:`Vector<scrutiny.sdk.CANLinkConfig.CANInterface.Vector>`. 
+        
+        Refer to ``python-can`` documentation for more details.
+        """
 
         channel: Union[str, int]
         """The name of the channel or channel number"""
@@ -590,7 +600,12 @@ class CANLinkConfig(BaseLinkConfig):
     
     @dataclass(frozen=True)
     class KVaserConfig:
-        """(Immutable struct) A KVaser specific configuration. Refer to ``python-can`` documentation for more details."""
+        """
+        (Immutable struct) A KVaser specific configuration used when 
+        :attr:`CANLinkConfig.interface<scrutiny.sdk.CANLinkConfig.interface>` = :attr:`KVaser<scrutiny.sdk.CANLinkConfig.CANInterface.KVaser>`. 
+        
+        Refer to ``python-can`` documentation for more details.
+        """
 
         channel: int
         """The channel number"""
@@ -617,7 +632,12 @@ class CANLinkConfig(BaseLinkConfig):
 
     @dataclass(frozen=True)
     class PCANConfig:
-        """(Immutable struct) A PCAN specific configuration. Refer to ``python-can`` documentation for more details."""
+        """
+        (Immutable struct) A PCAN specific configuration used when 
+        :attr:`CANLinkConfig.interface<scrutiny.sdk.CANLinkConfig.interface>` = :attr:`PCAN<scrutiny.sdk.CANLinkConfig.CANInterface.PCAN>`.
+            
+        Refer to ``python-can`` documentation for more details.
+        """
 
         channel: str
         """The channel number"""
@@ -636,7 +656,12 @@ class CANLinkConfig(BaseLinkConfig):
 
     @dataclass(frozen=True)
     class ETASConfig:
-        """(Immutable struct) A ETAS specific configuration. Refer to ``python-can`` documentation for more details."""
+        """
+        (Immutable struct) A ETAS specific configuration used when 
+        :attr:`CANLinkConfig.interface<scrutiny.sdk.CANLinkConfig.interface>` = :attr:`ETAS<scrutiny.sdk.CANLinkConfig.CANInterface.ETAS>`. 
+        
+        Refer to ``python-can`` documentation for more details.
+        """
 
         channel: str
         """The channel number"""

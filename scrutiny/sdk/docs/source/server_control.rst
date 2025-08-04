@@ -229,6 +229,47 @@ Seger RTT
 
 ------
 
+CAN Bus
+#######
+
+.. autoclass:: scrutiny.sdk.CANLinkConfig
+    :exclude-members: __new__, __init__, CANInterface, ETASConfig, KVaserConfig, PCANConfig, SocketCANConfig, VectorConfig
+    :members:
+
+
+.. autoclass:: scrutiny.sdk.CANLinkConfig.CANInterface
+    :exclude-members: __new__, __init__
+    :members:
+    :member-order: bysource
+
+.. autoclass:: scrutiny.sdk.CANLinkConfig.ETASConfig
+    :exclude-members: __new__, __init__
+    :members:
+    :member-order: bysource
+
+.. autoclass:: scrutiny.sdk.CANLinkConfig.KVaserConfig
+    :exclude-members: __new__, __init__
+    :members:
+    :member-order: bysource
+
+.. autoclass:: scrutiny.sdk.CANLinkConfig.PCANConfig
+    :exclude-members: __new__, __init__
+    :members:
+    :member-order: bysource
+
+.. autoclass:: scrutiny.sdk.CANLinkConfig.SocketCANConfig
+    :exclude-members: __new__, __init__
+    :members:
+    :member-order: bysource
+
+.. autoclass:: scrutiny.sdk.CANLinkConfig.VectorConfig
+    :exclude-members: __new__, __init__
+    :members:
+    :member-order: bysource
+
+
+------
+
 None
 ####
 
