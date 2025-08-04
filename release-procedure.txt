@@ -1,0 +1,7 @@
+1. Modify version scrutiny/__init__.py
+2. Commit and add tag : vX.Y.Z and push (with tag)
+3. ./scripts/pypi_release.sh vX.Y.Z
+4. Create release on github with change log. Select the correct tag.
+5. Downlaod installers created by the github action and uplaod on Github release page.
+6. Update website by changing the version in gulpfile.js
+7. website : ./release.sh

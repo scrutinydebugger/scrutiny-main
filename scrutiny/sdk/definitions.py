@@ -27,6 +27,7 @@ __all__ = [
     'SerialLinkConfig',
     'RTTLinkConfig',
     'NoneLinkConfig',
+    'CANLinkConfig',
     'SupportedLinkConfig',
     'DeviceLinkInfo',
     'ServerInfo',
@@ -137,7 +138,8 @@ class DeviceLinkType(enum.Enum):
     """Serial port"""
     RTT = 4
     """Segger JLink Real-Time Transfer port"""
-    # CAN = 5 # Todo
+    CAN = 5
+    """CAN Bus"""
     # SPI = 6 # Todo
 
 
@@ -317,7 +319,7 @@ class BaseLinkConfig(abc.ABC):
 @dataclass(frozen=True)
 class NoneLinkConfig(BaseLinkConfig):
     """(Immutable struct) An Empty object acting as configuration structure for a device link of type :attr:`NONE<scrutiny.sdk.DeviceLinkType.NONE>`
-    Exists only to differentiate ``None`` (data not available) from ``NoneLinkConfig`` (data available - no link configured)
+    Exists only to differentiate ``None`` (data not available) from :class:`NoneLinkConfig<scrutiny.sdk.NoneLinkConfig>` (data available - no link configured)
     """
 
     def _to_api_format(self) -> Dict[str, Any]:
@@ -524,8 +526,230 @@ class RTTLinkConfig(BaseLinkConfig):
             'jlink_interface': self.jlink_interface.value
         }
 
+# region CAN bus
 
-SupportedLinkConfig = Union[UDPLinkConfig, TCPLinkConfig, SerialLinkConfig, RTTLinkConfig, NoneLinkConfig]
+
+@dataclass(frozen=True)
+class CANLinkConfig(BaseLinkConfig):
+    """(Immutable struct) The configuration structure for a device link of type :attr:`CAN<scrutiny.sdk.DeviceLinkType.CAN>`"""
+
+    class CANInterface(enum.Enum):
+        """Type of CAN interface instantiated with ``python-can``."""
+
+        SocketCAN = 0
+        """Connect to a SocketCAN network interface."""
+        Vector = 1
+        """Use Vector hardware through the Vector XL API. The XL Driver library must be installed on the server"""
+        KVaser = 2
+        """Use KVaser hardware"""
+        PCAN = 3
+        """Use PCAN hardware through the PCAN API"""
+        ETAS = 4
+        """Use ETAS hardware through the ETAS DLL."""
+
+    @dataclass(frozen=True)
+    class SocketCANConfig:
+        """
+        (Immutable struct) A SocketCAN specific configuration used when 
+        :attr:`CANLinkConfig.interface<scrutiny.sdk.CANLinkConfig.interface>` = :attr:`SocketCAN<scrutiny.sdk.CANLinkConfig.CANInterface.SocketCAN>`.
+
+        Refer to ``python-can`` documentation for more details.
+        """
+        channel: str
+        """The name of the network interface"""
+
+        def __post_init__(self) -> None:
+            validation.assert_type(self.channel, 'channel', str)
+
+        def _to_api_format(self) -> Dict[str, Any]:
+            return {
+                'channel': self.channel
+            }
+
+    @dataclass(frozen=True)
+    class VectorConfig:
+        """
+        (Immutable struct) A Vector specific configuration used when 
+        :attr:`CANLinkConfig.interface<scrutiny.sdk.CANLinkConfig.interface>` = :attr:`Vector<scrutiny.sdk.CANLinkConfig.CANInterface.Vector>`. 
+        
+        Refer to ``python-can`` documentation for more details.
+        """
+
+        channel: Union[str, int]
+        """The name of the channel or channel number"""
+        bitrate: int
+        """The bitrate in bit/sec"""
+        data_bitrate: int
+        """The data bitrate in bit/sec for CAN FD (requires a bitrate switch)"""
+
+        def __post_init__(self) -> None:
+            validation.assert_type(self.channel, 'channel', (str, int))
+            if isinstance(self.channel, int):
+                validation.assert_int_range(self.channel, 'channel', minval=0)
+
+            validation.assert_int_range(self.bitrate, 'bitrate', minval=0)
+            validation.assert_int_range(self.data_bitrate, 'data_bitrate', minval=0)
+
+        def _to_api_format(self) -> Dict[str, Any]:
+            return {
+                'channel': self.channel,
+                'bitrate': self.bitrate,
+                'data_bitrate': self.data_bitrate
+            }
+        
+    
+    @dataclass(frozen=True)
+    class KVaserConfig:
+        """
+        (Immutable struct) A KVaser specific configuration used when 
+        :attr:`CANLinkConfig.interface<scrutiny.sdk.CANLinkConfig.interface>` = :attr:`KVaser<scrutiny.sdk.CANLinkConfig.CANInterface.KVaser>`. 
+        
+        Refer to ``python-can`` documentation for more details.
+        """
+
+        channel: int
+        """The channel number"""
+        bitrate: int
+        """The bitrate in bit/sec"""
+        data_bitrate: int
+        """The data bitrate in bit/sec for CAN FD (requires a bitrate switch)"""
+        fd_non_iso: bool
+        """Enable non-ISO CAN FD mode (Bosch). ISO CAN FD if ``False``"""
+
+        def __post_init__(self) -> None:
+            validation.assert_int_range(self.channel, 'channel', minval=0)
+            validation.assert_type(self.fd_non_iso, 'fd_non_iso', bool)
+            validation.assert_int_range(self.bitrate, 'bitrate', minval=0)
+            validation.assert_int_range(self.data_bitrate, 'data_bitrate', minval=0)
+
+        def _to_api_format(self) -> Dict[str, Any]:
+            return {
+                'channel': self.channel,
+                'bitrate': self.bitrate,
+                'data_bitrate': self.data_bitrate,
+                'fd_non_iso' : self.fd_non_iso
+            }
+
+    @dataclass(frozen=True)
+    class PCANConfig:
+        """
+        (Immutable struct) A PCAN specific configuration used when 
+        :attr:`CANLinkConfig.interface<scrutiny.sdk.CANLinkConfig.interface>` = :attr:`PCAN<scrutiny.sdk.CANLinkConfig.CANInterface.PCAN>`.
+            
+        Refer to ``python-can`` documentation for more details.
+        """
+
+        channel: str
+        """The channel number"""
+        bitrate: int
+        """The bitrate in bit/sec"""
+
+        def __post_init__(self) -> None:
+            validation.assert_type(self.channel, 'channel', str)
+            validation.assert_int_range(self.bitrate, 'bitrate', minval=0)
+
+        def _to_api_format(self) -> Dict[str, Any]:
+            return {
+                'channel': self.channel,
+                'bitrate': self.bitrate
+            }
+
+    @dataclass(frozen=True)
+    class ETASConfig:
+        """
+        (Immutable struct) A ETAS specific configuration used when 
+        :attr:`CANLinkConfig.interface<scrutiny.sdk.CANLinkConfig.interface>` = :attr:`ETAS<scrutiny.sdk.CANLinkConfig.CANInterface.ETAS>`. 
+        
+        Refer to ``python-can`` documentation for more details.
+        """
+
+        channel: str
+        """The channel number"""
+        bitrate: int
+        """The bitrate in bit/sec"""
+        data_bitrate: int
+        """The data bitrate in bit/sec for CAN FD (requires a bitrate switch)"""
+
+        def __post_init__(self) -> None:
+            validation.assert_type(self.channel, 'channel', str)
+            validation.assert_int_range(self.bitrate, 'bitrate', minval=0)
+            validation.assert_int_range(self.data_bitrate, 'data_bitrate', minval=0)
+
+        def _to_api_format(self) -> Dict[str, Any]:
+            return {
+                'channel': self.channel,
+                'bitrate': self.bitrate,
+                'data_bitrate': self.data_bitrate,
+            }
+
+
+    INTERFACE_CONFIG_MAP = {
+        CANInterface.SocketCAN: SocketCANConfig,
+        CANInterface.Vector: VectorConfig,
+        CANInterface.KVaser: KVaserConfig,
+        CANInterface.PCAN: PCANConfig,
+        CANInterface.ETAS: ETASConfig,
+    }
+
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.interface, CANLinkConfig.CANInterface):
+            raise TypeError("Invalid CAN interface")
+
+        can_max = 0x1FFFFFFF if self.extended_id else 0x7FF
+        validation.assert_int_range(self.txid, 'txid', minval=0, maxval=can_max)
+        validation.assert_int_range(self.rxid, 'rxid', minval=0, maxval=can_max)
+
+        validation.assert_type(self.extended_id, 'extended_id', bool)
+        validation.assert_type(self.fd, 'fd', bool)
+        validation.assert_type(self.bitrate_switch, 'bitrate_switch', bool)
+
+        validation.assert_type(self.interface_config, 'interface_config', self.INTERFACE_CONFIG_MAP[self.interface])
+
+    def _to_api_format(self) -> Dict[str, Any]:
+        inteface_str = ""
+        if self.interface == CANLinkConfig.CANInterface.SocketCAN:
+            inteface_str = "socketcan"
+        elif self.interface == CANLinkConfig.CANInterface.Vector:
+            inteface_str = "vector"
+        elif self.interface == CANLinkConfig.CANInterface.KVaser:
+            inteface_str = "kvaser"
+        elif self.interface == CANLinkConfig.CANInterface.PCAN:
+            inteface_str = "pcan"
+        elif self.interface == CANLinkConfig.CANInterface.ETAS:
+            inteface_str = "etas"
+        else:
+            raise NotImplementedError(f"Unsupported interface type {self.interface}")
+
+        return {
+            'interface': inteface_str,
+            'txid': self.txid,
+            'rxid': self.rxid,
+            'extended_id': self.extended_id,
+            'fd': self.fd,
+            'bitrate_switch': self.bitrate_switch,
+            'subconfig': self.interface_config._to_api_format()
+        }
+
+    interface: CANInterface
+    """The type of CAN interface used to access the CAN bus"""
+    txid: int
+    """The CAN ID used to transmit data from the server to the device"""
+    rxid: int
+    """The CAN ID used to transmit data from the device to the server"""
+    extended_id: bool
+    """A flag indicating if we use extended IDs (29 bits). Standard IDs (11 bits) are used when ``False``"""
+    fd: bool
+    """A flag indicating if we use CAN FD. Use of CAN 2.0 when ``False``"""
+    bitrate_switch: bool
+    """A flag telling if the server should do bitrate switch when transmitting. Only possible with CAN FD"""
+    interface_config: Union[SocketCANConfig, VectorConfig, KVaserConfig, PCANConfig, ETASConfig]
+    """A configuration specific to the interface"""
+
+# endregion
+
+
+SupportedLinkConfig = Union[UDPLinkConfig, TCPLinkConfig, SerialLinkConfig, RTTLinkConfig, NoneLinkConfig, CANLinkConfig]
 
 
 @dataclass(frozen=True)

@@ -1,5 +1,5 @@
 #    test_graph_decimator.py
-#        Test suite for the continuuos graph data decimator
+#        Test suite for the continuous graph data decimator
 #
 #   - License : MIT - See LICENSE file.
 #   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)

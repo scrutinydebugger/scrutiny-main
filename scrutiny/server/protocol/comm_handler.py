@@ -1,6 +1,6 @@
 #    comm_handler.py
 #        The CommHandler task is to convert Requests and Response from or to a stream of bytes.
-#
+#        
 #        This class manage send requests, wait for response, indicates if a response timeout
 #        occurred and decodes bytes.
 #        It manages the low level part of the communication protocol with the device
@@ -211,6 +211,9 @@ class CommHandler:
         elif link_type == 'rtt':
             from scrutiny.server.device.links.rtt_link import RttLink
             link_class = RttLink
+        elif link_type == 'canbus':
+            from scrutiny.server.device.links.canbus_link import CanBusLink
+            link_class = CanBusLink
         elif link_type == 'dummy':
             from scrutiny.server.device.links.dummy_link import DummyLink
             link_class = DummyLink

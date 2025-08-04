@@ -134,7 +134,7 @@ the :meth:`receive()<scrutiny.sdk.listeners.BaseListener.receive>` method.
 .. autoclass:: scrutiny.sdk.listeners.BaseListener
     :exclude-members: __new__, setup, teardown, start, stop, receive, subscribe
     :members:
-    :no-index: 
+    :noindex: 
     :member-order: bysource
 
 -----

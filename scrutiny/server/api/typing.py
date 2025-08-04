@@ -9,19 +9,27 @@
 from scrutiny.core.typehints import EmptyDict
 
 import scrutiny.core.firmware_description
-import scrutiny.server.device.links.rtt_link
-import scrutiny.server.device.links.serial_link
-import scrutiny.server.device.links.udp_link
+import scrutiny.server.device.links.typing
+
 from scrutiny.tools.typing import *
 
 WatchableType = Literal['alias', 'var', 'rpv']
 # Mapping between app type and API type.
 SFDMetadata = scrutiny.core.firmware_description.MetadataTypedDict
-SerialLinkConfig = scrutiny.server.device.links.serial_link.SerialConfig
-UdpLinkConfig = scrutiny.server.device.links.udp_link.UdpConfig
-RttLinkConfig = scrutiny.server.device.links.rtt_link.RttConfig
-LinkConfig = Union[EmptyDict, UdpLinkConfig, SerialLinkConfig, RttLinkConfig]
-LinkType = Literal['none', 'udp', 'serial', 'dummy', 'rtt']
+SerialLinkConfig = scrutiny.server.device.links.typing.SerialConfigDict
+UdpLinkConfig = scrutiny.server.device.links.typing.UdpConfigDict
+RttLinkConfig = scrutiny.server.device.links.typing.RttConfigDict
+CanBusLinkConfig = scrutiny.server.device.links.typing.CanBusConfigDict
+
+CanBusSocketCanSubconfig = scrutiny.server.device.links.typing.SocketCanSubconfigDict
+CanBusVectorSubconfig = scrutiny.server.device.links.typing.VectorSubconfigDict
+CanBusKVaserSubconfig = scrutiny.server.device.links.typing.KVaserCanSubconfigDict
+CanBusPCANSubconfig = scrutiny.server.device.links.typing.PCANCanSubconfigDict
+CanBusETASSubconfig = scrutiny.server.device.links.typing.ETASCanSubconfigDict
+CANBUS_ANY_SUBCONFIG_DICT = scrutiny.server.device.links.typing.CANBUS_ANY_SUBCONFIG_DICT
+
+LinkConfig = Union[EmptyDict, UdpLinkConfig, SerialLinkConfig, RttLinkConfig, CanBusLinkConfig]
+LinkType = Literal['none', 'udp', 'serial', 'dummy', 'rtt', 'canbus']
 SupportedFeature = Literal['memory_write', 'datalogging', 'user_command', '_64bits']
 Datatype = Literal[
     'sint8', 'sint16', 'sint32', 'sint64', 'sint128', 'sint256',
@@ -30,6 +38,7 @@ Datatype = Literal[
     'cfloat8', 'cfloat16', 'cfloat32', 'cfloat64', 'cfloat128', 'cfloat256',
     'boolean'
 ]
+CANInterfaceType = Literal['socketcan', 'vector']
 
 DeviceCommStatus = Literal['unknown', 'disconnected', 'connecting', 'connected', 'connected_ready']
 DataloggingState = Literal["unavailable", "standby", "waiting_for_trigger", "acquiring", "downloading", "error"]

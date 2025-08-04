@@ -21,7 +21,7 @@ from scrutiny.gui.core.server_manager import ServerManager
 from scrutiny.gui.core.local_server_runner import LocalServerRunner
 from scrutiny.gui.core.user_messages_manager import UserMessagesManager, UserMessage
 from scrutiny.gui.dialogs.server_config_dialog import ServerConfigDialog
-from scrutiny.gui.dialogs.device_config_dialog import DeviceConfigDialog
+from scrutiny.gui.dialogs.device_config.device_config_dialog import DeviceConfigDialog
 from scrutiny.gui.dialogs.device_info_dialog import DeviceInfoDialog
 from scrutiny.gui.dialogs.sfd_content_dialog import SFDContentDialog
 from scrutiny.gui.themes import scrutiny_get_theme
@@ -457,6 +457,25 @@ class StatusBar(QStatusBar):
         elif link_type == DeviceLinkType.RTT:
             config = cast(sdk.RTTLinkConfig, config)
             self._device_comm_link_label.set_text(f"{prefix} RTT {config.jlink_interface.name} ({config.target_device})")
+        elif link_type == DeviceLinkType.CAN:
+            config = cast(sdk.CANLinkConfig, config)
+            if config.extended_id:
+                txid = "%08Xh" % config.txid
+                rxid = "%08Xh" % config.rxid
+            else:
+                txid = "%03Xh" % config.txid
+                rxid = "%03Xh" % config.rxid
+
+            can_type = 'FD' if config.fd else '2.0'
+            id_size = '29b' if config.extended_id else '11b'
+            bitrate = 'N/A'
+            if isinstance(config.interface_config, sdk.CANLinkConfig.VectorConfig):
+                bitrate = '%.2f' % (config.interface_config.bitrate / 1000)
+                bitrate = bitrate.rstrip('0').rstrip('.')
+                bitrate += 'kbps'
+
+            txt = f"{prefix} CAN {can_type} {id_size} | {config.interface.name} @{bitrate} | Tx:{txid} Rx:{rxid}"
+            self._device_comm_link_label.set_text(txt)
         else:
             raise NotImplementedError("Unsupported device link type")
 

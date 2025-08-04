@@ -326,6 +326,9 @@ class FakeDeviceHandler:
         elif link_type == 'rtt':
             if link_config['target_device'] == 'raise':
                 raise ValueError("Bad config")
+        elif link_type == 'canbus':
+            if link_config['interface'] == 'socketcan' and link_config['subconfig']['channel'] == 'raise':
+                raise ValueError("Bad config")
 
     def configure_comm(self, link_type: str, link_config: Dict = {}) -> None:
         self.comm_configure_queue.put((link_type, link_config))
@@ -1957,6 +1960,343 @@ class TestClient(ScrutinyUnitTest):
                 target_device="CORTEX-M0",
                 jlink_interface=123
             )
+
+    def test_configure_device_link_can_socketcan(self):
+        configin = sdk.CANLinkConfig(
+            interface=sdk.CANLinkConfig.CANInterface.SocketCAN,
+            txid=0x100,
+            rxid=0x101,
+            extended_id=False,
+            fd=True,
+            bitrate_switch=True,
+            interface_config=sdk.CANLinkConfig.SocketCANConfig(channel='can0')
+        )
+
+        self.client.configure_device_link(sdk.DeviceLinkType.CAN, configin)
+        self.assertFalse(self.device_handler.comm_configure_queue.empty())
+        link_type, configout = self.device_handler.comm_configure_queue.get(block=False)
+
+        expected_fields = [
+            'interface',
+            'txid',
+            'rxid',
+            'extended_id',
+            'fd',
+            'bitrate_switch',
+            'subconfig',
+        ]
+
+        for field in expected_fields:
+            self.assertIn(field, configout)
+
+        self.assertEqual(link_type, 'canbus')
+        self.assertEqual(configout['interface'], 'socketcan')
+        self.assertEqual(configout['txid'], 0x100)
+        self.assertEqual(configout['rxid'], 0x101)
+        self.assertEqual(configout['extended_id'], False)
+        self.assertEqual(configout['fd'], True)
+        self.assertEqual(configout['bitrate_switch'], True)
+        self.assertIn('channel', configout['subconfig'])
+        self.assertEqual(configout['subconfig']['channel'], 'can0')
+
+    def test_configure_device_link_can_vector(self):
+        configin = sdk.CANLinkConfig(
+            interface=sdk.CANLinkConfig.CANInterface.Vector,
+            txid=0x100,
+            rxid=0x101,
+            extended_id=False,
+            fd=True,
+            bitrate_switch=True,
+            interface_config=sdk.CANLinkConfig.VectorConfig(
+                channel=1,
+                bitrate=500000,
+                data_bitrate=1000000,
+            )
+        )
+
+        self.client.configure_device_link(sdk.DeviceLinkType.CAN, configin)
+        self.assertFalse(self.device_handler.comm_configure_queue.empty())
+        link_type, configout = self.device_handler.comm_configure_queue.get(block=False)
+
+        expected_fields = [
+            'interface',
+            'txid',
+            'rxid',
+            'extended_id',
+            'fd',
+            'bitrate_switch',
+            'subconfig',
+        ]
+
+        for field in expected_fields:
+            self.assertIn(field, configout)
+
+        self.assertEqual(link_type, 'canbus')
+        self.assertEqual(configout['interface'], 'vector')
+        self.assertEqual(configout['txid'], 0x100)
+        self.assertEqual(configout['rxid'], 0x101)
+        self.assertEqual(configout['extended_id'], False)
+        self.assertEqual(configout['fd'], True)
+        self.assertEqual(configout['bitrate_switch'], True)
+
+        self.assertIn('channel', configout['subconfig'])
+        self.assertIn('bitrate', configout['subconfig'])
+        self.assertIn('data_bitrate', configout['subconfig'])
+
+        self.assertEqual(configout['subconfig']['channel'], 1)
+        self.assertEqual(configout['subconfig']['bitrate'], 500000)
+        self.assertEqual(configout['subconfig']['data_bitrate'], 1000000)
+
+
+    def test_configure_device_link_can_kvaser(self):
+        configin = sdk.CANLinkConfig(
+            interface=sdk.CANLinkConfig.CANInterface.KVaser,
+            txid=0x100,
+            rxid=0x101,
+            extended_id=False,
+            fd=True,
+            bitrate_switch=True,
+            interface_config=sdk.CANLinkConfig.KVaserConfig(
+                channel=1,
+                bitrate=500000,
+                data_bitrate=1000000,
+                fd_non_iso=False
+            )
+        )
+
+        self.client.configure_device_link(sdk.DeviceLinkType.CAN, configin)
+        self.assertFalse(self.device_handler.comm_configure_queue.empty())
+        link_type, configout = self.device_handler.comm_configure_queue.get(block=False)
+
+        expected_fields = [
+            'interface',
+            'txid',
+            'rxid',
+            'extended_id',
+            'fd',
+            'bitrate_switch',
+            'subconfig',
+        ]
+
+        for field in expected_fields:
+            self.assertIn(field, configout)
+
+        self.assertEqual(link_type, 'canbus')
+        self.assertEqual(configout['interface'], 'kvaser')
+        self.assertEqual(configout['txid'], 0x100)
+        self.assertEqual(configout['rxid'], 0x101)
+        self.assertEqual(configout['extended_id'], False)
+        self.assertEqual(configout['fd'], True)
+        self.assertEqual(configout['bitrate_switch'], True)
+
+        self.assertIn('channel', configout['subconfig'])
+        self.assertIn('bitrate', configout['subconfig'])
+        self.assertIn('data_bitrate', configout['subconfig'])
+        self.assertIn('fd_non_iso', configout['subconfig'])
+
+        self.assertEqual(configout['subconfig']['channel'], 1)
+        self.assertEqual(configout['subconfig']['bitrate'], 500000)
+        self.assertEqual(configout['subconfig']['data_bitrate'], 1000000)        
+        self.assertEqual(configout['subconfig']['fd_non_iso'], False)        
+
+    def test_configure_device_link_can_pcan(self):
+        configin = sdk.CANLinkConfig(
+            interface=sdk.CANLinkConfig.CANInterface.PCAN,
+            txid=0x100,
+            rxid=0x101,
+            extended_id=False,
+            fd=True,
+            bitrate_switch=True,
+            interface_config=sdk.CANLinkConfig.PCANConfig(
+                channel='PCAN_USBBUS1',
+                bitrate=500000
+            )
+        )
+
+        self.client.configure_device_link(sdk.DeviceLinkType.CAN, configin)
+        self.assertFalse(self.device_handler.comm_configure_queue.empty())
+        link_type, configout = self.device_handler.comm_configure_queue.get(block=False)
+
+        expected_fields = [
+            'interface',
+            'txid',
+            'rxid',
+            'extended_id',
+            'fd',
+            'bitrate_switch',
+            'subconfig',
+        ]
+
+        for field in expected_fields:
+            self.assertIn(field, configout)
+
+        self.assertEqual(link_type, 'canbus')
+        self.assertEqual(configout['interface'], 'pcan')
+        self.assertEqual(configout['txid'], 0x100)
+        self.assertEqual(configout['rxid'], 0x101)
+        self.assertEqual(configout['extended_id'], False)
+        self.assertEqual(configout['fd'], True)
+        self.assertEqual(configout['bitrate_switch'], True)
+
+        self.assertIn('channel', configout['subconfig'])
+        self.assertIn('bitrate', configout['subconfig'])
+
+        self.assertEqual(configout['subconfig']['channel'], 'PCAN_USBBUS1')
+        self.assertEqual(configout['subconfig']['bitrate'], 500000)
+
+    def test_configure_device_link_can_etas(self):
+        configin = sdk.CANLinkConfig(
+            interface=sdk.CANLinkConfig.CANInterface.ETAS,
+            txid=0x100,
+            rxid=0x101,
+            extended_id=False,
+            fd=False,
+            bitrate_switch=False,
+            interface_config=sdk.CANLinkConfig.ETASConfig(
+                channel='ETAS://ETH/ES910:abcd/CAN:1',
+                bitrate=500000,
+                data_bitrate=1000000
+            )
+        )
+
+        self.client.configure_device_link(sdk.DeviceLinkType.CAN, configin)
+        self.assertFalse(self.device_handler.comm_configure_queue.empty())
+        link_type, configout = self.device_handler.comm_configure_queue.get(block=False)
+
+        expected_fields = [
+            'interface',
+            'txid',
+            'rxid',
+            'extended_id',
+            'fd',
+            'bitrate_switch',
+            'subconfig',
+        ]
+
+        for field in expected_fields:
+            self.assertIn(field, configout)
+
+        self.assertEqual(link_type, 'canbus')
+        self.assertEqual(configout['interface'], 'etas')
+        self.assertEqual(configout['txid'], 0x100)
+        self.assertEqual(configout['rxid'], 0x101)
+        self.assertEqual(configout['extended_id'], False)
+        self.assertEqual(configout['fd'], False)
+        self.assertEqual(configout['bitrate_switch'], False)
+
+        self.assertIn('channel', configout['subconfig'])
+        self.assertIn('bitrate', configout['subconfig'])
+        self.assertIn('data_bitrate', configout['subconfig'])
+
+        self.assertEqual(configout['subconfig']['channel'], 'ETAS://ETH/ES910:abcd/CAN:1')
+        self.assertEqual(configout['subconfig']['bitrate'], 500000)      
+        self.assertEqual(configout['subconfig']['data_bitrate'], 1000000)      
+
+    def test_configure_device_link_can_errors(self):
+        def base_socketcan(
+            interface=sdk.CANLinkConfig.CANInterface.SocketCAN,
+            txid=0x100,
+            rxid=0x101,
+            extended_id=False,
+            fd=True,
+            bitrate_switch=True,
+            interface_config=sdk.CANLinkConfig.SocketCANConfig(channel='can0')
+        ) -> sdk.CANLinkConfig:
+            return sdk.CANLinkConfig(
+                interface=interface,
+                txid=txid,
+                rxid=rxid,
+                extended_id=extended_id,
+                fd=fd,
+                bitrate_switch=bitrate_switch,
+                interface_config=interface_config
+            )
+
+        with self.assertRaises(sdk.exceptions.OperationFailure):
+            configin = base_socketcan(interface_config=sdk.CANLinkConfig.SocketCANConfig(
+                channel='raise'))  # Special name that cause a failure on the server side
+            self.client.configure_device_link(sdk.DeviceLinkType.CAN, configin)
+
+        for val in ['asd', 1, None, [], {}]:
+            with self.assertRaises(TypeError, msg=f"val={val}"):
+                base_socketcan(interface=val)
+
+        # TXID
+        for val in ['asd', None, [], {}, 1.2]:
+            with self.assertRaises(TypeError, msg=f"val={val}"):
+                base_socketcan(txid=val)
+        base_socketcan(txid=0x7FF, extended_id=False)
+
+        base_socketcan(txid=0x0, extended_id=False)
+        for val in [-1, 0x800]:
+            with self.assertRaises(ValueError, msg=f"val={val}"):
+                base_socketcan(txid=val)
+
+        base_socketcan(txid=0, extended_id=True)
+        base_socketcan(txid=0x1FFFFFFF, extended_id=True)
+        for val in [-1, 0x20000000]:
+            with self.assertRaises(ValueError, msg=f"val={val}"):
+                base_socketcan(txid=val, extended_id=True)
+
+        # RXID
+        for val in ['asd', None, [], {}, 1.2]:
+            with self.assertRaises(TypeError, msg=f"val={val}"):
+                base_socketcan(rxid=val)
+
+        base_socketcan(rxid=0x7FF, extended_id=False)
+        base_socketcan(rxid=0x0, extended_id=False)
+        for val in [-1, 0x800]:
+            with self.assertRaises(ValueError, msg=f"val={val}"):
+                base_socketcan(rxid=val)
+
+        base_socketcan(rxid=0, extended_id=True)
+        base_socketcan(rxid=0x1FFFFFFF, extended_id=True)
+        for val in [-1, 0x20000000]:
+            with self.assertRaises(ValueError, msg=f"val={val}"):
+                base_socketcan(rxid=val, extended_id=True)
+
+        # Bool fields
+        bool_fields = ['extended_id', 'fd', 'bitrate_switch']
+        for field in bool_fields:
+            for val in ['asd', None, [], {}, 1.2, 3]:
+                with self.assertRaises(TypeError, msg=f"field={field}, 'val={val}"):
+                    base_socketcan(**{field: val})
+
+        for val in ['asd', None, [], {}, 1.2, 3]:
+            with self.assertRaises(TypeError, msg=f"val={val}"):
+                base_socketcan(interface_config=val)
+
+        with self.assertRaises(TypeError):
+            base_socketcan(interface_config=sdk.CANLinkConfig.VectorConfig(channel=0, bitrate=100, data_bitrate=100))
+
+        # Test of subconfigs now
+
+        # Socketcan
+        for val in [True, None, [], {}, 1.2, 3]:
+            with self.assertRaises(TypeError, msg=f"val={val}"):
+                sdk.CANLinkConfig.SocketCANConfig(channel=val)
+
+        # Vector
+        for val in [True, None, [], {}, 1.2]:
+            with self.assertRaises(TypeError, msg=f"val={val}"):
+                sdk.CANLinkConfig.VectorConfig(channel=val, bitrate=100, data_bitrate=100)
+
+        for val in [True, None, [], {}, 1.2, 'asd']:
+            with self.assertRaises(TypeError, msg=f"val={val}"):
+                sdk.CANLinkConfig.VectorConfig(channel=0, bitrate=val, data_bitrate=100)
+
+        for val in [True, None, [], {}, 1.2, 'asd']:
+            with self.assertRaises(TypeError, msg=f"val={val}"):
+                sdk.CANLinkConfig.VectorConfig(channel=0, bitrate=100, data_bitrate=val)
+
+        with self.assertRaises(ValueError):
+            sdk.CANLinkConfig.VectorConfig(channel=-1, bitrate=100, data_bitrate=100)
+
+        with self.assertRaises(ValueError):
+            sdk.CANLinkConfig.VectorConfig(channel=0, bitrate=-1, data_bitrate=100)
+
+        with self.assertRaises(ValueError):
+            sdk.CANLinkConfig.VectorConfig(channel=0, bitrate=100, data_bitrate=-1)
 
     def test_user_command(self):
         # Success case

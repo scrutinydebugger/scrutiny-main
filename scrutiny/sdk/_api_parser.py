@@ -540,6 +540,8 @@ def parse_inform_server_status(response: api_typing.S2C.InformServerStatus) -> s
             return sdk.DeviceLinkType.UDP
         if api_val == 'rtt':
             return sdk.DeviceLinkType.RTT
+        if api_val == 'canbus':
+            return sdk.DeviceLinkType.CAN
         raise sdk.exceptions.BadResponseError(f'Unsupported device link type "{api_val}"')
 
     link_type = _link_type(response['device_comm_link']['link_type'])
@@ -622,6 +624,100 @@ def parse_inform_server_status(response: api_typing.S2C.InformServerStatus) -> s
         link_config = sdk.RTTLinkConfig(
             target_device=rtt_config['target_device'],
             jlink_interface=jlink_interface
+        )
+    elif link_type == sdk.DeviceLinkType.CAN:
+        _check_response_dict(cmd, response, 'device_comm_link.link_config.interface', str)
+        _check_response_dict(cmd, response, 'device_comm_link.link_config.txid', int)
+        _check_response_dict(cmd, response, 'device_comm_link.link_config.rxid', int)
+        _check_response_dict(cmd, response, 'device_comm_link.link_config.extended_id', bool)
+        _check_response_dict(cmd, response, 'device_comm_link.link_config.fd', bool)
+        _check_response_dict(cmd, response, 'device_comm_link.link_config.bitrate_switch', bool)
+        _check_response_dict(cmd, response, 'device_comm_link.link_config.subconfig', dict)
+
+        canbus_config = cast(api_typing.CanBusLinkConfig, response['device_comm_link']['link_config'])
+
+        def _can_interface_type(api_val: api_typing.CANInterfaceType) -> sdk.CANLinkConfig.CANInterface:
+            api_val_lower = api_val.lower().strip()
+            if api_val_lower == 'socketcan':
+                return sdk.CANLinkConfig.CANInterface.SocketCAN
+            if api_val_lower == 'vector':
+                return sdk.CANLinkConfig.CANInterface.Vector
+            if api_val_lower == 'kvaser':
+                return sdk.CANLinkConfig.CANInterface.KVaser
+            if api_val_lower == 'pcan':
+                return sdk.CANLinkConfig.CANInterface.PCAN
+            if api_val_lower == 'etas':
+                return sdk.CANLinkConfig.CANInterface.ETAS
+
+            raise sdk.exceptions.BadResponseError(f'Unsupported CAN interface type "{api_val}"')
+
+        interface = _can_interface_type(cast(api_typing.CANInterfaceType, canbus_config['interface']))
+
+        subconfig: api_typing.CANBUS_ANY_SUBCONFIG_DICT
+        interface_config: Union[
+            sdk.CANLinkConfig.SocketCANConfig, 
+            sdk.CANLinkConfig.VectorConfig, 
+            sdk.CANLinkConfig.KVaserConfig,
+            sdk.CANLinkConfig.PCANConfig,
+            sdk.CANLinkConfig.ETASConfig,
+            ]
+        if interface == sdk.CANLinkConfig.CANInterface.SocketCAN:
+            subconfig = cast(api_typing.CanBusSocketCanSubconfig, canbus_config['subconfig'])
+            _check_response_dict(cmd, subconfig, 'channel', str)
+            interface_config = sdk.CANLinkConfig.SocketCANConfig(
+                channel=subconfig['channel']
+            )
+        elif interface == sdk.CANLinkConfig.CANInterface.Vector:
+            subconfig = cast(api_typing.CanBusVectorSubconfig, canbus_config['subconfig'])
+            _check_response_dict(cmd, subconfig, 'channel', (str, int))
+            _check_response_dict(cmd, subconfig, 'bitrate', int)
+            _check_response_dict(cmd, subconfig, 'data_bitrate', int)
+            interface_config = sdk.CANLinkConfig.VectorConfig(
+                channel=subconfig['channel'],
+                bitrate=subconfig['bitrate'],
+                data_bitrate=subconfig['data_bitrate']
+            )
+        elif interface == sdk.CANLinkConfig.CANInterface.KVaser:
+            subconfig = cast(api_typing.CanBusKVaserSubconfig, canbus_config['subconfig'])
+            _check_response_dict(cmd, subconfig, 'channel', int)
+            _check_response_dict(cmd, subconfig, 'bitrate', int)
+            _check_response_dict(cmd, subconfig, 'data_bitrate', int)
+            _check_response_dict(cmd, subconfig, 'fd_non_iso', bool)
+            interface_config = sdk.CANLinkConfig.KVaserConfig(
+                channel=subconfig['channel'],
+                bitrate=subconfig['bitrate'],
+                data_bitrate=subconfig['data_bitrate'],
+                fd_non_iso=subconfig['fd_non_iso']
+            )
+        elif interface == sdk.CANLinkConfig.CANInterface.PCAN:
+            subconfig = cast(api_typing.CanBusPCANSubconfig, canbus_config['subconfig'])
+            _check_response_dict(cmd, subconfig, 'channel', str)
+            _check_response_dict(cmd, subconfig, 'bitrate', int)
+            interface_config = sdk.CANLinkConfig.PCANConfig(
+                channel=subconfig['channel'],
+                bitrate=subconfig['bitrate']
+            )
+        elif interface == sdk.CANLinkConfig.CANInterface.ETAS:
+            subconfig = cast(api_typing.CanBusETASSubconfig, canbus_config['subconfig'])
+            _check_response_dict(cmd, subconfig, 'channel', str)
+            _check_response_dict(cmd, subconfig, 'bitrate', int)
+            _check_response_dict(cmd, subconfig, 'data_bitrate', int)
+            interface_config = sdk.CANLinkConfig.ETASConfig(
+                channel=subconfig['channel'],
+                bitrate=subconfig['bitrate'],
+                data_bitrate=subconfig['data_bitrate']
+            )
+        else:
+            raise NotImplementedError(f"Unsupported interface type: {interface}")  # should not happen. Validated above
+
+        link_config = sdk.CANLinkConfig(
+            interface=interface,
+            txid=canbus_config['txid'],
+            rxid=canbus_config['rxid'],
+            extended_id=canbus_config['extended_id'],
+            fd=canbus_config['fd'],
+            bitrate_switch=canbus_config['bitrate_switch'],
+            interface_config=interface_config
         )
     else:
         raise RuntimeError(f'Unsupported device link type "{link_type}"')

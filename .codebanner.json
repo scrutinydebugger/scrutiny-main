@@ -505,9 +505,6 @@
         "test/server/links/test_rtt_link.py": {
             "docstring": "Test suite to test Segger Rtt Link "
         },
-        "scrutiny/gui/dialogs/device_config_dialog.py": {
-            "docstring": "A dialog meant to change the link between the server and the device and its configuration.\n Contains no app logic, has callback to integrate with an app."
-        },
         "scrutiny/gui/dialogs/about_dialog.py": {
             "docstring": "About window, contains data about the software, including all versions numbers"
         },
@@ -617,7 +614,7 @@
             "docstring": "Logger that dumps the values of the watchables into either one or multiple CSV files"
         },
         "test/gui/test_graph_decimator.py": {
-            "docstring": "Test suite for the continuuos graph data decimator"
+            "docstring": "Test suite for the continuous graph data decimator"
         },
         "scrutiny/gui/app_settings.py": {
             "docstring": "Global settings for the GUI."
@@ -701,7 +698,7 @@
             "docstring": "A base class for a component that are embedded in the gUI, not the dashboard"
         },
         "scrutiny/gui/components/locals/base_local_component.py": {
-            "docstring": "A base class for a component that can be added to the dashboard multiple ltimes"
+            "docstring": "A base class for a component that can be added to the dashboard multiple times"
         },
         "scrutiny/gui/dashboard/dashboard.py": {
             "docstring": "The Scrutiny Dashboard. Main feature allowing to display Components.\n Uses Qt Advanced Docking System. Supports save/reload "
@@ -840,6 +837,33 @@
         },
         "stubs/sortedcontainers.pyi": {
             "docstring": "A stub file for 3rdparty sorted containers module"
+        },
+        "test/server/links/test_canbus_link.py": {
+            "docstring": "A test suite for testing the CAN bus communication"
+        },
+        "scrutiny/server/device/links/canbus_link.py": {
+            "docstring": "An abstraction layer that provides CAN Bus communication with a device"
+        },
+        "scrutiny/server/device/links/typing.py": {
+            "docstring": "Type hint definitions for link configurations that are passed across the application"
+        },
+        "scrutiny/gui/dialogs/device_config/rtt.py": {
+            "docstring": "A Widget to configure a Seger RTT communication"
+        },
+        "scrutiny/gui/dialogs/device_config/device_config_dialog.py": {
+            "docstring": "A dialog to configure the communication between the server and the device"
+        },
+        "scrutiny/gui/dialogs/device_config/canbus.py": {
+            "docstring": "A Widget to configure a CAN bus communication"
+        },
+        "scrutiny/gui/dialogs/device_config/tcp_udp.py": {
+            "docstring": "A Widget to configure a TCP/UDP communication"
+        },
+        "scrutiny/gui/dialogs/device_config/serial.py": {
+            "docstring": "A Widget to configure a Serial port communication"
+        },
+        "scrutiny/gui/dialogs/device_config/base_config_pane.py": {
+            "docstring": "A base class for all configuration widget used in the device_config_dialog"
         }
     }
 }

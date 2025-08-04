@@ -20,7 +20,7 @@ from scrutiny.sdk.definitions import *
 import scrutiny.server.api.typing as api_typing
 import scrutiny.sdk
 import scrutiny.sdk.datalogging
-sdk = scrutiny.sdk  # Workaround for vscode linter an submodule on alias
+sdk = scrutiny.sdk  # Workaround for vscode linter and submodule on alias
 
 from test import ScrutinyUnitTest
 from scrutiny.tools.typing import *
@@ -629,6 +629,431 @@ class TestApiParser(ScrutinyUnitTest):
             with self.assertRaises(sdk.exceptions.BadResponseError):
                 del msg["device_comm_link"]["link_config"][field]
                 parser.parse_inform_server_status(msg)
+
+    def test_parse_inform_server_status_canbus_link_socketcan(self):
+        def base() -> api_typing.S2C.InformServerStatus:
+            return {
+                "cmd": "inform_server_status",
+                "reqid": 2,
+                "device_status": "connected_ready",
+                "device_session_id": "3d41973c65ba42218ab65c829a8c385e",
+                "loaded_sfd_firmware_id": "b5c76f482e39e9d6a9115db5b8b7dc35",
+                "datalogging_status": {
+                    "datalogging_state": "standby",
+                    "completion_ratio": 0.56
+                },
+                "device_comm_link": {
+                    "link_type": "canbus",
+                    "link_operational": True,
+                    "link_config": {
+                        "interface": "socketcan",
+                        "txid": 0x123,
+                        "rxid": 0x456,
+                        "extended_id": False,
+                        "fd": False,
+                        "bitrate_switch": False,
+                        'subconfig': {
+                            "channel": "vcan0"
+                        }
+                    }
+                }
+            }
+
+        msg = base()
+        parsed = parser.parse_inform_server_status(msg)
+
+        self.assertEqual(parsed.device_link.type, sdk.DeviceLinkType.CAN)
+        self.assertIsInstance(parsed.device_link.config, sdk.CANLinkConfig)
+
+        config = parsed.device_link.config
+        assert isinstance(config, sdk.CANLinkConfig)
+        self.assertEqual(config.interface, sdk.CANLinkConfig.CANInterface.SocketCAN)
+        self.assertEqual(config.txid, 0x123)
+        self.assertEqual(config.rxid, 0x456)
+        self.assertEqual(config.extended_id, False)
+        self.assertEqual(config.fd, False)
+        self.assertEqual(config.bitrate_switch, False)
+        self.assertIsInstance(config.interface_config, sdk.CANLinkConfig.SocketCANConfig)
+        assert isinstance(config.interface_config, sdk.CANLinkConfig.SocketCANConfig)
+        self.assertEqual(config.interface_config.channel, "vcan0")
+
+        class Delete:
+            pass
+
+        def test_val_for_field(field: str, vals: List[Any]):
+            for val in vals:
+                msg = base()
+                if val == Delete:
+                    del msg['device_comm_link']['link_config'][field]
+                else:
+                    msg['device_comm_link']['link_config'][field] = val
+                with self.assertRaises(sdk.exceptions.BadResponseError, msg=f"field: {field}. val={val}"):
+                    parser.parse_inform_server_status(msg)
+
+        test_val_for_field('interface', [1, None, True, 2.5, [], {}, Delete, 'idontexist'])
+        test_val_for_field('txid', ["hello", None, True, 2.5, [], {}, Delete])
+        test_val_for_field('rxid', ["hello", None, True, 2.5, [], {}, Delete])
+        test_val_for_field('extended_id', ["hello", None, 1, 2.5, [], {}, Delete])
+        test_val_for_field('fd', ["hello", None, 1, 2.5, [], {}, Delete])
+        test_val_for_field('bitrate_switch', ["hello", None, 1, 2.5, [], {}, Delete])
+        test_val_for_field('subconfig', ["hello", None, 1, 2.5, [], True, Delete])
+
+        def test_val_for_subconfig_field(field: str, vals: List[Any]):
+            for val in vals:
+                msg = base()
+                if val == Delete:
+                    del msg['device_comm_link']['link_config']['subconfig'][field]
+                else:
+                    msg['device_comm_link']['link_config']['subconfig'][field] = val
+                with self.assertRaises(sdk.exceptions.BadResponseError, msg=f"field: {field}. val={val}"):
+                    parser.parse_inform_server_status(msg)
+
+        test_val_for_subconfig_field('channel', [1, None, True, 2.5, [], {}, Delete])
+
+    def test_parse_inform_server_status_canbus_link_vector(self):
+        def base() -> api_typing.S2C.InformServerStatus:
+            return {
+                "cmd": "inform_server_status",
+                "reqid": 2,
+                "device_status": "connected_ready",
+                "device_session_id": "3d41973c65ba42218ab65c829a8c385e",
+                "loaded_sfd_firmware_id": "b5c76f482e39e9d6a9115db5b8b7dc35",
+                "datalogging_status": {
+                    "datalogging_state": "standby",
+                    "completion_ratio": 0.56
+                },
+                "device_comm_link": {
+                    "link_type": "canbus",
+                    "link_operational": True,
+                    "link_config": {
+                        "interface": "vector",
+                        "txid": 0x123,
+                        "rxid": 0x456,
+                        "extended_id": False,
+                        "fd": False,
+                        "bitrate_switch": False,
+                        'subconfig': {
+                            "channel": 1,
+                            'bitrate': 500000,
+                            'data_bitrate': 1000000
+                        }
+                    }
+                }
+            }
+
+        msg = base()
+        parsed = parser.parse_inform_server_status(msg)
+
+        self.assertEqual(parsed.device_link.type, sdk.DeviceLinkType.CAN)
+        self.assertIsInstance(parsed.device_link.config, sdk.CANLinkConfig)
+
+        config = parsed.device_link.config
+        assert isinstance(config, sdk.CANLinkConfig)
+        self.assertEqual(config.interface, sdk.CANLinkConfig.CANInterface.Vector)
+        self.assertEqual(config.txid, 0x123)
+        self.assertEqual(config.rxid, 0x456)
+        self.assertEqual(config.extended_id, False)
+        self.assertEqual(config.fd, False)
+        self.assertEqual(config.bitrate_switch, False)
+        self.assertIsInstance(config.interface_config, sdk.CANLinkConfig.VectorConfig)
+        assert isinstance(config.interface_config, sdk.CANLinkConfig.VectorConfig)
+        self.assertEqual(config.interface_config.channel, 1)
+        self.assertEqual(config.interface_config.bitrate, 500000)
+        self.assertEqual(config.interface_config.data_bitrate, 1000000)
+
+        class Delete:
+            pass
+
+        def test_val_for_field(field: str, vals: List[Any]):
+            for val in vals:
+                msg = base()
+                if val == Delete:
+                    del msg['device_comm_link']['link_config'][field]
+                else:
+                    msg['device_comm_link']['link_config'][field] = val
+                with self.assertRaises(sdk.exceptions.BadResponseError, msg=f"field: {field}. val={val}"):
+                    parser.parse_inform_server_status(msg)
+
+        test_val_for_field('interface', [1, None, True, 2.5, [], {}, Delete, 'idontexist'])
+        test_val_for_field('txid', ["hello", None, True, 2.5, [], {}, Delete])
+        test_val_for_field('rxid', ["hello", None, True, 2.5, [], {}, Delete])
+        test_val_for_field('extended_id', ["hello", None, 1, 2.5, [], {}, Delete])
+        test_val_for_field('fd', ["hello", None, 1, 2.5, [], {}, Delete])
+        test_val_for_field('bitrate_switch', ["hello", None, 1, 2.5, [], {}, Delete])
+        test_val_for_field('subconfig', ["hello", None, 1, 2.5, [], True, Delete])
+
+        def test_val_for_subconfig_field(field: str, vals: List[Any]):
+            for val in vals:
+                msg = base()
+                if val == Delete:
+                    del msg['device_comm_link']['link_config']['subconfig'][field]
+                else:
+                    msg['device_comm_link']['link_config']['subconfig'][field] = val
+                with self.assertRaises(sdk.exceptions.BadResponseError, msg=f"field: {field}. val={val}"):
+                    parser.parse_inform_server_status(msg)
+
+        test_val_for_subconfig_field('channel', [None, True, 2.5, [], {}, Delete])
+        test_val_for_subconfig_field('bitrate', ["hello", None, True, 2.5, [], {}, Delete])
+        test_val_for_subconfig_field('data_bitrate', ["hello", None, True, 2.5, [], {}, Delete])
+
+    def test_parse_inform_server_status_canbus_link_kvaser(self):
+        def base() -> api_typing.S2C.InformServerStatus:
+            return {
+                "cmd": "inform_server_status",
+                "reqid": 2,
+                "device_status": "connected_ready",
+                "device_session_id": "3d41973c65ba42218ab65c829a8c385e",
+                "loaded_sfd_firmware_id": "b5c76f482e39e9d6a9115db5b8b7dc35",
+                "datalogging_status": {
+                    "datalogging_state": "standby",
+                    "completion_ratio": 0.56
+                },
+                "device_comm_link": {
+                    "link_type": "canbus",
+                    "link_operational": True,
+                    "link_config": {
+                        "interface": "kvaser",
+                        "txid": 0x123,
+                        "rxid": 0x456,
+                        "extended_id": False,
+                        "fd": False,
+                        "bitrate_switch": False,
+                        'subconfig': {
+                            "channel": 1,
+                            'bitrate': 500000,
+                            'data_bitrate': 1000000,
+                            'fd_non_iso': False,
+                        }
+                    }
+                }
+            }
+
+        msg = base()
+        parsed = parser.parse_inform_server_status(msg)
+
+        self.assertEqual(parsed.device_link.type, sdk.DeviceLinkType.CAN)
+        self.assertIsInstance(parsed.device_link.config, sdk.CANLinkConfig)
+
+        config = parsed.device_link.config
+        assert isinstance(config, sdk.CANLinkConfig)
+        self.assertEqual(config.interface, sdk.CANLinkConfig.CANInterface.KVaser)
+        self.assertEqual(config.txid, 0x123)
+        self.assertEqual(config.rxid, 0x456)
+        self.assertEqual(config.extended_id, False)
+        self.assertEqual(config.fd, False)
+        self.assertEqual(config.bitrate_switch, False)
+        self.assertIsInstance(config.interface_config, sdk.CANLinkConfig.KVaserConfig)
+        assert isinstance(config.interface_config, sdk.CANLinkConfig.KVaserConfig)
+        self.assertEqual(config.interface_config.channel, 1)
+        self.assertEqual(config.interface_config.bitrate, 500000)
+        self.assertEqual(config.interface_config.data_bitrate, 1000000)
+        self.assertEqual(config.interface_config.fd_non_iso, False)
+
+        class Delete:
+            pass
+
+        def test_val_for_field(field: str, vals: List[Any]):
+            for val in vals:
+                msg = base()
+                if val == Delete:
+                    del msg['device_comm_link']['link_config'][field]
+                else:
+                    msg['device_comm_link']['link_config'][field] = val
+                with self.assertRaises(sdk.exceptions.BadResponseError, msg=f"field: {field}. val={val}"):
+                    parser.parse_inform_server_status(msg)
+
+        test_val_for_field('interface', [1, None, True, 2.5, [], {}, Delete, 'idontexist'])
+        test_val_for_field('txid', ["hello", None, True, 2.5, [], {}, Delete])
+        test_val_for_field('rxid', ["hello", None, True, 2.5, [], {}, Delete])
+        test_val_for_field('extended_id', ["hello", None, 1, 2.5, [], {}, Delete])
+        test_val_for_field('fd', ["hello", None, 1, 2.5, [], {}, Delete])
+        test_val_for_field('bitrate_switch', ["hello", None, 1, 2.5, [], {}, Delete])
+        test_val_for_field('subconfig', ["hello", None, 1, 2.5, [], True, Delete])
+
+        def test_val_for_subconfig_field(field: str, vals: List[Any]):
+            for val in vals:
+                msg = base()
+                if val == Delete:
+                    del msg['device_comm_link']['link_config']['subconfig'][field]
+                else:
+                    msg['device_comm_link']['link_config']['subconfig'][field] = val
+                with self.assertRaises(sdk.exceptions.BadResponseError, msg=f"field: {field}. val={val}"):
+                    parser.parse_inform_server_status(msg)
+
+        test_val_for_subconfig_field('channel', [None, True, 2.5, [], {}, Delete])
+        test_val_for_subconfig_field('bitrate', ["hello", None, True, 2.5, [], {}, Delete])
+        test_val_for_subconfig_field('data_bitrate', ["hello", None, True, 2.5, [], {}, Delete])        
+        test_val_for_subconfig_field('fd_non_iso', ["hello", None, 1, 2.5, [], {}, Delete])        
+
+    def test_parse_inform_server_status_canbus_link_pcan(self):
+        def base() -> api_typing.S2C.InformServerStatus:
+            return {
+                "cmd": "inform_server_status",
+                "reqid": 2,
+                "device_status": "connected_ready",
+                "device_session_id": "3d41973c65ba42218ab65c829a8c385e",
+                "loaded_sfd_firmware_id": "b5c76f482e39e9d6a9115db5b8b7dc35",
+                "datalogging_status": {
+                    "datalogging_state": "standby",
+                    "completion_ratio": 0.56
+                },
+                "device_comm_link": {
+                    "link_type": "canbus",
+                    "link_operational": True,
+                    "link_config": {
+                        "interface": "pcan",
+                        "txid": 0x123,
+                        "rxid": 0x456,
+                        "extended_id": False,
+                        "fd": True,
+                        "bitrate_switch": True,
+                        'subconfig': {
+                            "channel": 'PCAN_USBBUS1',
+                            'bitrate': 500000
+                        }
+                    }
+                }
+            }
+
+        msg = base()
+        parsed = parser.parse_inform_server_status(msg)
+
+        self.assertEqual(parsed.device_link.type, sdk.DeviceLinkType.CAN)
+        self.assertIsInstance(parsed.device_link.config, sdk.CANLinkConfig)
+
+        config = parsed.device_link.config
+        assert isinstance(config, sdk.CANLinkConfig)
+        self.assertEqual(config.interface, sdk.CANLinkConfig.CANInterface.PCAN)
+        self.assertEqual(config.txid, 0x123)
+        self.assertEqual(config.rxid, 0x456)
+        self.assertEqual(config.extended_id, False)
+        self.assertEqual(config.fd, True)
+        self.assertEqual(config.bitrate_switch, True)
+        self.assertIsInstance(config.interface_config, sdk.CANLinkConfig.PCANConfig)
+        assert isinstance(config.interface_config, sdk.CANLinkConfig.PCANConfig)
+        self.assertEqual(config.interface_config.channel, 'PCAN_USBBUS1')
+        self.assertEqual(config.interface_config.bitrate, 500000)
+
+        class Delete:
+            pass
+
+        def test_val_for_field(field: str, vals: List[Any]):
+            for val in vals:
+                msg = base()
+                if val == Delete:
+                    del msg['device_comm_link']['link_config'][field]
+                else:
+                    msg['device_comm_link']['link_config'][field] = val
+                with self.assertRaises(sdk.exceptions.BadResponseError, msg=f"field: {field}. val={val}"):
+                    parser.parse_inform_server_status(msg)
+
+        test_val_for_field('interface', [1, None, True, 2.5, [], {}, Delete, 'idontexist'])
+        test_val_for_field('txid', ["hello", None, True, 2.5, [], {}, Delete])
+        test_val_for_field('rxid', ["hello", None, True, 2.5, [], {}, Delete])
+        test_val_for_field('extended_id', ["hello", None, 1, 2.5, [], {}, Delete])
+        test_val_for_field('fd', ["hello", None, 1, 2.5, [], {}, Delete])
+        test_val_for_field('bitrate_switch', ["hello", None, 1, 2.5, [], {}, Delete])
+        test_val_for_field('subconfig', ["hello", None, 1, 2.5, [], True, Delete])
+
+        def test_val_for_subconfig_field(field: str, vals: List[Any]):
+            for val in vals:
+                msg = base()
+                if val == Delete:
+                    del msg['device_comm_link']['link_config']['subconfig'][field]
+                else:
+                    msg['device_comm_link']['link_config']['subconfig'][field] = val
+                with self.assertRaises(sdk.exceptions.BadResponseError, msg=f"field: {field}. val={val}"):
+                    parser.parse_inform_server_status(msg)
+
+        test_val_for_subconfig_field('channel', [None, True, 0, 2.5, [], {}, Delete])
+        test_val_for_subconfig_field('bitrate', ["hello", None, True, 2.5, [], {}, Delete])      
+
+    def test_parse_inform_server_status_canbus_link_etas(self):
+        def base() -> api_typing.S2C.InformServerStatus:
+            return {
+                "cmd": "inform_server_status",
+                "reqid": 2,
+                "device_status": "connected_ready",
+                "device_session_id": "3d41973c65ba42218ab65c829a8c385e",
+                "loaded_sfd_firmware_id": "b5c76f482e39e9d6a9115db5b8b7dc35",
+                "datalogging_status": {
+                    "datalogging_state": "standby",
+                    "completion_ratio": 0.56
+                },
+                "device_comm_link": {
+                    "link_type": "canbus",
+                    "link_operational": True,
+                    "link_config": {
+                        "interface": "etas",
+                        "txid": 0x123,
+                        "rxid": 0x456,
+                        "extended_id": False,
+                        "fd": False,
+                        "bitrate_switch": False,
+                        'subconfig': {
+                            "channel": 'ETAS://ETH/ES910:abcd/CAN:1',
+                            'bitrate': 500000,
+                            'data_bitrate': 1000000,
+                        }
+                    }
+                }
+            }
+
+        msg = base()
+        parsed = parser.parse_inform_server_status(msg)
+
+        self.assertEqual(parsed.device_link.type, sdk.DeviceLinkType.CAN)
+        self.assertIsInstance(parsed.device_link.config, sdk.CANLinkConfig)
+
+        config = parsed.device_link.config
+        assert isinstance(config, sdk.CANLinkConfig)
+        self.assertEqual(config.interface, sdk.CANLinkConfig.CANInterface.ETAS)
+        self.assertEqual(config.txid, 0x123)
+        self.assertEqual(config.rxid, 0x456)
+        self.assertEqual(config.extended_id, False)
+        self.assertEqual(config.fd, False)
+        self.assertEqual(config.bitrate_switch, False)
+        self.assertIsInstance(config.interface_config, sdk.CANLinkConfig.ETASConfig)
+        assert isinstance(config.interface_config, sdk.CANLinkConfig.ETASConfig)
+        self.assertEqual(config.interface_config.channel, 'ETAS://ETH/ES910:abcd/CAN:1')
+        self.assertEqual(config.interface_config.bitrate, 500000)
+        self.assertEqual(config.interface_config.data_bitrate, 1000000)
+
+        class Delete:
+            pass
+
+        def test_val_for_field(field: str, vals: List[Any]):
+            for val in vals:
+                msg = base()
+                if val == Delete:
+                    del msg['device_comm_link']['link_config'][field]
+                else:
+                    msg['device_comm_link']['link_config'][field] = val
+                with self.assertRaises(sdk.exceptions.BadResponseError, msg=f"field: {field}. val={val}"):
+                    parser.parse_inform_server_status(msg)
+
+        test_val_for_field('interface', [1, None, True, 2.5, [], {}, Delete, 'idontexist'])
+        test_val_for_field('txid', ["hello", None, True, 2.5, [], {}, Delete])
+        test_val_for_field('rxid', ["hello", None, True, 2.5, [], {}, Delete])
+        test_val_for_field('extended_id', ["hello", None, 1, 2.5, [], {}, Delete])
+        test_val_for_field('fd', ["hello", None, 1, 2.5, [], {}, Delete])
+        test_val_for_field('bitrate_switch', ["hello", None, 1, 2.5, [], {}, Delete])
+        test_val_for_field('subconfig', ["hello", None, 1, 2.5, [], True, Delete])
+
+        def test_val_for_subconfig_field(field: str, vals: List[Any]):
+            for val in vals:
+                msg = base()
+                if val == Delete:
+                    del msg['device_comm_link']['link_config']['subconfig'][field]
+                else:
+                    msg['device_comm_link']['link_config']['subconfig'][field] = val
+                with self.assertRaises(sdk.exceptions.BadResponseError, msg=f"field: {field}. val={val}"):
+                    parser.parse_inform_server_status(msg)
+
+        test_val_for_subconfig_field('channel', [None, True, 0, 2.5, [], {}, Delete])
+        test_val_for_subconfig_field('bitrate', ["hello", None, True, 2.5, [], {}, Delete])      
+        test_val_for_subconfig_field('data_bitrate', ["hello", None, True, 2.5, [], {}, Delete])      
+
 
     def test_parse_read_datalogging_acquisition_content(self):
         now = datetime.now()

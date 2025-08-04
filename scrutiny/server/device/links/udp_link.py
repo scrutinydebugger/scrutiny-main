@@ -16,17 +16,9 @@ import socket
 import errno
 
 from scrutiny.server.device.links.abstract_link import AbstractLink, LinkConfig
+from scrutiny.server.device.links.typing import UdpConfigDict
 
 from scrutiny.tools.typing import *
-
-
-class UdpConfig(TypedDict):
-    """
-    Config given the the UdpLink object.
-    Can be set through the API or config file with JSON format
-    """
-    host: str
-    port: int
 
 
 class UdpLink(AbstractLink):
@@ -41,7 +33,7 @@ class UdpLink(AbstractLink):
     logger: logging.Logger
     sock: Optional[socket.socket]
     bound: bool
-    config: UdpConfig
+    config: UdpConfigDict
     _initialized: bool
 
     BUFSIZE: int = 4096
@@ -53,7 +45,7 @@ class UdpLink(AbstractLink):
     def __init__(self, config: LinkConfig):
         self.validate_config(config)
 
-        self.config = cast(UdpConfig, {
+        self.config = cast(UdpConfigDict, {
             'host': str(config['host']),
             'port': int(config['port'])
         })

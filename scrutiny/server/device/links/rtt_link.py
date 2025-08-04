@@ -19,6 +19,7 @@ import pylink   # type: ignore
 logging.getLogger("pylink").setLevel(logging.WARNING)
 
 from scrutiny.server.device.links.abstract_link import AbstractLink, LinkConfig
+from scrutiny.server.device.links.typing import RttConfigDict
 from scrutiny.tools.typing import *
 
 # Hook for unit tests.
@@ -46,22 +47,13 @@ def _get_jlink_class():  # type:ignore
     return JLINK_CLASS.theclass
 
 
-class RttConfig(TypedDict):
-    """
-    Config given the the RttLink object.
-    Can be set through the API or config file with JSON format
-    """
-    target_device: str
-    jlink_interface: str
-
-
 class RttLink(AbstractLink):
     """
     Communication channel to talk with a device through a J-Link RTT
     Based on pylink module
     """
     logger: logging.Logger
-    config: RttConfig
+    config: RttConfigDict
     _initialized: bool
     _write_queue: "queue.Queue[Optional[bytes]]"  # None is used to wake up the thread
     _write_thread: Optional[threading.Thread]
@@ -101,7 +93,7 @@ class RttLink(AbstractLink):
         self._write_queue = queue.Queue()
         self._request_thread_exit = False
 
-        self.config = cast(RttConfig, {
+        self.config = cast(RttConfigDict, {
             'target_device': str(config['target_device']),
             'jlink_interface': str(config.get('jlink_interface', 'swd'))
         })
