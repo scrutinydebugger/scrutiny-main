@@ -16,8 +16,8 @@ import enum
 from PySide6.QtWidgets import (
     QVBoxLayout, QLabel, QWidget, QSplitter, QPushButton, QScrollArea, QHBoxLayout, QMenu, QTabWidget, QCheckBox, QMessageBox
 )
-from PySide6.QtCore import Qt, QPointF, QRectF
-from PySide6.QtGui import QContextMenuEvent, QKeyEvent, QResizeEvent, QIcon
+from PySide6.QtCore import Qt, QPointF, QRectF, QRect
+from PySide6.QtGui import QContextMenuEvent, QKeyEvent, QResizeEvent, QIcon, QPainter, QPen
 
 from scrutiny import sdk
 from scrutiny.sdk import EmbeddedDataType
@@ -28,7 +28,7 @@ from scrutiny.sdk.datalogging import (
 from scrutiny.sdk.client import ScrutinyClient
 
 from scrutiny.gui import assets
-from scrutiny.gui.themes import scrutiny_get_theme
+from scrutiny.gui.themes import scrutiny_get_theme, scrutiny_get_theme_prop, ScrutinyThemeProperties
 from scrutiny.gui.tools import prompt
 from scrutiny.gui.widgets.watchable_line_edit import WatchableLineEdit
 from scrutiny.gui.components.locals.base_local_component import ScrutinyGUIBaseLocalComponent
@@ -54,6 +54,7 @@ class DisplaySource(enum.Enum):
 
 
 class State:
+    """The state that can be saved and reloaded when saving the dashboard"""
 
     class Watchable(TypedDict):
         fqn: str
@@ -93,7 +94,7 @@ class EmbeddedGraphState:
     waiting_on_graph: bool
     """Waiting on an acquisition to complete"""
     chart_toolbar_wanted: bool
-    """The suer wants to see the chart toolbar"""
+    """The user wants to see the chart toolbar"""
     has_failure_message: bool
     """There's a failure message being displayed on the chartview"""
 
@@ -142,6 +143,9 @@ class EmbeddedGraphState:
     def must_display_toolbar(self) -> bool:
         return self.can_display_toolbar() and self.chart_toolbar_wanted and self.has_content
 
+    def must_display_show_trigger_checkbox(self) -> bool:
+        return self.has_content
+
     def hide_chart_toolbar(self) -> None:
         self.chart_toolbar_wanted = False
 
@@ -166,6 +170,47 @@ class InitialGraphListDownloadConditions:
     firmware_id: Optional[str]
 
 
+class EmbeddedGraphChartView(ScrutinyChartView):
+
+    _trigger_xval:float
+    _show_trigger:bool
+    _trigger_pen:QPen
+    
+    @tools.copy_type(ScrutinyChartView.__init__)
+    def __init__(self, *args:Any, **kwargs:Any) -> None:
+        super().__init__(*args, **kwargs)
+        self._trigger_xval=0
+        self._show_trigger=False
+        self._trigger_pen = QPen()
+        self._trigger_pen.setStyle(Qt.PenStyle.DashLine)
+        self._trigger_pen.setColor(scrutiny_get_theme_prop(ScrutinyThemeProperties.EMBEDDED_GRAPH_CHART_TRIGGER_COLOR))
+
+    def show_trigger_marker_at(self, xval:float) -> None:
+        self._trigger_xval = xval
+        self.show_trigger_marker()
+    
+    def show_trigger_marker(self) -> None:
+        self._show_trigger = True
+        self._invalidate_forground()
+    
+    def remove_trigger_marker(self) -> None:
+        self._show_trigger=False
+        self._invalidate_forground()
+
+    def drawForeground(self, painter: QPainter, rect: Union[QRectF, QRect]) -> None:
+        super().drawForeground(painter, rect)
+        xaxis = self.chart().axisX()
+        if self._show_trigger and xaxis is not None :
+            chart = self.chart()
+            plotarea_mapped_to_chartview = chart.mapRectToParent(chart.plotArea())
+            trigger_xpos_mapped_to_chart = chart.xval_to_xpos(self._trigger_xval)
+            if trigger_xpos_mapped_to_chart:
+                trigger_xpos = chart.mapToParent(trigger_xpos_mapped_to_chart, 0).x()  # Map it to this chartview
+                y1 = plotarea_mapped_to_chartview.y()
+                y2 = plotarea_mapped_to_chartview.y() + plotarea_mapped_to_chartview.height()
+                painter.setPen(self._trigger_pen)
+                painter.drawLine(QPointF(trigger_xpos, y1), QPointF(trigger_xpos, y2))
+
 class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
     instance_name: str
 
@@ -186,9 +231,11 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
     """3 section splitter separating left / center / right"""
     _xval_label: QLabel
     """The label used to display the X-Value when moving the graph cursor (red vertical line)"""
+    _chk_show_trigger:QCheckBox
+    """A checkbox to show or hide the trigger marker"""
     _signal_tree: GraphSignalTree
     """The right side signal tree. contains the watchable we want to log / those present in the displayed graph"""
-    _chartview: ScrutinyChartView
+    _chartview: EmbeddedGraphChartView
     """The QT element showing the chart"""
     _chart_toolbar: ScrutinyChartToolBar
     """Custom toolbar at the top of the graph selecting the zoom mode and cursor mode"""
@@ -221,7 +268,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
     _graph_browse_list_widget: GraphBrowseListWidget
     """The list displaying the available acquisitions on the server"""
     _chk_browse_loaded_sfd_only: QCheckBox
-    """A checkbox that filters the content of the acquisition list by keeping only those taken by the firmware presnetly loaded"""
+    """A checkbox that filters the content of the acquisition list by keeping only those taken by the firmware presently loaded"""
     _browse_feedback_label: FeedbackLabel
     """A label to display messages visible only in the "Browse" tab"""
     _btn_delete_all: QPushButton
@@ -268,6 +315,8 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
             right_pane_layout.setContentsMargins(0, 0, 0, 0)
 
             self._xval_label = QLabel()
+            self._chk_show_trigger = QCheckBox("Show Trigger")
+            self._chk_show_trigger.checkStateChanged.connect(self._chk_show_trigger_changed_slot)
 
             # Series on continuous graph don't have their X value aligned.
             # We can only show the value next to each point, not all together in the tree
@@ -277,6 +326,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
 
             self._xval_label.setVisible(False)
             right_pane_layout.addWidget(self._xval_label)
+            right_pane_layout.addWidget(self._chk_show_trigger)
             right_pane_layout.addWidget(self._signal_tree)
 
             right_pane_scroll = QScrollArea(self)
@@ -291,7 +341,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
         def make_center_pane() -> QWidget:
             chart = ScrutinyChart()
 
-            self._chartview = ScrutinyChartView(self)
+            self._chartview = EmbeddedGraphChartView(self)
             self._chartview.setChart(chart)
             self._xaxis = None
             self._yaxes = []
@@ -599,6 +649,11 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
             self._btn_load_more.setText("Load")
         else:
             self._btn_load_more.setText("Load more")
+        
+        if self._state.must_display_show_trigger_checkbox():
+            self._chk_show_trigger.show()
+        else:
+            self._chk_show_trigger.hide()
 
         self._btn_load_more.setEnabled(self._state.enable_load_more_button())
         self._btn_delete_all.setEnabled(self._state.enable_delete_all_button())
@@ -792,6 +847,16 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
         self._state.allow_chart_toolbar()
         self._chart_toolbar.disable_chart_cursor()
 
+        # Configure the trigger marker. It is possible that there is no trigger index
+        if acquisition.trigger_index is not None:
+            self._chartview.show_trigger_marker_at(xseries_data[acquisition.trigger_index])
+            self._chk_show_trigger.setChecked(True)
+            self._chk_show_trigger.setEnabled(True)
+        else:
+            self._chartview.remove_trigger_marker()
+            self._chk_show_trigger.setChecked(False)
+            self._chk_show_trigger.setEnabled(False)
+
         # Enable the chart cursor so it can display values in the signal tree
         def update_xval(val: float, enabled: bool) -> None:
             self._xval_label.setText(f"{acquisition.xdata.name} : {val}")
@@ -948,6 +1013,12 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
     def _signal_tree_content_changed_slot(self) -> None:
         """A watchable has been added/remove from the watchable tree"""
         self._graph_config_widget.update_content()
+
+    def _chk_show_trigger_changed_slot(self, state:Qt.CheckState) -> None:
+        if state == Qt.CheckState.Checked:
+            self._chartview.show_trigger_marker()
+        else:
+            self._chartview.remove_trigger_marker()
 
     def update_emphasize_state(self) -> None:
         """Read the items in the SignalTree object (right menu with axis) and update the size/boldness of the graph series

@@ -60,6 +60,7 @@ class FusionTheme(ScrutinyTheme):
             self._prop_dict[ScrutinyThemeProperties.CHART_TOOLBAR_PRESSED_COLOR] = LIGHT_PRESSED_COLOR
             self._prop_dict[ScrutinyThemeProperties.CHART_TOOLBAR_SELECTED_COLOR] = LIGHT_SELECTED_COLOR
 
+        self._prop_dict[ScrutinyThemeProperties.EMBEDDED_GRAPH_CHART_TRIGGER_COLOR] = self.palette().text().color()
         self._prop_dict[ScrutinyThemeProperties.WATCHABLE_LINE_EDIT_CLEAR_BTN_HOVER_COLOR] = self._prop_dict[ScrutinyThemeProperties.CHART_TOOLBAR_SELECTED_COLOR]
         self._prop_dict[ScrutinyThemeProperties.WATCHABLE_LINE_EDIT_CLEAR_BTN_PRESSED_COLOR] = self._prop_dict[ScrutinyThemeProperties.CHART_TOOLBAR_PRESSED_COLOR]
 
