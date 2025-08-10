@@ -17,7 +17,7 @@ __all__ = [
 
 from dataclasses import dataclass
 
-from PySide6.QtWidgets import QWidget, QMenu
+from PySide6.QtWidgets import QAbstractItemDelegate, QWidget, QMenu
 from PySide6.QtGui import (QStandardItem, QDropEvent, QDragEnterEvent, QDragMoveEvent, QDragEnterEvent,
                            QDragMoveEvent, QContextMenuEvent, QAction, QKeyEvent, QPixmap, QPalette
                            )
@@ -597,6 +597,10 @@ class GraphSignalTree(BaseTreeView):
                     selected_axes[id(parent)] = parent
 
         return list(selected_axes.values())
+
+    def closeEditor(self, editor: QWidget, hint: QAbstractItemDelegate.EndEditHint) -> None:
+        self.resizeColumnToContents(0)
+        return super().closeEditor(editor, hint)
 
     def lock(self) -> None:
         self.setDragDropMode(self.DragDropMode.DragOnly)
