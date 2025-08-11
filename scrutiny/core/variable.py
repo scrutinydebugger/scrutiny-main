@@ -9,7 +9,8 @@
 __all__ = [
     'VariableLocation',
     'Struct',
-    'Variable'
+    'Variable',
+    'Array'
 ]
 
 import struct
@@ -92,6 +93,15 @@ class VariableLocation:
     def __repr__(self) -> str:
         return '<%s - 0x%08X>' % (self.__class__.__name__, self.get_address())
 
+class Array:
+    element_count:int
+    element_byte_size:int
+    element_type_name:str
+    
+    def __init__(self, element_count:int, element_byte_size:int, element_type_name:str) -> None:
+        self.element_count = element_count
+        self.element_byte_size = element_byte_size
+        self.element_type_name = element_type_name
 
 class Struct:
     class Member:
@@ -159,9 +169,11 @@ class Struct:
     name: str
     is_anonymous: bool
     members: Dict[str, "Struct.Member"]
+    byte_size:Optional[int]
 
-    def __init__(self, name: str) -> None:
+    def __init__(self, name: str, byte_size:Optional[int]=None) -> None:
         self.name = name
+        self.byte_size = byte_size
         self.members = {}
 
     def add_member(self, member: "Struct.Member") -> None:
