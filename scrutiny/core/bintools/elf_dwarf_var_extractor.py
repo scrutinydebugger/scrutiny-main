@@ -55,6 +55,9 @@ class Attrs:
     DW_AT_location = 'DW_AT_location'
     DW_AT_MIPS_fde = 'DW_AT_MIPS_fde'
     DW_AT_producer = 'DW_AT_producer'
+    DW_AT_count = 'DW_AT_count'
+    DW_AT_upper_bound = 'DW_AT_upper_bound'
+    DW_AT_lower_bound = 'DW_AT_lower_bound'
 
 
 class Tags:
@@ -71,6 +74,7 @@ class Tags:
     DW_TAG_member = 'DW_TAG_member'
     DW_TAG_inheritance = 'DW_TAG_inheritance'
     DW_TAG_typedef = 'DW_TAG_typedef'
+    DW_TAG_subrange_type = 'DW_TAG_subrange_type'
 
 
 class DwarfEncoding(Enum):
@@ -235,6 +239,7 @@ class ElfDwarfVarExtractor:
     cu_name_map: Dict[CompileUnit, str]
     enum_die_map: Dict[DIE, EmbeddedEnum]
     struct_die_map: Dict[DIE, Struct]
+    array_die_map: Dict[DIE, Array]
     cppfilt: Optional[str]
     logger: logging.Logger
     _ignore_cu_patterns: List[str]
@@ -255,6 +260,7 @@ class ElfDwarfVarExtractor:
         self.cu_name_map = {}   # maps a CompileUnit object to it's unique display name
         self.enum_die_map = {}
         self.struct_die_map = {}
+        self.array_die_map = {}
         self.cppfilt = cppfilt
         self._ignore_cu_patterns = ignore_cu_patterns
         self._path_ignore_patterns = path_ignore_patterns
@@ -806,6 +812,13 @@ class ElfDwarfVarExtractor:
         if die not in self.struct_die_map:
             self.struct_die_map[die] = self.get_composite_type_def(die)
 
+    def die_process_array(self, die:DIE) -> None:
+        self._log_debug_process_die(die)
+
+        if die not in self.array_die_map:
+            self.array_die_map[die] = self.get_array_def(die)
+
+
     # Go down the hierarchy to get the whole struct def in a recursive way
 
     def get_composite_type_def(self, die: DIE) -> Struct:
@@ -815,7 +828,12 @@ class ElfDwarfVarExtractor:
         if die.tag not in (Tags.DW_TAG_structure_type, Tags.DW_TAG_class_type, Tags.DW_TAG_union_type):
             raise ValueError('DIE must be a structure, class or union type')
 
-        struct = Struct(self.get_name_no_none(die))
+        byte_size:Optional[int] = None
+
+        if Attrs.DW_AT_byte_size in die.attributes: # Can be absent on class with no size (no members, jsut methods)
+            byte_size = int(die.attributes[Attrs.DW_AT_byte_size].value)
+
+        struct = Struct(self.get_name_no_none(die), byte_size=byte_size)
         is_in_union = die.tag == Tags.DW_TAG_union_type
         for child in die.iter_children():
             if child.tag == Tags.DW_TAG_member:
@@ -835,6 +853,57 @@ class ElfDwarfVarExtractor:
                 struct.inherit(parent_struct, offset=offset)
 
         return struct
+
+    def get_array_def(self, die: DIE) -> Array:
+        self._log_debug_process_die(die)
+        if die.tag  != Tags.DW_TAG_array_type:
+            raise ValueError('DIE must be an array')
+        
+        subrange_die:Optional[DIE] = None
+        for child in die.iter_children():
+            if child.tag == Tags.DW_TAG_subrange_type:
+                if subrange_die is not None:
+                    raise ElfParsingError(f"Found more than 1 subrange under array {die}")
+                subrange_die = child
+        
+        if subrange_die is None:
+            raise ElfParsingError(f"Found no subrange under array {die}")
+
+        nb_element = 0
+        if Attrs.DW_AT_count in subrange_die.attributes:
+            nb_element = int(subrange_die.attributes[Attrs.DW_AT_count].value)
+        elif Attrs.DW_AT_upper_bound in subrange_die.attributes:
+            nb_element = int(subrange_die.attributes[Attrs.DW_AT_upper_bound].value)
+        else:
+            raise ElfParsingError(f"Cannot find the number of element from subrange {subrange_die}")
+
+        if Attrs.DW_AT_lower_bound in subrange_die.attributes:
+            lower_bound = int(subrange_die.attributes[Attrs.DW_AT_lower_bound].value)
+            if lower_bound != 0:
+                raise ElfParsingError(f"Array with lower bound that is not 0. {subrange_die}")
+
+
+        element_type = self.get_type_of_var(die)
+        
+        if element_type.type in (TypeOfVar.Class, TypeOfVar.Struct, TypeOfVar.Union):
+            self.die_process_struct_class_union(element_type.type_die)
+            struct = self.struct_die_map[element_type.type_die]
+            if struct.byte_size is None:
+                raise ElfParsingError(f"Array of elements of unknown size: {die}")
+            element_byte_size = struct.byte_size
+
+        elif element_type.type == TypeOfVar.BaseType:
+            self.die_process_base_type(element_type.type_die)
+            element_byte_size = self.get_size_from_type_die(element_type.type_die)
+        else:
+            raise NotImplementedError(f"Array of element of type {element_type.type.name} not supported")
+
+        return Array(
+            element_count=nb_element,
+            element_byte_size=element_byte_size,
+            element_type_name=self.get_name_no_none(element_type.type_die)
+        )
+
 
     def has_member_byte_offset(self, die: DIE) -> bool:
         """Tells if an offset relative to the structure base is available on this member die"""
@@ -912,8 +981,7 @@ class ElfDwarfVarExtractor:
                 f"Line {get_linenumber()}: Found a member with a type die {self._make_name_for_log(type_desc.type_die)} (type={type_desc.type.name}). Not supported yet")
             return None
 
-        # We are looking at a forward declared member.
-        if Attrs.DW_AT_declaration in die.attributes and bool(die.attributes[Attrs.DW_AT_declaration].value) == True:
+        if self.is_forward_declaration(die):    # We are looking at a forward declared member.
             return None
 
         if is_in_union:
@@ -964,6 +1032,9 @@ class ElfDwarfVarExtractor:
             enum=enum,
             is_unnamed=True if (len(name) == 0) else False
         )
+    
+    def is_forward_declaration(self, die:DIE) -> bool:
+        return Attrs.DW_AT_declaration in die.attributes and bool(die.attributes[Attrs.DW_AT_declaration].value) == True
 
     # We have an instance of a struct. Use the location and go down the structure recursively
     # using the members offsets to find the final address that we will apply to the output var
@@ -1012,6 +1083,28 @@ class ElfDwarfVarExtractor:
                     bitoffset=member.bitoffset,
                     bitsize=member.bitsize,
                     enum=member.enum
+                )
+
+    def register_array_var(self, die: DIE, type_die: DIE, location: VariableLocation) -> None:
+        if location.is_null():
+            self.logger.warning(f"Skipping array at location NULL address. {die}")
+            return
+        
+        path_segments = self.make_varpath(die)
+        name = path_segments.pop()
+        array = self.array_die_map[type_die]
+
+        for i in range(array.element_count):
+            name2=f'{name}[{i}]'
+            location2 = location.copy()
+            location2.add_offset(array.element_byte_size * i)
+            if self._allowed_by_filters(path_segments, name2, location):
+                self.varmap.add_variable(
+                    path_segments=path_segments,
+                    name=name2,
+                    location=location2,
+                    original_type_name=array.element_type_name,
+                    enum=None
                 )
 
     def maybe_register_variable(self,
@@ -1082,6 +1175,9 @@ class ElfDwarfVarExtractor:
                 if type_desc.type in (TypeOfVar.Struct, TypeOfVar.Class, TypeOfVar.Union):
                     self.die_process_struct_class_union(type_desc.type_die)
                     self.register_struct_var(die, type_desc.type_die, location)
+                elif type_desc.type == TypeOfVar.Array:
+                    self.die_process_array(type_desc.type_die)
+                    self.register_array_var(die, type_desc.type_die, location)
                 # Base type
                 elif type_desc.type in (TypeOfVar.BaseType, TypeOfVar.EnumOnly):
                     path_segments = self.make_varpath(die)
