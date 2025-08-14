@@ -128,7 +128,18 @@ class DataloggingManager:
             raise ValueError('Bad measured time')
         time_codec = Codecs.get(EmbeddedDataType.uint32, endianness=Endianness.Big)
         first_sample = time_codec.decode(time_data[0])
-        return [(time_codec.decode(sample) - first_sample) * 1e-7 for sample in time_data]
+        previous_sample = first_sample
+        offset = 0
+        out_data:List[float] = [0]
+        for sample in time_data[1:]:
+            v = time_codec.decode(sample)
+            if v < 0x80000000 and previous_sample > 0x80000000:
+                offset += 0x100000000
+            previous_sample = v
+            v_sec = (v - first_sample + offset) * 1e-7
+            out_data.append(v_sec)
+
+        return out_data
     
     def acquisition_complete_callback(self, success: bool, detail_msg: str, data: Optional[List[List[bytes]]], metadata: Optional[device_datalogging.AcquisitionMetadata]) -> None:
         """Callback called by the device handler when the acquisition finally gets triggered and data has finished downloaded."""
