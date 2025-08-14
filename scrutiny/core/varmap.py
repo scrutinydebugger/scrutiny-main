@@ -14,7 +14,7 @@ import json
 import os
 import logging
 
-from scrutiny.core.variable import Variable, VariableLocation
+from scrutiny.core.variable import Variable, VariableLocation, Array
 from scrutiny.core.basic_types import EmbeddedDataType, Endianness
 from scrutiny.core.embedded_enum import EmbeddedEnum, EmbeddedEnumDef
 from scrutiny.tools.typing import *
@@ -25,12 +25,17 @@ class TypeEntry(TypedDict):
     type: str
 
 
+class ArrayDef(TypedDict):
+    count:int
+    byte_size:int
+
 class VariableEntry(TypedDict, total=False):
     type_id: str  # integer as string because of json format that can't have a dict key as int
     addr: int
     bitoffset: int
     bitsize: int
     enum: int
+    array_segments:Dict[str, ArrayDef]
 
 
 # TODO : This class requires more work and unit tests
@@ -160,7 +165,8 @@ class VarMap:
                      original_type_name: str,
                      bitsize: Optional[int] = None,
                      bitoffset: Optional[int] = None,
-                     enum: Optional[EmbeddedEnum] = None
+                     enum: Optional[EmbeddedEnum] = None,
+                     array_segments:Optional[Dict[str, Array]] = None
                      ) -> None:
         fullname = self.make_fullname(path_segments, name)
 
@@ -178,7 +184,7 @@ class VarMap:
 
         entry: VariableEntry = dict(
             type_id=self.get_type_id(original_type_name),
-            addr=location.get_address(),
+            addr=location.get_address()
         )
 
         if bitoffset is not None:
@@ -194,6 +200,14 @@ class VarMap:
                 self.next_enum_id += 1
 
             entry['enum'] = self.enums_to_id_map[enum]
+        
+        if array_segments is not None:
+            entry['array_segments'] = {}
+            for path, array in array_segments.items():
+                entry['array_segments'][path] = {
+                    'byte_size' : array.element_byte_size,
+                    'count' : array.element_count
+                }
 
         self.variables[fullname] = entry
 
