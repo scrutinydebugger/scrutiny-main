@@ -110,6 +110,26 @@ class DataloggingManager:
             entry_signal_map=entry_signal_map,
             callback=callback), block=False)
 
+    @classmethod
+    def make_xaxis_indexed(cls, nb_points:int) -> List[float]:
+        return [i for i in range(nb_points)]
+
+    @classmethod
+    def make_xaxis_ideal_time(cls, nb_points:int, sampling_rate:api_datalogging.SamplingRate, decimation:int) -> List[float]:
+        if sampling_rate.frequency is None:
+            raise ValueError('Ideal time X-Axis is not possible with variable frequency loops')
+        timestep = 1 / sampling_rate.frequency
+        timestep *= decimation
+        return [round(i * timestep, cls.TIME_PRECISION_DIGIT) for i in range(nb_points)]
+    
+    @classmethod
+    def make_xaxis_measured_time(cls, time_data:List[bytes]) -> List[float]:
+        if (len(time_data)) < 1:
+            raise ValueError('Bad measured time')
+        time_codec = Codecs.get(EmbeddedDataType.uint32, endianness=Endianness.Big)
+        first_sample = time_codec.decode(time_data[0])
+        return [(time_codec.decode(sample) - first_sample) * 1e-7 for sample in time_data]
+    
     def acquisition_complete_callback(self, success: bool, detail_msg: str, data: Optional[List[List[bytes]]], metadata: Optional[device_datalogging.AcquisitionMetadata]) -> None:
         """Callback called by the device handler when the acquisition finally gets triggered and data has finished downloaded."""
         if self.active_request is None:
@@ -174,27 +194,20 @@ class DataloggingManager:
                 # Add the X-Axis. Either use a measured signal or use a generated one of the user wants IdealTime
                 xaxis = DataSeries()
                 if self.active_request.api_request.x_axis_type == api_datalogging.XAxisType.Indexed:
-                    xaxis.set_data([i for i in range(nb_points)])
+                    xaxis.set_data(self.make_xaxis_indexed(nb_points))
                     xaxis.name = 'Index'
                     xaxis.logged_watchable = None
                 elif self.active_request.api_request.x_axis_type == api_datalogging.XAxisType.IdealTime:
                     # Ideal time : Generate a time X-Axis based on the sampling rate. Assume the device is running the loop at a reliable fixed rate
                     sampling_rate = self.get_sampling_rate(self.active_request.api_request.rate_identifier)
-                    if sampling_rate.frequency is None:
-                        raise ValueError('Ideal time X-Axis is not possible with variable frequency loops')
-                    timestep = 1 / sampling_rate.frequency
-                    timestep *= self.active_request.api_request.decimation
-                    xaxis.set_data([round(i * timestep, self.TIME_PRECISION_DIGIT) for i in range(nb_points)])
+                    xaxis_data = self.make_xaxis_ideal_time(nb_points, sampling_rate, self.active_request.api_request.decimation)
+                    xaxis.set_data(xaxis_data)
                     xaxis.name = 'Time (ideal)'
                     xaxis.logged_watchable = None
                 elif self.active_request.api_request.x_axis_type == api_datalogging.XAxisType.MeasuredTime:
                     # Measured time is appended at the end of the signal list. See make_device_config_from_request
-                    time_data = data[-1]
-                    if (len(time_data)) < 1:
-                        raise ValueError('Bad measured time')
-                    time_codec = Codecs.get(EmbeddedDataType.uint32, endianness=Endianness.Big)
-                    first_sample = time_codec.decode(time_data[0])
-                    xaxis.set_data([(time_codec.decode(sample) - first_sample) * 1e-7 for sample in time_data])
+                    xaxis_data=self.make_xaxis_measured_time(data[-1])
+                    xaxis.set_data(xaxis_data)
                     xaxis.name = 'Time (measured)'
                     xaxis.logged_watchable = None
                 elif self.active_request.api_request.x_axis_type == api_datalogging.XAxisType.Signal:
