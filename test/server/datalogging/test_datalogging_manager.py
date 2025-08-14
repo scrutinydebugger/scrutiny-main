@@ -6,6 +6,8 @@
 #
 #   Copyright (c) 2023 Scrutiny Debugger
 
+import struct
+
 import scrutiny.server.datalogging.definitions.api as api_datalogging
 import scrutiny.server.datalogging.definitions.device as device_datalogging
 from scrutiny.core import datalogging as core_datalogging
@@ -631,6 +633,24 @@ class TestDataloggingManager(ScrutinyUnitTest):
             self.device_handler.set_datalogger_state(device_datalogging.DataloggerState.IDLE)
             self.datalogging_manager.process()
             assert_state_change_and_clear(api_datalogging.DataloggingState.Standby, None)
+
+    def test_make_xaxis(self):
+
+        data = DataloggingManager.make_xaxis_indexed(10)
+        self.assertEqual(data, [0,1,2,3,4,5,6,7,8,9])
+
+        rate = api_datalogging.SamplingRate("test", 1000, api_datalogging.ExecLoopType.FIXED_FREQ, 0)
+        data = DataloggingManager.make_xaxis_ideal_time(10, rate, 2)
+        self.assertEqual(data, [0, 0.002, 0.004, 0.006, 0.008, 0.010, 0.012, 0.014, 0.016, 0.018])
+
+        raw_data = [ struct.pack('>L', v) for v in [0, 10000, 20000, 30000]]
+        data = DataloggingManager.make_xaxis_measured_time(raw_data)
+        self.assertEqual(data, [0, 0.001, 0.002, 0.003])
+
+        limit = 0xFFFFFFFF
+        raw_data = [ struct.pack('>L', v & 0xFFFFFFFF) for v in [limit-20000, limit-10000, limit, limit+10000, limit+20000]]
+        data = DataloggingManager.make_xaxis_measured_time(raw_data)
+        self.assertEqual(data, [0, 0.001, 0.002, 0.003, 0.004])
 
 
 if __name__ == '__main__':
