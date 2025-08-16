@@ -27,6 +27,8 @@ class MenuBar(QMenuBar):
         dashboard_clear_click = Signal()
         dashboard_recent_open = Signal(str)
 
+        firmwares_edit_click = Signal()
+
         device_configure_click = Signal()
         info_about_click = Signal()
 
@@ -35,6 +37,7 @@ class MenuBar(QMenuBar):
     _action_dashboard_save: QAction
     _action_dashboard_save_as: QAction
     _action_dashboard_clear: QAction
+    _action_firmware_edit: QAction
     _action_server_launch_local: QAction
     _action_device_configure: QAction
     _action_info_about: QAction
@@ -58,6 +61,10 @@ class MenuBar(QMenuBar):
 
         dashboard_menu.addSeparator()
         self._recent_action = dashboard_menu.addAction("Recent")
+
+        firmwares_menu = self.addMenu("Firmwares")
+        self._action_firmware_edit = firmwares_menu.addAction("Edit")
+        self._action_firmware_edit.triggered.connect(self._signals.firmwares_edit_click)
 
         info_menu = self.addMenu("Info")
         self._action_info_about = info_menu.addAction("About this software")
@@ -83,3 +90,4 @@ class MenuBar(QMenuBar):
 
         self._recent_action.setMenu(menu)
         self._recent_action.setEnabled(count > 0)
+

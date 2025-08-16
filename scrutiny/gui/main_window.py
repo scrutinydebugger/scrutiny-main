@@ -23,6 +23,7 @@ from scrutiny.gui.tools.invoker import invoke_later
 from scrutiny.gui.tools import prompt
 
 from scrutiny.gui.dialogs.about_dialog import AboutDialog
+from scrutiny.gui.dialogs.server_sfd_edit_dialog import ServerSFDEditDialog
 from scrutiny.gui.widgets.component_sidebar import ComponentSidebar
 from scrutiny.gui.widgets.status_bar import StatusBar
 from scrutiny.gui.widgets.menu_bar import MenuBar
@@ -70,6 +71,7 @@ class MainWindow(QMainWindow):
     _status_bar: StatusBar
     _dashboard: Dashboard
     _local_server_runner: LocalServerRunner
+    _server_sfd_edit_dialog:ServerSFDEditDialog
 
     def __init__(self) -> None:
         super().__init__()
@@ -99,10 +101,13 @@ class MainWindow(QMainWindow):
         self._menu_bar.signals.dashboard_save_as_click.connect(self._dashboard_save_as_click)
         self._menu_bar.signals.dashboard_open_click.connect(self._dashboard_open_click)
         self._menu_bar.signals.dashboard_recent_open.connect(self._dashboard_recent_open_click)
+        self._menu_bar.signals.firmwares_edit_click.connect(self.show_server_sfd_edit_dialog)
 
         self._menu_bar.set_dashboard_recents(self._dashboard.read_history())
 
         server_config_dialog = self._status_bar.get_server_config_dialog()
+        
+        self._server_sfd_edit_dialog = ServerSFDEditDialog(self, self._server_manager)
 
         if app_settings().start_local_server:
             port = app_settings().local_server_port
@@ -129,6 +134,10 @@ class MainWindow(QMainWindow):
         dialog = AboutDialog(self)
         dialog.setGeometry(self.centered(400, 200))
         dialog.show()
+    
+    def show_server_sfd_edit_dialog(self) -> None:
+        if not self._server_sfd_edit_dialog.isVisible():
+            self._server_sfd_edit_dialog.show()
 
     def _make_main_zone(self) -> None:
         self._central_widget = QWidget()
