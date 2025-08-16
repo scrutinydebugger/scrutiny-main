@@ -38,10 +38,15 @@ class TempStorageWithAutoRestore:
         self.storage.restore_storage()
 
 
+InstallCallback:TypeAlias = Callable[[str], None]
+UninstallCallback:TypeAlias = Callable[[str], None]
+
 class SFDStorageManager:
 
     temporary_dir: Optional["tempfile.TemporaryDirectory[str]"]
     folder: str
+    install_callbacks:List[InstallCallback]
+    uninstall_callbacks:List[UninstallCallback]
 
     @classmethod
     def clean_firmware_id(self, firmwareid: str) -> str:
@@ -54,6 +59,14 @@ class SFDStorageManager:
     def __init__(self, folder: str) -> None:
         self.folder = folder
         self.temporary_dir = None
+        self.install_callbacks = []
+        self.uninstall_callbacks = []
+    
+    def register_install_callback(self, callback:InstallCallback) -> None:
+        self.install_callbacks.append(callback)
+    
+    def register_uninstall_callback(self, callback:UninstallCallback) -> None:
+        self.uninstall_callbacks.append(callback)
 
     def use_temp_folder(self) -> TempStorageWithAutoRestore:
         """Require the storage manager to switch to a temporary directory. Used for unit testing"""
@@ -106,6 +119,8 @@ class SFDStorageManager:
 
         if os.path.isfile(target_file):
             os.remove(target_file)
+            for callback in self.uninstall_callbacks:
+                callback(firmwareid)
         else:
             if not ignore_not_exist:
                 raise ValueError('SFD file with firmware ID %s not found' % (firmwareid))

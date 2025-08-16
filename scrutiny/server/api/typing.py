@@ -226,6 +226,9 @@ class C2S:
     class LoadSFD(BaseC2SMessage):
         firmware_id: str
 
+    class UninstallSFD(BaseC2SMessage):
+        firmware_id_list:List[str]
+
     class SubscribeWatchable(BaseC2SMessage):
         watchables: List[str]
 
@@ -304,6 +307,9 @@ class S2C:
 
     class GetInstalledSFD(BaseS2CMessage):
         sfd_list: Dict[str, SFDMetadata]
+
+    class UninstallSFD(BaseS2CMessage):
+        pass
 
     class GetLoadedSFD(BaseS2CMessage):
         firmware_id: Optional[str]

@@ -2,9 +2,9 @@ __all__ = ['ServerSFDEditDialog']
 
 import logging 
 
-from PySide6.QtWidgets import QDialog, QWidget, QTableView, QVBoxLayout
-from PySide6.QtCore import Qt, QAbstractItemModel
-from PySide6.QtGui import QStandardItemModel, QStandardItem
+from PySide6.QtWidgets import QDialog, QWidget, QTableView, QVBoxLayout, QMenu
+from PySide6.QtCore import Qt, QAbstractItemModel, Signal, QObject, QPoint
+from PySide6.QtGui import QStandardItemModel, QStandardItem, QContextMenuEvent, QAction
 
 from scrutiny import sdk
 from scrutiny.sdk.client import ScrutinyClient
@@ -12,6 +12,9 @@ from scrutiny.gui.core.server_manager import ServerManager
 from scrutiny.gui.core.persistent_data import gui_persistent_data
 from scrutiny.tools.typing import *
 from scrutiny import tools
+from scrutiny.gui.themes import scrutiny_get_theme
+from scrutiny.gui import assets
+from scrutiny.gui.widgets.feedback_label import FeedbackLabel
 
 class ReadOnlyStandardItem(QStandardItem):
     @tools.copy_type(QStandardItem.__init__)
@@ -63,15 +66,40 @@ class SFDTableModel(QStandardItemModel):
 
         self.appendRow(row)
 
+
+    def remove_sfd_rows(self, firmware_ids:List[str]) -> None:
+        i = 0
+        firmware_ids_set = set(firmware_ids)
+        while i < self.rowCount():
+            firmware_id_item = self.item(i, self.Cols.FIRMWARE_ID)
+            if firmware_id_item is None:
+                break
+            firmware_id = firmware_id_item.text()
+            if firmware_id in firmware_ids_set:
+                self.removeRow(i)
+            else:
+                i+=1
+
+
         
 
 class SFDTableView(QTableView):
-    _model : SFDTableModel
 
-    @tools.copy_type(QTableView.__init__)
-    def __init__(self, *args:Any, **kwargs:Any) -> None:
-        super().__init__(*args, **kwargs)
+    class _Signals(QObject):
+        uninstall=Signal(object)
+        download=Signal(object)
+
+    _signals : _Signals
+    
+    def __init__(self, parent:QWidget) -> None:
+        super().__init__(parent)
+        self._signals = self._Signals()
         self.setModel(SFDTableModel(self))
+        self.setSortingEnabled(True)
+    
+    @property
+    def signals(self) -> _Signals:
+        return self._signals
     
     def setModel(self, model:Optional[QAbstractItemModel]) -> None:
         if not isinstance(model, SFDTableModel):
@@ -80,26 +108,63 @@ class SFDTableView(QTableView):
 
     def model(self) -> SFDTableModel:
         return cast(SFDTableModel, super().model())
+    
+    def contextMenuEvent(self, event: QContextMenuEvent) -> None:
+        
+        menu = QMenu(self)
+        uninstall_action = menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.RedX), "Uninstall")
+        #download_action = menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.Download), "Download")
 
+        firmware_id_indexes = [index for index in self.selectedIndexes() if index.isValid() and index.column() == SFDTableModel.Cols.FIRMWARE_ID]
+        firmware_ids = [self.model().itemFromIndex(index).text() for index in firmware_id_indexes]
+
+        def uninstall_action_slot() -> None:
+            self._signals.uninstall.emit(firmware_ids)
+       
+        def download_action_slot() -> None:
+            self._signals.download.emit(firmware_ids)
+
+        uninstall_action.triggered.connect(uninstall_action_slot)
+       # download_action.triggered.connect(download_action_slot)
+
+        self.display_context_menu(menu, event.pos())
+
+    def display_context_menu(self, menu: QMenu, pos: QPoint) -> None:
+        """Display a menu at given relative position, and make sure it goes below the cursor to mimic what most people are used to"""
+        actions = menu.actions()
+        at: Optional[QAction] = None
+        if len(actions) > 0:
+            pos += QPoint(0, menu.actionGeometry(actions[0]).height())
+            at = actions[0]
+        menu.popup(self.mapToGlobal(pos), at)
+
+    
 class ServerSFDEditDialog(QDialog):
 
     _server_manager : ServerManager
     _sfd_table: SFDTableView
+    _feedback_label:FeedbackLabel
     _logger:logging.Logger
 
     def __init__(self, parent:QWidget, server_manager:ServerManager) -> None:
         super().__init__(parent)
         self.setWindowTitle("Server SFDs")
         self.setMinimumSize(600,400)
+        self.setWindowFlag(Qt.WindowType.WindowMaximizeButtonHint)
 
         self._server_manager = server_manager
         self._logger = logging.getLogger(self.__class__.__name__)
-        self._sfd_table = SFDTableView()
+        self._feedback_label = FeedbackLabel()
+        self._sfd_table = SFDTableView(self)
         self._sfd_table.verticalHeader().hide()
         self._sfd_table.setSelectionBehavior(QTableView.SelectionBehavior.SelectRows)
         self._sfd_table.setSizeAdjustPolicy(QTableView.SizeAdjustPolicy.AdjustToContents)
+        self._sfd_table.signals.uninstall.connect(self._uninstall_sfds_slot)
+        self._sfd_table.signals.download.connect(self._download_sfds_slot)
+
 
         layout = QVBoxLayout(self)
+        layout.addWidget(self._feedback_label)
         layout.addWidget(self._sfd_table)
         
 
@@ -108,6 +173,49 @@ class ServerSFDEditDialog(QDialog):
 
         if self._server_manager.get_server_state() == sdk.ServerState.Connected:
             self.download_sfd_list()
+
+    def _uninstall_sfds_slot(self, firmware_ids:List[str]) -> None:
+        if self._server_manager.get_server_state() != sdk.ServerState.Connected:
+            return
+        
+        self._feedback_label.clear()    
+        def ephemerous_thread_request_uninstall(client:ScrutinyClient) -> None:
+            client.uninstall_sfds(firmware_ids)
+        
+        def ui_thread_uninstall_complete(response:None, error:Optional[Exception]) -> None:
+            if error is not None:
+                self._feedback_label.set_error(str(error))
+                tools.log_exception(self._logger, error, "Failed to uninstall SFDs")
+                return
+
+            self._sfd_table.model().remove_sfd_rows(firmware_ids)
+
+        self._server_manager.schedule_client_request(
+            user_func =  ephemerous_thread_request_uninstall,
+            ui_thread_callback = ui_thread_uninstall_complete
+        )
+
+    def _download_sfds_slot(self, firmware_ids:List[str]) -> None:
+        if self._server_manager.get_server_state() != sdk.ServerState.Connected:
+            return
+        
+        self._feedback_label.clear()
+            
+        def ephemerous_thread_request_download(client:ScrutinyClient) -> None:
+            pass
+            #client.download_sfds(firmware_ids)
+        
+        def ui_thread_download_complete(response:None, error:Optional[Exception]) -> None:
+            if error is not None:
+                self._feedback_label.set_error(str(error))
+                tools.log_exception(self._logger, error, "Failed to download SFDs")
+                return
+            
+
+        self._server_manager.schedule_client_request(
+            user_func =  ephemerous_thread_request_download,
+            ui_thread_callback = ui_thread_download_complete
+        )
     
     def clear_sfd_list(self) -> None:
         model = self._sfd_table.model()
@@ -121,12 +229,15 @@ class ServerSFDEditDialog(QDialog):
 
         def ui_thread_download_callback(sfds:Optional[Dict[str, sdk.SFDInfo]], error:Optional[Exception]) -> None:
             if sfds is None:
-                self._logger.error(f"Failed to download {error}")   # todo
+                assert error is not None
+                self._feedback_label.set_error(str(error))
+                tools.log_exception(self._logger, error, "Failed to download the SFD list")
                 return
             
             for sfd in sfds.values():
                 self._sfd_table.model().add_row(sfd)
             self._sfd_table.resizeColumnsToContents()
+            self._sfd_table.sortByColumn(SFDTableModel.Cols.CREATION_DATE, Qt.SortOrder.DescendingOrder)
 
         self._server_manager.schedule_client_request(
             user_func = ephemerous_thread_request_download,
@@ -134,7 +245,9 @@ class ServerSFDEditDialog(QDialog):
         )
     
     def _server_connected_slot(self) -> None:
+        self._feedback_label.clear()
         self.download_sfd_list()
 
     def _server_disconnected_slot(self) -> None:
+        self._feedback_label.clear()
         self.clear_sfd_list()

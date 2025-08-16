@@ -19,6 +19,10 @@ firmware ID that the device broadcasts.
 
 -----
 
+.. automethod:: scrutiny.sdk.client.ScrutinyClient.uninstall_sfds
+
+-----
+
 .. autoclass:: scrutiny.sdk.SFDInfo
     :exclude-members: __new__, __init__
     :members:

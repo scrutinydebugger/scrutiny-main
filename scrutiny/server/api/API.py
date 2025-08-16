@@ -89,6 +89,7 @@ class API:
             UNSUBSCRIBE_WATCHABLE = 'unsubscribe_watchable'
             GET_INSTALLED_SFD = 'get_installed_sfd'
             GET_LOADED_SFD = 'get_loaded_sfd'
+            UNINSTALL_SFD = 'uninstall_sfd'
             LOAD_SFD = 'load_sfd'
             GET_SERVER_STATUS = 'get_server_status'
             GET_DEVICE_INFO = 'get_device_info'
@@ -117,6 +118,7 @@ class API:
             WATCHABLE_UPDATE = 'watchable_update'
             GET_INSTALLED_SFD_RESPONSE = 'response_get_installed_sfd'
             GET_LOADED_SFD_RESPONSE = 'response_get_loaded_sfd'
+            UNINSTALL_SFD_RESPONSE = 'response_uninstall_sfd'
             GET_POSSIBLE_LINK_CONFIG_RESPONSE = "response_get_possible_link_config"
             SET_LINK_CONFIG_RESPONSE = 'response_set_link_config'
             INFORM_SERVER_STATUS = 'inform_server_status'
@@ -306,6 +308,7 @@ class API:
             self.Command.Client2Api.SUBSCRIBE_WATCHABLE: self.process_subscribe_watchable,
             self.Command.Client2Api.UNSUBSCRIBE_WATCHABLE: self.process_unsubscribe_watchable,
             self.Command.Client2Api.GET_INSTALLED_SFD: self.process_get_installed_sfd,
+            self.Command.Client2Api.UNINSTALL_SFD: self.process_uninstall_sfd,
             self.Command.Client2Api.LOAD_SFD: self.process_load_sfd,
             self.Command.Client2Api.GET_LOADED_SFD: self.process_get_loaded_sfd,
             self.Command.Client2Api.GET_SERVER_STATUS: self.process_get_server_status,
@@ -710,6 +713,34 @@ class API:
             'cmd': self.Command.Api2Client.GET_INSTALLED_SFD_RESPONSE,
             'reqid': self.get_req_id(req),
             'sfd_list': metadata_dict
+        }
+
+        self.client_handler.send(ClientHandlerMessage(conn_id=conn_id, obj=response))
+
+    #  ===  UNINSTALL_SFD ===
+    def process_uninstall_sfd(self, conn_id: str, req: api_typing.C2S.UninstallSFD) -> None:
+        if 'firmware_id_list' not in req:
+            raise InvalidRequestException(req, "Missing field firmware_id_list")
+
+        if not isinstance(req['firmware_id_list'], list):
+            raise InvalidRequestException(req, "Field firmware_id_list is not the right type")
+        
+        for firmware_id in req['firmware_id_list']:
+            if not isinstance(firmware_id, str):
+                raise InvalidRequestException(req, "Given firmware_id must be a string")
+
+            if not SFDStorage.is_valid_firmware_id(firmware_id):
+                raise InvalidRequestException(req, "Given firmware_id does not have the correct format. Expecting a 128bits hex string")
+
+            if not SFDStorage.is_installed(firmware_id):
+                raise InvalidRequestException(req, f"Firmware ID {firmware_id} is not installed")
+        
+        for firmware_id in req['firmware_id_list']:
+            SFDStorage.uninstall(firmware_id)
+
+        response: api_typing.S2C.UninstallSFD = {
+            'cmd': self.Command.Api2Client.UNINSTALL_SFD_RESPONSE,
+            'reqid': self.get_req_id(req)
         }
 
         self.client_handler.send(ClientHandlerMessage(conn_id=conn_id, obj=response))

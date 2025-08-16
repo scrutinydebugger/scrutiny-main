@@ -62,6 +62,9 @@ class ActiveSFDHandler:
         self.loaded_callbacks = []
         self.unloaded_callbacks = []
 
+        SFDStorage.register_install_callback(self._install_callback)
+        SFDStorage.register_uninstall_callback(self._uninstall_callback)
+
         self.reset_active_sfd()
 
     def register_sfd_loaded_callback(self, callback: SFDLoadedCallback) -> None:
@@ -97,9 +100,12 @@ class ActiveSFDHandler:
                     verbose = self.previous_device_status != device_status
                     device_id = self.device_handler.get_device_id()
                     if device_id is not None:
-                        self._load_sfd(device_id, verbose=verbose)   # Initiale loading. Will populate the datastore
+                        self._load_sfd(device_id, verbose=verbose)   # Initiate loading. Will populate the datastore
                     else:
                         self.logger.critical('No device ID available when connected. This should not happen')
+                else:
+                    if not SFDStorage.is_installed(self.sfd.get_firmware_id_ascii()): # Removed from disk?
+                        self.reset_active_sfd()
 
         if self.requested_firmware_id is not None:  # If the API requested to load an SFD
             self._load_sfd(self.requested_firmware_id)
@@ -171,3 +177,12 @@ class ActiveSFDHandler:
                     callback()
                 except Exception as e:
                     tools.log_exception(self.logger, e, "Error in SFD Unload callback", str_level=logging.CRITICAL)
+
+    def _install_callback(self, firmware_id:str) -> None:
+        pass
+    
+    def _uninstall_callback(self, firmware_id:str) -> None:
+        if self.sfd is not None:
+            if self.sfd.get_firmware_id_ascii() == firmware_id:
+                self.reset_active_sfd()
+            

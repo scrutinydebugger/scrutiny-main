@@ -1676,6 +1676,34 @@ class ScrutinyClient:
 
         return cb_data.obj
 
+    def uninstall_sfds(self, firmware_id_list:Union[str, List[str]]) -> None:
+        """ 
+        Uninstall a list of Scrutiny Firmware Description (SFD) from the server.
+        
+        :param firmware_id_list: The list of firmware ID. Should be an 128bits hexadecimal string (32 chars)
+
+        :raise OperationFailure: Failed to  uninstall the given SFDs
+        :raise TypeError: Given parameter not of the expected type
+        """
+        
+        validation.assert_type(firmware_id_list, 'firmware_id_list', list)
+        for i in range(len(firmware_id_list)):
+            validation.assert_type(firmware_id_list[i], f'firmware_id_list[{i}]', str)
+        
+        req = self._make_request(API.Command.Client2Api.UNINSTALL_SFD, {
+            'firmware_id_list' : firmware_id_list
+        })
+
+        def callback(state: CallbackState, response: Optional[api_typing.S2CMessage]) -> None:
+            pass
+
+        future = self._send(req, callback)  # Empty callback is necessary to get a future object.
+        assert future is not None
+        future.wait()
+        if future.state != CallbackState.OK:
+            raise sdk.exceptions.OperationFailure(
+                f"Failed to uninstall the list of Scrutiny Firmware Description file. {future.error_str}")
+
     def wait_process(self, timeout: Optional[float] = None) -> None:
         """Wait for the SDK thread to execute fully at least once. Useful for testing
 

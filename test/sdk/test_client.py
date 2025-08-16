@@ -1399,6 +1399,16 @@ class TestClient(ScrutinyUnitTest):
             self.assertEqual(installed2.firmware_id, sfd2.get_firmware_id_ascii())
             self.assertEqual(installed2.metadata, sfd2.get_metadata())
 
+    def test_uninstall_sfd(self):
+        with SFDStorage.use_temp_folder():
+            sfd1 = SFDStorage.install(get_artifact('test_sfd_1.sfd'), ignore_exist=True)
+            sfd2 = SFDStorage.install(get_artifact('test_sfd_2.sfd'), ignore_exist=True)
+
+            self.client.uninstall_sfds([sfd1.get_firmware_id_ascii(), sfd2.get_firmware_id_ascii()])
+            self.assertFalse(SFDStorage.is_installed(sfd1.get_firmware_id_ascii()))
+            self.assertFalse(SFDStorage.is_installed(sfd2.get_firmware_id_ascii()))
+
+
     def test_simple_request_response_timeout(self):
         with SFDStorage.use_temp_folder():
             SFDStorage.install(get_artifact('test_sfd_1.sfd'), ignore_exist=True)

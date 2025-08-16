@@ -403,7 +403,7 @@ class TestAPI(ScrutinyUnitTest):
         json_str = self.connections[conn_idx].read_from_server()
         self.assertIsNone(json_str)
 
-    def wait_for_response(self, conn_idx=0, timeout=1):
+    def wait_for_response(self, conn_idx:int=0, timeout:float=1):
         t1 = time.perf_counter()
         self.process_all()
         while not self.connections[conn_idx].from_server_available():
@@ -414,10 +414,32 @@ class TestAPI(ScrutinyUnitTest):
 
         return self.connections[conn_idx].read_from_server()
 
-    def wait_and_load_response(self, conn_idx=0, timeout=2):
-        json_str = self.wait_for_response(conn_idx=conn_idx, timeout=timeout)
-        self.assertIsNotNone(json_str)
-        return json.loads(json_str)
+    def wait_and_load_response(self, conn_idx:int=0, timeout:float=2, cmd:Optional[Union[str, List[str]]] = None, reqid:Optional[int] = None):
+        tstart = time.perf_counter()
+        obj = None
+        if cmd is not None and not isinstance(cmd, list):
+            cmd = [cmd]
+
+        while True:
+            new_timeout = max(timeout - (time.perf_counter() - tstart), 0)
+            json_str = self.wait_for_response(conn_idx=conn_idx, timeout=new_timeout)
+            self.assertIsNotNone(json_str)
+            obj = json.loads(json_str)
+            good=True
+            if cmd is not None:
+                self.assertIn('cmd', obj)
+                if obj['cmd'] not in cmd:
+                    good = False
+            if reqid is not None:
+                self.assertIn('reqid', obj)
+                if obj['reqid'] != reqid:
+                    good = False
+            
+            if good:
+                break
+
+        return obj
+
 
     def send_request(self, req, conn_idx=0):
         self.connections[conn_idx].write_to_server(json.dumps(req))
@@ -1093,6 +1115,108 @@ class TestAPI(ScrutinyUnitTest):
 
             SFDStorage.uninstall(sfd1.get_firmware_id_ascii())
             SFDStorage.uninstall(sfd2.get_firmware_id_ascii())
+
+    def test_uninstall_sfd(self):
+        dummy_sfd1_filename = get_artifact('test_sfd_1.sfd')
+        dummy_sfd2_filename = get_artifact('test_sfd_2.sfd')
+
+        # Check we can delete 1
+        with SFDStorage.use_temp_folder():
+            sfd1 = SFDStorage.install(dummy_sfd1_filename, ignore_exist=True)
+            sfd2 = SFDStorage.install(dummy_sfd2_filename, ignore_exist=True)
+
+            req = {
+                'cmd': 'uninstall_sfd',
+                'firmware_id_list': [sfd1.get_firmware_id_ascii()]
+            }
+
+            self.send_request(req)
+            response = self.wait_and_load_response()
+            self.assert_no_error(response)
+            self.assertEqual(response['cmd'], 'response_uninstall_sfd')
+
+            self.assertFalse(SFDStorage.is_installed(sfd1.get_firmware_id_ascii()))
+            self.assertTrue(SFDStorage.is_installed(sfd2.get_firmware_id_ascii()))
+
+        # Check we can delete more than 1
+        with SFDStorage.use_temp_folder():
+            sfd1 = SFDStorage.install(dummy_sfd1_filename, ignore_exist=True)
+            sfd2 = SFDStorage.install(dummy_sfd2_filename, ignore_exist=True)
+
+            req = {
+                'cmd': 'uninstall_sfd',
+                'firmware_id_list': [sfd2.get_firmware_id_ascii(), sfd1.get_firmware_id_ascii()]
+            }
+
+            self.send_request(req)
+            response = self.wait_and_load_response()
+            self.assert_no_error(response)
+            self.assertEqual(response['cmd'], 'response_uninstall_sfd')
+
+            self.assertFalse(SFDStorage.is_installed(sfd1.get_firmware_id_ascii()))
+            self.assertFalse(SFDStorage.is_installed(sfd2.get_firmware_id_ascii()))
+
+        # Now leT's do few bad request and make sure nothing is deleted.
+        with SFDStorage.use_temp_folder():
+            sfd1 = SFDStorage.install(dummy_sfd1_filename, ignore_exist=True)
+            sfd2 = SFDStorage.install(dummy_sfd2_filename, ignore_exist=True)
+
+            req = {
+                'cmd': 'uninstall_sfd',
+                'reqid' : 1,
+                'firmware_id_list': ['qqqqqq']  # invalid format
+            }
+
+            self.send_request(req)
+            response = self.wait_and_load_response(reqid=1)
+            self.assert_is_error(response)
+
+
+            req = {
+                'cmd': 'uninstall_sfd',
+                'reqid' : 2
+                # Missing field
+            }
+
+            self.send_request(req)
+            response = self.wait_and_load_response(reqid=2)
+            self.assert_is_error(response)
+
+
+            req = {
+                'cmd': 'uninstall_sfd',
+                'reqid' : 3,
+                'firmware_id_list': [sfd1.get_firmware_id_ascii(), 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa']   # inexistent
+            }
+
+            self.send_request(req, 0)
+            response = self.wait_and_load_response(reqid=3)
+            self.assert_is_error(response)
+
+            self.assertTrue(SFDStorage.is_installed(sfd1.get_firmware_id_ascii()))
+            self.assertTrue(SFDStorage.is_installed(sfd2.get_firmware_id_ascii()))
+
+    def test_sfd_unloaded_on_uninstall(self):
+        dummy_sfd1_filename = get_artifact('test_sfd_1.sfd')
+        dummy_sfd2_filename = get_artifact('test_sfd_2.sfd')
+        with SFDStorage.use_temp_folder():
+            sfd1 = SFDStorage.install(dummy_sfd1_filename, ignore_exist=True)
+            sfd2 = SFDStorage.install(dummy_sfd2_filename, ignore_exist=True)
+
+            self.sfd_handler.request_load_sfd(sfd2.get_firmware_id_ascii())
+            self.sfd_handler.process()
+
+            self.assertIsNotNone(self.sfd_handler.get_loaded_sfd())
+
+            req = {
+                'cmd': 'uninstall_sfd',
+                'firmware_id_list': [sfd2.get_firmware_id_ascii()]
+            }
+            self.send_request(req, 0)
+            response = self.wait_and_load_response(cmd='response_uninstall_sfd')
+            self.assert_no_error(response)
+            
+            self.assertIsNone(self.sfd_handler.get_loaded_sfd())
 
     def test_get_device_info(self):
         self.fake_device_handler.set_connection_status(DeviceHandler.ConnectionStatus.CONNECTED_READY)
