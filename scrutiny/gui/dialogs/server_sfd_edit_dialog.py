@@ -2,7 +2,7 @@ __all__ = ['ServerSFDEditDialog']
 
 import logging 
 
-from PySide6.QtWidgets import QDialog, QWidget, QTableView, QVBoxLayout, QMenu
+from PySide6.QtWidgets import QDialog, QWidget, QTableView, QVBoxLayout, QMenu, QPushButton
 from PySide6.QtCore import Qt, QAbstractItemModel, Signal, QObject, QPoint
 from PySide6.QtGui import QStandardItemModel, QStandardItem, QContextMenuEvent, QAction
 
@@ -87,7 +87,7 @@ class SFDTableView(QTableView):
 
     class _Signals(QObject):
         uninstall=Signal(object)
-        download=Signal(object)
+        save=Signal(object)
 
     _signals : _Signals
     
@@ -113,7 +113,7 @@ class SFDTableView(QTableView):
         
         menu = QMenu(self)
         uninstall_action = menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.RedX), "Uninstall")
-        #download_action = menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.Download), "Download")
+        #download_action = menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.Download), "Save")
 
         firmware_id_indexes = [index for index in self.selectedIndexes() if index.isValid() and index.column() == SFDTableModel.Cols.FIRMWARE_ID]
         firmware_ids = [self.model().itemFromIndex(index).text() for index in firmware_id_indexes]
@@ -121,11 +121,11 @@ class SFDTableView(QTableView):
         def uninstall_action_slot() -> None:
             self._signals.uninstall.emit(firmware_ids)
        
-        def download_action_slot() -> None:
-            self._signals.download.emit(firmware_ids)
+        def save_action_slot() -> None:
+            self._signals.save.emit(firmware_ids)
 
         uninstall_action.triggered.connect(uninstall_action_slot)
-       # download_action.triggered.connect(download_action_slot)
+       # download_action.triggered.connect(save_action_slot)
 
         self.display_context_menu(menu, event.pos())
 
@@ -140,11 +140,18 @@ class SFDTableView(QTableView):
 
     
 class ServerSFDEditDialog(QDialog):
+    """A dialog to edit the list of installed Scrutiny Firmware Description files ont the server"""
 
     _server_manager : ServerManager
+    """The server manager to send request to the server"""
     _sfd_table: SFDTableView
+    """The QTableView displaying the list of SFD installed"""
     _feedback_label:FeedbackLabel
+    """A label to display errors"""
     _logger:logging.Logger
+    """The logger"""
+    _btn_install:QPushButton
+    """Button to upload and install the a new SFD on the server"""
 
     def __init__(self, parent:QWidget, server_manager:ServerManager) -> None:
         super().__init__(parent)
@@ -160,14 +167,15 @@ class ServerSFDEditDialog(QDialog):
         self._sfd_table.setSelectionBehavior(QTableView.SelectionBehavior.SelectRows)
         self._sfd_table.setSizeAdjustPolicy(QTableView.SizeAdjustPolicy.AdjustToContents)
         self._sfd_table.signals.uninstall.connect(self._uninstall_sfds_slot)
-        self._sfd_table.signals.download.connect(self._download_sfds_slot)
+        self._sfd_table.signals.save.connect(self._save_sfd_slot)
 
+        self._btn_install = QPushButton("Install")
 
         layout = QVBoxLayout(self)
         layout.addWidget(self._feedback_label)
+        layout.addWidget(self._btn_install)
         layout.addWidget(self._sfd_table)
         
-
         self._server_manager.signals.server_connected.connect(self._server_connected_slot)
         self._server_manager.signals.server_disconnected.connect(self._server_disconnected_slot)
 
@@ -175,19 +183,21 @@ class ServerSFDEditDialog(QDialog):
             self.download_sfd_list()
 
     def _uninstall_sfds_slot(self, firmware_ids:List[str]) -> None:
+        """Called when right click an SFD and select "uninstall """
         if self._server_manager.get_server_state() != sdk.ServerState.Connected:
             return
         
+        # Let's send a request to the server for uninstalling the selected SFD
         self._feedback_label.clear()    
         def ephemerous_thread_request_uninstall(client:ScrutinyClient) -> None:
-            client.uninstall_sfds(firmware_ids)
+            client.uninstall_sfds(firmware_ids) # Blocking request
         
         def ui_thread_uninstall_complete(response:None, error:Optional[Exception]) -> None:
             if error is not None:
                 self._feedback_label.set_error(str(error))
                 tools.log_exception(self._logger, error, "Failed to uninstall SFDs")
                 return
-
+            # Success. Let's update the UI
             self._sfd_table.model().remove_sfd_rows(firmware_ids)
 
         self._server_manager.schedule_client_request(
@@ -195,7 +205,7 @@ class ServerSFDEditDialog(QDialog):
             ui_thread_callback = ui_thread_uninstall_complete
         )
 
-    def _download_sfds_slot(self, firmware_ids:List[str]) -> None:
+    def _save_sfd_slot(self, firmware_ids:List[str]) -> None:
         if self._server_manager.get_server_state() != sdk.ServerState.Connected:
             return
         
@@ -222,13 +232,16 @@ class ServerSFDEditDialog(QDialog):
         model.removeRows(0, model.rowCount())
 
     def download_sfd_list(self) -> None:
+        """Downloads the installed SFD from the server and populates the table view"""
         self.clear_sfd_list()
 
         def ephemerous_thread_request_download(client:ScrutinyClient) -> Dict[str, sdk.SFDInfo]:
             return client.get_installed_sfds()
 
         def ui_thread_download_callback(sfds:Optional[Dict[str, sdk.SFDInfo]], error:Optional[Exception]) -> None:
+            # Called when the lsit is received
             if sfds is None:
+                # Failed to downlaod
                 assert error is not None
                 self._feedback_label.set_error(str(error))
                 tools.log_exception(self._logger, error, "Failed to download the SFD list")
@@ -238,7 +251,7 @@ class ServerSFDEditDialog(QDialog):
                 self._sfd_table.model().add_row(sfd)
             self._sfd_table.resizeColumnsToContents()
             self._sfd_table.sortByColumn(SFDTableModel.Cols.CREATION_DATE, Qt.SortOrder.DescendingOrder)
-
+        
         self._server_manager.schedule_client_request(
             user_func = ephemerous_thread_request_download,
             ui_thread_callback = ui_thread_download_callback

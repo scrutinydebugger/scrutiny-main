@@ -137,6 +137,10 @@ class SFDStorageManager:
 
     def get(self, firmwareid: str) -> FirmwareDescription:
         """Returns the FirmwareDescription object from the global storage that has the given firmware ID """
+        file = self.get_file_location(firmwareid)
+        return FirmwareDescription(file)
+
+    def get_file_location(self, firmwareid:str) -> str:
         firmwareid = self.clean_firmware_id(firmwareid)
         if not self.is_valid_firmware_id(firmwareid):
             raise ValueError('Invalid firmware ID')
@@ -144,9 +148,8 @@ class SFDStorageManager:
         storage = self.get_storage_dir()
         filename = os.path.join(storage, firmwareid)
         if not os.path.isfile(filename):
-            raise Exception('Scrutiny Firmware description with firmware ID %s not installed on this system' % (firmwareid))
-
-        return FirmwareDescription(filename)
+            raise Exception(f'Scrutiny Firmware description with firmware ID {firmwareid} not installed on this system')
+        return filename
 
     def get_metadata(self, firmwareid: str) -> SFDMetadata:
         """Reads only the metadata from the Firmware DEscription file in the global storage identified by the given ID"""

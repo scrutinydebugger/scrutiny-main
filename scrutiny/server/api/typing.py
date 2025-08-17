@@ -198,6 +198,10 @@ class AxisNameUpdateEntry(TypedDict):
     id: int
     name: str
 
+class FileChunk(TypedDict):
+    data:str
+    chunk_index:int
+
 
 class C2S:
     "Client To Server"
@@ -226,6 +230,9 @@ class C2S:
     class LoadSFD(BaseC2SMessage):
         firmware_id: str
 
+    class DownloadSFD(BaseC2SMessage):
+        firmware_id: str
+        max_chunk_size:Optional[int]    # Mostly for testing
     class UninstallSFD(BaseC2SMessage):
         firmware_id_list:List[str]
 
@@ -310,6 +317,11 @@ class S2C:
 
     class UninstallSFD(BaseS2CMessage):
         pass
+
+    class DownloadSFD(BaseS2CMessage):
+        firmware_id:str
+        total_size:int
+        file_chunk:FileChunk
 
     class GetLoadedSFD(BaseS2CMessage):
         firmware_id: Optional[str]
@@ -436,6 +448,8 @@ C2SMessage = Union[
     C2S.GetWatchableCount,
     C2S.GetWatchableList,
     C2S.LoadSFD,
+    C2S.DownloadSFD,
+    C2S.UninstallSFD,
     C2S.SubscribeWatchable,
     C2S.UnsubscribeWatchable,
     C2S.GetPossibleLinkConfig,
@@ -457,6 +471,8 @@ S2CMessage = Union[
     S2C.Welcome,
     S2C.GetInstalledSFD,
     S2C.GetLoadedSFD,
+    S2C.UninstallSFD,
+    S2C.DownloadSFD,
     S2C.InformServerStatus,
     S2C.GetDeviceInfo,
     S2C.GetWatchableCount,

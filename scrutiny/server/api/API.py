@@ -15,6 +15,7 @@ __all__ = [
     'InvalidRequestException'
 ]
 
+import os
 import logging
 import traceback
 import math
@@ -90,6 +91,7 @@ class API:
             GET_INSTALLED_SFD = 'get_installed_sfd'
             GET_LOADED_SFD = 'get_loaded_sfd'
             UNINSTALL_SFD = 'uninstall_sfd'
+            DOWNLOAD_SFD = 'download_sfd'
             LOAD_SFD = 'load_sfd'
             GET_SERVER_STATUS = 'get_server_status'
             GET_DEVICE_INFO = 'get_device_info'
@@ -119,6 +121,7 @@ class API:
             GET_INSTALLED_SFD_RESPONSE = 'response_get_installed_sfd'
             GET_LOADED_SFD_RESPONSE = 'response_get_loaded_sfd'
             UNINSTALL_SFD_RESPONSE = 'response_uninstall_sfd'
+            DOWNLOAD_SFD_RESPONSE = 'response_download_sfd'
             GET_POSSIBLE_LINK_CONFIG_RESPONSE = "response_get_possible_link_config"
             SET_LINK_CONFIG_RESPONSE = 'response_set_link_config'
             INFORM_SERVER_STATUS = 'inform_server_status'
@@ -311,6 +314,7 @@ class API:
             self.Command.Client2Api.UNINSTALL_SFD: self.process_uninstall_sfd,
             self.Command.Client2Api.LOAD_SFD: self.process_load_sfd,
             self.Command.Client2Api.GET_LOADED_SFD: self.process_get_loaded_sfd,
+            self.Command.Client2Api.DOWNLOAD_SFD: self.process_download_sfd,
             self.Command.Client2Api.GET_SERVER_STATUS: self.process_get_server_status,
             self.Command.Client2Api.GET_DEVICE_INFO: self.process_get_device_info,
             self.Command.Client2Api.SET_LINK_CONFIG: self.process_set_link_config,
@@ -770,7 +774,63 @@ class API:
             self.sfd_handler.request_load_sfd(req['firmware_id'])
         except Exception as e:
             self.logger.error('Cannot load SFD %s. %s' % (req['firmware_id'], str(e)))
-        # Do not send a response. There's a callback on SFD Loading that will notfy everyone once completed.
+        # Do not send a response. There's a callback on SFD Loading that will notify everyone once completed.
+
+    # === DOWNLOAD_SFD ===
+    def process_download_sfd(self, conn_id: str, req: api_typing.C2S.DownloadSFD) -> None:
+        if 'firmware_id' not in req and not isinstance(req['firmware_id'], str):
+            raise InvalidRequestException(req, 'Invalid firmware_id')
+
+        firmware_id = req['firmware_id']
+        if not SFDStorage.is_installed(firmware_id):
+            raise InvalidRequestException(req, f"No firmware with ID {firmware_id}")
+        
+        file = SFDStorage.get_file_location(firmware_id)
+
+        if not os.path.isfile(file):    # not supposed to happen ever.
+            raise FileNotFoundError("Requested SFD file is missing")  
+
+        file_stat = os.stat(file)
+        filesize = file_stat.st_size
+        chunk_size = TCPClientHandler.STREAM_MTU // 2 - 256
+
+        if 'max_chunk_size' in req:
+            if not isinstance(req['max_chunk_size'], int):
+                raise InvalidRequestException(req, "Invalid max_chunk_size")
+            
+            if req['max_chunk_size'] <= 0:
+                raise InvalidRequestException(req, "Invalid max_chunk_size")
+            
+            chunk_size = min(chunk_size, req['max_chunk_size'])
+
+        if chunk_size <= 0:
+            raise ValueError("Internal Error. Bad chunk size")
+        
+        if filesize == 0:
+            raise InvalidRequestException(req, "SFD file is invalid")
+        
+        with open(file, 'rb') as f:
+            index = 0
+            while True: 
+                chunk_data = f.read(chunk_size)
+                if len(chunk_data) == 0:
+                    break
+
+                msg: api_typing.S2C.DownloadSFD = {
+                    'cmd': self.Command.Api2Client.DOWNLOAD_SFD_RESPONSE,
+                    'reqid': self.get_req_id(req),
+                    'firmware_id': firmware_id,
+                    'total_size' : filesize,
+                    'file_chunk': {
+                        'chunk_index' : index,
+                        'data' : b64encode(chunk_data).decode('ascii')
+                    }
+                }
+
+                index+=1
+
+                self.client_handler.send(ClientHandlerMessage(conn_id=conn_id, obj=msg))
+
 
     #  ===  GET_SERVER_STATUS ===
     def process_get_server_status(self, conn_id: str, req: api_typing.C2S.GetServerStatus) -> None:

@@ -6,6 +6,7 @@
 #
 #   Copyright (c) 2022 Scrutiny Debugger
 
+import os
 import time
 import queue
 import random
@@ -1217,6 +1218,52 @@ class TestAPI(ScrutinyUnitTest):
             self.assert_no_error(response)
             
             self.assertIsNone(self.sfd_handler.get_loaded_sfd())
+
+    def test_download_sfd(self):
+        dummy_sfd1_filename = get_artifact('test_sfd_1.sfd')
+        with SFDStorage.use_temp_folder():
+            sfd1 = SFDStorage.install(dummy_sfd1_filename, ignore_exist=True)
+            filepath = SFDStorage.get_file_location(sfd1.get_firmware_id_ascii())
+            filesize = os.stat(filepath).st_size
+            with open(filepath, 'rb') as f:
+                file_content = f.read()
+
+            req = {
+                'cmd': 'download_sfd',
+                'reqid' : 123,
+                'firmware_id': sfd1.get_firmware_id_ascii(),
+                'max_chunk_size' : 100
+            }
+
+            self.send_request(req, 0)
+            timeout = 5
+            t1 = time.monotonic()
+
+            data_buffer = bytearray()
+            
+            chunk_index = 0
+            while len(data_buffer) < filesize and time.monotonic()-t1 < timeout:
+                remaining_timeout = max(timeout - (time.monotonic()-t1), 0)
+                response = self.wait_and_load_response(cmd=API.Command.Api2Client.DOWNLOAD_SFD_RESPONSE, timeout=remaining_timeout)
+                self.assert_no_error(response)
+
+                expected_fields  = ['cmd', 'firmware_id', 'total_size', 'file_chunk']
+                for field in expected_fields:
+                    self.assertIn(field, response)
+
+                self.assertEqual(response['cmd'], API.Command.Api2Client.DOWNLOAD_SFD_RESPONSE)
+                self.assertEqual(response['firmware_id'], sfd1.get_firmware_id_ascii())
+                self.assertEqual(response['total_size'], filesize)
+                self.assertEqual(response['file_chunk']['chunk_index'], chunk_index)
+                data_buffer.extend(b64decode(response['file_chunk']['data']))
+
+                chunk_index+=1
+            
+            self.assertEqual(len(data_buffer), filesize)
+            self.assertEqual(data_buffer, file_content)
+
+
+
 
     def test_get_device_info(self):
         self.fake_device_handler.set_connection_status(DeviceHandler.ConnectionStatus.CONNECTED_READY)
