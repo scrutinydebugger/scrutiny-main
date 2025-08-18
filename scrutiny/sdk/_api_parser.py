@@ -90,6 +90,12 @@ class DataloggingListChangeResponse:
     action: sdk.DataloggingListChangeType
     reference_id: Optional[str]
 
+@dataclass
+class SFDDownloadChunk:
+    firmware_id:str
+    data:bytes
+    chunk_index:int
+    total_size:int
 
 T = TypeVar('T', str, int, float, bool)
 WATCHABLE_TYPE_KEY = Literal['rpv', 'alias', 'var']
@@ -113,13 +119,13 @@ def _check_response_dict(cmd: str, d: Any, name: str, types: Union[Type[Any], It
         part_name = key
     next_parts = parts[1:]
 
+    if not isinstance(d, dict):
+        raise sdk.exceptions.BadResponseError(f'Field {part_name} is expected to be a dictionary in message "{cmd}"')
+  
     if key not in d:
         raise sdk.exceptions.BadResponseError(f'Missing field "{part_name}" in message "{cmd}"')
 
     if len(next_parts) > 0:
-        if not isinstance(d, dict):
-            raise sdk.exceptions.BadResponseError(f'Field {part_name} is expected to be a dictionary in message "{cmd}"')
-
         _check_response_dict(cmd, d[key], '.'.join(next_parts), types, part_name)
     else:
         isbool = d[key].__class__ == True.__class__  # bool are ints for Python. Avoid allowing bools as valid int.
@@ -1184,4 +1190,36 @@ def parse_welcome(msg: api_typing.S2C.Welcome) -> WelcomeData:
 
     return WelcomeData(
         server_time_zero_timestamp=float(msg['server_time_zero_timestamp'])
+    )
+
+def parse_download_sfd_response(response: api_typing.S2C.DownloadSFD) -> SFDDownloadChunk:
+    assert isinstance(response, dict)
+    assert 'cmd' in response
+    cmd = response['cmd']
+    assert cmd == API.Command.Api2Client.DOWNLOAD_SFD_RESPONSE
+
+    _check_response_dict(cmd, response, 'firmware_id', str)
+    _check_response_dict(cmd, response, 'total_size', int)
+    _check_response_dict(cmd, response, 'file_chunk.data', str)
+    _check_response_dict(cmd, response, 'file_chunk.chunk_index', int)
+
+    if len(response['firmware_id']) == 0:
+        raise sdk.exceptions.BadResponseError("Empty firmware ID")
+
+    if response['total_size'] <= 0:
+        raise sdk.exceptions.BadResponseError("SFD Size is not valid")
+    
+    if response['file_chunk']['chunk_index'] < 0: 
+        raise sdk.exceptions.BadResponseError("Chunk index is not valid")
+
+    try:
+        data = b64decode(response['file_chunk']['data'], validate=True)
+    except binascii.Error as e:
+        raise sdk.exceptions.BadResponseError(f"Server returned a invalid base64 data block. {e}")
+
+    return SFDDownloadChunk(
+        firmware_id=response['firmware_id'],
+        total_size=response['total_size'],
+        chunk_index=response['file_chunk']['chunk_index'],
+        data=data
     )

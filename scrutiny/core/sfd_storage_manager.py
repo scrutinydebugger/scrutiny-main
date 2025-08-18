@@ -169,7 +169,7 @@ class SFDStorageManager:
 
     @classmethod
     def is_valid_firmware_id(cls, firmware_id: str) -> bool:
-        """Returns True if the given string rexpect the expected format for a firmware ID"""
+        """Returns True if the given string respect the expected format for a firmware ID"""
         retval = False
         with tools.SuppressException(Exception):
             firmware_id = cls.clean_firmware_id(firmware_id)

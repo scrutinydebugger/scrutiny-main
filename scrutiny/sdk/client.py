@@ -165,6 +165,7 @@ class FlushPoint:
 
 @dataclass(init=False)
 class WatchableListDownloadRequest(PendingRequest):
+
     """Represents a pending watchable download request. It can be used to wait for completion or cancel the request.
 
     :param client: A reference to the client object
@@ -198,6 +199,7 @@ class WatchableListDownloadRequest(PendingRequest):
             for watchable_type in WatchableType.all():
                 if watchable_type in data:
                     self._watchable_list[watchable_type].update(data[watchable_type])
+        self._update_expiration_timer()
 
     def cancel(self) -> None:
         """Informs the client that this request can be canceled.
@@ -229,6 +231,44 @@ class WatchableListDownloadRequest(PendingRequest):
 
         return self._watchable_list
 
+
+class SFDDownloadRequest(PendingRequest):
+    """Represents a pending SFD (Scrutiny Firmware Description) file download request. 
+    It can be used to wait for completion or cancel the request.
+
+    :param client: A reference to the client object
+    :param firmware_id: The firmware ID of the requested SFD file
+    """
+        
+    _firmware_id:str
+    _buffer:bytearray
+
+    def __init__(self, client:"ScrutinyClient", firmware_id: str) -> None:
+        super().__init__(client)
+
+        self._firmware_id = firmware_id
+        self._buffer = bytearray()
+    
+    def received_count(self) -> int:
+        return len(self._buffer)
+    
+    def firmware_id(self) -> str:
+        return self._firmware_id
+
+    def get(self) -> bytes:
+        """Return the downloaded SFD (Scrutiny Firmware Description) data. 
+        Data is available once ``is_success`` = ``True``. One can call :meth:`wait_for_completion<SFDDownloadRequest.wait_for_completion>`
+        to wait for all the data to eb received.
+    
+        :raise InvalidValueError: If the data is not fully downloaded.
+        """
+        if not self.is_success:
+            raise sdk.exceptions.InvalidValueError("The content is not fully downloaded yet")
+        return bytes(self._buffer)
+
+    def _add_data(self, data:bytes) -> None:
+        self._buffer.extend(data)
+        self._update_expiration_timer()
 
 class DataRateMeasurements:
     rx_data_rate: VariableRateExponentialAverager
@@ -274,6 +314,9 @@ class ScrutinyClient:
     _MEMORY_READ_DATA_LIFETIME = 30
     _MEMORY_WRITE_DATA_LIFETIME = 30
     _DOWNLOAD_WATCHABLE_LIST_LIFETIME = 30
+    _DOWNLOAD_SFD_REQUEST_LIFETIME = 30
+
+    _UNITTEST_DOWNLOAD_CHUNK_SIZE:Optional[int] = None
 
     @dataclass(frozen=True)
     class Statistics:
@@ -472,6 +515,8 @@ class ScrutinyClient:
     # Dict of all the active watchable list download request, indexed by their request id
     _pending_watchable_download_request: Dict[int, WatchableListDownloadRequest]
 
+    _pending_sfd_download_requests:Dict[int, SFDDownloadRequest]
+
     _worker_thread: Optional[threading.Thread]  # The thread that handles the communication
     _threading_events: _ThreadingEvents  # All the threading events grouped under a single object
     _sock_lock: threading.Lock  # A threading lock to access the socket
@@ -550,6 +595,7 @@ class ScrutinyClient:
         self._memory_write_completion_dict = {}
         self._pending_datalogging_requests = {}
         self._pending_watchable_download_request = {}
+        self._pending_sfd_download_requests = {}
 
         self._watchable_storage = {}
         self._watchable_path_to_id_map = {}
@@ -757,6 +803,26 @@ class ScrutinyClient:
         self._server_timebase.set_zero_to(welcome_data.server_time_zero_timestamp)
         self._threading_events.welcome_received.set()
 
+    def _wt_process_msg_download_sfd_response(self, msg: api_typing.S2C.DownloadSFD, reqid: Optional[int]) -> None:
+        if reqid is None:
+            self._logger.warning('Received a SFD chunk, but the request ID was not available.')
+            return
+
+        content = api_parser.parse_download_sfd_response(msg)
+
+        with self._main_lock:
+            if reqid not in self._pending_sfd_download_requests:
+                self._logger.warning(f'Received a SFD chunk, but the request ID was is not tied to any active request {reqid}')
+                return
+
+            req = self._pending_sfd_download_requests[reqid]
+
+        req._add_data(content.data)
+        if req.received_count() == content.total_size:
+            req._mark_complete(success=True)
+        elif req.received_count() > content.total_size:
+            req._mark_complete(success=False, failure_reason="Received too much data, the server is unreliable")
+
     def _wt_process_next_server_status_update(self) -> None:
         if self._request_status_timer.is_timed_out() or self._require_status_update:
             self._require_status_update = False
@@ -793,6 +859,7 @@ class ScrutinyClient:
                         del self._callback_storage[reqid]
 
     def _check_deferred_response_timeouts(self) -> None:
+        # Release the handle to pending request objects after a certain amount of time.
         with self._main_lock:
             for kstr in list(self._memory_read_completion_dict.keys()):
                 if time.monotonic() - self._memory_read_completion_dict[kstr].local_monotonic_timestamp > self._MEMORY_READ_DATA_LIFETIME:
@@ -803,8 +870,18 @@ class ScrutinyClient:
                     del self._memory_write_completion_dict[kstr]
 
             for kint in list(self._pending_watchable_download_request.keys()):
-                if self._pending_watchable_download_request[kint]._is_expired(self._DOWNLOAD_WATCHABLE_LIST_LIFETIME):
+                wd_req = self._pending_watchable_download_request[kint]
+                if wd_req._is_expired(self._DOWNLOAD_WATCHABLE_LIST_LIFETIME):
+                    if not wd_req.completed:
+                        wd_req._mark_complete(False, "No server data for too long")
                     del self._pending_watchable_download_request[kint]
+
+            for kint in list(self._pending_sfd_download_requests.keys()):
+                sfdd_req = self._pending_sfd_download_requests[kint]
+                if sfdd_req._is_expired(self._DOWNLOAD_SFD_REQUEST_LIFETIME):
+                    if not sfdd_req.completed:
+                        sfdd_req._mark_complete(False, "No server data for too long")
+                    del self._pending_sfd_download_requests[kint]
 
     def _wt_process_rx_api_message(self, msg: Dict[str, Any]) -> None:
         self._threading_events.msg_received.set()
@@ -838,6 +915,8 @@ class ScrutinyClient:
                     self._wt_process_msg_get_watchable_list_response(cast(api_typing.S2C.GetWatchableList, msg), reqid)
                 elif cmd == API.Command.Api2Client.WELCOME:
                     self._wt_process_msg_welcome(cast(api_typing.S2C.Welcome, msg), reqid)
+                elif cmd == API.Command.Api2Client.DOWNLOAD_SFD_RESPONSE:
+                    self._wt_process_msg_download_sfd_response(cast(api_typing.S2C.DownloadSFD, msg), reqid)
             except sdk.exceptions.BadResponseError as e:
                 tools.log_exception(self._logger, e, "Bad message from server")
 
@@ -885,6 +964,18 @@ class ScrutinyClient:
             with self._main_lock:
                 if reqid in self._callback_storage:
                     del self._callback_storage[reqid]
+
+        if cmd == API.Command.Api2Client.ERROR_RESPONSE:
+            # Some request have pending requests based on reqid. they have multiple response per reqid. If any fail, cancel the request
+            # Todo : Generalize the mechanism : 1 req -> multiple response by reqid.
+            buckets:List[Mapping[int, PendingRequest]] = [self._pending_watchable_download_request, self._pending_sfd_download_requests]
+            for bucket in buckets:
+                try:
+                    req = bucket[reqid]
+                except KeyError:
+                    continue
+                req._mark_complete(False, failure_reason=msg.get('msg', "No error message provided"))
+                    
 
     def _wt_process_write_watchable_requests(self) -> None:
         # Note _pending_api_batch_writes is always accessed from worker thread
@@ -1120,6 +1211,10 @@ class ScrutinyClient:
                 write_req._mark_complete(success=False, failure_reason=failure_reason)
         self._pending_api_batch_writes.clear()
 
+        for sfd_download_request in self._pending_sfd_download_requests.values():
+            sfd_download_request._mark_complete(False, failure_reason=failure_reason)
+        self._pending_sfd_download_requests.clear()
+
     def _register_callback(self, reqid: int, callback: ApiResponseCallback, timeout: float) -> ApiResponseFuture:
         future = ApiResponseFuture(reqid, default_wait_timeout=timeout + 0.5)    # Allow some margin for thread to mark it timed out
         callback_entry = CallbackStorageEntry(
@@ -1260,7 +1355,7 @@ class ScrutinyClient:
     def _cancel_download_watchable_list_request(self, reqid: int) -> None:
         with self._main_lock:
             if reqid not in self._pending_watchable_download_request:
-                raise sdk.exceptions.OperationFailure(f"No download reqest identified by request ID : {reqid}")
+                raise sdk.exceptions.OperationFailure(f"No download request identified by request ID : {reqid}")
             self._pending_watchable_download_request[reqid]._mark_complete(success=False, failure_reason="Cancelled by user")
 
     def _flush_batch_write(self, batch_write_context: BatchWriteContext) -> None:
@@ -1676,7 +1771,7 @@ class ScrutinyClient:
 
         return cb_data.obj
 
-    def uninstall_sfds(self, firmware_id_list:Union[str, List[str]]) -> None:
+    def uninstall_sfds(self, firmware_id_list:List[str]) -> None:
         """ 
         Uninstall a list of Scrutiny Firmware Description (SFD) from the server.
         
@@ -1703,6 +1798,28 @@ class ScrutinyClient:
         if future.state != CallbackState.OK:
             raise sdk.exceptions.OperationFailure(
                 f"Failed to uninstall the list of Scrutiny Firmware Description file. {future.error_str}")
+
+    def download_sfd(self, firmware_id:str) -> SFDDownloadRequest:
+        
+        validation.assert_type(firmware_id, 'firmware_id', str)
+        
+        req = cast(api_typing.C2S.DownloadSFD, 
+            self._make_request(API.Command.Client2Api.DOWNLOAD_SFD, {
+                'firmware_id' : firmware_id
+            })
+        )
+        
+        # For unit tests, we want to validate that multi chunk works
+        if self._UNITTEST_DOWNLOAD_CHUNK_SIZE is not None:
+            req['max_chunk_size'] = self._UNITTEST_DOWNLOAD_CHUNK_SIZE
+
+        reqid = req['reqid']
+        pending_req = SFDDownloadRequest(self, firmware_id)
+        with self._main_lock:
+            self._pending_sfd_download_requests[reqid] = pending_req
+    
+        self._send(req)
+        return pending_req
 
     def wait_process(self, timeout: Optional[float] = None) -> None:
         """Wait for the SDK thread to execute fully at least once. Useful for testing

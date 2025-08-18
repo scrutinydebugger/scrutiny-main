@@ -1291,7 +1291,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
 # region Browse Tab
     def _browse_tab_visible_slot(self) -> None:
         """When the user make "Browse" tab visible"""
-        # We initiate the downlaod of a first chunk of acquisition list
+        # We initiate the download of a first chunk of acquisition list
         if self.server_manager.get_server_state() == sdk.ServerState.Connected:
             self._do_initial_graph_list_download()
 

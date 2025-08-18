@@ -52,9 +52,9 @@ def get_open_filepath_from_last_save_dir(parent: QWidget, extension_with_dot: st
     return Path(filename)
 
 
-def get_save_filepath_from_last_save_dir(parent: QWidget, extension_with_dot: str, title: str = "Save") -> Optional[Path]:
+def get_save_filepath_from_last_save_dir(parent: QWidget, extension_with_dot: str, title: str = "Save", default_name:str="") -> Optional[Path]:
     save_dir = gui_persistent_data.global_namespace().get_last_save_dir_or_workdir()
-    filename, _ = QFileDialog.getSaveFileName(parent, title, str(save_dir), f"*{extension_with_dot}")
+    filename, _ = QFileDialog.getSaveFileName(parent, title, str(save_dir/default_name), f"*{extension_with_dot}")
     if len(filename) == 0:
         return None     # Cancelled
     gui_persistent_data.global_namespace().set_last_save_dir(Path(os.path.dirname(filename)))

@@ -1,4 +1,4 @@
-__all__ = ['ServerSFDEditDialog']
+__all__ = ['ServerSFDManagerDialog']
 
 import logging 
 
@@ -15,6 +15,7 @@ from scrutiny import tools
 from scrutiny.gui.themes import scrutiny_get_theme
 from scrutiny.gui import assets
 from scrutiny.gui.widgets.feedback_label import FeedbackLabel
+from scrutiny.gui.tools import prompt
 
 class ReadOnlyStandardItem(QStandardItem):
     @tools.copy_type(QStandardItem.__init__)
@@ -87,7 +88,7 @@ class SFDTableView(QTableView):
 
     class _Signals(QObject):
         uninstall=Signal(object)
-        save=Signal(object)
+        save=Signal(str)
 
     _signals : _Signals
     
@@ -113,7 +114,7 @@ class SFDTableView(QTableView):
         
         menu = QMenu(self)
         uninstall_action = menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.RedX), "Uninstall")
-        #download_action = menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.Download), "Save")
+        save_action = menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.Download), "Save")
 
         firmware_id_indexes = [index for index in self.selectedIndexes() if index.isValid() and index.column() == SFDTableModel.Cols.FIRMWARE_ID]
         firmware_ids = [self.model().itemFromIndex(index).text() for index in firmware_id_indexes]
@@ -122,10 +123,17 @@ class SFDTableView(QTableView):
             self._signals.uninstall.emit(firmware_ids)
        
         def save_action_slot() -> None:
-            self._signals.save.emit(firmware_ids)
+            if len(firmware_ids) == 1:
+                self._signals.save.emit(firmware_ids[0])
 
         uninstall_action.triggered.connect(uninstall_action_slot)
-       # download_action.triggered.connect(save_action_slot)
+        save_action.triggered.connect(save_action_slot)
+
+        if len(firmware_ids) != 1:
+            save_action.setDisabled(True)
+        
+        if len(firmware_ids) == 0:
+            uninstall_action.setDisabled(True)
 
         self.display_context_menu(menu, event.pos())
 
@@ -139,7 +147,7 @@ class SFDTableView(QTableView):
         menu.popup(self.mapToGlobal(pos), at)
 
     
-class ServerSFDEditDialog(QDialog):
+class ServerSFDManagerDialog(QDialog):
     """A dialog to edit the list of installed Scrutiny Firmware Description files ont the server"""
 
     _server_manager : ServerManager
@@ -205,22 +213,35 @@ class ServerSFDEditDialog(QDialog):
             ui_thread_callback = ui_thread_uninstall_complete
         )
 
-    def _save_sfd_slot(self, firmware_ids:List[str]) -> None:
+    def _save_sfd_slot(self, firmware_id:str) -> None:
         if self._server_manager.get_server_state() != sdk.ServerState.Connected:
             return
         
-        self._feedback_label.clear()
+        self._feedback_label.set_info("Downloading...")
             
-        def ephemerous_thread_request_download(client:ScrutinyClient) -> None:
-            pass
-            #client.download_sfds(firmware_ids)
+        def ephemerous_thread_request_download(client:ScrutinyClient) -> bytes:
+            req = client.download_sfd(firmware_id)
+            req.wait_for_completion(None)
+            return req.get()
         
-        def ui_thread_download_complete(response:None, error:Optional[Exception]) -> None:
+        def ui_thread_download_complete(data:Optional[bytes], error:Optional[Exception]) -> None:
             if error is not None:
                 self._feedback_label.set_error(str(error))
                 tools.log_exception(self._logger, error, "Failed to download SFDs")
                 return
+            self._feedback_label.clear()
             
+            assert data is not None
+            save_path = prompt.get_save_filepath_from_last_save_dir(self, ".sfd", "Save SFD", default_name=f"{firmware_id}.sfd")
+            if save_path is not None:
+                try:
+                    with open(save_path, 'wb') as f:
+                        f.write(data)
+                    self._feedback_label.set_success(f"SFD saved to {save_path}")
+                except Exception as e:
+                    self._feedback_label.set_error(f"Failed to save. {e}")
+                    tools.log_exception(self._logger, e, f"Failed to save SFD to {save_path}")
+                        
 
         self._server_manager.schedule_client_request(
             user_func =  ephemerous_thread_request_download,
@@ -241,7 +262,7 @@ class ServerSFDEditDialog(QDialog):
         def ui_thread_download_callback(sfds:Optional[Dict[str, sdk.SFDInfo]], error:Optional[Exception]) -> None:
             # Called when the lsit is received
             if sfds is None:
-                # Failed to downlaod
+                # Failed to download
                 assert error is not None
                 self._feedback_label.set_error(str(error))
                 tools.log_exception(self._logger, error, "Failed to download the SFD list")

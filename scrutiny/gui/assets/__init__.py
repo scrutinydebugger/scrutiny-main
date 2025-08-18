@@ -93,6 +93,7 @@ class Icons(enum.Enum):
     Warning = "warning"
     Error = "error"
     Info = "info"
+    Success = "success"
     GraphCursor = "graph-cursor"
     GraphNoCursor = "graph-no-cursor"
     ZoomX = "zoom-x"
@@ -114,6 +115,7 @@ class Icons(enum.Enum):
     Window = "window"
     Pin = "pin"
     Unpin = "unpin"
+
     SidebarLeft = "sidebar-left"
     SidebarRight = "sidebar-right"
     SidebarTop = "sidebar-top"

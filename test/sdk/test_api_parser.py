@@ -2255,6 +2255,60 @@ class TestApiParser(ScrutinyUnitTest):
                 with self.assertRaises(sdk.exceptions.BadResponseError, msg=f"field={field}. v={v}"):
                     parser.parse_get_installed_sfds_response(msg)
 
+    def test_parse_download_sfd_response(self):
+        def base() -> api_typing.S2C.DownloadSFD:
+            return {
+                'reqid' : 0,
+                'cmd' : 'response_download_sfd',
+                "firmware_id" : 'abcdef',
+                "file_chunk" : {
+                    'chunk_index' : 1,
+                    'data' : b64encode(bytes([1,2,3,4,5,6])).decode('ascii')
+                },
+                'total_size' : 30
+            }
+         
+        msg = base()
+        resposne = parser.parse_download_sfd_response(msg)
+
+        self.assertEqual(resposne.firmware_id, 'abcdef')
+        self.assertEqual(resposne.total_size, 30)
+        self.assertEqual(resposne.chunk_index, 1)
+        self.assertEqual(resposne.data, bytes([1,2,3,4,5,6]))
+
+        class Delete:
+            pass
+
+        def test_field(field:str, values:List[Any]):
+            for v in values:
+                msg = base()
+                if v == Delete:
+                    del msg[field]
+                else:
+                    msg[field] = v
+                
+                with self.assertRaises(sdk.exceptions.BadResponseError, msg=f'field={field}, v={v}'):
+                    parser.parse_download_sfd_response(msg)
+
+        test_field('firmware_id', [[], {}, None, -1, 1.2, "", True, Delete])
+        test_field('total_size', [[], {}, None, -1, 1.2, "", True, Delete])
+        test_field('file_chunk', [[], {}, None, -1, 1.2, "", True, Delete])
+
+        def test_chunk_field(field:str, values:List[Any]):
+            for v in values:
+                msg = base()
+                if v == Delete:
+                    del msg['file_chunk'][field]
+                else:
+                    msg['file_chunk'][field] = v
+                
+                with self.assertRaises(sdk.exceptions.BadResponseError, msg=f'field={field}, v={v}'):
+                    parser.parse_download_sfd_response(msg)
+
+        test_chunk_field('chunk_index',  [[], {}, None, -1, 1.2, "", True, Delete])
+        test_chunk_field('data',  [[], {}, None, -1, 1.2, True, Delete])
+        test_chunk_field('data',  [[], {}, None, -1, 1.2, "INVALIDB64", True, Delete])
+            
 
 if __name__ == '__main__':
     unittest.main()

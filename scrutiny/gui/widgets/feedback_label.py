@@ -27,6 +27,7 @@ class FeedbackLabel(QWidget):
         WARNING = enum.auto()
         ERROR = enum.auto()
         NORMAL = enum.auto()
+        SUCCESS = enum.auto()
 
     _icon_label: QLabel
     _text_label: QLabel
@@ -85,6 +86,12 @@ class FeedbackLabel(QWidget):
         self._text_label.setText(text)
         self._icon_label.clear()
         self._actual_msg_type = self.MessageType.NORMAL
+        self._text_label.setCursor(Qt.CursorShape.IBeamCursor)
+
+    def set_success(self, text: str) -> None:
+        self._text_label.setText(text)
+        self._icon_label.setPixmap(scrutiny_get_theme().load_tiny_icon_as_pixmap(assets.Icons.Success))
+        self._actual_msg_type = self.MessageType.SUCCESS
         self._text_label.setCursor(Qt.CursorShape.IBeamCursor)
 
     def get_message_type(self) -> MessageType:

@@ -28,6 +28,7 @@ class PendingRequest:
     _completed_event: threading.Event   # Event that gets set upon completion of the request
     _failure_reason: str    # Textual description of the reason of the failure to complete. Empty string if incomplete or succeeded
     _monotonic_creation_timestamp: float
+    _monotonic_expiration_timestamp: float
 
     def __init__(self, client: "ScrutinyClient") -> None:
         self._client = client
@@ -37,9 +38,13 @@ class PendingRequest:
         self._completed_event = threading.Event()
         self._failure_reason = ""
         self._monotonic_creation_timestamp = time.monotonic()
+        self._monotonic_expiration_timestamp = self._monotonic_creation_timestamp
 
     def _is_expired(self, timeout: float) -> bool:
-        return time.monotonic() - self._monotonic_creation_timestamp > timeout
+        return time.monotonic() - self._monotonic_expiration_timestamp > timeout
+
+    def _update_expiration_timer(self) -> None:
+        self._monotonic_expiration_timestamp = time.monotonic()
 
     def _mark_complete(self, success: bool, failure_reason: str = "", server_time_us: Optional[float] = None) -> None:
         # Put a request in "completed" state. Expected to be called by the client worker thread

@@ -1241,6 +1241,7 @@ class TestAPI(ScrutinyUnitTest):
 
             data_buffer = bytearray()
             
+            
             chunk_index = 0
             while len(data_buffer) < filesize and time.monotonic()-t1 < timeout:
                 remaining_timeout = max(timeout - (time.monotonic()-t1), 0)

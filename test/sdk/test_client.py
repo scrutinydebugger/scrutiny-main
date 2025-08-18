@@ -1409,6 +1409,31 @@ class TestClient(ScrutinyUnitTest):
             self.assertFalse(SFDStorage.is_installed(sfd2.get_firmware_id_ascii()))
 
 
+    def test_download_sfd(self):
+        with SFDStorage.use_temp_folder():
+            sfd1 = SFDStorage.install(get_artifact('test_sfd_1.sfd'), ignore_exist=True)
+            sfd2 = SFDStorage.install(get_artifact('test_sfd_2.sfd'), ignore_exist=True)
+            self.client._UNITTEST_DOWNLOAD_CHUNK_SIZE = 100  # Internal var for testing only
+            sfd1_req = self.client.download_sfd(sfd1.get_firmware_id_ascii())
+            sfd2_req = self.client.download_sfd(sfd2.get_firmware_id_ascii())
+
+            sfd1_req.wait_for_completion(2)
+            sfd1_downloaded_data = sfd1_req.get()
+
+            sfd2_req.wait_for_completion(2)
+            sfd2_downloaded_data = sfd2_req.get()
+
+            with open(SFDStorage.get_file_location(sfd1.get_firmware_id_ascii()), 'rb') as f:
+                sfd1_data = f.read()
+            
+            with open(SFDStorage.get_file_location(sfd2.get_firmware_id_ascii()), 'rb') as f:
+                sfd2_data = f.read()
+                         
+            self.assertEqual(len(sfd1_data), len(sfd1_downloaded_data))
+            self.assertEqual(sfd1_data, sfd1_downloaded_data)
+            self.assertEqual(sfd2_data, sfd2_downloaded_data)
+
+
     def test_simple_request_response_timeout(self):
         with SFDStorage.use_temp_folder():
             SFDStorage.install(get_artifact('test_sfd_1.sfd'), ignore_exist=True)

@@ -48,7 +48,22 @@
         "testcases",
         "typehints",
         "varbit",
-        "xaxis"
+        "xaxis",
+        "firmwareid"
     ],
-    "cSpell.enabled": true
+    "cSpell.enabled": true,
+    "auto-correct.dictionary": [
+        {
+            "languages": ["*"],
+            "words": {
+                "backgorund": "background",
+                "downlaod": "download",
+                "scurtiny": "scrutiny",
+                "isntall": "install",
+                "isntalled": "installed",
+                "is_isntalled": "is_installed",
+                "laoded" : "loaded",
+                "conenction" : "connection"
+            }
+        }]
 }
