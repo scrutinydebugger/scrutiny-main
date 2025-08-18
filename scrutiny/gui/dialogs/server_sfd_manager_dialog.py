@@ -31,7 +31,7 @@ class ReadOnlyStandardItem(QStandardItem):
     def __init__(self, *args:Any, **kwargs:Any) -> None:
         super().__init__(*args, **kwargs)
         self.setEditable(False)
-        
+
 
 class SFDTableModel(QStandardItemModel):
 
@@ -42,6 +42,7 @@ class SFDTableModel(QStandardItemModel):
         CREATION_DATE=3
     
     NB_COLS=4
+    SFD_INFO_ROLE = Qt.ItemDataRole.UserRole + 5
     
     @tools.copy_type(QStandardItemModel.__init__)
     def __init__(self, *args:Any, **kwargs:Any) -> None:
@@ -58,6 +59,8 @@ class SFDTableModel(QStandardItemModel):
     def add_row(self, sfd_info:sdk.SFDInfo) -> None:
         row = [ReadOnlyStandardItem("N/A") for i in range(self.NB_COLS)]
         row[self.Cols.FIRMWARE_ID].setText(sfd_info.firmware_id)
+        row[self.Cols.FIRMWARE_ID].setData(sfd_info, self.SFD_INFO_ROLE)
+
         if sfd_info.metadata is not None:
             if sfd_info.metadata.project_name is not None:
                 project_name = sfd_info.metadata.project_name
@@ -97,7 +100,7 @@ class SFDTableView(QTableView):
 
     class _Signals(QObject):
         uninstall=Signal(object)
-        save=Signal(str)
+        save=Signal(object)
 
     _signals : _Signals
     
@@ -133,7 +136,10 @@ class SFDTableView(QTableView):
        
         def save_action_slot() -> None:
             if len(firmware_ids) == 1:
-                self._signals.save.emit(firmware_ids[0])
+                assert len(firmware_id_indexes) == 1
+                sfd_info = cast(sdk.SFDInfo, firmware_id_indexes[0].data(self.model().SFD_INFO_ROLE))
+                assert isinstance(sfd_info, sdk.SFDInfo)
+                self._signals.save.emit(sfd_info)
 
         uninstall_action.triggered.connect(uninstall_action_slot)
         save_action.triggered.connect(save_action_slot)
@@ -167,8 +173,6 @@ class ServerSFDManagerDialog(QDialog):
     """A label to display errors"""
     _logger:logging.Logger
     """The logger"""
-    _btn_install:QPushButton
-    """Button to upload and install the a new SFD on the server"""
 
     def __init__(self, parent:QWidget, server_manager:ServerManager) -> None:
         super().__init__(parent)
@@ -186,11 +190,8 @@ class ServerSFDManagerDialog(QDialog):
         self._sfd_table.signals.uninstall.connect(self._uninstall_sfds_slot)
         self._sfd_table.signals.save.connect(self._save_sfd_slot)
 
-        self._btn_install = QPushButton("Install")
-
         layout = QVBoxLayout(self)
         layout.addWidget(self._feedback_label)
-        layout.addWidget(self._btn_install)
         layout.addWidget(self._sfd_table)
         
         self._server_manager.signals.server_connected.connect(self._server_connected_slot)
@@ -216,20 +217,22 @@ class ServerSFDManagerDialog(QDialog):
                 return
             # Success. Let's update the UI
             self._sfd_table.model().remove_sfd_rows(firmware_ids)
+            nb_sfd = len(firmware_ids)
+            self._feedback_label.set_success(f"Uninstalled {nb_sfd} Scrutiny Firmware Description (SFD) files.")
 
         self._server_manager.schedule_client_request(
             user_func =  ephemerous_thread_request_uninstall,
             ui_thread_callback = ui_thread_uninstall_complete
         )
 
-    def _save_sfd_slot(self, firmware_id:str) -> None:
+    def _save_sfd_slot(self, sfd_info:sdk.SFDInfo) -> None:
         if self._server_manager.get_server_state() != sdk.ServerState.Connected:
             return
         
         self._feedback_label.set_info("Downloading...")
             
         def ephemerous_thread_request_download(client:ScrutinyClient) -> bytes:
-            req = client.download_sfd(firmware_id)
+            req = client.download_sfd(sfd_info.firmware_id)
             req.wait_for_completion(None)
             return req.get()
         
@@ -241,7 +244,8 @@ class ServerSFDManagerDialog(QDialog):
             self._feedback_label.clear()
             
             assert data is not None
-            save_path = prompt.get_save_filepath_from_last_save_dir(self, ".sfd", "Save SFD", default_name=f"{firmware_id}.sfd")
+            default_name = self._make_sfd_default_name(sfd_info)
+            save_path = prompt.get_save_filepath_from_last_save_dir(self, ".sfd", "Save SFD", default_name=default_name)
             if save_path is not None:
                 try:
                     with open(save_path, 'wb') as f:
@@ -257,6 +261,20 @@ class ServerSFDManagerDialog(QDialog):
             ui_thread_callback = ui_thread_download_complete
         )
     
+    def _make_sfd_default_name(self, sfd_info:sdk.SFDInfo) -> str:
+        EXTENSION = '.sfd'
+        if sfd_info.metadata is None:
+            return sfd_info.firmware_id + EXTENSION
+        
+        if sfd_info.metadata.project_name is None:
+            return sfd_info.firmware_id + EXTENSION
+        
+        project_name = sfd_info.metadata.project_name
+        if sfd_info.metadata.version is not None:
+            project_name += f'V{sfd_info.metadata.version}'
+        
+        return f"{project_name} ({sfd_info.firmware_id})" + EXTENSION
+
     def clear_sfd_list(self) -> None:
         model = self._sfd_table.model()
         model.removeRows(0, model.rowCount())
