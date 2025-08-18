@@ -809,28 +809,36 @@ class API:
         if filesize == 0:
             raise InvalidRequestException(req, "SFD file is invalid")
         
-        with open(file, 'rb') as f:
-            index = 0
-            while True: 
-                chunk_data = f.read(chunk_size)
-                if len(chunk_data) == 0:
-                    break
+        req_id = self.get_req_id(req)
 
-                msg: api_typing.S2C.DownloadSFD = {
-                    'cmd': self.Command.Api2Client.DOWNLOAD_SFD_RESPONSE,
-                    'reqid': self.get_req_id(req),
-                    'firmware_id': firmware_id,
-                    'total_size' : filesize,
-                    'file_chunk': {
-                        'chunk_index' : index,
-                        'data' : b64encode(chunk_data).decode('ascii')
-                    }
-                }
+        def send_task() -> None:
+            try:
+                with open(file, 'rb') as f:
+                    index = 0
+                    while self.client_handler.is_connection_active(conn_id): 
+                        chunk_data = f.read(chunk_size)
+                        if len(chunk_data) == 0:
+                            break
 
-                index+=1
+                        msg: api_typing.S2C.DownloadSFD = {
+                            'cmd': self.Command.Api2Client.DOWNLOAD_SFD_RESPONSE,
+                            'reqid': req_id,
+                            'firmware_id': firmware_id,
+                            'total_size' : filesize,
+                            'file_chunk': {
+                                'chunk_index' : index,
+                                'data' : b64encode(chunk_data).decode('ascii')
+                            }
+                        }
 
-                self.client_handler.send(ClientHandlerMessage(conn_id=conn_id, obj=msg))
+                        index+=1
 
+                        self.client_handler.send(ClientHandlerMessage(conn_id=conn_id, obj=msg))
+            except Exception as e:
+                tools.log_exception(self.logger, e, "Failed to send the SFD content")
+                self.client_handler.send(ClientHandlerMessage(conn_id=conn_id, obj=self.make_error_response(req, str(e))))
+
+        threading.Thread(target=send_task, daemon=True).start()
 
     #  ===  GET_SERVER_STATUS ===
     def process_get_server_status(self, conn_id: str, req: api_typing.C2S.GetServerStatus) -> None:

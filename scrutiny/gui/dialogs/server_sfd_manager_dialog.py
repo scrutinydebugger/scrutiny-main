@@ -1,3 +1,12 @@
+#    server_sfd_manager_dialog.py
+#        A dialog to manage the already installed Scrutiny Firmware Description files ont
+#        the server
+#
+#   - License : MIT - See LICENSE file.
+#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#   Copyright (c) 2025 Scrutiny Debugger
+
 __all__ = ['ServerSFDManagerDialog']
 
 import logging 
@@ -148,7 +157,7 @@ class SFDTableView(QTableView):
 
     
 class ServerSFDManagerDialog(QDialog):
-    """A dialog to edit the list of installed Scrutiny Firmware Description files ont the server"""
+    """A dialog to edit the list of installed Scrutiny Firmware Description files on the server"""
 
     _server_manager : ServerManager
     """The server manager to send request to the server"""
