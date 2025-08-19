@@ -938,8 +938,9 @@ class API:
         with open(filepath, filemode) as f:
             f.write(data_chunk)
         
-        if filepath not in self.tempfile_timestamp_monotonic:
-            self.tempfile_timestamp_monotonic[str(filepath.absolute)] = time.monotonic()
+        filepath_absstr = str(filepath.absolute())
+        if filepath_absstr not in self.tempfile_timestamp_monotonic:
+            self.tempfile_timestamp_monotonic[filepath_absstr] = time.monotonic()
 
         if new_size == req['total_size']:
             already_exist = SFDStorage.is_installed(firmware_id)
