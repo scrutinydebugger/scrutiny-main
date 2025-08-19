@@ -870,7 +870,7 @@ class API:
         
         filepath = self._get_temp_filepath(conn_id, firmware_id)
         
-        def raise_invalid_request(error:str) -> Never:
+        def raise_invalid_request(error:str) -> NoReturn:
             try:
                 if os.path.isfile(filepath):
                     os.remove(filepath)
