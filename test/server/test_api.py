@@ -1264,7 +1264,7 @@ class TestAPI(ScrutinyUnitTest):
             self.assertEqual(len(data_buffer), filesize)
             self.assertEqual(data_buffer, file_content)
 
-    def test_upload_sfd(self):
+    def test_upload_single_sfd(self):
         dummy_sfd1_filename = get_artifact('test_sfd_1.sfd')
         sfd1 = FirmwareDescription(dummy_sfd1_filename)
         with open(dummy_sfd1_filename, 'rb') as f:
@@ -1307,7 +1307,122 @@ class TestAPI(ScrutinyUnitTest):
             self.assertFalse(response['overwritten'])
             self.assertTrue(SFDStorage.is_installed(sfd1.get_firmware_id_ascii()))
 
+            SFDStorage.uninstall(sfd1.get_firmware_id_ascii())
+            self.assertFalse(SFDStorage.is_installed(sfd1.get_firmware_id_ascii()))
 
+            # Redo the sequence but start over for the same firmware ID
+            self.send_request(msgs[0])
+            self.process_all()
+            self.assertFalse(SFDStorage.is_installed(sfd1.get_firmware_id_ascii()))
+            self.send_request(msgs[1])
+            self.process_all()
+            self.assertFalse(SFDStorage.is_installed(sfd1.get_firmware_id_ascii()))
+            self.send_request(msgs[0])
+            self.process_all()
+            self.assertFalse(SFDStorage.is_installed(sfd1.get_firmware_id_ascii()))
+            self.send_request(msgs[1])
+            self.process_all()
+            self.assertFalse(SFDStorage.is_installed(sfd1.get_firmware_id_ascii()))
+            self.send_request(msgs[2])
+            response = cast(api_typing.S2C.UploadSFD, self.wait_and_load_response(cmd=API.Command.Api2Client.UPLOAD_SFD_RESPONSE))
+            self.assert_no_error(response)
+            self.assertIn('success', response)
+            self.assertIn('overwritten', response)
+            self.assertTrue(response['success'])
+            self.assertFalse(response['overwritten'])
+            self.assertTrue(SFDStorage.is_installed(sfd1.get_firmware_id_ascii()))
+            
+            # Leave installed and try to overwrite
+            for i in range(3):
+                self.send_request(msgs[i])
+            
+            response = cast(api_typing.S2C.UploadSFD, self.wait_and_load_response(cmd=API.Command.Api2Client.UPLOAD_SFD_RESPONSE))
+            self.assert_no_error(response)
+            self.assertTrue(response['success'])
+            self.assertTrue(response['overwritten'])     # Overwritten
+            self.assertTrue(SFDStorage.is_installed(sfd1.get_firmware_id_ascii()))
+
+
+    def test_upload_multiple_sfd(self):
+        dummy_sfd1_filename = get_artifact('test_sfd_1.sfd')
+        dummy_sfd2_filename = get_artifact('test_sfd_2.sfd')
+        sfd1 = FirmwareDescription(dummy_sfd1_filename)
+        sfd2 = FirmwareDescription(dummy_sfd2_filename)
+        
+        with open(dummy_sfd1_filename, 'rb') as f:
+            sfd1_file_content = f.read()
+        
+        with open(dummy_sfd2_filename, 'rb') as f:
+            sfd2_file_content = f.read()
+
+        with SFDStorage.use_temp_folder():
+            filesize1 = len(sfd1_file_content)
+            filesize2 = len(sfd2_file_content)
+
+            chunks_sfd1 = []
+            chunks_sfd1.append( sfd1_file_content[0:filesize1//3] )
+            chunks_sfd1.append( sfd1_file_content[filesize1//3 : 2*(filesize1//3)] )
+            chunks_sfd1.append( sfd1_file_content[2*(filesize1//3):] )
+            self.assertEqual(sum([len(chunk) for chunk in chunks_sfd1]), filesize1)
+
+            chunks_sfd2 = []
+            chunks_sfd2.append( sfd2_file_content[0:filesize2//3] )
+            chunks_sfd2.append( sfd2_file_content[filesize2//3 : 2*(filesize2//3)] )
+            chunks_sfd2.append( sfd2_file_content[2*(filesize2//3):] )
+            self.assertEqual(sum([len(chunk) for chunk in chunks_sfd2]), filesize2)
+
+            msgs_sfd1:List[api_typing.C2S.UploadSFD] = []
+            msgs_sfd2:List[api_typing.C2S.UploadSFD] = []
+            for i in range(3):  
+                msgs_sfd1.append( {
+                    'cmd' : 'upload_sfd',
+                    'reqid' : 100+i,
+                    'firmware_id' : sfd1.get_firmware_id_ascii(),
+                    'total_size' : filesize1,
+                    'file_chunk' : {
+                        'chunk_index' : i,
+                        'data' : b64encode(chunks_sfd1[i]).decode('ascii')
+                    }
+                })
+
+            for i in range(3):  
+                msgs_sfd2.append( {
+                    'cmd' : 'upload_sfd',
+                    'reqid' : 200+i,
+                    'firmware_id' : sfd2.get_firmware_id_ascii(),
+                    'total_size' : filesize2,
+                    'file_chunk' : {
+                        'chunk_index' : i,
+                        'data' : b64encode(chunks_sfd2[i]).decode('ascii')
+                    }
+                })
+
+            self.send_request(msgs_sfd1[0])
+            self.send_request(msgs_sfd2[0])
+            self.process_all()
+            self.assertFalse(SFDStorage.is_installed(sfd1.get_firmware_id_ascii()))
+            self.assertFalse(SFDStorage.is_installed(sfd2.get_firmware_id_ascii()))
+
+            self.send_request(msgs_sfd1[1])
+            self.send_request(msgs_sfd2[1])
+            self.process_all()
+            self.assertFalse(SFDStorage.is_installed(sfd1.get_firmware_id_ascii()))
+            self.assertFalse(SFDStorage.is_installed(sfd2.get_firmware_id_ascii()))
+
+            self.send_request(msgs_sfd1[2])
+            self.send_request(msgs_sfd2[2])
+
+            response1 = cast(api_typing.S2C.UploadSFD, self.wait_and_load_response(cmd=API.Command.Api2Client.UPLOAD_SFD_RESPONSE))
+            response2 = cast(api_typing.S2C.UploadSFD, self.wait_and_load_response(cmd=API.Command.Api2Client.UPLOAD_SFD_RESPONSE))
+
+            for response in [response1, response2]:
+                self.assertIn('success', response)
+                self.assertIn('overwritten', response)
+                self.assertTrue(response['success'])
+                self.assertFalse(response['overwritten'])
+
+            self.assertTrue(SFDStorage.is_installed(sfd1.get_firmware_id_ascii()))
+            self.assertTrue(SFDStorage.is_installed(sfd2.get_firmware_id_ascii()))
 
     def test_get_device_info(self):
         self.fake_device_handler.set_connection_status(DeviceHandler.ConnectionStatus.CONNECTED_READY)

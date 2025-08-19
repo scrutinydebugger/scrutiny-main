@@ -948,7 +948,7 @@ class API:
             try:
                 os.remove(filepath)
             except OSError as e:
-                tools.log_exception(self.logger, e, "Failed to delete uplaoded SFD")
+                tools.log_exception(self.logger, e, "Failed to delete uploaded SFD")
 
             msg: api_typing.S2C.UploadSFD = {
                 'cmd': self.Command.Api2Client.UPLOAD_SFD_RESPONSE,
