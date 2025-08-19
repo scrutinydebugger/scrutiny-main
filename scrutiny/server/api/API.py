@@ -893,7 +893,7 @@ class API:
         if req['total_size'] < 0:
             raise_invalid_request("Invalid total_size")
         
-        file_chunk = cast(api_typing.FileChunk, req['file_chunk'])
+        file_chunk = req['file_chunk']
         if 'data' not in file_chunk:
             raise_invalid_request("Missing file chunk data")
         
@@ -901,11 +901,10 @@ class API:
             raise_invalid_request('Invalid file chunk data')
        
         if 'chunk_index' not in file_chunk:
-            raise_invalid_request("Missing file chunk chunk_index")
+            raise_invalid_request("Missing chunk_index")
         
-        if not isinstance(file_chunk['chunk_index'], str):
-            raise_invalid_request('Invalid file chunk chunk_index')
-        
+        if not isinstance(file_chunk['chunk_index'], int):
+            raise_invalid_request('Invalid chunk_index')
         
         if req['total_size'] > self.SFD_MAX_UPLOAD_SIZE:
             raise_invalid_request(f"Total size too big. Max size = {self.SFD_MAX_UPLOAD_SIZE}")

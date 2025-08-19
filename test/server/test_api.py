@@ -25,6 +25,7 @@ from scrutiny.server.datastore.datastore import Datastore
 from scrutiny.server.datastore.datastore_entry import *
 from scrutiny.server.sfd_storage import SFDStorage
 from scrutiny.core.basic_types import EmbeddedDataType, Endianness, WatchableType
+from scrutiny.core.firmware_description import FirmwareDescription
 from scrutiny.server.api.dummy_client_handler import DummyConnection, DummyClientHandler, AbstractClientHandler
 from scrutiny.server.device.device_handler import (DeviceHandler, DeviceStateChangedCallback, RawMemoryReadRequest,
                                                    RawMemoryWriteRequest, RawMemoryReadRequestCompletionCallback, RawMemoryWriteRequestCompletionCallback,
@@ -1263,6 +1264,48 @@ class TestAPI(ScrutinyUnitTest):
             self.assertEqual(len(data_buffer), filesize)
             self.assertEqual(data_buffer, file_content)
 
+    def test_upload_sfd(self):
+        dummy_sfd1_filename = get_artifact('test_sfd_1.sfd')
+        sfd1 = FirmwareDescription(dummy_sfd1_filename)
+        with open(dummy_sfd1_filename, 'rb') as f:
+            file_content = f.read()
+
+        with SFDStorage.use_temp_folder():
+            filesize = os.stat(dummy_sfd1_filename).st_size
+
+            chunks = []
+            chunks.append( file_content[0:filesize//3] )
+            chunks.append( file_content[filesize//3 : 2*(filesize//3)] )
+            chunks.append( file_content[2*(filesize//3):] )
+
+            msgs:List[api_typing.C2S.UploadSFD] = []
+            for i in range(3):  
+                msgs.append( {
+                    'cmd' : 'upload_sfd',
+                    'reqid' : 100+i,
+                    'firmware_id' : sfd1.get_firmware_id_ascii(),
+                    'total_size' : filesize,
+                    'file_chunk' : {
+                        'chunk_index' : i,
+                        'data' : b64encode(chunks[i]).decode('ascii')
+                    }
+                })
+
+            
+            self.send_request(msgs[0])
+            self.process_all()
+            self.assertFalse(SFDStorage.is_installed(sfd1.get_firmware_id_ascii()))
+            self.send_request(msgs[1])
+            self.process_all()
+            self.assertFalse(SFDStorage.is_installed(sfd1.get_firmware_id_ascii()))
+            self.send_request(msgs[2])
+            response = cast(api_typing.S2C.UploadSFD, self.wait_and_load_response(cmd=API.Command.Api2Client.UPLOAD_SFD_RESPONSE))
+            self.assert_no_error(response)
+            self.assertIn('success', response)
+            self.assertIn('overwritten', response)
+            self.assertTrue(response['success'])
+            self.assertFalse(response['overwritten'])
+            self.assertTrue(SFDStorage.is_installed(sfd1.get_firmware_id_ascii()))
 
 
 
