@@ -28,6 +28,10 @@ from base64 import b64encode, b64decode
 import binascii
 import threading
 from datetime import datetime
+from pathlib import Path
+import tempfile
+import shutil
+import time
 
 from scrutiny import tools
 
@@ -92,6 +96,7 @@ class API:
             GET_LOADED_SFD = 'get_loaded_sfd'
             UNINSTALL_SFD = 'uninstall_sfd'
             DOWNLOAD_SFD = 'download_sfd'
+            UPLOAD_SFD = 'upload_sfd'
             LOAD_SFD = 'load_sfd'
             GET_SERVER_STATUS = 'get_server_status'
             GET_DEVICE_INFO = 'get_device_info'
@@ -122,6 +127,7 @@ class API:
             GET_LOADED_SFD_RESPONSE = 'response_get_loaded_sfd'
             UNINSTALL_SFD_RESPONSE = 'response_uninstall_sfd'
             DOWNLOAD_SFD_RESPONSE = 'response_download_sfd'
+            UPLOAD_SFD_RESPONSE = 'response_upload_sfd'
             GET_POSSIBLE_LINK_CONFIG_RESPONSE = "response_get_possible_link_config"
             SET_LINK_CONFIG_RESPONSE = 'response_set_link_config'
             INFORM_SERVER_STATUS = 'inform_server_status'
@@ -173,6 +179,7 @@ class API:
     FLUSH_VARS_TIMEOUT: float = 0.1
     DATALOGGING_MAX_TIMEOUT: int = math.floor((2**32 - 1) * 1e-7)  # 100ns represented in sec
     DATALOGGING_MAX_HOLD_TIME: int = math.floor((2**32 - 1) * 1e-7)   # 100ns represented in sec
+    SFD_MAX_UPLOAD_SIZE = 64*1024*1024
 
     DATATYPE_2_APISTR: Dict[EmbeddedDataType, api_typing.Datatype] = {
         EmbeddedDataType.sint8: 'sint8',
@@ -273,6 +280,8 @@ class API:
     handle_unexpected_errors: bool   # Always true, except during unit tests
     invalid_request_count: int
     unexpected_error_count: int
+    temp_dir:"tempfile.TemporaryDirectory[str]"
+    tempfile_timestamp_monotonic:Dict[str, float]
 
     def __init__(self,
                  config: APIConfig,
@@ -300,6 +309,8 @@ class API:
         self.handle_unexpected_errors = True
         self.invalid_request_count = 0
         self.unexpected_error_count = 0
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.tempfile_timestamp_monotonic = {}
 
         self.enable_debug = enable_debug
 
@@ -315,6 +326,7 @@ class API:
             self.Command.Client2Api.LOAD_SFD: self.process_load_sfd,
             self.Command.Client2Api.GET_LOADED_SFD: self.process_get_loaded_sfd,
             self.Command.Client2Api.DOWNLOAD_SFD: self.process_download_sfd,
+            self.Command.Client2Api.UPLOAD_SFD: self.process_upload_sfd,
             self.Command.Client2Api.GET_SERVER_STATUS: self.process_get_server_status,
             self.Command.Client2Api.GET_DEVICE_INFO: self.process_get_device_info,
             self.Command.Client2Api.SET_LINK_CONFIG: self.process_set_link_config,
@@ -391,6 +403,7 @@ class API:
         self.datastore.stop_watching_all(conn_id)   # Removes this connection as a watcher from all entries
         self.connections.remove(conn_id)
         self.streamer.clear_connection(conn_id)
+        shutil.rmtree(os.path.join(self.temp_dir.name, conn_id), ignore_errors=True)
 
     def is_new_connection(self, conn_id: str) -> bool:
         # Tells if a connection ID is new (not known)
@@ -839,6 +852,115 @@ class API:
                 self.client_handler.send(ClientHandlerMessage(conn_id=conn_id, obj=self.make_error_response(req, str(e))))
 
         threading.Thread(target=send_task, daemon=True).start()
+
+    def process_upload_sfd(self, conn_id: str, req: api_typing.C2S.UploadSFD) -> None:
+        reqid = self.get_req_id(req)
+        if reqid is None:
+            raise InvalidRequestException(req, "Missing request ID")
+        
+        if 'firmware_id' not in req:
+            raise InvalidRequestException(req, "Missing firmware_id")
+        
+        if not isinstance(req['firmware_id'], str):
+            raise InvalidRequestException(req, "Invalid firmware_id") 
+        
+        firmware_id = req['firmware_id']
+        if not SFDStorage.is_valid_firmware_id(firmware_id):
+            raise InvalidRequestException(req, "Invalid firmware ID")
+        
+        filepath = self._get_temp_filepath(conn_id, firmware_id)
+        
+        def raise_invalid_request(error:str) -> Never:
+            try:
+                if os.path.isfile(filepath):
+                    os.remove(filepath)
+            except OSError as e:
+                tools.log_exception(self.logger, e, "Failed to delete temp file")
+            raise InvalidRequestException(req, error)
+
+        if 'file_chunk' not in req:
+            raise_invalid_request("Missing file_chunk")
+
+        if 'total_size' not in req:
+            raise_invalid_request("Missing total_size")
+
+        if not isinstance(req['file_chunk'], dict):
+            raise_invalid_request("Invalid file_chunk")
+
+        if not isinstance(req['total_size'], int):
+            raise_invalid_request("Invalid total_size")
+
+        if req['total_size'] < 0:
+            raise_invalid_request("Invalid total_size")
+        
+        file_chunk = cast(api_typing.FileChunk, req['file_chunk'])
+        if 'data' not in file_chunk:
+            raise_invalid_request("Missing file chunk data")
+        
+        if not isinstance(file_chunk['data'], str):
+            raise_invalid_request('Invalid file chunk data')
+       
+        if 'chunk_index' not in file_chunk:
+            raise_invalid_request("Missing file chunk chunk_index")
+        
+        if not isinstance(file_chunk['chunk_index'], str):
+            raise_invalid_request('Invalid file chunk chunk_index')
+        
+        
+        if req['total_size'] > self.SFD_MAX_UPLOAD_SIZE:
+            raise_invalid_request(f"Total size too big. Max size = {self.SFD_MAX_UPLOAD_SIZE}")
+
+        chunk_index = req['file_chunk']['chunk_index']
+
+        if chunk_index != 0:
+            if not os.path.isfile(filepath):
+                raise_invalid_request("Chunk index 0 is missing")
+
+        filemode = 'wb' if chunk_index == 0 else 'ab'
+
+        actual_size = 0
+
+        if chunk_index != 0:
+            filestat = os.stat(filepath)
+            actual_size = filestat.st_size
+        
+        try:
+            data_chunk = b64decode(req['file_chunk']['data'], validate=True)
+        except binascii.Error:
+            raise_invalid_request("Invalid base64 data chunk")
+
+        new_size = actual_size + len(data_chunk)
+        if new_size > self.SFD_MAX_UPLOAD_SIZE:
+            raise_invalid_request("Invalid base64 data chunk")
+
+        if new_size > req['total_size']:
+            raise_invalid_request("Size mismatch. Received more data than total_size")
+
+        with open(filepath, filemode) as f:
+            f.write(data_chunk)
+        
+        if filepath not in self.tempfile_timestamp_monotonic:
+            self.tempfile_timestamp_monotonic[str(filepath.absolute)] = time.monotonic()
+
+        if new_size == req['total_size']:
+            already_exist = SFDStorage.is_installed(firmware_id)
+            SFDStorage.install(str(filepath), ignore_exist=True)
+
+            try:
+                os.remove(filepath)
+            except OSError as e:
+                tools.log_exception(self.logger, e, "Failed to delete uplaoded SFD")
+
+            msg: api_typing.S2C.UploadSFD = {
+                'cmd': self.Command.Api2Client.UPLOAD_SFD_RESPONSE,
+                'reqid': self.get_req_id(req),
+                'success' : True,
+                'overwritten' : already_exist
+            }
+
+            self.client_handler.send(ClientHandlerMessage(conn_id=conn_id, obj=msg))
+
+        
 
     #  ===  GET_SERVER_STATUS ===
     def process_get_server_status(self, conn_id: str, req: api_typing.C2S.GetServerStatus) -> None:
@@ -1932,7 +2054,13 @@ class API:
         return response
 
     def get_req_id(self, req: api_typing.C2SMessage) -> Optional[int]:
-        return req['reqid'] if 'reqid' in req else None
+        reqid =  req['reqid'] if 'reqid' in req else None
+        if reqid is not None:
+            if not isinstance(reqid, int):
+                raise InvalidRequestException(req, "Invalid request ID")
+            
+        return reqid
+                
 
     def is_dict_with_key(self, d: Dict[Any, Any], k: Any) -> bool:
         return isinstance(d, dict) and k in d
@@ -1946,3 +2074,9 @@ class API:
             unexpected_error_count=self.unexpected_error_count,
             client_handler=self.client_handler.get_stats()
         )
+
+    def _get_temp_filepath(self, conn_id:str, name:str) -> Path:
+        tempdir = Path(self.temp_dir.name) / conn_id
+        os.makedirs(tempdir, exist_ok=True)
+        tempfile = tempdir / name
+        return tempfile
