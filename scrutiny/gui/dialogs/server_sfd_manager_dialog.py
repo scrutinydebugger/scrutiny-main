@@ -28,6 +28,7 @@ from scrutiny.gui import assets
 from scrutiny.tools.typing import *
 from scrutiny import tools
 
+
 class ReadOnlyStandardItem(QStandardItem):
     @tools.copy_type(QStandardItem.__init__)
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -141,7 +142,7 @@ class SFDTableView(QTableView):
                 sfd_info = cast(sdk.SFDInfo, firmware_id_indexes[0].data(self.model().SFD_INFO_ROLE))
                 assert isinstance(sfd_info, sdk.SFDInfo)
                 self._signals.save.emit(sfd_info)
-        
+
         def details_action_slot() -> None:
             if len(firmware_ids) == 1:
                 assert len(firmware_id_indexes) == 1
@@ -182,7 +183,7 @@ class ServerSFDManagerDialog(QDialog):
     """A label to display errors"""
     _menubar: QMenuBar
     """The dialog top menu bar"""
-    _install_action:QAction
+    _install_action: QAction
     """The Install button in the menu bar"""
     _logger: logging.Logger
     """The logger"""
@@ -197,7 +198,7 @@ class ServerSFDManagerDialog(QDialog):
         self._menubar = QMenuBar(self)
         install_menu = self._menubar.addMenu("Install")
         self._install_action = install_menu.addAction("Browse")
-        
+
         self._logger = logging.getLogger(self.__class__.__name__)
         self._feedback_label = FeedbackLabel()
         self._sfd_table = SFDTableView(self)
@@ -208,7 +209,7 @@ class ServerSFDManagerDialog(QDialog):
         self._sfd_table.signals.save.connect(self._save_sfd_slot)
         self._sfd_table.signals.show_details.connect(self._show_sfd_details_slot)
         self._install_action.triggered.connect(self._install_sfd_click_slot)
-        
+
         content = QWidget()
 
         layout = QVBoxLayout(content)
@@ -216,7 +217,7 @@ class ServerSFDManagerDialog(QDialog):
         layout.addWidget(self._sfd_table)
 
         menubar_layout = QVBoxLayout(self)
-        menubar_layout.setContentsMargins(0,0,0,0)
+        menubar_layout.setContentsMargins(0, 0, 0, 0)
         menubar_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         menubar_layout.addWidget(self._menubar)
         menubar_layout.addWidget(content)
@@ -323,13 +324,13 @@ class ServerSFDManagerDialog(QDialog):
         filepath = prompt.get_open_filepath_from_last_save_dir(self, ".sfd", "Scrutiny Firmware Description")
         if filepath is None:
             return
-        
+
         self._feedback_label.set_info("Uploading...")
-        
-        def ephemerous_thread_upload(client:ScrutinyClient) -> sdk.UploadSFDConfirmation:
+
+        def ephemerous_thread_upload(client: ScrutinyClient) -> sdk.UploadSFDConfirmation:
             return client.upload_sfd(filepath, timeout=10)
-        
-        def ui_thread_upload_complete(data:Optional[sdk.UploadSFDConfirmation], error: Optional[Exception]) -> None:
+
+        def ui_thread_upload_complete(data: Optional[sdk.UploadSFDConfirmation], error: Optional[Exception]) -> None:
             if error is not None:
                 self._feedback_label.set_error(str(error))
                 tools.log_exception(self._logger, error, "Failed to install SFDs")
@@ -340,7 +341,7 @@ class ServerSFDManagerDialog(QDialog):
             overwritten_txt = "\nPreviously installed SFD with the same firmware ID has been overwritten" if data.overwritten else ""
 
             prompt.success_msgbox(self, "Installed", f"Installed SFD {data.firmware_id}.{overwritten_txt}")
-        
+
         self._server_manager.schedule_client_request(
             user_func=ephemerous_thread_upload,
             ui_thread_callback=ui_thread_upload_complete

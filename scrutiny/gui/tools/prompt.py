@@ -35,6 +35,7 @@ def error_msgbox(parent: QWidget, title: str, message: str) -> None:
     msgbox.setText(message)
     msgbox.show()
 
+
 def success_msgbox(parent: QWidget, title: str, message: str) -> None:
     msgbox = QMessageBox(parent)
     msgbox.setIconPixmap(scrutiny_get_theme().load_medium_icon_as_pixmap(assets.Icons.Success))
