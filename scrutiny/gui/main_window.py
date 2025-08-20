@@ -71,7 +71,7 @@ class MainWindow(QMainWindow):
     _status_bar: StatusBar
     _dashboard: Dashboard
     _local_server_runner: LocalServerRunner
-    _server_sfd_manage_dialog:ServerSFDManagerDialog
+    _server_sfd_manage_dialog: ServerSFDManagerDialog
 
     def __init__(self) -> None:
         super().__init__()
@@ -106,7 +106,7 @@ class MainWindow(QMainWindow):
         self._menu_bar.set_dashboard_recents(self._dashboard.read_history())
 
         server_config_dialog = self._status_bar.get_server_config_dialog()
-        
+
         self._server_sfd_manage_dialog = ServerSFDManagerDialog(self, self._server_manager)
 
         if app_settings().start_local_server:
@@ -134,7 +134,7 @@ class MainWindow(QMainWindow):
         dialog = AboutDialog(self)
         dialog.setGeometry(self.centered(400, 200))
         dialog.show()
-    
+
     def show_server_sfd_manage_dialog(self) -> None:
         if not self._server_sfd_manage_dialog.isVisible():
             self._server_sfd_manage_dialog.show()

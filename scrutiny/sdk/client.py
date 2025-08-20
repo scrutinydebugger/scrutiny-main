@@ -19,6 +19,7 @@ from scrutiny.sdk.definitions import *
 from scrutiny.sdk.watchable_handle import WatchableHandle
 from scrutiny.sdk import listeners
 from scrutiny.core.basic_types import *
+from scrutiny.core.firmware_description import FirmwareDescription
 from scrutiny.tools.timer import Timer
 from scrutiny.sdk.write_request import WriteRequest
 from scrutiny.server.api import typing as api_typing
@@ -30,6 +31,7 @@ from scrutiny import tools
 from scrutiny.tools.timebase import RelativeTimebase
 import selectors
 
+import os
 import logging
 from scrutiny.core.logging import DUMPDATA_LOGLEVEL
 import traceback
@@ -43,6 +45,7 @@ from base64 import b64encode
 import queue
 import types
 from datetime import datetime
+from pathlib import Path
 
 from scrutiny.tools.typing import *
 
@@ -239,19 +242,19 @@ class SFDDownloadRequest(PendingRequest):
     :param client: A reference to the client object
     :param firmware_id: The firmware ID of the requested SFD file
     """
-        
-    _firmware_id:str
-    _buffer:bytearray
 
-    def __init__(self, client:"ScrutinyClient", firmware_id: str) -> None:
+    _firmware_id: str
+    _buffer: bytearray
+
+    def __init__(self, client: "ScrutinyClient", firmware_id: str) -> None:
         super().__init__(client)
 
         self._firmware_id = firmware_id
         self._buffer = bytearray()
-    
+
     def received_count(self) -> int:
         return len(self._buffer)
-    
+
     def firmware_id(self) -> str:
         return self._firmware_id
 
@@ -259,16 +262,17 @@ class SFDDownloadRequest(PendingRequest):
         """Return the downloaded SFD (Scrutiny Firmware Description) data. 
         Data is available once ``is_success`` = ``True``. One can call :meth:`wait_for_completion<SFDDownloadRequest.wait_for_completion>`
         to wait for all the data to eb received.
-    
+
         :raise InvalidValueError: If the data is not fully downloaded.
         """
         if not self.is_success:
             raise sdk.exceptions.InvalidValueError("The content is not fully downloaded yet")
         return bytes(self._buffer)
 
-    def _add_data(self, data:bytes) -> None:
+    def _add_data(self, data: bytes) -> None:
         self._buffer.extend(data)
         self._update_expiration_timer()
+
 
 class DataRateMeasurements:
     rx_data_rate: VariableRateExponentialAverager
@@ -316,7 +320,7 @@ class ScrutinyClient:
     _DOWNLOAD_WATCHABLE_LIST_LIFETIME = 30
     _DOWNLOAD_SFD_REQUEST_LIFETIME = 30
 
-    _UNITTEST_DOWNLOAD_CHUNK_SIZE:Optional[int] = None
+    _UNITTEST_DOWNLOAD_CHUNK_SIZE: Optional[int] = None
 
     @dataclass(frozen=True)
     class Statistics:
@@ -515,7 +519,7 @@ class ScrutinyClient:
     # Dict of all the active watchable list download request, indexed by their request id
     _pending_watchable_download_request: Dict[int, WatchableListDownloadRequest]
 
-    _pending_sfd_download_requests:Dict[int, SFDDownloadRequest]
+    _pending_sfd_download_requests: Dict[int, SFDDownloadRequest]
 
     _worker_thread: Optional[threading.Thread]  # The thread that handles the communication
     _threading_events: _ThreadingEvents  # All the threading events grouped under a single object
@@ -968,14 +972,13 @@ class ScrutinyClient:
         if cmd == API.Command.Api2Client.ERROR_RESPONSE:
             # Some request have pending requests based on reqid. they have multiple response per reqid. If any fail, cancel the request
             # Todo : Generalize the mechanism : 1 req -> multiple response by reqid.
-            buckets:List[Mapping[int, PendingRequest]] = [self._pending_watchable_download_request, self._pending_sfd_download_requests]
+            buckets: List[Mapping[int, PendingRequest]] = [self._pending_watchable_download_request, self._pending_sfd_download_requests]
             for bucket in buckets:
                 try:
                     req = bucket[reqid]
                 except KeyError:
                     continue
                 req._mark_complete(False, failure_reason=msg.get('msg', "No error message provided"))
-                    
 
     def _wt_process_write_watchable_requests(self) -> None:
         # Note _pending_api_batch_writes is always accessed from worker thread
@@ -1771,22 +1774,22 @@ class ScrutinyClient:
 
         return cb_data.obj
 
-    def uninstall_sfds(self, firmware_id_list:List[str]) -> None:
+    def uninstall_sfds(self, firmware_id_list: List[str]) -> None:
         """ 
         Uninstall a list of Scrutiny Firmware Description (SFD) from the server.
-        
+
         :param firmware_id_list: The list of firmware ID. Should be an 128bits hexadecimal string (32 chars)
 
         :raise OperationFailure: Failed to  uninstall the given SFDs
         :raise TypeError: Given parameter not of the expected type
         """
-        
+
         validation.assert_type(firmware_id_list, 'firmware_id_list', list)
         for i in range(len(firmware_id_list)):
             validation.assert_type(firmware_id_list[i], f'firmware_id_list[{i}]', str)
-        
+
         req = self._make_request(API.Command.Client2Api.UNINSTALL_SFD, {
-            'firmware_id_list' : firmware_id_list
+            'firmware_id_list': firmware_id_list
         })
 
         def callback(state: CallbackState, response: Optional[api_typing.S2CMessage]) -> None:
@@ -1799,16 +1802,16 @@ class ScrutinyClient:
             raise sdk.exceptions.OperationFailure(
                 f"Failed to uninstall the list of Scrutiny Firmware Description file. {future.error_str}")
 
-    def download_sfd(self, firmware_id:str) -> SFDDownloadRequest:
-        
+    def download_sfd(self, firmware_id: str) -> SFDDownloadRequest:
+
         validation.assert_type(firmware_id, 'firmware_id', str)
-        
-        req = cast(api_typing.C2S.DownloadSFD, 
-            self._make_request(API.Command.Client2Api.DOWNLOAD_SFD, {
-                'firmware_id' : firmware_id
-            })
-        )
-        
+
+        req = cast(api_typing.C2S.DownloadSFD,
+                   self._make_request(API.Command.Client2Api.DOWNLOAD_SFD, {
+                       'firmware_id': firmware_id
+                   })
+                   )
+
         # For unit tests, we want to validate that multi chunk works
         if self._UNITTEST_DOWNLOAD_CHUNK_SIZE is not None:
             req['max_chunk_size'] = self._UNITTEST_DOWNLOAD_CHUNK_SIZE
@@ -1817,9 +1820,75 @@ class ScrutinyClient:
         pending_req = SFDDownloadRequest(self, firmware_id)
         with self._main_lock:
             self._pending_sfd_download_requests[reqid] = pending_req
-    
+
         self._send(req)
         return pending_req
+
+    def upload_sfd(self, filepath: Union[str, Path], timeout: Optional[float] = None) -> UploadSFDConfirmation:
+        validation.assert_type(filepath, 'filepath', (str, Path))
+        filepath = Path(filepath)
+        if not os.path.isfile(filepath):
+            raise FileNotFoundError(f"File {filepath} does not exist")
+
+        try:
+            sfd = FirmwareDescription(str(filepath))
+            firmware_id = sfd.get_firmware_id_ascii()
+        except Exception as e:
+            raise ValueError(f"Invalid SFD file. {e}")
+
+        chunk_size = max(TCPClientHandler.STREAM_MTU // 2 - 100, 256)
+        if self._UNITTEST_DOWNLOAD_CHUNK_SIZE is not None:
+            chunk_size = self._UNITTEST_DOWNLOAD_CHUNK_SIZE
+        filesize = os.stat(filepath).st_size
+        if filesize > API.SFD_MAX_UPLOAD_SIZE:
+            raise ValueError(f"File too big. Maximum size {API.SFD_MAX_UPLOAD_SIZE}")
+
+        @dataclass
+        class Container:
+            obj: Optional[UploadSFDConfirmation]
+
+        cb_data = Container(None)
+
+        def upload_callback(state: CallbackState, response: Optional[api_typing.S2CMessage]) -> None:
+            if response is not None and state == CallbackState.OK:
+                cb_data.obj = api_parser.parse_upload_sfd_response(cast(api_typing.S2C.UploadSFD, response))
+
+        future: Optional[ApiResponseFuture] = None
+        with open(filepath, 'rb') as f:
+            chunk_index = 0
+            byte_counter = 0
+            while True:
+                data_chunk = f.read(chunk_size)
+                if len(data_chunk) == 0:
+                    break
+                byte_counter += len(data_chunk)
+
+                is_last_chunk = (byte_counter >= filesize)
+
+                msg = cast(api_typing.C2S.UploadSFD,
+                           self._make_request(API.Command.Client2Api.UPLOAD_SFD, {
+                               'total_size': filesize,
+                               'firmware_id': firmware_id,
+                               'file_chunk': {
+                                   'chunk_index': chunk_index,
+                                   'data': b64encode(data_chunk).decode('ascii')
+                               }
+                           })
+                           )
+                chunk_index += 1
+
+                if is_last_chunk:
+                    future = self._send(msg, upload_callback, timeout)
+                    break
+                else:
+                    self._send(msg)
+
+        assert future is not None
+        future.wait()
+        if future.state != CallbackState.OK or cb_data.obj is None:
+            raise sdk.exceptions.OperationFailure(f"Failed to upload SFD. {future.error_str}")
+
+        return cb_data.obj
 
     def wait_process(self, timeout: Optional[float] = None) -> None:
         """Wait for the SDK thread to execute fully at least once. Useful for testing

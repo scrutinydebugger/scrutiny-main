@@ -90,12 +90,14 @@ class DataloggingListChangeResponse:
     action: sdk.DataloggingListChangeType
     reference_id: Optional[str]
 
+
 @dataclass
 class SFDDownloadChunk:
-    firmware_id:str
-    data:bytes
-    chunk_index:int
-    total_size:int
+    firmware_id: str
+    data: bytes
+    chunk_index: int
+    total_size: int
+
 
 T = TypeVar('T', str, int, float, bool)
 WATCHABLE_TYPE_KEY = Literal['rpv', 'alias', 'var']
@@ -121,7 +123,7 @@ def _check_response_dict(cmd: str, d: Any, name: str, types: Union[Type[Any], It
 
     if not isinstance(d, dict):
         raise sdk.exceptions.BadResponseError(f'Field {part_name} is expected to be a dictionary in message "{cmd}"')
-  
+
     if key not in d:
         raise sdk.exceptions.BadResponseError(f'Missing field "{part_name}" in message "{cmd}"')
 
@@ -661,12 +663,12 @@ def parse_inform_server_status(response: api_typing.S2C.InformServerStatus) -> s
 
         subconfig: api_typing.CANBUS_ANY_SUBCONFIG_DICT
         interface_config: Union[
-            sdk.CANLinkConfig.SocketCANConfig, 
-            sdk.CANLinkConfig.VectorConfig, 
+            sdk.CANLinkConfig.SocketCANConfig,
+            sdk.CANLinkConfig.VectorConfig,
             sdk.CANLinkConfig.KVaserConfig,
             sdk.CANLinkConfig.PCANConfig,
             sdk.CANLinkConfig.ETASConfig,
-            ]
+        ]
         if interface == sdk.CANLinkConfig.CANInterface.SocketCAN:
             subconfig = cast(api_typing.CanBusSocketCanSubconfig, canbus_config['subconfig'])
             _check_response_dict(cmd, subconfig, 'channel', str)
@@ -1192,6 +1194,7 @@ def parse_welcome(msg: api_typing.S2C.Welcome) -> WelcomeData:
         server_time_zero_timestamp=float(msg['server_time_zero_timestamp'])
     )
 
+
 def parse_download_sfd_response(response: api_typing.S2C.DownloadSFD) -> SFDDownloadChunk:
     assert isinstance(response, dict)
     assert 'cmd' in response
@@ -1208,8 +1211,8 @@ def parse_download_sfd_response(response: api_typing.S2C.DownloadSFD) -> SFDDown
 
     if response['total_size'] <= 0:
         raise sdk.exceptions.BadResponseError("SFD Size is not valid")
-    
-    if response['file_chunk']['chunk_index'] < 0: 
+
+    if response['file_chunk']['chunk_index'] < 0:
         raise sdk.exceptions.BadResponseError("Chunk index is not valid")
 
     try:
@@ -1222,4 +1225,19 @@ def parse_download_sfd_response(response: api_typing.S2C.DownloadSFD) -> SFDDown
         total_size=response['total_size'],
         chunk_index=response['file_chunk']['chunk_index'],
         data=data
+    )
+
+
+def parse_upload_sfd_response(response: api_typing.S2C.UploadSFD) -> sdk.UploadSFDConfirmation:
+    assert isinstance(response, dict)
+    assert 'cmd' in response
+    cmd = response['cmd']
+    assert cmd == API.Command.Api2Client.UPLOAD_SFD_RESPONSE
+
+    _check_response_dict(cmd, response, 'firmware_id', str)
+    _check_response_dict(cmd, response, 'overwritten', bool)
+
+    return sdk.UploadSFDConfirmation(
+        firmware_id=response['firmware_id'],
+        overwritten=response['overwritten']
     )

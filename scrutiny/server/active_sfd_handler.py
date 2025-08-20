@@ -104,7 +104,7 @@ class ActiveSFDHandler:
                     else:
                         self.logger.critical('No device ID available when connected. This should not happen')
                 else:
-                    if not SFDStorage.is_installed(self.sfd.get_firmware_id_ascii()): # Removed from disk?
+                    if not SFDStorage.is_installed(self.sfd.get_firmware_id_ascii()):  # Removed from disk?
                         self.reset_active_sfd()
 
         if self.requested_firmware_id is not None:  # If the API requested to load an SFD
@@ -178,11 +178,10 @@ class ActiveSFDHandler:
                 except Exception as e:
                     tools.log_exception(self.logger, e, "Error in SFD Unload callback", str_level=logging.CRITICAL)
 
-    def _install_callback(self, firmware_id:str) -> None:
+    def _install_callback(self, firmware_id: str) -> None:
         pass
-    
-    def _uninstall_callback(self, firmware_id:str) -> None:
+
+    def _uninstall_callback(self, firmware_id: str) -> None:
         if self.sfd is not None:
             if self.sfd.get_firmware_id_ascii() == firmware_id:
                 self.reset_active_sfd()
-            

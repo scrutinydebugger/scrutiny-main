@@ -93,15 +93,15 @@ class SocketCanSubconfig(BaseSubconfig):
             channel=d['channel']
         )
 
+
 @dataclass
 class KVaserCanSubconfig(BaseSubconfig):
     _TYPENAME = 'kvaser'
 
-    channel:int
+    channel: int
     bitrate: int
     data_bitrate: int
-    fd_non_iso:bool
-
+    fd_non_iso: bool
 
     def __post_init__(self) -> None:
         validation.assert_type(self.channel, 'channel', int)
@@ -123,11 +123,12 @@ class KVaserCanSubconfig(BaseSubconfig):
             fd_non_iso=d['fd_non_iso']
         )
 
+
 @dataclass
 class PCANCanSubconfig(BaseSubconfig):
     _TYPENAME = 'pcan'
 
-    channel:str
+    channel: str
     bitrate: int
 
     def __post_init__(self) -> None:
@@ -144,11 +145,12 @@ class PCANCanSubconfig(BaseSubconfig):
             bitrate=d['bitrate']
         )
 
+
 @dataclass
 class ETASCanSubconfig(BaseSubconfig):
     _TYPENAME = 'etas'
 
-    channel:str
+    channel: str
     bitrate: int
     data_bitrate: int
 
@@ -427,9 +429,9 @@ class CanBusLink(AbstractLink):
 
             if not _use_stubbed_canbus_class:
                 from can.interfaces.socketcan import SocketcanBus
-                MySocketCanBus = SocketcanBus 
+                MySocketCanBus = SocketcanBus
             else:
-                MySocketCanBus = StubbedCanBus # type: ignore
+                MySocketCanBus = StubbedCanBus  # type: ignore
 
             return MySocketCanBus(
                 channel=config.subconfig.channel,
@@ -443,9 +445,9 @@ class CanBusLink(AbstractLink):
 
             if not _use_stubbed_canbus_class:
                 from can.interfaces.vector import VectorBus
-                MyVectorCanBus = VectorBus 
+                MyVectorCanBus = VectorBus
             else:
-                MyVectorCanBus = StubbedCanBus # type: ignore
+                MyVectorCanBus = StubbedCanBus  # type: ignore
 
             return MyVectorCanBus(
                 channel=config.subconfig.channel,
@@ -454,15 +456,15 @@ class CanBusLink(AbstractLink):
                 can_filters=filters,
                 data_bitrate=config.subconfig.data_bitrate
             )
-        
+
         elif config.interface == KVaserCanSubconfig.get_type_name():
             assert isinstance(config.subconfig, KVaserCanSubconfig)
 
             if not _use_stubbed_canbus_class:
                 from can.interfaces.kvaser import KvaserBus
-                MyKvaserBus = KvaserBus 
+                MyKvaserBus = KvaserBus
             else:
-                MyKvaserBus = StubbedCanBus # type: ignore
+                MyKvaserBus = StubbedCanBus  # type: ignore
 
             return MyKvaserBus(
                 channel=config.subconfig.channel,
@@ -472,15 +474,15 @@ class CanBusLink(AbstractLink):
                 can_filters=filters,
                 data_bitrate=config.subconfig.data_bitrate
             )
-       
+
         elif config.interface == PCANCanSubconfig.get_type_name():
             assert isinstance(config.subconfig, PCANCanSubconfig)
 
             if not _use_stubbed_canbus_class:
                 from can.interfaces.pcan import PcanBus
-                MyPcanBus = PcanBus 
+                MyPcanBus = PcanBus
             else:
-                MyPcanBus = StubbedCanBus # type: ignore
+                MyPcanBus = StubbedCanBus  # type: ignore
 
             return MyPcanBus(
                 channel=config.subconfig.channel,
@@ -493,10 +495,10 @@ class CanBusLink(AbstractLink):
             assert isinstance(config.subconfig, ETASCanSubconfig)
             if not _use_stubbed_canbus_class:
                 from can.interfaces.etas import EtasBus
-                MyEtasBus = EtasBus 
+                MyEtasBus = EtasBus
             else:
-                MyEtasBus = StubbedCanBus # type: ignore
-                
+                MyEtasBus = StubbedCanBus  # type: ignore
+
             return MyEtasBus(
                 channel=config.subconfig.channel,
                 fd=config.fd,

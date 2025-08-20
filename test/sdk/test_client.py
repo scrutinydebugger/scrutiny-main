@@ -1408,7 +1408,6 @@ class TestClient(ScrutinyUnitTest):
             self.assertFalse(SFDStorage.is_installed(sfd1.get_firmware_id_ascii()))
             self.assertFalse(SFDStorage.is_installed(sfd2.get_firmware_id_ascii()))
 
-
     def test_download_sfd(self):
         with SFDStorage.use_temp_folder():
             sfd1 = SFDStorage.install(get_artifact('test_sfd_1.sfd'), ignore_exist=True)
@@ -1425,14 +1424,24 @@ class TestClient(ScrutinyUnitTest):
 
             with open(SFDStorage.get_file_location(sfd1.get_firmware_id_ascii()), 'rb') as f:
                 sfd1_data = f.read()
-            
+
             with open(SFDStorage.get_file_location(sfd2.get_firmware_id_ascii()), 'rb') as f:
                 sfd2_data = f.read()
-                         
+
             self.assertEqual(len(sfd1_data), len(sfd1_downloaded_data))
             self.assertEqual(sfd1_data, sfd1_downloaded_data)
             self.assertEqual(sfd2_data, sfd2_downloaded_data)
 
+    def test_upload_sfd(self):
+        self.client._UNITTEST_DOWNLOAD_CHUNK_SIZE = 100  # Internal var for testing only
+        sfd1_filepath = get_artifact('test_sfd_1.sfd')
+        sfd1 = FirmwareDescription(sfd1_filepath)
+        with SFDStorage.use_temp_folder():
+            self.assertFalse(SFDStorage.is_installed(sfd1.get_firmware_id_ascii()))
+            state = self.client.upload_sfd(sfd1_filepath)
+            self.assertEqual(state.firmware_id, sfd1.get_firmware_id_ascii())
+            self.assertFalse(state.overwritten)
+            self.assertTrue(SFDStorage.is_installed(sfd1.get_firmware_id_ascii()))
 
     def test_simple_request_response_timeout(self):
         with SFDStorage.use_temp_folder():
@@ -2082,7 +2091,6 @@ class TestClient(ScrutinyUnitTest):
         self.assertEqual(configout['subconfig']['bitrate'], 500000)
         self.assertEqual(configout['subconfig']['data_bitrate'], 1000000)
 
-
     def test_configure_device_link_can_kvaser(self):
         configin = sdk.CANLinkConfig(
             interface=sdk.CANLinkConfig.CANInterface.KVaser,
@@ -2131,8 +2139,8 @@ class TestClient(ScrutinyUnitTest):
 
         self.assertEqual(configout['subconfig']['channel'], 1)
         self.assertEqual(configout['subconfig']['bitrate'], 500000)
-        self.assertEqual(configout['subconfig']['data_bitrate'], 1000000)        
-        self.assertEqual(configout['subconfig']['fd_non_iso'], False)        
+        self.assertEqual(configout['subconfig']['data_bitrate'], 1000000)
+        self.assertEqual(configout['subconfig']['fd_non_iso'], False)
 
     def test_configure_device_link_can_pcan(self):
         configin = sdk.CANLinkConfig(
@@ -2224,8 +2232,8 @@ class TestClient(ScrutinyUnitTest):
         self.assertIn('data_bitrate', configout['subconfig'])
 
         self.assertEqual(configout['subconfig']['channel'], 'ETAS://ETH/ES910:abcd/CAN:1')
-        self.assertEqual(configout['subconfig']['bitrate'], 500000)      
-        self.assertEqual(configout['subconfig']['data_bitrate'], 1000000)      
+        self.assertEqual(configout['subconfig']['bitrate'], 500000)
+        self.assertEqual(configout['subconfig']['data_bitrate'], 1000000)
 
     def test_configure_device_link_can_errors(self):
         def base_socketcan(

@@ -198,9 +198,10 @@ class AxisNameUpdateEntry(TypedDict):
     id: int
     name: str
 
+
 class FileChunk(TypedDict):
-    data:str
-    chunk_index:int
+    data: str
+    chunk_index: int
 
 
 class C2S:
@@ -232,15 +233,15 @@ class C2S:
 
     class DownloadSFD(BaseC2SMessage):
         firmware_id: str
-        max_chunk_size:Optional[int]    # Mostly for testing
+        max_chunk_size: Optional[int]    # Mostly for testing
 
     class UploadSFD(BaseC2SMessage):
-        total_size:int
-        firmware_id:str
+        total_size: int
+        firmware_id: str
         file_chunk: FileChunk
 
     class UninstallSFD(BaseC2SMessage):
-        firmware_id_list:List[str]
+        firmware_id_list: List[str]
 
     class SubscribeWatchable(BaseC2SMessage):
         watchables: List[str]
@@ -325,13 +326,13 @@ class S2C:
         pass
 
     class DownloadSFD(BaseS2CMessage):
-        firmware_id:str
-        total_size:int
-        file_chunk:FileChunk
+        firmware_id: str
+        total_size: int
+        file_chunk: FileChunk
 
     class UploadSFD(BaseS2CMessage):
-        success:bool
-        overwritten:bool
+        firmware_id: str
+        overwritten: bool
 
     class GetLoadedSFD(BaseS2CMessage):
         firmware_id: Optional[str]

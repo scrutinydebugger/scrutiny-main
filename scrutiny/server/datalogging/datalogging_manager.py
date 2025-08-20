@@ -111,26 +111,26 @@ class DataloggingManager:
             callback=callback), block=False)
 
     @classmethod
-    def make_xaxis_indexed(cls, nb_points:int) -> List[float]:
+    def make_xaxis_indexed(cls, nb_points: int) -> List[float]:
         return [i for i in range(nb_points)]
 
     @classmethod
-    def make_xaxis_ideal_time(cls, nb_points:int, sampling_rate:api_datalogging.SamplingRate, decimation:int) -> List[float]:
+    def make_xaxis_ideal_time(cls, nb_points: int, sampling_rate: api_datalogging.SamplingRate, decimation: int) -> List[float]:
         if sampling_rate.frequency is None:
             raise ValueError('Ideal time X-Axis is not possible with variable frequency loops')
         timestep = 1 / sampling_rate.frequency
         timestep *= decimation
         return [round(i * timestep, cls.TIME_PRECISION_DIGIT) for i in range(nb_points)]
-    
+
     @classmethod
-    def make_xaxis_measured_time(cls, time_data:List[bytes]) -> List[float]:
+    def make_xaxis_measured_time(cls, time_data: List[bytes]) -> List[float]:
         if (len(time_data)) < 1:
             raise ValueError('Bad measured time')
         time_codec = Codecs.get(EmbeddedDataType.uint32, endianness=Endianness.Big)
         first_sample = time_codec.decode(time_data[0])
         previous_sample = first_sample
         offset = 0
-        out_data:List[float] = [0]
+        out_data: List[float] = [0]
         for sample in time_data[1:]:
             v = time_codec.decode(sample)
             if v < 0x80000000 and previous_sample > 0x80000000:
@@ -140,7 +140,7 @@ class DataloggingManager:
             out_data.append(v_sec)
 
         return out_data
-    
+
     def acquisition_complete_callback(self, success: bool, detail_msg: str, data: Optional[List[List[bytes]]], metadata: Optional[device_datalogging.AcquisitionMetadata]) -> None:
         """Callback called by the device handler when the acquisition finally gets triggered and data has finished downloaded."""
         if self.active_request is None:
@@ -217,7 +217,7 @@ class DataloggingManager:
                     xaxis.logged_watchable = None
                 elif self.active_request.api_request.x_axis_type == api_datalogging.XAxisType.MeasuredTime:
                     # Measured time is appended at the end of the signal list. See make_device_config_from_request
-                    xaxis_data=self.make_xaxis_measured_time(data[-1])
+                    xaxis_data = self.make_xaxis_measured_time(data[-1])
                     xaxis.set_data(xaxis_data)
                     xaxis.name = 'Time (measured)'
                     xaxis.logged_watchable = None
