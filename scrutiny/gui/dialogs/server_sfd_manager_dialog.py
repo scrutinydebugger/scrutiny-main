@@ -37,6 +37,7 @@ class ReadOnlyStandardItem(QStandardItem):
 
 
 class SFDTableModel(QStandardItemModel):
+    """The model used to display the lsit of SFD in a QTableView"""
 
     class Cols:
         PROJECT_NAME = 0
@@ -45,7 +46,7 @@ class SFDTableModel(QStandardItemModel):
         CREATION_DATE = 3
 
     NB_COLS = 4
-    SFD_INFO_ROLE = Qt.ItemDataRole.UserRole + 5
+    SFD_INFO_ROLE = Qt.ItemDataRole.UserRole + 5    # We will store the SFDInfo structure in the firmware ID col with this data role
 
     @tools.copy_type(QStandardItemModel.__init__)
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -60,9 +61,10 @@ class SFDTableModel(QStandardItemModel):
         self.setHorizontalHeaderLabels(headers)
 
     def add_row(self, sfd_info: sdk.SFDInfo) -> None:
+        """Add a single row to the QTableView"""
         row = [ReadOnlyStandardItem("N/A") for i in range(self.NB_COLS)]
         row[self.Cols.FIRMWARE_ID].setText(sfd_info.firmware_id)
-        row[self.Cols.FIRMWARE_ID].setData(sfd_info, self.SFD_INFO_ROLE)
+        row[self.Cols.FIRMWARE_ID].setData(sfd_info, self.SFD_INFO_ROLE)    # Store the SFD info
 
         if sfd_info.metadata is not None:
             if sfd_info.metadata.project_name is not None:
@@ -83,6 +85,7 @@ class SFDTableModel(QStandardItemModel):
         self.appendRow(row)
 
     def remove_sfd_rows(self, firmware_ids: List[str]) -> None:
+        """Remove several rows identified by firmware IDs"""
         i = 0
         firmware_ids_set = set(firmware_ids)
         while i < self.rowCount():
@@ -97,6 +100,7 @@ class SFDTableModel(QStandardItemModel):
 
 
 class SFDTableView(QTableView):
+    """An extenstion of QTableView to display a list of SFD"""
 
     class _Signals(QObject):
         uninstall = Signal(object)
@@ -137,14 +141,14 @@ class SFDTableView(QTableView):
             self._signals.uninstall.emit(firmware_ids)
 
         def save_action_slot() -> None:
-            if len(firmware_ids) == 1:
+            if len(firmware_ids) == 1:  # Only possible for a single selection
                 assert len(firmware_id_indexes) == 1
                 sfd_info = cast(sdk.SFDInfo, firmware_id_indexes[0].data(self.model().SFD_INFO_ROLE))
                 assert isinstance(sfd_info, sdk.SFDInfo)
                 self._signals.save.emit(sfd_info)
 
         def details_action_slot() -> None:
-            if len(firmware_ids) == 1:
+            if len(firmware_ids) == 1:  # Only possible for a single selection
                 assert len(firmware_id_indexes) == 1
                 sfd_info = cast(sdk.SFDInfo, firmware_id_indexes[0].data(self.model().SFD_INFO_ROLE))
                 assert isinstance(sfd_info, sdk.SFDInfo)
@@ -205,6 +209,7 @@ class ServerSFDManagerDialog(QDialog):
         self._sfd_table.verticalHeader().hide()
         self._sfd_table.setSelectionBehavior(QTableView.SelectionBehavior.SelectRows)
         self._sfd_table.setSizeAdjustPolicy(QTableView.SizeAdjustPolicy.AdjustToContents)
+
         self._sfd_table.signals.uninstall.connect(self._uninstall_sfds_slot)
         self._sfd_table.signals.save.connect(self._save_sfd_slot)
         self._sfd_table.signals.show_details.connect(self._show_sfd_details_slot)
@@ -222,16 +227,19 @@ class ServerSFDManagerDialog(QDialog):
         menubar_layout.addWidget(self._menubar)
         menubar_layout.addWidget(content)
 
+        # Update the status pf the window whent he server comes and go
         self._server_manager.signals.server_connected.connect(self.update_state)
         self._server_manager.signals.server_disconnected.connect(self.update_state)
         self._set_disconnected()
 
     def _set_connected(self) -> None:
+        """Enables the window when the server is connected"""
         self._install_action.setEnabled(True)
         self._feedback_label.clear()
         self.download_sfd_list()
 
     def _set_disconnected(self) -> None:
+        """Disable the window content when the server is disconnected"""
         self._install_action.setDisabled(True)
         self._feedback_label.clear()
         self.clear_sfd_list()
@@ -268,6 +276,7 @@ class ServerSFDManagerDialog(QDialog):
         )
 
     def _save_sfd_slot(self, sfd_info: sdk.SFDInfo) -> None:
+        """Called when right click an SFD and select "save """
         if self._server_manager.get_server_state() != sdk.ServerState.Connected:
             return
 
@@ -275,7 +284,7 @@ class ServerSFDManagerDialog(QDialog):
 
         def ephemerous_thread_request_download(client: ScrutinyClient) -> bytes:
             req = client.download_sfd(sfd_info.firmware_id)
-            req.wait_for_completion(None)
+            req.wait_for_completion(None)   # Blocking call
             return req.get()
 
         def ui_thread_download_complete(data: Optional[bytes], error: Optional[Exception]) -> None:
@@ -283,6 +292,7 @@ class ServerSFDManagerDialog(QDialog):
                 self._feedback_label.set_error(str(error))
                 tools.log_exception(self._logger, error, "Failed to download SFDs")
                 return
+            # Success, Let's update the UI
             self._feedback_label.clear()
 
             assert data is not None
@@ -303,10 +313,13 @@ class ServerSFDManagerDialog(QDialog):
         )
 
     def _show_sfd_details_slot(self, sfd_info: sdk.SFDInfo) -> None:
+        """Called when right click an SFD and select "Details """
         dialog = SFDContentDialog(self, sfd_info)
         dialog.show()
 
     def _make_sfd_default_name(self, sfd_info: sdk.SFDInfo) -> str:
+        """Makes a default filename from the SFDInfo structure."""
+        
         EXTENSION = '.sfd'
         if sfd_info.metadata is None:
             return sfd_info.firmware_id + EXTENSION
@@ -321,6 +334,7 @@ class ServerSFDManagerDialog(QDialog):
         return f"{project_name} ({sfd_info.firmware_id})" + EXTENSION
 
     def _install_sfd_click_slot(self) -> None:
+        """Top menu bar: Install -> Browse"""
         filepath = prompt.get_open_filepath_from_last_save_dir(self, ".sfd", "Scrutiny Firmware Description")
         if filepath is None:
             return
@@ -328,7 +342,8 @@ class ServerSFDManagerDialog(QDialog):
         self._feedback_label.set_info("Uploading...")
 
         def ephemerous_thread_upload(client: ScrutinyClient) -> sdk.UploadSFDConfirmation:
-            return client.upload_sfd(filepath, timeout=10)
+            # Todo : Should probably have a cancel button here.
+            return client.upload_sfd(filepath, timeout=10)  # Blocking call
 
         def ui_thread_upload_complete(data: Optional[sdk.UploadSFDConfirmation], error: Optional[Exception]) -> None:
             if error is not None:
@@ -348,6 +363,7 @@ class ServerSFDManagerDialog(QDialog):
         )
 
     def clear_sfd_list(self) -> None:
+        """Emtpy the QTableView"""
         model = self._sfd_table.model()
         model.removeRows(0, model.rowCount())
 
@@ -356,7 +372,7 @@ class ServerSFDManagerDialog(QDialog):
         self.clear_sfd_list()
 
         def ephemerous_thread_request_download(client: ScrutinyClient) -> Dict[str, sdk.SFDInfo]:
-            return client.get_installed_sfds()
+            return client.get_installed_sfds()  # Blocking call
 
         def ui_thread_download_callback(sfds: Optional[Dict[str, sdk.SFDInfo]], error: Optional[Exception]) -> None:
             # Called when the lsit is received
@@ -378,6 +394,7 @@ class ServerSFDManagerDialog(QDialog):
         )
 
     def update_state(self) -> None:
+        """Set connected/disonnected based on server status"""
         if self._server_manager.get_server_state() == sdk.ServerState.Connected:
             self._set_connected()
         else:

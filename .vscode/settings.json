@@ -63,7 +63,8 @@
                 "isntalled": "installed",
                 "is_isntalled": "is_installed",
                 "laoded" : "loaded",
-                "conenction" : "connection"
+                "conenction" : "connection",
+                "conencted" : "connected",
             }
         }]
 }
