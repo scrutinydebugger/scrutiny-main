@@ -13,10 +13,11 @@ import logging
 
 from PySide6.QtWidgets import QDialog, QWidget, QTableView, QVBoxLayout, QMenu, QMenuBar
 from PySide6.QtCore import Qt, QAbstractItemModel, Signal, QObject, QPoint
-from PySide6.QtGui import QCloseEvent, QShowEvent, QStandardItemModel, QStandardItem, QContextMenuEvent, QAction
+from PySide6.QtGui import QCloseEvent, QKeyEvent, QShowEvent, QStandardItemModel, QStandardItem, QContextMenuEvent, QAction
 
 from scrutiny import sdk
 from scrutiny.sdk.client import ScrutinyClient
+from scrutiny.core.firmware_description import FirmwareDescription
 from scrutiny.gui.core.server_manager import ServerManager
 from scrutiny.gui.core.persistent_data import gui_persistent_data
 from scrutiny.gui.themes import scrutiny_get_theme
@@ -60,7 +61,7 @@ class SFDTableModel(QStandardItemModel):
         headers[self.Cols.CREATION_DATE] = "Created On"
         self.setHorizontalHeaderLabels(headers)
 
-    def add_row(self, sfd_info: sdk.SFDInfo) -> None:
+    def add_row(self, sfd_info: sdk.SFDInfo) -> int:
         """Add a single row to the QTableView"""
         row = [ReadOnlyStandardItem("N/A") for i in range(self.NB_COLS)]
         row[self.Cols.FIRMWARE_ID].setText(sfd_info.firmware_id)
@@ -83,6 +84,7 @@ class SFDTableModel(QStandardItemModel):
                     row[self.Cols.CREATION_DATE].setText(sfd_info.metadata.generation_info.timestamp.strftime(format_str))
 
         self.appendRow(row)
+        return self.rowCount()-1
 
     def remove_sfd_rows(self, firmware_ids: List[str]) -> None:
         """Remove several rows identified by firmware IDs"""
@@ -138,7 +140,8 @@ class SFDTableView(QTableView):
         firmware_ids = [self.model().itemFromIndex(index).text() for index in firmware_id_indexes]
 
         def uninstall_action_slot() -> None:
-            self._signals.uninstall.emit(firmware_ids)
+            if len(firmware_ids) > 0:
+                self._signals.uninstall.emit(firmware_ids)
 
         def save_action_slot() -> None:
             if len(firmware_ids) == 1:  # Only possible for a single selection
@@ -166,6 +169,16 @@ class SFDTableView(QTableView):
             uninstall_action.setDisabled(True)
 
         self.display_context_menu(menu, event.pos())
+
+    def keyPressEvent(self, event: QKeyEvent) -> None:
+        if event.key() == Qt.Key.Key_Delete:
+            firmware_id_indexes = [index for index in self.selectedIndexes() if index.isValid() and index.column() == SFDTableModel.Cols.FIRMWARE_ID]
+            firmware_ids = [self.model().itemFromIndex(index).text() for index in firmware_id_indexes]
+            if len(firmware_ids) > 0:
+                self._signals.uninstall.emit(firmware_ids)
+
+
+        return super().keyPressEvent(event)
 
     def display_context_menu(self, menu: QMenu, pos: QPoint) -> None:
         """Display a menu at given relative position, and make sure it goes below the cursor to mimic what most people are used to"""
@@ -350,9 +363,17 @@ class ServerSFDManagerDialog(QDialog):
                 self._feedback_label.set_error(str(error))
                 tools.log_exception(self._logger, error, "Failed to install SFDs")
                 return
-            self._feedback_label.clear()
-
+        
             assert data is not None
+            self._feedback_label.clear()
+            self._sfd_table.model().remove_sfd_rows([data.firmware_id])
+            sfd_info = sdk.SFDInfo(
+                firmware_id=data.firmware_id,
+                metadata=FirmwareDescription.read_metadata_from_sfd_file(str(filepath))
+            )
+            row_number = self._sfd_table.model().add_row(sfd_info)  # Append a row
+            self._sfd_table.selectRow(row_number)   # Select inserted row (last one)
+                
             overwritten_txt = "\nPreviously installed SFD with the same firmware ID has been overwritten" if data.overwritten else ""
 
             prompt.success_msgbox(self, "Installed", f"Installed SFD {data.firmware_id}.{overwritten_txt}")
