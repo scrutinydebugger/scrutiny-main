@@ -19,13 +19,14 @@ from scrutiny import sdk
 from scrutiny.sdk.client import ScrutinyClient
 from scrutiny.gui.core.server_manager import ServerManager
 from scrutiny.gui.core.persistent_data import gui_persistent_data
+from scrutiny.gui.themes import scrutiny_get_theme
+from scrutiny.gui.widgets.feedback_label import FeedbackLabel
+from scrutiny.gui.dialogs.sfd_content_dialog import SFDContentDialog
+from scrutiny.gui.tools import prompt
+from scrutiny.gui import assets
+
 from scrutiny.tools.typing import *
 from scrutiny import tools
-from scrutiny.gui.themes import scrutiny_get_theme
-from scrutiny.gui import assets
-from scrutiny.gui.widgets.feedback_label import FeedbackLabel
-from scrutiny.gui.tools import prompt
-
 
 class ReadOnlyStandardItem(QStandardItem):
     @tools.copy_type(QStandardItem.__init__)
@@ -99,6 +100,7 @@ class SFDTableView(QTableView):
     class _Signals(QObject):
         uninstall = Signal(object)
         save = Signal(object)
+        show_details = Signal(object)
 
     _signals: _Signals
 
@@ -125,6 +127,7 @@ class SFDTableView(QTableView):
         menu = QMenu(self)
         uninstall_action = menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.RedX), "Uninstall")
         save_action = menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.Download), "Save")
+        details_action = menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.Info), "Details")
 
         firmware_id_indexes = [index for index in self.selectedIndexes() if index.isValid() and index.column() == SFDTableModel.Cols.FIRMWARE_ID]
         firmware_ids = [self.model().itemFromIndex(index).text() for index in firmware_id_indexes]
@@ -138,12 +141,21 @@ class SFDTableView(QTableView):
                 sfd_info = cast(sdk.SFDInfo, firmware_id_indexes[0].data(self.model().SFD_INFO_ROLE))
                 assert isinstance(sfd_info, sdk.SFDInfo)
                 self._signals.save.emit(sfd_info)
+        
+        def details_action_slot() -> None:
+            if len(firmware_ids) == 1:
+                assert len(firmware_id_indexes) == 1
+                sfd_info = cast(sdk.SFDInfo, firmware_id_indexes[0].data(self.model().SFD_INFO_ROLE))
+                assert isinstance(sfd_info, sdk.SFDInfo)
+                self._signals.show_details.emit(sfd_info)
 
         uninstall_action.triggered.connect(uninstall_action_slot)
         save_action.triggered.connect(save_action_slot)
+        details_action.triggered.connect(details_action_slot)
 
         if len(firmware_ids) != 1:
             save_action.setDisabled(True)
+            details_action.setDisabled(True)
 
         if len(firmware_ids) == 0:
             uninstall_action.setDisabled(True)
@@ -194,6 +206,7 @@ class ServerSFDManagerDialog(QDialog):
         self._sfd_table.setSizeAdjustPolicy(QTableView.SizeAdjustPolicy.AdjustToContents)
         self._sfd_table.signals.uninstall.connect(self._uninstall_sfds_slot)
         self._sfd_table.signals.save.connect(self._save_sfd_slot)
+        self._sfd_table.signals.show_details.connect(self._show_sfd_details_slot)
         self._install_action.triggered.connect(self._install_sfd_click_slot)
         
         content = QWidget()
@@ -243,9 +256,10 @@ class ServerSFDManagerDialog(QDialog):
                 tools.log_exception(self._logger, error, "Failed to uninstall SFDs")
                 return
             # Success. Let's update the UI
+            self._feedback_label.clear()
             self._sfd_table.model().remove_sfd_rows(firmware_ids)
             nb_sfd = len(firmware_ids)
-            self._feedback_label.set_success(f"Uninstalled {nb_sfd} Scrutiny Firmware Description (SFD) files.")
+            prompt.success_msgbox(self, "Uninstalled", f"Uninstalled {nb_sfd} Scrutiny Firmware Description (SFD) files.")
 
         self._server_manager.schedule_client_request(
             user_func=ephemerous_thread_request_uninstall,
@@ -286,6 +300,10 @@ class ServerSFDManagerDialog(QDialog):
             user_func=ephemerous_thread_request_download,
             ui_thread_callback=ui_thread_download_complete
         )
+
+    def _show_sfd_details_slot(self, sfd_info: sdk.SFDInfo) -> None:
+        dialog = SFDContentDialog(self, sfd_info)
+        dialog.show()
 
     def _make_sfd_default_name(self, sfd_info: sdk.SFDInfo) -> str:
         EXTENSION = '.sfd'
@@ -368,8 +386,7 @@ class ServerSFDManagerDialog(QDialog):
         self._feedback_label.clear()
         return super().closeEvent(e)
 
-    def showEvent(self, arg__1: QShowEvent) -> None:
+    def showEvent(self, e: QShowEvent) -> None:
         self._feedback_label.clear()
         self.update_state()
-        return super().showEvent(arg__1)
-
+        return super().showEvent(e)

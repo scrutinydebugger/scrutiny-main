@@ -23,6 +23,14 @@ firmware ID that the device broadcasts.
 
 -----
 
+.. automethod:: scrutiny.sdk.client.ScrutinyClient.download_sfd
+
+-----
+
+.. automethod:: scrutiny.sdk.client.ScrutinyClient.upload_sfd
+
+-----
+
 .. autoclass:: scrutiny.sdk.SFDInfo
     :exclude-members: __new__, __init__
     :members:
@@ -38,6 +46,21 @@ firmware ID that the device broadcasts.
 -----
 
 .. autoclass:: scrutiny.sdk.SFDGenerationInfo 
+    :exclude-members: __new__, __init__
+    :members:
+    :member-order: bysource
+
+-----
+
+.. autoclass:: scrutiny.sdk.client.SFDDownloadRequest 
+    :exclude-members: __new__, __init__
+    :members:
+    :inherited-members:
+    :member-order: bysource
+
+-----
+
+.. autoclass:: scrutiny.sdk.UploadSFDConfirmation 
     :exclude-members: __new__, __init__
     :members:
     :member-order: bysource

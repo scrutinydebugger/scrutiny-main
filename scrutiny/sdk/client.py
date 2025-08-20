@@ -237,7 +237,7 @@ class WatchableListDownloadRequest(PendingRequest):
 
 class SFDDownloadRequest(PendingRequest):
     """Represents a pending SFD (Scrutiny Firmware Description) file download request. 
-    It can be used to wait for completion or cancel the request.
+    It can be used to wait for completion and get the file data.
 
     :param client: A reference to the client object
     :param firmware_id: The firmware ID of the requested SFD file
@@ -1803,6 +1803,12 @@ class ScrutinyClient:
                 f"Failed to uninstall the list of Scrutiny Firmware Description file. {future.error_str}")
 
     def download_sfd(self, firmware_id: str) -> SFDDownloadRequest:
+        """Download a Scrutiny Frimware Description file from the server
+        
+        :param firmware_id: A 32 char hex string that matches the wanted SFD firmware ID
+        :return: A future object that gives the status of the download and can be waited on.
+        :raise TypeError: Given parameter not of the expected type
+        """
 
         validation.assert_type(firmware_id, 'firmware_id', str)
 
@@ -1810,7 +1816,7 @@ class ScrutinyClient:
                    self._make_request(API.Command.Client2Api.DOWNLOAD_SFD, {
                        'firmware_id': firmware_id
                    })
-                   )
+                )
 
         # For unit tests, we want to validate that multi chunk works
         if self._UNITTEST_DOWNLOAD_CHUNK_SIZE is not None:
@@ -1825,6 +1831,20 @@ class ScrutinyClient:
         return pending_req
 
     def upload_sfd(self, filepath: Union[str, Path], timeout: Optional[float] = None) -> UploadSFDConfirmation:
+        """Upload a Scrutiny Frimware Description file to the server. Blocks until completion. 
+        If the function returns, then the upload is successful, an exception will be raised otherwise.
+        
+        :param filepath: Path to the .sfd file
+        :param timeout: Upload timeout. Block forever if ``None``
+
+        :return: A status object giving details about the installation on the server
+        
+        :raise TypeError: Given parameter not of the expected type
+        :raise ValueError: Given file is not valid or too big
+        :raise FileNotFoundError: Given file does not exist
+        :raise OperationFailure: Failed to upload. Details of the failure are provided oin the exception
+        """
+                
         validation.assert_type(filepath, 'filepath', (str, Path))
         filepath = Path(filepath)
         if not os.path.isfile(filepath):
