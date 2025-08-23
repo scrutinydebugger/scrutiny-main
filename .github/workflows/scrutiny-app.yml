@@ -96,19 +96,15 @@ jobs:
       - name: Nuitka build
         run: ./scripts/nuitka_build.sh
         shell: bash
-      
-      # Sign the scrutiny executable
+
+        # Sign scrutiny.exe
       - name: Sign Executable
-        uses: sslcom/esigner-codesign@v1.3.1
-        with:
-          command: sign
-          username: ${{ secrets.CODESIGN_USERNAME }}
-          password: ${{ secrets.CODESIGN_PASSWORD }}
-          credential_id: ${{ secrets.CODESIGN_CREDENTIAL_ID }}
-          totp_secret: ${{ secrets.CODESIGN_TOTP_SECRET }}
-          file_path: ./nuitka_build/scrutiny.dist/scrutiny.exe
-          override: true
-          clean_logs: true
+        run: ./scripts/sign_pe32.sh 
+            "${{ secrets.CODESIGN_ENDPOINT }}" 
+            "${{ secrets.CODESIGN_AUTH_TOKEN }}" 
+            "./nuitka_build/scrutiny.dist/scrutiny.exe"
+            "./nuitka_build/scrutiny.dist/scrutiny.exe"
+        shell: bash
       
       # Launch InnoSetup
       - name: InnoSetup packaging
@@ -121,17 +117,13 @@ jobs:
         shell: bash
       
       # Sign the installer
-      - name: Sign Installer
-        uses: sslcom/esigner-codesign@v1.3.1
-        with:
-          command: sign
-          username: ${{ secrets.CODESIGN_USERNAME }}
-          password: ${{ secrets.CODESIGN_PASSWORD }}
-          credential_id: ${{ secrets.CODESIGN_CREDENTIAL_ID }}
-          totp_secret: ${{ secrets.CODESIGN_TOTP_SECRET }}
-          file_path: ./nuitka_build/installer/${{ env.INSTALLER_NAME }}.exe
-          override: true
-          clean_logs: true
+      - name: Sign Executable
+        run: ./scripts/sign_pe32.sh 
+            "${{ secrets.CODESIGN_ENDPOINT }}" 
+            "${{ secrets.CODESIGN_AUTH_TOKEN }}" 
+            "./nuitka_build/installer/${{ env.INSTALLER_NAME }}.exe"
+            "./nuitka_build/installer/${{ env.INSTALLER_NAME }}.exe"
+        shell: bash
       
       # Upload to github
       - name: Upload Artifact
