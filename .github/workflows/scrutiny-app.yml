@@ -117,7 +117,7 @@ jobs:
         shell: bash
       
       # Sign the installer
-      - name: Sign Executable
+      - name: Sign Installer
         run: ./scripts/sign_pe32.sh 
             "${{ secrets.CODESIGN_ENDPOINT }}" 
             "${{ secrets.CODESIGN_AUTH_TOKEN }}" 
