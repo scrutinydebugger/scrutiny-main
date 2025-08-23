@@ -3,8 +3,9 @@
 set -euo pipefail
 
 ENDPOINT=$1
-INPUT_FILE=$2
-OUTPUT_FILE=$3
+AUTH_TOKEN=$2
+INPUT_FILE=$3
+OUTPUT_FILE=$4
 
 file_type=$(file "${INPUT_FILE}")
 if [[ "${file_type}" !=  *"PE32+ executable"* ]]; then
@@ -14,9 +15,8 @@ fi
 
 TEMP_DIR=$(mktemp -d)
 TEMP_FILE="${TEMP_DIR}/tempbin"
-rm -f "${OUTPUT_FILE}"
 
-curl --fail -X POST -F "file=@${INPUT_FILE}" -F "auth_token=$AUTH_TOKEN" "${ENDPOINT}" -o "${TEMP_FILE}"
+curl --fail -k -X POST -F "file=@${INPUT_FILE}" -F "auth_token=$AUTH_TOKEN" "${ENDPOINT}" -o "${TEMP_FILE}"
 
 file_type=$(file "${TEMP_FILE}")
 if [[ "${file_type}" !=  *"PE32+ executable"* ]]; then
