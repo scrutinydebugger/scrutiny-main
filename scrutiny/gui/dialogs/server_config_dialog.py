@@ -80,7 +80,7 @@ class LocalServerStateLabel(QWidget):
 
 
 class LocalServerConfigurator(QWidget):
-    """A widget meant for the user to start/stop a local isntance of the Scrutiny server.
+    """A widget meant for the user to start/stop a local instance of the Scrutiny server.
     Controls an appwide LocalServerRunner"""
 
     class PersistentDataKeys:

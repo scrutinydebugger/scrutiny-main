@@ -54,11 +54,11 @@ class SFDGenerationInfo:
     """(Immutable struct) Metadata relative to the generation of the SFD"""
 
     timestamp: Optional[datetime]
-    """Date/time at which the SFD has been created ``None`` if not available"""
+    """Date/time at which the SFD has been created. ``None`` if not available"""
     python_version: Optional[str]
-    """Python version with which the SFD has been created ``None`` if not available"""
+    """Python version with which the SFD has been created. ``None`` if not available"""
     scrutiny_version: Optional[str]
-    """Scrutiny version with which the SFD has been created ``None`` if not available"""
+    """Scrutiny version with which the SFD has been created. ``None`` if not available"""
     system_type: Optional[str]
     """Type of system on which the SFD has been created. Value given by Python `platform.system()`. ``None`` if not available"""
 

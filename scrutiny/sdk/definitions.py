@@ -855,7 +855,7 @@ class ServerStatistics:
 
 @dataclass(frozen=True)
 class UploadSFDConfirmation:
-    """A status object confirming that the server received a SFD file (Scrutiny Firmware Description) and successfully isntalled it."""
+    """A status object confirming that the server received a SFD file (Scrutiny Firmware Description) and successfully installed it."""
 
     firmware_id: str
     """An echo of the firmware ID of the installed SFD"""

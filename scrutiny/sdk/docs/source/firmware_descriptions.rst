@@ -1,14 +1,18 @@
 Scrutiny Firmware Description (SFD)
 ===================================
 
-A Scrutiny Firmware Description (SFD) is a file that's generated during the firmware's build phase for embedded systems. This file includes:
+A Scrutiny Firmware Description (SFD) is a file that's generated during the firmware's build phase. This file includes:
 
 a. The device's static and global variables, which are identified from the debug symbols (including address, size, type, endianness)
-b. firmware ID, which is used to match the SFD with the corresponding firmware
-c. Metadata about the firmware, such as its name, project version, author, build date, etc.
-d. Alias definitions
+b. A Firmware ID, which is used to match the SFD with the corresponding firmware
+c. The metadata about the firmware, such as its name, project version, author, build date, etc.
+d. Aliases definitions
 
-The :abbr:`SFD (Scrutiny Firmware Description)` must be installed on the server using the ``install-sfd`` command with the :abbr:`CLI (Command Line Interface)`. 
+The :abbr:`SFD (Scrutiny Firmware Description)` must be installed on the server using one of the following method : 
+
+ - Through the :abbr:`CLI (Command Line Interface)`, using the ``install-sfd`` command. The command must be run on the server. (Example: `scrutiny install-sfd my_file.sfd`)
+ - Through the SDK, using :meth:`upload_sfd()<scrutiny.sdk.client.ScrutinyClient.upload_sfd>`
+ - Through the GUI. The GUI uses the SDK to upload the SFD file to the server
 
 When a device connects, the server will automatically load the appropriate :abbr:`SFD (Scrutiny Firmware Description)` based on the 
 firmware ID that the device broadcasts.
