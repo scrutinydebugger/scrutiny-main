@@ -16,7 +16,7 @@ fi
 TEMP_DIR=$(mktemp -d)
 TEMP_FILE="${TEMP_DIR}/tempbin"
 
-curl --fail -k -X POST -F "file=@${INPUT_FILE}" -F "auth_token=$AUTH_TOKEN" "${ENDPOINT}" -o "${TEMP_FILE}"
+curl --fail -X POST -F "file=@${INPUT_FILE}" -F "auth_token=$AUTH_TOKEN" "${ENDPOINT}" -o "${TEMP_FILE}"
 
 file_type=$(file "${TEMP_FILE}")
 if [[ "${file_type}" !=  *"PE32+ executable"* ]]; then
