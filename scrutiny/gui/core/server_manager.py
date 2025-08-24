@@ -776,7 +776,7 @@ class ServerManager:
             self._qt_maybe_request_unwatch(watchable_config.watchable_type, server_path)
 
     def _qt_value_update_received(self) -> None:
-        # Called in the QT thread when a value update is received by the lsitener (the client)
+        # Called in the QT thread when a value update is received by the listener (the client)
         aggregated_updates: List[ValueUpdate] = []
         while not self._listener.to_gui_thread_queue.empty():
             update_list = self._listener.to_gui_thread_queue.get_nowait()
@@ -789,7 +789,7 @@ class ServerManager:
         # This runs in the UI thread
         entry = self._client_request_store.get(store_id)
         if entry is None:
-            self._logger.debug("Client request compelted, but entry not part of the store.")
+            self._logger.debug("Client request completed, but entry not part of the store.")
             return
 
         if self._exit_in_progress:

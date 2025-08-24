@@ -38,7 +38,7 @@ class ReadOnlyStandardItem(QStandardItem):
 
 
 class SFDTableModel(QStandardItemModel):
-    """The model used to display the lsit of SFD in a QTableView"""
+    """The model used to display the list of SFD in a QTableView"""
 
     class Cols:
         PROJECT_NAME = 0
@@ -422,7 +422,7 @@ class ServerSFDManagerDialog(QDialog):
             return client.get_installed_sfds()  # Blocking call
 
         def ui_thread_download_callback(sfds: Optional[Dict[str, sdk.SFDInfo]], error: Optional[Exception]) -> None:
-            # Called when the lsit is received
+            # Called when the list is received
             if sfds is None:
                 # Failed to download
                 assert error is not None

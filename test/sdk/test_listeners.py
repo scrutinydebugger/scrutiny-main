@@ -399,7 +399,7 @@ class TestListeners(ScrutinyUnitTest):
 
             with listener.start():
                 with self.assertRaises(sdk.exceptions.NotAllowedError):
-                    listener.unsubscribe(self.w1)   # Not allowed in this lsitener. Column count is fixed
+                    listener.unsubscribe(self.w1)   # Not allowed in this listener. Column count is fixed
                 dt = datetime.now()
                 count = 10
                 for i in range(count):

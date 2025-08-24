@@ -65,6 +65,11 @@
                 "laoded" : "loaded",
                 "conenction" : "connection",
                 "conencted" : "connected",
+                "lsitener" : "listener",
+                "lsiten" : "listen",
+                "lsitening" : "listening",
+                "compelte" : "complete",
+                "compelted" : "completed"
             }
         }]
 }
