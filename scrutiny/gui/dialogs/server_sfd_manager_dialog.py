@@ -354,34 +354,60 @@ class ServerSFDManagerDialog(QDialog):
 
         self._feedback_label.set_info("Uploading...")
 
-        def ephemerous_thread_upload(client: ScrutinyClient) -> SFDUploadRequest:
-            req =  client.init_sfd_upload(filepath)
-            req.start() # TODO : Confirm dialog on overwrite
-            req.wait_for_completion()
-            return req
+        def ephemerous_thread_upload_init(client: ScrutinyClient) -> SFDUploadRequest:
+            return client.init_sfd_upload(filepath)
 
-        def ui_thread_upload_complete(data: Optional[SFDUploadRequest], error: Optional[Exception]) -> None:
+        def ui_thread_upload_init_completed(req:Optional[SFDUploadRequest], error : Optional[Exception]) -> None:
             if error is not None:
                 self._feedback_label.set_error(str(error))
                 tools.log_exception(self._logger, error, "Failed to install SFDs")
                 return
         
-            assert data is not None
-            self._feedback_label.clear()
-            self._sfd_table.model().remove_sfd_rows([data.firmware_id])
-            sfd_info = sdk.SFDInfo(
-                firmware_id=data.firmware_id,
-                metadata=FirmwareDescription.read_metadata_from_sfd_file(str(filepath))
-            )
-            row_number = self._sfd_table.model().add_row(sfd_info)  # Append a row
-            self._sfd_table.selectRow(row_number)   # Select inserted row (last one)
-                
+            assert req is not None
 
-            prompt.success_msgbox(self, "Installed", f"Installed SFD {data.firmware_id}")
+            proceed = True
+            if req.will_overwrite:
+                proceed = prompt.warning_yes_no_question(
+                    parent=self, 
+                    msg="Installing this file will overwrite an existing SFD on the server that shares the same firmware ID. Proceed?",
+                    title="Proceed?"
+                    )
+            
+            if not proceed:
+                self._feedback_label.clear()
+                return
+
+            def ephemerous_thread_upload(client: ScrutinyClient) -> SFDUploadRequest:
+                req.start()
+                req.wait_for_completion()
+                return req
+
+            def ui_thread_upload_complete(data: Optional[SFDUploadRequest], error: Optional[Exception]) -> None:
+                if error is not None:
+                    self._feedback_label.set_error(str(error))
+                    tools.log_exception(self._logger, error, "Failed to install SFDs")
+                    return
+            
+                assert data is not None
+                self._feedback_label.clear()
+                self._sfd_table.model().remove_sfd_rows([data.firmware_id])
+                sfd_info = sdk.SFDInfo(
+                    firmware_id=data.firmware_id,
+                    metadata=FirmwareDescription.read_metadata_from_sfd_file(str(filepath))
+                )
+                row_number = self._sfd_table.model().add_row(sfd_info)  # Append a row
+                self._sfd_table.selectRow(row_number)   # Select inserted row (last one)
+                    
+                prompt.success_msgbox(self, "Installed", f"Installed SFD {data.firmware_id}")
+
+            self._server_manager.schedule_client_request(
+                user_func=ephemerous_thread_upload,
+                ui_thread_callback=ui_thread_upload_complete
+            )
 
         self._server_manager.schedule_client_request(
-            user_func=ephemerous_thread_upload,
-            ui_thread_callback=ui_thread_upload_complete
+            user_func=ephemerous_thread_upload_init,
+            ui_thread_callback=ui_thread_upload_init_completed
         )
 
     def clear_sfd_list(self) -> None:

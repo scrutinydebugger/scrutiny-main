@@ -48,6 +48,8 @@ from scrutiny.server.device.links.udp_link import UdpLink
 from scrutiny.server.device.links.abstract_link import AbstractLink
 import scrutiny.server.device.device_info as server_device
 
+from scrutiny import tools
+
 from test.artifacts import get_artifact
 from test import ScrutinyUnitTest
 
@@ -1471,6 +1473,48 @@ class TestClient(ScrutinyUnitTest):
             self.assertTrue(req.get_progress(), 1)
             
             self.assertTrue(SFDStorage.is_installed(sfd1.get_firmware_id_ascii()))
+
+    def test_upload_sfd_overwrite_detected(self):
+        self.client._UNITTEST_DOWNLOAD_CHUNK_SIZE = 100  # Internal var for testing only
+        sfd1_filepath = get_artifact('test_sfd_1.sfd')
+        with SFDStorage.use_temp_folder():
+            sfd1 = SFDStorage.install(sfd1_filepath)
+            self.assertTrue(SFDStorage.is_installed(sfd1.get_firmware_id_ascii()))
+            req = self.client.init_sfd_upload(sfd1_filepath)
+            self.assertTrue(req.will_overwrite)
+            req.start()
+            req.wait_for_completion(3)
+            self.assertTrue(req.completed)
+            self.assertTrue(req.is_success)
+            self.assertTrue(req.get_progress(), 1)
+            
+            self.assertTrue(SFDStorage.is_installed(sfd1.get_firmware_id_ascii()))
+    
+    def test_upload_sfd_detect_error(self):
+        self.client._UNITTEST_DOWNLOAD_CHUNK_SIZE = 100  # Internal var for testing only
+        sfd1_filepath = get_artifact('test_sfd_1.sfd')
+        sfd1 = FirmwareDescription(sfd1_filepath)
+        with SFDStorage.use_temp_folder():
+            req = self.client.init_sfd_upload(sfd1_filepath)
+           
+            counter = tools.MutableInt(0)
+            def tamper_response_callback(client, obj):
+                if counter.val == 3:    # Should be a data chunk
+                    obj['cmd'] = API.Command.Api2Client.ERROR_RESPONSE
+                    obj['msg'] = 'blablabla'
+
+                counter.val+=1
+            
+            self.client._add_rx_message_callback(tamper_response_callback)
+
+            req.start()
+            with self.assertRaises(sdk.exceptions.OperationFailure):
+                req.wait_for_completion(3)  # Should fail
+            self.assertTrue(req.completed)
+            self.assertFalse(req.is_success)
+            self.assertIn('blablabla', req.failure_reason)
+            
+            self.assertFalse(SFDStorage.is_installed(sfd1.get_firmware_id_ascii()))
 
     def test_simple_request_response_timeout(self):
         with SFDStorage.use_temp_folder():

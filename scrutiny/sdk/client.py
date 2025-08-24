@@ -266,10 +266,11 @@ class SFDDownloadRequest(PendingRequest):
 
     @property
     def firmware_id(self) -> str:
-        """The firmware ID of the SFD being downlaoded"""
+        """The firmware ID of the SFD being downloaded"""
         return self._firmware_id
     
     def cancel(self) -> None:
+        """Cancel the request and wake up any thread calling :meth:`wait_for_completion<wait_for_completion>`"""
         self._client._cancel_download_sfd_request(self._reqid)
 
     def get(self) -> bytes:
@@ -329,6 +330,7 @@ class SFDUploadRequest(PendingRequest):
 
     def _set_actual_size(self, size:int) -> None:
         self._actual_size = size
+        self._update_expiration_timer()
 
     @property
     def firmware_id(self) -> str:
@@ -342,12 +344,11 @@ class SFDUploadRequest(PendingRequest):
     
     @property
     def will_overwrite(self) -> bool:
-        """Indicate if the request will overwrite an existing SFD installed on the server. Calling :meth:`start()<SFDUploadRequest.start>` is required 
-        to proceed with the upload if this is ``True``"""
+        """Indicate if the request will overwrite an existing SFD installed on the server. """
         return self._will_overwrite
 
     def start(self) -> None:
-        """Request the client to start uploading the file content."""
+        """Request the client to start uploading the file content. """
         if not self._started:
             self._client._start_upload_sfd(self._init_reqid)
 
@@ -918,8 +919,8 @@ class ScrutinyClient:
             self._logger.warning(f'Received a SFD chunk, but the request ID was is not tied to any active request {reqid}')
             return
 
-        req._add_data(content.data)
         req._set_expected_total_size(content.total_size)
+        req._add_data(content.data)
         if req.received_count == content.total_size:
             req._mark_complete(success=True)
         elif req.received_count > content.total_size:
@@ -1009,6 +1010,10 @@ class ScrutinyClient:
                     if not sfdu_req.completed:
                         sfdu_req._mark_complete(False, "No server response for too long")
                     del self._pending_sfd_upload_requests[kint]
+
+    def _add_rx_message_callback(self, callback:RxMessageCallback) -> None:
+        """Internal method to add middleware on response reception. Mostly for testing"""
+        self._rx_message_callbacks.append(callback)
 
     def _wt_process_rx_api_message(self, msg: Dict[str, Any]) -> None:
         self._threading_events.msg_received.set()
