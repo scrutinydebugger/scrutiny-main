@@ -235,9 +235,12 @@ class C2S:
         firmware_id: str
         max_chunk_size: Optional[int]    # Mostly for testing
 
-    class UploadSFD(BaseC2SMessage):
+    class UploadSFDInit(BaseC2SMessage):
         total_size: int
         firmware_id: str
+    
+    class UploadSFDData(BaseC2SMessage):
+        token:str
         file_chunk: FileChunk
 
     class UninstallSFD(BaseC2SMessage):
@@ -330,9 +333,13 @@ class S2C:
         total_size: int
         file_chunk: FileChunk
 
-    class UploadSFD(BaseS2CMessage):
-        firmware_id: str
-        overwritten: bool
+    class UploadSFDInit(BaseS2CMessage):
+        token:str
+        will_overwrite:bool
+
+    class UploadSFDData(BaseS2CMessage):
+        completed:bool
+        actual_size:int
 
     class GetLoadedSFD(BaseS2CMessage):
         firmware_id: Optional[str]
@@ -460,7 +467,8 @@ C2SMessage = Union[
     C2S.GetWatchableList,
     C2S.LoadSFD,
     C2S.DownloadSFD,
-    C2S.UploadSFD,
+    C2S.UploadSFDInit,
+    C2S.UploadSFDData,
     C2S.UninstallSFD,
     C2S.SubscribeWatchable,
     C2S.UnsubscribeWatchable,
@@ -485,7 +493,8 @@ S2CMessage = Union[
     S2C.GetLoadedSFD,
     S2C.UninstallSFD,
     S2C.DownloadSFD,
-    S2C.UploadSFD,
+    S2C.UploadSFDInit,
+    S2C.UploadSFDData,
     S2C.InformServerStatus,
     S2C.GetDeviceInfo,
     S2C.GetWatchableCount,

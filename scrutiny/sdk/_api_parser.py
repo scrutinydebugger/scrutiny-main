@@ -98,6 +98,11 @@ class SFDDownloadChunk:
     chunk_index: int
     total_size: int
 
+@dataclass
+class UploadSFDConfirmation:
+    firmware_id: str
+    overwritten: bool
+
 
 T = TypeVar('T', str, int, float, bool)
 WATCHABLE_TYPE_KEY = Literal['rpv', 'alias', 'var']
@@ -1228,7 +1233,7 @@ def parse_download_sfd_response(response: api_typing.S2C.DownloadSFD) -> SFDDown
     )
 
 
-def parse_upload_sfd_response(response: api_typing.S2C.UploadSFD) -> sdk.UploadSFDConfirmation:
+def parse_upload_sfd_response(response: api_typing.S2C.UploadSFD) -> UploadSFDConfirmation:
     assert isinstance(response, dict)
     assert 'cmd' in response
     cmd = response['cmd']
@@ -1237,7 +1242,7 @@ def parse_upload_sfd_response(response: api_typing.S2C.UploadSFD) -> sdk.UploadS
     _check_response_dict(cmd, response, 'firmware_id', str)
     _check_response_dict(cmd, response, 'overwritten', bool)
 
-    return sdk.UploadSFDConfirmation(
+    return UploadSFDConfirmation(
         firmware_id=response['firmware_id'],
         overwritten=response['overwritten']
     )

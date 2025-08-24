@@ -7,6 +7,7 @@
 #   Copyright (c) 2023 Scrutiny Debugger
 
 import unittest
+import os
 
 from scrutiny.core.basic_types import *
 from scrutiny.core.datalogging import *
@@ -1431,6 +1432,24 @@ class TestClient(ScrutinyUnitTest):
             self.assertEqual(len(sfd1_data), len(sfd1_downloaded_data))
             self.assertEqual(sfd1_data, sfd1_downloaded_data)
             self.assertEqual(sfd2_data, sfd2_downloaded_data)
+
+    def test_download_sfd_cancel(self):         
+         with SFDStorage.use_temp_folder():
+            sfd1 = SFDStorage.install(get_artifact('test_sfd_1.sfd'), ignore_exist=True)
+            sfd1_file = SFDStorage.get_file_location(sfd1.get_firmware_id_ascii())
+            sfd1_size = os.stat(sfd1_file).st_size
+            self.client._UNITTEST_DOWNLOAD_CHUNK_SIZE = 100  # Internal var for testing only
+            setattr(self.api, '_UNITTEST_DOWNLOAD_SFD_MAX_CHUNK_COUNT', 1)  # Ensure we never receive the full file
+            req = self.client.download_sfd(sfd1.get_firmware_id_ascii())
+            self.wait_true(lambda: req.received_count() > 0)
+            progress = req.get_progress()
+            self.assertIsNotNone(progress)
+            self.assertEqual(progress, 100/sfd1_size)
+            self.assertFalse(req.completed)
+            req.cancel()
+            self.assertTrue(req.completed)
+            with self.assertRaises(sdk.exceptions.OperationFailure):
+                req.wait_for_completion()
 
     def test_upload_sfd(self):
         self.client._UNITTEST_DOWNLOAD_CHUNK_SIZE = 100  # Internal var for testing only

@@ -178,7 +178,7 @@ class FirmwareDescription:
         return metadata
 
     def load_from_file(self, filename: str) -> None:
-        """Reads a Scrutiny Frimware Description file (.sfd) which is just a .zip containing bunch of json files """
+        """Reads a Scrutiny Firmware Description file (.sfd) which is just a .zip containing bunch of json files """
         with zipfile.ZipFile(filename, mode='r', compression=self.COMPRESSION_TYPE) as sfd:
             with sfd.open(self.firmwareid_filename) as f:
                 self.firmwareid = self.read_firmware_id(f)  # This is not a Json file. Content is raw.
@@ -204,7 +204,7 @@ class FirmwareDescription:
 
         metadata_dict = cast(MetadataTypedDict, json.loads(f.read().decode('utf8')))
         if not isinstance(metadata_dict, dict):
-            return {}
+            metadata_dict = {}
 
         def remove_bad_fields(obj: Any, fields: FIELDS_TYPE) -> None:
             obj2 = cast(Dict[str, Any], obj)

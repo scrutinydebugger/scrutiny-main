@@ -851,14 +851,3 @@ class ServerStatistics:
 
     device_request_per_sec: float
     """Number of request/response per seconds exchanged between the server and the device"""
-
-
-@dataclass(frozen=True)
-class UploadSFDConfirmation:
-    """A status object confirming that the server received a SFD file (Scrutiny Firmware Description) and successfully installed it."""
-
-    firmware_id: str
-    """An echo of the firmware ID of the installed SFD"""
-
-    overwritten: bool
-    """``True`` if there was another SFD installed with same firmware ID that has been overwritten. ``False`` if the SFD was new."""
