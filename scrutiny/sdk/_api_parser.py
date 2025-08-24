@@ -98,15 +98,18 @@ class SFDDownloadChunk:
     chunk_index: int
     total_size: int
 
+
 @dataclass
 class UploadSFDInitResponse:
-    token:str
-    will_overwrite:bool
+    token: str
+    will_overwrite: bool
+
 
 @dataclass
 class UploadSFDDataResponse:
-    completed:bool
-    actual_size:int
+    completed: bool
+    actual_size: int
+
 
 T = TypeVar('T', str, int, float, bool)
 WATCHABLE_TYPE_KEY = Literal['rpv', 'alias', 'var']
@@ -1253,6 +1256,7 @@ def parse_upload_sfd_init_response(response: api_typing.S2C.UploadSFDInit) -> Up
         token=response['token'],
         will_overwrite=response['will_overwrite']
     )
+
 
 def parse_upload_sfd_data_response(response: api_typing.S2C.UploadSFDData) -> UploadSFDDataResponse:
     assert isinstance(response, dict)

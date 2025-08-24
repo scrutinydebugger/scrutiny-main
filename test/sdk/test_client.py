@@ -1435,8 +1435,8 @@ class TestClient(ScrutinyUnitTest):
             self.assertEqual(sfd1_data, sfd1_downloaded_data)
             self.assertEqual(sfd2_data, sfd2_downloaded_data)
 
-    def test_download_sfd_cancel(self):         
-         with SFDStorage.use_temp_folder():
+    def test_download_sfd_cancel(self):
+        with SFDStorage.use_temp_folder():
             sfd1 = SFDStorage.install(get_artifact('test_sfd_1.sfd'), ignore_exist=True)
             sfd1_file = SFDStorage.get_file_location(sfd1.get_firmware_id_ascii())
             sfd1_size = os.stat(sfd1_file).st_size
@@ -1446,7 +1446,7 @@ class TestClient(ScrutinyUnitTest):
             self.wait_true(lambda: req.received_count > 0)
             progress = req.get_progress()
             self.assertIsNotNone(progress)
-            self.assertEqual(progress, 100/sfd1_size)
+            self.assertEqual(progress, 100 / sfd1_size)
             self.assertFalse(req.completed)
             req.cancel()
             self.assertTrue(req.completed)
@@ -1471,7 +1471,7 @@ class TestClient(ScrutinyUnitTest):
             self.assertTrue(req.completed)
             self.assertTrue(req.is_success)
             self.assertTrue(req.get_progress(), 1)
-            
+
             self.assertTrue(SFDStorage.is_installed(sfd1.get_firmware_id_ascii()))
 
     def test_upload_sfd_overwrite_detected(self):
@@ -1487,24 +1487,25 @@ class TestClient(ScrutinyUnitTest):
             self.assertTrue(req.completed)
             self.assertTrue(req.is_success)
             self.assertTrue(req.get_progress(), 1)
-            
+
             self.assertTrue(SFDStorage.is_installed(sfd1.get_firmware_id_ascii()))
-    
+
     def test_upload_sfd_detect_error(self):
         self.client._UNITTEST_DOWNLOAD_CHUNK_SIZE = 100  # Internal var for testing only
         sfd1_filepath = get_artifact('test_sfd_1.sfd')
         sfd1 = FirmwareDescription(sfd1_filepath)
         with SFDStorage.use_temp_folder():
             req = self.client.init_sfd_upload(sfd1_filepath)
-           
+
             counter = tools.MutableInt(0)
+
             def tamper_response_callback(client, obj):
                 if counter.val == 3:    # Should be a data chunk
                     obj['cmd'] = API.Command.Api2Client.ERROR_RESPONSE
                     obj['msg'] = 'blablabla'
 
-                counter.val+=1
-            
+                counter.val += 1
+
             self.client._add_rx_message_callback(tamper_response_callback)
 
             req.start()
@@ -1513,7 +1514,7 @@ class TestClient(ScrutinyUnitTest):
             self.assertTrue(req.completed)
             self.assertFalse(req.is_success)
             self.assertIn('blablabla', req.failure_reason)
-            
+
             self.assertFalse(SFDStorage.is_installed(sfd1.get_firmware_id_ascii()))
 
     def test_simple_request_response_timeout(self):

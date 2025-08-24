@@ -25,8 +25,10 @@ sdk = scrutiny.sdk  # Workaround for vscode linter and submodule on alias
 from test import ScrutinyUnitTest
 from scrutiny.tools.typing import *
 
+
 class Delete:
     pass
+
 
 class TestApiParser(ScrutinyUnitTest):
 
@@ -2252,9 +2254,9 @@ class TestApiParser(ScrutinyUnitTest):
                 'reqid': 0,
                 'cmd': 'response_upload_sfd_init',
                 "token": 'abcdef',
-                "will_overwrite" : False
+                "will_overwrite": False
             }
-        
+
         msg = base()
         response = parser.parse_upload_sfd_init_response(msg)
 
@@ -2272,9 +2274,8 @@ class TestApiParser(ScrutinyUnitTest):
                 with self.assertRaises(sdk.exceptions.BadResponseError, msg=f'field={field}, v={v}'):
                     parser.parse_upload_sfd_init_response(msg)
 
-        test_field('token',  [[], {}, None, -1, 1.2, "", True, Delete])
-        test_field('will_overwrite',  [[], {}, None, -1, 1.2, "", 1, Delete])
-
+        test_field('token', [[], {}, None, -1, 1.2, "", True, Delete])
+        test_field('will_overwrite', [[], {}, None, -1, 1.2, "", 1, Delete])
 
     def test_parser_upload_sfd_data_resposne(self):
         def base() -> api_typing.S2C.UploadSFDData:
@@ -2282,9 +2283,9 @@ class TestApiParser(ScrutinyUnitTest):
                 'reqid': 0,
                 'cmd': 'response_upload_sfd_data',
                 "completed": False,
-                "actual_size" : 123
+                "actual_size": 123
             }
-        
+
         msg = base()
         response = parser.parse_upload_sfd_data_response(msg)
 
@@ -2302,8 +2303,8 @@ class TestApiParser(ScrutinyUnitTest):
                 with self.assertRaises(sdk.exceptions.BadResponseError, msg=f'field={field}, v={v}'):
                     parser.parse_upload_sfd_data_response(msg)
 
-        test_field('completed',  [[], {}, None, -1, 1.2, 1, "", Delete])
-        test_field('actual_size',  [[], {}, None, -1, 1.2, True, "", Delete])
+        test_field('completed', [[], {}, None, -1, 1.2, 1, "", Delete])
+        test_field('actual_size', [[], {}, None, -1, 1.2, True, "", Delete])
 
 
 if __name__ == '__main__':

@@ -7,12 +7,12 @@
 #   Copyright (c) 2023 Scrutiny Debugger
 
 __all__ = [
-    'ScrutinyClient', 
-    'SFDUploadRequest', 
+    'ScrutinyClient',
+    'SFDUploadRequest',
     'DownloadSFDRequest',
     'WatchableListDownloadRequest',
     'SFDDownloadRequest',
-    ]
+]
 
 
 import scrutiny.sdk
@@ -249,9 +249,9 @@ class SFDDownloadRequest(PendingRequest):
     _firmware_id: str
     _buffer: bytearray
     _reqid: int
-    _expected_total_size:Optional[float]
+    _expected_total_size: Optional[float]
 
-    def __init__(self, client: "ScrutinyClient", firmware_id: str, reqid:int) -> None:
+    def __init__(self, client: "ScrutinyClient", firmware_id: str, reqid: int) -> None:
         super().__init__(client)
 
         self._firmware_id = firmware_id
@@ -268,7 +268,7 @@ class SFDDownloadRequest(PendingRequest):
     def firmware_id(self) -> str:
         """The firmware ID of the SFD being downloaded"""
         return self._firmware_id
-    
+
     def cancel(self) -> None:
         """Cancel the request and wake up any thread calling :meth:`wait_for_completion<wait_for_completion>`"""
         self._client._cancel_download_sfd_request(self._reqid)
@@ -283,8 +283,8 @@ class SFDDownloadRequest(PendingRequest):
         if not self.is_success:
             raise sdk.exceptions.InvalidValueError("The content is not fully downloaded yet")
         return bytes(self._buffer)
-    
-    def _set_expected_total_size(self, total:int) -> None:
+
+    def _set_expected_total_size(self, total: int) -> None:
         self._expected_total_size = total
 
     def _add_data(self, data: bytes) -> None:
@@ -293,13 +293,13 @@ class SFDDownloadRequest(PendingRequest):
 
     def get_progress(self) -> Optional[float]:
         """Return the a number between 0 and 1 indicating the download percentage being received. 
-        Returns ``None`` if not available (the total size information hasn't been received yet.)"""    
+        Returns ``None`` if not available (the total size information hasn't been received yet.)"""
         if self._expected_total_size is None:
             return None
-        
+
         if self._expected_total_size == 0:
             return None
-        
+
         ratio = self.received_count / self._expected_total_size
         return min(1, max(0, ratio))
 
@@ -309,14 +309,14 @@ class SFDUploadRequest(PendingRequest):
 
     _firmware_id: str
     _upload_token: str
-    _will_overwrite:bool
-    _started:bool
-    _filepath:Path
-    _init_reqid:int
-    _actual_size:int
-    _filesize:int
+    _will_overwrite: bool
+    _started: bool
+    _filepath: Path
+    _init_reqid: int
+    _actual_size: int
+    _filesize: int
 
-    def __init__(self, client: "ScrutinyClient", init_reqid:int, firmware_id: str, upload_token:str, will_overwrite:bool, filepath:Path) -> None:
+    def __init__(self, client: "ScrutinyClient", init_reqid: int, firmware_id: str, upload_token: str, will_overwrite: bool, filepath: Path) -> None:
         super().__init__(client)
 
         self._firmware_id = firmware_id
@@ -326,9 +326,9 @@ class SFDUploadRequest(PendingRequest):
         self._started = False
         self._filepath = Path(os.path.normpath(filepath)).absolute()
         self._filesize = os.stat(self._filepath).st_size
-        self._actual_size=0
+        self._actual_size = 0
 
-    def _set_actual_size(self, size:int) -> None:
+    def _set_actual_size(self, size: int) -> None:
         self._actual_size = size
         self._update_expiration_timer()
 
@@ -341,7 +341,7 @@ class SFDUploadRequest(PendingRequest):
     def abs_filepath(self) -> str:
         """Gives the absolute path the file being uploaded"""
         return str(self._filepath)
-    
+
     @property
     def will_overwrite(self) -> bool:
         """Indicate if the request will overwrite an existing SFD installed on the server. """
@@ -356,14 +356,14 @@ class SFDUploadRequest(PendingRequest):
         """Stop uploading to the server"""
         self._client._cancel_upload_sfd_request(self._init_reqid)
 
-    def get_progress(self) -> float:    
-        """Return the a number between 0 and 1 indicating the upload percentage being acknowledged by the server."""   
+    def get_progress(self) -> float:
+        """Return the a number between 0 and 1 indicating the upload percentage being acknowledged by the server."""
         if self._filesize == 0:
             return 0
-        
+
         if self.is_success:
             return 1
-        
+
         ratio = self._actual_size / self._filesize
         return min(1, max(0, ratio))
 
@@ -943,7 +943,6 @@ class ScrutinyClient:
         if content.completed:
             req._mark_complete(success=True)
 
-
     def _wt_process_next_server_status_update(self) -> None:
         if self._request_status_timer.is_timed_out() or self._require_status_update:
             self._require_status_update = False
@@ -1011,7 +1010,7 @@ class ScrutinyClient:
                         sfdu_req._mark_complete(False, "No server response for too long")
                     del self._pending_sfd_upload_requests[kint]
 
-    def _add_rx_message_callback(self, callback:RxMessageCallback) -> None:
+    def _add_rx_message_callback(self, callback: RxMessageCallback) -> None:
         """Internal method to add middleware on response reception. Mostly for testing"""
         self._rx_message_callbacks.append(callback)
 
@@ -1103,10 +1102,10 @@ class ScrutinyClient:
             # Some request have pending requests based on reqid. they have multiple response per reqid. If any fail, cancel the request
             # Todo : Generalize the mechanism : 1 req -> multiple response by reqid.
             buckets: List[Mapping[int, PendingRequest]] = [
-                self._pending_watchable_download_request, 
-                self._pending_sfd_download_requests, 
+                self._pending_watchable_download_request,
+                self._pending_sfd_download_requests,
                 self._pending_sfd_upload_requests
-                ]
+            ]
             for bucket in buckets:
                 try:
                     req = bucket[reqid]
@@ -1507,7 +1506,7 @@ class ScrutinyClient:
             raise sdk.exceptions.OperationFailure(f"No download request identified by request ID : {reqid}")
         req._mark_complete(success=False, failure_reason="Cancelled by user")
 
-    def _cancel_upload_sfd_request(self, init_reqid:int) -> None:
+    def _cancel_upload_sfd_request(self, init_reqid: int) -> None:
         try:
             req = self._pending_sfd_upload_requests[init_reqid]
         except KeyError:
@@ -1515,7 +1514,7 @@ class ScrutinyClient:
 
         req._mark_complete(success=False, failure_reason="Cancelled by user")
 
-    def _start_upload_sfd(self, init_reqid:int) -> None:
+    def _start_upload_sfd(self, init_reqid: int) -> None:
         """Start sending data chunk to the server, called from the user thread"""
         chunk_size = max(TCPClientHandler.STREAM_MTU // 2 - 100, 256)
         if self._UNITTEST_DOWNLOAD_CHUNK_SIZE is not None:
@@ -1543,14 +1542,14 @@ class ScrutinyClient:
                         is_last_chunk = (byte_counter >= filesize)
 
                         msg = cast(api_typing.C2S.UploadSFDData,
-                                self._make_request(API.Command.Client2Api.UPLOAD_SFD_DATA, {
-                                    'token': req._upload_token,
-                                    'file_chunk': {
-                                        'chunk_index': chunk_index,
-                                        'data': b64encode(data_chunk).decode('ascii')
-                                    }
-                                })
-                            )
+                                   self._make_request(API.Command.Client2Api.UPLOAD_SFD_DATA, {
+                                       'token': req._upload_token,
+                                       'file_chunk': {
+                                           'chunk_index': chunk_index,
+                                           'data': b64encode(data_chunk).decode('ascii')
+                                       }
+                                   })
+                                   )
                         chunk_index += 1
 
                         self._send(msg)
@@ -2024,7 +2023,7 @@ class ScrutinyClient:
                    self._make_request(API.Command.Client2Api.DOWNLOAD_SFD, {
                        'firmware_id': firmware_id
                    })
-                )
+                   )
 
         # For unit tests, we want to validate that multi chunk works
         if self._UNITTEST_DOWNLOAD_CHUNK_SIZE is not None:
@@ -2065,13 +2064,12 @@ class ScrutinyClient:
             if response is not None and state == CallbackState.OK:
                 cb_data.obj = api_parser.parse_upload_sfd_init_response(cast(api_typing.S2C.UploadSFDInit, response))
 
-
         req = cast(api_typing.C2S.UploadSFDInit,
-            self._make_request(API.Command.Client2Api.UPLOAD_SFD_INIT, {
-                'firmware_id': firmware_id,
-                'total_size' : filesize
-            })
-        )
+                   self._make_request(API.Command.Client2Api.UPLOAD_SFD_INIT, {
+                       'firmware_id': firmware_id,
+                       'total_size': filesize
+                   })
+                   )
 
         future = self._send(req, upload_callback)
 
@@ -2079,8 +2077,8 @@ class ScrutinyClient:
         future.wait()
         if future.state != CallbackState.OK or cb_data.obj is None:
             raise sdk.exceptions.OperationFailure(f"Failed to upload SFD. {future.error_str}")
-        
-        init_reqid=req['reqid']
+
+        init_reqid = req['reqid']
         upload_request = SFDUploadRequest(
             client=self,
             firmware_id=firmware_id,

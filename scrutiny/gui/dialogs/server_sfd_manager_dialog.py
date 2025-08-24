@@ -84,7 +84,7 @@ class SFDTableModel(QStandardItemModel):
                     row[self.Cols.CREATION_DATE].setText(sfd_info.metadata.generation_info.timestamp.strftime(format_str))
 
         self.appendRow(row)
-        return self.rowCount()-1
+        return self.rowCount() - 1
 
     def remove_sfd_rows(self, firmware_ids: List[str]) -> None:
         """Remove several rows identified by firmware IDs"""
@@ -176,7 +176,6 @@ class SFDTableView(QTableView):
             firmware_ids = [self.model().itemFromIndex(index).text() for index in firmware_id_indexes]
             if len(firmware_ids) > 0:
                 self._signals.uninstall.emit(firmware_ids)
-
 
         return super().keyPressEvent(event)
 
@@ -332,7 +331,7 @@ class ServerSFDManagerDialog(QDialog):
 
     def _make_sfd_default_name(self, sfd_info: sdk.SFDInfo) -> str:
         """Makes a default filename from the SFDInfo structure."""
-        
+
         EXTENSION = '.sfd'
         if sfd_info.metadata is None:
             return sfd_info.firmware_id + EXTENSION
@@ -357,22 +356,22 @@ class ServerSFDManagerDialog(QDialog):
         def ephemerous_thread_upload_init(client: ScrutinyClient) -> SFDUploadRequest:
             return client.init_sfd_upload(filepath)
 
-        def ui_thread_upload_init_completed(req:Optional[SFDUploadRequest], error : Optional[Exception]) -> None:
+        def ui_thread_upload_init_completed(req: Optional[SFDUploadRequest], error: Optional[Exception]) -> None:
             if error is not None:
                 self._feedback_label.set_error(str(error))
                 tools.log_exception(self._logger, error, "Failed to install SFDs")
                 return
-        
+
             assert req is not None
 
             proceed = True
             if req.will_overwrite:
                 proceed = prompt.warning_yes_no_question(
-                    parent=self, 
+                    parent=self,
                     msg="Installing this file will overwrite an existing SFD on the server that shares the same firmware ID. Proceed?",
                     title="Proceed?"
-                    )
-            
+                )
+
             if not proceed:
                 self._feedback_label.clear()
                 return
@@ -387,7 +386,7 @@ class ServerSFDManagerDialog(QDialog):
                     self._feedback_label.set_error(str(error))
                     tools.log_exception(self._logger, error, "Failed to install SFDs")
                     return
-            
+
                 assert data is not None
                 self._feedback_label.clear()
                 self._sfd_table.model().remove_sfd_rows([data.firmware_id])
@@ -397,7 +396,7 @@ class ServerSFDManagerDialog(QDialog):
                 )
                 row_number = self._sfd_table.model().add_row(sfd_info)  # Append a row
                 self._sfd_table.selectRow(row_number)   # Select inserted row (last one)
-                    
+
                 prompt.success_msgbox(self, "Installed", f"Installed SFD {data.firmware_id}")
 
             self._server_manager.schedule_client_request(

@@ -1284,11 +1284,11 @@ class TestAPI(ScrutinyUnitTest):
             chunks.append(file_content[filesize // 3: 2 * (filesize // 3)])
             chunks.append(file_content[2 * (filesize // 3):])
 
-            msg_init:api_typing.C2S.UploadSFDInit = {
-                'cmd' : 'upload_sfd_init',
-                'reqid' : 1,
-                'firmware_id' : sfd1.get_firmware_id_ascii(),
-                'total_size' : filesize
+            msg_init: api_typing.C2S.UploadSFDInit = {
+                'cmd': 'upload_sfd_init',
+                'reqid': 1,
+                'firmware_id': sfd1.get_firmware_id_ascii(),
+                'total_size': filesize
             }
 
             self.send_request(msg_init)
@@ -1299,28 +1299,31 @@ class TestAPI(ScrutinyUnitTest):
             self.assertIsInstance(response['token'], str)
             self.assertEqual(response['will_overwrite'], False)
             upload_token = response['token']
-            
+
             msgs: List[api_typing.C2S.UploadSFDData] = []
             for i in range(3):
                 msgs.append({
                     'cmd': API.Command.Client2Api.UPLOAD_SFD_DATA,
                     'reqid': 100 + i,
-                    'token' : upload_token,
+                    'token': upload_token,
                     'file_chunk': {
                         'chunk_index': i,
                         'data': b64encode(chunks[i]).decode('ascii')
                     }
                 })
 
-            responses:List[api_typing.S2C.UploadSFDData] = []
+            responses: List[api_typing.S2C.UploadSFDData] = []
             self.send_request(msgs[0])
-            responses.append(cast(api_typing.S2C.UploadSFDData, self.wait_and_load_response(cmd=API.Command.Api2Client.UPLOAD_SFD_DATA_RESPONSE, reqid=msgs[0]['reqid'])))
+            responses.append(cast(api_typing.S2C.UploadSFDData, self.wait_and_load_response(
+                cmd=API.Command.Api2Client.UPLOAD_SFD_DATA_RESPONSE, reqid=msgs[0]['reqid'])))
             self.assertFalse(SFDStorage.is_installed(sfd1.get_firmware_id_ascii()))
             self.send_request(msgs[1])
-            responses.append(cast(api_typing.S2C.UploadSFDData, self.wait_and_load_response(cmd=API.Command.Api2Client.UPLOAD_SFD_DATA_RESPONSE, reqid=msgs[1]['reqid'])))
+            responses.append(cast(api_typing.S2C.UploadSFDData, self.wait_and_load_response(
+                cmd=API.Command.Api2Client.UPLOAD_SFD_DATA_RESPONSE, reqid=msgs[1]['reqid'])))
             self.assertFalse(SFDStorage.is_installed(sfd1.get_firmware_id_ascii()))
             self.send_request(msgs[2])
-            responses.append(cast(api_typing.S2C.UploadSFDData, self.wait_and_load_response(cmd=API.Command.Api2Client.UPLOAD_SFD_DATA_RESPONSE, reqid=msgs[2]['reqid'])))
+            responses.append(cast(api_typing.S2C.UploadSFDData, self.wait_and_load_response(
+                cmd=API.Command.Api2Client.UPLOAD_SFD_DATA_RESPONSE, reqid=msgs[2]['reqid'])))
 
             for i in range(len(responses)):
                 self.assert_no_error(responses[i])
@@ -1339,7 +1342,6 @@ class TestAPI(ScrutinyUnitTest):
 
             SFDStorage.uninstall(sfd1.get_firmware_id_ascii())
             self.assertFalse(SFDStorage.is_installed(sfd1.get_firmware_id_ascii()))
-
 
     def test_upload_multiple_sfd(self):
         dummy_sfd1_filename = get_artifact('test_sfd_1.sfd')
@@ -1369,22 +1371,22 @@ class TestAPI(ScrutinyUnitTest):
             chunks_sfd2.append(sfd2_file_content[2 * (filesize2 // 3):])
             self.assertEqual(sum([len(chunk) for chunk in chunks_sfd2]), filesize2)
 
-            msg_init:api_typing.C2S.UploadSFDInit = {
-                'cmd' : 'upload_sfd_init',
-                'reqid' : 1,
-                'firmware_id' : sfd1.get_firmware_id_ascii(),
-                'total_size' : filesize1
+            msg_init: api_typing.C2S.UploadSFDInit = {
+                'cmd': 'upload_sfd_init',
+                'reqid': 1,
+                'firmware_id': sfd1.get_firmware_id_ascii(),
+                'total_size': filesize1
             }
 
             self.send_request(msg_init)
             response1 = cast(api_typing.S2C.UploadSFDInit, self.wait_and_load_response(cmd=API.Command.Api2Client.UPLOAD_SFD_INIT_RESPONSE))
             self.assert_no_error(response1)
 
-            msg_init:api_typing.C2S.UploadSFDInit = {
-                'cmd' : API.Command.Client2Api.UPLOAD_SFD_INIT,
-                'reqid' : 2,
-                'firmware_id' : sfd2.get_firmware_id_ascii(),
-                'total_size' : filesize2
+            msg_init: api_typing.C2S.UploadSFDInit = {
+                'cmd': API.Command.Client2Api.UPLOAD_SFD_INIT,
+                'reqid': 2,
+                'firmware_id': sfd2.get_firmware_id_ascii(),
+                'total_size': filesize2
             }
 
             self.send_request(msg_init)
@@ -1399,7 +1401,7 @@ class TestAPI(ScrutinyUnitTest):
                 msgs_sfd1.append({
                     'cmd': API.Command.Client2Api.UPLOAD_SFD_DATA,
                     'reqid': 100 + i,
-                    'token' : token1,
+                    'token': token1,
                     'file_chunk': {
                         'chunk_index': i,
                         'data': b64encode(chunks_sfd1[i]).decode('ascii')
@@ -1410,15 +1412,15 @@ class TestAPI(ScrutinyUnitTest):
                 msgs_sfd2.append({
                     'cmd': API.Command.Client2Api.UPLOAD_SFD_DATA,
                     'reqid': 200 + i,
-                    'token':token2,
+                    'token': token2,
                     'file_chunk': {
                         'chunk_index': i,
                         'data': b64encode(chunks_sfd2[i]).decode('ascii')
                     }
                 })
 
-            responses1:List[api_typing.S2C.UploadSFDData] = []
-            responses2:List[api_typing.S2C.UploadSFDData] = []
+            responses1: List[api_typing.S2C.UploadSFDData] = []
+            responses2: List[api_typing.S2C.UploadSFDData] = []
             self.send_request(msgs_sfd1[0])
             self.send_request(msgs_sfd2[0])
             responses1.append(cast(api_typing.S2C.UploadSFDData, self.wait_and_load_response(cmd=API.Command.Api2Client.UPLOAD_SFD_DATA_RESPONSE)))
@@ -1445,7 +1447,6 @@ class TestAPI(ScrutinyUnitTest):
                 self.assertIn('actual_size', responses1[i], msg=f"i={i}")
                 self.assertIn('completed', responses2[i], msg=f"i={i}")
                 self.assertIn('actual_size', responses2[i], msg=f"i={i}")
-
 
             self.assertEqual(responses1[0]['completed'], False)
             self.assertEqual(responses1[1]['completed'], False)
@@ -1485,17 +1486,16 @@ class TestAPI(ScrutinyUnitTest):
 
                 response = self.wait_and_load_response(reqid=reqid)
                 self.assert_no_error(response)
-                
+
                 return {
                     'cmd': API.Command.Client2Api.UPLOAD_SFD_DATA,
                     'reqid': reqid,
-                    'token' : response['token'],
+                    'token': response['token'],
                     'file_chunk': {
                         'chunk_index': 0,
                         'data': b64encode(sfd1_file_content).decode('ascii')
                     }
                 }
-            
 
             self.send_request(base_init(0))
             response = self.wait_and_load_response(cmd=API.Command.Api2Client.UPLOAD_SFD_INIT_RESPONSE)
@@ -1527,7 +1527,6 @@ class TestAPI(ScrutinyUnitTest):
                 msg['total_size'] = v
                 self.send_request(msg)
                 self.assert_is_error(self.wait_and_load_response(reqid=5), msg=f"v={v}")
-        
 
             msg = base_data(6)
             del msg['file_chunk']
@@ -1567,7 +1566,6 @@ class TestAPI(ScrutinyUnitTest):
             self.send_request(msg)
             self.assert_is_error(self.wait_and_load_response(reqid=12))
 
-
     def test_upload_sfd_deleted_on_error(self):
         dummy_sfd1_filename = get_artifact('test_sfd_1.sfd')
         sfd1 = FirmwareDescription(dummy_sfd1_filename)
@@ -1581,7 +1579,7 @@ class TestAPI(ScrutinyUnitTest):
             return total_files
 
         with SFDStorage.use_temp_folder():
-            msg1:api_typing.C2S.UploadSFDInit = {
+            msg1: api_typing.C2S.UploadSFDInit = {
                 'cmd': API.Command.Client2Api.UPLOAD_SFD_INIT,
                 'reqid': 0,
                 'firmware_id': sfd1.get_firmware_id_ascii(),
@@ -1595,13 +1593,13 @@ class TestAPI(ScrutinyUnitTest):
 
             upload_token = response['token']
 
-            msg2:api_typing.C2S.UploadSFDData = {
+            msg2: api_typing.C2S.UploadSFDData = {
                 'cmd': API.Command.Client2Api.UPLOAD_SFD_DATA,
                 'reqid': 1,
-                'token' : upload_token,
-                'file_chunk' : {
-                    'chunk_index' : 1,  # oops
-                    'data' : b64encode(sfd1_file_content).decode('ascii')
+                'token': upload_token,
+                'file_chunk': {
+                    'chunk_index': 1,  # oops
+                    'data': b64encode(sfd1_file_content).decode('ascii')
                 }
             }
 

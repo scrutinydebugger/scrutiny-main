@@ -238,9 +238,9 @@ class C2S:
     class UploadSFDInit(BaseC2SMessage):
         total_size: int
         firmware_id: str
-    
+
     class UploadSFDData(BaseC2SMessage):
-        token:str
+        token: str
         file_chunk: FileChunk
 
     class UninstallSFD(BaseC2SMessage):
@@ -334,12 +334,12 @@ class S2C:
         file_chunk: FileChunk
 
     class UploadSFDInit(BaseS2CMessage):
-        token:str
-        will_overwrite:bool
+        token: str
+        will_overwrite: bool
 
     class UploadSFDData(BaseS2CMessage):
-        completed:bool
-        actual_size:int
+        completed: bool
+        actual_size: int
 
     class GetLoadedSFD(BaseS2CMessage):
         firmware_id: Optional[str]

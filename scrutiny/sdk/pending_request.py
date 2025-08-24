@@ -29,7 +29,7 @@ class PendingRequest:
     _failure_reason: str    # Textual description of the reason of the failure to complete. Empty string if incomplete or succeeded
     _monotonic_creation_timestamp: float
     _monotonic_expiration_timestamp: float
-    _completion_lock:threading.Lock
+    _completion_lock: threading.Lock
 
     def __init__(self, client: "ScrutinyClient") -> None:
         self._client = client
@@ -51,10 +51,10 @@ class PendingRequest:
     def _mark_complete(self, success: bool, failure_reason: str = "", server_time_us: Optional[float] = None) -> None:
         # Put a request in "completed" state. Expected to be called by the client worker thread, but can be called by any
 
-        # We use a lock in case there is 2 simultaneous failures, we keep the first one. 
+        # We use a lock in case there is 2 simultaneous failures, we keep the first one.
         # Some client method can spawn an ephemerous thread to do client request, like upload_sfd
-        with self._completion_lock: 
-            if not  self._completed:
+        with self._completion_lock:
+            if not self._completed:
                 self._success = success
                 self._failure_reason = failure_reason
                 if server_time_us is None:
