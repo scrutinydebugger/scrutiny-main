@@ -16,7 +16,7 @@ from PySide6.QtCore import Qt, QAbstractItemModel, Signal, QObject, QPoint
 from PySide6.QtGui import QCloseEvent, QKeyEvent, QShowEvent, QStandardItemModel, QStandardItem, QContextMenuEvent, QAction
 
 from scrutiny import sdk
-from scrutiny.sdk.client import ScrutinyClient
+from scrutiny.sdk.client import ScrutinyClient, SFDUploadRequest
 from scrutiny.core.firmware_description import FirmwareDescription
 from scrutiny.gui.core.server_manager import ServerManager
 from scrutiny.gui.core.persistent_data import gui_persistent_data
@@ -354,11 +354,13 @@ class ServerSFDManagerDialog(QDialog):
 
         self._feedback_label.set_info("Uploading...")
 
-        def ephemerous_thread_upload(client: ScrutinyClient) -> sdk.UploadSFDConfirmation:
-            # Todo : Should probably have a cancel button here.
-            return client.upload_sfd(filepath, timeout=10)  # Blocking call
+        def ephemerous_thread_upload(client: ScrutinyClient) -> SFDUploadRequest:
+            req =  client.init_sfd_upload(filepath)
+            req.start() # TODO : Confirm dialog on overwrite
+            req.wait_for_completion()
+            return req
 
-        def ui_thread_upload_complete(data: Optional[sdk.UploadSFDConfirmation], error: Optional[Exception]) -> None:
+        def ui_thread_upload_complete(data: Optional[SFDUploadRequest], error: Optional[Exception]) -> None:
             if error is not None:
                 self._feedback_label.set_error(str(error))
                 tools.log_exception(self._logger, error, "Failed to install SFDs")
@@ -374,9 +376,8 @@ class ServerSFDManagerDialog(QDialog):
             row_number = self._sfd_table.model().add_row(sfd_info)  # Append a row
             self._sfd_table.selectRow(row_number)   # Select inserted row (last one)
                 
-            overwritten_txt = "\nPreviously installed SFD with the same firmware ID has been overwritten" if data.overwritten else ""
 
-            prompt.success_msgbox(self, "Installed", f"Installed SFD {data.firmware_id}.{overwritten_txt}")
+            prompt.success_msgbox(self, "Installed", f"Installed SFD {data.firmware_id}")
 
         self._server_manager.schedule_client_request(
             user_func=ephemerous_thread_upload,

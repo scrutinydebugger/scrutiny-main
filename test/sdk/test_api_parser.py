@@ -25,6 +25,8 @@ sdk = scrutiny.sdk  # Workaround for vscode linter and submodule on alias
 from test import ScrutinyUnitTest
 from scrutiny.tools.typing import *
 
+class Delete:
+    pass
 
 class TestApiParser(ScrutinyUnitTest):
 
@@ -132,9 +134,6 @@ class TestApiParser(ScrutinyUnitTest):
                 response['qty'][wt] = 5
                 res = parser.parse_get_watchable_list(response)
 
-        class Delete:
-            pass
-
         for wt in ('var', 'alias', 'rpv'):
             for val in [[], {}, None, 3.5, 1, True, Delete, ""]:
                 for field in ("id", 'datatype', 'display_path'):
@@ -240,8 +239,6 @@ class TestApiParser(ScrutinyUnitTest):
         self.assertEqual(res['/a/b/d'].enum.get_value('b'), 2)
         self.assertEqual(res['/a/b/d'].enum.get_value('c'), 3)
 
-        class Delete:
-            pass
         delete = Delete()
         for val in [1, True, [], None, "asd", delete]:
             with self.assertRaises(sdk.exceptions.BadResponseError, msg=f'val={val}'):
@@ -589,9 +586,6 @@ class TestApiParser(ScrutinyUnitTest):
             }
             parser.parse_inform_server_status(msg)
 
-        class Delete:
-            pass
-
         for field in ['jlink_interface', 'target_device']:
             for val in [1, None, 1.5, True, [], Delete()]:
                 msg = base()
@@ -677,9 +671,6 @@ class TestApiParser(ScrutinyUnitTest):
         assert isinstance(config.interface_config, sdk.CANLinkConfig.SocketCANConfig)
         self.assertEqual(config.interface_config.channel, "vcan0")
 
-        class Delete:
-            pass
-
         def test_val_for_field(field: str, vals: List[Any]):
             for val in vals:
                 msg = base()
@@ -760,9 +751,6 @@ class TestApiParser(ScrutinyUnitTest):
         self.assertEqual(config.interface_config.channel, 1)
         self.assertEqual(config.interface_config.bitrate, 500000)
         self.assertEqual(config.interface_config.data_bitrate, 1000000)
-
-        class Delete:
-            pass
 
         def test_val_for_field(field: str, vals: List[Any]):
             for val in vals:
@@ -849,9 +837,6 @@ class TestApiParser(ScrutinyUnitTest):
         self.assertEqual(config.interface_config.data_bitrate, 1000000)
         self.assertEqual(config.interface_config.fd_non_iso, False)
 
-        class Delete:
-            pass
-
         def test_val_for_field(field: str, vals: List[Any]):
             for val in vals:
                 msg = base()
@@ -934,9 +919,6 @@ class TestApiParser(ScrutinyUnitTest):
         self.assertEqual(config.interface_config.channel, 'PCAN_USBBUS1')
         self.assertEqual(config.interface_config.bitrate, 500000)
 
-        class Delete:
-            pass
-
         def test_val_for_field(field: str, vals: List[Any]):
             for val in vals:
                 msg = base()
@@ -1018,9 +1000,6 @@ class TestApiParser(ScrutinyUnitTest):
         self.assertEqual(config.interface_config.channel, 'ETAS://ETH/ES910:abcd/CAN:1')
         self.assertEqual(config.interface_config.bitrate, 500000)
         self.assertEqual(config.interface_config.data_bitrate, 1000000)
-
-        class Delete:
-            pass
 
         def test_val_for_field(field: str, vals: List[Any]):
             for val in vals:
@@ -1367,8 +1346,6 @@ class TestApiParser(ScrutinyUnitTest):
                 self.assertIsNone(attr.system_type)
                 self.assertIsNone(attr.timestamp)
 
-        class Delete:
-            pass
         delete = Delete()
 
         for val in [None, 1, [], {}, True, delete]:
@@ -1486,9 +1463,6 @@ class TestApiParser(ScrutinyUnitTest):
             msg = base()
             del msg['qty']
             parser.parse_get_watchable_count(msg)
-
-        class Delete:
-            pass
 
         for key in ['var', 'alias', 'rpv']:
             for val in [None, -1, 2.5, [], {}, True, Delete]:
@@ -1624,9 +1598,6 @@ class TestApiParser(ScrutinyUnitTest):
             'device_request_per_sec'
         ]
 
-        class Delete:
-            pass
-
         for field in all_fields:
             for val in [None, [], {}, "asd", Delete]:
                 msg = base()
@@ -1709,9 +1680,6 @@ class TestApiParser(ScrutinyUnitTest):
         self.assertIsInstance(updates[2].value, bool)
         self.assertEqual(updates[2].server_time_us, 6666)
 
-        class Delete:
-            pass
-
         for v in [{}, None, 1, "asd", Delete]:
             msg = base()
             if v is Delete:
@@ -1781,9 +1749,6 @@ class TestApiParser(ScrutinyUnitTest):
         self.assertEqual(completion.data, None)
         self.assertEqual(completion.success, False)
 
-        class Delete:
-            pass
-
         def check_field_invalid(field, vals):
             for val in vals:
                 msg = base()
@@ -1830,9 +1795,6 @@ class TestApiParser(ScrutinyUnitTest):
         msg['success'] = False
         completion = parser.parse_memory_write_completion(msg)
         self.assertEqual(completion.success, False)
-
-        class Delete:
-            pass
 
         def check_field_invalid(field, vals):
             for val in vals:
@@ -1883,9 +1845,6 @@ class TestApiParser(ScrutinyUnitTest):
         self.assertEqual(parsed.action, sdk.DataloggingListChangeType.DELETE_ALL)
         self.assertIsNone(parsed.reference_id)
 
-        class Delete:
-            pass
-
         for v in ['unknown_val', 1, 2.2, None, [], {}, Delete]:
             with self.assertRaises(Exception):
                 msg = base()
@@ -1926,9 +1885,6 @@ class TestApiParser(ScrutinyUnitTest):
 
         msg = base()
         self.assertEqual(parser.parse_request_datalogging_acquisition_response(msg), "abcdef")
-
-        class Delete:
-            pass
 
         for v in [[], {}, None, 1, 2.2, True, Delete]:
             msg = base()
@@ -1971,9 +1927,6 @@ class TestApiParser(ScrutinyUnitTest):
         self.assertEqual(response.reference_id, None)
         self.assertEqual(response.request_token, "xyz")
         self.assertEqual(response.detail_msg, "oops")
-
-        class Delete:
-            pass
 
         for field in ['reference_id', 'request_token']:
             for v in [[], {}, None, 1, "", True, Delete]:
@@ -2019,9 +1972,6 @@ class TestApiParser(ScrutinyUnitTest):
         self.assertEqual(response.subfunction, 2)
         self.assertEqual(response.data, bytes([1, 2, 3]))
 
-        class Delete:
-            pass
-
         for v in [[], {}, None, -1, 0x100, "", True, Delete]:
             msg = base()
             if v == Delete:
@@ -2054,9 +2004,6 @@ class TestApiParser(ScrutinyUnitTest):
         response = parser.parse_write_value_response(msg)
         self.assertEqual(response.count, 10)
         self.assertEqual(response.request_token, "abc")
-
-        class Delete:
-            pass
 
         for v in [[], {}, None, -1, 1.2, "", True, Delete]:
             msg = base()
@@ -2097,9 +2044,6 @@ class TestApiParser(ScrutinyUnitTest):
         self.assertEqual(response.request_token, "abc")
         self.assertEqual(response.watchable, "def")
         self.assertEqual(response.server_time_us, 123.4)
-
-        class Delete:
-            pass
 
         for v in [[], {}, None, 1, 1.2, "", Delete]:
             msg = base()
@@ -2224,9 +2168,6 @@ class TestApiParser(ScrutinyUnitTest):
         self.assertIsNone(sfd3.metadata.generation_info.system_type)
         self.assertIsNone(sfd3.metadata.generation_info.timestamp)
 
-        class Delete:
-            pass
-
         for v in [[], None, 1.2, 1, True, Delete]:
             msg = base()
             if v == Delete:
@@ -2275,9 +2216,6 @@ class TestApiParser(ScrutinyUnitTest):
         self.assertEqual(resposne.chunk_index, 1)
         self.assertEqual(resposne.data, bytes([1, 2, 3, 4, 5, 6]))
 
-        class Delete:
-            pass
-
         def test_field(field: str, values: List[Any]):
             for v in values:
                 msg = base()
@@ -2307,6 +2245,65 @@ class TestApiParser(ScrutinyUnitTest):
         test_chunk_field('chunk_index', [[], {}, None, -1, 1.2, "", True, Delete])
         test_chunk_field('data', [[], {}, None, -1, 1.2, True, Delete])
         test_chunk_field('data', [[], {}, None, -1, 1.2, "INVALIDB64", True, Delete])
+
+    def test_parser_upload_sfd_init_resposne(self):
+        def base() -> api_typing.S2C.UploadSFDInit:
+            return {
+                'reqid': 0,
+                'cmd': 'response_upload_sfd_init',
+                "token": 'abcdef',
+                "will_overwrite" : False
+            }
+        
+        msg = base()
+        response = parser.parse_upload_sfd_init_response(msg)
+
+        self.assertEqual(response.token, 'abcdef')
+        self.assertEqual(response.will_overwrite, False)
+
+        def test_field(field: str, values: List[Any]):
+            for v in values:
+                msg = base()
+                if v == Delete:
+                    del msg[field]
+                else:
+                    msg[field] = v
+
+                with self.assertRaises(sdk.exceptions.BadResponseError, msg=f'field={field}, v={v}'):
+                    parser.parse_upload_sfd_init_response(msg)
+
+        test_field('token',  [[], {}, None, -1, 1.2, "", True, Delete])
+        test_field('will_overwrite',  [[], {}, None, -1, 1.2, "", 1, Delete])
+
+
+    def test_parser_upload_sfd_data_resposne(self):
+        def base() -> api_typing.S2C.UploadSFDData:
+            return {
+                'reqid': 0,
+                'cmd': 'response_upload_sfd_data',
+                "completed": False,
+                "actual_size" : 123
+            }
+        
+        msg = base()
+        response = parser.parse_upload_sfd_data_response(msg)
+
+        self.assertEqual(response.completed, False)
+        self.assertEqual(response.actual_size, 123)
+
+        def test_field(field: str, values: List[Any]):
+            for v in values:
+                msg = base()
+                if v == Delete:
+                    del msg[field]
+                else:
+                    msg[field] = v
+
+                with self.assertRaises(sdk.exceptions.BadResponseError, msg=f'field={field}, v={v}'):
+                    parser.parse_upload_sfd_data_response(msg)
+
+        test_field('completed',  [[], {}, None, -1, 1.2, 1, "", Delete])
+        test_field('actual_size',  [[], {}, None, -1, 1.2, True, "", Delete])
 
 
 if __name__ == '__main__':

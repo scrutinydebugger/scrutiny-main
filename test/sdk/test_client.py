@@ -1441,7 +1441,7 @@ class TestClient(ScrutinyUnitTest):
             self.client._UNITTEST_DOWNLOAD_CHUNK_SIZE = 100  # Internal var for testing only
             setattr(self.api, '_UNITTEST_DOWNLOAD_SFD_MAX_CHUNK_COUNT', 1)  # Ensure we never receive the full file
             req = self.client.download_sfd(sfd1.get_firmware_id_ascii())
-            self.wait_true(lambda: req.received_count() > 0)
+            self.wait_true(lambda: req.received_count > 0)
             progress = req.get_progress()
             self.assertIsNotNone(progress)
             self.assertEqual(progress, 100/sfd1_size)
@@ -1457,9 +1457,19 @@ class TestClient(ScrutinyUnitTest):
         sfd1 = FirmwareDescription(sfd1_filepath)
         with SFDStorage.use_temp_folder():
             self.assertFalse(SFDStorage.is_installed(sfd1.get_firmware_id_ascii()))
-            state = self.client.upload_sfd(sfd1_filepath)
-            self.assertEqual(state.firmware_id, sfd1.get_firmware_id_ascii())
-            self.assertFalse(state.overwritten)
+            req = self.client.init_sfd_upload(sfd1_filepath)
+            self.assertFalse(req.will_overwrite)
+            self.assertEqual(req.get_progress(), 0)
+            self.assertFalse(req.completed)
+            self.assertFalse(req.is_success)
+
+            self.assertEqual(req.firmware_id, sfd1.get_firmware_id_ascii())
+            req.start()
+            req.wait_for_completion(3)
+            self.assertTrue(req.completed)
+            self.assertTrue(req.is_success)
+            self.assertTrue(req.get_progress(), 1)
+            
             self.assertTrue(SFDStorage.is_installed(sfd1.get_firmware_id_ascii()))
 
     def test_simple_request_response_timeout(self):

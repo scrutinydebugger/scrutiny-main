@@ -99,10 +99,14 @@ class SFDDownloadChunk:
     total_size: int
 
 @dataclass
-class UploadSFDConfirmation:
-    firmware_id: str
-    overwritten: bool
+class UploadSFDInitResponse:
+    token:str
+    will_overwrite:bool
 
+@dataclass
+class UploadSFDDataResponse:
+    completed:bool
+    actual_size:int
 
 T = TypeVar('T', str, int, float, bool)
 WATCHABLE_TYPE_KEY = Literal['rpv', 'alias', 'var']
@@ -1233,16 +1237,36 @@ def parse_download_sfd_response(response: api_typing.S2C.DownloadSFD) -> SFDDown
     )
 
 
-def parse_upload_sfd_response(response: api_typing.S2C.UploadSFD) -> UploadSFDConfirmation:
+def parse_upload_sfd_init_response(response: api_typing.S2C.UploadSFDInit) -> UploadSFDInitResponse:
     assert isinstance(response, dict)
     assert 'cmd' in response
     cmd = response['cmd']
-    assert cmd == API.Command.Api2Client.UPLOAD_SFD_RESPONSE
+    assert cmd == API.Command.Api2Client.UPLOAD_SFD_INIT_RESPONSE
 
-    _check_response_dict(cmd, response, 'firmware_id', str)
-    _check_response_dict(cmd, response, 'overwritten', bool)
+    _check_response_dict(cmd, response, 'token', str)
+    _check_response_dict(cmd, response, 'will_overwrite', bool)
 
-    return UploadSFDConfirmation(
-        firmware_id=response['firmware_id'],
-        overwritten=response['overwritten']
+    if len(response['token']) == 0:
+        raise sdk.exceptions.BadResponseError("Empty token")
+
+    return UploadSFDInitResponse(
+        token=response['token'],
+        will_overwrite=response['will_overwrite']
+    )
+
+def parse_upload_sfd_data_response(response: api_typing.S2C.UploadSFDData) -> UploadSFDDataResponse:
+    assert isinstance(response, dict)
+    assert 'cmd' in response
+    cmd = response['cmd']
+    assert cmd == API.Command.Api2Client.UPLOAD_SFD_DATA_RESPONSE
+
+    _check_response_dict(cmd, response, 'completed', bool)
+    _check_response_dict(cmd, response, 'actual_size', int)
+
+    if response['actual_size'] < 0:
+        raise sdk.exceptions.BadResponseError("Invalid size")
+
+    return UploadSFDDataResponse(
+        completed=response['completed'],
+        actual_size=response['actual_size']
     )

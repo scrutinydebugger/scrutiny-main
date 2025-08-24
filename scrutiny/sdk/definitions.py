@@ -39,8 +39,7 @@ __all__ = [
     'VariableFreqSamplingRate',
     'DataloggingCapabilities',
     'ServerStatistics',
-    'EmbeddedEnum',
-    'UploadSFDConfirmation'
+    'EmbeddedEnum'
 ]
 
 import enum
