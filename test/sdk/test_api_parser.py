@@ -1481,16 +1481,19 @@ class TestApiParser(ScrutinyUnitTest):
             return {
                 "cmd": "response_get_loaded_sfd",
                 "reqid": None,
-                "firmware_id": "b5c76f482e39e9d6a9115db5b8b7dc35",
-                "metadata": {
-                    "project_name": "Some project",
-                    "author": "unit test",
-                    "version": "1.2.3",
-                    "generation_info": {
-                        "time": 1688431050,
-                        "python_version": "3.10.5",
-                        "scrutiny_version": "0.0.1",
-                        "system_type": "Linux"
+                "sfd" : {
+                    "firmware_id": "b5c76f482e39e9d6a9115db5b8b7dc35",
+                    "filesize" : 123,
+                    "metadata": {
+                        "project_name": "Some project",
+                        "author": "unit test",
+                        "version": "1.2.3",
+                        "generation_info": {
+                            "time": 1688431050,
+                            "python_version": "3.10.5",
+                            "scrutiny_version": "0.0.1",
+                            "system_type": "Linux"
+                        }
                     }
                 }
             }
@@ -1504,6 +1507,8 @@ class TestApiParser(ScrutinyUnitTest):
         sfd = parser.parse_get_loaded_sfd(msg)
 
         self.assertIsNotNone(sfd)
+        self.assertEqual(sfd.firmware_id, "b5c76f482e39e9d6a9115db5b8b7dc35")
+        self.assertEqual(sfd.filesize, 123)
         self.assertEqual(sfd.metadata.project_name, "Some project")
         self.assertEqual(sfd.metadata.author, "unit test")
         self.assertEqual(sfd.metadata.version, "1.2.3")
@@ -1514,22 +1519,36 @@ class TestApiParser(ScrutinyUnitTest):
         self.assertEqual(sfd.metadata.generation_info.timestamp, datetime.fromtimestamp(1688431050))
 
         msg = base()
-        msg['firmware_id'] = None
-        msg['metadata'] = None
+        msg['sfd'] = None
         sfd = parser.parse_get_loaded_sfd(msg)
         self.assertIsNone(sfd)
 
+        def test_field(field:str, vals:List[Any]):
+            for v in vals:
+                msg = base()
+                if v == Delete:
+                    del msg["sfd"][field]
+                else:
+                    msg["sfd"][field] = v
+
+                with self.assertRaises(sdk.exceptions.BadResponseError, msg=f"field={field}, v={v}"):
+                    parser.parse_get_loaded_sfd(msg)
+
+        test_field("firmware_id", [{}, None, 1.2, 1, True, Delete])
+        test_field("filesize", [{}, [], None, 1.2, -1, "asd", True, Delete])
+        test_field("metadata", [[], 1.2, 1, True, Delete])
+       
         # Negative checks
         fields = ["project_name", "author", "version"]
         for field in fields:
             msg = base()
-            msg['metadata'][field] = None
+            msg['sfd']['metadata'][field] = None
             sfd = parser.parse_get_loaded_sfd(msg)
             assert sfd is not None
             self.assertIsNone(getattr(sfd.metadata, field), f"field={field}")
 
             msg = base()
-            msg['metadata']["generation_info"] = None
+            msg['sfd']['metadata']["generation_info"] = None
             sfd = parser.parse_get_loaded_sfd(msg)
             self.assertIsNone(sfd.metadata.generation_info.python_version)
             self.assertIsNone(sfd.metadata.generation_info.scrutiny_version)
@@ -2103,27 +2122,41 @@ class TestApiParser(ScrutinyUnitTest):
         def base() -> api_typing.S2C.GetInstalledSFD:
             return {
                 "cmd": 'response_get_installed_sfd',
-                "sfd_list": {
-                    "firmware_id_1": {
-                        'author': "AAA",
-                        'version': "1.2.3",
-                        'project_name': "BBB",
-                        'generation_info': {
-                            'python_version': "3.14.1",
-                            'scrutiny_version': "1.2.3",
-                            "system_type": "linux",
-                            "time": now_timestamp
+                "reqid" : 123,
+                "sfd_list": [
+                        {
+                        "firmware_id" : "firmware_id_1",
+                        "filesize" : 111,
+                        "metadata": {
+                            'author': "AAA",
+                            'version': "1.2.3",
+                            'project_name': "BBB",
+                            'generation_info': {
+                                'python_version': "3.14.1",
+                                'scrutiny_version': "1.2.3",
+                                "system_type": "linux",
+                                "time": now_timestamp
+                            }
+                        },
+                    },
+                    {
+                        "firmware_id" : "firmware_id_2",
+                        "filesize" : 222,
+                        "metadata": {
+                            'author': "CCC",
+                            'version': "1.2.4",
+                            'project_name': "DDD"
+                        },
+                    },
+                    {
+                        "firmware_id" : "firmware_id_3",
+                        "filesize" : 333,
+                        "metadata": {
+                            'generation_info': {}
                         }
-                    },
-                    "firmware_id_2": {
-                        'author': "CCC",
-                        'version': "1.2.4",
-                        'project_name': "DDD"
-                    },
-                    "firmware_id_3": {
-                        'generation_info': {}
                     }
-                }
+
+                ]
             }
 
         msg = base()
@@ -2140,6 +2173,7 @@ class TestApiParser(ScrutinyUnitTest):
 
         self.assertIsInstance(sfd1, sdk.SFDInfo)
         self.assertEqual(sfd1.firmware_id, 'firmware_id_1')
+        self.assertEqual(sfd1.filesize, 111)
         self.assertEqual(sfd1.metadata.author, 'AAA')
         self.assertEqual(sfd1.metadata.project_name, 'BBB')
         self.assertEqual(sfd1.metadata.version, '1.2.3')
@@ -2150,6 +2184,7 @@ class TestApiParser(ScrutinyUnitTest):
 
         self.assertIsInstance(sfd2, sdk.SFDInfo)
         self.assertEqual(sfd2.firmware_id, 'firmware_id_2')
+        self.assertEqual(sfd2.filesize, 222)
         self.assertEqual(sfd2.metadata.author, 'CCC')
         self.assertEqual(sfd2.metadata.project_name, 'DDD')
         self.assertEqual(sfd2.metadata.version, '1.2.4')
@@ -2161,6 +2196,7 @@ class TestApiParser(ScrutinyUnitTest):
 
         self.assertIsInstance(sfd3, sdk.SFDInfo)
         self.assertEqual(sfd3.firmware_id, 'firmware_id_3')
+        self.assertEqual(sfd3.filesize, 333)
         self.assertIsNone(sfd3.metadata.author)
         self.assertIsNone(sfd3.metadata.project_name)
         self.assertIsNone(sfd3.metadata.version)
@@ -2170,7 +2206,7 @@ class TestApiParser(ScrutinyUnitTest):
         self.assertIsNone(sfd3.metadata.generation_info.system_type)
         self.assertIsNone(sfd3.metadata.generation_info.timestamp)
 
-        for v in [[], None, 1.2, 1, True, Delete]:
+        for v in [{}, None, 1.2, 1, True, Delete]:
             msg = base()
             if v == Delete:
                 del msg["sfd_list"]
@@ -2180,21 +2216,39 @@ class TestApiParser(ScrutinyUnitTest):
             with self.assertRaises(sdk.exceptions.BadResponseError):
                 parser.parse_get_installed_sfds_response(msg)
 
-        for field in ["author", "version", "project_name"]:
+        for v in [{}, [], None, 1.2, -1, "asd", True, Delete]:
             msg = base()
-            msg["sfd_list"]['firmware_id_1'][field] = None
+            if v == Delete:
+                del msg["sfd_list"][0]['filesize']
+            else:
+                msg["sfd_list"][0]['filesize'] = v
+            with self.assertRaises(sdk.exceptions.BadResponseError):
+                parser.parse_get_installed_sfds_response(msg)
+        
+        for v in [{}, [], None, 1.2, -1, "", True, Delete]:
+            msg = base()
+            if v == Delete:
+                del msg["sfd_list"][0]['firmware_id']
+            else:
+                msg["sfd_list"][0]['firmware_id'] = v
+            with self.assertRaises(sdk.exceptions.BadResponseError):
+                parser.parse_get_installed_sfds_response(msg)
+
+        for metadata_field in ["author", "version", "project_name"]:
+            msg = base()
+            msg["sfd_list"][0]["metadata"][metadata_field] = None
             response = parser.parse_get_installed_sfds_response(msg)
-            self.assertEqual(getattr(response['firmware_id_1'].metadata, field), None)
+            self.assertEqual(getattr(response['firmware_id_1'].metadata, metadata_field), None)
 
             msg = base()
-            del msg["sfd_list"]['firmware_id_1'][field]
+            del msg["sfd_list"][0]["metadata"][metadata_field]
             response = parser.parse_get_installed_sfds_response(msg)
-            self.assertEqual(getattr(response['firmware_id_1'].metadata, field), None)
+            self.assertEqual(getattr(response['firmware_id_1'].metadata, metadata_field), None)
 
             for v in [[], {}, 1.2, 1, True]:
                 msg = base()
-                msg["sfd_list"]['firmware_id_1'][field] = v
-                with self.assertRaises(sdk.exceptions.BadResponseError, msg=f"field={field}. v={v}"):
+                msg["sfd_list"][0]["metadata"][metadata_field] = v
+                with self.assertRaises(sdk.exceptions.BadResponseError, msg=f"metadata_field={metadata_field}. v={v}"):
                     parser.parse_get_installed_sfds_response(msg)
 
     def test_parse_download_sfd_response(self):
@@ -2211,12 +2265,12 @@ class TestApiParser(ScrutinyUnitTest):
             }
 
         msg = base()
-        resposne = parser.parse_download_sfd_response(msg)
+        response = parser.parse_download_sfd_response(msg)
 
-        self.assertEqual(resposne.firmware_id, 'abcdef')
-        self.assertEqual(resposne.total_size, 30)
-        self.assertEqual(resposne.chunk_index, 1)
-        self.assertEqual(resposne.data, bytes([1, 2, 3, 4, 5, 6]))
+        self.assertEqual(response.firmware_id, 'abcdef')
+        self.assertEqual(response.total_size, 30)
+        self.assertEqual(response.chunk_index, 1)
+        self.assertEqual(response.data, bytes([1, 2, 3, 4, 5, 6]))
 
         def test_field(field: str, values: List[Any]):
             for v in values:
@@ -2248,7 +2302,7 @@ class TestApiParser(ScrutinyUnitTest):
         test_chunk_field('data', [[], {}, None, -1, 1.2, True, Delete])
         test_chunk_field('data', [[], {}, None, -1, 1.2, "INVALIDB64", True, Delete])
 
-    def test_parser_upload_sfd_init_resposne(self):
+    def test_parser_upload_sfd_init_response(self):
         def base() -> api_typing.S2C.UploadSFDInit:
             return {
                 'reqid': 0,
@@ -2277,13 +2331,14 @@ class TestApiParser(ScrutinyUnitTest):
         test_field('token', [[], {}, None, -1, 1.2, "", True, Delete])
         test_field('will_overwrite', [[], {}, None, -1, 1.2, "", 1, Delete])
 
-    def test_parser_upload_sfd_data_resposne(self):
+    def test_parser_upload_sfd_data_response(self):
         def base() -> api_typing.S2C.UploadSFDData:
             return {
                 'reqid': 0,
                 'cmd': 'response_upload_sfd_data',
                 "completed": False,
-                "actual_size": 123
+                "actual_size": 123,
+                'sfd_info' : None
             }
 
         msg = base()
@@ -2305,6 +2360,25 @@ class TestApiParser(ScrutinyUnitTest):
 
         test_field('completed', [[], {}, None, -1, 1.2, 1, "", Delete])
         test_field('actual_size', [[], {}, None, -1, 1.2, True, "", Delete])
+        
+
+        msg = base()
+        msg["completed"] = True
+        msg["sfd_info"] = None  
+        with self.assertRaises(sdk.exceptions.BadResponseError):
+            parser.parse_upload_sfd_data_response(msg)
+
+        msg = base()
+        msg["completed"] = False
+        msg["sfd_info"] = {
+            "filesize":111,
+            "firmware_id": "asd",
+            "metadata" : {}
+        }  
+        with self.assertRaises(sdk.exceptions.BadResponseError):
+            parser.parse_upload_sfd_data_response(msg)
+
+
 
 
 if __name__ == '__main__':

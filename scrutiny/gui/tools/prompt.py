@@ -56,8 +56,6 @@ def get_open_filepath_from_last_save_dir(parent: QWidget, extension_with_dot: st
     if len(filename) == 0:
         return None     # Cancelled
     gui_persistent_data.global_namespace().set_last_save_dir(Path(os.path.dirname(filename)))
-    if not filename.lower().endswith(extension_with_dot):
-        filename += extension_with_dot
     return Path(filename)
 
 

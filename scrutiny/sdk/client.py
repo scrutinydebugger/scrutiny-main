@@ -314,6 +314,7 @@ class SFDUploadRequest(PendingRequest):
     _init_reqid: int
     _actual_size: int
     _filesize: int
+    _sfd_info:Optional[sdk.SFDInfo]
 
     def __init__(self, client: "ScrutinyClient", init_reqid: int, firmware_id: str, upload_token: str, will_overwrite: bool, filepath: Path) -> None:
         super().__init__(client)
@@ -326,10 +327,14 @@ class SFDUploadRequest(PendingRequest):
         self._filepath = Path(os.path.normpath(filepath)).absolute()
         self._filesize = os.stat(self._filepath).st_size
         self._actual_size = 0
+        self._sfd_info = None
 
     def _set_actual_size(self, size: int) -> None:
         self._actual_size = size
         self._update_expiration_timer()
+
+    def _set_sfd_info(self, sfd_info:sdk.SFDInfo) -> None:
+        self._sfd_info = sfd_info
 
     @property
     def firmware_id(self) -> str:
@@ -345,6 +350,16 @@ class SFDUploadRequest(PendingRequest):
     def will_overwrite(self) -> bool:
         """Indicate if the request will overwrite an existing SFD installed on the server. """
         return self._will_overwrite
+    
+    def get_sfd_info(self) -> sdk.SFDInfo:
+        """Reads the :class:`SFDInfo<scrutiny.sdk.SFDInfo>` structure returned by the server after a successful upload. 
+        
+        :raise InvalidValueError: If called while the request is not successful
+        :return: The uploaded file :class:`SFDInfo<scrutiny.sdk.SFDInfo>`
+        """
+        if self._sfd_info is None:
+            raise sdk.exceptions.InvalidValueError("The SFD info is not available")
+        return self._sfd_info
 
     def start(self) -> None:
         """Request the client to start uploading the file content. """
@@ -940,6 +955,7 @@ class ScrutinyClient:
 
         req._set_actual_size(content.actual_size)
         if content.completed:
+            req._set_sfd_info(content.sfd_info)
             req._mark_complete(success=True)
 
     def _wt_process_next_server_status_update(self) -> None:
@@ -1559,8 +1575,6 @@ class ScrutinyClient:
                                 self._logger.error(f"An upload request already existed for data request ID: {init_reqid}")
                             self._pending_sfd_upload_requests[reqid] = req
                         self._send(msg)
-                        time.sleep(0.5)
-                        
 
             except Exception as e:
                 req._mark_complete(False, f"Error while uploading: {e}")

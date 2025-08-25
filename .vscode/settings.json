@@ -71,7 +71,9 @@
                 "lsiten" : "listen",
                 "lsitening" : "listening",
                 "compelte" : "complete",
-                "compelted" : "completed"
+                "compelted" : "completed",
+                "fielsize" : "filesize",
+                "resposne" : "response",
             }
         }]
 }

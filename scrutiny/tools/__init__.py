@@ -18,13 +18,17 @@ __all__ = [
     'NullableMutable',
 ]
 
-
+import tempfile
+import shutil
+import os
 import traceback
 import types
 import logging
 import threading
 from copy import deepcopy
 from dataclasses import dataclass
+from pathlib import Path
+from uuid import uuid4
 
 from scrutiny.tools.throttler import Throttler
 from scrutiny.tools.timer import Timer
@@ -328,3 +332,27 @@ def get_class_attr(cls: Type[Any]) -> List[str]:
 
 def get_class_attr_vals(cls: Type[Any]) -> List[str]:
     return [getattr(cls, attr) for attr in get_class_attr(cls)]
+
+
+class TemporaryFileCopy(object):
+    """Create a temporary copy of a file using a context. Usage : `` with TemporaryFileCopy(filename) as filename_tmp:`` """
+
+    _original_path:Path
+    _temp_path:Optional[Path]
+
+    def __init__(self ,original_path:Union[str, Path]) -> None:
+        self._original_path = Path(original_path)
+        self._temp_path = None
+
+    def __enter__(self) -> Path:
+        temp_dir = Path(tempfile.gettempdir())
+        self._temp_path = temp_dir/uuid4().hex
+        shutil.copy2(self._original_path, self._temp_path)
+        return self._temp_path
+
+    def __exit__(self, exc_type: Optional[Type[BaseException]], exc_val: Optional[BaseException], exc_tb: Optional[types.TracebackType]) -> Literal[False]:
+        if self._temp_path is not None:
+            os.remove(self._temp_path)
+        self._temp_path = None
+        return False
+        

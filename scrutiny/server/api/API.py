@@ -385,6 +385,14 @@ class API:
 
         return cls.WATCHABLE_TYPE_2_APISTR[watchable_type]
 
+    @classmethod
+    def _make_sfd_info(cls, firmware_id:str) -> api_typing.SFDInfo:
+        return {
+                'firmware_id' : firmware_id,
+                'metadata': SFDStorage.get_metadata(firmware_id).to_dict(),
+                'filesize' : SFDStorage.get_filesize(firmware_id)
+            }
+
     def sfd_loaded_callback(self, sfd: FirmwareDescription) -> None:
         # Called when a SFD is loaded after a device connection
         self.logger.debug("SFD Loaded callback called")
@@ -745,14 +753,14 @@ class API:
     def process_get_installed_sfd(self, conn_id: str, req: api_typing.C2S.GetInstalledSFD) -> None:
         # Request to know the list of installed Scrutiny Firmware Description on this server
         firmware_id_list = SFDStorage.list()
-        metadata_dict = {}
+        info_list:List[api_typing.SFDInfo] = []
         for firmware_id in firmware_id_list:
-            metadata_dict[firmware_id] = SFDStorage.get_metadata(firmware_id).to_dict()
+            info_list.append( self._make_sfd_info(firmware_id) )
 
         response: api_typing.S2C.GetInstalledSFD = {
             'cmd': self.Command.Api2Client.GET_INSTALLED_SFD_RESPONSE,
             'reqid': self.get_req_id(req),
-            'sfd_list': metadata_dict
+            'sfd_list': info_list
         }
 
         self.client_handler.send(ClientHandlerMessage(conn_id=conn_id, obj=response))
@@ -791,11 +799,14 @@ class API:
         # upon connection with a known device
         sfd = self.sfd_handler.get_loaded_sfd()
 
+        loaded_sfd_info:Optional[api_typing.SFDInfo] = None
+        if sfd is not None:
+            loaded_sfd_info = self._make_sfd_info(sfd.get_firmware_id_ascii())
+
         response: api_typing.S2C.GetLoadedSFD = {
             'cmd': self.Command.Api2Client.GET_LOADED_SFD_RESPONSE,
             'reqid': self.get_req_id(req),
-            'firmware_id': sfd.get_firmware_id_ascii() if sfd is not None else None,
-            'metadata': sfd.get_metadata().to_dict() if sfd is not None else None
+            'sfd': loaded_sfd_info
         }
 
         self.client_handler.send(ClientHandlerMessage(conn_id=conn_id, obj=response))
@@ -850,33 +861,35 @@ class API:
 
         max_chunk_count = getattr(self, '_UNITTEST_DOWNLOAD_SFD_MAX_CHUNK_COUNT', 0)
 
+        tmp = tempfile.TemporaryFile()
+
         def send_task() -> None:
             try:
-                with open(file, 'rb') as f:
-                    index = 0
-                    while self.client_handler.is_connection_active(conn_id):
-                        chunk_data = f.read(chunk_size)
-                        if len(chunk_data) == 0:
-                            break
+                with tools.TemporaryFileCopy(file) as tmp_filename:
+                    with open(tmp_filename, 'rb') as f:
+                        index = 0
+                        while self.client_handler.is_connection_active(conn_id):
+                            chunk_data = f.read(chunk_size)
+                            if len(chunk_data) == 0:
+                                break
 
-                        if max_chunk_count != 0 and index >= max_chunk_count:
-                            continue
+                            if max_chunk_count != 0 and index >= max_chunk_count:
+                                continue
 
-                        msg: api_typing.S2C.DownloadSFD = {
-                            'cmd': self.Command.Api2Client.DOWNLOAD_SFD_RESPONSE,
-                            'reqid': req_id,
-                            'firmware_id': firmware_id,
-                            'total_size': filesize,
-                            'file_chunk': {
-                                'chunk_index': index,
-                                'data': b64encode(chunk_data).decode('ascii')
+                            msg: api_typing.S2C.DownloadSFD = {
+                                'cmd': self.Command.Api2Client.DOWNLOAD_SFD_RESPONSE,
+                                'reqid': req_id,
+                                'firmware_id': firmware_id,
+                                'total_size': filesize,
+                                'file_chunk': {
+                                    'chunk_index': index,
+                                    'data': b64encode(chunk_data).decode('ascii')
+                                }
                             }
-                        }
 
-                        index += 1
+                            index += 1
 
-                        self.client_handler.send(ClientHandlerMessage(conn_id=conn_id, obj=msg))
-                        time.sleep(0.2)
+                            self.client_handler.send(ClientHandlerMessage(conn_id=conn_id, obj=msg))
             except Exception as e:
                 tools.log_exception(self.logger, e, "Failed to send the SFD content")
                 self.client_handler.send(ClientHandlerMessage(conn_id=conn_id, obj=self.make_error_response(req, str(e))))
@@ -1012,11 +1025,12 @@ class API:
         with open(filepath, 'ab') as f:
             f.write(data_chunk)
 
-        print(self.tempfile_timestamp_monotonic)
         self._update_tempfile_timestamp(filepath)
 
+        sfd_info:Optional[api_typing.SFDInfo] = None
         if new_size == upload_status.total_size:
-            SFDStorage.install(str(filepath), ignore_exist=True)
+            sfd = SFDStorage.install(str(filepath), ignore_exist=True)
+            sfd_info = self._make_sfd_info(sfd.get_firmware_id_ascii())
             upload_status.completed = True
 
             with tools.LogException(self.logger, OSError, "Failed to delete uploaded SFD"):
@@ -1030,7 +1044,8 @@ class API:
             'cmd': self.Command.Api2Client.UPLOAD_SFD_DATA_RESPONSE,
             'reqid': self.get_req_id(req),
             'completed': upload_status.completed,
-            'actual_size': new_size
+            'actual_size': new_size,
+            'sfd_info' : sfd_info
         }
 
         self.client_handler.send(ClientHandlerMessage(conn_id=conn_id, obj=msg))

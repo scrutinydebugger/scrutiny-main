@@ -15,6 +15,7 @@ from scrutiny.tools.typing import *
 
 WatchableType = Literal['alias', 'var', 'rpv']
 # Mapping between app type and API type.
+
 SFDMetadata = scrutiny.core.firmware_description.MetadataTypedDict
 SerialLinkConfig = scrutiny.server.device.links.typing.SerialConfigDict
 UdpLinkConfig = scrutiny.server.device.links.typing.UdpConfigDict
@@ -46,6 +47,10 @@ DataloggingCondition = Literal['true', 'eq', 'neq', 'get', 'gt', 'let', 'lt', 'w
 DataloggingEncoding = Literal['raw']
 LoopType = Literal['fixed_freq', 'variable_freq']
 
+class SFDInfo(TypedDict):
+    firmware_id:str
+    filesize:int
+    metadata:SFDMetadata
 
 class DataloggingStatus(TypedDict):
     datalogging_state: DataloggingState
@@ -323,7 +328,7 @@ class S2C:
         server_time_zero_timestamp: float
 
     class GetInstalledSFD(BaseS2CMessage):
-        sfd_list: Dict[str, SFDMetadata]
+        sfd_list: List[SFDInfo]
 
     class UninstallSFD(BaseS2CMessage):
         pass
@@ -340,10 +345,10 @@ class S2C:
     class UploadSFDData(BaseS2CMessage):
         completed: bool
         actual_size: int
+        sfd_info:Optional[SFDInfo]
 
     class GetLoadedSFD(BaseS2CMessage):
-        firmware_id: Optional[str]
-        metadata: Optional[SFDMetadata]
+        sfd: Optional[SFDInfo]
 
     class InformServerStatus(BaseS2CMessage):
         device_status: DeviceCommStatus

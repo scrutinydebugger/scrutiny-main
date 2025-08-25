@@ -10,6 +10,7 @@
 __all__ = ['ServerSFDManagerDialog']
 
 import logging
+import os
 
 from PySide6.QtWidgets import QDialog, QWidget, QTableView, QVBoxLayout, QMenu, QMenuBar, QProgressBar, QPushButton, QHBoxLayout
 from PySide6.QtCore import Qt, QAbstractItemModel, Signal, QObject, QPoint, QTimer
@@ -45,8 +46,9 @@ class SFDTableModel(QStandardItemModel):
         FIRMWARE_ID = 1
         SCRUTINY_VERSION = 2
         CREATION_DATE = 3
+        FILESIZE = 4
 
-    NB_COLS = 4
+    NB_COLS = 5
     SFD_INFO_ROLE = Qt.ItemDataRole.UserRole + 5    # We will store the SFDInfo structure in the firmware ID col with this data role
 
     @tools.copy_type(QStandardItemModel.__init__)
@@ -59,6 +61,7 @@ class SFDTableModel(QStandardItemModel):
         headers[self.Cols.FIRMWARE_ID] = "Firmware ID"
         headers[self.Cols.SCRUTINY_VERSION] = "Scrutiny Version"
         headers[self.Cols.CREATION_DATE] = "Created On"
+        headers[self.Cols.FILESIZE] = "File Size"
         self.setHorizontalHeaderLabels(headers)
 
     def add_row(self, sfd_info: sdk.SFDInfo) -> int:
@@ -67,6 +70,7 @@ class SFDTableModel(QStandardItemModel):
         row[self.Cols.FIRMWARE_ID].setText(sfd_info.firmware_id)
         row[self.Cols.FIRMWARE_ID].setData(sfd_info, self.SFD_INFO_ROLE)    # Store the SFD info
 
+        row[self.Cols.FILESIZE].setText( tools.format_eng_unit(sfd_info.filesize, decimal=1, unit="B", binary=True) )
         if sfd_info.metadata is not None:
             if sfd_info.metadata.project_name is not None:
                 project_name = sfd_info.metadata.project_name
@@ -366,7 +370,7 @@ class ServerSFDManagerDialog(QDialog):
             self._feedback_label.clear()
             self._sfd_table.model().remove_sfd_rows(firmware_ids)
             nb_sfd = len(firmware_ids)
-            prompt.success_msgbox(self, "Uninstalled", f"Uninstalled {nb_sfd} Scrutiny Firmware Description (SFD) files.")
+            self._feedback_label.set_success(f"Uninstalled {nb_sfd} Scrutiny Firmware Description (SFD) files.")
 
         self._server_manager.schedule_client_request(
             user_func=ephemerous_thread_request_uninstall,
@@ -445,7 +449,6 @@ class ServerSFDManagerDialog(QDialog):
         filepath = prompt.get_open_filepath_from_last_save_dir(self, ".sfd", "Scrutiny Firmware Description")
         if filepath is None:
             return
-        
         def ephemerous_thread_upload_init(client: ScrutinyClient) -> SFDUploadRequest:
             return client.init_sfd_upload(filepath)
 
@@ -486,10 +489,7 @@ class ServerSFDManagerDialog(QDialog):
                 assert data is not None
                 self._feedback_label.clear()
                 self._sfd_table.model().remove_sfd_rows([data.firmware_id])
-                sfd_info = sdk.SFDInfo(
-                    firmware_id=data.firmware_id,
-                    metadata=FirmwareDescription.read_metadata_from_sfd_file(str(filepath))
-                )
+                sfd_info = req.get_sfd_info()
                 row_number = self._sfd_table.model().add_row(sfd_info)  # Append a row
                 self._sfd_table.selectRow(row_number)   # Select inserted row (last one)
 
@@ -500,6 +500,7 @@ class ServerSFDManagerDialog(QDialog):
                 ui_thread_callback=ui_thread_upload_complete
             )
 
+        print("zzz")
         self._server_manager.schedule_client_request(
             user_func=ephemerous_thread_upload_init,
             ui_thread_callback=ui_thread_upload_init_completed

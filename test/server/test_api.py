@@ -1059,15 +1059,21 @@ class TestAPI(ScrutinyUnitTest):
             self.assert_no_error(response)
             self.assertEqual(response['cmd'], 'response_get_installed_sfd')
             self.assertIn('sfd_list', response)
+            self.assertIsInstance(response['sfd_list'], list)
 
             installed_list = SFDStorage.list()
             self.assertEqual(len(installed_list), len(response['sfd_list']))
 
+            firmware_id_list = [info['firmware_id'] for info in response['sfd_list']]
             for installed_firmware_id in installed_list:
-                self.assertIn(installed_firmware_id, response['sfd_list'])
-                gotten_metadata = response['sfd_list'][installed_firmware_id]
+                index = firmware_id_list.index(installed_firmware_id)
+                gotten_info = response['sfd_list'][index]
+                self.assertIn('filesize', gotten_info)
+                self.assertIn('firmware_id', gotten_info)
+                self.assertEqual(gotten_info['filesize'], SFDStorage.get_filesize(installed_firmware_id))
+                self.assertEqual(gotten_info['firmware_id'], installed_firmware_id)
                 real_metadata = SFDStorage.get_metadata(installed_firmware_id)
-                self.assertEqual(real_metadata.to_dict(), gotten_metadata)
+                self.assertEqual(real_metadata.to_dict(), gotten_info['metadata'])
 
             SFDStorage.uninstall(sfd1.get_firmware_id_ascii())
             SFDStorage.uninstall(sfd2.get_firmware_id_ascii())
@@ -1097,10 +1103,15 @@ class TestAPI(ScrutinyUnitTest):
             response = self.wait_and_load_response()
 
             self.assertEqual(response['cmd'], 'response_get_loaded_sfd')
-            self.assertIn('metadata', response)
-            self.assertIn('firmware_id', response)
-            self.assertEqual(response['firmware_id'], sfd1.get_firmware_id_ascii())
-            self.assertEqual(response['metadata'], sfd1.get_metadata().to_dict())
+            self.assertIn('sfd', response)
+            sfd_info = response['sfd']
+            self.assertIsInstance(sfd_info, dict)
+
+            self.assertIn('metadata', sfd_info)
+            self.assertIn('firmware_id', sfd_info)
+            self.assertEqual(sfd_info['firmware_id'], sfd1.get_firmware_id_ascii())
+            self.assertEqual(sfd_info['metadata'], sfd1.get_metadata().to_dict())
+            self.assertEqual(sfd_info['filesize'], SFDStorage.get_filesize(sfd1.get_firmware_id_ascii()))
 
             # load #2
             req = {
@@ -1111,18 +1122,22 @@ class TestAPI(ScrutinyUnitTest):
             self.send_request(req, 0)
 
             # inform status should be trigger by callback
-            response = self.wait_and_load_response()
+            response = self.wait_and_load_response(cmd=API.Command.Api2Client.INFORM_SERVER_STATUS)
             self.assert_no_error(response)
-            self.assertEqual(response['cmd'], 'inform_server_status')
 
             self.send_request({'cmd': 'get_loaded_sfd'})
             response = self.wait_and_load_response()
             self.assertEqual(response['cmd'], 'response_get_loaded_sfd')
 
-            self.assertIn('firmware_id', response)
-            self.assertIn('metadata', response)
-            self.assertEqual(response['firmware_id'], sfd2.get_firmware_id_ascii())
-            self.assertEqual(response['metadata'], sfd2.get_metadata().to_dict())
+            self.assertIn('sfd', response)
+            sfd_info = response['sfd']
+            self.assertIsInstance(sfd_info, dict)
+
+            self.assertIn('firmware_id', sfd_info)
+            self.assertIn('metadata', sfd_info)
+            self.assertEqual(sfd_info['firmware_id'], sfd2.get_firmware_id_ascii())
+            self.assertEqual(sfd_info['metadata'], sfd2.get_metadata().to_dict())
+            self.assertEqual(sfd_info['filesize'], SFDStorage.get_filesize(sfd2.get_firmware_id_ascii()))
 
             SFDStorage.uninstall(sfd1.get_firmware_id_ascii())
             SFDStorage.uninstall(sfd2.get_firmware_id_ascii())
