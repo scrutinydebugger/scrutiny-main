@@ -314,7 +314,7 @@ class SFDUploadRequest(PendingRequest):
     _init_reqid: int
     _actual_size: int
     _filesize: int
-    _sfd_info:Optional[sdk.SFDInfo]
+    _sfd_info: Optional[sdk.SFDInfo]
 
     def __init__(self, client: "ScrutinyClient", init_reqid: int, firmware_id: str, upload_token: str, will_overwrite: bool, filepath: Path) -> None:
         super().__init__(client)
@@ -333,7 +333,7 @@ class SFDUploadRequest(PendingRequest):
         self._actual_size = size
         self._update_expiration_timer()
 
-    def _set_sfd_info(self, sfd_info:sdk.SFDInfo) -> None:
+    def _set_sfd_info(self, sfd_info: sdk.SFDInfo) -> None:
         self._sfd_info = sfd_info
 
     @property
@@ -350,10 +350,10 @@ class SFDUploadRequest(PendingRequest):
     def will_overwrite(self) -> bool:
         """Indicate if the request will overwrite an existing SFD installed on the server. """
         return self._will_overwrite
-    
+
     def get_sfd_info(self) -> sdk.SFDInfo:
         """Reads the :class:`SFDInfo<scrutiny.sdk.SFDInfo>` structure returned by the server after a successful upload. 
-        
+
         :raise InvalidValueError: If called while the request is not successful
         :return: The uploaded file :class:`SFDInfo<scrutiny.sdk.SFDInfo>`
         """
@@ -1535,7 +1535,7 @@ class ScrutinyClient:
         if self._UNITTEST_DOWNLOAD_CHUNK_SIZE is not None:
             chunk_size = self._UNITTEST_DOWNLOAD_CHUNK_SIZE
 
-        chunk_size=100
+        chunk_size = 100
         try:
             req = self._pending_sfd_upload_requests[init_reqid]
         except KeyError:
@@ -2083,8 +2083,8 @@ class ScrutinyClient:
                        'firmware_id': firmware_id,
                        'total_size': filesize
                    })
-                )
-        
+                   )
+
         future = self._send(req, upload_callback)
 
         assert future is not None

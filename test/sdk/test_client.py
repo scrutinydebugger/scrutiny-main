@@ -1513,7 +1513,6 @@ class TestClient(ScrutinyUnitTest):
             self.assertFalse(req.is_success)
             self.assertIn('blablabla', req.failure_reason)
 
-
     def test_simple_request_response_timeout(self):
         with SFDStorage.use_temp_folder():
             SFDStorage.install(get_artifact('test_sfd_1.sfd'), ignore_exist=True)

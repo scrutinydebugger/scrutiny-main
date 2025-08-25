@@ -152,7 +152,7 @@ class SFDStorageManager:
             raise Exception(f'Scrutiny Firmware description with firmware ID {firmwareid} not installed on this system')
         return filename
 
-    def get_filesize(self, firmware_id:str) -> int:
+    def get_filesize(self, firmware_id: str) -> int:
         return os.stat(self.get_file_location(firmware_id)).st_size
 
     def get_metadata(self, firmwareid: str) -> SFDMetadata:

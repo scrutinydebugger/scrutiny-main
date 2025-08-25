@@ -337,16 +337,16 @@ def get_class_attr_vals(cls: Type[Any]) -> List[str]:
 class TemporaryFileCopy(object):
     """Create a temporary copy of a file using a context. Usage : `` with TemporaryFileCopy(filename) as filename_tmp:`` """
 
-    _original_path:Path
-    _temp_path:Optional[Path]
+    _original_path: Path
+    _temp_path: Optional[Path]
 
-    def __init__(self ,original_path:Union[str, Path]) -> None:
+    def __init__(self, original_path: Union[str, Path]) -> None:
         self._original_path = Path(original_path)
         self._temp_path = None
 
     def __enter__(self) -> Path:
         temp_dir = Path(tempfile.gettempdir())
-        self._temp_path = temp_dir/uuid4().hex
+        self._temp_path = temp_dir / uuid4().hex
         shutil.copy2(self._original_path, self._temp_path)
         return self._temp_path
 
@@ -355,4 +355,3 @@ class TemporaryFileCopy(object):
             os.remove(self._temp_path)
         self._temp_path = None
         return False
-        

@@ -386,12 +386,12 @@ class API:
         return cls.WATCHABLE_TYPE_2_APISTR[watchable_type]
 
     @classmethod
-    def _make_sfd_info(cls, firmware_id:str) -> api_typing.SFDInfo:
+    def _make_sfd_info(cls, firmware_id: str) -> api_typing.SFDInfo:
         return {
-                'firmware_id' : firmware_id,
-                'metadata': SFDStorage.get_metadata(firmware_id).to_dict(),
-                'filesize' : SFDStorage.get_filesize(firmware_id)
-            }
+            'firmware_id': firmware_id,
+            'metadata': SFDStorage.get_metadata(firmware_id).to_dict(),
+            'filesize': SFDStorage.get_filesize(firmware_id)
+        }
 
     def sfd_loaded_callback(self, sfd: FirmwareDescription) -> None:
         # Called when a SFD is loaded after a device connection
@@ -753,9 +753,9 @@ class API:
     def process_get_installed_sfd(self, conn_id: str, req: api_typing.C2S.GetInstalledSFD) -> None:
         # Request to know the list of installed Scrutiny Firmware Description on this server
         firmware_id_list = SFDStorage.list()
-        info_list:List[api_typing.SFDInfo] = []
+        info_list: List[api_typing.SFDInfo] = []
         for firmware_id in firmware_id_list:
-            info_list.append( self._make_sfd_info(firmware_id) )
+            info_list.append(self._make_sfd_info(firmware_id))
 
         response: api_typing.S2C.GetInstalledSFD = {
             'cmd': self.Command.Api2Client.GET_INSTALLED_SFD_RESPONSE,
@@ -799,7 +799,7 @@ class API:
         # upon connection with a known device
         sfd = self.sfd_handler.get_loaded_sfd()
 
-        loaded_sfd_info:Optional[api_typing.SFDInfo] = None
+        loaded_sfd_info: Optional[api_typing.SFDInfo] = None
         if sfd is not None:
             loaded_sfd_info = self._make_sfd_info(sfd.get_firmware_id_ascii())
 
@@ -1027,7 +1027,7 @@ class API:
 
         self._update_tempfile_timestamp(filepath)
 
-        sfd_info:Optional[api_typing.SFDInfo] = None
+        sfd_info: Optional[api_typing.SFDInfo] = None
         if new_size == upload_status.total_size:
             sfd = SFDStorage.install(str(filepath), ignore_exist=True)
             sfd_info = self._make_sfd_info(sfd.get_firmware_id_ascii())
@@ -1045,7 +1045,7 @@ class API:
             'reqid': self.get_req_id(req),
             'completed': upload_status.completed,
             'actual_size': new_size,
-            'sfd_info' : sfd_info
+            'sfd_info': sfd_info
         }
 
         self.client_handler.send(ClientHandlerMessage(conn_id=conn_id, obj=msg))

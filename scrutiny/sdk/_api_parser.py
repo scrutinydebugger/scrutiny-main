@@ -109,7 +109,7 @@ class UploadSFDInitResponse:
 class UploadSFDDataResponse:
     completed: bool
     actual_size: int
-    sfd_info:Optional[sdk.SFDInfo]
+    sfd_info: Optional[sdk.SFDInfo]
 
 
 T = TypeVar('T', str, int, float, bool)
@@ -191,7 +191,7 @@ def _fetch_dict_val_of_type_no_none(d: Any, path: str, wanted_type: Type[T], def
 def _read_sfd_metadata_from_incomplete_dict(obj: Optional[MetadataTypedDict]) -> Optional[sdk.SFDMetadata]:
     if obj is None:
         return None
-    
+
     timestamp = _fetch_dict_val(obj, 'generation_info.time', default=None)
     if not isinstance(timestamp, (int, type(None))) or isinstance(timestamp, bool):
         raise sdk.exceptions.BadResponseError(f"Invalid timestamp in SFD metadata")
@@ -215,7 +215,7 @@ def _read_sfd_metadata_from_incomplete_dict(obj: Optional[MetadataTypedDict]) ->
         raise sdk.exceptions.BadResponseError(f"Invalid SFD metadata: {e}")
 
 
-def _read_sfd_info(cmd:str, sfd_info:api_typing.SFDInfo) -> sdk.SFDInfo:
+def _read_sfd_info(cmd: str, sfd_info: api_typing.SFDInfo) -> sdk.SFDInfo:
     _check_response_dict(cmd, sfd_info, 'firmware_id', str)
     _check_response_dict(cmd, sfd_info, 'metadata', (dict, type(None)))
     _check_response_dict(cmd, sfd_info, 'filesize', int)
@@ -225,12 +225,13 @@ def _read_sfd_info(cmd:str, sfd_info:api_typing.SFDInfo) -> sdk.SFDInfo:
 
     if len(sfd_info['firmware_id']) == 0:
         raise sdk.exceptions.BadResponseError("Invalid firmware_id")
-    
+
     return sdk.SFDInfo(
         firmware_id=sfd_info['firmware_id'],
         metadata=_read_sfd_metadata_from_incomplete_dict(sfd_info['metadata']),
         filesize=sfd_info['filesize']
     )
+
 
 def parse_get_watchable_list(response: api_typing.S2C.GetWatchableList) -> GetWatchableListResponse:
     """Parse a response to get_watchable_list and assume the request was for a single watchable"""
@@ -1166,8 +1167,8 @@ def parse_get_loaded_sfd(response: api_typing.S2C.GetLoadedSFD) -> Optional[sdk.
 
     if response['sfd'] is None:
         return None
-    
-    return _read_sfd_info(cmd,  response['sfd'])
+
+    return _read_sfd_info(cmd, response['sfd'])
 
 
 def parser_server_stats(response: api_typing.S2C.GetServerStats) -> sdk.ServerStatistics:
@@ -1280,15 +1281,14 @@ def parse_upload_sfd_data_response(response: api_typing.S2C.UploadSFDData) -> Up
 
     if response['actual_size'] < 0:
         raise sdk.exceptions.BadResponseError("Invalid size")
-    
-    sfd_info:Optional[sdk.SFDInfo] = None
+
+    sfd_info: Optional[sdk.SFDInfo] = None
     if response['completed']:
         _check_response_dict(cmd, response, 'sfd_info', dict)
         assert response['sfd_info'] is not None
         sfd_info = _read_sfd_info(cmd, response['sfd_info'])
     else:
         _check_response_dict(cmd, response, 'sfd_info', type(None))
-
 
     return UploadSFDDataResponse(
         completed=response['completed'],

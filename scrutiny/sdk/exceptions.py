@@ -35,9 +35,11 @@ class InvalidValueError(ScrutinySDKException):
     """Raised when trying to access a value that is unavailable"""
     pass
 
+
 class OperationFailure(ScrutinySDKException):
     """Generic exception raised when a synchronous operation fails"""
     pass
+
 
 class TimeoutException(ScrutinySDKException):
     """Raised when synchronous operations times out"""

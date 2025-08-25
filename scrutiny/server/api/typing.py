@@ -47,10 +47,12 @@ DataloggingCondition = Literal['true', 'eq', 'neq', 'get', 'gt', 'let', 'lt', 'w
 DataloggingEncoding = Literal['raw']
 LoopType = Literal['fixed_freq', 'variable_freq']
 
+
 class SFDInfo(TypedDict):
-    firmware_id:str
-    filesize:int
-    metadata:SFDMetadata
+    firmware_id: str
+    filesize: int
+    metadata: SFDMetadata
+
 
 class DataloggingStatus(TypedDict):
     datalogging_state: DataloggingState
@@ -345,7 +347,7 @@ class S2C:
     class UploadSFDData(BaseS2CMessage):
         completed: bool
         actual_size: int
-        sfd_info:Optional[SFDInfo]
+        sfd_info: Optional[SFDInfo]
 
     class GetLoadedSFD(BaseS2CMessage):
         sfd: Optional[SFDInfo]

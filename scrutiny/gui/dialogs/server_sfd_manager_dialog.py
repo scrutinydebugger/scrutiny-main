@@ -70,7 +70,7 @@ class SFDTableModel(QStandardItemModel):
         row[self.Cols.FIRMWARE_ID].setText(sfd_info.firmware_id)
         row[self.Cols.FIRMWARE_ID].setData(sfd_info, self.SFD_INFO_ROLE)    # Store the SFD info
 
-        row[self.Cols.FILESIZE].setText( tools.format_eng_unit(sfd_info.filesize, decimal=1, unit="B", binary=True) )
+        row[self.Cols.FILESIZE].setText(tools.format_eng_unit(sfd_info.filesize, decimal=1, unit="B", binary=True))
         if sfd_info.metadata is not None:
             if sfd_info.metadata.project_name is not None:
                 project_name = sfd_info.metadata.project_name
@@ -133,8 +133,8 @@ class SFDTableView(QTableView):
 
     def model(self) -> SFDTableModel:
         return cast(SFDTableModel, super().model())
-    
-    def allow_save(self, val:bool) -> None:
+
+    def allow_save(self, val: bool) -> None:
         self._allow_save = val
 
     def contextMenuEvent(self, event: QContextMenuEvent) -> None:
@@ -175,7 +175,7 @@ class SFDTableView(QTableView):
 
         if len(firmware_ids) == 0:
             uninstall_action.setDisabled(True)
-        
+
         if not self._allow_save:
             save_action.setDisabled(True)
 
@@ -205,14 +205,13 @@ class ProgressWidget(QWidget):
     class _Signals(QObject):
         cancel = Signal()
 
+    progress_bar: QProgressBar
+    btn_cancel: QPushButton
+    _update_timer: QTimer
+    _read_progress_callback: Callable[[], float]
+    _signals: _Signals
 
-    progress_bar:QProgressBar
-    btn_cancel:QPushButton
-    _update_timer:QTimer
-    _read_progress_callback:Callable[[], float]
-    _signals:_Signals
-
-    def __init__(self, parent:QWidget, read_progress_callback:Callable[[], float]) -> None:
+    def __init__(self, parent: QWidget, read_progress_callback: Callable[[], float]) -> None:
         super().__init__(parent)
 
         self._signals = self._Signals()
@@ -234,7 +233,7 @@ class ProgressWidget(QWidget):
     @property
     def signals(self) -> _Signals:
         return self._signals
-    
+
     def _update_progress_bar_val(self) -> None:
         val = self._read_progress_callback()
         val = val * (self.progress_bar.maximum() - self.progress_bar.minimum()) + self.progress_bar.minimum()
@@ -247,19 +246,20 @@ class ProgressWidget(QWidget):
         self.btn_cancel.setVisible(True)
         if not self._update_timer.isActive():
             self._update_timer.start()
-    
+
     def deactivate(self) -> None:
         self.progress_bar.setVisible(False)
         self.btn_cancel.setVisible(False)
         self._update_timer.stop()
         self.progress_bar.setValue(self.progress_bar.minimum())
 
+
 class ServerSFDManagerDialog(QDialog):
     class _InternalSignals(QObject):
         sfd_transfer_started = Signal(object)
         sfd_transfer_stopped = Signal()
 
-    _internal_signals:_InternalSignals
+    _internal_signals: _InternalSignals
     """A dialog to edit the list of installed Scrutiny Firmware Description files on the server"""
     _server_manager: ServerManager
     """The server manager to send request to the server"""
@@ -273,8 +273,8 @@ class ServerSFDManagerDialog(QDialog):
     """The Install button in the menu bar"""
     _logger: logging.Logger
     """The logger"""
-    _active_transfer_req:Optional[Union[SFDUploadRequest, SFDDownloadRequest]]
-    _progress_widget:ProgressWidget
+    _active_transfer_req: Optional[Union[SFDUploadRequest, SFDDownloadRequest]]
+    _progress_widget: ProgressWidget
 
     def __init__(self, parent: QWidget, server_manager: ServerManager) -> None:
         super().__init__(parent)
@@ -381,7 +381,7 @@ class ServerSFDManagerDialog(QDialog):
         """Called when right click an SFD and select "save """
         if self._server_manager.get_server_state() != sdk.ServerState.Connected:
             return
-        
+
         if self.is_transfer_active():
             return
 
@@ -442,13 +442,14 @@ class ServerSFDManagerDialog(QDialog):
         """Top menu bar: Install -> Browse"""
         if self._server_manager.get_server_state() != sdk.ServerState.Connected:
             return
-    
+
         if self.is_transfer_active():
             return
-        
+
         filepath = prompt.get_open_filepath_from_last_save_dir(self, ".sfd", "Scrutiny Firmware Description")
         if filepath is None:
             return
+
         def ephemerous_thread_upload_init(client: ScrutinyClient) -> SFDUploadRequest:
             return client.init_sfd_upload(filepath)
 
@@ -552,8 +553,8 @@ class ServerSFDManagerDialog(QDialog):
         self._feedback_label.clear()
         self.connect_disconnect()
         return super().showEvent(e)
-    
-    def set_transfer_active(self, req:Union[SFDDownloadRequest, SFDUploadRequest]) -> None:
+
+    def set_transfer_active(self, req: Union[SFDDownloadRequest, SFDUploadRequest]) -> None:
         self._active_transfer_req = req
         self._sfd_table.allow_save(False)
         self._install_action.setEnabled(False)
