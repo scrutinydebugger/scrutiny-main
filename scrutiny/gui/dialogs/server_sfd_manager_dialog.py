@@ -11,12 +11,12 @@ __all__ = ['ServerSFDManagerDialog']
 
 import logging
 
-from PySide6.QtWidgets import QDialog, QWidget, QTableView, QVBoxLayout, QMenu, QMenuBar
-from PySide6.QtCore import Qt, QAbstractItemModel, Signal, QObject, QPoint
+from PySide6.QtWidgets import QDialog, QWidget, QTableView, QVBoxLayout, QMenu, QMenuBar, QProgressBar, QPushButton, QHBoxLayout
+from PySide6.QtCore import Qt, QAbstractItemModel, Signal, QObject, QPoint, QTimer
 from PySide6.QtGui import QCloseEvent, QKeyEvent, QShowEvent, QStandardItemModel, QStandardItem, QContextMenuEvent, QAction
 
 from scrutiny import sdk
-from scrutiny.sdk.client import ScrutinyClient, SFDUploadRequest
+from scrutiny.sdk.client import ScrutinyClient, SFDUploadRequest, SFDDownloadRequest
 from scrutiny.core.firmware_description import FirmwareDescription
 from scrutiny.gui.core.server_manager import ServerManager
 from scrutiny.gui.core.persistent_data import gui_persistent_data
@@ -102,7 +102,7 @@ class SFDTableModel(QStandardItemModel):
 
 
 class SFDTableView(QTableView):
-    """An extenstion of QTableView to display a list of SFD"""
+    """An extension of QTableView to display a list of SFD"""
 
     class _Signals(QObject):
         uninstall = Signal(object)
@@ -116,6 +116,7 @@ class SFDTableView(QTableView):
         self._signals = self._Signals()
         self.setModel(SFDTableModel(self))
         self.setSortingEnabled(True)
+        self._allow_save = True
 
     @property
     def signals(self) -> _Signals:
@@ -128,6 +129,9 @@ class SFDTableView(QTableView):
 
     def model(self) -> SFDTableModel:
         return cast(SFDTableModel, super().model())
+    
+    def allow_save(self, val:bool) -> None:
+        self._allow_save = val
 
     def contextMenuEvent(self, event: QContextMenuEvent) -> None:
 
@@ -167,6 +171,9 @@ class SFDTableView(QTableView):
 
         if len(firmware_ids) == 0:
             uninstall_action.setDisabled(True)
+        
+        if not self._allow_save:
+            save_action.setDisabled(True)
 
         self.display_context_menu(menu, event.pos())
 
@@ -189,7 +196,66 @@ class SFDTableView(QTableView):
         menu.popup(self.mapToGlobal(pos), at)
 
 
+class ProgressWidget(QWidget):
+
+    class _Signals(QObject):
+        cancel = Signal()
+
+
+    progress_bar:QProgressBar
+    btn_cancel:QPushButton
+    _update_timer:QTimer
+    _read_progress_callback:Callable[[], float]
+    _signals:_Signals
+
+    def __init__(self, parent:QWidget, read_progress_callback:Callable[[], float]) -> None:
+        super().__init__(parent)
+
+        self._signals = self._Signals()
+        self.progress_bar = QProgressBar(self, minimum=0, maximum=100, orientation=Qt.Orientation.Horizontal)
+        self.btn_cancel = QPushButton("Cancel")
+        self._update_timer = QTimer()
+        self._update_timer.setInterval(200)
+        self._read_progress_callback = read_progress_callback
+
+        layout = QHBoxLayout(self)
+        layout.addWidget(self.progress_bar)
+        layout.addWidget(self.btn_cancel)
+
+        self.btn_cancel.setMaximumWidth(75)
+        self.btn_cancel.clicked.connect(self._signals.cancel)
+
+        self._update_timer.timeout.connect(self._update_progress_bar_val)
+
+    @property
+    def signals(self) -> _Signals:
+        return self._signals
+    
+    def _update_progress_bar_val(self) -> None:
+        val = self._read_progress_callback()
+        val = val * (self.progress_bar.maximum() - self.progress_bar.minimum()) + self.progress_bar.minimum()
+        val = int(round(val))
+        self.progress_bar.setValue(val)
+
+    def activate(self) -> None:
+        self._update_progress_bar_val()
+        self.progress_bar.setVisible(True)
+        self.btn_cancel.setVisible(True)
+        if not self._update_timer.isActive():
+            self._update_timer.start()
+    
+    def deactivate(self) -> None:
+        self.progress_bar.setVisible(False)
+        self.btn_cancel.setVisible(False)
+        self._update_timer.stop()
+        self.progress_bar.setValue(self.progress_bar.minimum())
+
 class ServerSFDManagerDialog(QDialog):
+    class _InternalSignals(QObject):
+        sfd_transfer_started = Signal(object)
+        sfd_transfer_stopped = Signal()
+
+    _internal_signals:_InternalSignals
     """A dialog to edit the list of installed Scrutiny Firmware Description files on the server"""
     _server_manager: ServerManager
     """The server manager to send request to the server"""
@@ -203,6 +269,8 @@ class ServerSFDManagerDialog(QDialog):
     """The Install button in the menu bar"""
     _logger: logging.Logger
     """The logger"""
+    _active_transfer_req:Optional[Union[SFDUploadRequest, SFDDownloadRequest]]
+    _progress_widget:ProgressWidget
 
     def __init__(self, parent: QWidget, server_manager: ServerManager) -> None:
         super().__init__(parent)
@@ -214,6 +282,18 @@ class ServerSFDManagerDialog(QDialog):
         self._menubar = QMenuBar(self)
         install_menu = self._menubar.addMenu("Install")
         self._install_action = install_menu.addAction("Browse")
+        self._active_transfer_req = None
+
+        def read_progress() -> float:
+            if self._active_transfer_req is None:
+                return 0
+            return self._active_transfer_req.get_progress()
+        self._progress_widget = ProgressWidget(self, read_progress)
+
+        def cancel_progress_slot() -> None:
+            if self._active_transfer_req is not None:
+                self._active_transfer_req.cancel()
+        self._progress_widget.signals.cancel.connect(cancel_progress_slot)
 
         self._logger = logging.getLogger(self.__class__.__name__)
         self._feedback_label = FeedbackLabel()
@@ -232,6 +312,7 @@ class ServerSFDManagerDialog(QDialog):
         layout = QVBoxLayout(content)
         layout.addWidget(self._feedback_label)
         layout.addWidget(self._sfd_table)
+        layout.addWidget(self._progress_widget)
 
         menubar_layout = QVBoxLayout(self)
         menubar_layout.setContentsMargins(0, 0, 0, 0)
@@ -239,9 +320,13 @@ class ServerSFDManagerDialog(QDialog):
         menubar_layout.addWidget(self._menubar)
         menubar_layout.addWidget(content)
 
-        # Update the status pf the window whent he server comes and go
-        self._server_manager.signals.server_connected.connect(self.update_state)
-        self._server_manager.signals.server_disconnected.connect(self.update_state)
+        self._internal_signals = self._InternalSignals()
+        self._internal_signals.sfd_transfer_started.connect(self.set_transfer_active)
+        self._internal_signals.sfd_transfer_stopped.connect(self.set_transfer_inactive)
+
+        # Update the status of the window when the server comes and go
+        self._server_manager.signals.server_connected.connect(self.connect_disconnect)
+        self._server_manager.signals.server_disconnected.connect(self.connect_disconnect)
         self._set_disconnected()
 
     def _set_connected(self) -> None:
@@ -254,6 +339,7 @@ class ServerSFDManagerDialog(QDialog):
         """Disable the window content when the server is disconnected"""
         self._install_action.setDisabled(True)
         self._feedback_label.clear()
+        self.set_transfer_inactive()
         self.clear_sfd_list()
 
     def _uninstall_sfds_slot(self, firmware_ids: List[str]) -> None:
@@ -291,15 +377,18 @@ class ServerSFDManagerDialog(QDialog):
         """Called when right click an SFD and select "save """
         if self._server_manager.get_server_state() != sdk.ServerState.Connected:
             return
-
-        self._feedback_label.set_info("Downloading...")
+        
+        if self.is_transfer_active():
+            return
 
         def ephemerous_thread_request_download(client: ScrutinyClient) -> bytes:
             req = client.download_sfd(sfd_info.firmware_id)
-            req.wait_for_completion(None)   # Blocking call
+            self._internal_signals.sfd_transfer_started.emit(req)
+            req.wait_for_completion()   # Blocking call
             return req.get()
 
         def ui_thread_download_complete(data: Optional[bytes], error: Optional[Exception]) -> None:
+            self._internal_signals.sfd_transfer_stopped.emit()
             if error is not None:
                 self._feedback_label.set_error(str(error))
                 tools.log_exception(self._logger, error, "Failed to download SFDs")
@@ -347,12 +436,16 @@ class ServerSFDManagerDialog(QDialog):
 
     def _install_sfd_click_slot(self) -> None:
         """Top menu bar: Install -> Browse"""
+        if self._server_manager.get_server_state() != sdk.ServerState.Connected:
+            return
+    
+        if self.is_transfer_active():
+            return
+        
         filepath = prompt.get_open_filepath_from_last_save_dir(self, ".sfd", "Scrutiny Firmware Description")
         if filepath is None:
             return
-
-        self._feedback_label.set_info("Uploading...")
-
+        
         def ephemerous_thread_upload_init(client: ScrutinyClient) -> SFDUploadRequest:
             return client.init_sfd_upload(filepath)
 
@@ -376,12 +469,15 @@ class ServerSFDManagerDialog(QDialog):
                 self._feedback_label.clear()
                 return
 
+            self._internal_signals.sfd_transfer_started.emit(req)
+
             def ephemerous_thread_upload(client: ScrutinyClient) -> SFDUploadRequest:
                 req.start()
                 req.wait_for_completion()
                 return req
 
             def ui_thread_upload_complete(data: Optional[SFDUploadRequest], error: Optional[Exception]) -> None:
+                self._internal_signals.sfd_transfer_stopped.emit()
                 if error is not None:
                     self._feedback_label.set_error(str(error))
                     tools.log_exception(self._logger, error, "Failed to install SFDs")
@@ -410,7 +506,7 @@ class ServerSFDManagerDialog(QDialog):
         )
 
     def clear_sfd_list(self) -> None:
-        """Emtpy the QTableView"""
+        """Empty the QTableView"""
         model = self._sfd_table.model()
         model.removeRows(0, model.rowCount())
 
@@ -440,8 +536,8 @@ class ServerSFDManagerDialog(QDialog):
             ui_thread_callback=ui_thread_download_callback
         )
 
-    def update_state(self) -> None:
-        """Set connected/disonnected based on server status"""
+    def connect_disconnect(self) -> None:
+        """Set connected/disconnected based on server status"""
         if self._server_manager.get_server_state() == sdk.ServerState.Connected:
             self._set_connected()
         else:
@@ -453,5 +549,20 @@ class ServerSFDManagerDialog(QDialog):
 
     def showEvent(self, e: QShowEvent) -> None:
         self._feedback_label.clear()
-        self.update_state()
+        self.connect_disconnect()
         return super().showEvent(e)
+    
+    def set_transfer_active(self, req:Union[SFDDownloadRequest, SFDUploadRequest]) -> None:
+        self._active_transfer_req = req
+        self._sfd_table.allow_save(False)
+        self._install_action.setEnabled(False)
+        self._progress_widget.activate()
+
+    def set_transfer_inactive(self) -> None:
+        self._active_transfer_req = None
+        self._sfd_table.allow_save(True)
+        self._install_action.setEnabled(True)
+        self._progress_widget.deactivate()
+
+    def is_transfer_active(self) -> bool:
+        return self._active_transfer_req is not None

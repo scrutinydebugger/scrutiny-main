@@ -36,8 +36,11 @@
         "deinterleaved",
         "Endianness",
         "endregion",
+        "ephemerous",
+        "firmwareid",
         "lastrowid",
         "Loggable",
+        "msgbox",
         "pollable",
         "reqid",
         "reqids",
@@ -48,8 +51,7 @@
         "testcases",
         "typehints",
         "varbit",
-        "xaxis",
-        "firmwareid"
+        "xaxis"
     ],
     "cSpell.enabled": true,
     "auto-correct.dictionary": [

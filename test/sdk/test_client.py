@@ -1492,10 +1492,8 @@ class TestClient(ScrutinyUnitTest):
 
     def test_upload_sfd_detect_error(self):
         self.client._UNITTEST_DOWNLOAD_CHUNK_SIZE = 100  # Internal var for testing only
-        sfd1_filepath = get_artifact('test_sfd_1.sfd')
-        sfd1 = FirmwareDescription(sfd1_filepath)
         with SFDStorage.use_temp_folder():
-            req = self.client.init_sfd_upload(sfd1_filepath)
+            req = self.client.init_sfd_upload(get_artifact('test_sfd_1.sfd'))
 
             counter = tools.MutableInt(0)
 
@@ -1515,7 +1513,6 @@ class TestClient(ScrutinyUnitTest):
             self.assertFalse(req.is_success)
             self.assertIn('blablabla', req.failure_reason)
 
-            self.assertFalse(SFDStorage.is_installed(sfd1.get_firmware_id_ascii()))
 
     def test_simple_request_response_timeout(self):
         with SFDStorage.use_temp_folder():

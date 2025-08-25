@@ -841,6 +841,7 @@ class API:
 
         if chunk_size <= 0:
             raise ValueError("Internal Error. Bad chunk size")
+        chunk_size = 100
 
         if filesize == 0:
             raise InvalidRequestException(req, "SFD file is invalid")
@@ -875,6 +876,7 @@ class API:
                         index += 1
 
                         self.client_handler.send(ClientHandlerMessage(conn_id=conn_id, obj=msg))
+                        time.sleep(0.2)
             except Exception as e:
                 tools.log_exception(self.logger, e, "Failed to send the SFD content")
                 self.client_handler.send(ClientHandlerMessage(conn_id=conn_id, obj=self.make_error_response(req, str(e))))
@@ -1010,6 +1012,7 @@ class API:
         with open(filepath, 'ab') as f:
             f.write(data_chunk)
 
+        print(self.tempfile_timestamp_monotonic)
         self._update_tempfile_timestamp(filepath)
 
         if new_size == upload_status.total_size:
@@ -2157,8 +2160,7 @@ class API:
 
     def _update_tempfile_timestamp(self, filepath: Union[Path, str]) -> None:
         filepath_str = self._get_file_timestamp_dict_key(filepath)
-        if filepath_str not in self.tempfile_timestamp_monotonic:
-            self.tempfile_timestamp_monotonic[filepath_str] = time.monotonic()
+        self.tempfile_timestamp_monotonic[filepath_str] = time.monotonic()
 
     def _get_tempfile_timestamp(self, filepath: Union[Path, str]) -> Optional[float]:
         filepath_str = self._get_file_timestamp_dict_key(filepath)
@@ -2180,5 +2182,6 @@ class API:
                     if time.monotonic() - timestamp > self.TEMP_FILE_LIFETIME:
                         try:
                             os.remove(filepath)
+                            self.logger.debug(f"Pruning temporary file {filepath}")
                         except OSError as e:
                             tools.log_exception(self.logger, e, f"Failed to prune file : {filepath}")

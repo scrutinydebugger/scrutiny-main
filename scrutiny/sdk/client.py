@@ -291,14 +291,13 @@ class SFDDownloadRequest(PendingRequest):
         self._buffer.extend(data)
         self._update_expiration_timer()
 
-    def get_progress(self) -> Optional[float]:
-        """Return the a number between 0 and 1 indicating the download percentage being received. 
-        Returns ``None`` if not available (the total size information hasn't been received yet.)"""
+    def get_progress(self) -> float:
+        """Return the a number between 0 and 1 indicating the download percentage being received."""
         if self._expected_total_size is None:
-            return None
+            return 0
 
         if self._expected_total_size == 0:
-            return None
+            return 0
 
         ratio = self.received_count / self._expected_total_size
         return min(1, max(0, ratio))
@@ -1520,6 +1519,7 @@ class ScrutinyClient:
         if self._UNITTEST_DOWNLOAD_CHUNK_SIZE is not None:
             chunk_size = self._UNITTEST_DOWNLOAD_CHUNK_SIZE
 
+        chunk_size=100
         try:
             req = self._pending_sfd_upload_requests[init_reqid]
         except KeyError:
@@ -1551,8 +1551,6 @@ class ScrutinyClient:
                                    })
                                    )
                         chunk_index += 1
-
-                        self._send(msg)
                         reqid = msg['reqid']
                         with self._main_lock:
                             # Many reqid points to the same request object. it's fine. Makes the design cleaner and less convoluted
@@ -1560,6 +1558,9 @@ class ScrutinyClient:
                                 del self._pending_sfd_upload_requests[reqid]
                                 self._logger.error(f"An upload request already existed for data request ID: {init_reqid}")
                             self._pending_sfd_upload_requests[reqid] = req
+                        self._send(msg)
+                        time.sleep(0.5)
+                        
 
             except Exception as e:
                 req._mark_complete(False, f"Error while uploading: {e}")
@@ -2045,8 +2046,7 @@ class ScrutinyClient:
             raise FileNotFoundError(f"File {filepath} does not exist")
 
         try:
-            sfd = FirmwareDescription(str(filepath))
-            firmware_id = sfd.get_firmware_id_ascii()
+            firmware_id = FirmwareDescription.read_firmware_id_from_sfd_file(str(filepath)).hex()
         except Exception as e:
             raise ValueError(f"Invalid SFD file. {e}")
 
@@ -2069,8 +2069,8 @@ class ScrutinyClient:
                        'firmware_id': firmware_id,
                        'total_size': filesize
                    })
-                   )
-
+                )
+        
         future = self._send(req, upload_callback)
 
         assert future is not None
@@ -2094,7 +2094,6 @@ class ScrutinyClient:
 
         with self._main_lock:
             self._pending_sfd_upload_requests[init_reqid] = upload_request
-
         return upload_request
 
     def wait_process(self, timeout: Optional[float] = None) -> None:
