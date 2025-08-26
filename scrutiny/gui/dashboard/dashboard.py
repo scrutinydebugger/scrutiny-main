@@ -702,7 +702,7 @@ class Dashboard(QWidget):
                                      ) -> None:
         """ Recreate a dashboard top level container by performing a series of AddDockWidget.
 
-        We do not have access to internal ADS dunction to create splitters and containers, so we rely on a workaround
+        We do not have access to internal ADS function to create splitters and containers, so we rely on a workaround
         that consist of adding a series of placeholders widget to create dock areas, fill the dock area then delete the placeholder.
 
         Mutable data is shared for each recursive call.

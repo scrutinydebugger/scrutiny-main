@@ -7,6 +7,7 @@
 #   Copyright (c) 2023 Scrutiny Debugger
 
 import unittest
+import os
 
 from scrutiny.core.basic_types import *
 from scrutiny.core.datalogging import *
@@ -46,6 +47,8 @@ from scrutiny.server.device.submodules.memory_reader import RawMemoryReadRequest
 from scrutiny.server.device.links.udp_link import UdpLink
 from scrutiny.server.device.links.abstract_link import AbstractLink
 import scrutiny.server.device.device_info as server_device
+
+from scrutiny import tools
 
 from test.artifacts import get_artifact
 from test import ScrutinyUnitTest
@@ -732,15 +735,19 @@ class TestClient(ScrutinyUnitTest):
         self.assertIsNot(status, server_info)   # Make sure we have a new object with a new reference.
 
     def test_get_loaded_sfd(self):
+        
+        with SFDStorage.use_temp_folder():
+            sfd = SFDStorage.install(get_artifact('test_sfd_1.sfd'))
+            loaded_sfd = self.sfd_handler.get_loaded_sfd()
+            self.assertIsNotNone(loaded_sfd)
+            self.assertEqual(loaded_sfd.get_firmware_id_ascii(), sfd.get_firmware_id_ascii())
+            self.assertEqual(self.client.server_state, sdk.ServerState.Connected)
+            received_server_sfd = self.client.get_loaded_sfd()
+            self.assertIsNotNone(received_server_sfd)
+            assert received_server_sfd is not None
 
-        self.assertEqual(self.client.server_state, sdk.ServerState.Connected)
-        server_sfd = self.client.get_loaded_sfd()
-        self.assertIsNotNone(server_sfd)
-        assert server_sfd is not None
-
-        sfd = FirmwareDescription(get_artifact('test_sfd_1.sfd'))
-        self.assertEqual(server_sfd.firmware_id, sfd.get_firmware_id_ascii())
-        self.assertEqual(server_sfd.metadata, sfd.metadata)
+            self.assertEqual(received_server_sfd.firmware_id, sfd.get_firmware_id_ascii())
+            self.assertEqual(received_server_sfd.metadata, sfd.metadata)
 
     def test_get_device_info(self):
         # Make sure we can read the status of the server correctly
@@ -1399,6 +1406,117 @@ class TestClient(ScrutinyUnitTest):
             self.assertEqual(installed2.firmware_id, sfd2.get_firmware_id_ascii())
             self.assertEqual(installed2.metadata, sfd2.get_metadata())
 
+    def test_uninstall_sfd(self):
+        with SFDStorage.use_temp_folder():
+            sfd1 = SFDStorage.install(get_artifact('test_sfd_1.sfd'), ignore_exist=True)
+            sfd2 = SFDStorage.install(get_artifact('test_sfd_2.sfd'), ignore_exist=True)
+
+            self.client.uninstall_sfds([sfd1.get_firmware_id_ascii(), sfd2.get_firmware_id_ascii()])
+            self.assertFalse(SFDStorage.is_installed(sfd1.get_firmware_id_ascii()))
+            self.assertFalse(SFDStorage.is_installed(sfd2.get_firmware_id_ascii()))
+
+    def test_download_sfd(self):
+        with SFDStorage.use_temp_folder():
+            sfd1 = SFDStorage.install(get_artifact('test_sfd_1.sfd'), ignore_exist=True)
+            sfd2 = SFDStorage.install(get_artifact('test_sfd_2.sfd'), ignore_exist=True)
+            self.client._UNITTEST_DOWNLOAD_CHUNK_SIZE = 100  # Internal var for testing only
+            sfd1_req = self.client.download_sfd(sfd1.get_firmware_id_ascii())
+            sfd2_req = self.client.download_sfd(sfd2.get_firmware_id_ascii())
+
+            sfd1_req.wait_for_completion(2)
+            sfd1_downloaded_data = sfd1_req.get()
+
+            sfd2_req.wait_for_completion(2)
+            sfd2_downloaded_data = sfd2_req.get()
+
+            with open(SFDStorage.get_file_location(sfd1.get_firmware_id_ascii()), 'rb') as f:
+                sfd1_data = f.read()
+
+            with open(SFDStorage.get_file_location(sfd2.get_firmware_id_ascii()), 'rb') as f:
+                sfd2_data = f.read()
+
+            self.assertEqual(len(sfd1_data), len(sfd1_downloaded_data))
+            self.assertEqual(sfd1_data, sfd1_downloaded_data)
+            self.assertEqual(sfd2_data, sfd2_downloaded_data)
+
+    def test_download_sfd_cancel(self):
+        with SFDStorage.use_temp_folder():
+            sfd1 = SFDStorage.install(get_artifact('test_sfd_1.sfd'), ignore_exist=True)
+            sfd1_file = SFDStorage.get_file_location(sfd1.get_firmware_id_ascii())
+            sfd1_size = os.stat(sfd1_file).st_size
+            self.client._UNITTEST_DOWNLOAD_CHUNK_SIZE = 100  # Internal var for testing only
+            setattr(self.api, '_UNITTEST_DOWNLOAD_SFD_MAX_CHUNK_COUNT', 1)  # Ensure we never receive the full file
+            req = self.client.download_sfd(sfd1.get_firmware_id_ascii())
+            self.wait_true(lambda: req.received_count > 0)
+            progress = req.get_progress()
+            self.assertIsNotNone(progress)
+            self.assertEqual(progress, 100 / sfd1_size)
+            self.assertFalse(req.completed)
+            req.cancel()
+            self.assertTrue(req.completed)
+            with self.assertRaises(sdk.exceptions.OperationFailure):
+                req.wait_for_completion()
+
+    def test_upload_sfd(self):
+        self.client._UNITTEST_DOWNLOAD_CHUNK_SIZE = 100  # Internal var for testing only
+        sfd1_filepath = get_artifact('test_sfd_1.sfd')
+        sfd1 = FirmwareDescription(sfd1_filepath)
+        with SFDStorage.use_temp_folder():
+            self.assertFalse(SFDStorage.is_installed(sfd1.get_firmware_id_ascii()))
+            req = self.client.init_sfd_upload(sfd1_filepath)
+            self.assertFalse(req.will_overwrite)
+            self.assertEqual(req.get_progress(), 0)
+            self.assertFalse(req.completed)
+            self.assertFalse(req.is_success)
+
+            self.assertEqual(req.firmware_id, sfd1.get_firmware_id_ascii())
+            req.start()
+            req.wait_for_completion(3)
+            self.assertTrue(req.completed)
+            self.assertTrue(req.is_success)
+            self.assertTrue(req.get_progress(), 1)
+
+            self.assertTrue(SFDStorage.is_installed(sfd1.get_firmware_id_ascii()))
+
+    def test_upload_sfd_overwrite_detected(self):
+        self.client._UNITTEST_DOWNLOAD_CHUNK_SIZE = 100  # Internal var for testing only
+        sfd1_filepath = get_artifact('test_sfd_1.sfd')
+        with SFDStorage.use_temp_folder():
+            sfd1 = SFDStorage.install(sfd1_filepath)
+            self.assertTrue(SFDStorage.is_installed(sfd1.get_firmware_id_ascii()))
+            req = self.client.init_sfd_upload(sfd1_filepath)
+            self.assertTrue(req.will_overwrite)
+            req.start()
+            req.wait_for_completion(3)
+            self.assertTrue(req.completed)
+            self.assertTrue(req.is_success)
+            self.assertTrue(req.get_progress(), 1)
+
+            self.assertTrue(SFDStorage.is_installed(sfd1.get_firmware_id_ascii()))
+
+    def test_upload_sfd_detect_error(self):
+        self.client._UNITTEST_DOWNLOAD_CHUNK_SIZE = 100  # Internal var for testing only
+        with SFDStorage.use_temp_folder():
+            req = self.client.init_sfd_upload(get_artifact('test_sfd_1.sfd'))
+
+            counter = tools.MutableInt(0)
+
+            def tamper_response_callback(client, obj):
+                if counter.val == 3:    # Should be a data chunk
+                    obj['cmd'] = API.Command.Api2Client.ERROR_RESPONSE
+                    obj['msg'] = 'blablabla'
+
+                counter.val += 1
+
+            self.client._add_rx_message_callback(tamper_response_callback)
+
+            req.start()
+            with self.assertRaises(sdk.exceptions.OperationFailure):
+                req.wait_for_completion(3)  # Should fail
+            self.assertTrue(req.completed)
+            self.assertFalse(req.is_success)
+            self.assertIn('blablabla', req.failure_reason)
+
     def test_simple_request_response_timeout(self):
         with SFDStorage.use_temp_folder():
             SFDStorage.install(get_artifact('test_sfd_1.sfd'), ignore_exist=True)
@@ -2047,7 +2165,6 @@ class TestClient(ScrutinyUnitTest):
         self.assertEqual(configout['subconfig']['bitrate'], 500000)
         self.assertEqual(configout['subconfig']['data_bitrate'], 1000000)
 
-
     def test_configure_device_link_can_kvaser(self):
         configin = sdk.CANLinkConfig(
             interface=sdk.CANLinkConfig.CANInterface.KVaser,
@@ -2096,8 +2213,8 @@ class TestClient(ScrutinyUnitTest):
 
         self.assertEqual(configout['subconfig']['channel'], 1)
         self.assertEqual(configout['subconfig']['bitrate'], 500000)
-        self.assertEqual(configout['subconfig']['data_bitrate'], 1000000)        
-        self.assertEqual(configout['subconfig']['fd_non_iso'], False)        
+        self.assertEqual(configout['subconfig']['data_bitrate'], 1000000)
+        self.assertEqual(configout['subconfig']['fd_non_iso'], False)
 
     def test_configure_device_link_can_pcan(self):
         configin = sdk.CANLinkConfig(
@@ -2189,8 +2306,8 @@ class TestClient(ScrutinyUnitTest):
         self.assertIn('data_bitrate', configout['subconfig'])
 
         self.assertEqual(configout['subconfig']['channel'], 'ETAS://ETH/ES910:abcd/CAN:1')
-        self.assertEqual(configout['subconfig']['bitrate'], 500000)      
-        self.assertEqual(configout['subconfig']['data_bitrate'], 1000000)      
+        self.assertEqual(configout['subconfig']['bitrate'], 500000)
+        self.assertEqual(configout['subconfig']['data_bitrate'], 1000000)
 
     def test_configure_device_link_can_errors(self):
         def base_socketcan(

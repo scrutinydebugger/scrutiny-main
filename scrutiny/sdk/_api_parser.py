@@ -91,6 +91,27 @@ class DataloggingListChangeResponse:
     reference_id: Optional[str]
 
 
+@dataclass
+class SFDDownloadChunk:
+    firmware_id: str
+    data: bytes
+    chunk_index: int
+    total_size: int
+
+
+@dataclass
+class UploadSFDInitResponse:
+    token: str
+    will_overwrite: bool
+
+
+@dataclass
+class UploadSFDDataResponse:
+    completed: bool
+    actual_size: int
+    sfd_info: Optional[sdk.SFDInfo]
+
+
 T = TypeVar('T', str, int, float, bool)
 WATCHABLE_TYPE_KEY = Literal['rpv', 'alias', 'var']
 
@@ -113,13 +134,13 @@ def _check_response_dict(cmd: str, d: Any, name: str, types: Union[Type[Any], It
         part_name = key
     next_parts = parts[1:]
 
+    if not isinstance(d, dict):
+        raise sdk.exceptions.BadResponseError(f'Field {part_name} is expected to be a dictionary in message "{cmd}"')
+
     if key not in d:
         raise sdk.exceptions.BadResponseError(f'Missing field "{part_name}" in message "{cmd}"')
 
     if len(next_parts) > 0:
-        if not isinstance(d, dict):
-            raise sdk.exceptions.BadResponseError(f'Field {part_name} is expected to be a dictionary in message "{cmd}"')
-
         _check_response_dict(cmd, d[key], '.'.join(next_parts), types, part_name)
     else:
         isbool = d[key].__class__ == True.__class__  # bool are ints for Python. Avoid allowing bools as valid int.
@@ -192,6 +213,24 @@ def _read_sfd_metadata_from_incomplete_dict(obj: Optional[MetadataTypedDict]) ->
         )
     except (TypeError, ValueError) as e:
         raise sdk.exceptions.BadResponseError(f"Invalid SFD metadata: {e}")
+
+
+def _read_sfd_info(cmd: str, sfd_info: api_typing.SFDInfo) -> sdk.SFDInfo:
+    _check_response_dict(cmd, sfd_info, 'firmware_id', str)
+    _check_response_dict(cmd, sfd_info, 'metadata', (dict, type(None)))
+    _check_response_dict(cmd, sfd_info, 'filesize', int)
+
+    if sfd_info['filesize'] < 0:
+        raise sdk.exceptions.BadResponseError("Invalid filesize")
+
+    if len(sfd_info['firmware_id']) == 0:
+        raise sdk.exceptions.BadResponseError("Invalid firmware_id")
+
+    return sdk.SFDInfo(
+        firmware_id=sfd_info['firmware_id'],
+        metadata=_read_sfd_metadata_from_incomplete_dict(sfd_info['metadata']),
+        filesize=sfd_info['filesize']
+    )
 
 
 def parse_get_watchable_list(response: api_typing.S2C.GetWatchableList) -> GetWatchableListResponse:
@@ -655,12 +694,12 @@ def parse_inform_server_status(response: api_typing.S2C.InformServerStatus) -> s
 
         subconfig: api_typing.CANBUS_ANY_SUBCONFIG_DICT
         interface_config: Union[
-            sdk.CANLinkConfig.SocketCANConfig, 
-            sdk.CANLinkConfig.VectorConfig, 
+            sdk.CANLinkConfig.SocketCANConfig,
+            sdk.CANLinkConfig.VectorConfig,
             sdk.CANLinkConfig.KVaserConfig,
             sdk.CANLinkConfig.PCANConfig,
             sdk.CANLinkConfig.ETASConfig,
-            ]
+        ]
         if interface == sdk.CANLinkConfig.CANInterface.SocketCAN:
             subconfig = cast(api_typing.CanBusSocketCanSubconfig, canbus_config['subconfig'])
             _check_response_dict(cmd, subconfig, 'channel', str)
@@ -816,14 +855,11 @@ def parse_get_installed_sfds_response(response: api_typing.S2C.GetInstalledSFD) 
     assert cmd == API.Command.Api2Client.GET_INSTALLED_SFD_RESPONSE
 
     output: Dict[str, sdk.SFDInfo] = {}
-    _check_response_dict(cmd, response, 'sfd_list', dict)
+    _check_response_dict(cmd, response, 'sfd_list', list)
 
-    for firmware_id, sfd_content in response['sfd_list'].items():
-        metadata = _read_sfd_metadata_from_incomplete_dict(sfd_content)
-        output[firmware_id] = sdk.SFDInfo(
-            firmware_id=firmware_id,
-            metadata=metadata
-        )
+    for info_dict in response['sfd_list']:
+        info = _read_sfd_info(cmd, info_dict)
+        output[info.firmware_id] = info
 
     return output
 
@@ -1127,16 +1163,12 @@ def parse_get_loaded_sfd(response: api_typing.S2C.GetLoadedSFD) -> Optional[sdk.
     cmd = response['cmd']
     assert cmd == API.Command.Api2Client.GET_LOADED_SFD_RESPONSE
 
-    _check_response_dict(cmd, response, 'firmware_id', (str, type(None)))
-    _check_response_dict(cmd, response, 'metadata', (dict, type(None)))
+    _check_response_dict(cmd, response, 'sfd', (dict, type(None)))
 
-    if response['firmware_id'] is None:
+    if response['sfd'] is None:
         return None
 
-    return sdk.SFDInfo(
-        firmware_id=response['firmware_id'],
-        metadata=_read_sfd_metadata_from_incomplete_dict(response['metadata'])
-    )
+    return _read_sfd_info(cmd, response['sfd'])
 
 
 def parser_server_stats(response: api_typing.S2C.GetServerStats) -> sdk.ServerStatistics:
@@ -1184,4 +1216,82 @@ def parse_welcome(msg: api_typing.S2C.Welcome) -> WelcomeData:
 
     return WelcomeData(
         server_time_zero_timestamp=float(msg['server_time_zero_timestamp'])
+    )
+
+
+def parse_download_sfd_response(response: api_typing.S2C.DownloadSFD) -> SFDDownloadChunk:
+    assert isinstance(response, dict)
+    assert 'cmd' in response
+    cmd = response['cmd']
+    assert cmd == API.Command.Api2Client.DOWNLOAD_SFD_RESPONSE
+
+    _check_response_dict(cmd, response, 'firmware_id', str)
+    _check_response_dict(cmd, response, 'total_size', int)
+    _check_response_dict(cmd, response, 'file_chunk.data', str)
+    _check_response_dict(cmd, response, 'file_chunk.chunk_index', int)
+
+    if len(response['firmware_id']) == 0:
+        raise sdk.exceptions.BadResponseError("Empty firmware ID")
+
+    if response['total_size'] <= 0:
+        raise sdk.exceptions.BadResponseError("SFD Size is not valid")
+
+    if response['file_chunk']['chunk_index'] < 0:
+        raise sdk.exceptions.BadResponseError("Chunk index is not valid")
+
+    try:
+        data = b64decode(response['file_chunk']['data'], validate=True)
+    except binascii.Error as e:
+        raise sdk.exceptions.BadResponseError(f"Server returned a invalid base64 data block. {e}")
+
+    return SFDDownloadChunk(
+        firmware_id=response['firmware_id'],
+        total_size=response['total_size'],
+        chunk_index=response['file_chunk']['chunk_index'],
+        data=data
+    )
+
+
+def parse_upload_sfd_init_response(response: api_typing.S2C.UploadSFDInit) -> UploadSFDInitResponse:
+    assert isinstance(response, dict)
+    assert 'cmd' in response
+    cmd = response['cmd']
+    assert cmd == API.Command.Api2Client.UPLOAD_SFD_INIT_RESPONSE
+
+    _check_response_dict(cmd, response, 'token', str)
+    _check_response_dict(cmd, response, 'will_overwrite', bool)
+
+    if len(response['token']) == 0:
+        raise sdk.exceptions.BadResponseError("Empty token")
+
+    return UploadSFDInitResponse(
+        token=response['token'],
+        will_overwrite=response['will_overwrite']
+    )
+
+
+def parse_upload_sfd_data_response(response: api_typing.S2C.UploadSFDData) -> UploadSFDDataResponse:
+    assert isinstance(response, dict)
+    assert 'cmd' in response
+    cmd = response['cmd']
+    assert cmd == API.Command.Api2Client.UPLOAD_SFD_DATA_RESPONSE
+
+    _check_response_dict(cmd, response, 'completed', bool)
+    _check_response_dict(cmd, response, 'actual_size', int)
+
+    if response['actual_size'] < 0:
+        raise sdk.exceptions.BadResponseError("Invalid size")
+
+    sfd_info: Optional[sdk.SFDInfo] = None
+    if response['completed']:
+        _check_response_dict(cmd, response, 'sfd_info', dict)
+        assert response['sfd_info'] is not None
+        sfd_info = _read_sfd_info(cmd, response['sfd_info'])
+    else:
+        _check_response_dict(cmd, response, 'sfd_info', type(None))
+
+    return UploadSFDDataResponse(
+        completed=response['completed'],
+        actual_size=response['actual_size'],
+        sfd_info=sfd_info
     )

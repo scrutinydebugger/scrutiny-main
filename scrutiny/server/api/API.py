@@ -15,6 +15,7 @@ __all__ = [
     'InvalidRequestException'
 ]
 
+import os
 import logging
 import traceback
 import math
@@ -27,6 +28,10 @@ from base64 import b64encode, b64decode
 import binascii
 import threading
 from datetime import datetime
+from pathlib import Path
+import tempfile
+import shutil
+import time
 
 from scrutiny import tools
 
@@ -89,6 +94,10 @@ class API:
             UNSUBSCRIBE_WATCHABLE = 'unsubscribe_watchable'
             GET_INSTALLED_SFD = 'get_installed_sfd'
             GET_LOADED_SFD = 'get_loaded_sfd'
+            UNINSTALL_SFD = 'uninstall_sfd'
+            DOWNLOAD_SFD = 'download_sfd'
+            UPLOAD_SFD_INIT = 'upload_sfd_init'
+            UPLOAD_SFD_DATA = 'upload_sfd_data'
             LOAD_SFD = 'load_sfd'
             GET_SERVER_STATUS = 'get_server_status'
             GET_DEVICE_INFO = 'get_device_info'
@@ -117,6 +126,10 @@ class API:
             WATCHABLE_UPDATE = 'watchable_update'
             GET_INSTALLED_SFD_RESPONSE = 'response_get_installed_sfd'
             GET_LOADED_SFD_RESPONSE = 'response_get_loaded_sfd'
+            UNINSTALL_SFD_RESPONSE = 'response_uninstall_sfd'
+            DOWNLOAD_SFD_RESPONSE = 'response_download_sfd'
+            UPLOAD_SFD_INIT_RESPONSE = 'response_upload_sfd_init'
+            UPLOAD_SFD_DATA_RESPONSE = 'response_upload_sfd_data'
             GET_POSSIBLE_LINK_CONFIG_RESPONSE = "response_get_possible_link_config"
             SET_LINK_CONFIG_RESPONSE = 'response_set_link_config'
             INFORM_SERVER_STATUS = 'inform_server_status'
@@ -138,6 +151,14 @@ class API:
             USER_COMMAND_RESPONSE = "response_user_command"
             GET_SERVER_STATS = 'response_get_server_stats'
             ERROR_RESPONSE = 'error'
+
+    @dataclass
+    class SfdUploadState:
+        expected_next_index: int
+        upload_token: str
+        total_size: int
+        filepath: Path
+        completed: bool
 
     @dataclass(frozen=True)
     class Statistics:
@@ -168,6 +189,9 @@ class API:
     FLUSH_VARS_TIMEOUT: float = 0.1
     DATALOGGING_MAX_TIMEOUT: int = math.floor((2**32 - 1) * 1e-7)  # 100ns represented in sec
     DATALOGGING_MAX_HOLD_TIME: int = math.floor((2**32 - 1) * 1e-7)   # 100ns represented in sec
+    SFD_MAX_UPLOAD_SIZE = 64 * 1024 * 1024
+    TEMP_FILE_LIFETIME = 30
+    TEMP_FILE_PRUNE_INTERVAL = 10
 
     DATATYPE_2_APISTR: Dict[EmbeddedDataType, api_typing.Datatype] = {
         EmbeddedDataType.sint8: 'sint8',
@@ -268,6 +292,10 @@ class API:
     handle_unexpected_errors: bool   # Always true, except during unit tests
     invalid_request_count: int
     unexpected_error_count: int
+    temp_dir: "tempfile.TemporaryDirectory[str]"
+    tempfile_timestamp_monotonic: Dict[str, float]
+    last_tempfile_prune_timestamp_monotonic: float
+    _sfd_upload_state: Dict[str, Dict[str, SfdUploadState]]
 
     def __init__(self,
                  config: APIConfig,
@@ -295,6 +323,10 @@ class API:
         self.handle_unexpected_errors = True
         self.invalid_request_count = 0
         self.unexpected_error_count = 0
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.tempfile_timestamp_monotonic = {}
+        self.last_tempfile_prune_timestamp_monotonic = time.monotonic()
+        self._sfd_upload_state = {}
 
         self.enable_debug = enable_debug
 
@@ -306,8 +338,12 @@ class API:
             self.Command.Client2Api.SUBSCRIBE_WATCHABLE: self.process_subscribe_watchable,
             self.Command.Client2Api.UNSUBSCRIBE_WATCHABLE: self.process_unsubscribe_watchable,
             self.Command.Client2Api.GET_INSTALLED_SFD: self.process_get_installed_sfd,
+            self.Command.Client2Api.UNINSTALL_SFD: self.process_uninstall_sfd,
             self.Command.Client2Api.LOAD_SFD: self.process_load_sfd,
             self.Command.Client2Api.GET_LOADED_SFD: self.process_get_loaded_sfd,
+            self.Command.Client2Api.DOWNLOAD_SFD: self.process_download_sfd,
+            self.Command.Client2Api.UPLOAD_SFD_INIT: self.process_upload_sfd_init,
+            self.Command.Client2Api.UPLOAD_SFD_DATA: self.process_upload_sfd_data,
             self.Command.Client2Api.GET_SERVER_STATUS: self.process_get_server_status,
             self.Command.Client2Api.GET_DEVICE_INFO: self.process_get_device_info,
             self.Command.Client2Api.SET_LINK_CONFIG: self.process_set_link_config,
@@ -349,6 +385,14 @@ class API:
 
         return cls.WATCHABLE_TYPE_2_APISTR[watchable_type]
 
+    @classmethod
+    def _make_sfd_info(cls, firmware_id: str) -> api_typing.SFDInfo:
+        return {
+            'firmware_id': firmware_id,
+            'metadata': SFDStorage.get_metadata(firmware_id).to_dict(),
+            'filesize': SFDStorage.get_filesize(firmware_id)
+        }
+
     def sfd_loaded_callback(self, sfd: FirmwareDescription) -> None:
         # Called when a SFD is loaded after a device connection
         self.logger.debug("SFD Loaded callback called")
@@ -384,6 +428,9 @@ class API:
         self.datastore.stop_watching_all(conn_id)   # Removes this connection as a watcher from all entries
         self.connections.remove(conn_id)
         self.streamer.clear_connection(conn_id)
+        shutil.rmtree(os.path.join(self.temp_dir.name, conn_id), ignore_errors=True)
+        with tools.SuppressException(KeyError):
+            del self._sfd_upload_state[conn_id]
 
     def is_new_connection(self, conn_id: str) -> bool:
         # Tells if a connection ID is new (not known)
@@ -444,6 +491,10 @@ class API:
         self.streamer.process()     # Decides which message needs to go out
         self.stream_all_we_can()    # Gives the message to the client handler
         self.client_handler.process()  # Give a chance to outgoing message to be written to output buffer
+
+        if time.monotonic() - self.last_tempfile_prune_timestamp_monotonic > self.TEMP_FILE_PRUNE_INTERVAL:
+            self.prune_temp_files()
+            self.last_tempfile_prune_timestamp_monotonic = time.monotonic()
 
     # Process a request gotten from the Client Handler
 
@@ -702,14 +753,42 @@ class API:
     def process_get_installed_sfd(self, conn_id: str, req: api_typing.C2S.GetInstalledSFD) -> None:
         # Request to know the list of installed Scrutiny Firmware Description on this server
         firmware_id_list = SFDStorage.list()
-        metadata_dict = {}
+        info_list: List[api_typing.SFDInfo] = []
         for firmware_id in firmware_id_list:
-            metadata_dict[firmware_id] = SFDStorage.get_metadata(firmware_id).to_dict()
+            info_list.append(self._make_sfd_info(firmware_id))
 
         response: api_typing.S2C.GetInstalledSFD = {
             'cmd': self.Command.Api2Client.GET_INSTALLED_SFD_RESPONSE,
             'reqid': self.get_req_id(req),
-            'sfd_list': metadata_dict
+            'sfd_list': info_list
+        }
+
+        self.client_handler.send(ClientHandlerMessage(conn_id=conn_id, obj=response))
+
+    #  ===  UNINSTALL_SFD ===
+    def process_uninstall_sfd(self, conn_id: str, req: api_typing.C2S.UninstallSFD) -> None:
+        if 'firmware_id_list' not in req:
+            raise InvalidRequestException(req, "Missing field firmware_id_list")
+
+        if not isinstance(req['firmware_id_list'], list):
+            raise InvalidRequestException(req, "Field firmware_id_list is not the right type")
+
+        for firmware_id in req['firmware_id_list']:
+            if not isinstance(firmware_id, str):
+                raise InvalidRequestException(req, "Given firmware_id must be a string")
+
+            if not SFDStorage.is_valid_firmware_id(firmware_id):
+                raise InvalidRequestException(req, "Given firmware_id does not have the correct format. Expecting a 128bits hex string")
+
+            if not SFDStorage.is_installed(firmware_id):
+                raise InvalidRequestException(req, f"Firmware ID {firmware_id} is not installed")
+
+        for firmware_id in req['firmware_id_list']:
+            SFDStorage.uninstall(firmware_id)
+
+        response: api_typing.S2C.UninstallSFD = {
+            'cmd': self.Command.Api2Client.UNINSTALL_SFD_RESPONSE,
+            'reqid': self.get_req_id(req)
         }
 
         self.client_handler.send(ClientHandlerMessage(conn_id=conn_id, obj=response))
@@ -720,11 +799,14 @@ class API:
         # upon connection with a known device
         sfd = self.sfd_handler.get_loaded_sfd()
 
+        loaded_sfd_info: Optional[api_typing.SFDInfo] = None
+        if sfd is not None:
+            loaded_sfd_info = self._make_sfd_info(sfd.get_firmware_id_ascii())
+
         response: api_typing.S2C.GetLoadedSFD = {
             'cmd': self.Command.Api2Client.GET_LOADED_SFD_RESPONSE,
             'reqid': self.get_req_id(req),
-            'firmware_id': sfd.get_firmware_id_ascii() if sfd is not None else None,
-            'metadata': sfd.get_metadata().to_dict() if sfd is not None else None
+            'sfd': loaded_sfd_info
         }
 
         self.client_handler.send(ClientHandlerMessage(conn_id=conn_id, obj=response))
@@ -739,9 +821,237 @@ class API:
             self.sfd_handler.request_load_sfd(req['firmware_id'])
         except Exception as e:
             self.logger.error('Cannot load SFD %s. %s' % (req['firmware_id'], str(e)))
-        # Do not send a response. There's a callback on SFD Loading that will notfy everyone once completed.
+        # Do not send a response. There's a callback on SFD Loading that will notify everyone once completed.
+
+    # === DOWNLOAD_SFD ===
+    def process_download_sfd(self, conn_id: str, req: api_typing.C2S.DownloadSFD) -> None:
+        if 'firmware_id' not in req and not isinstance(req['firmware_id'], str):
+            raise InvalidRequestException(req, 'Invalid firmware_id')
+
+        firmware_id = req['firmware_id']
+        if not SFDStorage.is_installed(firmware_id):
+            raise InvalidRequestException(req, f"No firmware with ID {firmware_id}")
+
+        file = SFDStorage.get_file_location(firmware_id)
+
+        if not os.path.isfile(file):    # not supposed to happen ever.
+            raise FileNotFoundError("Requested SFD file is missing")
+
+        file_stat = os.stat(file)
+        filesize = file_stat.st_size
+        chunk_size = TCPClientHandler.STREAM_MTU // 2 - 256
+
+        if 'max_chunk_size' in req:
+            if not isinstance(req['max_chunk_size'], int):
+                raise InvalidRequestException(req, "Invalid max_chunk_size")
+
+            if req['max_chunk_size'] <= 0:
+                raise InvalidRequestException(req, "Invalid max_chunk_size")
+
+            chunk_size = min(chunk_size, req['max_chunk_size'])
+
+        if chunk_size <= 0:
+            raise ValueError("Internal Error. Bad chunk size")
+        chunk_size = 100
+
+        if filesize == 0:
+            raise InvalidRequestException(req, "SFD file is invalid")
+
+        req_id = self.get_req_id(req)
+
+        max_chunk_count = getattr(self, '_UNITTEST_DOWNLOAD_SFD_MAX_CHUNK_COUNT', 0)
+
+        tmp = tempfile.TemporaryFile()
+
+        def send_task() -> None:
+            try:
+                with tools.TemporaryFileCopy(file) as tmp_filename:
+                    with open(tmp_filename, 'rb') as f:
+                        index = 0
+                        while self.client_handler.is_connection_active(conn_id):
+                            chunk_data = f.read(chunk_size)
+                            if len(chunk_data) == 0:
+                                break
+
+                            if max_chunk_count != 0 and index >= max_chunk_count:
+                                continue
+
+                            msg: api_typing.S2C.DownloadSFD = {
+                                'cmd': self.Command.Api2Client.DOWNLOAD_SFD_RESPONSE,
+                                'reqid': req_id,
+                                'firmware_id': firmware_id,
+                                'total_size': filesize,
+                                'file_chunk': {
+                                    'chunk_index': index,
+                                    'data': b64encode(chunk_data).decode('ascii')
+                                }
+                            }
+
+                            index += 1
+
+                            self.client_handler.send(ClientHandlerMessage(conn_id=conn_id, obj=msg))
+            except Exception as e:
+                tools.log_exception(self.logger, e, "Failed to send the SFD content")
+                self.client_handler.send(ClientHandlerMessage(conn_id=conn_id, obj=self.make_error_response(req, str(e))))
+
+        threading.Thread(target=send_task, daemon=True).start()
+
+    # === UPLOAD_SFD_INIT ===
+    def process_upload_sfd_init(self, conn_id: str, req: api_typing.C2S.UploadSFDInit) -> None:
+        reqid = self.get_req_id(req)
+        if reqid is None:
+            raise InvalidRequestException(req, "Missing request ID")
+
+        if 'firmware_id' not in req:
+            raise InvalidRequestException(req, "Missing firmware_id")
+
+        if not isinstance(req['firmware_id'], str):
+            raise InvalidRequestException(req, "Invalid firmware_id")
+
+        if 'total_size' not in req:
+            raise InvalidRequestException(req, "Missing total_size")
+
+        if not isinstance(req['total_size'], int) or req['total_size'] < 0:
+            raise InvalidRequestException(req, "Invalid total_size")
+
+        if not SFDStorage.is_valid_firmware_id(req['firmware_id']):
+            raise InvalidRequestException(req, "Invalid firmware ID")
+
+        if req['total_size'] > self.SFD_MAX_UPLOAD_SIZE:
+            raise InvalidRequestException(req, f"Size too big. Max={self.SFD_MAX_UPLOAD_SIZE}")
+
+        upload_token = uuid4().hex
+        if conn_id not in self._sfd_upload_state:
+            self._sfd_upload_state[conn_id] = {}
+
+        filepath = self._get_temp_filepath(conn_id, upload_token)
+        if os.path.isfile(filepath):    # pragma: no cover
+            # Should not happen. The filename is a uuid
+            self.logger.error(f"Duplicate file {filepath}")
+            raise RuntimeError("Duplicate file")
+        self.logger.debug(f"Created file : {filepath}")
+        self.create_temp_file(filepath)
+        self._sfd_upload_state[conn_id][upload_token] = self.SfdUploadState(
+            expected_next_index=0,
+            upload_token=upload_token,
+            total_size=req['total_size'],
+            filepath=filepath,
+            completed=False
+        )
+
+        msg: api_typing.S2C.UploadSFDInit = {
+            'cmd': self.Command.Api2Client.UPLOAD_SFD_INIT_RESPONSE,
+            'reqid': self.get_req_id(req),
+            'token': upload_token,
+            'will_overwrite': SFDStorage.is_installed(req['firmware_id'])
+        }
+
+        self.client_handler.send(ClientHandlerMessage(conn_id=conn_id, obj=msg))
+
+    # === UPLOAD_SFD_INIT ===
+
+    def process_upload_sfd_data(self, conn_id: str, req: api_typing.C2S.UploadSFDData) -> None:
+        reqid = self.get_req_id(req)
+        if reqid is None:
+            raise InvalidRequestException(req, "Missing request ID")
+
+        if 'token' not in req:
+            raise InvalidRequestException(req, "Missing token")
+
+        if not isinstance(req['token'], str):
+            raise InvalidRequestException(req, "Invalid token")
+
+        upload_token = req['token']
+        try:
+            upload_status = self._sfd_upload_state[conn_id][upload_token]
+        except KeyError:
+            raise InvalidRequestException(req, "Unknown token")
+
+        filepath = upload_status.filepath
+
+        def raise_invalid_request(error: str) -> NoReturn:
+            try:
+                del self._sfd_upload_state[conn_id][upload_token]
+            except KeyError as e:
+                tools.log_exception(self.logger, e, f"Failed to delete upload state struct for conn: {conn_id}")
+
+            try:
+                if os.path.isfile(filepath):
+                    os.remove(filepath)
+                    self.logger.debug(f"Deleted {filepath}")
+            except OSError as e:    # pragma: no cover
+                tools.log_exception(self.logger, e, "Failed to delete temp file")
+            raise InvalidRequestException(req, error)
+
+        if 'file_chunk' not in req:
+            raise_invalid_request("Missing file_chunk")
+
+        if not isinstance(req['file_chunk'], dict):
+            raise_invalid_request("Invalid file_chunk")
+
+        file_chunk = req['file_chunk']
+        if 'data' not in file_chunk:
+            raise_invalid_request("Missing file chunk data")
+
+        if not isinstance(file_chunk['data'], str):
+            raise_invalid_request('Invalid file chunk data')
+
+        if 'chunk_index' not in file_chunk:
+            raise_invalid_request("Missing chunk_index")
+
+        if not isinstance(file_chunk['chunk_index'], int):
+            raise_invalid_request('Invalid chunk_index')
+
+        chunk_index = req['file_chunk']['chunk_index']
+
+        if upload_status.expected_next_index != chunk_index:
+            raise_invalid_request(f'Unexpected chunk_index. Expected {upload_status.expected_next_index}')
+
+        filestat = os.stat(filepath)
+        actual_size = filestat.st_size
+
+        try:
+            data_chunk = b64decode(req['file_chunk']['data'], validate=True)
+        except binascii.Error:
+            raise_invalid_request("Invalid base64 data chunk")
+
+        new_size = actual_size + len(data_chunk)
+        if new_size > self.SFD_MAX_UPLOAD_SIZE:
+            raise_invalid_request(f"Total size too big. Max size = {self.SFD_MAX_UPLOAD_SIZE}")
+
+        if new_size > upload_status.total_size:
+            raise_invalid_request("Size mismatch. Received more data than total_size")
+
+        with open(filepath, 'ab') as f:
+            f.write(data_chunk)
+
+        self._update_tempfile_timestamp(filepath)
+
+        sfd_info: Optional[api_typing.SFDInfo] = None
+        if new_size == upload_status.total_size:
+            sfd = SFDStorage.install(str(filepath), ignore_exist=True)
+            sfd_info = self._make_sfd_info(sfd.get_firmware_id_ascii())
+            upload_status.completed = True
+
+            with tools.LogException(self.logger, OSError, "Failed to delete uploaded SFD"):
+                os.remove(filepath)
+
+            with tools.LogException(self.logger, KeyError, "Failed to delete the SFD upload status structure"):
+                del self._sfd_upload_state[conn_id][upload_token]
+
+        upload_status.expected_next_index += 1
+        msg: api_typing.S2C.UploadSFDData = {
+            'cmd': self.Command.Api2Client.UPLOAD_SFD_DATA_RESPONSE,
+            'reqid': self.get_req_id(req),
+            'completed': upload_status.completed,
+            'actual_size': new_size,
+            'sfd_info': sfd_info
+        }
+
+        self.client_handler.send(ClientHandlerMessage(conn_id=conn_id, obj=msg))
 
     #  ===  GET_SERVER_STATUS ===
+
     def process_get_server_status(self, conn_id: str, req: api_typing.C2S.GetServerStatus) -> None:
         # Request the server status.
         obj = self.craft_inform_server_status(reqid=self.get_req_id(req))
@@ -1833,7 +2143,12 @@ class API:
         return response
 
     def get_req_id(self, req: api_typing.C2SMessage) -> Optional[int]:
-        return req['reqid'] if 'reqid' in req else None
+        reqid = req['reqid'] if 'reqid' in req else None
+        if reqid is not None:
+            if not isinstance(reqid, int):
+                raise InvalidRequestException(req, "Invalid request ID")
+
+        return reqid
 
     def is_dict_with_key(self, d: Dict[Any, Any], k: Any) -> bool:
         return isinstance(d, dict) and k in d
@@ -1847,3 +2162,41 @@ class API:
             unexpected_error_count=self.unexpected_error_count,
             client_handler=self.client_handler.get_stats()
         )
+
+    def _get_temp_filepath(self, conn_id: str, name: str) -> Path:
+        tempdir = Path(self.temp_dir.name) / conn_id
+        os.makedirs(tempdir, exist_ok=True)
+        tempfile = tempdir / name
+        return tempfile
+
+    def _get_file_timestamp_dict_key(self, filepath: Union[Path, str]) -> str:
+        filepath = Path(filepath).absolute()
+        return os.path.normpath(str(filepath))
+
+    def _update_tempfile_timestamp(self, filepath: Union[Path, str]) -> None:
+        filepath_str = self._get_file_timestamp_dict_key(filepath)
+        self.tempfile_timestamp_monotonic[filepath_str] = time.monotonic()
+
+    def _get_tempfile_timestamp(self, filepath: Union[Path, str]) -> Optional[float]:
+        filepath_str = self._get_file_timestamp_dict_key(filepath)
+        try:
+            return self.tempfile_timestamp_monotonic[filepath_str]
+        except KeyError:
+            return None
+
+    def create_temp_file(self, filepath: Union[str, Path]) -> None:
+        open(filepath, 'wb').close()
+        self._update_tempfile_timestamp(filepath)
+
+    def prune_temp_files(self) -> None:
+        for dirpath, dirnames, filenames in os.walk(self.temp_dir.name):
+            for filename in filenames:
+                filepath = os.path.join(dirpath, filename)
+                timestamp = self._get_tempfile_timestamp(filepath)
+                if timestamp is not None:
+                    if time.monotonic() - timestamp > self.TEMP_FILE_LIFETIME:
+                        try:
+                            os.remove(filepath)
+                            self.logger.debug(f"Pruning temporary file {filepath}")
+                        except OSError as e:
+                            tools.log_exception(self.logger, e, f"Failed to prune file : {filepath}")

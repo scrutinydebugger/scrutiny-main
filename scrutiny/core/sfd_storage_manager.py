@@ -38,10 +38,16 @@ class TempStorageWithAutoRestore:
         self.storage.restore_storage()
 
 
+InstallCallback: TypeAlias = Callable[[str], None]
+UninstallCallback: TypeAlias = Callable[[str], None]
+
+
 class SFDStorageManager:
 
     temporary_dir: Optional["tempfile.TemporaryDirectory[str]"]
     folder: str
+    install_callbacks: List[InstallCallback]
+    uninstall_callbacks: List[UninstallCallback]
 
     @classmethod
     def clean_firmware_id(self, firmwareid: str) -> str:
@@ -54,6 +60,14 @@ class SFDStorageManager:
     def __init__(self, folder: str) -> None:
         self.folder = folder
         self.temporary_dir = None
+        self.install_callbacks = []
+        self.uninstall_callbacks = []
+
+    def register_install_callback(self, callback: InstallCallback) -> None:
+        self.install_callbacks.append(callback)
+
+    def register_uninstall_callback(self, callback: UninstallCallback) -> None:
+        self.uninstall_callbacks.append(callback)
 
     def use_temp_folder(self) -> TempStorageWithAutoRestore:
         """Require the storage manager to switch to a temporary directory. Used for unit testing"""
@@ -106,6 +120,8 @@ class SFDStorageManager:
 
         if os.path.isfile(target_file):
             os.remove(target_file)
+            for callback in self.uninstall_callbacks:
+                callback(firmwareid)
         else:
             if not ignore_not_exist:
                 raise ValueError('SFD file with firmware ID %s not found' % (firmwareid))
@@ -122,6 +138,10 @@ class SFDStorageManager:
 
     def get(self, firmwareid: str) -> FirmwareDescription:
         """Returns the FirmwareDescription object from the global storage that has the given firmware ID """
+        file = self.get_file_location(firmwareid)
+        return FirmwareDescription(file)
+
+    def get_file_location(self, firmwareid: str) -> str:
         firmwareid = self.clean_firmware_id(firmwareid)
         if not self.is_valid_firmware_id(firmwareid):
             raise ValueError('Invalid firmware ID')
@@ -129,9 +149,11 @@ class SFDStorageManager:
         storage = self.get_storage_dir()
         filename = os.path.join(storage, firmwareid)
         if not os.path.isfile(filename):
-            raise Exception('Scrutiny Firmware description with firmware ID %s not installed on this system' % (firmwareid))
+            raise Exception(f'Scrutiny Firmware description with firmware ID {firmwareid} not installed on this system')
+        return filename
 
-        return FirmwareDescription(filename)
+    def get_filesize(self, firmware_id: str) -> int:
+        return os.stat(self.get_file_location(firmware_id)).st_size
 
     def get_metadata(self, firmwareid: str) -> SFDMetadata:
         """Reads only the metadata from the Firmware DEscription file in the global storage identified by the given ID"""
@@ -151,7 +173,7 @@ class SFDStorageManager:
 
     @classmethod
     def is_valid_firmware_id(cls, firmware_id: str) -> bool:
-        """Returns True if the given string rexpect the expected format for a firmware ID"""
+        """Returns True if the given string respect the expected format for a firmware ID"""
         retval = False
         with tools.SuppressException(Exception):
             firmware_id = cls.clean_firmware_id(firmware_id)

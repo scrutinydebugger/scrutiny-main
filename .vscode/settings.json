@@ -36,8 +36,11 @@
         "deinterleaved",
         "Endianness",
         "endregion",
+        "ephemerous",
+        "firmwareid",
         "lastrowid",
         "Loggable",
+        "msgbox",
         "pollable",
         "reqid",
         "reqids",
@@ -50,5 +53,27 @@
         "varbit",
         "xaxis"
     ],
-    "cSpell.enabled": true
+    "cSpell.enabled": true,
+    "auto-correct.dictionary": [
+        {
+            "languages": ["*"],
+            "words": {
+                "backgorund": "background",
+                "downlaod": "download",
+                "scurtiny": "scrutiny",
+                "isntall": "install",
+                "isntalled": "installed",
+                "is_isntalled": "is_installed",
+                "laoded" : "loaded",
+                "conenction" : "connection",
+                "conencted" : "connected",
+                "lsitener" : "listener",
+                "lsiten" : "listen",
+                "lsitening" : "listening",
+                "compelte" : "complete",
+                "compelted" : "completed",
+                "fielsize" : "filesize",
+                "resposne" : "response",
+            }
+        }]
 }

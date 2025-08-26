@@ -307,6 +307,9 @@ class SFDInfo:
     firmware_id: str
     """Unique firmware hash"""
 
+    filesize: int
+    """The size of the SFD file in the server storage"""
+
     metadata: Optional[SFDMetadata]
     """The firmware metadata embedded in the Scrutiny Firmware Description file if available. ``None`` if no metadata has been added to the SFD"""
 
@@ -571,7 +574,7 @@ class CANLinkConfig(BaseLinkConfig):
         """
         (Immutable struct) A Vector specific configuration used when 
         :attr:`CANLinkConfig.interface<scrutiny.sdk.CANLinkConfig.interface>` = :attr:`Vector<scrutiny.sdk.CANLinkConfig.CANInterface.Vector>`. 
-        
+
         Refer to ``python-can`` documentation for more details.
         """
 
@@ -596,14 +599,13 @@ class CANLinkConfig(BaseLinkConfig):
                 'bitrate': self.bitrate,
                 'data_bitrate': self.data_bitrate
             }
-        
-    
+
     @dataclass(frozen=True)
     class KVaserConfig:
         """
         (Immutable struct) A KVaser specific configuration used when 
         :attr:`CANLinkConfig.interface<scrutiny.sdk.CANLinkConfig.interface>` = :attr:`KVaser<scrutiny.sdk.CANLinkConfig.CANInterface.KVaser>`. 
-        
+
         Refer to ``python-can`` documentation for more details.
         """
 
@@ -627,7 +629,7 @@ class CANLinkConfig(BaseLinkConfig):
                 'channel': self.channel,
                 'bitrate': self.bitrate,
                 'data_bitrate': self.data_bitrate,
-                'fd_non_iso' : self.fd_non_iso
+                'fd_non_iso': self.fd_non_iso
             }
 
     @dataclass(frozen=True)
@@ -635,7 +637,7 @@ class CANLinkConfig(BaseLinkConfig):
         """
         (Immutable struct) A PCAN specific configuration used when 
         :attr:`CANLinkConfig.interface<scrutiny.sdk.CANLinkConfig.interface>` = :attr:`PCAN<scrutiny.sdk.CANLinkConfig.CANInterface.PCAN>`.
-            
+
         Refer to ``python-can`` documentation for more details.
         """
 
@@ -659,7 +661,7 @@ class CANLinkConfig(BaseLinkConfig):
         """
         (Immutable struct) A ETAS specific configuration used when 
         :attr:`CANLinkConfig.interface<scrutiny.sdk.CANLinkConfig.interface>` = :attr:`ETAS<scrutiny.sdk.CANLinkConfig.CANInterface.ETAS>`. 
-        
+
         Refer to ``python-can`` documentation for more details.
         """
 
@@ -682,7 +684,6 @@ class CANLinkConfig(BaseLinkConfig):
                 'data_bitrate': self.data_bitrate,
             }
 
-
     INTERFACE_CONFIG_MAP = {
         CANInterface.SocketCAN: SocketCANConfig,
         CANInterface.Vector: VectorConfig,
@@ -690,7 +691,6 @@ class CANLinkConfig(BaseLinkConfig):
         CANInterface.PCAN: PCANConfig,
         CANInterface.ETAS: ETASConfig,
     }
-
 
     def __post_init__(self) -> None:
         if not isinstance(self.interface, CANLinkConfig.CANInterface):

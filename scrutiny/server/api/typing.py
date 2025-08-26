@@ -15,6 +15,7 @@ from scrutiny.tools.typing import *
 
 WatchableType = Literal['alias', 'var', 'rpv']
 # Mapping between app type and API type.
+
 SFDMetadata = scrutiny.core.firmware_description.MetadataTypedDict
 SerialLinkConfig = scrutiny.server.device.links.typing.SerialConfigDict
 UdpLinkConfig = scrutiny.server.device.links.typing.UdpConfigDict
@@ -45,6 +46,12 @@ DataloggingState = Literal["unavailable", "standby", "waiting_for_trigger", "acq
 DataloggingCondition = Literal['true', 'eq', 'neq', 'get', 'gt', 'let', 'lt', 'within', 'cmt']
 DataloggingEncoding = Literal['raw']
 LoopType = Literal['fixed_freq', 'variable_freq']
+
+
+class SFDInfo(TypedDict):
+    firmware_id: str
+    filesize: int
+    metadata: SFDMetadata
 
 
 class DataloggingStatus(TypedDict):
@@ -199,6 +206,11 @@ class AxisNameUpdateEntry(TypedDict):
     name: str
 
 
+class FileChunk(TypedDict):
+    data: str
+    chunk_index: int
+
+
 class C2S:
     "Client To Server"
     class Echo(BaseC2SMessage):
@@ -225,6 +237,21 @@ class C2S:
 
     class LoadSFD(BaseC2SMessage):
         firmware_id: str
+
+    class DownloadSFD(BaseC2SMessage):
+        firmware_id: str
+        max_chunk_size: Optional[int]    # Mostly for testing
+
+    class UploadSFDInit(BaseC2SMessage):
+        total_size: int
+        firmware_id: str
+
+    class UploadSFDData(BaseC2SMessage):
+        token: str
+        file_chunk: FileChunk
+
+    class UninstallSFD(BaseC2SMessage):
+        firmware_id_list: List[str]
 
     class SubscribeWatchable(BaseC2SMessage):
         watchables: List[str]
@@ -303,11 +330,27 @@ class S2C:
         server_time_zero_timestamp: float
 
     class GetInstalledSFD(BaseS2CMessage):
-        sfd_list: Dict[str, SFDMetadata]
+        sfd_list: List[SFDInfo]
+
+    class UninstallSFD(BaseS2CMessage):
+        pass
+
+    class DownloadSFD(BaseS2CMessage):
+        firmware_id: str
+        total_size: int
+        file_chunk: FileChunk
+
+    class UploadSFDInit(BaseS2CMessage):
+        token: str
+        will_overwrite: bool
+
+    class UploadSFDData(BaseS2CMessage):
+        completed: bool
+        actual_size: int
+        sfd_info: Optional[SFDInfo]
 
     class GetLoadedSFD(BaseS2CMessage):
-        firmware_id: Optional[str]
-        metadata: Optional[SFDMetadata]
+        sfd: Optional[SFDInfo]
 
     class InformServerStatus(BaseS2CMessage):
         device_status: DeviceCommStatus
@@ -430,6 +473,10 @@ C2SMessage = Union[
     C2S.GetWatchableCount,
     C2S.GetWatchableList,
     C2S.LoadSFD,
+    C2S.DownloadSFD,
+    C2S.UploadSFDInit,
+    C2S.UploadSFDData,
+    C2S.UninstallSFD,
     C2S.SubscribeWatchable,
     C2S.UnsubscribeWatchable,
     C2S.GetPossibleLinkConfig,
@@ -451,6 +498,10 @@ S2CMessage = Union[
     S2C.Welcome,
     S2C.GetInstalledSFD,
     S2C.GetLoadedSFD,
+    S2C.UninstallSFD,
+    S2C.DownloadSFD,
+    S2C.UploadSFDInit,
+    S2C.UploadSFDData,
     S2C.InformServerStatus,
     S2C.GetDeviceInfo,
     S2C.GetWatchableCount,

@@ -9,7 +9,7 @@
 __all__ = ['Self', 'List', 'Set', 'Dict', 'Union', 'Optional', 'Any', 'cast', 'Iterable',
            'Sequence', 'Callable', 'TypedDict', 'Literal',
            'TypeVar', 'ParamSpec', 'TYPE_CHECKING', 'Generator', 'Tuple', 'TypeAlias', 'Type', 'IO',
-           'Generic', 'Deque']
+           'Generic', 'Deque', 'Mapping', 'NoReturn']
 
 import sys
 
@@ -38,6 +38,7 @@ from typing import (
     Literal,
     TypeVar,
     ParamSpec,
+    Mapping,
     TYPE_CHECKING,
     Generator,
     Tuple,
@@ -45,5 +46,6 @@ from typing import (
     Type,
     IO,
     Generic,
-    Deque
+    Deque,
+    NoReturn
 )

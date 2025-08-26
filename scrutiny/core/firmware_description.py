@@ -54,11 +54,11 @@ class SFDGenerationInfo:
     """(Immutable struct) Metadata relative to the generation of the SFD"""
 
     timestamp: Optional[datetime]
-    """Date/time at which the SFD has been created ``None`` if not available"""
+    """Date/time at which the SFD has been created. ``None`` if not available"""
     python_version: Optional[str]
-    """Python version with which the SFD has been created ``None`` if not available"""
+    """Python version with which the SFD has been created. ``None`` if not available"""
     scrutiny_version: Optional[str]
-    """Scrutiny version with which the SFD has been created ``None`` if not available"""
+    """Scrutiny version with which the SFD has been created. ``None`` if not available"""
     system_type: Optional[str]
     """Type of system on which the SFD has been created. Value given by Python `platform.system()`. ``None`` if not available"""
 
@@ -178,7 +178,7 @@ class FirmwareDescription:
         return metadata
 
     def load_from_file(self, filename: str) -> None:
-        """Reads a Scrutiny Frimware Description file (.sfd) which is just a .zip containing bunch of json files """
+        """Reads a Scrutiny Firmware Description file (.sfd) which is just a .zip containing bunch of json files """
         with zipfile.ZipFile(filename, mode='r', compression=self.COMPRESSION_TYPE) as sfd:
             with sfd.open(self.firmwareid_filename) as f:
                 self.firmwareid = self.read_firmware_id(f)  # This is not a Json file. Content is raw.
@@ -195,6 +195,12 @@ class FirmwareDescription:
                     self.append_aliases(self.read_aliases(f, self.varmap))
 
     @classmethod
+    def read_firmware_id_from_sfd_file(cls, filename: str) -> bytes:
+        with zipfile.ZipFile(filename, mode='r', compression=cls.COMPRESSION_TYPE) as sfd:
+            with sfd.open(cls.firmwareid_filename) as f:
+                return cls.read_firmware_id(f)
+
+    @classmethod
     def read_firmware_id(cls, f: IO[bytes]) -> bytes:
         return bytes.fromhex(f.read().decode('ascii'))
 
@@ -204,7 +210,7 @@ class FirmwareDescription:
 
         metadata_dict = cast(MetadataTypedDict, json.loads(f.read().decode('utf8')))
         if not isinstance(metadata_dict, dict):
-            return {}
+            metadata_dict = {}
 
         def remove_bad_fields(obj: Any, fields: FIELDS_TYPE) -> None:
             obj2 = cast(Dict[str, Any], obj)

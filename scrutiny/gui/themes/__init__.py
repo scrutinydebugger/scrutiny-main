@@ -32,7 +32,7 @@ class ScrutinyThemeProperties(enum.Enum):
     WATCHABLE_LINE_EDIT_CLEAR_BTN_PRESSED_COLOR = enum.auto()
 
     WIDGET_ERROR_BACKGROUND_COLOR = enum.auto()
-    
+
     EMBEDDED_GRAPH_CHART_TRIGGER_COLOR = enum.auto()
 
 

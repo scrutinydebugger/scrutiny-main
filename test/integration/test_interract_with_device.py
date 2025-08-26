@@ -102,17 +102,18 @@ class TestinteractWithDevice(ScrutinyIntegrationTestWithTestSFD1):
         response = cast(api_typing.S2C.GetLoadedSFD, response)
 
         loaded_sfd = self.server.sfd_handler.get_loaded_sfd()
-        self.assertEqual(response['firmware_id'], loaded_sfd.get_firmware_id_ascii())
+        sfd = response['sfd']
+        self.assertEqual(sfd['firmware_id'], loaded_sfd.get_firmware_id_ascii())
 
-        self.assertEqual(response['metadata']['author'], loaded_sfd.metadata.author)
-        self.assertEqual(response['metadata']['project_name'], loaded_sfd.metadata.project_name)
-        self.assertEqual(response['metadata']['version'], loaded_sfd.metadata.version)
-        self.assertEqual(response['metadata']['generation_info']['python_version'],
+        self.assertEqual(sfd['metadata']['author'], loaded_sfd.metadata.author)
+        self.assertEqual(sfd['metadata']['project_name'], loaded_sfd.metadata.project_name)
+        self.assertEqual(sfd['metadata']['version'], loaded_sfd.metadata.version)
+        self.assertEqual(sfd['metadata']['generation_info']['python_version'],
                          loaded_sfd.metadata.generation_info.python_version)
-        self.assertEqual(response['metadata']['generation_info']['scrutiny_version'],
+        self.assertEqual(sfd['metadata']['generation_info']['scrutiny_version'],
                          loaded_sfd.metadata.generation_info.scrutiny_version)
-        self.assertEqual(response['metadata']['generation_info']['system_type'], loaded_sfd.metadata.generation_info.system_type)
-        self.assertEqual(response['metadata']['generation_info']['time'], loaded_sfd.metadata.generation_info.timestamp.timestamp())
+        self.assertEqual(sfd['metadata']['generation_info']['system_type'], loaded_sfd.metadata.generation_info.system_type)
+        self.assertEqual(sfd['metadata']['generation_info']['time'], loaded_sfd.metadata.generation_info.timestamp.timestamp())
 
 
 class TestinteractWithDeviceNoThrottling(ScrutinyIntegrationTestWithTestSFD1):

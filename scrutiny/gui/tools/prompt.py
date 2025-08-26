@@ -36,6 +36,15 @@ def error_msgbox(parent: QWidget, title: str, message: str) -> None:
     msgbox.show()
 
 
+def success_msgbox(parent: QWidget, title: str, message: str) -> None:
+    msgbox = QMessageBox(parent)
+    msgbox.setIconPixmap(scrutiny_get_theme().load_medium_icon_as_pixmap(assets.Icons.Success))
+    msgbox.setStandardButtons(QMessageBox.StandardButton.Close)
+    msgbox.setWindowTitle(title)
+    msgbox.setText(message)
+    msgbox.show()
+
+
 def exception_msgbox(parent: QWidget, exception: Exception, title: str, message: str) -> None:
     fullmsg = f"{message}.\n {exception.__class__.__name__}: {exception}"
     error_msgbox(parent, title, fullmsg)
@@ -47,14 +56,12 @@ def get_open_filepath_from_last_save_dir(parent: QWidget, extension_with_dot: st
     if len(filename) == 0:
         return None     # Cancelled
     gui_persistent_data.global_namespace().set_last_save_dir(Path(os.path.dirname(filename)))
-    if not filename.lower().endswith(extension_with_dot):
-        filename += extension_with_dot
     return Path(filename)
 
 
-def get_save_filepath_from_last_save_dir(parent: QWidget, extension_with_dot: str, title: str = "Save") -> Optional[Path]:
+def get_save_filepath_from_last_save_dir(parent: QWidget, extension_with_dot: str, title: str = "Save", default_name: str = "") -> Optional[Path]:
     save_dir = gui_persistent_data.global_namespace().get_last_save_dir_or_workdir()
-    filename, _ = QFileDialog.getSaveFileName(parent, title, str(save_dir), f"*{extension_with_dot}")
+    filename, _ = QFileDialog.getSaveFileName(parent, title, str(save_dir / default_name), f"*{extension_with_dot}")
     if len(filename) == 0:
         return None     # Cancelled
     gui_persistent_data.global_namespace().set_last_save_dir(Path(os.path.dirname(filename)))

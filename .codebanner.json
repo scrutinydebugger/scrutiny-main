@@ -864,6 +864,9 @@
         },
         "scrutiny/gui/dialogs/device_config/base_config_pane.py": {
             "docstring": "A base class for all configuration widget used in the device_config_dialog"
+        },
+        "scrutiny/gui/dialogs/server_sfd_manager_dialog.py": {
+            "docstring": "A dialog to manage the already installed Scrutiny Firmware Description files on the server"
         }
     }
 }

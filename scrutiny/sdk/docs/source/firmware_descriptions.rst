@@ -1,14 +1,18 @@
 Scrutiny Firmware Description (SFD)
 ===================================
 
-A Scrutiny Firmware Description (SFD) is a file that's generated during the firmware's build phase for embedded systems. This file includes:
+A Scrutiny Firmware Description (SFD) is a file that's generated during the firmware's build phase. This file includes:
 
 a. The device's static and global variables, which are identified from the debug symbols (including address, size, type, endianness)
-b. firmware ID, which is used to match the SFD with the corresponding firmware
-c. Metadata about the firmware, such as its name, project version, author, build date, etc.
-d. Alias definitions
+b. A Firmware ID, which is used to match the SFD with the corresponding firmware
+c. The metadata about the firmware, such as its name, project version, author, build date, etc.
+d. Aliases definitions
 
-The :abbr:`SFD (Scrutiny Firmware Description)` must be installed on the server using the ``install-sfd`` command with the :abbr:`CLI (Command Line Interface)`. 
+The :abbr:`SFD (Scrutiny Firmware Description)` must be installed on the server using one of the following method : 
+
+- Through the :abbr:`CLI (Command Line Interface)`, using the ``install-sfd`` command. The command must be run on the server. (Example: `scrutiny install-sfd my_file.sfd`)
+- Through the SDK, using :meth:`init_sfd_upload()<scrutiny.sdk.client.ScrutinyClient.init_sfd_upload>`
+- Through the GUI. The GUI uses the SDK to upload the SFD file to the server
 
 When a device connects, the server will automatically load the appropriate :abbr:`SFD (Scrutiny Firmware Description)` based on the 
 firmware ID that the device broadcasts.
@@ -16,6 +20,18 @@ firmware ID that the device broadcasts.
 -----
 
 .. automethod:: scrutiny.sdk.client.ScrutinyClient.get_installed_sfds
+
+-----
+
+.. automethod:: scrutiny.sdk.client.ScrutinyClient.uninstall_sfds
+
+-----
+
+.. automethod:: scrutiny.sdk.client.ScrutinyClient.download_sfd
+
+-----
+
+.. automethod:: scrutiny.sdk.client.ScrutinyClient.init_sfd_upload
 
 -----
 
@@ -37,3 +53,35 @@ firmware ID that the device broadcasts.
     :exclude-members: __new__, __init__
     :members:
     :member-order: bysource
+
+-----
+
+.. autoclass:: scrutiny.sdk.client.SFDDownloadRequest 
+    :exclude-members: __new__, __init__
+    :members:
+    :inherited-members:
+    :member-order: bysource
+
+-----
+
+.. autoclass:: scrutiny.sdk.client.SFDUploadRequest 
+    :exclude-members: __new__, __init__
+    :members:
+    :member-order: bysource
+
+-----
+
+Examples
+--------
+
+Download an SFD from the server and save it to a file
+
+.. literalinclude:: _static/code-examples/sfd_upload_download/download_sfd.py
+    :language: python
+    :encoding: utf-8
+
+Upload and SFD to the server and install it
+
+.. literalinclude:: _static/code-examples/sfd_upload_download/upload_sfd.py
+    :language: python
+    :encoding: utf-8
