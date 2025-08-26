@@ -42,4 +42,9 @@ python3 -m mypy --cache-dir $tempdir calibration_1_pi_graph.py --strict
 cd $EXAMPLES_ROOT/event_looping
 python3 -m mypy --cache-dir $tempdir event_looping.py --strict 
 
+# SFD upload/download
+cd $EXAMPLES_ROOT/sfd_upload_download
+python3 -m mypy --cache-dir $tempdir download_sfd.py --strict 
+python3 -m mypy --cache-dir $tempdir upload_sfd.py --strict 
+
 rm -rf $tempdir

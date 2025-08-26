@@ -259,6 +259,13 @@ class SFDDownloadRequest(PendingRequest):
         self._reqid = reqid
         self._expected_total_size = None
 
+    def _set_expected_total_size(self, total: int) -> None:
+        self._expected_total_size = total
+
+    def _add_data(self, data: bytes) -> None:
+        self._buffer.extend(data)
+        self._update_expiration_timer()        
+
     @property
     def received_count(self) -> int:
         """Amount of bytes received so far"""
@@ -270,13 +277,13 @@ class SFDDownloadRequest(PendingRequest):
         return self._firmware_id
 
     def cancel(self) -> None:
-        """Cancel the request and wake up any thread calling :meth:`wait_for_completion<wait_for_completion>`"""
+        """Cancel the request and wake up any thread that called :meth:`wait_for_completion<wait_for_completion>`"""
         self._client._cancel_download_sfd_request(self._reqid)
 
     def get(self) -> bytes:
         """Return the downloaded SFD (Scrutiny Firmware Description) data. 
-        Data is available once ``is_success`` = ``True``. One can call :meth:`wait_for_completion<SFDDownloadRequest.wait_for_completion>`
-        to wait for all the data to eb received.
+        Data is available once ``is_success=True``. One can call :meth:`wait_for_completion<SFDDownloadRequest.wait_for_completion>`
+        to wait for all the data to be received.
 
         :raise InvalidValueError: If the data is not fully downloaded.
         """
@@ -284,15 +291,8 @@ class SFDDownloadRequest(PendingRequest):
             raise sdk.exceptions.InvalidValueError("The content is not fully downloaded yet")
         return bytes(self._buffer)
 
-    def _set_expected_total_size(self, total: int) -> None:
-        self._expected_total_size = total
-
-    def _add_data(self, data: bytes) -> None:
-        self._buffer.extend(data)
-        self._update_expiration_timer()
-
     def get_progress(self) -> float:
-        """Return the a number between 0 and 1 indicating the download percentage being received."""
+        """Returns a number between 0 and 1 indicating the download percentage being received."""
         if self._expected_total_size is None:
             return 0
 
@@ -371,7 +371,7 @@ class SFDUploadRequest(PendingRequest):
         self._client._cancel_upload_sfd_request(self._init_reqid)
 
     def get_progress(self) -> float:
-        """Return the a number between 0 and 1 indicating the upload percentage being acknowledged by the server."""
+        """Returns a number between 0 and 1 indicating the upload percentage being acknowledged by the server."""
         if self._filesize == 0:
             return 0
 
@@ -2029,7 +2029,7 @@ class ScrutinyClient:
         """Download a Scrutiny Fiimware Description file from the server
 
         :param firmware_id: A 32 char hex string that matches the wanted SFD firmware ID
-        :return: A future object that gives the status of the download and can be waited on.
+        :return: A handle on the request that gives the status of the download and can be waited on.
         :raise TypeError: Given parameter not of the expected type
         """
 
@@ -2054,6 +2054,19 @@ class ScrutinyClient:
         return pending_req
 
     def init_sfd_upload(self, filepath: Union[str, Path]) -> SFDUploadRequest:
+        """
+        Initialize the upload and isntall process of a Scrutiny Firmware Description (SFD) file to the server.
+        Calling this method will not transfer the data: calling :meth:`SFDUploadRequest.start()<scrutiny.sdk.client.SFDUploadRequest.start>` on the returned 
+        object is required to start the file transfer.
+          
+        :param filepath: The path to the SFD file to upload and install   
+        :return: A handle on the request that gives the status of the uplaod and can be waited on.
+
+        :raise TypeError: Given parameter not of the expected type
+        :raise ValueError: Given file is invalid or too big
+        :raise OperationFailure: Failed to initialize the upload, the server may have denied it
+        
+        """
 
         validation.assert_type(filepath, 'filepath', (str, Path))
         filepath = Path(filepath)

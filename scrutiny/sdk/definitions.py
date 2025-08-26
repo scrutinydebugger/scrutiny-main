@@ -308,7 +308,7 @@ class SFDInfo:
     """Unique firmware hash"""
 
     filesize: int
-    """The size of the SFD file"""
+    """The size of the SFD file in the server storage"""
 
     metadata: Optional[SFDMetadata]
     """The firmware metadata embedded in the Scrutiny Firmware Description file if available. ``None`` if no metadata has been added to the SFD"""
