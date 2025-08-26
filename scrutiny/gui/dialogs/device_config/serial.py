@@ -19,6 +19,7 @@ from scrutiny.gui.dialogs.device_config.base_config_pane import BaseConfigPane
 from scrutiny.tools.typing import *
 from scrutiny import tools
 
+
 class SerialConfigPane(BaseConfigPane):
 
     class PersistentDataKeys:
@@ -28,7 +29,6 @@ class SerialConfigPane(BaseConfigPane):
         STOPBIT = 'stopbit'
         PARITY = 'parity'
         DATABITS = 'databits'
-
 
     _port_name_textbox: ValidableLineEdit
     _baudrate_textbox: ValidableLineEdit
@@ -144,9 +144,9 @@ class SerialConfigPane(BaseConfigPane):
         self._start_delay_textbox.validate_expect_valid()
 
     @classmethod
-    def save_to_persistent_data(cls, config:sdk.BaseLinkConfig) -> None:
+    def save_to_persistent_data(cls, config: sdk.BaseLinkConfig) -> None:
         serial_config = cast(sdk.SerialLinkConfig, config)
-        namespace = gui_persistent_data.get_namespace(cls.__name__)        
+        namespace = gui_persistent_data.get_namespace(cls.__name__)
         namespace.set_str(cls.PersistentDataKeys.PORT, serial_config.port)
         namespace.set_int(cls.PersistentDataKeys.BAUDRATE, serial_config.baudrate)
         namespace.set_float(cls.PersistentDataKeys.START_DELAY, serial_config.start_delay)
@@ -154,7 +154,6 @@ class SerialConfigPane(BaseConfigPane):
         namespace.set_int(cls.PersistentDataKeys.DATABITS, serial_config.databits.to_int())
         namespace.set_float(cls.PersistentDataKeys.STOPBIT, serial_config.stopbits.to_float())
         namespace.prune(tools.get_class_attr_vals(cls.PersistentDataKeys))
-
 
     @classmethod
     def initialize_config(cls) -> sdk.BaseLinkConfig:

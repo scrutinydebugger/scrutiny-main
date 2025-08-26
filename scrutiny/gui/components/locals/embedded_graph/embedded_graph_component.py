@@ -172,35 +172,35 @@ class InitialGraphListDownloadConditions:
 
 class EmbeddedGraphChartView(ScrutinyChartView):
 
-    _trigger_xval:float
-    _show_trigger:bool
-    _trigger_pen:QPen
-    
+    _trigger_xval: float
+    _show_trigger: bool
+    _trigger_pen: QPen
+
     @tools.copy_type(ScrutinyChartView.__init__)
-    def __init__(self, *args:Any, **kwargs:Any) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        self._trigger_xval=0
-        self._show_trigger=False
+        self._trigger_xval = 0
+        self._show_trigger = False
         self._trigger_pen = QPen()
         self._trigger_pen.setStyle(Qt.PenStyle.DashLine)
         self._trigger_pen.setColor(scrutiny_get_theme_prop(ScrutinyThemeProperties.EMBEDDED_GRAPH_CHART_TRIGGER_COLOR))
 
-    def show_trigger_marker_at(self, xval:float) -> None:
+    def show_trigger_marker_at(self, xval: float) -> None:
         self._trigger_xval = xval
         self.show_trigger_marker()
-    
+
     def show_trigger_marker(self) -> None:
         self._show_trigger = True
         self._invalidate_forground()
-    
+
     def remove_trigger_marker(self) -> None:
-        self._show_trigger=False
+        self._show_trigger = False
         self._invalidate_forground()
 
     def drawForeground(self, painter: QPainter, rect: Union[QRectF, QRect]) -> None:
         super().drawForeground(painter, rect)
         xaxis = self.chart().axisX()
-        if self._show_trigger and xaxis is not None :
+        if self._show_trigger and xaxis is not None:
             chart = self.chart()
             plotarea_mapped_to_chartview = chart.mapRectToParent(chart.plotArea())
             trigger_xpos_mapped_to_chart = chart.xval_to_xpos(self._trigger_xval)
@@ -210,6 +210,7 @@ class EmbeddedGraphChartView(ScrutinyChartView):
                 y2 = plotarea_mapped_to_chartview.y() + plotarea_mapped_to_chartview.height()
                 painter.setPen(self._trigger_pen)
                 painter.drawLine(QPointF(trigger_xpos, y1), QPointF(trigger_xpos, y2))
+
 
 class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
     instance_name: str
@@ -231,7 +232,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
     """3 section splitter separating left / center / right"""
     _xval_label: QLabel
     """The label used to display the X-Value when moving the graph cursor (red vertical line)"""
-    _chk_show_trigger:QCheckBox
+    _chk_show_trigger: QCheckBox
     """A checkbox to show or hide the trigger marker"""
     _signal_tree: GraphSignalTree
     """The right side signal tree. contains the watchable we want to log / those present in the displayed graph"""
@@ -649,7 +650,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
             self._btn_load_more.setText("Load")
         else:
             self._btn_load_more.setText("Load more")
-        
+
         if self._state.must_display_show_trigger_checkbox():
             self._chk_show_trigger.show()
         else:
@@ -1014,7 +1015,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
         """A watchable has been added/remove from the watchable tree"""
         self._graph_config_widget.update_content()
 
-    def _chk_show_trigger_changed_slot(self, state:Qt.CheckState) -> None:
+    def _chk_show_trigger_changed_slot(self, state: Qt.CheckState) -> None:
         if state == Qt.CheckState.Checked:
             self._chartview.show_trigger_marker()
         else:

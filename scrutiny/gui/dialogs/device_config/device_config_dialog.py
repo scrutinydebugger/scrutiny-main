@@ -27,6 +27,7 @@ from scrutiny.gui.dialogs.device_config.canbus import CanBusConfigPane
 
 from scrutiny.tools.typing import *
 
+
 class NoConfigPane(BaseConfigPane):
     def get_config(self) -> Optional[sdk.BaseLinkConfig]:
         return sdk.NoneLinkConfig()
@@ -35,16 +36,17 @@ class NoConfigPane(BaseConfigPane):
         self.make_config_valid(config)
 
     @classmethod
-    def save_to_persistent_data(cls, config:sdk.BaseLinkConfig) -> None:
+    def save_to_persistent_data(cls, config: sdk.BaseLinkConfig) -> None:
         pass
-    
+
     @classmethod
     def initialize_config(cls) -> sdk.BaseLinkConfig:
         return sdk.NoneLinkConfig()
 
+
 @dataclass
 class SupportedLinkType:
-    ui_pane:Type[BaseConfigPane]
+    ui_pane: Type[BaseConfigPane]
     display_name: str
     sort_order: int
 
@@ -53,7 +55,7 @@ class DeviceConfigDialog(QDialog):
 
     SUPPORTED_LINKS: Dict[sdk.DeviceLinkType, SupportedLinkType] = {
         sdk.DeviceLinkType.NONE: SupportedLinkType(ui_pane=NoConfigPane, display_name='None', sort_order=0),
-      #  sdk.DeviceLinkType.TCP: SupportedLinkType(ui_pane=TCPConfigPane, display_name="TCP/IP", sort_order=1), # Not supported by the server yet
+        #  sdk.DeviceLinkType.TCP: SupportedLinkType(ui_pane=TCPConfigPane, display_name="TCP/IP", sort_order=1), # Not supported by the server yet
         sdk.DeviceLinkType.UDP: SupportedLinkType(ui_pane=UDPConfigPane, display_name="UDP/IP", sort_order=2),
         sdk.DeviceLinkType.Serial: SupportedLinkType(ui_pane=SerialConfigPane, display_name="Serial", sort_order=3),
         sdk.DeviceLinkType.RTT: SupportedLinkType(ui_pane=RTTConfigPane, display_name="JLink RTT", sort_order=4),
@@ -84,7 +86,7 @@ class DeviceConfigDialog(QDialog):
         self._link_type_combo_box = QComboBox()
         for link_type, link_info in sorted(self.SUPPORTED_LINKS.items(), key=lambda x: x[1].sort_order):
             self._link_type_combo_box.addItem(link_info.display_name, link_type)
-        
+
         # Bottom part that changes based on combo box selection
         self._config_container = QWidget()
         self._config_container.setLayout(QVBoxLayout())
@@ -120,7 +122,7 @@ class DeviceConfigDialog(QDialog):
 
         for link_type, link_info in self.SUPPORTED_LINKS.items():
             link_info.ui_pane.save_to_persistent_data(self._configs[link_type])
-          
+
     def _get_selected_link_type(self) -> sdk.DeviceLinkType:
         return cast(sdk.DeviceLinkType, self._link_type_combo_box.currentData())
 

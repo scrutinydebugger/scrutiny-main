@@ -102,16 +102,15 @@ class TCPConfigPane(IPConfigPane):
             host=hostname,
             port=port
         )
-    
+
     @classmethod
-    def save_to_persistent_data(cls, config:sdk.BaseLinkConfig) -> None:
+    def save_to_persistent_data(cls, config: sdk.BaseLinkConfig) -> None:
         tcp_config = cast(sdk.TCPLinkConfig, config)
         namespace = gui_persistent_data.get_namespace(cls.__name__)
         namespace.set_str(cls.PersistentDataKeys.TCP_HOST, tcp_config.host)
         namespace.set_int(cls.PersistentDataKeys.TCP_PORT, tcp_config.port)
         namespace.prune(tools.get_class_attr_vals(cls.PersistentDataKeys))
 
-    
     @classmethod
     def initialize_config(cls) -> sdk.BaseLinkConfig:
         namespace = gui_persistent_data.get_namespace(cls.__name__)
@@ -122,7 +121,7 @@ class TCPConfigPane(IPConfigPane):
             host=hostname,
             port=port
         )
-        
+
 
 class UDPConfigPane(IPConfigPane):
     class PersistentDataKeys:
@@ -159,13 +158,13 @@ class UDPConfigPane(IPConfigPane):
         )
 
     @classmethod
-    def save_to_persistent_data(cls, config:sdk.BaseLinkConfig) -> None:
+    def save_to_persistent_data(cls, config: sdk.BaseLinkConfig) -> None:
         udp_config = cast(sdk.UDPLinkConfig, config)
         namespace = gui_persistent_data.get_namespace(cls.__name__)
         namespace.set_str(cls.PersistentDataKeys.UDP_HOST, udp_config.host)
         namespace.set_int(cls.PersistentDataKeys.UDP_PORT, udp_config.port)
         namespace.prune(tools.get_class_attr_vals(cls.PersistentDataKeys))
-    
+
     @classmethod
     def initialize_config(cls) -> sdk.BaseLinkConfig:
         namespace = gui_persistent_data.get_namespace(cls.__name__)

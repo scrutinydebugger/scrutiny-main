@@ -71,7 +71,7 @@ class AddAlias(BaseCommand):
                 all_aliases = sfd.get_aliases()
             else:
                 raise Exception(f'Inexistent destination for alias {args.destination}')
-            
+
             new_aliases = {}
             if args.file is not None:
                 for filename in args.file:
@@ -108,7 +108,7 @@ class AddAlias(BaseCommand):
                 try:
                     alias.set_target_type(FirmwareDescription.get_alias_target_type(alias, varmap))
                 except Exception as e:
-                    return_code=1
+                    return_code = 1
                     tools.log_exception(self.logger, e, f'Cannot deduce type of alias {alias.get_fullpath()} referring to {alias.get_target()}.')
                     continue
 

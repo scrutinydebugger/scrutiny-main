@@ -42,6 +42,6 @@ class UninstallSFD(BaseCommand):
                 self.getLogger().info(f"SFD {args.firmwareid} was not installed")
         except Exception as e:
             tools.log_exception(self.getLogger(), e, f"Failed to uninstall the Scrutiny Firmware Description (SFD) with ID: \"{args.firmwareid}\".")
-            return 1    
+            return 1
 
         return 0

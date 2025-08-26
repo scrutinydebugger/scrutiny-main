@@ -9,5 +9,5 @@ with client.connect("localhost", 8765):
     else:
         req.start()
         print("Uploading SFD...")
-        req.wait_for_completion(timeout=10) # Blocking call. A different thread could query req.get_progress()
+        req.wait_for_completion(timeout=10)  # Blocking call. A different thread could query req.get_progress()
         print("SFD Uploaded and installed on the server!")

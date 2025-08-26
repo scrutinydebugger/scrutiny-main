@@ -18,6 +18,7 @@ from .base_command import BaseCommand
 from scrutiny.tools.typing import *
 from scrutiny import tools
 
+
 class GetFirmwareId(BaseCommand):
     _cmd_name_ = 'get-firmware-id'
     _brief_ = 'Extract a unique hash from a binary firmware used for device identification.'
@@ -36,7 +37,7 @@ class GetFirmwareId(BaseCommand):
 
     def run(self) -> Optional[int]:
         from scrutiny.core.firmware_parser import FirmwareParser
-    
+
         args = self.parser.parse_args(self.args)
         filename = os.path.normpath(args.filename)
 

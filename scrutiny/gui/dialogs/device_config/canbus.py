@@ -19,15 +19,16 @@ from scrutiny.gui.tools.validators import NotEmptyValidator
 from scrutiny.gui.themes import scrutiny_get_theme
 from scrutiny.tools.typing import *
 from scrutiny import tools
-    
 
-ANY_CAN_SUBCONFIG:TypeAlias = Union[
-            sdk.CANLinkConfig.SocketCANConfig, 
-            sdk.CANLinkConfig.VectorConfig, 
-            sdk.CANLinkConfig.KVaserConfig, 
-            sdk.CANLinkConfig.PCANConfig,
-            sdk.CANLinkConfig.ETASConfig,
-            ]
+
+ANY_CAN_SUBCONFIG: TypeAlias = Union[
+    sdk.CANLinkConfig.SocketCANConfig,
+    sdk.CANLinkConfig.VectorConfig,
+    sdk.CANLinkConfig.KVaserConfig,
+    sdk.CANLinkConfig.PCANConfig,
+    sdk.CANLinkConfig.ETASConfig,
+]
+
 
 class SocketCanSubconfigPane(QWidget):
     _txt_channel: ValidableLineEdit
@@ -50,11 +51,11 @@ class SocketCanSubconfigPane(QWidget):
     def get_subconfig(self) -> Optional[sdk.CANLinkConfig.SocketCANConfig]:
         if not self._txt_channel.is_valid():
             return None
-        
+
         return sdk.CANLinkConfig.SocketCANConfig(
             channel=self._txt_channel.text()
         )
-    
+
     def visual_validation(self) -> None:
         self._txt_channel.validate_expect_valid()
 
@@ -66,6 +67,7 @@ class SocketCanSubconfigPane(QWidget):
         return sdk.CANLinkConfig.SocketCANConfig(
             channel=channel
         )
+
 
 class VectorSubconfigPane(QWidget):
     _txt_channel: ValidableLineEdit
@@ -116,12 +118,13 @@ class VectorSubconfigPane(QWidget):
             data_bitrate=max(int(subconfig.data_bitrate), 0),
         )
         return outconfig
-    
+
     def visual_validation(self) -> None:
         self._txt_channel.validate_expect_valid()
         self._txt_bitrate.validate_expect_valid()
         self._txt_data_bitrate.validate_expect_valid()
-    
+
+
 class KVaserSubconfigPane(QWidget):
     _txt_channel: ValidableLineEdit
     _txt_bitrate: ValidableLineEdit
@@ -176,12 +179,13 @@ class KVaserSubconfigPane(QWidget):
             data_bitrate=max(int(subconfig.data_bitrate), 0),
             fd_non_iso=subconfig.fd_non_iso
         )
-        return outconfig        
+        return outconfig
 
     def visual_validation(self) -> None:
         for txtbox in [self._txt_channel, self._txt_bitrate, self._txt_data_bitrate]:
             txtbox.validate_expect_valid()
-            
+
+
 class PCANSubconfigPane(QWidget):
     _txt_channel: ValidableLineEdit
     _txt_bitrate: ValidableLineEdit
@@ -211,7 +215,7 @@ class PCANSubconfigPane(QWidget):
         for txtbox in [self._txt_channel, self._txt_bitrate]:
             if not txtbox.is_valid():
                 return None
-            
+
         return sdk.CANLinkConfig.PCANConfig(
             channel=self._txt_channel.text(),
             bitrate=int(self._txt_bitrate.text())
@@ -223,11 +227,12 @@ class PCANSubconfigPane(QWidget):
             channel=subconfig.channel,
             bitrate=max(int(subconfig.bitrate), 0)
         )
-        return outconfig    
+        return outconfig
 
     def visual_validation(self) -> None:
         for txtbox in [self._txt_channel, self._txt_bitrate]:
-            txtbox.validate_expect_valid()    
+            txtbox.validate_expect_valid()
+
 
 class ETASSubconfigPane(QWidget):
     _txt_channel: ValidableLineEdit
@@ -263,7 +268,7 @@ class ETASSubconfigPane(QWidget):
         for txtbox in [self._txt_channel, self._txt_bitrate, self._txt_data_bitrate]:
             if not txtbox.is_valid():
                 return None
-            
+
         return sdk.CANLinkConfig.ETASConfig(
             channel=self._txt_channel.text(),
             bitrate=int(self._txt_bitrate.text()),
@@ -277,19 +282,21 @@ class ETASSubconfigPane(QWidget):
             bitrate=max(int(subconfig.bitrate), 0),
             data_bitrate=max(int(subconfig.data_bitrate), 0),
         )
-        return outconfig    
+        return outconfig
 
     def visual_validation(self) -> None:
         for txtbox in [self._txt_channel, self._txt_bitrate, self._txt_data_bitrate]:
-            txtbox.validate_expect_valid()    
+            txtbox.validate_expect_valid()
 
-ANY_SUBCONFIG_PANE:TypeAlias = Union[
+
+ANY_SUBCONFIG_PANE: TypeAlias = Union[
     SocketCanSubconfigPane,
     VectorSubconfigPane,
     KVaserSubconfigPane,
     PCANSubconfigPane,
     ETASSubconfigPane
 ]
+
 
 class CanBusConfigPane(BaseConfigPane):
 
@@ -302,19 +309,19 @@ class CanBusConfigPane(BaseConfigPane):
         BITRATE_SWITCH = 'bitrate_switch'
 
         SOCKETCAN_CHANNEL = 'socketcan_channel'
-        
+
         VECTOR_CHANNEL = 'vector_channel'
         VECTOR_BITRATE = 'vector_bitrate'
         VECTOR_DATA_BITRATE = 'vector_data_bitrate'
-        
+
         KVASER_CHANNEL = 'kvaser_channel'
         KVASER_BITRATE = 'kvaser_bitrate'
         KVASER_DATA_BITRATE = 'kvaser_data_bitrate'
         KVASER_FD_NON_ISO = 'kvaser_fd_non_iso'
-        
+
         PCAN_CHANNEL = 'pcan_channel'
         PCAN_BITRATE = 'pcan_bitrate'
-        
+
         ETAS_CHANNEL = 'etas_channel'
         ETAS_BITRATE = 'etas_bitrate'
         ETAS_DATA_BITRATE = 'etas_data_bitrate'
@@ -439,12 +446,12 @@ class CanBusConfigPane(BaseConfigPane):
         bitrate_switch = self._chk_bitrate_switch.isChecked() and canfd
 
         if self._spin_txid.value() == self._spin_rxid.value():
-            return None # Invalid
-        
+            return None  # Invalid
+
         subconfig = self._get_active_subconfig_pane().get_subconfig()
         if subconfig is None:
             return None
-        
+
         return sdk.CANLinkConfig(
             interface=interface,
             txid=self._spin_txid.value(),
@@ -530,9 +537,8 @@ class CanBusConfigPane(BaseConfigPane):
 
         self._get_active_subconfig_pane().visual_validation()
 
-
     @classmethod
-    def save_to_persistent_data(cls, config:sdk.BaseLinkConfig) -> None:
+    def save_to_persistent_data(cls, config: sdk.BaseLinkConfig) -> None:
         can_config = cast(sdk.CANLinkConfig, config)
         namespace = gui_persistent_data.get_namespace(cls.__name__)
 
@@ -544,49 +550,48 @@ class CanBusConfigPane(BaseConfigPane):
         namespace.set_bool(cls.PersistentDataKeys.FD, can_config.fd)
 
         if isinstance(can_config.interface_config, sdk.CANLinkConfig.SocketCANConfig):
-             namespace.set_str(cls.PersistentDataKeys.SOCKETCAN_CHANNEL, can_config.interface_config.channel)
+            namespace.set_str(cls.PersistentDataKeys.SOCKETCAN_CHANNEL, can_config.interface_config.channel)
         elif isinstance(can_config.interface_config, sdk.CANLinkConfig.VectorConfig):
-             namespace.set_str(cls.PersistentDataKeys.VECTOR_CHANNEL, str(can_config.interface_config.channel))
-             namespace.set_int(cls.PersistentDataKeys.VECTOR_BITRATE, can_config.interface_config.bitrate)
-             namespace.set_int(cls.PersistentDataKeys.VECTOR_DATA_BITRATE, can_config.interface_config.data_bitrate)
+            namespace.set_str(cls.PersistentDataKeys.VECTOR_CHANNEL, str(can_config.interface_config.channel))
+            namespace.set_int(cls.PersistentDataKeys.VECTOR_BITRATE, can_config.interface_config.bitrate)
+            namespace.set_int(cls.PersistentDataKeys.VECTOR_DATA_BITRATE, can_config.interface_config.data_bitrate)
         elif isinstance(can_config.interface_config, sdk.CANLinkConfig.KVaserConfig):
-             namespace.set_int(cls.PersistentDataKeys.KVASER_CHANNEL, can_config.interface_config.channel)
-             namespace.set_int(cls.PersistentDataKeys.KVASER_BITRATE, can_config.interface_config.bitrate)
-             namespace.set_int(cls.PersistentDataKeys.KVASER_DATA_BITRATE, can_config.interface_config.data_bitrate)
-             namespace.set_bool(cls.PersistentDataKeys.KVASER_FD_NON_ISO, can_config.interface_config.fd_non_iso)
+            namespace.set_int(cls.PersistentDataKeys.KVASER_CHANNEL, can_config.interface_config.channel)
+            namespace.set_int(cls.PersistentDataKeys.KVASER_BITRATE, can_config.interface_config.bitrate)
+            namespace.set_int(cls.PersistentDataKeys.KVASER_DATA_BITRATE, can_config.interface_config.data_bitrate)
+            namespace.set_bool(cls.PersistentDataKeys.KVASER_FD_NON_ISO, can_config.interface_config.fd_non_iso)
         elif isinstance(can_config.interface_config, sdk.CANLinkConfig.PCANConfig):
-             namespace.set_str(cls.PersistentDataKeys.PCAN_CHANNEL, can_config.interface_config.channel)
-             namespace.set_int(cls.PersistentDataKeys.PCAN_BITRATE, can_config.interface_config.bitrate)
+            namespace.set_str(cls.PersistentDataKeys.PCAN_CHANNEL, can_config.interface_config.channel)
+            namespace.set_int(cls.PersistentDataKeys.PCAN_BITRATE, can_config.interface_config.bitrate)
         elif isinstance(can_config.interface_config, sdk.CANLinkConfig.ETASConfig):
-             namespace.set_str(cls.PersistentDataKeys.ETAS_CHANNEL, can_config.interface_config.channel)
-             namespace.set_int(cls.PersistentDataKeys.ETAS_BITRATE, can_config.interface_config.bitrate)
-             namespace.set_int(cls.PersistentDataKeys.ETAS_DATA_BITRATE, can_config.interface_config.data_bitrate)
+            namespace.set_str(cls.PersistentDataKeys.ETAS_CHANNEL, can_config.interface_config.channel)
+            namespace.set_int(cls.PersistentDataKeys.ETAS_BITRATE, can_config.interface_config.bitrate)
+            namespace.set_int(cls.PersistentDataKeys.ETAS_DATA_BITRATE, can_config.interface_config.data_bitrate)
         else:
             raise NotImplementedError("Unsupported CAN interface {can_interface}")
 
         namespace.prune(tools.get_class_attr_vals(cls.PersistentDataKeys))
 
-    
     @classmethod
     def initialize_config(cls) -> sdk.BaseLinkConfig:
         namespace = gui_persistent_data.get_namespace(cls.__name__)
 
         interface_config: ANY_CAN_SUBCONFIG
-        
+
         can_interface = sdk.CANLinkConfig.CANInterface(namespace.get_int(cls.PersistentDataKeys.INTERFACE, 0))
-       
+
         if can_interface == sdk.CANLinkConfig.CANInterface.SocketCAN:
             interface_config = sdk.CANLinkConfig.SocketCANConfig(
                 channel=namespace.get_str(cls.PersistentDataKeys.SOCKETCAN_CHANNEL, 'can0')
             )
-       
+
         elif can_interface == sdk.CANLinkConfig.CANInterface.Vector:
             interface_config = sdk.CANLinkConfig.VectorConfig(
                 channel=namespace.get_str(cls.PersistentDataKeys.VECTOR_CHANNEL, '0'),
                 bitrate=namespace.get_int(cls.PersistentDataKeys.VECTOR_BITRATE, 500000),
                 data_bitrate=namespace.get_int(cls.PersistentDataKeys.VECTOR_DATA_BITRATE, 500000)
             )
-       
+
         elif can_interface == sdk.CANLinkConfig.CANInterface.KVaser:
             interface_config = sdk.CANLinkConfig.KVaserConfig(
                 channel=namespace.get_int(cls.PersistentDataKeys.KVASER_CHANNEL, 0),
@@ -594,20 +599,20 @@ class CanBusConfigPane(BaseConfigPane):
                 data_bitrate=namespace.get_int(cls.PersistentDataKeys.KVASER_DATA_BITRATE, 500000),
                 fd_non_iso=namespace.get_bool(cls.PersistentDataKeys.KVASER_FD_NON_ISO, False)
             )
-        
+
         elif can_interface == sdk.CANLinkConfig.CANInterface.PCAN:
             interface_config = sdk.CANLinkConfig.PCANConfig(
                 channel=namespace.get_str(cls.PersistentDataKeys.PCAN_CHANNEL, '<channel>'),
                 bitrate=namespace.get_int(cls.PersistentDataKeys.PCAN_BITRATE, 500000)
             )
-        
+
         elif can_interface == sdk.CANLinkConfig.CANInterface.ETAS:
             interface_config = sdk.CANLinkConfig.ETASConfig(
                 channel=namespace.get_str(cls.PersistentDataKeys.ETAS_CHANNEL, '<channel>'),
                 bitrate=namespace.get_int(cls.PersistentDataKeys.ETAS_BITRATE, 500000),
                 data_bitrate=namespace.get_int(cls.PersistentDataKeys.ETAS_BITRATE, 500000),
             )
-        
+
         else:
             raise NotImplementedError(f"Unsupported CAN interface {can_interface}")
 
@@ -620,4 +625,3 @@ class CanBusConfigPane(BaseConfigPane):
             bitrate_switch=namespace.get_bool(cls.PersistentDataKeys.BITRATE_SWITCH, False),
             interface_config=interface_config
         )
-       

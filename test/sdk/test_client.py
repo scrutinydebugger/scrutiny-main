@@ -735,7 +735,7 @@ class TestClient(ScrutinyUnitTest):
         self.assertIsNot(status, server_info)   # Make sure we have a new object with a new reference.
 
     def test_get_loaded_sfd(self):
-        
+
         with SFDStorage.use_temp_folder():
             sfd = SFDStorage.install(get_artifact('test_sfd_1.sfd'))
             loaded_sfd = self.sfd_handler.get_loaded_sfd()

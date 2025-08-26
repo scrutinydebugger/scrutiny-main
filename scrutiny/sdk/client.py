@@ -264,7 +264,7 @@ class SFDDownloadRequest(PendingRequest):
 
     def _add_data(self, data: bytes) -> None:
         self._buffer.extend(data)
-        self._update_expiration_timer()        
+        self._update_expiration_timer()
 
     @property
     def received_count(self) -> int:
@@ -2058,14 +2058,14 @@ class ScrutinyClient:
         Initialize the upload and isntall process of a Scrutiny Firmware Description (SFD) file to the server.
         Calling this method will not transfer the data: calling :meth:`SFDUploadRequest.start()<scrutiny.sdk.client.SFDUploadRequest.start>` on the returned 
         object is required to start the file transfer.
-          
+
         :param filepath: The path to the SFD file to upload and install   
         :return: A handle on the request that gives the status of the uplaod and can be waited on
 
         :raise TypeError: Given parameter not of the expected type
         :raise ValueError: Given file is invalid or too big
         :raise OperationFailure: Failed to initialize the upload, the server may have denied it
-        
+
         """
 
         validation.assert_type(filepath, 'filepath', (str, Path))
