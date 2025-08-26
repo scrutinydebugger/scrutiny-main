@@ -955,6 +955,7 @@ class ScrutinyClient:
 
         req._set_actual_size(content.actual_size)
         if content.completed:
+            assert content.sfd_info is not None     # Not None if completed. Guaranteed by parser
             req._set_sfd_info(content.sfd_info)
             req._mark_complete(success=True)
 
