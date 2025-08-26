@@ -735,15 +735,19 @@ class TestClient(ScrutinyUnitTest):
         self.assertIsNot(status, server_info)   # Make sure we have a new object with a new reference.
 
     def test_get_loaded_sfd(self):
+        
+        with SFDStorage.use_temp_folder():
+            sfd = SFDStorage.install(get_artifact('test_sfd_1.sfd'))
+            loaded_sfd = self.sfd_handler.get_loaded_sfd()
+            self.assertIsNotNone(loaded_sfd)
+            self.assertEqual(loaded_sfd.get_firmware_id_ascii(), sfd.get_firmware_id_ascii())
+            self.assertEqual(self.client.server_state, sdk.ServerState.Connected)
+            received_server_sfd = self.client.get_loaded_sfd()
+            self.assertIsNotNone(received_server_sfd)
+            assert received_server_sfd is not None
 
-        self.assertEqual(self.client.server_state, sdk.ServerState.Connected)
-        server_sfd = self.client.get_loaded_sfd()
-        self.assertIsNotNone(server_sfd)
-        assert server_sfd is not None
-
-        sfd = FirmwareDescription(get_artifact('test_sfd_1.sfd'))
-        self.assertEqual(server_sfd.firmware_id, sfd.get_firmware_id_ascii())
-        self.assertEqual(server_sfd.metadata, sfd.metadata)
+            self.assertEqual(received_server_sfd.firmware_id, sfd.get_firmware_id_ascii())
+            self.assertEqual(received_server_sfd.metadata, sfd.metadata)
 
     def test_get_device_info(self):
         # Make sure we can read the status of the server correctly

@@ -34,6 +34,7 @@ class Config:
 def make_sfd_info() -> SFDInfo:
     return SFDInfo(
         firmware_id="The firmware ID",
+        filesize=123,
         metadata=SFDMetadata(
             author="Pier-Yves Lessard",
             project_name="Unit test project",
