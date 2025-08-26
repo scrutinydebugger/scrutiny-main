@@ -18,11 +18,11 @@ class BaseConfigPane(QWidget):
         """Create a config from the widgets content"""
         raise NotImplementedError("abstract method")
 
-    def load_config(self, config: Optional[sdk.BaseLinkConfig]) -> None:    
+    def load_config(self, config: Optional[sdk.BaseLinkConfig]) -> None:
         """Reads a config and fill the widgets from it"""
         raise NotImplementedError("abstract method")
 
-    def visual_validation(self) -> None:    
+    def visual_validation(self) -> None:
         """Validate the widgets and highlight those with invalid content"""
         pass
 
@@ -33,10 +33,10 @@ class BaseConfigPane(QWidget):
         return config
 
     @classmethod
-    def save_to_persistent_data(cls, config:sdk.BaseLinkConfig) -> None:
+    def save_to_persistent_data(cls, config: sdk.BaseLinkConfig) -> None:
         """Save a configuration to persistent storage"""
         raise NotImplementedError("abstract method")
-    
+
     @classmethod
     def initialize_config(cls) -> sdk.BaseLinkConfig:
         """Create the initial configuration with default settings or settings based on persistent storage"""

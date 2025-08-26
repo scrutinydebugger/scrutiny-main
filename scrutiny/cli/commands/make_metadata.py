@@ -45,7 +45,7 @@ class MakeMetadata(BaseCommand):
         import scrutiny
         from scrutiny.core.firmware_description import MetadataTypedDict
         args = self.parser.parse_args(self.args)
-        
+
         try:
             if args.output is None:
                 output_file = self.DEFAULT_NAME

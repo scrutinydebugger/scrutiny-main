@@ -17,7 +17,6 @@ class TestCustomeTestArm32R52_ArmNoneEabiGcc10_2_Dwarf4(BaseCustomeTestArm32R52_
     memdump_filename = get_artifact('customtest_20240628_Arm32CortexR52_ArmNoneEabiGcc10_2-dwarf4.memdump')
 
 
-
 if __name__ == '__main__':
     import unittest
     unittest.main()

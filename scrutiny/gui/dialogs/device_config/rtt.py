@@ -18,6 +18,7 @@ from scrutiny.gui.dialogs.device_config.base_config_pane import BaseConfigPane
 from scrutiny.tools.typing import *
 from scrutiny import tools
 
+
 class RTTConfigPane(BaseConfigPane):
 
     class PersistentDataKeys:
@@ -79,13 +80,11 @@ class RTTConfigPane(BaseConfigPane):
         # Called when OK is clicked
         self._target_device_text_box.validate_expect_valid()
 
-
-
     @classmethod
-    def save_to_persistent_data(cls, config:sdk.BaseLinkConfig) -> None:
+    def save_to_persistent_data(cls, config: sdk.BaseLinkConfig) -> None:
         rtt_config = cast(sdk.RTTLinkConfig, config)
         namespace = gui_persistent_data.get_namespace(cls.__name__)
-        
+
         namespace.set_str(cls.PersistentDataKeys.TARGET_DEVICE, rtt_config.target_device)
         namespace.set_str(cls.PersistentDataKeys.JLINK_INTERFACE, rtt_config.jlink_interface.to_str())
         namespace.prune(tools.get_class_attr_vals(cls.PersistentDataKeys))
@@ -94,9 +93,9 @@ class RTTConfigPane(BaseConfigPane):
     def initialize_config(cls) -> sdk.BaseLinkConfig:
         namespace = gui_persistent_data.get_namespace(cls.__name__)
         return sdk.RTTLinkConfig(
-                target_device=namespace.get_str(cls.PersistentDataKeys.TARGET_DEVICE, '<device>'),
-                jlink_interface=sdk.RTTLinkConfig.JLinkInterface.from_str(
-                    namespace.get_str(cls.PersistentDataKeys.JLINK_INTERFACE, sdk.RTTLinkConfig.JLinkInterface.SWD.to_str()),
-                    sdk.RTTLinkConfig.JLinkInterface.SWD
-                )
+            target_device=namespace.get_str(cls.PersistentDataKeys.TARGET_DEVICE, '<device>'),
+            jlink_interface=sdk.RTTLinkConfig.JLinkInterface.from_str(
+                namespace.get_str(cls.PersistentDataKeys.JLINK_INTERFACE, sdk.RTTLinkConfig.JLinkInterface.SWD.to_str()),
+                sdk.RTTLinkConfig.JLinkInterface.SWD
             )
+        )

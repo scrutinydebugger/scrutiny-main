@@ -137,7 +137,6 @@ class CLI:
             logging.error(str(error))
             logging.debug('Command : scrutiny ' + ' '.join(args))
             logging.debug(error_stack_strace)
-        
 
         assert code is not None
         if code != 0 and except_failed:

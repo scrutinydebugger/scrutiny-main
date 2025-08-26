@@ -36,7 +36,7 @@ KNOWN_ENUMS: KnownEnumTypedDict = {
 
 class BaseCustomeTestArm32R52_ArmNoneEabiGcc10_2(BaseVarmapTest):
     _CPP_FILT = 'arm-none-eabi-c++filt'
-    known_enums=KNOWN_ENUMS
+    known_enums = KNOWN_ENUMS
 
     # char is uint8
     # long is int32

@@ -293,7 +293,7 @@ class TestCanbusLink(ScrutinyUnitTest):
                 'channel': 0,
                 'bitrate': 500000,
                 'data_bitrate': 1000000,
-                'fd_non_iso' : False
+                'fd_non_iso': False
             }
 
         }
@@ -368,8 +368,6 @@ class TestCanbusLink(ScrutinyUnitTest):
         self.assertEqual(filter['can_mask'], 0x1FFFFFFF)
         self.assertEqual(filter['extended'], True)
 
-
-
     def test_etas_bus(self):
         canbus_link.use_stubbed_canbus_class(True)
         config: link_typing.CanBusConfigDict = {
@@ -412,7 +410,8 @@ class TestCanbusLink(ScrutinyUnitTest):
         self.assertIn('extended', filter)
         self.assertEqual(filter['can_id'], 0x23456)
         self.assertEqual(filter['can_mask'], 0x1FFFFFFF)
-        self.assertEqual(filter['extended'], True)        
+        self.assertEqual(filter['extended'], True)
+
 
 if __name__ == '__main__':
     unittest.main()

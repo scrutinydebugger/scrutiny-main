@@ -17,7 +17,6 @@ sys.path.insert(0, os.path.dirname(__file__))
 from manual_test_base import make_manual_test_app
 app = make_manual_test_app()
 
-import scrutiny.entry_point
 from scrutiny.gui.dialogs.server_config_dialog import ServerConfigDialog
 from scrutiny.gui.core.local_server_runner import LocalServerRunner
 

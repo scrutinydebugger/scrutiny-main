@@ -39,5 +39,5 @@ class InstallSFD(BaseCommand):
         except Exception as e:
             tools.log_exception(self.getLogger(), e, f"Failed to install the Scrutiny Firmware Description (SFD) file \"{args.file}\".")
             return 1
-        
+
         return 0

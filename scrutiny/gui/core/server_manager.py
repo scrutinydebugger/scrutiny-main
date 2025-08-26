@@ -943,7 +943,7 @@ class ServerManager:
 
             # A race condition is possible here when exiting the application
             # Resources can be deleted between here and the end.
-            
+
             entry = ClientRequestStore.ClientRequestEntry(
                 ui_callback=ui_thread_callback,
                 threaded_func_return_value=return_val,

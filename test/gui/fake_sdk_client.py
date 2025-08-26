@@ -455,7 +455,7 @@ class FakeSDKClient(tools.UnitTestStub):
             if self.server_info.sfd_firmware_id is not None:
                 return sdk.SFDInfo(
                     firmware_id=self.server_info.sfd_firmware_id,
-                    filesize = 123,
+                    filesize=123,
                     metadata=sdk.SFDMetadata(
                         author="scrutiny",
                         project_name="unittest",
