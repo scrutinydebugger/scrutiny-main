@@ -1974,7 +1974,7 @@ class ScrutinyClient:
 
         :raise OperationFailure: Failed to get the SFD list
 
-        :return: A dictionary mapping firmware IDS (hash) to a :class:`SFDInfo<scrutiny.sdk.SFDInfo>` structure
+        :return: A dictionary mapping firmware IDs (hash) to a :class:`SFDInfo<scrutiny.sdk.SFDInfo>` structure
         """
         req = self._make_request(API.Command.Client2Api.GET_INSTALLED_SFD)
 
@@ -2029,7 +2029,7 @@ class ScrutinyClient:
         """Download a Scrutiny Fiimware Description file from the server
 
         :param firmware_id: A 32 char hex string that matches the wanted SFD firmware ID
-        :return: A handle on the request that gives the status of the download and can be waited on.
+        :return: A handle on the request that gives the status of the download and can be waited on
         :raise TypeError: Given parameter not of the expected type
         """
 
@@ -2060,7 +2060,7 @@ class ScrutinyClient:
         object is required to start the file transfer.
           
         :param filepath: The path to the SFD file to upload and install   
-        :return: A handle on the request that gives the status of the uplaod and can be waited on.
+        :return: A handle on the request that gives the status of the uplaod and can be waited on
 
         :raise TypeError: Given parameter not of the expected type
         :raise ValueError: Given file is invalid or too big
