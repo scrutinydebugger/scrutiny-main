@@ -548,7 +548,7 @@ class TestClient(ScrutinyUnitTest):
         self.rx_request_log = []
         self.thread = threading.Thread(target=self.server_thread, daemon=True)
         self.thread.start()
-        self.server_started.wait(timeout=1)
+        self.server_started.wait(timeout=2)
 
         if not self.server_started.is_set():
             raise RuntimeError("Cannot start server")
