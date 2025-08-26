@@ -40,7 +40,6 @@ layout.addWidget(btn_success)
 dialog = DeviceConfigDialog(apply_callback=config_applied)
 dialog.setModal(False)
 dialog.set_config(sdk.DeviceLinkType.UDP, sdk.UDPLinkConfig(host="google.com", port=80))
-dialog.set_config(sdk.DeviceLinkType.TCP, sdk.TCPLinkConfig(host="localhost", port=1234))
 
 btn_show.clicked.connect(lambda: dialog.show())
 btn_fail.clicked.connect(lambda: dialog.change_fail_callback("Failed"))

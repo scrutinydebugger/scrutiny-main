@@ -185,7 +185,7 @@ class FakeServerManager:
         device_comm_state = sdk.DeviceCommState.Disconnected
         device_session_id = None
         if self._device_connected:
-            datalogging = sdk.DataloggingInfo(completion_ratio=0, state=sdk.DataloggerState.Standby)
+            datalogging = sdk.DataloggingInfo(completion_ratio=0, state=sdk.DataloggingState.Standby)
             device_comm_state = sdk.DeviceCommState.ConnectedReady
             device_session_id = 'aaa'
 
