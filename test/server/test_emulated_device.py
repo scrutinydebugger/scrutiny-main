@@ -6,7 +6,7 @@
 #
 #   Copyright (c) 2022 Scrutiny Debugger
 
-from scrutiny.server.device.emulated_device import UnitTestEmulatedDevice, DataloggerEmulator
+from scrutiny.server.device.emulated_device import EmulatedDevice, DataloggerEmulator
 import scrutiny.server.datalogging.definitions.device as device_datalogging
 from scrutiny.server.datalogging.datalogging_utilities import extract_signal_from_data
 from scrutiny.server.device.links.dummy_link import DummyLink
@@ -21,14 +21,23 @@ from scrutiny.tools.typing import *
 
 
 class TestEmulatedDevice(ScrutinyUnitTest):
-    emulated_device: UnitTestEmulatedDevice
+    emulated_device: EmulatedDevice
 
     def setUp(self):
         self.link = DummyLink()
-        self.emulated_device = UnitTestEmulatedDevice(self.link)
+        self.emulated_device = EmulatedDevice(self.link)
+        self.emulated_device.configure_rpvs({
+            0x1000: {'definition': RuntimePublishedValue(id=0x1000, datatype=EmbeddedDataType.float64), 'value': 0.0},
+        })
+
         self.emulated_device.start()
 
     def test_read_write_rpv(self):
+        rpvs = {
+            0x1000: {'definition': RuntimePublishedValue(id=0x1000, datatype=EmbeddedDataType.float64), 'value': 0.0},
+        }
+        self.emulated_device.configure_rpvs(rpvs)
+
         self.emulated_device.write_rpv(0x1000, 1.123)
         val = self.emulated_device.read_rpv(0x1000)
         self.assertEqual(val, 1.123)
@@ -72,6 +81,11 @@ class TestEmulatedDatalogger(ScrutinyUnitTest):
     def setUp(self):
         self.link = DummyLink()
         self.emulated_device = UnitTestEmulatedDevice(self.link)
+        self.emulated_device.configure_rpvs({
+            0x1000: {'definition': RuntimePublishedValue(id=0x1000, datatype=EmbeddedDataType.float64), 'value': 0.0},
+        })
+        
+        
         self.datalogger = DataloggerEmulator(self.emulated_device, buffer_size=256)
         self.emulated_device.start()
         self.vals = self.ValuesForTest(0, 0, 0)

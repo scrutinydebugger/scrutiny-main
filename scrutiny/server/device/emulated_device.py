@@ -1131,31 +1131,3 @@ class EmulatedDevice:
     def wake_if_sleep(self) -> None:
         """Wake the internal thread if it is sleeping. Mostly for unit test speed up"""
         self.wake_event.set()
-
-
-
-class UnitTestEmulatedDevice(EmulatedDevice):
-    
-    @tools.copy_type(EmulatedDevice.__init__)
-    def __init__(self, *args:Any, **kwargs:Any) -> None:
-        super().__init__(*args, **kwargs)
-        
-        rpvs:Dict[int, RPVValuePair] = {
-            0x1000: {'definition': RuntimePublishedValue(id=0x1000, datatype=EmbeddedDataType.float64), 'value': 0.0},
-            0x1001: {'definition': RuntimePublishedValue(id=0x1001, datatype=EmbeddedDataType.float32), 'value': 3.1415926},
-            0x1002: {'definition': RuntimePublishedValue(id=0x1002, datatype=EmbeddedDataType.uint16), 'value': 0x1234},
-            0x1003: {'definition': RuntimePublishedValue(id=0x1003, datatype=EmbeddedDataType.sint8), 'value': -65},
-            0x1004: {'definition': RuntimePublishedValue(id=0x1004, datatype=EmbeddedDataType.boolean), 'value': True}
-        }
-        self.configure_rpvs(rpvs)
-
-        loops = [
-            FixedFreqLoop(1000, name='1KHz'),
-            FixedFreqLoop(10000, name='10KHz'),
-            VariableFreqLoop(name='Variable Freq 1'),
-            VariableFreqLoop(name='Idle Loop', support_datalogging=False)
-        ]
-        self.configure_loops(loops)
-
-        self.configure_supported_features(memory_write=True, datalogging=True, user_command=True, _64bits=False)
-        self.configure_datalogger(256)
