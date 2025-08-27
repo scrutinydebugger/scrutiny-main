@@ -6,7 +6,7 @@
 #
 #   Copyright (c) 2022 Scrutiny Debugger
 
-from scrutiny.server.device.emulated_device import EmulatedDevice, DataloggerEmulator
+from scrutiny.server.device.emulated_device import UnitTestEmulatedDevice, DataloggerEmulator
 import scrutiny.server.datalogging.definitions.device as device_datalogging
 from scrutiny.server.datalogging.datalogging_utilities import extract_signal_from_data
 from scrutiny.server.device.links.dummy_link import DummyLink
@@ -21,11 +21,11 @@ from scrutiny.tools.typing import *
 
 
 class TestEmulatedDevice(ScrutinyUnitTest):
-    emulated_device: EmulatedDevice
+    emulated_device: UnitTestEmulatedDevice
 
     def setUp(self):
         self.link = DummyLink()
-        self.emulated_device = EmulatedDevice(self.link)
+        self.emulated_device = UnitTestEmulatedDevice(self.link)
         self.emulated_device.start()
 
     def test_read_write_rpv(self):
@@ -71,7 +71,7 @@ class TestEmulatedDatalogger(ScrutinyUnitTest):
 
     def setUp(self):
         self.link = DummyLink()
-        self.emulated_device = EmulatedDevice(self.link)
+        self.emulated_device = UnitTestEmulatedDevice(self.link)
         self.datalogger = DataloggerEmulator(self.emulated_device, buffer_size=256)
         self.emulated_device.start()
         self.vals = self.ValuesForTest(0, 0, 0)

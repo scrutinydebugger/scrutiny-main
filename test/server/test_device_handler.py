@@ -17,7 +17,7 @@ from dataclasses import dataclass
 
 import scrutiny.server.datalogging.definitions.device as device_datalogging
 from scrutiny.server.timebase import server_timebase
-from scrutiny.server.device.emulated_device import EmulatedDevice
+from scrutiny.server.device.emulated_device import UnitTestEmulatedDevice
 from scrutiny.server.device.device_handler import DeviceHandler
 from scrutiny.server.device.links.dummy_link import DummyLink
 from scrutiny.server.datastore.datastore import Datastore
@@ -72,7 +72,7 @@ class TestDeviceHandler(ScrutinyUnitTest):
         self.device_handler = DeviceHandler(config, self.datastore)
         self.device_handler.expect_no_timeout = True
         self.link = self.device_handler.get_comm_link()
-        self.emulated_device = EmulatedDevice(self.link)
+        self.emulated_device = UnitTestEmulatedDevice(self.link)
         self.emulated_device.start()
 
         signal.signal(signal.SIGINT, self.ctrlc_handler)    # Clean exit on Ctrl+C
@@ -918,8 +918,8 @@ class TestDeviceHandlerMultipleLink(ScrutinyUnitTest):
         self.link1 = DummyLink.make({'channel_id': 1})
         self.link2 = DummyLink.make({'channel_id': 2})
 
-        self.emulated_device1 = EmulatedDevice(self.link1)
-        self.emulated_device2 = EmulatedDevice(self.link2)
+        self.emulated_device1 = UnitTestEmulatedDevice(self.link1)
+        self.emulated_device2 = UnitTestEmulatedDevice(self.link2)
         self.emulated_device1.start()
         self.emulated_device2.start()
 

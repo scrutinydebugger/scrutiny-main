@@ -12,7 +12,7 @@ import json
 
 from test import ScrutinyUnitTest
 from test.artifacts import get_artifact
-from scrutiny.server.device.emulated_device import EmulatedDevice
+from scrutiny.server.device.emulated_device import UnitTestEmulatedDevice
 from scrutiny.server.server import ScrutinyServer, ServerConfig
 from scrutiny.server.api.dummy_client_handler import DummyConnection, DummyClientHandler
 from scrutiny.server.api import API
@@ -28,7 +28,7 @@ from scrutiny.tools.typing import *
 class ScrutinyIntegrationTest(ScrutinyUnitTest):
 
     server: ScrutinyServer
-    emulated_device: EmulatedDevice
+    emulated_device: UnitTestEmulatedDevice
     api_conn: DummyConnection
     prestart_callback: Callable
 
@@ -60,7 +60,7 @@ class ScrutinyIntegrationTest(ScrutinyUnitTest):
             self.server = ScrutinyServer(server_config)
             self.server.device_handler.expect_no_timeout = True     # Will throw an exception on comm timeout
             self.server.api.handle_unexpected_errors = False        # Will throw an exception if one is raised during request process
-            self.emulated_device = EmulatedDevice(self.server.device_handler.get_comm_link())
+            self.emulated_device = UnitTestEmulatedDevice(self.server.device_handler.get_comm_link())
             self.api_conn = DummyConnection()
 
             if self.prestart_callback is not None:
