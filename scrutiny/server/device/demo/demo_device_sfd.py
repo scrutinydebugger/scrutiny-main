@@ -1,3 +1,11 @@
+#    demo_device_sfd.py
+#        The Scrutiny Firmware Description file used for demo mode. This SFD is never saved
+#        to disk, just loaded in RAM when needed
+#
+#   - License : MIT - See LICENSE file.
+#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#   Copyright (c) 2025 Scrutiny Debugger
 
 import binascii
 from scrutiny.core.firmware_description import FirmwareDescription, SFDMetadata, SFDGenerationInfo

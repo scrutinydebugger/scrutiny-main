@@ -1,6 +1,6 @@
 #    server_sfd_manager_dialog.py
-#        A dialog to manage the already installed Scrutiny Firmware Description files ont
-#        the server
+#        A dialog to manage the already installed Scrutiny Firmware Description files on the
+#        server
 #
 #   - License : MIT - See LICENSE file.
 #   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
