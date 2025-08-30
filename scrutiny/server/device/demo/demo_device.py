@@ -15,7 +15,7 @@ from scrutiny.tools.typing import *
 
 
 _demo_device_sfd:Optional[DemoDeviceSFD] = None
-def _get_demo_sfd():
+def _get_demo_sfd() -> DemoDeviceSFD:
     global _demo_device_sfd
     if _demo_device_sfd is None:
         _demo_device_sfd = DemoDeviceSFD()
