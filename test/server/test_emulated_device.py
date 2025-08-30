@@ -84,8 +84,7 @@ class TestEmulatedDatalogger(ScrutinyUnitTest):
         self.emulated_device.configure_rpvs({
             0x1000: {'definition': RuntimePublishedValue(id=0x1000, datatype=EmbeddedDataType.float64), 'value': 0.0},
         })
-        
-        
+
         self.datalogger = DataloggerEmulator(self.emulated_device, buffer_size=256)
         self.emulated_device.start()
         self.vals = self.ValuesForTest(0, 0, 0)

@@ -107,12 +107,12 @@ class ActiveSFDHandler:
                     else:
                         self.logger.critical('No device ID available when connected. This should not happen')
                 else:
-                    loaded_sfd_valid = False 
+                    loaded_sfd_valid = False
                     if SFDStorage.is_installed(self.sfd.get_firmware_id_ascii()):
                         loaded_sfd_valid = True
                     if self.sfd.get_firmware_id_ascii() == DEMO_DEVICE_FIRMWAREID_STR:
                         loaded_sfd_valid = True
-                    
+
                     if not loaded_sfd_valid:  # Removed from disk?
                         self.reset_active_sfd()
 

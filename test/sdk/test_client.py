@@ -114,7 +114,7 @@ class FakeDeviceHandler:
     read_allowed: bool
     emulate_no_datalogging: bool
     user_command_requests_queue: "queue.Queue[Tuple[int, bytes]]"
-    demo_mode:bool
+    demo_mode: bool
 
     def __init__(self, datastore: "datastore.Datastore"):
         self.datastore = datastore
@@ -348,6 +348,7 @@ class FakeDeviceHandler:
 
     def demo_mode_active(self) -> bool:
         return self.demo_mode
+
 
 class FakeDataloggingManager:
     datastore: "datastore.Datastore"

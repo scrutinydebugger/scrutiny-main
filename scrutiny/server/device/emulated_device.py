@@ -537,21 +537,21 @@ class EmulatedDevice:
         self.datalogging_read_rolling_counter = 0
         self.ignore_user_command = False
 
-    def set_firmware_id(self, firmware_id:bytes) -> None:
+    def set_firmware_id(self, firmware_id: bytes) -> None:
         if not isinstance(firmware_id, bytes) or len(firmware_id) != 16:
             raise ValueError("Firmware ID must be 16 bytes long bytes object")
-        
+
         self.firmware_id = firmware_id
-    
-    def configure_rpvs(self, rpvs:Dict[int, RPVValuePair]) -> None:
+
+    def configure_rpvs(self, rpvs: Dict[int, RPVValuePair]) -> None:
         with self.rpv_lock:
             self.rpvs = rpvs
             self.protocol.configure_rpvs([self.rpvs[id]['definition'] for id in self.rpvs])
-    
-    def configure_loops(self, loops:List[ExecLoop]) -> None:
+
+    def configure_loops(self, loops: List[ExecLoop]) -> None:
         self.loops = loops
 
-    def configure_supported_features(self, memory_write:bool, datalogging:bool, user_command:bool, _64bits:bool) -> None:
+    def configure_supported_features(self, memory_write: bool, datalogging: bool, user_command: bool, _64bits: bool) -> None:
         self.supported_features = {
             'memory_write': memory_write,
             'datalogging': datalogging,
@@ -559,7 +559,7 @@ class EmulatedDevice:
             '_64bits': _64bits,
         }
 
-    def configure_datalogger(self, buffer_size:int) -> None:
+    def configure_datalogger(self, buffer_size: int) -> None:
         self.datalogger = DataloggerEmulator(self, buffer_size)
 
     def _thread_task(self) -> None:
@@ -1098,7 +1098,7 @@ class EmulatedDevice:
             rpv = self.rpvs[rpv_id]
         except KeyError:
             raise ValueError('Unknown RPV ID 0x%04X' % rpv_id)
-        
+
         return rpv['definition']
 
     def get_rpv_definition_map(self) -> Dict[int, RuntimePublishedValue]:
@@ -1123,7 +1123,7 @@ class EmulatedDevice:
             rpv = self.rpvs[rpv_id]
         except KeyError:
             raise ValueError('Unknown RuntimePublishedValue with ID 0x%04X' % rpv_id)
-        
+
         rpv['value'] = value
 
     def read_rpv(self, rpv_id: int) -> Encodable:

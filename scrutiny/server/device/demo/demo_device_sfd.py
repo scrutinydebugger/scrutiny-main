@@ -9,6 +9,7 @@ import scrutiny
 
 DEMO_DEVICE_FIRMWAREID_STR = "deadbeefc001d00d0ff1cebaadf00d00"
 
+
 class DemoDeviceSFD(FirmwareDescription):
     def __init__(self) -> None:
         metadata = SFDMetadata(

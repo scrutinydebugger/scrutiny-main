@@ -762,7 +762,7 @@ class DeviceLinkInfo:
     """A channel type specific configuration"""
     operational: bool
     """Tells if the link is opened and working correctly"""
-    demo_mode:bool
+    demo_mode: bool
     """``True`` if the server is running an emulated device for demo purpose. ``False`` otherwise"""
 
 

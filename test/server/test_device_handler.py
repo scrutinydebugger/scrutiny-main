@@ -36,9 +36,9 @@ no_callback: UpdateTargetRequestCallback = lambda *args, **kwargs: None
 
 
 class UnitTestEmulatedDevice(EmulatedDevice):
-    def __init__(self, *args:Any, **kwargs:Any) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        
+
         self.configure_rpvs({
             0x1000: {'definition': RuntimePublishedValue(id=0x1000, datatype=EmbeddedDataType.float64), 'value': 0.0},
             0x1001: {'definition': RuntimePublishedValue(id=0x1001, datatype=EmbeddedDataType.float32), 'value': 3.1415926},

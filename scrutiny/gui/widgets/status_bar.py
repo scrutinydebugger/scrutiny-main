@@ -354,10 +354,12 @@ class StatusBar(QStatusBar):
         Opens a configuration dialog"""
         info = self._server_manager.get_server_info()
         if info is None:
-            self._device_config_dialog.swap_config_pane(DeviceLinkType.NONE)
+            self._device_config_dialog.swap_config_pane(DeviceLinkType.NONE, demo_mode=False)
         else:
-            self._device_config_dialog.set_config(info.device_link.type, cast(sdk.BaseLinkConfig, info.device_link.config), info.device_link.demo_mode)
-            self._device_config_dialog.swap_config_pane(info.device_link.type)
+            self._device_config_dialog.set_config(info.device_link.type, cast(
+                sdk.BaseLinkConfig, info.device_link.config), info.device_link.demo_mode)
+        
+            self._device_config_dialog.swap_config_pane(info.device_link.type, demo_mode=info.device_link.demo_mode)
 
         self._device_config_dialog.show()
 
@@ -384,9 +386,9 @@ class StatusBar(QStatusBar):
 
         def change_device_link(client: ScrutinyClient) -> DeviceConfigDialogContentSummary:
             if summary.demo_mode:
-                # When enabling the demo mode, we don't really care about the config. 
+                # When enabling the demo mode, we don't really care about the config.
                 # The GUI should have given us a "None" type and a NoneConfig config
-                client.request_demo_mode(True)   
+                client.request_demo_mode(True)
             else:
                 # If demo mode is active on the server, this call will disable it.
                 client.configure_device_link(summary.link_type, summary.link_config)
@@ -445,10 +447,12 @@ class StatusBar(QStatusBar):
         else:
             raise NotImplementedError(f"Unsupported device comm state value {value}")
 
-    def set_device_comm_link_label(self, link_type: DeviceLinkType, operational: bool, config: Optional[BaseLinkConfig]) -> None:
+    def set_device_comm_link_label(self, link_type: DeviceLinkType, operational: bool, config: Optional[BaseLinkConfig], demo_mode: bool) -> None:
         """Set the device link label with the actually loaded link on the server side"""
         prefix = "Link:"
-        if link_type == DeviceLinkType.NONE:
+        if demo_mode:
+            self._device_comm_link_label.set_text(f"{prefix} Demo")
+        elif link_type == DeviceLinkType.NONE:
             self._device_comm_link_label.set_text(f"{prefix} None")
         elif link_type == DeviceLinkType.TCP:
             config = cast(sdk.TCPLinkConfig, config)
@@ -483,6 +487,7 @@ class StatusBar(QStatusBar):
             txt = f"{prefix} CAN {can_type} {id_size} | {config.interface.name} @{bitrate} | Tx:{txid} Rx:{rxid}"
             self._device_comm_link_label.set_text(txt)
         elif link_type == DeviceLinkType._Dummy:
+            # Should not happen. Dummy is used only for demo mode, which has a different code path
             self._device_comm_link_label.set_text(f"{prefix} Internal queue")
         else:
             raise NotImplementedError("Unsupported device link type")
@@ -555,7 +560,7 @@ class StatusBar(QStatusBar):
                     self._server_connect_action.setEnabled(True)
                 self.set_server_label_value(ServerLabelValue.Disconnected)
             self.set_device_label(DeviceCommState.NA)
-            self.set_device_comm_link_label(DeviceLinkType.NONE, False, sdk.NoneLinkConfig())
+            self.set_device_comm_link_label(DeviceLinkType.NONE, False, sdk.NoneLinkConfig(), False)
             self.set_sfd_label(value=None)
             self.set_datalogging_label(DataloggingInfo(state=DataloggingState.NA, completion_ratio=None))
         else:   # Server manager is running healthy
@@ -579,7 +584,7 @@ class StatusBar(QStatusBar):
                 self._device_details_action.setEnabled(False)
                 self._datalogger_status_label.setEnabled(False)
                 self.set_device_label(DeviceCommState.NA)
-                self.set_device_comm_link_label(DeviceLinkType.NONE, False, sdk.NoneLinkConfig())
+                self.set_device_comm_link_label(DeviceLinkType.NONE, False, sdk.NoneLinkConfig(), False)
                 self.set_sfd_label(value=None)
                 self.set_datalogging_label(DataloggingInfo(state=DataloggingState.NA, completion_ratio=None))
                 self._sfd_status_label.setEnabled(False)
@@ -587,7 +592,12 @@ class StatusBar(QStatusBar):
                 # Do some maintenance on some state variable
                 loaded_sfd = self._server_manager.get_loaded_sfd()
                 device_info = self._server_manager.get_device_info()
-                self.set_device_comm_link_label(server_info.device_link.type, server_info.device_link.operational, server_info.device_link.config)
+                self.set_device_comm_link_label(
+                    link_type=server_info.device_link.type,
+                    operational=server_info.device_link.operational,
+                    config=server_info.device_link.config,
+                    demo_mode=server_info.device_link.demo_mode
+                )
                 self.set_device_label(server_info.device_comm_state)
                 self.set_sfd_label(value=loaded_sfd)
                 self.set_datalogging_label(server_info.datalogging)

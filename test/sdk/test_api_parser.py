@@ -445,14 +445,14 @@ class TestApiParser(ScrutinyUnitTest):
                     "completion_ratio": 0.56
                 },
                 "device_comm_link": {
-                    'demo_mode' : False,
+                    'demo_mode': False,
                     "link_type": "udp",
                     "link_operational": True,
                     "link_config": {
                         "host": "localhost",
                         "port": 12345
                     },
-                    "demo_mode" : False
+                    "demo_mode": False
                 }
             }
 
@@ -642,7 +642,7 @@ class TestApiParser(ScrutinyUnitTest):
                     "completion_ratio": 0.56
                 },
                 "device_comm_link": {
-                    'demo_mode' : False,
+                    'demo_mode': False,
                     "link_type": "canbus",
                     "link_operational": True,
                     "link_config": {
@@ -720,7 +720,7 @@ class TestApiParser(ScrutinyUnitTest):
                     "completion_ratio": 0.56
                 },
                 "device_comm_link": {
-                    'demo_mode' : False,
+                    'demo_mode': False,
                     "link_type": "canbus",
                     "link_operational": True,
                     "link_config": {
@@ -804,7 +804,7 @@ class TestApiParser(ScrutinyUnitTest):
                     "completion_ratio": 0.56
                 },
                 "device_comm_link": {
-                    'demo_mode' : False,
+                    'demo_mode': False,
                     "link_type": "canbus",
                     "link_operational": True,
                     "link_config": {
@@ -891,7 +891,7 @@ class TestApiParser(ScrutinyUnitTest):
                     "completion_ratio": 0.56
                 },
                 "device_comm_link": {
-                    'demo_mode' : False,
+                    'demo_mode': False,
                     "link_type": "canbus",
                     "link_operational": True,
                     "link_config": {
@@ -972,7 +972,7 @@ class TestApiParser(ScrutinyUnitTest):
                     "completion_ratio": 0.56
                 },
                 "device_comm_link": {
-                    'demo_mode' : False,
+                    'demo_mode': False,
                     "link_type": "canbus",
                     "link_operational": True,
                     "link_config": {
@@ -2232,7 +2232,7 @@ class TestApiParser(ScrutinyUnitTest):
                 msg["sfd_list"][0]['filesize'] = v
             with self.assertRaises(sdk.exceptions.BadResponseError):
                 parser.parse_get_installed_sfds_response(msg)
-        
+
         msg = base()
         msg["sfd_list"][0]['filesize'] = None
         parsed = parser.parse_get_installed_sfds_response(msg)

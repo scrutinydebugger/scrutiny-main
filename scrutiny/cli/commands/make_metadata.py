@@ -53,12 +53,12 @@ class MakeMetadata(BaseCommand):
                 output_file = os.path.join(args.output, self.DEFAULT_NAME)
             else:
                 output_file = args.output
-            
+
             metadata: MetadataTypedDict = {
                 'project_name': args.project_name,
                 'author': args.author,
                 'version': args.version,
-                'generation_info': SFDGenerationInfo.make().to_dict() 
+                'generation_info': SFDGenerationInfo.make().to_dict()
             }
 
             with open(output_file, 'w') as f:

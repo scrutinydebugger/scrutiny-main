@@ -64,7 +64,7 @@ class StubbedDeviceHandler:
     device_state_change_callbacks: List[DeviceStateChangedCallback]
     comm_link: DummyLink
     device_info: DeviceInfo
-    _demo_mode_active:bool
+    _demo_mode_active: bool
 
     read_memory_queue: "queue.Queue[RawMemoryReadRequest]"
     write_memory_queue: "queue.Queue[RawMemoryWriteRequest]"
@@ -206,9 +206,9 @@ class StubbedDeviceHandler:
         else:
             callback(False, subfn, None, "Unsupported subfunction")
 
-
     def demo_mode_active(self):
         return self._demo_mode_active
+
 
 class StubbedDataloggingManager:
     datastore: Datastore

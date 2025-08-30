@@ -28,11 +28,13 @@ from scrutiny.gui.dialogs.device_config.canbus import CanBusConfigPane
 
 from scrutiny.tools.typing import *
 
+
 @dataclass(frozen=True)
 class DeviceConfigDialogContentSummary:
-    link_type:sdk.DeviceLinkType
-    link_config:Optional[sdk.BaseLinkConfig]
-    demo_mode:bool
+    link_type: sdk.DeviceLinkType
+    link_config: Optional[sdk.BaseLinkConfig]
+    demo_mode: bool
+
 
 class NoConfigPane(BaseConfigPane):
     def get_config(self) -> Optional[sdk.BaseLinkConfig]:
@@ -69,7 +71,7 @@ class DeviceConfigDialog(QDialog):
     }
 
     _link_type_combo_box: QComboBox
-    _chk_demo_mode:QCheckBox
+    _chk_demo_mode: QCheckBox
     _config_container: QWidget
     _configs: Dict[sdk.DeviceLinkType, sdk.BaseLinkConfig]
     _active_pane: BaseConfigPane
@@ -93,7 +95,7 @@ class DeviceConfigDialog(QDialog):
         self._link_type_combo_box = QComboBox()
         for link_type, link_info in sorted(self.SUPPORTED_LINKS.items(), key=lambda x: x[1].sort_order):
             self._link_type_combo_box.addItem(link_info.display_name, link_type)
-        
+
         self._chk_demo_mode = QCheckBox("Demo Device", self)
 
         # Bottom part that changes based on combo box selection
@@ -123,7 +125,7 @@ class DeviceConfigDialog(QDialog):
 
         self._link_type_combo_box.currentIndexChanged.connect(self._combobox_changed)
         self._active_pane = NoConfigPane()
-        self.swap_config_pane(sdk.DeviceLinkType.NONE)
+        self.swap_config_pane(sdk.DeviceLinkType.NONE, demo_mode=False)
 
         self._commit_configs_to_persistent_data()   # Override any corrupted values
 
@@ -137,15 +139,12 @@ class DeviceConfigDialog(QDialog):
     def _get_selected_link_type(self) -> sdk.DeviceLinkType:
         return cast(sdk.DeviceLinkType, self._link_type_combo_box.currentData())
 
-    def _chk_demo_mode_checkstate_changed_slot(self, state:Qt.CheckState) -> None:
+    def _chk_demo_mode_checkstate_changed_slot(self, state: Qt.CheckState) -> None:
         if state == Qt.CheckState.Checked:
-            self._link_type_combo_box.setCurrentIndex(self._link_type_combo_box.findData(sdk.DeviceLinkType.NONE))
+            self._link_type_combo_box.setCurrentIndex(self._link_type_combo_box.findData(sdk.DeviceLinkType.NONE))  # Will emit
             self._link_type_combo_box.setDisabled(True)
         else:
             self._link_type_combo_box.setDisabled(False)
-
-        self._link_type_combo_box.currentIndexChanged.emit(self._link_type_combo_box.currentIndex())
-
 
     def _combobox_changed(self) -> None:
         link_type = self._get_selected_link_type()
@@ -212,9 +211,13 @@ class DeviceConfigDialog(QDialog):
         self._clear_status()
         self.close()
 
-    def set_config(self, link_type: sdk.DeviceLinkType, config: sdk.BaseLinkConfig, demo_mode:bool) -> None:
+    def set_config(self, link_type: sdk.DeviceLinkType, config: sdk.BaseLinkConfig, demo_mode: bool) -> None:
         """Set the config for a given link type. 
         This config will be displayed when the user select the given link type"""
+        if demo_mode:
+            link_type = sdk.DeviceLinkType.NONE
+            config=sdk.NoneLinkConfig()
+
         if link_type not in self._configs:
             raise ValueError("Unsupported config type")
 
@@ -234,8 +237,10 @@ class DeviceConfigDialog(QDialog):
             demo_mode=demo_mode
         )
 
-    def swap_config_pane(self, link_type: sdk.DeviceLinkType) -> None:
+    def swap_config_pane(self, link_type: sdk.DeviceLinkType, demo_mode:bool) -> None:
         """Reconfigure the dialog for a new device type. Change the combo box value + reconfigure the variable part"""
+        if demo_mode:
+            link_type = sdk.DeviceLinkType.NONE
         combobox_index = self._link_type_combo_box.findData(link_type)
         if combobox_index < 0:
             raise ValueError(f"Given link type not in the combobox {link_type}")

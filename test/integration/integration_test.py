@@ -25,10 +25,11 @@ from scrutiny.core.basic_types import *
 from scrutiny.core.codecs import *
 from scrutiny.tools.typing import *
 
+
 class UnitTestEmulatedDevice(EmulatedDevice):
-    def __init__(self, *args:Any, **kwargs:Any) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        
+
         self.configure_rpvs({
             0x1000: {'definition': RuntimePublishedValue(id=0x1000, datatype=EmbeddedDataType.float64), 'value': 0.0},
             0x1001: {'definition': RuntimePublishedValue(id=0x1001, datatype=EmbeddedDataType.float32), 'value': 3.1415926},
@@ -46,6 +47,7 @@ class UnitTestEmulatedDevice(EmulatedDevice):
 
         self.configure_supported_features(memory_write=True, datalogging=True, user_command=True, _64bits=False)
         self.configure_datalogger(256)
+
 
 class ScrutinyIntegrationTest(ScrutinyUnitTest):
 

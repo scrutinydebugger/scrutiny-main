@@ -804,7 +804,7 @@ class API:
 
         loaded_sfd_info: Optional[api_typing.SFDInfo] = None
         if sfd is not None:
-            filesize:Optional[int] =  None
+            filesize: Optional[int] = None
             with tools.SuppressException(Exception):
                 filesize = SFDStorage.get_filesize(sfd.get_firmware_id_ascii())
 
@@ -2037,10 +2037,10 @@ class API:
     def process_demo_mode(self, conn_id: str, req: api_typing.C2S.DemoMode) -> None:
         if 'enable' not in req:
             raise InvalidRequestException(req, "Missing enable field")
-        
+
         if not isinstance(req['enable'], bool):
             raise InvalidRequestException(req, "Invalid enable field")
-        
+
         if req['enable']:
             self.device_handler.start_demo_device()
         else:
@@ -2090,7 +2090,7 @@ class API:
                 'link_type': cast(api_typing.LinkType, device_link_type),
                 'link_operational': link_operational,
                 'link_config': link_config,
-                'demo_mode' : self.device_handler.demo_mode_active(),
+                'demo_mode': self.device_handler.demo_mode_active(),
             }
         }
 

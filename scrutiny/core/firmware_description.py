@@ -142,15 +142,14 @@ class FirmwareDescription:
     metadata: SFDMetadata
     firmwareid: bytes
     aliases: Dict[str, Alias]
-    logger:logging.Logger
+    logger: logging.Logger
 
-    def __init__(self, firmwareid:bytes, varmap:VarMap, metadata:SFDMetadata):
-        self.firmwareid=firmwareid
-        self.varmap=varmap
+    def __init__(self, firmwareid: bytes, varmap: VarMap, metadata: SFDMetadata):
+        self.firmwareid = firmwareid
+        self.varmap = varmap
         self.metadata = metadata
         self.aliases = {}
         self.logger = logging.getLogger(self.__class__.__name__)
-        
 
     @classmethod
     def load_from_fielsystem(cls, file_folder: str) -> "FirmwareDescription":
@@ -158,10 +157,9 @@ class FirmwareDescription:
             return cls.load_from_folder(file_folder)
         elif os.path.isfile(file_folder):
             return cls.load_from_file(file_folder)
-         
+
         raise FileNotFoundError(f"Cannot find {file_folder}")
 
-            
     @classmethod
     def load_from_folder(cls, folder: str) -> "FirmwareDescription":
         """
@@ -183,14 +181,14 @@ class FirmwareDescription:
             firmwareid = cls.read_firmware_id(f)
 
         varmap = cls.read_varmap_from_filesystem(folder)
-        
+
         sfd = FirmwareDescription(firmwareid, varmap, metadata)
 
         if os.path.isfile(os.path.join(folder, cls.ALIAS_FILE)):
             with open(os.path.join(folder, cls.ALIAS_FILE), 'rb') as f:
                 aliases = cls.read_aliases(f, sfd.varmap)
                 sfd.append_aliases(aliases)
-        
+
         return sfd
 
     @classmethod

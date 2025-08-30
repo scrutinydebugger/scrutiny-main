@@ -765,7 +765,6 @@ def parse_inform_server_status(response: api_typing.S2C.InformServerStatus) -> s
     else:
         raise RuntimeError(f'Unsupported device link type "{link_type}"')
 
-    
     device_link = sdk.DeviceLinkInfo(
         type=link_type,
         config=link_config,

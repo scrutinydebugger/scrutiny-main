@@ -74,7 +74,7 @@ class SFDTableModel(QStandardItemModel):
         if sfd_info.filesize is not None:
             filesize_txt = tools.format_eng_unit(sfd_info.filesize, decimal=1, unit="B", binary=True)
         row[self.Cols.FILESIZE].setText(filesize_txt)
-        
+
         if sfd_info.metadata is not None:
             if sfd_info.metadata.project_name is not None:
                 project_name = sfd_info.metadata.project_name

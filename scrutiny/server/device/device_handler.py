@@ -147,7 +147,7 @@ class DeviceHandler:
     device_state_changed_callbacks: List[DeviceStateChangedCallback]    # Calback called when the state machine changes state
     expect_no_timeout: bool  # Flag that makes communicaiton timeout a critical error. Used for unit testing.
     device_session_count: int    # Counter to keep track of how many device the server has connected to
-    _demo_device:Optional[DemoDevice]
+    _demo_device: Optional[DemoDevice]
 
     DEFAULT_PARAMS: DeviceHandlerConfig = {
         'response_timeout': 1.0,    # If a response take more than this delay to be received after a request is sent, drop the response.
@@ -946,7 +946,7 @@ class DeviceHandler:
             comm_handler=self.comm_handler.get_stats(),
             device_session_count=self.device_session_count
         )
-    
+
     def start_demo_device(self) -> None:
         self.stop_demo_mode()
         self.configure_comm('dummy')
