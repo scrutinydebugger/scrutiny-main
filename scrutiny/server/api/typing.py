@@ -50,7 +50,7 @@ LoopType = Literal['fixed_freq', 'variable_freq']
 
 class SFDInfo(TypedDict):
     firmware_id: str
-    filesize: int
+    filesize: Optional[int]
     metadata: SFDMetadata
 
 
@@ -124,6 +124,7 @@ class DeviceCommLinkDef(TypedDict):
     link_type: LinkType
     link_config: LinkConfig
     link_operational: bool
+    demo_mode:bool
 
 
 class GetWatchableList_Filter(TypedDict, total=False):
@@ -307,6 +308,9 @@ class C2S:
     class UserCommand(BaseC2SMessage):
         subfunction: int
         data: str
+    
+    class DemoMode(BaseC2SMessage):
+        enable:bool
 
     class GetServerStats(BaseC2SMessage):
         pass
@@ -462,6 +466,9 @@ class S2C:
         to_device_datarate_byte_per_sec: float
         from_device_datarate_byte_per_sec: float
         device_request_per_sec: float
+    
+    class DemoMode(BaseS2CMessage):
+        enabled:bool
 
 
 C2SMessage = Union[

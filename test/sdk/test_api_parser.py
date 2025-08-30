@@ -445,12 +445,14 @@ class TestApiParser(ScrutinyUnitTest):
                     "completion_ratio": 0.56
                 },
                 "device_comm_link": {
+                    'demo_mode' : False,
                     "link_type": "udp",
                     "link_operational": True,
                     "link_config": {
                         "host": "localhost",
                         "port": 12345
-                    }
+                    },
+                    "demo_mode" : False
                 }
             }
 
@@ -477,6 +479,7 @@ class TestApiParser(ScrutinyUnitTest):
         assert isinstance(info.device_link.config, UDPLinkConfig)
         self.assertEqual(info.device_link.config.host, "localhost")
         self.assertEqual(info.device_link.config.port, 12345)
+        self.assertFalse(info.device_link.demo_mode)
 
         ##
 
@@ -639,6 +642,7 @@ class TestApiParser(ScrutinyUnitTest):
                     "completion_ratio": 0.56
                 },
                 "device_comm_link": {
+                    'demo_mode' : False,
                     "link_type": "canbus",
                     "link_operational": True,
                     "link_config": {
@@ -716,6 +720,7 @@ class TestApiParser(ScrutinyUnitTest):
                     "completion_ratio": 0.56
                 },
                 "device_comm_link": {
+                    'demo_mode' : False,
                     "link_type": "canbus",
                     "link_operational": True,
                     "link_config": {
@@ -799,6 +804,7 @@ class TestApiParser(ScrutinyUnitTest):
                     "completion_ratio": 0.56
                 },
                 "device_comm_link": {
+                    'demo_mode' : False,
                     "link_type": "canbus",
                     "link_operational": True,
                     "link_config": {
@@ -885,6 +891,7 @@ class TestApiParser(ScrutinyUnitTest):
                     "completion_ratio": 0.56
                 },
                 "device_comm_link": {
+                    'demo_mode' : False,
                     "link_type": "canbus",
                     "link_operational": True,
                     "link_config": {
@@ -965,6 +972,7 @@ class TestApiParser(ScrutinyUnitTest):
                     "completion_ratio": 0.56
                 },
                 "device_comm_link": {
+                    'demo_mode' : False,
                     "link_type": "canbus",
                     "link_operational": True,
                     "link_config": {
@@ -1535,7 +1543,7 @@ class TestApiParser(ScrutinyUnitTest):
                     parser.parse_get_loaded_sfd(msg)
 
         test_field("firmware_id", [{}, None, 1.2, 1, True, Delete])
-        test_field("filesize", [{}, [], None, 1.2, -1, "asd", True, Delete])
+        test_field("filesize", [{}, [], 1.2, -1, "asd", True, Delete])
         test_field("metadata", [[], 1.2, 1, True, Delete])
 
         # Negative checks
@@ -2216,7 +2224,7 @@ class TestApiParser(ScrutinyUnitTest):
             with self.assertRaises(sdk.exceptions.BadResponseError):
                 parser.parse_get_installed_sfds_response(msg)
 
-        for v in [{}, [], None, 1.2, -1, "asd", True, Delete]:
+        for v in [{}, [], 1.2, -1, "asd", True, Delete]:
             msg = base()
             if v == Delete:
                 del msg["sfd_list"][0]['filesize']
@@ -2224,6 +2232,11 @@ class TestApiParser(ScrutinyUnitTest):
                 msg["sfd_list"][0]['filesize'] = v
             with self.assertRaises(sdk.exceptions.BadResponseError):
                 parser.parse_get_installed_sfds_response(msg)
+        
+        msg = base()
+        msg["sfd_list"][0]['filesize'] = None
+        parsed = parser.parse_get_installed_sfds_response(msg)
+        self.assertIsNone(parsed['firmware_id_1'].filesize)
 
         for v in [{}, [], None, 1.2, -1, "", True, Delete]:
             msg = base()

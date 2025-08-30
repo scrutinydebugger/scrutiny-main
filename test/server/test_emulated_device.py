@@ -80,7 +80,7 @@ class TestEmulatedDatalogger(ScrutinyUnitTest):
 
     def setUp(self):
         self.link = DummyLink()
-        self.emulated_device = UnitTestEmulatedDevice(self.link)
+        self.emulated_device = EmulatedDevice(self.link)
         self.emulated_device.configure_rpvs({
             0x1000: {'definition': RuntimePublishedValue(id=0x1000, datatype=EmbeddedDataType.float64), 'value': 0.0},
         })

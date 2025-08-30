@@ -74,6 +74,8 @@
                 "compelted" : "completed",
                 "fielsize" : "filesize",
                 "resposne" : "response",
+                "improt" : "import",
+                "suer" : "user",
             }
         }]
 }

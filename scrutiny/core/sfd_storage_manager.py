@@ -94,7 +94,7 @@ class SFDStorageManager:
         if not os.path.isfile(filename):
             raise ValueError('File "%s" does not exist' % (filename))
 
-        sfd = FirmwareDescription(filename)
+        sfd = FirmwareDescription.load_from_file(filename)
         self.install_sfd(sfd, ignore_exist=ignore_exist)
         return sfd
 
@@ -139,7 +139,7 @@ class SFDStorageManager:
     def get(self, firmwareid: str) -> FirmwareDescription:
         """Returns the FirmwareDescription object from the global storage that has the given firmware ID """
         file = self.get_file_location(firmwareid)
-        return FirmwareDescription(file)
+        return FirmwareDescription.load_from_file(file)
 
     def get_file_location(self, firmwareid: str) -> str:
         firmwareid = self.clean_firmware_id(firmwareid)

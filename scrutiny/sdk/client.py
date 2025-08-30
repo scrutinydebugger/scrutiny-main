@@ -2824,6 +2824,27 @@ class ScrutinyClient:
             raise sdk.exceptions.OperationFailure(
                 f"Failed to update the datalogging acquisition with reference ID: {reference_id}. {future.error_str}")
 
+    def request_demo_mode(self, enable:bool) -> None:
+        validation.assert_type(enable, 'enable', bool)
+
+        req = cast(api_typing.C2S.DemoMode, 
+                   self._make_request(API.Command.Client2Api.DEMO_MODE, {
+                    'enable': enable
+                })
+        )
+
+
+        def callback(state: CallbackState, response: Optional[api_typing.S2CMessage]) -> None:
+            pass
+
+        future = self._send(req, callback)
+        assert future is not None
+        future.wait()
+
+        if future.state != CallbackState.OK:
+            raise sdk.exceptions.OperationFailure("Failed to put the server in demo mode")
+
+
     def has_event_pending(self) -> bool:
         return not self._event_queue.empty()
 

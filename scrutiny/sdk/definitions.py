@@ -307,8 +307,8 @@ class SFDInfo:
     firmware_id: str
     """Unique firmware hash"""
 
-    filesize: int
-    """The size of the SFD file in the server storage"""
+    filesize: Optional[int]
+    """The size of the SFD file in the server storage. ``None`` if not available"""
 
     metadata: Optional[SFDMetadata]
     """The firmware metadata embedded in the Scrutiny Firmware Description file if available. ``None`` if no metadata has been added to the SFD"""
@@ -762,6 +762,8 @@ class DeviceLinkInfo:
     """A channel type specific configuration"""
     operational: bool
     """Tells if the link is opened and working correctly"""
+    demo_mode:bool
+    """``True`` if the server is running an emulated device for demo purpose. ``False`` otherwise"""
 
 
 @dataclass(frozen=True)

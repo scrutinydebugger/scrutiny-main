@@ -29,7 +29,12 @@ default_server_info = sdk.ServerInfo(
     device_session_id=None,
     datalogging=sdk.DataloggingInfo(sdk.DataloggingState.NA, completion_ratio=None),
     sfd_firmware_id=None,
-    device_link=sdk.DeviceLinkInfo(type=sdk.DeviceLinkType.UDP, config=dict(host='localhost', prot=1234), operational=True)
+    device_link=sdk.DeviceLinkInfo(
+        type=sdk.DeviceLinkType.UDP, 
+        config=dict(host='localhost', prot=1234), 
+        operational=True, 
+        demo_mode=False
+    )
 )
 
 

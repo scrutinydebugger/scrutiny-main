@@ -18,6 +18,7 @@ from scrutiny.core.firmware_description import FirmwareDescription
 from scrutiny.server.sfd_storage import SFDStorage
 from scrutiny.core.basic_types import WatchableType
 from scrutiny.server.device.device_handler import DeviceHandler
+from scrutiny.server.device.demo.demo_device_sfd import DEMO_DEVICE_FIRMWAREID_STR, DemoDeviceSFD
 from scrutiny.server.datastore.datastore import Datastore
 from scrutiny.server.datastore.datastore_entry import DatastoreAliasEntry, DatastoreVariableEntry
 from scrutiny import tools
@@ -94,6 +95,8 @@ class ActiveSFDHandler:
 
         if self.autoload:
             if device_status != DeviceHandler.ConnectionStatus.CONNECTED_READY:
+                if self.sfd is not None:
+                    self.logger.debug(f"Device status is {device_status.name}. Unloading SFD")
                 self.reset_active_sfd()     # Clear active SFD
             else:
                 if self.sfd is None:    # if none loaded
@@ -104,7 +107,13 @@ class ActiveSFDHandler:
                     else:
                         self.logger.critical('No device ID available when connected. This should not happen')
                 else:
-                    if not SFDStorage.is_installed(self.sfd.get_firmware_id_ascii()):  # Removed from disk?
+                    loaded_sfd_valid = False 
+                    if SFDStorage.is_installed(self.sfd.get_firmware_id_ascii()):
+                        loaded_sfd_valid = True
+                    if self.sfd.get_firmware_id_ascii() == DEMO_DEVICE_FIRMWAREID_STR:
+                        loaded_sfd_valid = True
+                    
+                    if not loaded_sfd_valid:  # Removed from disk?
                         self.reset_active_sfd()
 
         if self.requested_firmware_id is not None:  # If the API requested to load an SFD
@@ -131,7 +140,11 @@ class ActiveSFDHandler:
         if SFDStorage.is_installed(firmware_id):
             self.logger.info('Loading firmware description file (SFD) for firmware ID %s' % firmware_id)
             self.sfd = SFDStorage.get(firmware_id)
+        elif firmware_id == DEMO_DEVICE_FIRMWAREID_STR:
+            self.logger.info('Loading the demo device SFD')
+            self.sfd = DemoDeviceSFD()
 
+        if self.sfd is not None:
             # populate datastore
             for fullname, vardef in self.sfd.get_vars_for_datastore():
                 try:

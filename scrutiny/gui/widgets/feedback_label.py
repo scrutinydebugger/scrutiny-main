@@ -1,5 +1,5 @@
 #    feedback_label.py
-#        A label that can display messages to the suer with success/warning/info/error facilities
+#        A label that can display messages to the user with success/warning/info/error facilities
 #
 #   - License : MIT - See LICENSE file.
 #   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)

@@ -37,7 +37,7 @@ from scrutiny.core.memory_content import MemoryContent
 from scrutiny.core.basic_types import RuntimePublishedValue, EmbeddedDataType, MemoryRegion, Endianness
 import scrutiny.server.datalogging.definitions.device as device_datalogging
 from scrutiny.core.codecs import *
-from scrutiny.server.device.device_info import ExecLoop, VariableFreqLoop, FixedFreqLoop
+from scrutiny.server.device.device_info import ExecLoop
 from scrutiny.server.protocol.crc32 import crc32
 
 from scrutiny.tools.typing import *
@@ -537,6 +537,12 @@ class EmulatedDevice:
         self.datalogging_read_rolling_counter = 0
         self.ignore_user_command = False
 
+    def set_firmware_id(self, firmware_id:bytes) -> None:
+        if not isinstance(firmware_id, bytes) or len(firmware_id) != 16:
+            raise ValueError("Firmware ID must be 16 bytes long bytes object")
+        
+        self.firmware_id = firmware_id
+    
     def configure_rpvs(self, rpvs:Dict[int, RPVValuePair]) -> None:
         with self.rpv_lock:
             self.rpvs = rpvs

@@ -115,6 +115,7 @@ class API:
             USER_COMMAND = "user_command"
             GET_SERVER_STATS = 'get_server_stats'
             DEBUG = 'debug'
+            DEMO_MODE = 'demo_mode'
 
         class Api2Client:
             ECHO_RESPONSE = 'response_echo'
@@ -150,6 +151,7 @@ class API:
             INFORM_MEMORY_WRITE_COMPLETE = "inform_memory_write_complete"
             USER_COMMAND_RESPONSE = "response_user_command"
             GET_SERVER_STATS = 'response_get_server_stats'
+            DEMO_MODE_RESPONSE = 'response_demo_mode'
             ERROR_RESPONSE = 'error'
 
     @dataclass
@@ -358,7 +360,8 @@ class API:
             self.Command.Client2Api.READ_MEMORY: self.process_read_memory,
             self.Command.Client2Api.WRITE_MEMORY: self.process_write_memory,
             self.Command.Client2Api.USER_COMMAND: self.process_user_command,
-            self.Command.Client2Api.GET_SERVER_STATS: self.process_server_stats
+            self.Command.Client2Api.GET_SERVER_STATS: self.process_server_stats,
+            self.Command.Client2Api.DEMO_MODE: self.process_demo_mode
         }
 
         if enable_debug:
@@ -801,7 +804,15 @@ class API:
 
         loaded_sfd_info: Optional[api_typing.SFDInfo] = None
         if sfd is not None:
-            loaded_sfd_info = self._make_sfd_info(sfd.get_firmware_id_ascii())
+            filesize:Optional[int] =  None
+            with tools.SuppressException(Exception):
+                filesize = SFDStorage.get_filesize(sfd.get_firmware_id_ascii())
+
+            loaded_sfd_info = {
+                'firmware_id': sfd.get_firmware_id_ascii(),
+                'metadata': sfd.metadata.to_dict(),
+                'filesize': filesize
+            }
 
         response: api_typing.S2C.GetLoadedSFD = {
             'cmd': self.Command.Api2Client.GET_LOADED_SFD_RESPONSE,
@@ -2022,6 +2033,27 @@ class API:
 
         self.client_handler.send(ClientHandlerMessage(conn_id=conn_id, obj=response))
 
+    # === DEMO_MODE ===
+    def process_demo_mode(self, conn_id: str, req: api_typing.C2S.DemoMode) -> None:
+        if 'enable' not in req:
+            raise InvalidRequestException(req, "Missing enable field")
+        
+        if not isinstance(req['enable'], bool):
+            raise InvalidRequestException(req, "Invalid enable field")
+        
+        if req['enable']:
+            self.device_handler.start_demo_device()
+        else:
+            self.device_handler.stop_demo_mode()
+
+        response: api_typing.S2C.DemoMode = {
+            'cmd': API.Command.Api2Client.DEMO_MODE_RESPONSE,
+            'reqid': self.get_req_id(req),
+            'enabled': self.device_handler.demo_mode_active()
+        }
+
+        self.client_handler.send(ClientHandlerMessage(conn_id=conn_id, obj=response))
+
     def craft_inform_server_status(self, reqid: Optional[int] = None) -> api_typing.S2C.InformServerStatus:
         # Make a Server to client message that inform the actual state of the server
         # Query the state of all subpart of the software.
@@ -2057,7 +2089,8 @@ class API:
             'device_comm_link': {
                 'link_type': cast(api_typing.LinkType, device_link_type),
                 'link_operational': link_operational,
-                'link_config': link_config
+                'link_config': link_config,
+                'demo_mode' : self.device_handler.demo_mode_active(),
             }
         }
 

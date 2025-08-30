@@ -34,7 +34,7 @@ class MakeSFD(BaseCommand):
         args = self.parser.parse_args(self.args)
 
         try:
-            sfd = FirmwareDescription(args.folder)
+            sfd = FirmwareDescription.load_from_folder(args.folder)
             sfd.write(args.output)
             self.getLogger().info(f"SFD File {args.output} written")
         except Exception as e:

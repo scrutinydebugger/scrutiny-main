@@ -21,7 +21,7 @@ from scrutiny.gui.core.server_manager import ServerManager
 from scrutiny.gui.core.local_server_runner import LocalServerRunner
 from scrutiny.gui.core.user_messages_manager import UserMessagesManager, UserMessage
 from scrutiny.gui.dialogs.server_config_dialog import ServerConfigDialog
-from scrutiny.gui.dialogs.device_config.device_config_dialog import DeviceConfigDialog
+from scrutiny.gui.dialogs.device_config.device_config_dialog import DeviceConfigDialog, DeviceConfigDialogContentSummary
 from scrutiny.gui.dialogs.device_info_dialog import DeviceInfoDialog
 from scrutiny.gui.dialogs.sfd_content_dialog import SFDContentDialog
 from scrutiny.gui.themes import scrutiny_get_theme
@@ -350,13 +350,13 @@ class StatusBar(QStatusBar):
             self._server_connect_func()
 
     def _device_link_click_func(self) -> None:
-        """ Called when the suer click on the device link label in the status bar. 
+        """ Called when the user click on the device link label in the status bar. 
         Opens a configuration dialog"""
         info = self._server_manager.get_server_info()
         if info is None:
             self._device_config_dialog.swap_config_pane(DeviceLinkType.NONE)
         else:
-            self._device_config_dialog.set_config(info.device_link.type, cast(sdk.BaseLinkConfig, info.device_link.config))
+            self._device_config_dialog.set_config(info.device_link.type, cast(sdk.BaseLinkConfig, info.device_link.config), info.device_link.demo_mode)
             self._device_config_dialog.swap_config_pane(info.device_link.type)
 
         self._device_config_dialog.show()
@@ -377,28 +377,34 @@ class StatusBar(QStatusBar):
 
     def _device_config_applied(self, dialog: DeviceConfigDialog) -> None:
         # When the user click OK in the DeviceLinkConfigDialog. He wants the change the link between the server and the device
-        link_type, config = dialog.get_type_and_config()
-        if config is None:
+        summary = dialog.get_content_summary()
+        if summary.link_config is None:
             # Invalid config. Do nothing
             return
 
-        def change_device_link(link_type: DeviceLinkType, config: BaseLinkConfig, client: ScrutinyClient) -> Tuple[DeviceLinkType, BaseLinkConfig]:
-            client.configure_device_link(link_type, config)
-            return (link_type, config)
+        def change_device_link(client: ScrutinyClient) -> DeviceConfigDialogContentSummary:
+            if summary.demo_mode:
+                # When enabling the demo mode, we don't really care about the config. 
+                # The GUI should have given us a "None" type and a NoneConfig config
+                client.request_demo_mode(True)   
+            else:
+                # If demo mode is active on the server, this call will disable it.
+                client.configure_device_link(summary.link_type, summary.link_config)
+            return summary
 
         # Runs the request in a separate thread to avoid blocking the UI thread
         self._server_manager.schedule_client_request(
-            user_func=functools.partial(change_device_link, link_type, config),
+            user_func=change_device_link,
             ui_thread_callback=self._change_device_link_completed
         )
 
-    def _change_device_link_completed(self, return_val: Optional[Tuple[DeviceLinkType, BaseLinkConfig]], error: Optional[Exception]) -> None:
+    def _change_device_link_completed(self, summary: Optional[DeviceConfigDialogContentSummary], error: Optional[Exception]) -> None:
         """ Callback invoked once the server manager has a response from the server after we asked to change the device link"""
         if error is None:
-            assert return_val is not None
-            link_type, config = return_val
+            assert summary is not None
+            assert summary.link_config is not None
             self._device_config_dialog.change_success_callback()
-            self._device_config_dialog.set_config(link_type, config)
+            self._device_config_dialog.set_config(summary.link_type, summary.link_config, summary.demo_mode)
         else:
             self._device_config_dialog.change_fail_callback(f"Failed:\n {error}")
         self.update_content()
@@ -476,6 +482,8 @@ class StatusBar(QStatusBar):
 
             txt = f"{prefix} CAN {can_type} {id_size} | {config.interface.name} @{bitrate} | Tx:{txid} Rx:{rxid}"
             self._device_comm_link_label.set_text(txt)
+        elif link_type == DeviceLinkType._Dummy:
+            self._device_comm_link_label.set_text(f"{prefix} Internal queue")
         else:
             raise NotImplementedError("Unsupported device link type")
 

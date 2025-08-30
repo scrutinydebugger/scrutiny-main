@@ -43,7 +43,7 @@ class MakeMetadata(BaseCommand):
 
     def run(self) -> Optional[int]:
         import scrutiny
-        from scrutiny.core.firmware_description import MetadataTypedDict
+        from scrutiny.core.firmware_description import MetadataTypedDict, SFDGenerationInfo
         args = self.parser.parse_args(self.args)
 
         try:
@@ -53,23 +53,12 @@ class MakeMetadata(BaseCommand):
                 output_file = os.path.join(args.output, self.DEFAULT_NAME)
             else:
                 output_file = args.output
-
-            try:
-                scrutiny_version = scrutiny.__version__
-            except Exception:
-                self.getLogger().warning("Could not find the scrutiny version")
-                scrutiny_version = '0.0.0'
-
+            
             metadata: MetadataTypedDict = {
                 'project_name': args.project_name,
                 'author': args.author,
                 'version': args.version,
-                'generation_info': {
-                    'time': round(datetime.datetime.now().timestamp()),
-                    'python_version': platform.python_version(),
-                    'scrutiny_version': scrutiny_version,
-                    'system_type': platform.system()
-                }
+                'generation_info': SFDGenerationInfo.make().to_dict() 
             }
 
             with open(output_file, 'w') as f:

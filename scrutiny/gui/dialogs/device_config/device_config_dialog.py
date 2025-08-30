@@ -12,7 +12,8 @@ import logging
 import traceback
 from dataclasses import dataclass
 
-from PySide6.QtWidgets import QDialog, QWidget, QComboBox, QVBoxLayout, QDialogButtonBox, QPushButton
+from PySide6.QtWidgets import QDialog, QWidget, QComboBox, QVBoxLayout, QDialogButtonBox, QPushButton, QCheckBox
+from PySide6.QtCore import Qt
 
 from scrutiny import sdk
 from scrutiny.gui.dialogs.device_config.base_config_pane import BaseConfigPane
@@ -27,6 +28,11 @@ from scrutiny.gui.dialogs.device_config.canbus import CanBusConfigPane
 
 from scrutiny.tools.typing import *
 
+@dataclass(frozen=True)
+class DeviceConfigDialogContentSummary:
+    link_type:sdk.DeviceLinkType
+    link_config:Optional[sdk.BaseLinkConfig]
+    demo_mode:bool
 
 class NoConfigPane(BaseConfigPane):
     def get_config(self) -> Optional[sdk.BaseLinkConfig]:
@@ -63,6 +69,7 @@ class DeviceConfigDialog(QDialog):
     }
 
     _link_type_combo_box: QComboBox
+    _chk_demo_mode:QCheckBox
     _config_container: QWidget
     _configs: Dict[sdk.DeviceLinkType, sdk.BaseLinkConfig]
     _active_pane: BaseConfigPane
@@ -86,6 +93,8 @@ class DeviceConfigDialog(QDialog):
         self._link_type_combo_box = QComboBox()
         for link_type, link_info in sorted(self.SUPPORTED_LINKS.items(), key=lambda x: x[1].sort_order):
             self._link_type_combo_box.addItem(link_info.display_name, link_type)
+        
+        self._chk_demo_mode = QCheckBox("Demo Device", self)
 
         # Bottom part that changes based on combo box selection
         self._config_container = QWidget()
@@ -97,6 +106,7 @@ class DeviceConfigDialog(QDialog):
         buttons.accepted.connect(self._btn_ok_click)
         buttons.rejected.connect(self._btn_cancel_click)
 
+        vlayout.addWidget(self._chk_demo_mode)
         vlayout.addWidget(self._link_type_combo_box)
         vlayout.addWidget(self._config_container)
         vlayout.addWidget(self._feedback_label)
@@ -104,6 +114,7 @@ class DeviceConfigDialog(QDialog):
 
         self._btn_ok = buttons.button(QDialogButtonBox.StandardButton.Ok)
         self._btn_cancel = buttons.button(QDialogButtonBox.StandardButton.Cancel)
+        self._chk_demo_mode.checkStateChanged.connect(self._chk_demo_mode_checkstate_changed_slot)
 
         self._configs = {}
         # Preload some default configs to avoid having a blank form
@@ -125,6 +136,16 @@ class DeviceConfigDialog(QDialog):
 
     def _get_selected_link_type(self) -> sdk.DeviceLinkType:
         return cast(sdk.DeviceLinkType, self._link_type_combo_box.currentData())
+
+    def _chk_demo_mode_checkstate_changed_slot(self, state:Qt.CheckState) -> None:
+        if state == Qt.CheckState.Checked:
+            self._link_type_combo_box.setCurrentIndex(self._link_type_combo_box.findData(sdk.DeviceLinkType.NONE))
+            self._link_type_combo_box.setDisabled(True)
+        else:
+            self._link_type_combo_box.setDisabled(False)
+
+        self._link_type_combo_box.currentIndexChanged.emit(self._link_type_combo_box.currentIndex())
+
 
     def _combobox_changed(self) -> None:
         link_type = self._get_selected_link_type()
@@ -191,7 +212,7 @@ class DeviceConfigDialog(QDialog):
         self._clear_status()
         self.close()
 
-    def set_config(self, link_type: sdk.DeviceLinkType, config: sdk.BaseLinkConfig) -> None:
+    def set_config(self, link_type: sdk.DeviceLinkType, config: sdk.BaseLinkConfig, demo_mode:bool) -> None:
         """Set the config for a given link type. 
         This config will be displayed when the user select the given link type"""
         if link_type not in self._configs:
@@ -199,12 +220,19 @@ class DeviceConfigDialog(QDialog):
 
         valid_config = self.SUPPORTED_LINKS[link_type].ui_pane.make_config_valid(config)
         self._configs[link_type] = valid_config
+        self._chk_demo_mode.setChecked(demo_mode)
+        self._chk_demo_mode.checkStateChanged.emit(self._chk_demo_mode.checkState())
 
-    def get_type_and_config(self) -> Tuple[sdk.DeviceLinkType, Optional[sdk.BaseLinkConfig]]:
+    def get_content_summary(self) -> DeviceConfigDialogContentSummary:
         """Return the device link configuration selected by the user"""
         link_type = self._get_selected_link_type()
         config = self._active_pane.get_config()
-        return (link_type, config)
+        demo_mode = self._chk_demo_mode.isChecked()
+        return DeviceConfigDialogContentSummary(
+            link_type=link_type,
+            link_config=config,
+            demo_mode=demo_mode
+        )
 
     def swap_config_pane(self, link_type: sdk.DeviceLinkType) -> None:
         """Reconfigure the dialog for a new device type. Change the combo box value + reconfigure the variable part"""

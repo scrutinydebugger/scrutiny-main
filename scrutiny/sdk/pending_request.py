@@ -1,5 +1,5 @@
 #    pending_request.py
-#        A base class for Future objects given to the suer
+#        A base class for Future objects given to the user
 #
 #   - License : MIT - See LICENSE file.
 #   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
