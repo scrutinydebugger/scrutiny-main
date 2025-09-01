@@ -90,7 +90,7 @@ class DemoDevice(EmulatedDevice):
         self._write_var('/global/sinewave_generator/output', sinewave)
         
 
-    def task_update_rpv(self):
+    def task_update_rpv(self) -> None:
         if self.rpv_2000_timer.is_timed_out():
             rpv2000_val = self.read_rpv(0x2000)
             newval = 1 if rpv2000_val < 0 else -1
