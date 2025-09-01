@@ -152,7 +152,7 @@ class FirmwareDescription:
         self.logger = logging.getLogger(self.__class__.__name__)
 
     @classmethod
-    def load_from_fielsystem(cls, file_folder: str) -> "FirmwareDescription":
+    def load_from_filesystem(cls, file_folder: str) -> "FirmwareDescription":
         if os.path.isdir(file_folder):
             return cls.load_from_folder(file_folder)
         elif os.path.isfile(file_folder):

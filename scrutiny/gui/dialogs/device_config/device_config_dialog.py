@@ -12,18 +12,21 @@ import logging
 import traceback
 from dataclasses import dataclass
 
-from PySide6.QtWidgets import QDialog, QWidget, QComboBox, QVBoxLayout, QDialogButtonBox, QPushButton, QCheckBox
+from PySide6.QtWidgets import QDialog, QWidget, QComboBox, QVBoxLayout, QDialogButtonBox, QPushButton, QCheckBox, QHBoxLayout
 from PySide6.QtCore import Qt
 
 from scrutiny import sdk
 from scrutiny.gui.dialogs.device_config.base_config_pane import BaseConfigPane
 from scrutiny.gui.widgets.feedback_label import FeedbackLabel
-from scrutiny.gui.core.persistent_data import gui_persistent_data, AppPersistentData
+from scrutiny.gui.core.persistent_data import AppPersistentData
+from scrutiny.gui.themes import scrutiny_get_theme
+from scrutiny.gui import assets
 
 from scrutiny.gui.dialogs.device_config.tcp_udp import TCPConfigPane, UDPConfigPane
 from scrutiny.gui.dialogs.device_config.serial import SerialConfigPane
 from scrutiny.gui.dialogs.device_config.rtt import RTTConfigPane
 from scrutiny.gui.dialogs.device_config.canbus import CanBusConfigPane
+from scrutiny.gui.dialogs.device_config.demo_mode_info_dialog import DemoModeInfoDialog
 
 
 from scrutiny.tools.typing import *
@@ -96,7 +99,18 @@ class DeviceConfigDialog(QDialog):
         for link_type, link_info in sorted(self.SUPPORTED_LINKS.items(), key=lambda x: x[1].sort_order):
             self._link_type_combo_box.addItem(link_info.display_name, link_type)
 
+        demo_mode_container = QWidget()
+        demo_mode_container_layout = QHBoxLayout(demo_mode_container)
+        demo_mode_container_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self._chk_demo_mode = QCheckBox("Demo Device", self)
+        btn_demo_mode_info = QPushButton()
+        btn_demo_mode_info.setMaximumWidth(self.height())
+        btn_demo_mode_info.setFlat(True)
+        btn_demo_mode_info.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_demo_mode_info.setIcon(scrutiny_get_theme().load_medium_icon(assets.Icons.Question))
+        btn_demo_mode_info.clicked.connect(self._demo_mode_info_click_slot)
+        demo_mode_container_layout.addWidget(self._chk_demo_mode)
+        demo_mode_container_layout.addWidget(btn_demo_mode_info)
 
         # Bottom part that changes based on combo box selection
         self._config_container = QWidget()
@@ -108,7 +122,7 @@ class DeviceConfigDialog(QDialog):
         buttons.accepted.connect(self._btn_ok_click)
         buttons.rejected.connect(self._btn_cancel_click)
 
-        vlayout.addWidget(self._chk_demo_mode)
+        vlayout.addWidget(demo_mode_container)
         vlayout.addWidget(self._link_type_combo_box)
         vlayout.addWidget(self._config_container)
         vlayout.addWidget(self._feedback_label)
@@ -128,6 +142,10 @@ class DeviceConfigDialog(QDialog):
         self.swap_config_pane(sdk.DeviceLinkType.NONE, demo_mode=False)
 
         self._commit_configs_to_persistent_data()   # Override any corrupted values
+
+    def _demo_mode_info_click_slot(self):
+        dialog = DemoModeInfoDialog(self) # Modal window
+        dialog.show()
 
     def _commit_configs_to_persistent_data(self) -> None:
         """Put the actual state of the dialog inside the persistent preferences system
