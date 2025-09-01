@@ -44,7 +44,7 @@ from scrutiny.server.device.submodules.memory_reader import MemoryReader, RawMem
 from scrutiny.server.device.submodules.memory_writer import MemoryWriter, RawMemoryWriteRequestCompletionCallback, RawMemoryWriteRequest
 from scrutiny.server.device.submodules.datalogging_poller import DataloggingPoller, DeviceAcquisitionRequestCompletionCallback
 from scrutiny.server.device.device_info import DeviceInfo
-from scrutiny.server.device.demo.demo_device import DemoDevice
+from scrutiny.server.device.demo_device import DemoDevice
 from scrutiny.server.device.links.dummy_link import DummyLink
 from scrutiny.tools import Timer, update_dict_recursive
 from scrutiny.server.datastore.datastore import Datastore

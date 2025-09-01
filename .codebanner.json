@@ -871,11 +871,14 @@
         "scrutiny/core/demo_device_sfd.py": {
             "docstring": "The Scrutiny Firmware Description file used for demo mode. This SFD is never saved to disk, just loaded in RAM when needed"
         },
-        "scrutiny/server/device/demo/demo_device.py": {
-            "docstring": "Extension of the emulated device used for the demo mode. Runs a fake device with some artificial variables and RPV for the purpose of showcasing the UI"
-        },
         "scripts/sign_pe32.sh": {
             "docstring": "Sign a PE32 using custom signing endpoint"
+        },
+        "test/server/test_demo_device.py": {
+            "docstring": "A test suite for the demo device"
+        },
+        "scrutiny/server/device/demo_device.py": {
+            "docstring": "Extension of the emulated device used for the demo mode. Runs a fake device with some artificial variables and RPV for the purpose of showcasing the UI"
         }
     }
 }
