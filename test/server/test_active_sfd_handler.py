@@ -11,7 +11,7 @@ from scrutiny.server.active_sfd_handler import ActiveSFDHandler
 from scrutiny.server.datastore.datastore import Datastore
 from scrutiny.server.sfd_storage import SFDStorage
 from scrutiny.core.basic_types import WatchableType
-from scrutiny.core.demo_device_sfd import DEMO_DEVICE_FIRMWAREID_STR 
+from scrutiny.core.demo_device_sfd import DEMO_DEVICE_FIRMWAREID_STR
 from test.artifacts import get_artifact
 from test import ScrutinyUnitTest
 

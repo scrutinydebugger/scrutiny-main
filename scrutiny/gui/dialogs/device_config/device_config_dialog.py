@@ -216,7 +216,7 @@ class DeviceConfigDialog(QDialog):
         This config will be displayed when the user select the given link type"""
         if demo_mode:
             link_type = sdk.DeviceLinkType.NONE
-            config=sdk.NoneLinkConfig()
+            config = sdk.NoneLinkConfig()
 
         if link_type not in self._configs:
             raise ValueError("Unsupported config type")
@@ -237,7 +237,7 @@ class DeviceConfigDialog(QDialog):
             demo_mode=demo_mode
         )
 
-    def swap_config_pane(self, link_type: sdk.DeviceLinkType, demo_mode:bool) -> None:
+    def swap_config_pane(self, link_type: sdk.DeviceLinkType, demo_mode: bool) -> None:
         """Reconfigure the dialog for a new device type. Change the combo box value + reconfigure the variable part"""
         if demo_mode:
             link_type = sdk.DeviceLinkType.NONE

@@ -358,7 +358,7 @@ class StatusBar(QStatusBar):
         else:
             self._device_config_dialog.set_config(info.device_link.type, cast(
                 sdk.BaseLinkConfig, info.device_link.config), info.device_link.demo_mode)
-        
+
             self._device_config_dialog.swap_config_pane(info.device_link.type, demo_mode=info.device_link.demo_mode)
 
         self._device_config_dialog.show()

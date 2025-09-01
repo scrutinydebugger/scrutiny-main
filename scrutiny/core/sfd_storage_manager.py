@@ -49,7 +49,7 @@ class SFDStorageManager:
     folder: str
     install_callbacks: List[InstallCallback]
     uninstall_callbacks: List[UninstallCallback]
-    demo_device_sfd:DemoDeviceSFD
+    demo_device_sfd: DemoDeviceSFD
 
     @classmethod
     def clean_firmware_id(self, firmwareid: str) -> str:
@@ -138,15 +138,15 @@ class SFDStorageManager:
         storage = self.get_storage_dir()
         filename = os.path.join(storage, firmwareid)
         return os.path.isfile(filename)
-    
-    def is_installed_or_demo(self, firmwareid:str) -> bool:
+
+    def is_installed_or_demo(self, firmwareid: str) -> bool:
         return (firmwareid == self.demo_device_sfd.get_firmware_id_ascii()) or (self.is_installed(firmwareid))
 
     def get(self, firmwareid: str) -> FirmwareDescription:
         """Returns the FirmwareDescription object from the global storage that has the given firmware ID """
         if firmwareid == self.demo_device_sfd.get_firmware_id_ascii():
             return self.get_demo_sfd()
-        
+
         file = self.get_file_location(firmwareid)
         return FirmwareDescription.load_from_file(file)
 
@@ -168,12 +168,12 @@ class SFDStorageManager:
         """Reads only the metadata from the Firmware Description file in the global storage identified by the given ID"""
         if firmwareid == self.demo_device_sfd.get_firmware_id_ascii():
             return self.demo_device_sfd.get_metadata()
-        
+
         storage = self.get_storage_dir()
         firmwareid = self.clean_firmware_id(firmwareid)
         filename = os.path.join(storage, firmwareid)
         return FirmwareDescription.read_metadata_from_sfd_file(filename)
-    
+
     def get_demo_sfd(self) -> DemoDeviceSFD:
         return self.demo_device_sfd
 

@@ -37,7 +37,7 @@ class DemoDeviceSFD(FirmwareDescription):
 
         varmap.add_variable(['static', 'main.cpp'], "counter", VariableLocation(0x1000), "float")
         varmap.add_variable(['static', 'main.cpp'], "counter_enable", VariableLocation(0x1004), "bool")
-        
+
         varmap.add_variable(['global', 'device'], "uptime", VariableLocation(0x1008), "uint32")
         varmap.add_variable(['global', 'sinewave_generator'], "output", VariableLocation(0x100c), "float")
         varmap.add_variable(['global', 'sinewave_generator'], "frequency", VariableLocation(0x1010), "float")
@@ -51,5 +51,5 @@ class DemoDeviceSFD(FirmwareDescription):
             Alias("/RPV1000 with gain 1000", target='/rpv/x1000', gain=1000)
         ]
         super().__init__(firmwareid=binascii.unhexlify(DEMO_DEVICE_FIRMWAREID_STR), varmap=varmap, metadata=metadata)
-        
+
         self.append_aliases(aliases)
