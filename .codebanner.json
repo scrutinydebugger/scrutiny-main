@@ -879,7 +879,9 @@
         },
         "scrutiny/server/device/demo_device.py": {
             "docstring": "Extension of the emulated device used for the demo mode. Runs a fake device with some artificial variables and RPV for the purpose of showcasing the UI"
+        },
+        "scrutiny/gui/dialogs/device_config/demo_mode_info_dialog.py": {
+            "docstring": "A dialog explaining what the demo device is and what it does"
         }
-        
     }
 }

@@ -1,3 +1,11 @@
+#    demo_mode_info_dialog.py
+#        A dialog explaining what the demo device is and what it does
+#
+#   - License : MIT - See LICENSE file.
+#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#   Copyright (c) 2025 Scrutiny Debugger
+
 __all__ = ['DemoModeInfoDialog']
 
 from PySide6.QtWidgets import QDialog, QLabel, QVBoxLayout
@@ -48,14 +56,15 @@ It supports all features available in ``scrutiny-embedded`` (data read/write, da
 
 """
 
+
 class DemoModeInfoDialog(QDialog):
-    
-    content_label:QLabel
+
+    content_label: QLabel
 
     @tools.copy_type(QDialog.__init__)
-    def __init__(self, *args:Any, **kwargs:Any) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        
+
         self.setWindowTitle("Demo device")
         self.content_label = QLabel(self)
         self.content_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByKeyboard | Qt.TextInteractionFlag.TextSelectableByMouse)
@@ -74,4 +83,3 @@ class DemoModeInfoDialog(QDialog):
         layout.addWidget(self.content_label)
 
         self.setModal(True)
-    

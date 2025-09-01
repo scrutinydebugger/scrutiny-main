@@ -144,7 +144,7 @@ class DeviceConfigDialog(QDialog):
         self._commit_configs_to_persistent_data()   # Override any corrupted values
 
     def _demo_mode_info_click_slot(self):
-        dialog = DemoModeInfoDialog(self) # Modal window
+        dialog = DemoModeInfoDialog(self)  # Modal window
         dialog.show()
 
     def _commit_configs_to_persistent_data(self) -> None:
