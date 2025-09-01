@@ -2825,6 +2825,13 @@ class ScrutinyClient:
                 f"Failed to update the datalogging acquisition with reference ID: {reference_id}. {future.error_str}")
 
     def request_demo_mode(self, enable: bool) -> None:
+        """Enable or disable the server demo mode
+        
+        :param enable: Enable the demo mode when ``True``. Disable it when ``False``
+
+        :raise TypeError: Given parameter not of the expected type
+        :raise OperationFailure: If the request to the server fails
+        """
         validation.assert_type(enable, 'enable', bool)
 
         req = cast(api_typing.C2S.DemoMode,

@@ -277,3 +277,16 @@ None
     :exclude-members: __new__, __init__
     :members:
     :member-order: bysource
+
+
+Demo Mode
+---------
+
+One can enable the server demo mode with :meth:`request_demo_mode()<scrutiny.client.ScrutinyClient.request_demo_mode>`.
+
+When the demo mode is enabled, the server connects to an emulated device that runs in a python thread and simulate the scrutiny-embedded library. 
+This mode is meant to try Scrutiny without having to go through the process of instrumenting a firmware.
+
+The demo mode is deactivated by the server when the device connection parameters are updated with :meth:`configure_device_link()<scrutiny.sdk.client.ScrutinyClient.configure_device_link>`
+
+.. automethod:: scrutiny.sdk.client.ScrutinyClient.request_demo_mode

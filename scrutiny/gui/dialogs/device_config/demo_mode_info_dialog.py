@@ -24,7 +24,8 @@ It is implemented in Python, runs in a separate thread, and communicates with th
 
 <br/>
 
-It supports all features available in ``scrutiny-embedded`` (data read/write, datalogging, RPVs, etc.) and has 1 KiB of memory, ranging from **0x1000** to **0x1FFF**
+It supports all features available in ``scrutiny-embedded`` (data read/write, datalogging, RPVs, etc.) and has 1 KiB of memory, ranging from **0x1000** to **0x1FFF**.
+Its main purpose is to showcase how Scrutiny works without having to go through the process of instrumenting a physical device.
 
 <br/>
 
