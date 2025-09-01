@@ -317,13 +317,22 @@ class FirmwareDescription:
 
         return VarMap(fullpath)
 
-    def append_aliases(self, aliases: Dict[str, Alias]) -> None:
+    def append_aliases(self, aliases: Union[List[Alias], Dict[str, Alias]]) -> None:
         """Add some aliases to the actual SFD"""
-        for unique_path in aliases:
-            if unique_path not in self.aliases:
-                self.aliases[unique_path] = aliases[unique_path]
-            else:
-                logging.warning('Duplicate alias %s. Dropping' % unique_path)
+        if isinstance(aliases, list):
+            for alias in aliases:
+                if alias.fullpath not in self.aliases:
+                    self.aliases[alias.fullpath] = alias
+                else:
+                    logging.warning(f'Duplicate alias {alias.fullpath}. Dropping')
+        elif isinstance(aliases, dict):
+            for unique_path in aliases:
+                if unique_path not in self.aliases:
+                    self.aliases[unique_path] = aliases[unique_path]
+                else:
+                    logging.warning(f'Duplicate alias {unique_path}. Dropping')
+        else:
+            raise ValueError("Aliases must be passed as a list or a dict.")
 
     def write(self, filename: str) -> None:
         """SFD file format is just a .zip with a bunch of JSON (and a firmwareid file)"""

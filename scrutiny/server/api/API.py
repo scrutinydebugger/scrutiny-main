@@ -1802,7 +1802,7 @@ class API:
         for reference_id in reference_id_list:
             acq = DataloggingStorage.read(reference_id)
             firmware_metadata: Optional[api_typing.SFDMetadata] = None
-            if SFDStorage.is_installed(acq.firmware_id):
+            if SFDStorage.is_installed_or_demo(acq.firmware_id):
                 firmware_metadata = SFDStorage.get_metadata(acq.firmware_id).to_dict()
             acquisitions.append({
                 'firmware_id': acq.firmware_id,

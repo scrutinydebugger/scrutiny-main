@@ -173,8 +173,8 @@ class DataloggingManager:
                     raise ValueError('Cannot determine the number of points in the acquisitions')
 
                 firmware_name: Optional[str] = None
-                if SFDStorage.is_installed(device_info.device_id):
-                    sfd_metadata = SFDStorage.get_metadata(device_info.device_id)
+                if SFDStorage.is_installed_or_demo(device_info.device_id):
+                    sfd_metadata = SFDStorage.get_metadata(device_info.device_id)   # Works with demo SFD
                     if sfd_metadata.project_name is not None:
                         firmware_name = sfd_metadata.project_name
                         if sfd_metadata.version is not None:

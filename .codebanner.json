@@ -868,7 +868,7 @@
         "scrutiny/gui/dialogs/server_sfd_manager_dialog.py": {
             "docstring": "A dialog to manage the already installed Scrutiny Firmware Description files on the server"
         },
-        "scrutiny/server/device/demo/demo_device_sfd.py": {
+        "scrutiny/core/demo_device_sfd.py": {
             "docstring": "The Scrutiny Firmware Description file used for demo mode. This SFD is never saved to disk, just loaded in RAM when needed"
         },
         "scrutiny/server/device/demo/demo_device.py": {
