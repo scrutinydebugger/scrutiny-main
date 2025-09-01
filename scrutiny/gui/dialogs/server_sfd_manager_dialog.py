@@ -1,6 +1,6 @@
 #    server_sfd_manager_dialog.py
-#        A dialog to manage the already installed Scrutiny Firmware Description files ont
-#        the server
+#        A dialog to manage the already installed Scrutiny Firmware Description files on the
+#        server
 #
 #   - License : MIT - See LICENSE file.
 #   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
@@ -70,7 +70,11 @@ class SFDTableModel(QStandardItemModel):
         row[self.Cols.FIRMWARE_ID].setText(sfd_info.firmware_id)
         row[self.Cols.FIRMWARE_ID].setData(sfd_info, self.SFD_INFO_ROLE)    # Store the SFD info
 
-        row[self.Cols.FILESIZE].setText(tools.format_eng_unit(sfd_info.filesize, decimal=1, unit="B", binary=True))
+        filesize_txt = "N/A"
+        if sfd_info.filesize is not None:
+            filesize_txt = tools.format_eng_unit(sfd_info.filesize, decimal=1, unit="B", binary=True)
+        row[self.Cols.FILESIZE].setText(filesize_txt)
+
         if sfd_info.metadata is not None:
             if sfd_info.metadata.project_name is not None:
                 project_name = sfd_info.metadata.project_name

@@ -30,8 +30,8 @@ import random
 
 
 def config_applied(dialog: DeviceConfigDialog):
-    link_type, config = dialog.get_type_and_config()
-    logging.info(f"Config applied: Link: {link_type}. Config : {config}")
+    summary = dialog.get_content_summary()
+    logging.info(f"Config applied: Link: {summary.link_type}. Config : {summary.link_config}. Demo: {summary.demo_mode}")
 
 
 window = QMainWindow()

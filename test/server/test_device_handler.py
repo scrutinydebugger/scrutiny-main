@@ -35,6 +35,29 @@ from scrutiny.tools.typing import *
 no_callback: UpdateTargetRequestCallback = lambda *args, **kwargs: None
 
 
+class UnitTestEmulatedDevice(EmulatedDevice):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+
+        self.configure_rpvs({
+            0x1000: {'definition': RuntimePublishedValue(id=0x1000, datatype=EmbeddedDataType.float64), 'value': 0.0},
+            0x1001: {'definition': RuntimePublishedValue(id=0x1001, datatype=EmbeddedDataType.float32), 'value': 3.1415926},
+            0x1002: {'definition': RuntimePublishedValue(id=0x1002, datatype=EmbeddedDataType.uint16), 'value': 0x1234},
+            0x1003: {'definition': RuntimePublishedValue(id=0x1003, datatype=EmbeddedDataType.sint8), 'value': -65},
+            0x1004: {'definition': RuntimePublishedValue(id=0x1004, datatype=EmbeddedDataType.boolean), 'value': True}
+        })
+
+        self.configure_loops([
+            FixedFreqLoop(1000, name='1KHz'),
+            FixedFreqLoop(10000, name='10KHz'),
+            VariableFreqLoop(name='Variable Freq 1'),
+            VariableFreqLoop(name='Idle Loop', support_datalogging=False)
+        ])
+
+        self.configure_supported_features(memory_write=True, datalogging=True, user_command=True, _64bits=False)
+        self.configure_datalogger(256)
+
+
 def d2f(d):
     return struct.unpack('f', struct.pack('f', d))[0]
 
@@ -72,7 +95,7 @@ class TestDeviceHandler(ScrutinyUnitTest):
         self.device_handler = DeviceHandler(config, self.datastore)
         self.device_handler.expect_no_timeout = True
         self.link = self.device_handler.get_comm_link()
-        self.emulated_device = EmulatedDevice(self.link)
+        self.emulated_device = UnitTestEmulatedDevice(self.link)
         self.emulated_device.start()
 
         signal.signal(signal.SIGINT, self.ctrlc_handler)    # Clean exit on Ctrl+C
@@ -918,8 +941,8 @@ class TestDeviceHandlerMultipleLink(ScrutinyUnitTest):
         self.link1 = DummyLink.make({'channel_id': 1})
         self.link2 = DummyLink.make({'channel_id': 2})
 
-        self.emulated_device1 = EmulatedDevice(self.link1)
-        self.emulated_device2 = EmulatedDevice(self.link2)
+        self.emulated_device1 = UnitTestEmulatedDevice(self.link1)
+        self.emulated_device2 = UnitTestEmulatedDevice(self.link2)
         self.emulated_device1.start()
         self.emulated_device2.start()
 

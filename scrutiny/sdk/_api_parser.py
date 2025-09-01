@@ -218,13 +218,14 @@ def _read_sfd_metadata_from_incomplete_dict(obj: Optional[MetadataTypedDict]) ->
 def _read_sfd_info(cmd: str, sfd_info: api_typing.SFDInfo) -> sdk.SFDInfo:
     _check_response_dict(cmd, sfd_info, 'firmware_id', str)
     _check_response_dict(cmd, sfd_info, 'metadata', (dict, type(None)))
-    _check_response_dict(cmd, sfd_info, 'filesize', int)
+    _check_response_dict(cmd, sfd_info, 'filesize', (int, type(None)))
 
-    if sfd_info['filesize'] < 0:
-        raise sdk.exceptions.BadResponseError("Invalid filesize")
+    if sfd_info['filesize'] is not None:
+        if sfd_info['filesize'] < 0:
+            raise sdk.exceptions.BadResponseError("Invalid filesize")
 
-    if len(sfd_info['firmware_id']) == 0:
-        raise sdk.exceptions.BadResponseError("Invalid firmware_id")
+        if len(sfd_info['firmware_id']) == 0:
+            raise sdk.exceptions.BadResponseError("Invalid firmware_id")
 
     return sdk.SFDInfo(
         firmware_id=sfd_info['firmware_id'],
@@ -567,6 +568,7 @@ def parse_inform_server_status(response: api_typing.S2C.InformServerStatus) -> s
 
     _check_response_dict(cmd, response, 'device_comm_link.link_type', str)
     _check_response_dict(cmd, response, 'device_comm_link.link_operational', bool)
+    _check_response_dict(cmd, response, 'device_comm_link.demo_mode', bool)
 
     def _link_type(api_val: api_typing.LinkType) -> sdk.DeviceLinkType:
         if api_val == 'none':
@@ -758,14 +760,16 @@ def parse_inform_server_status(response: api_typing.S2C.InformServerStatus) -> s
             bitrate_switch=canbus_config['bitrate_switch'],
             interface_config=interface_config
         )
+    elif link_type == sdk.DeviceLinkType._Dummy:
+        link_config = None
     else:
         raise RuntimeError(f'Unsupported device link type "{link_type}"')
 
-    _check_response_dict(cmd, response, 'device_comm_link.link_type', str)
     device_link = sdk.DeviceLinkInfo(
         type=link_type,
         config=link_config,
-        operational=link_operational
+        operational=link_operational,
+        demo_mode=response['device_comm_link']['demo_mode']
     )
 
     return sdk.ServerInfo(

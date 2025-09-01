@@ -64,6 +64,7 @@ class StubbedDeviceHandler:
     device_state_change_callbacks: List[DeviceStateChangedCallback]
     comm_link: DummyLink
     device_info: DeviceInfo
+    _demo_mode_active: bool
 
     read_memory_queue: "queue.Queue[RawMemoryReadRequest]"
     write_memory_queue: "queue.Queue[RawMemoryWriteRequest]"
@@ -119,6 +120,8 @@ class StubbedDeviceHandler:
             encoding=device_datalogging.Encoding.RAW,
             max_signal_count=32
         )
+
+        self._demo_mode_active = False
 
     def get_connection_status(self) -> DeviceHandler.ConnectionStatus:
         return self.connection_status
@@ -202,6 +205,9 @@ class StubbedDeviceHandler:
                 callback(False, 2, None, "Bad data")
         else:
             callback(False, subfn, None, "Unsupported subfunction")
+
+    def demo_mode_active(self):
+        return self._demo_mode_active
 
 
 class StubbedDataloggingManager:
@@ -1287,7 +1293,7 @@ class TestAPI(ScrutinyUnitTest):
 
     def test_upload_single_sfd(self):
         dummy_sfd1_filename = get_artifact('test_sfd_1.sfd')
-        sfd1 = FirmwareDescription(dummy_sfd1_filename)
+        sfd1 = FirmwareDescription.load_from_file(dummy_sfd1_filename)
         with open(dummy_sfd1_filename, 'rb') as f:
             file_content = f.read()
 
@@ -1361,8 +1367,8 @@ class TestAPI(ScrutinyUnitTest):
     def test_upload_multiple_sfd(self):
         dummy_sfd1_filename = get_artifact('test_sfd_1.sfd')
         dummy_sfd2_filename = get_artifact('test_sfd_2.sfd')
-        sfd1 = FirmwareDescription(dummy_sfd1_filename)
-        sfd2 = FirmwareDescription(dummy_sfd2_filename)
+        sfd1 = FirmwareDescription.load_from_file(dummy_sfd1_filename)
+        sfd2 = FirmwareDescription.load_from_file(dummy_sfd2_filename)
 
         with open(dummy_sfd1_filename, 'rb') as f:
             sfd1_file_content = f.read()
@@ -1482,7 +1488,7 @@ class TestAPI(ScrutinyUnitTest):
 
     def test_upload_sfd_errors(self):
         dummy_sfd1_filename = get_artifact('test_sfd_1.sfd')
-        sfd1 = FirmwareDescription(dummy_sfd1_filename)
+        sfd1 = FirmwareDescription.load_from_file(dummy_sfd1_filename)
         with open(dummy_sfd1_filename, 'rb') as f:
             sfd1_file_content = f.read()
 
@@ -1583,7 +1589,7 @@ class TestAPI(ScrutinyUnitTest):
 
     def test_upload_sfd_deleted_on_error(self):
         dummy_sfd1_filename = get_artifact('test_sfd_1.sfd')
-        sfd1 = FirmwareDescription(dummy_sfd1_filename)
+        sfd1 = FirmwareDescription.load_from_file(dummy_sfd1_filename)
         with open(dummy_sfd1_filename, 'rb') as f:
             sfd1_file_content = f.read()
 
@@ -1724,6 +1730,8 @@ class TestAPI(ScrutinyUnitTest):
             self.assertEqual(response['device_comm_link']['link_operational'], True)
             self.assertIn('link_config', response['device_comm_link'])
             self.assertEqual(response['device_comm_link']['link_config'], {})
+            self.assertIn('demo_mode', response['device_comm_link'])
+            self.assertFalse(response['device_comm_link']['demo_mode'])
 
             # Redo the test, but with no SFD loaded. We should get None
             self.sfd_handler.reset_active_sfd()

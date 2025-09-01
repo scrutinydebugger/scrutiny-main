@@ -114,6 +114,7 @@ class FakeDeviceHandler:
     read_allowed: bool
     emulate_no_datalogging: bool
     user_command_requests_queue: "queue.Queue[Tuple[int, bytes]]"
+    demo_mode: bool
 
     def __init__(self, datastore: "datastore.Datastore"):
         self.datastore = datastore
@@ -183,6 +184,7 @@ class FakeDeviceHandler:
         self.fake_mem = MemoryContent()
         self.emulate_no_datalogging = False
         self.user_command_requests_queue = queue.Queue()
+        self.demo_mode = False
 
     def force_all_write_failure(self):
         self.write_allowed = False
@@ -344,6 +346,9 @@ class FakeDeviceHandler:
         else:
             callback(False, subfn, None, "Unsupported subfunction")
 
+    def demo_mode_active(self) -> bool:
+        return self.demo_mode
+
 
 class FakeDataloggingManager:
     datastore: "datastore.Datastore"
@@ -446,7 +451,7 @@ class FakeActiveSFDHandler:
     def __init__(self, *args, **kwargs):
         self.loaded_callbacks = []
         self.unloaded_callbacks = []
-        self.loaded_sfd = FirmwareDescription(get_artifact('test_sfd_1.sfd'))
+        self.loaded_sfd = FirmwareDescription.load_from_file(get_artifact('test_sfd_1.sfd'))
 
     def register_sfd_loaded_callback(self, callback):
         self.loaded_callbacks.append(callback)
@@ -1295,7 +1300,7 @@ class TestClient(ScrutinyUnitTest):
             self.sfd_handler.unload()
 
         def reload_sfd():
-            self.sfd_handler.load(FirmwareDescription(get_artifact('test_sfd_1.sfd')))
+            self.sfd_handler.load(FirmwareDescription.load_from_file(get_artifact('test_sfd_1.sfd')))
 
         alias_var1_counter = alias_var1.update_counter
         self.set_value_and_wait_update(rpv1000, 1.234)
@@ -1460,7 +1465,7 @@ class TestClient(ScrutinyUnitTest):
     def test_upload_sfd(self):
         self.client._UNITTEST_DOWNLOAD_CHUNK_SIZE = 100  # Internal var for testing only
         sfd1_filepath = get_artifact('test_sfd_1.sfd')
-        sfd1 = FirmwareDescription(sfd1_filepath)
+        sfd1 = FirmwareDescription.load_from_file(sfd1_filepath)
         with SFDStorage.use_temp_folder():
             self.assertFalse(SFDStorage.is_installed(sfd1.get_firmware_id_ascii()))
             req = self.client.init_sfd_upload(sfd1_filepath)

@@ -22,8 +22,8 @@ from scrutiny import sdk
 
 
 def config_applied(dialog: DeviceConfigDialog):
-    link_type, config = dialog.get_type_and_config()
-    logging.info(f"Config applied: Link: {link_type}. Config : {config}")
+    summary = dialog.get_content_summary()
+    logging.info(f"Config applied: Link: {summary.link_type}. Config : {summary.link_config}. Demo mode: {summary.demo_mode}")
 
 
 window = QMainWindow()
@@ -37,9 +37,9 @@ layout = QVBoxLayout(central_widget)
 layout.addWidget(btn_show)
 layout.addWidget(btn_fail)
 layout.addWidget(btn_success)
-dialog = DeviceConfigDialog(apply_callback=config_applied)
+dialog = DeviceConfigDialog(window, apply_callback=config_applied)
 dialog.setModal(False)
-dialog.set_config(sdk.DeviceLinkType.UDP, sdk.UDPLinkConfig(host="google.com", port=80))
+dialog.set_config(sdk.DeviceLinkType.UDP, sdk.UDPLinkConfig(host="google.com", port=80), demo_mode=False)
 
 btn_show.clicked.connect(lambda: dialog.show())
 btn_fail.clicked.connect(lambda: dialog.change_fail_callback("Failed"))

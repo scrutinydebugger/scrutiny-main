@@ -181,7 +181,7 @@ class TestDataloggingIntegration(ScrutinyIntegrationTestWithTestSFD1):
                     self.emulated_device.write_rpv(0x1000, 0)
 
                     if iteration == 0:
-                        self.emulated_device.clear_addition_tasks()
+                        self.emulated_device.clear_additional_tasks()
                         self.emulated_device.add_additional_task(ValueUpdateTask(self))  # Will be run in device thread
 
                     config_id_before = self.emulated_device.datalogger.config_id

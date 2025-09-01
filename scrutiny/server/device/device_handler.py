@@ -16,8 +16,7 @@ __all__ = [
     'RawMemoryReadRequest',
     'RawMemoryReadRequestCompletionCallback',
     'RawMemoryWriteRequestCompletionCallback',
-    'DeviceAcquisitionRequestCompletionCallback',
-    'DataloggerStateChangedCallback'
+    'DeviceAcquisitionRequestCompletionCallback'
 ]
 
 import copy
@@ -45,6 +44,8 @@ from scrutiny.server.device.submodules.memory_reader import MemoryReader, RawMem
 from scrutiny.server.device.submodules.memory_writer import MemoryWriter, RawMemoryWriteRequestCompletionCallback, RawMemoryWriteRequest
 from scrutiny.server.device.submodules.datalogging_poller import DataloggingPoller, DeviceAcquisitionRequestCompletionCallback
 from scrutiny.server.device.device_info import DeviceInfo
+from scrutiny.server.device.demo_device import DemoDevice
+from scrutiny.server.device.links.dummy_link import DummyLink
 from scrutiny.tools import Timer, update_dict_recursive
 from scrutiny.server.datastore.datastore import Datastore
 from scrutiny.server.device.links import AbstractLink, LinkConfig
@@ -146,6 +147,7 @@ class DeviceHandler:
     device_state_changed_callbacks: List[DeviceStateChangedCallback]    # Calback called when the state machine changes state
     expect_no_timeout: bool  # Flag that makes communicaiton timeout a critical error. Used for unit testing.
     device_session_count: int    # Counter to keep track of how many device the server has connected to
+    _demo_device: Optional[DemoDevice]
 
     DEFAULT_PARAMS: DeviceHandlerConfig = {
         'response_timeout': 1.0,    # If a response take more than this delay to be received after a request is sent, drop the response.
@@ -249,6 +251,7 @@ class DeviceHandler:
         self.device_state_changed_callbacks = []
         self.expect_no_timeout = False  # Unit tests will set this to True
         self.device_session_count = 0
+        self._demo_device = None
 
         if 'link_type' in self.config and 'link_config' in self.config:
             self.configure_comm(self.config['link_type'], self.config['link_config'])
@@ -533,6 +536,8 @@ class DeviceHandler:
     # Open communication channel based on config
     def configure_comm(self, link_type: str, link_config: LinkConfig = {}) -> None:
         """Configure the communication channel used to communicate with the device. Can be UDP, serial, etc"""
+        self.stop_demo_mode()   # In case this was active, we stop everything as we just lost comm with the emulated device
+
         self.comm_handler.set_link(link_type, link_config)
         self.reset_comm()
         self.comm_handler_open_restart_timer.stop()
@@ -941,3 +946,19 @@ class DeviceHandler:
             comm_handler=self.comm_handler.get_stats(),
             device_session_count=self.device_session_count
         )
+
+    def start_demo_device(self) -> None:
+        self.stop_demo_mode()
+        self.configure_comm('dummy')
+        link = self.comm_handler.get_link()
+        assert isinstance(link, DummyLink)
+        self._demo_device = DemoDevice(link)
+        self._demo_device.start()
+
+    def stop_demo_mode(self) -> None:
+        if self._demo_device is not None:
+            self._demo_device.stop()
+            self._demo_device = None
+
+    def demo_mode_active(self) -> bool:
+        return self._demo_device is not None

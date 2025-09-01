@@ -94,6 +94,7 @@ class Icons(enum.Enum):
     Error = "error"
     Info = "info"
     Success = "success"
+    Question = "question"
     GraphCursor = "graph-cursor"
     GraphNoCursor = "graph-no-cursor"
     ZoomX = "zoom-x"

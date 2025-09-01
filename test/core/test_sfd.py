@@ -22,11 +22,11 @@ from scrutiny.tools.typing import *
 class TestSFD(ScrutinyUnitTest):
 
     def test_load_sfd(self):
-        sfd = FirmwareDescription(get_artifact('test_sfd_1.sfd'))   # expects no exception
+        sfd = FirmwareDescription.load_from_file(get_artifact('test_sfd_1.sfd'))   # expects no exception
         sfd.validate()  # Expects no exception
 
     def test_check_content(self) -> None:
-        sfd = FirmwareDescription(get_artifact('test_sfd_1.sfd'))
+        sfd = FirmwareDescription.load_from_file(get_artifact('test_sfd_1.sfd'))
         self.assertEqual(sfd.get_firmware_id(), unhexlify('00000000000000000000000000000001'))
         self.assertEqual(sfd.get_firmware_id_ascii(), '00000000000000000000000000000001')
 

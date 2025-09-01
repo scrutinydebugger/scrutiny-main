@@ -56,13 +56,13 @@ class AddAlias(BaseCommand):
             all_aliases = {}
             if os.path.isdir(args.destination):
                 varmap = FirmwareDescription.read_varmap_from_filesystem(args.destination)
-                target_alias_file = os.path.join(args.destination, FirmwareDescription.alias_file)
+                target_alias_file = os.path.join(args.destination, FirmwareDescription.ALIAS_FILE)
 
                 if os.path.isfile(target_alias_file):
                     with open(target_alias_file, 'rb') as f:
                         all_aliases = FirmwareDescription.read_aliases(f, varmap)
             elif os.path.isfile(args.destination):
-                sfd = FirmwareDescription(args.destination)
+                sfd = FirmwareDescription.load_from_filesystem(args.destination)
                 varmap = sfd.varmap
                 all_aliases = sfd.get_aliases()
             elif SFDStorage.is_installed(args.destination):

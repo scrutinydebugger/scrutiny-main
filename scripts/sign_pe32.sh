@@ -1,5 +1,13 @@
 #!/bin/bash
 
+#    sign_pe32.sh
+#        Sign a PE32 using custom signing endpoint
+#
+#   - License : MIT - See LICENSE file.
+#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#   Copyright (c) 2025 Scrutiny Debugger
+
 set -euo pipefail
 
 ENDPOINT=$1

@@ -253,7 +253,7 @@ class TestCLI(ScrutinyUnitTest):
             target_filename = os.path.join(tempdirname, 'test_sfd_1.sfd')
             shutil.copy(sfd_filename, target_filename)
 
-            sfd = FirmwareDescription(target_filename)
+            sfd = FirmwareDescription.load_from_file(target_filename)
             aliases = sfd.get_aliases()
             self.assertNotIn('/alias/command_line_added', aliases)
 
@@ -267,7 +267,7 @@ class TestCLI(ScrutinyUnitTest):
                      '--max', '100'
                      ])
 
-            sfd = FirmwareDescription(target_filename)
+            sfd = FirmwareDescription.load_from_file(target_filename)
             aliases = sfd.get_aliases()
 
             self.assertIn('/alias/command_line_added', aliases)

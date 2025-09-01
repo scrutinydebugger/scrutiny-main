@@ -13,7 +13,8 @@ __all__ = [
     'RPVValuePair',
     'EmulatedTimebase',
     'DataloggerEmulator',
-    'EmulatedDevice'
+    'EmulatedDevice',
+    'UnitTestEmulatedDevice'
 ]
 
 import struct
@@ -36,10 +37,11 @@ from scrutiny.core.memory_content import MemoryContent
 from scrutiny.core.basic_types import RuntimePublishedValue, EmbeddedDataType, MemoryRegion, Endianness
 import scrutiny.server.datalogging.definitions.device as device_datalogging
 from scrutiny.core.codecs import *
-from scrutiny.server.device.device_info import ExecLoop, VariableFreqLoop, FixedFreqLoop
+from scrutiny.server.device.device_info import ExecLoop
 from scrutiny.server.protocol.crc32 import crc32
 
 from scrutiny.tools.typing import *
+from scrutiny import tools
 
 
 class NotAllowedException(Exception):
@@ -516,59 +518,70 @@ class EmulatedDevice:
             'memory_write': True,
             'datalogging': True,
             'user_command': True,
-            '_64bits': False,
+            '_64bits': True,
         }
 
-        self.rpvs = {
-            0x1000: {'definition': RuntimePublishedValue(id=0x1000, datatype=EmbeddedDataType.float64), 'value': 0.0},
-            0x1001: {'definition': RuntimePublishedValue(id=0x1001, datatype=EmbeddedDataType.float32), 'value': 3.1415926},
-            0x1002: {'definition': RuntimePublishedValue(id=0x1002, datatype=EmbeddedDataType.uint16), 'value': 0x1234},
-            0x1003: {'definition': RuntimePublishedValue(id=0x1003, datatype=EmbeddedDataType.sint8), 'value': -65},
-            0x1004: {'definition': RuntimePublishedValue(id=0x1004, datatype=EmbeddedDataType.boolean), 'value': True}
-        }
+        self.rpvs = {}
 
         self.forbidden_regions = []
         self.readonly_regions = []
         self.failed_read_request_list = []
         self.failed_write_request_list = []
 
-        self.protocol.configure_rpvs([self.rpvs[id]['definition'] for id in self.rpvs])
-
         self.datalogger = DataloggerEmulator(self, 256)
 
-        self.loops = [
-            FixedFreqLoop(1000, name='1KHz'),
-            FixedFreqLoop(10000, name='10KHz'),
-            VariableFreqLoop(name='Variable Freq 1'),
-            VariableFreqLoop(name='Idle Loop', support_datalogging=False)
-        ]
+        self.loops = []
 
         self.datalogging_read_in_progress = False
         self.datalogging_read_cursor = 0
         self.datalogging_read_rolling_counter = 0
         self.ignore_user_command = False
 
-    def thread_task(self) -> None:
+    def set_firmware_id(self, firmware_id: bytes) -> None:
+        if not isinstance(firmware_id, bytes) or len(firmware_id) != 16:
+            raise ValueError("Firmware ID must be 16 bytes long bytes object")
+
+        self.firmware_id = firmware_id
+
+    def configure_rpvs(self, rpvs: Dict[int, RPVValuePair]) -> None:
+        with self.rpv_lock:
+            self.rpvs = rpvs
+            self.protocol.configure_rpvs([self.rpvs[id]['definition'] for id in self.rpvs])
+
+    def configure_loops(self, loops: List[ExecLoop]) -> None:
+        self.loops = loops
+
+    def configure_supported_features(self, memory_write: bool, datalogging: bool, user_command: bool, _64bits: bool) -> None:
+        self.supported_features = {
+            'memory_write': memory_write,
+            'datalogging': datalogging,
+            'user_command': user_command,
+            '_64bits': _64bits,
+        }
+
+    def configure_datalogger(self, buffer_size: int) -> None:
+        self.datalogger = DataloggerEmulator(self, buffer_size)
+
+    def _thread_task(self) -> None:
         self.thread_started_event.set()
         while not self.request_shutdown:
             request = None
-            try:
-                request = self.read()
-            except Exception as e:
-                self.logger.error('Error decoding request. %s' % str(e))
-                self.logger.debug(traceback.format_exc())
+            with tools.LogException(self.logger, Exception, "Error decoding request"):
+                request = self._read_link()
 
             if request is not None:
                 response: Optional[Response] = None
-                self.logger.debug('Received a request : %s' % request)
+                if self.logger.isEnabledFor(logging.DEBUG):
+                    self.logger.debug(f'Received a request: {request}')
+
                 try:
-                    response = self.process_request(request)
+                    response = self._process_request(request)
                     if response is not None:
-                        self.logger.debug('Responding %s' % response)
+                        if self.logger.isEnabledFor(logging.DEBUG):
+                            self.logger.debug(f'Responding: {response}')
                         self.send(response)
                 except Exception as e:
-                    self.logger.error('Exception while processing Request %s. Error is : %s' % (str(request), str(e)))
-                    self.logger.debug(traceback.format_exc())
+                    tools.log_exception(self.logger, e, f'Exception while processing Request {request}.')
 
                 self.request_history.append(RequestLogRecord(request=request, response=response))
 
@@ -583,7 +596,7 @@ class EmulatedDevice:
             self.wake_event.wait(0.01)
             self.wake_event.clear()
 
-    def process_request(self, req: Request) -> Optional[Response]:
+    def _process_request(self, req: Request) -> Optional[Response]:
         response = None
         if req.size() > self.max_rx_data_size:
             self.logger.error("Request doesn't fit buffer. Dropping %s" % req)
@@ -600,21 +613,21 @@ class EmulatedDevice:
                 return None
 
         if req.command == cmd.CommControl:
-            response = self.process_comm_control(req, data)
+            response = self._process_comm_control(req, data)
         elif req.command == cmd.GetInfo:
-            response = self.process_get_info(req, data)
+            response = self._process_get_info(req, data)
         elif req.command == cmd.MemoryControl:
-            response = self.process_memory_control(req, data)
+            response = self._process_memory_control(req, data)
         elif req.command == cmd.DatalogControl:
             if self.supported_features['datalogging']:
-                response = self.process_datalog_control(req, data)
+                response = self._process_datalog_control(req, data)
             else:
                 response = Response(req.command, req.subfn, ResponseCode.UnsupportedFeature)
         elif req.command == cmd.DummyCommand:
-            response = self.process_dummy_cmd(req, data)
+            response = self._process_dummy_cmd(req, data)
         elif req.command == cmd.UserCommand:
             if self.supported_features['user_command']:
-                response = self.process_user_cmd(req, data)
+                response = self._process_user_cmd(req, data)
             else:
                 response = Response(req.command, req.subfn, ResponseCode.UnsupportedFeature)
         else:
@@ -623,7 +636,7 @@ class EmulatedDevice:
         return response
 
     # ===== [CommControl] ======
-    def process_comm_control(self, req: Request, data: protocol_typing.RequestData) -> Optional[Response]:
+    def _process_comm_control(self, req: Request, data: protocol_typing.RequestData) -> Optional[Response]:
         response = None
         subfunction = cmd.CommControl.Subfunction(req.subfn)
         session_id_str = '0x%08X' % self.session_id if self.session_id is not None else 'None'
@@ -638,7 +651,7 @@ class EmulatedDevice:
             data = cast(protocol_typing.Request.CommControl.Connect, data)
             if data['magic'] == cmd.CommControl.CONNECT_MAGIC:
                 if not self.connected:
-                    self.initiate_session()
+                    self._initiate_session()
                     assert self.session_id is not None  # for mypy
                     response = self.protocol.respond_comm_connect(self.session_id)
                 else:
@@ -659,7 +672,7 @@ class EmulatedDevice:
         elif subfunction == cmd.CommControl.Subfunction.Disconnect:
             data = cast(protocol_typing.Request.CommControl.Disconnect, data)
             if data['session_id'] == self.session_id:
-                self.destroy_session()
+                self._destroy_session()
                 response = self.protocol.respond_comm_disconnect()
             else:
                 self.logger.warning('Received a Disconnect request for session ID 0x%08X, but my active session ID is %s' %
@@ -682,7 +695,7 @@ class EmulatedDevice:
         return response
 
     # ===== [GetInfo] ======
-    def process_get_info(self, req: Request, data: protocol_typing.RequestData) -> Optional[Response]:
+    def _process_get_info(self, req: Request, data: protocol_typing.RequestData) -> Optional[Response]:
         response = None
         subfunction = cmd.GetInfo.Subfunction(req.subfn)
         if subfunction == cmd.GetInfo.Subfunction.GetProtocolVersion:
@@ -741,7 +754,7 @@ class EmulatedDevice:
 
 # ===== [MemoryControl] ======
 
-    def process_memory_control(self, req: Request, data: protocol_typing.RequestData) -> Optional[Response]:
+    def _process_memory_control(self, req: Request, data: protocol_typing.RequestData) -> Optional[Response]:
         response = None
         subfunction = cmd.MemoryControl.Subfunction(req.subfn)
         if subfunction == cmd.MemoryControl.Subfunction.Read:
@@ -814,7 +827,7 @@ class EmulatedDevice:
 
         return response
 
-    def process_datalog_control(self, req: Request, data: protocol_typing.RequestData) -> Optional[Response]:
+    def _process_datalog_control(self, req: Request, data: protocol_typing.RequestData) -> Optional[Response]:
         response = None
         subfunction = cmd.DatalogControl.Subfunction(req.subfn)
         if subfunction == cmd.DatalogControl.Subfunction.GetSetup:
@@ -914,10 +927,10 @@ class EmulatedDevice:
 
         return response
 
-    def process_dummy_cmd(self, req: Request, data: protocol_typing.RequestData) -> Optional[Response]:
+    def _process_dummy_cmd(self, req: Request, data: protocol_typing.RequestData) -> Optional[Response]:
         return Response(cmd.DummyCommand, subfn=req.subfn, code=ResponseCode.OK, payload=b'\xAA' * 32)
 
-    def process_user_cmd(self, req: Request, data: protocol_typing.RequestData) -> Optional[Response]:
+    def _process_user_cmd(self, req: Request, data: protocol_typing.RequestData) -> Optional[Response]:
         if self.ignore_user_command:
             return None
         if req.subfn == 0:
@@ -931,7 +944,7 @@ class EmulatedDevice:
         self.logger.debug('Starting thread')
         self.request_shutdown = False
         self.thread_started_event.clear()
-        self.thread = threading.Thread(target=self.thread_task, daemon=True)
+        self.thread = threading.Thread(target=self._thread_task, daemon=True)
         self.thread.start()
         self.thread_started_event.wait()
         self.logger.debug('Thread started')
@@ -944,12 +957,12 @@ class EmulatedDevice:
             self.logger.debug('Thread stopped')
             self.thread = None
 
-    def initiate_session(self) -> None:
+    def _initiate_session(self) -> None:
         self.session_id = random.randrange(0, 0xFFFFFFFF)
         self.connected = True
         self.logger.info('Initiating session. SessionID = 0x%08x', self.session_id)
 
-    def destroy_session(self) -> None:
+    def _destroy_session(self) -> None:
         self.logger.info('Destroying session. SessionID = 0x%08x', self.session_id)
         self.session_id = None
         self.connected = False
@@ -997,27 +1010,33 @@ class EmulatedDevice:
         if self.comm_enabled:
             self.link.emulate_device_write(response.to_bytes())
 
-    def read(self) -> Optional[Request]:
+    def _read_link(self) -> Optional[Request]:
+        """Read the message queue"""
         data = self.link.emulate_device_read()
         if len(data) > 0 and self.comm_enabled:
             return Request.from_bytes(data)
         return None
 
     def add_additional_task(self, task: Callable[[], None]) -> None:
+        """Adds a task to be run in the EmulatedDevice worker thread"""
         with self.additional_tasks_lock:
             self.additional_tasks.append(task)
 
-    def clear_addition_tasks(self) -> None:
+    def clear_additional_tasks(self) -> None:
+        """Delete all additional tasks attached to the fake device"""
         with self.additional_tasks_lock:
             self.additional_tasks.clear()
 
     def add_forbidden_region(self, start: int, size: int) -> None:
+        """Adds a forbidden region"""
         self.forbidden_regions.append(MemoryRegion(start=start, size=size))
 
     def add_readonly_region(self, start: int, size: int) -> None:
+        """Adds a read-only region"""
         self.readonly_regions.append(MemoryRegion(start=start, size=size))
 
     def write_memory(self, address: int, data: Union[bytes, bytearray], check_access_rights: bool = True) -> None:
+        """Writes the emulated memory"""
         if check_access_rights:
             for region in self.forbidden_regions:
                 if region.touches(MemoryRegion(address, len(data))):
@@ -1036,6 +1055,8 @@ class EmulatedDevice:
             self.memory.write(address, data)
 
     def write_memory_masked(self, address: int, data: Union[bytes, bytearray], mask: Union[bytes, bytearray], check_access_rights: bool = True) -> None:
+        """Do a masked write to the emulated memory"""
+
         assert len(mask) == len(data), "Data and mask must be the same length"
         if check_access_rights:
             for region in self.forbidden_regions:
@@ -1059,6 +1080,7 @@ class EmulatedDevice:
             self.memory.write(address, memdata)
 
     def read_memory(self, address: int, length: int, check_access_rights: bool = True) -> bytes:
+        """Read the emulated memory"""
         if check_access_rights:
             for region in self.forbidden_regions:
                 if region.touches(MemoryRegion(address, length)):
@@ -1071,17 +1093,23 @@ class EmulatedDevice:
         return data
 
     def get_rpv_definition(self, rpv_id: int) -> RuntimePublishedValue:
-        if rpv_id not in self.rpvs:
+        """Get the the definition of a configured RPV by its ID"""
+        try:
+            rpv = self.rpvs[rpv_id]
+        except KeyError:
             raise ValueError('Unknown RPV ID 0x%04X' % rpv_id)
-        return self.rpvs[rpv_id]['definition']
+
+        return rpv['definition']
 
     def get_rpv_definition_map(self) -> Dict[int, RuntimePublishedValue]:
+        """Return the definition of all the RPV in a dictionary that maps RPV ID to definition"""
         output: Dict[int, RuntimePublishedValue] = {}
         for rpv_id in self.rpvs:
             output[rpv_id] = self.get_rpv_definition(rpv_id)
         return output
 
     def get_rpvs(self) -> List[RuntimePublishedValue]:
+        """Return a list of all the RPVs configured in the device"""
         output: List[RuntimePublishedValue] = []
         with self.rpv_lock:
             for id in self.rpvs:
@@ -1090,19 +1118,22 @@ class EmulatedDevice:
         return output
 
     def write_rpv(self, rpv_id: int, value: Encodable) -> None:
-        if rpv_id not in self.rpvs:
+        """Write the value of an RPV"""
+        try:
+            rpv = self.rpvs[rpv_id]
+        except KeyError:
             raise ValueError('Unknown RuntimePublishedValue with ID 0x%04X' % rpv_id)
 
-        with self.rpv_lock:
-            self.rpvs[rpv_id]['value'] = value
+        rpv['value'] = value
 
     def read_rpv(self, rpv_id: int) -> Encodable:
-        with self.rpv_lock:
-            val = self.rpvs[rpv_id]['value']
-
-        if rpv_id not in self.rpvs:
+        """Read the value of an RPV"""
+        try:
+            rpv = self.rpvs[rpv_id]
+        except KeyError:
             raise ValueError('Unknown RuntimePublishedValue with ID 0x%04X' % rpv_id)
-        return val
+        return rpv['value']
 
     def wake_if_sleep(self) -> None:
+        """Wake the internal thread if it is sleeping. Mostly for unit test speed up"""
         self.wake_event.set()

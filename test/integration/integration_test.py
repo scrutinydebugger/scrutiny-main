@@ -17,6 +17,7 @@ from scrutiny.server.server import ScrutinyServer, ServerConfig
 from scrutiny.server.api.dummy_client_handler import DummyConnection, DummyClientHandler
 from scrutiny.server.api import API
 from scrutiny.server.device.device_handler import DeviceHandler
+from scrutiny.server.device.device_info import FixedFreqLoop, VariableFreqLoop
 from scrutiny.core.firmware_description import FirmwareDescription
 from scrutiny.server.sfd_storage import SFDStorage
 from scrutiny.server.datastore.datastore_entry import *
@@ -25,10 +26,33 @@ from scrutiny.core.codecs import *
 from scrutiny.tools.typing import *
 
 
+class UnitTestEmulatedDevice(EmulatedDevice):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+
+        self.configure_rpvs({
+            0x1000: {'definition': RuntimePublishedValue(id=0x1000, datatype=EmbeddedDataType.float64), 'value': 0.0},
+            0x1001: {'definition': RuntimePublishedValue(id=0x1001, datatype=EmbeddedDataType.float32), 'value': 3.1415926},
+            0x1002: {'definition': RuntimePublishedValue(id=0x1002, datatype=EmbeddedDataType.uint16), 'value': 0x1234},
+            0x1003: {'definition': RuntimePublishedValue(id=0x1003, datatype=EmbeddedDataType.sint8), 'value': -65},
+            0x1004: {'definition': RuntimePublishedValue(id=0x1004, datatype=EmbeddedDataType.boolean), 'value': True}
+        })
+
+        self.configure_loops([
+            FixedFreqLoop(1000, name='1KHz'),
+            FixedFreqLoop(10000, name='10KHz'),
+            VariableFreqLoop(name='Variable Freq 1'),
+            VariableFreqLoop(name='Idle Loop', support_datalogging=False)
+        ])
+
+        self.configure_supported_features(memory_write=True, datalogging=True, user_command=True, _64bits=False)
+        self.configure_datalogger(256)
+
+
 class ScrutinyIntegrationTest(ScrutinyUnitTest):
 
     server: ScrutinyServer
-    emulated_device: EmulatedDevice
+    emulated_device: UnitTestEmulatedDevice
     api_conn: DummyConnection
     prestart_callback: Callable
 
@@ -60,7 +84,7 @@ class ScrutinyIntegrationTest(ScrutinyUnitTest):
             self.server = ScrutinyServer(server_config)
             self.server.device_handler.expect_no_timeout = True     # Will throw an exception on comm timeout
             self.server.api.handle_unexpected_errors = False        # Will throw an exception if one is raised during request process
-            self.emulated_device = EmulatedDevice(self.server.device_handler.get_comm_link())
+            self.emulated_device = UnitTestEmulatedDevice(self.server.device_handler.get_comm_link())
             self.api_conn = DummyConnection()
 
             if self.prestart_callback is not None:
