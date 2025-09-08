@@ -206,7 +206,7 @@ class VarMap:
             for path, array in array_segments.items():
                 entry['array_segments'][path] = {
                     'byte_size' : array.element_byte_size,
-                    'count' : array.element_count
+                    'count' : array.get_element_count()
                 }
 
         self.variables[fullname] = entry

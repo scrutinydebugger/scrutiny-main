@@ -142,14 +142,13 @@ class FirmwareDescription:
     metadata: SFDMetadata
     firmwareid: bytes
     aliases: Dict[str, Alias]
-    logger: logging.Logger
+    logger: logging.Logger = logging.getLogger(__name__)
 
     def __init__(self, firmwareid: bytes, varmap: VarMap, metadata: SFDMetadata):
         self.firmwareid = firmwareid
         self.varmap = varmap
         self.metadata = metadata
         self.aliases = {}
-        self.logger = logging.getLogger(self.__class__.__name__)
 
     @classmethod
     def load_from_filesystem(cls, file_folder: str) -> "FirmwareDescription":

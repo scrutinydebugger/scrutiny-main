@@ -14,6 +14,7 @@ __all__ = [
 ]
 
 import struct
+import math
 from scrutiny.core.basic_types import Endianness, EmbeddedDataType
 from scrutiny.core.embedded_enum import EmbeddedEnum
 from scrutiny.core.codecs import Codecs, Encodable, UIntCodec
@@ -94,14 +95,17 @@ class VariableLocation:
         return '<%s - 0x%08X>' % (self.__class__.__name__, self.get_address())
 
 class Array:
-    element_count:int
+    dims:Tuple[int, ...]
     element_byte_size:int
     element_type_name:str
     
-    def __init__(self, element_count:int, element_byte_size:int, element_type_name:str) -> None:
-        self.element_count = element_count
+    def __init__(self, dims:Tuple[int, ...], element_byte_size:int, element_type_name:str) -> None:
+        self.dims = dims
         self.element_byte_size = element_byte_size
         self.element_type_name = element_type_name
+    
+    def get_element_count(self) -> int:
+        return math.prod(self.dims)
 
 class Struct:
     class Member:
