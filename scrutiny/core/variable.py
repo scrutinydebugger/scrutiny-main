@@ -95,17 +95,55 @@ class VariableLocation:
         return '<%s - 0x%08X>' % (self.__class__.__name__, self.get_address())
 
 class Array:
+    """Represent an N dimensions embedded array"""
+    
+    __slots__ = ('dims', 'element_byte_size', 'element_type_name', '_multipliers')
+
     dims:Tuple[int, ...]
     element_byte_size:int
     element_type_name:str
+    _multipliers:Tuple[int, ...]
     
     def __init__(self, dims:Tuple[int, ...], element_byte_size:int, element_type_name:str) -> None:
+        if len(dims) == 0:
+            raise ValueError("No dimensions set")
+        for dim in dims:
+            if dim <= 0:
+                raise ValueError("Invalid dimension")
+        if element_byte_size <= 0:
+            raise ValueError("Invalid byte size")
+    
         self.dims = dims
         self.element_byte_size = element_byte_size
         self.element_type_name = element_type_name
+
+        self._multipliers = tuple([math.prod(dims[i+1:]) for i in range(len(dims))])    # No need to check boundaries, prod([]) = 1
     
     def get_element_count(self) -> int:
+        """Returns the total number of element in the array"""
         return math.prod(self.dims)
+    
+    def get_total_byte_size(self) -> int:
+        """Return the total size in bytes of the array"""
+        return self.get_element_count() * self.element_byte_size
+    
+    def position_of(self, pos:Tuple[int, ...]) -> int:
+        """Return the linear index that can be used to address an element based on a N-dimension position"""
+        if len(pos) != len(self.dims):
+            raise ValueError("Shape mismatch")
+        
+        nbdim = len(pos)
+        index = 0
+        for i in range(nbdim):
+            if pos[i] >= self.dims[i] or pos[i] < 0:
+                raise ValueError("Index out of bound")
+            index += pos[i] * self._multipliers[i]
+        
+        return index
+    
+    def byte_position_of(self, pos:Tuple[int, ...]) -> int:
+        """Return the linear bytes index that can be used to address an element based on a N-dimension position"""
+        return self.position_of(pos) * self.element_byte_size
 
 class Struct:
     class Member:

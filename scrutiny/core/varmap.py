@@ -26,7 +26,7 @@ class TypeEntry(TypedDict):
 
 
 class ArrayDef(TypedDict):
-    count:int
+    dims:List[int]
     byte_size:int
 
 class VariableEntry(TypedDict, total=False):
@@ -206,7 +206,7 @@ class VarMap:
             for path, array in array_segments.items():
                 entry['array_segments'][path] = {
                     'byte_size' : array.element_byte_size,
-                    'count' : array.get_element_count()
+                    'dims' : list(array.dims)
                 }
 
         self.variables[fullname] = entry
@@ -242,7 +242,7 @@ class VarMap:
     def get_var(self, fullname: str) -> Variable:
         segments, name = self.make_segments(fullname)
         vardef = self.get_var_def(fullname)
-
+        # Todo : Handles array here
         return Variable(
             name=name,
             vartype=self.get_type(vardef),

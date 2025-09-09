@@ -128,7 +128,7 @@ class VarPathSegment:
 
     def __init__(self, name:str, array:Optional[Array] = None) -> None:
         self.name = name
-        self.array=None
+        self.array=array
 
 class VarPath:
     __slots__ = ('segments', )
@@ -143,6 +143,17 @@ class VarPath:
     
     def get_segments_name(self) -> List[str]:
         return [segment.name for segment in self.segments]
+
+    def get_arrays_by_path(self) -> Dict[str, Array]:
+        outd:Dict[str, Array] = {}
+
+        path = ''
+        for segment in self.segments:
+            path += '/'+segment.name
+            if segment.array is not None:
+                outd[path] = segment.array 
+
+        return outd
 
 class Architecture(Enum):
     UNKNOWN = auto()
@@ -903,7 +914,7 @@ class ElfDwarfVarExtractor:
             if Attrs.DW_AT_count in subrange_die.attributes:
                 nb_element = int(subrange_die.attributes[Attrs.DW_AT_count].value)
             elif Attrs.DW_AT_upper_bound in subrange_die.attributes:
-                nb_element = int(subrange_die.attributes[Attrs.DW_AT_upper_bound].value)
+                nb_element = int(subrange_die.attributes[Attrs.DW_AT_upper_bound].value)+1
             else:
                 raise ElfParsingError(f"Cannot find the number of element from subrange {subrange_die}")
 
@@ -1126,22 +1137,16 @@ class ElfDwarfVarExtractor:
         name = path_segments.pop()
         array = self.array_die_map[type_die]
 
-        #dim_prefix=''
-        #for i in range(len(array.dims)):
-        #    dim = array.dims[i]
-        #    for j in range(dim):
-        #        name2=f'{name}{dim_prefix}[{j}]'
-        #        location2 = location.copy()
-        #        location2.add_offset(array.element_byte_size * i)
-        #        if self._allowed_by_filters(path_segments, name2, location):
-        #            self.varmap.add_variable(
-        #                path_segments=path_segments,
-        #                name=name2,
-        #                location=location2,
-        #                original_type_name=array.element_type_name,
-        #                enum=None
-        #            )
-        #    dim_prefix += f'[{i}]'
+        if self._allowed_by_filters(path_segments, name, location):
+            self.varmap.add_variable(
+                path_segments=path_segments,
+                name=name,
+                location=location,
+                original_type_name=array.element_type_name,
+                enum=None,
+                array_segments=varpath.get_arrays_by_path()
+            )
+
 
     def maybe_register_variable(self,
                                 name: str,
@@ -1264,14 +1269,21 @@ class ElfDwarfVarExtractor:
 
         if die.tag == Tags.DW_TAG_compile_unit:  # Top level reached, we're done
             return varpath
+        
+        array:Optional[Array] = None
+        if die.tag == Tags.DW_TAG_variable:
+            array = self.array_die_map.get(self.get_type_of_var(die).type_die, None)
 
         # Check if we have a linkage name. Those are complete and no further scan is required if available.
         name = self.get_demangled_linkage_name(die)
         if name is not None:
             parts = self.split_demangled_name(name)
             parts = self.post_process_splitted_demangled_name(parts)
-            for part in reversed(parts):
-                varpath.prepend_segment(part)
+            for i in range(len(parts)-1, -1, -1):   # Need to prepend in reverse order to keep the order correct.
+                if array is not None and i == len(parts)-1:
+                    varpath.prepend_segment(parts[i], array)    
+                else:
+                    varpath.prepend_segment(parts[i])
             return varpath
 
         # Try to get the name of the die and use it as a level of the path
@@ -1283,7 +1295,6 @@ class ElfDwarfVarExtractor:
 
         # There is a name avaialble, we add it to the path and keep going
         if name is not None:
-            array = self.array_die_map.get(die, None)
             varpath.prepend_segment(name=name, array=array)
             parent = die.get_parent()
             if parent is not None:
