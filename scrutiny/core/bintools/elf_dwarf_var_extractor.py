@@ -277,7 +277,6 @@ class ElfDwarfVarExtractor:
     DW_OP_plus_uconst = 0x23
 
     varmap: VarMap
-    die2typeid_map: Dict[DIE, str]
     die2vartype_map: Dict[DIE, EmbeddedDataType]
     cu_name_map: Dict[CompileUnit, str]
     enum_die_map: Dict[DIE, EmbeddedEnum]
@@ -297,7 +296,6 @@ class ElfDwarfVarExtractor:
                  path_ignore_patterns: List[str] = []
                  ) -> None:
         self.varmap = VarMap()    # This is what we want to generate.
-        self.die2typeid_map = {}
         self.die2vartype_map = {}
         self._anonymous_type_typedef_map = {}
         self.cu_name_map = {}   # maps a CompileUnit object to it's unique display name
@@ -758,7 +756,6 @@ class ElfDwarfVarExtractor:
         self.logger.debug(f"Registering base type: {name} as {basetype.name}")
         self.varmap.register_base_type(name, basetype)
 
-        self.die2typeid_map[die] = self.varmap.get_type_id(name)
         self.die2vartype_map[die] = basetype
 
     def read_enum_die_name(self, die: DIE) -> str:

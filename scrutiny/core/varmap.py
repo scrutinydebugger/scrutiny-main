@@ -70,7 +70,7 @@ class VarMap:
             elif self.endianness == Endianness.Big:
                 endianness_str = 'big'
             else:
-                raise ValueError('Unknown endianness')
+                raise ValueError('Unknown endianness')  # pragma: no cover
 
             return {
                 'version': self.VERSION,
@@ -92,7 +92,7 @@ class VarMap:
             elif endinaness_str == 'big':
                 endianness = Endianness.Big
             else:
-                raise ValueError(f"Unknown endianness {d['endianness']}")
+                raise ValueError(f"Unknown endianness {d['endianness']}")   # pragma: no cover
 
             self.endianness = endianness
             self.typemap = d['type_map']
@@ -121,8 +121,12 @@ class VarMap:
 
     @classmethod
     def from_file_content(cls, data: bytes) -> Self:
+        return cls.from_json(data.decode('utf8'))
+
+    @classmethod
+    def from_json(cls, data: str) -> Self:
         varmap = cls()
-        content = json.loads(data.decode('utf8'))
+        content = json.loads(data)
         varmap.load_dict(content)
         return varmap
 
@@ -148,15 +152,56 @@ class VarMap:
         # Build _enums_to_id_map
         for enum_id_str in self._content.enums:
             enum_id_int = int(enum_id_str)
-            if enum_id_int > self._next_enum_id:
-                self._next_enum_id = enum_id_int
+            if enum_id_int >= self._next_enum_id:
+                self._next_enum_id = enum_id_int+1
 
             enum = EmbeddedEnum.from_def(self._content.enums[str(enum_id_int)])
             self._enums_to_id_map[enum] = enum_id_int
 
+    def _get_type_id(self, binary_type_name: str) -> str:
+        if binary_type_name not in self._typename2typeid_map:
+            raise ValueError(f'Type name {binary_type_name} does not exist in the Variable Description File')
+
+        return self._typename2typeid_map[binary_type_name]   # Type is an integer as string
+
+    def _get_type(self, vardef: VariableEntry) -> EmbeddedDataType:
+        type_id = str(vardef['type_id'])
+        if type_id not in self._content.typemap:
+            raise KeyError(f'Type "{type_id}" refer to a type not in type map')
+        typename = self._content.typemap[type_id]['type']
+        return EmbeddedDataType[typename]  # Enums support square brackets
+
+    def _get_addr(self, vardef: VariableEntry) -> int:
+        return vardef['addr']
+
+    def _get_var_def(self, fullname: str) -> VariableEntry:
+        if not self.has_var(fullname):
+            raise ValueError(f'{fullname} not in Variable Description File')
+        return self._content.variables[fullname]
+
+    def _get_bitsize(self, vardef: VariableEntry) -> Optional[int]:
+        if 'bitsize' in vardef:
+            return vardef['bitsize']
+        return None
+
+    def _get_bitoffset(self, vardef: VariableEntry) -> Optional[int]:
+        if 'bitoffset' in vardef:
+            return vardef['bitoffset']
+        return None
+
+    def _get_enum(self, vardef: VariableEntry) -> Optional[EmbeddedEnum]:
+        if 'enum' in vardef:
+            enum_id = str(vardef['enum'])
+            if enum_id not in self._content.enums:
+                raise ValueError(f"Unknown enum ID {enum_id}")
+            enum_def = self._content.enums[enum_id]
+            return EmbeddedEnum.from_def(enum_def)
+        return None
+
+
     def set_endianness(self, endianness: Endianness) -> None:
         if endianness not in [Endianness.Little, Endianness.Big]:
-            raise ValueError(f'Invalid endianness {endianness}')
+            raise ValueError(f'Invalid endianness {endianness}')    # pragma: no cover
         self._content.endianness = endianness
 
     def get_endianness(self) -> Endianness:
@@ -191,10 +236,10 @@ class VarMap:
             raise ValueError('Cannot add variable at address 0')
 
         if fullname in self._content.variables:
-            self._logger.warning('Duplicate entry %s' % fullname)
+            self._logger.warning(f'Duplicate entry {fullname}')
 
         entry: VariableEntry = {
-            'type_id': self.get_type_id(original_type_name),
+            'type_id': self._get_type_id(original_type_name),
             'addr': location.get_address()
         }
 
@@ -226,9 +271,9 @@ class VarMap:
         validation.assert_type(vartype, 'vartype', EmbeddedDataType)
 
         if self.is_known_type(original_name):
-            assigned_vartype = self.get_vartype_from_binary_name(original_name)
+            assigned_vartype = self.get_vartype_from_base_type(original_name)
             if assigned_vartype != vartype:
-                raise Exception(f'Cannot assign type {vartype} to  "{original_name}". Scrutiny type already assigned: {assigned_vartype}')
+                raise ValueError(f'Cannot assign type {vartype} to  "{original_name}". Scrutiny type already assigned: {assigned_vartype}')
         else:
             typeid = self._next_type_id
             self._next_type_id += 1
@@ -238,7 +283,7 @@ class VarMap:
                 'type': vartype.name
             }
 
-    def get_vartype_from_binary_name(self, binary_type_name: str) -> EmbeddedDataType:
+    def get_vartype_from_base_type(self, binary_type_name: str) -> EmbeddedDataType:
         typeid = self._typename2typeid_map[binary_type_name]
         vartype_name = self._content.typemap[typeid]['type']
         return EmbeddedDataType[vartype_name]    # Enums supports square brackets to get enum from name
@@ -246,31 +291,25 @@ class VarMap:
     def is_known_type(self, binary_type_name: str) -> bool:
         return (binary_type_name in self._typename2typeid_map)
 
-    def get_type_id(self, binary_type_name: str) -> str:
-        if binary_type_name not in self._typename2typeid_map:
-            raise Exception('Type name %s does not exist in the Variable Description File' % (binary_type_name))
-
-        return self._typename2typeid_map[binary_type_name]   # Type is an integer as string
-
     def get_var(self, fullname: str) -> Variable:
-        segments, name = self.make_segments(fullname)
-        vardef = self.get_var_def(fullname)
+        segments, name = self._make_segments(fullname)
+        vardef = self._get_var_def(fullname)
         # Todo : Handles array here
         return Variable(
             name=name,
-            vartype=self.get_type(vardef),
+            vartype=self._get_type(vardef),
             path_segments=segments,
-            location=self.get_addr(vardef),
+            location=self._get_addr(vardef),
             endianness=self.get_endianness(),
-            bitsize=self.get_bitsize(vardef),
-            bitoffset=self.get_bitoffset(vardef),
-            enum=self.get_enum(vardef)
+            bitsize=self._get_bitsize(vardef),
+            bitoffset=self._get_bitoffset(vardef),
+            enum=self._get_enum(vardef)
         )
 
     def has_var(self, fullname: str) -> bool:
         return fullname in self._content.variables
 
-    def make_segments(self, fullname: str) -> Tuple[List[str], str]:
+    def _make_segments(self, fullname: str) -> Tuple[List[str], str]:
         pieces = fullname.split('/')
         segments = [segment for segment in pieces[0:-1] if segment]
         name = pieces[-1]
@@ -283,49 +322,16 @@ class VarMap:
         fullname += name
         return fullname
 
-    def get_type(self, vardef: VariableEntry) -> EmbeddedDataType:
-        type_id = str(vardef['type_id'])
-        if type_id not in self._content.typemap:
-            raise AssertionError(f'Type "{type_id}" refer to a type not in type map')
-        typename = self._content.typemap[type_id]['type']
-        return EmbeddedDataType[typename]  # Enums support square brackets
-
-    def get_addr(self, vardef: VariableEntry) -> int:
-        return vardef['addr']
-
-    def get_var_def(self, fullname: str) -> VariableEntry:
-        if not self.has_var(fullname):
-            raise ValueError(f'{fullname} not in Variable Description File')
-        return self._content.variables[fullname]
-
-    def get_bitsize(self, vardef: VariableEntry) -> Optional[int]:
-        if 'bitsize' in vardef:
-            return vardef['bitsize']
-        return None
-
-    def get_bitoffset(self, vardef: VariableEntry) -> Optional[int]:
-        if 'bitoffset' in vardef:
-            return vardef['bitoffset']
-        return None
-
-    def get_enum(self, vardef: VariableEntry) -> Optional[EmbeddedEnum]:
-        if 'enum' in vardef:
-            enum_id = str(vardef['enum'])
-            if enum_id not in self._content.enums:
-                raise Exception("Unknown enum ID %s" % enum_id)
-            enum_def = self._content.enums[enum_id]
-            return EmbeddedEnum.from_def(enum_def)
-        return None
-
-    def get_enum_by_name(self, name: str) -> Generator[EmbeddedEnum, None, None]:
-        found = False
+    def get_enum_by_name(self, name: str) -> List[EmbeddedEnum]:
+        outlist = []
         for enumdef in self._content.enums.values():
             if name == enumdef['name']:
-                found = True
-                yield EmbeddedEnum.from_def(enumdef)
+                outlist.append(EmbeddedEnum.from_def(enumdef))
 
-        if not found:
+        if len(outlist) == 0:
             raise KeyError(f"No enum with name {name}")
+        
+        return outlist
 
     def iterate_vars(self) -> Generator[Tuple[str, Variable], None, None]:
         for fullname in self._content.variables:
