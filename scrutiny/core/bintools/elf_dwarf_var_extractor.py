@@ -116,44 +116,47 @@ class TypeDescriptor:
     enum_die: Optional[DIE]
     type_die: DIE
 
-    def __init__(self, type:TypeOfVar, enum_die:Optional[DIE], type_die:DIE) -> None:
+    def __init__(self, type: TypeOfVar, enum_die: Optional[DIE], type_die: DIE) -> None:
         self.type = type
         self.enum_die = enum_die
         self.type_die = type_die
 
+
 class VarPathSegment:
     __slots__ = ('name', 'array')
-    name:str
-    array:Optional[Array]
+    name: str
+    array: Optional[Array]
 
-    def __init__(self, name:str, array:Optional[Array] = None) -> None:
+    def __init__(self, name: str, array: Optional[Array] = None) -> None:
         self.name = name
-        self.array=array
+        self.array = array
+
 
 class VarPath:
     __slots__ = ('segments', )
 
-    segments:List[VarPathSegment]
+    segments: List[VarPathSegment]
 
     def __init__(self) -> None:
         self.segments = []
-    
-    def prepend_segment(self, name:str, array:Optional[Array]=None) -> None:
+
+    def prepend_segment(self, name: str, array: Optional[Array] = None) -> None:
         self.segments.insert(0, VarPathSegment(name=name, array=array))
-    
+
     def get_segments_name(self) -> List[str]:
         return [segment.name for segment in self.segments]
 
     def get_arrays_by_path(self) -> Dict[str, Array]:
-        outd:Dict[str, Array] = {}
+        outd: Dict[str, Array] = {}
 
         path = ''
         for segment in self.segments:
-            path += '/'+segment.name
+            path += '/' + segment.name
             if segment.array is not None:
-                outd[path] = segment.array 
+                outd[path] = segment.array
 
         return outd
+
 
 class Architecture(Enum):
     UNKNOWN = auto()
@@ -851,16 +854,13 @@ class ElfDwarfVarExtractor:
 
         if die not in self.struct_die_map:
             # Go down the hierarchy to get the whole struct def in a recursive way
-            self.struct_die_map[die] = self.get_composite_type_def(die) 
+            self.struct_die_map[die] = self.get_composite_type_def(die)
 
-    def die_process_array(self, die:DIE) -> None:
+    def die_process_array(self, die: DIE) -> None:
         self._log_debug_process_die(die)
 
         if die not in self.array_die_map:
             self.array_die_map[die] = self.get_array_def(die)
-
-
-    
 
     def get_composite_type_def(self, die: DIE) -> Struct:
         """Get the definition of a struct/class/union type"""
@@ -869,9 +869,9 @@ class ElfDwarfVarExtractor:
         if die.tag not in (Tags.DW_TAG_structure_type, Tags.DW_TAG_class_type, Tags.DW_TAG_union_type):
             raise ValueError('DIE must be a structure, class or union type')
 
-        byte_size:Optional[int] = None
+        byte_size: Optional[int] = None
 
-        if Attrs.DW_AT_byte_size in die.attributes: # Can be absent on class with no size (no members, just methods)
+        if Attrs.DW_AT_byte_size in die.attributes:  # Can be absent on class with no size (no members, just methods)
             byte_size = int(die.attributes[Attrs.DW_AT_byte_size].value)
 
         struct = Struct(self.get_name_no_none(die), byte_size=byte_size)
@@ -897,14 +897,14 @@ class ElfDwarfVarExtractor:
 
     def get_array_def(self, die: DIE) -> Array:
         self._log_debug_process_die(die)
-        if die.tag  != Tags.DW_TAG_array_type:
+        if die.tag != Tags.DW_TAG_array_type:
             raise ValueError('DIE must be an array')
-        
-        subrange_dies:List[DIE] = []
+
+        subrange_dies: List[DIE] = []
         for child in die.iter_children():
             if child.tag == Tags.DW_TAG_subrange_type:
                 subrange_dies.append(child)
-        
+
         if len(subrange_dies) == 0:
             raise ElfParsingError(f"Found no subrange under array {die}")
 
@@ -914,7 +914,7 @@ class ElfDwarfVarExtractor:
             if Attrs.DW_AT_count in subrange_die.attributes:
                 nb_element = int(subrange_die.attributes[Attrs.DW_AT_count].value)
             elif Attrs.DW_AT_upper_bound in subrange_die.attributes:
-                nb_element = int(subrange_die.attributes[Attrs.DW_AT_upper_bound].value)+1
+                nb_element = int(subrange_die.attributes[Attrs.DW_AT_upper_bound].value) + 1
             else:
                 raise ElfParsingError(f"Cannot find the number of element from subrange {subrange_die}")
 
@@ -926,7 +926,7 @@ class ElfDwarfVarExtractor:
             dims.append(nb_element)
 
         element_type = self.get_type_of_var(die)
-        
+
         if element_type.type in (TypeOfVar.Class, TypeOfVar.Struct, TypeOfVar.Union):
             self.die_process_struct_class_union(element_type.type_die)
             struct = self.struct_die_map[element_type.type_die]
@@ -945,7 +945,6 @@ class ElfDwarfVarExtractor:
             element_byte_size=element_byte_size,
             element_type_name=self.get_name_no_none(element_type.type_die)
         )
-
 
     def has_member_byte_offset(self, die: DIE) -> bool:
         """Tells if an offset relative to the structure base is available on this member die"""
@@ -1074,8 +1073,8 @@ class ElfDwarfVarExtractor:
             enum=enum,
             is_unnamed=True if (len(name) == 0) else False
         )
-    
-    def is_forward_declaration(self, die:DIE) -> bool:
+
+    def is_forward_declaration(self, die: DIE) -> bool:
         return Attrs.DW_AT_declaration in die.attributes and bool(die.attributes[Attrs.DW_AT_declaration].value) == True
 
     # We have an instance of a struct. Use the location and go down the structure recursively
@@ -1131,7 +1130,7 @@ class ElfDwarfVarExtractor:
         if location.is_null():
             self.logger.warning(f"Skipping array at location NULL address. {die}")
             return
-        
+
         varpath = self.make_varpath(die)
         path_segments = varpath.get_segments_name()
         name = path_segments.pop()
@@ -1146,7 +1145,6 @@ class ElfDwarfVarExtractor:
                 enum=None,
                 array_segments=varpath.get_arrays_by_path()
             )
-
 
     def maybe_register_variable(self,
                                 name: str,
@@ -1261,7 +1259,7 @@ class ElfDwarfVarExtractor:
                 if is_anonymous:
                     self._anonymous_type_typedef_map[type_die] = typedef_die
 
-    def make_varpath_recursive(self, die: DIE, varpath:Optional[VarPath]=None) -> VarPath:
+    def make_varpath_recursive(self, die: DIE, varpath: Optional[VarPath] = None) -> VarPath:
         """Start from a variable DIE and go up the DWARF structure to build a path"""
 
         if varpath is None:
@@ -1269,8 +1267,8 @@ class ElfDwarfVarExtractor:
 
         if die.tag == Tags.DW_TAG_compile_unit:  # Top level reached, we're done
             return varpath
-        
-        array:Optional[Array] = None
+
+        array: Optional[Array] = None
         if die.tag == Tags.DW_TAG_variable:
             array = self.array_die_map.get(self.get_type_of_var(die).type_die, None)
 
@@ -1279,9 +1277,9 @@ class ElfDwarfVarExtractor:
         if name is not None:
             parts = self.split_demangled_name(name)
             parts = self.post_process_splitted_demangled_name(parts)
-            for i in range(len(parts)-1, -1, -1):   # Need to prepend in reverse order to keep the order correct.
-                if array is not None and i == len(parts)-1:
-                    varpath.prepend_segment(parts[i], array)    
+            for i in range(len(parts) - 1, -1, -1):   # Need to prepend in reverse order to keep the order correct.
+                if array is not None and i == len(parts) - 1:
+                    varpath.prepend_segment(parts[i], array)
                 else:
                     varpath.prepend_segment(parts[i])
             return varpath

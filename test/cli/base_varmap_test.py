@@ -46,7 +46,7 @@ class BaseVarmapTest:
                 cls.known_enums = None
             extractor = ElfDwarfVarExtractor(cls.bin_filename, cppfilt=cls._CPP_FILT)
             varmap = extractor.get_varmap()
-            cls.varmap = VarMap(varmap.get_json())
+            cls.varmap = VarMap.from_file_content(varmap.get_json().encode('utf8'))
             cls.memdump = None
             if cls.memdump_filename is not None:
                 cls.memdump = MemoryContent(cls.memdump_filename)

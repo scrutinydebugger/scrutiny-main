@@ -209,7 +209,7 @@ class FirmwareDescription:
                 metadata = cls.read_metadata(f)   # This is a json file
 
             with zipsfd.open(cls.VARMAP_FILENAME, 'r') as f:
-                varmap = VarMap(f.read())  # Json file
+                varmap = VarMap.from_file_content(f.read())  # Json file
 
             sfd = FirmwareDescription(firmwareid, varmap, metadata)
             if cls.ALIAS_FILE in zipsfd.namelist():
@@ -314,7 +314,7 @@ class FirmwareDescription:
         else:
             raise Exception('Cannot find varmap file at %s' % path)
 
-        return VarMap(fullpath)
+        return VarMap.from_file(fullpath)
 
     def append_aliases(self, aliases: Union[List[Alias], Dict[str, Alias]]) -> None:
         """Add some aliases to the actual SFD"""

@@ -2826,7 +2826,7 @@ class ScrutinyClient:
 
     def request_demo_mode(self, enable: bool) -> None:
         """Enable or disable the server demo mode
-        
+
         :param enable: Enable the demo mode when ``True``. Disable it when ``False``
 
         :raise TypeError: Given parameter not of the expected type

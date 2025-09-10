@@ -38,7 +38,7 @@ class BaseTestAppMakeVarmapTest(BaseVarmapTest):
     known_enums = KNOWN_ENUMS
 
     def test_env(self):
-        self.assertEqual(self.varmap.endianness, Endianness.Little)
+        self.assertEqual(self.varmap.get_endianness(), Endianness.Little)
 
     def test_file1_globals_basic_types(self):
         self.assert_var('/global/file1GlobalChar', EmbeddedDataType.sint8, value_at_loc=-10)
