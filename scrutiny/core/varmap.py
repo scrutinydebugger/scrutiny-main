@@ -153,7 +153,7 @@ class VarMap:
         for enum_id_str in self._content.enums:
             enum_id_int = int(enum_id_str)
             if enum_id_int >= self._next_enum_id:
-                self._next_enum_id = enum_id_int+1
+                self._next_enum_id = enum_id_int + 1
 
             enum = EmbeddedEnum.from_def(self._content.enums[str(enum_id_int)])
             self._enums_to_id_map[enum] = enum_id_int
@@ -197,7 +197,6 @@ class VarMap:
             enum_def = self._content.enums[enum_id]
             return EmbeddedEnum.from_def(enum_def)
         return None
-
 
     def set_endianness(self, endianness: Endianness) -> None:
         if endianness not in [Endianness.Little, Endianness.Big]:
@@ -279,7 +278,7 @@ class VarMap:
             self._next_type_id += 1
             self._typename2typeid_map[original_name] = str(typeid)
             self._content.typemap[str(typeid)] = {
-                'name': original_name, 
+                'name': original_name,
                 'type': vartype.name
             }
 
@@ -330,7 +329,7 @@ class VarMap:
 
         if len(outlist) == 0:
             raise KeyError(f"No enum with name {name}")
-        
+
         return outlist
 
     def iterate_vars(self) -> Generator[Tuple[str, Variable], None, None]:

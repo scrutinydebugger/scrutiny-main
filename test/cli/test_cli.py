@@ -140,7 +140,8 @@ class TestCLI(ScrutinyUnitTest):
 
         with RedirectStdout() as stdout:
             cli.run(['elf2varmap', demobin_path], except_failed=True)
-            VarMap.from_file_content(stdout.read().encode('utf8'))  # make sure the output is loadable. Don't check content, there's another test suite for that
+            # make sure the output is loadable. Don't check content, there's another test suite for that
+            VarMap.from_file_content(stdout.read().encode('utf8'))
 
         with tempfile.TemporaryDirectory() as tempdirname:
             outputfile = os.path.join(tempdirname, 'varmap.json')
