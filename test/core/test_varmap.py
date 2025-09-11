@@ -2,6 +2,8 @@
 from binascii import unhexlify
 import tempfile
 import os
+import json
+
 from test import ScrutinyUnitTest
 from scrutiny.core.varmap import VarMap
 from scrutiny.core.basic_types import Endianness, EmbeddedDataType
@@ -117,3 +119,53 @@ class TestVarmap(ScrutinyUnitTest):
         self.assertTrue(ex.has_value('bbb2'))
         self.assertTrue(ef.has_value('aaa'))
         self.assertTrue(ef.has_value('bbb'))
+
+    def test_load_unversioned_dict(self):
+        # Make sure backward compatibility works when loading unversioned files.
+        d = {
+            "endianness": "little",
+            "type_map": {
+                "0": {
+                    "name": "int",
+                    "type": "sint32"
+                },
+                "1": {
+                    "name": "unsigned int",
+                    "type": "uint32"
+                }
+            },
+            "variables": {  # No version key in this dict.
+                "/path1/path2/some_int32": {
+                    "type_id": "0",
+                    "addr": 1000
+                },
+                "/path1/path2/some_uint32": {
+                    "type_id": "1",
+                    "addr": 1004,
+                    "enum": "0"
+                }
+            },
+            "enums": {
+                "0": {
+                    "name": "EnumA",
+                    "values": {
+                        "eVal1": 0,
+                        "eVal2": 1,
+                        "eVal3": 100,
+                        "eVal4": 101 
+                    }
+                }
+            }
+        }
+
+        varmap = VarMap.from_json(json.dumps(d))
+
+        self.assertTrue(varmap.has_var('/path1/path2/some_int32'))
+        self.assertTrue(varmap.has_var('/path1/path2/some_uint32'))
+
+        v1 = varmap.get_var('/path1/path2/some_int32')
+        v2 = varmap.get_var('/path1/path2/some_uint32')
+
+        self.assertEqual(v1.get_type(), EmbeddedDataType.sint32)
+        self.assertEqual(v2.get_type(), EmbeddedDataType.uint32)
+        self.assertEqual(v2.get_enum().name, 'EnumA' )

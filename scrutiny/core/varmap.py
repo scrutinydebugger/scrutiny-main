@@ -20,6 +20,7 @@ from scrutiny.core.embedded_enum import EmbeddedEnum, EmbeddedEnumDef
 from scrutiny.tools.typing import *
 from scrutiny.tools import validation
 
+SupportedVersionKeys:TypeAlias = Literal['v1']
 
 class TypeEntry(TypedDict):
     name: str
@@ -39,42 +40,33 @@ class VariableEntry(TypedDict, total=False):
     enum: int
     array_segments: Dict[str, ArrayDef]
 
+class VariableDict(TypedDict):
+    v1: Dict[str, VariableEntry]
 
 class VarMap:
 
     class SerializableContentDict(TypedDict):
-        version: int
         endianness: str
         type_map: Dict[str, TypeEntry]
-        variables: Dict[str, VariableEntry]
+        variables: VariableDict
         enums: Dict[str, EmbeddedEnumDef]
 
     class SerializableContent:
         __slots__ = ('endianness', 'typemap', 'variables', 'enums')
-        VERSION = 1
-
         endianness: Endianness
         typemap: Dict[str, TypeEntry]
-        variables: Dict[str, VariableEntry]
+        variables: VariableDict
         enums: Dict[str, EmbeddedEnumDef]
 
         def __init__(self) -> None:
             self.endianness = Endianness.Little
             self.typemap = {}
-            self.variables = {}
+            self.variables = {"v1": {}}
             self.enums = {}
 
         def to_dict(self) -> "VarMap.SerializableContentDict":
-            if self.endianness == Endianness.Little:
-                endianness_str = 'little'
-            elif self.endianness == Endianness.Big:
-                endianness_str = 'big'
-            else:
-                raise ValueError('Unknown endianness')  # pragma: no cover
-
             return {
-                'version': self.VERSION,
-                'endianness': endianness_str,
+                'endianness': self.endianness.to_str(),
                 'type_map': self.typemap,
                 'variables': self.variables,
                 'enums': self.enums,
@@ -86,18 +78,17 @@ class VarMap:
             validation.assert_dict_key(d, 'variables', dict)
             validation.assert_dict_key(d, 'enums', dict)
 
-            endinaness_str = d['endianness'].lower().strip()
-            if endinaness_str == 'little':
-                endianness = Endianness.Little
-            elif endinaness_str == 'big':
-                endianness = Endianness.Big
-            else:
-                raise ValueError(f"Unknown endianness {d['endianness']}")   # pragma: no cover
-
-            self.endianness = endianness
+            self.endianness = Endianness.from_str(d['endianness'])
             self.typemap = d['type_map']
-            self.variables = d['variables']
             self.enums = d['enums']
+
+            variables = d['variables']
+            if 'v1' not in variables:   # Backward compatibility with unversioned files
+                variables = {'v1' : variables}
+            
+            self.variables = {
+                'v1' : variables['v1']  # Cherry pick the versions we know. Will drop unsupported stuff from the future
+            }
 
     _logger: logging.Logger
     _content: SerializableContent
@@ -174,10 +165,10 @@ class VarMap:
     def _get_addr(self, vardef: VariableEntry) -> int:
         return vardef['addr']
 
-    def _get_var_def(self, fullname: str) -> VariableEntry:
+    def _get_var_def(self, fullname: str, version_key:SupportedVersionKeys) -> VariableEntry:
         if not self.has_var(fullname):
             raise ValueError(f'{fullname} not in Variable Description File')
-        return self._content.variables[fullname]
+        return self._content.variables[version_key][fullname]
 
     def _get_bitsize(self, vardef: VariableEntry) -> Optional[int]:
         if 'bitsize' in vardef:
@@ -264,7 +255,8 @@ class VarMap:
                     'dims': list(array.dims)
                 }
 
-        self._content.variables[fullname] = entry
+        version_container:SupportedVersionKeys = 'v1'    # Can add logic in the future to decide based on features above
+        self._content.variables[version_container][fullname] = entry
 
     def register_base_type(self, original_name: str, vartype: EmbeddedDataType) -> None:
         validation.assert_type(vartype, 'vartype', EmbeddedDataType)
@@ -292,7 +284,7 @@ class VarMap:
 
     def get_var(self, fullname: str) -> Variable:
         segments, name = self._make_segments(fullname)
-        vardef = self._get_var_def(fullname)
+        vardef = self._get_var_def(fullname, 'v1')
         # Todo : Handles array here
         return Variable(
             name=name,
@@ -306,7 +298,10 @@ class VarMap:
         )
 
     def has_var(self, fullname: str) -> bool:
-        return fullname in self._content.variables
+        v = False
+        if fullname in self._content.variables['v1']:
+            v = True
+        return v
 
     def _make_segments(self, fullname: str) -> Tuple[List[str], str]:
         pieces = fullname.split('/')
@@ -333,7 +328,7 @@ class VarMap:
         return outlist
 
     def iterate_vars(self) -> Generator[Tuple[str, Variable], None, None]:
-        for fullname in self._content.variables:
+        for fullname in self._content.variables['v1']:
             yield (fullname, self.get_var(fullname))
 
     def validate(self) -> None:
