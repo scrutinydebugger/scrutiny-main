@@ -7,7 +7,7 @@ import json
 from test import ScrutinyUnitTest
 from scrutiny.core.varmap import VarMap
 from scrutiny.core.basic_types import Endianness, EmbeddedDataType
-from scrutiny.core.variable import VariableLocation
+from scrutiny.core.variable import VariableLocation, Array
 from scrutiny.core.embedded_enum import EmbeddedEnum
 
 
@@ -85,6 +85,9 @@ class TestVarmap(ScrutinyUnitTest):
 
             with self.assertRaises(Exception):
                 list(candidate.get_enum_by_name('asd'))
+
+            all_vars = list(candidate.iterate_vars())
+            self.assertEqual(len(all_vars), 3)
 
     def test_add_stuff_after_reload(self):
         varmap = VarMap()
@@ -169,3 +172,17 @@ class TestVarmap(ScrutinyUnitTest):
         self.assertEqual(v1.get_type(), EmbeddedDataType.sint32)
         self.assertEqual(v2.get_type(), EmbeddedDataType.uint32)
         self.assertEqual(v2.get_enum().name, 'EnumA' )
+
+    
+    def test_get_var_with_array_info(self):
+
+        varmap = VarMap()
+        varmap.set_endianness(Endianness.Big)
+        self.assertEqual(varmap.get_endianness(), Endianness.Big)
+        varmap.register_base_type('float', EmbeddedDataType.float32)
+        varmap.add_variable(['aaa', 'bbb', 'ccc'], 'ddd', VariableLocation(0x1234), original_type_name='float', array_segments={
+            '/aaa/bbb' : Array((3,3), 4, 'asd'),
+            '/aaa/bbb/ccc/ddd' : Array((5,6,7), 4, 'xxx')
+        })
+
+        varmap.get_var_from_complex_name('/aaa/bbb[1][2]/ccc/ddd[2][3][4]')

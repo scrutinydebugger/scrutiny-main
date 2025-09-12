@@ -12,7 +12,9 @@ __all__ = ['VarMap']
 
 import json
 import logging
+import re
 from pathlib import Path
+from dataclasses import dataclass
 
 from scrutiny.core.variable import Variable, VariableLocation, Array
 from scrutiny.core.basic_types import EmbeddedDataType, Endianness
@@ -20,7 +22,7 @@ from scrutiny.core.embedded_enum import EmbeddedEnum, EmbeddedEnumDef
 from scrutiny.tools.typing import *
 from scrutiny.tools import validation
 
-SupportedVersionKeys:TypeAlias = Literal['v1']
+_complex_path_segment_regex = re.compile(r'(.+?)((\[\d+\])+)$')
 
 class TypeEntry(TypedDict):
     name: str
@@ -31,6 +33,52 @@ class ArrayDef(TypedDict):
     dims: List[int]
     byte_size: int
 
+def make_segments(path:str) -> List[str]:
+    pieces = path.split('/')
+    return [segment for segment in pieces if segment]
+
+def join_segments(segments:List[str]) -> str:
+    if len(segments) == 0:
+        return '/'
+    return '/'+'/'.join(segments)
+
+@dataclass
+class ComplexPath:
+    __slots__ = ('raw_segments', 'array_pos')
+    
+    raw_segments:List[str]
+    array_pos:List[Optional[Tuple[int, ...]]]
+
+    def get_path_to_array_pos_dict(self) -> Dict[str, Tuple[int, ...]]:
+        outdict:Dict[str, Tuple[int, ...]] = {}
+        for i in range(len(self.array_pos)):
+            pos =  self.array_pos[i]
+            if pos is not None:
+                outdict[join_segments(self.raw_segments[:i+1])] = pos
+
+        return outdict
+
+    @classmethod
+    def from_string(cls, path) -> Self:
+        segments = make_segments(path)
+        raw_segments:List[str] = []
+        array_pos:List[Optional[Tuple[int,...]]] = []
+        for i in range(len(segments)):
+            m = _complex_path_segment_regex.match(segments[i])
+            if m:
+                name_part = m.group(1)
+                raw_segments.append(name_part)
+                array_part = m.group(2)
+                pos = tuple([int(x) for x in re.findall(r'\d+', array_part)])
+                array_pos.append(pos)
+            else:
+                raw_segments.append(segments[i])
+                array_pos.append(None)
+        
+        return cls(
+            raw_segments = raw_segments,
+            array_pos = array_pos
+        )
 
 class VariableEntry(TypedDict, total=False):
     type_id: str  # integer as string because of json format that can't have a dict key as int
@@ -40,8 +88,8 @@ class VariableEntry(TypedDict, total=False):
     enum: int
     array_segments: Dict[str, ArrayDef]
 
-class VariableDict(TypedDict):
-    v1: Dict[str, VariableEntry]
+SupportedVersionKeys:TypeAlias = Literal['v1']
+VariableDict:TypeAlias = Dict[SupportedVersionKeys, Dict[str, VariableEntry]]
 
 class VarMap:
 
@@ -84,7 +132,7 @@ class VarMap:
 
             variables = d['variables']
             if 'v1' not in variables:   # Backward compatibility with unversioned files
-                variables = {'v1' : variables}
+                variables = {'v1' : cast(Dict[str, VariableEntry], variables)}
             
             self.variables = {
                 'v1' : variables['v1']  # Cherry pick the versions we know. Will drop unsupported stuff from the future
@@ -283,13 +331,13 @@ class VarMap:
         return (binary_type_name in self._typename2typeid_map)
 
     def get_var(self, fullname: str) -> Variable:
-        segments, name = self._make_segments(fullname)
+        segments = make_segments(fullname)
         vardef = self._get_var_def(fullname, 'v1')
         # Todo : Handles array here
         return Variable(
-            name=name,
+            name=segments[-1],
             vartype=self._get_type(vardef),
-            path_segments=segments,
+            path_segments=segments[:-1],
             location=self._get_addr(vardef),
             endianness=self.get_endianness(),
             bitsize=self._get_bitsize(vardef),
@@ -303,18 +351,9 @@ class VarMap:
             v = True
         return v
 
-    def _make_segments(self, fullname: str) -> Tuple[List[str], str]:
-        pieces = fullname.split('/')
-        segments = [segment for segment in pieces[0:-1] if segment]
-        name = pieces[-1]
-        return (segments, name)
 
     def make_fullname(self, path_segments: List[str], name: str) -> str:
-        fullname = '/'
-        for segment in path_segments:
-            fullname += segment + '/'
-        fullname += name
-        return fullname
+        return join_segments(path_segments + [name])
 
     def get_enum_by_name(self, name: str) -> List[EmbeddedEnum]:
         outlist = []
@@ -333,3 +372,48 @@ class VarMap:
 
     def validate(self) -> None:
         pass
+    
+
+    def get_var_from_complex_name(self, path:str):
+        parsed = ComplexPath.from_string(path)
+        raw_path = join_segments(parsed.raw_segments)
+        vardef = self._get_var_def(raw_path, 'v1')
+        path2pos = parsed.get_path_to_array_pos_dict()
+        
+        array_segments_def={}
+        if 'array_segments' in vardef:
+            array_segments_def = vardef['array_segments']
+
+        if len(array_segments_def) != len(path2pos):
+            raise ValueError("The array identifiers does not match the variable definition")
+        
+        path_by_length = sorted(list(array_segments_def.keys()), key=lambda x: len(x))
+        byte_multiplier = 1
+        byte_offset = 0
+        for k in reversed(path_by_length):
+            if k not in path2pos:
+                raise ValueError("The array identifiers does not match the variable definition. Array not indexed")
+            pos = path2pos[k]
+            array = array_segments_def[k]
+            dims = tuple(array['dims'])
+            bytesize = array['byte_size']
+            try:
+                arr = Array(dims, bytesize, '')
+                byte_offset += arr.byte_position_of(pos) * byte_multiplier
+                byte_multiplier *= arr.get_total_byte_size()
+            except Exception as e:
+                raise ValueError(f'The array identifiers does not match the variable definition. {e}')
+
+        new_address = self._get_addr(vardef) + byte_offset
+        
+        segments = make_segments(path)
+        return Variable(
+            name=segments[-1],
+            vartype=self._get_type(vardef),
+            path_segments=segments[:-1],
+            location=new_address,
+            endianness=self.get_endianness(),
+            bitsize=self._get_bitsize(vardef),
+            bitoffset=self._get_bitoffset(vardef),
+            enum=self._get_enum(vardef)
+        )
