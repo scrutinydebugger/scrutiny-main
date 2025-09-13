@@ -59,7 +59,7 @@ class ComplexPath:
         return outdict
 
     @classmethod
-    def from_string(cls, path) -> Self:
+    def from_string(cls, path:str) -> Self:
         segments = make_segments(path)
         raw_segments:List[str] = []
         array_pos:List[Optional[Tuple[int,...]]] = []
@@ -374,7 +374,7 @@ class VarMap:
         pass
     
 
-    def get_var_from_complex_name(self, path:str):
+    def get_var_from_complex_name(self, path:str) -> Variable:
         parsed = ComplexPath.from_string(path)
         raw_path = join_segments(parsed.raw_segments)
         vardef = self._get_var_def(raw_path, 'v1')

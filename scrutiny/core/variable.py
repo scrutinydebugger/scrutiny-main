@@ -15,6 +15,7 @@ __all__ = [
 
 import struct
 import math
+import enum
 from scrutiny.core.basic_types import Endianness, EmbeddedDataType
 from scrutiny.core.embedded_enum import EmbeddedEnum
 from scrutiny.core.codecs import Codecs, Encodable, UIntCodec
@@ -149,30 +150,49 @@ class Array:
 
 class Struct:
     class Member:
+        class MemberType(enum.Enum):
+            BaseType = enum.auto()
+            SubStruct = enum.auto()
+            SubArray = enum.auto()
+
         name: str
-        is_substruct: bool
+        member_type: MemberType
         original_type_name: Optional[str]
         bitoffset: Optional[int]
         byte_offset: Optional[int]
         bitsize: Optional[int]
         substruct: Optional['Struct']
-        enum: Optional[EmbeddedEnum]
+        subarray:Optional[Array]
+        embedded_enum: Optional[EmbeddedEnum]
         is_unnamed: bool
 
         def __init__(self, name: str,
-                     is_substruct: bool = False,
+                     member_type: MemberType,
                      original_type_name: Optional[str] = None,
                      byte_offset: Optional[int] = None,
                      bitoffset: Optional[int] = None,
                      bitsize: Optional[int] = None,
                      substruct: Optional['Struct'] = None,
-                     enum: Optional[EmbeddedEnum] = None,
+                     subarray : Optional[Array] = None,
+                     embedded_enum: Optional[EmbeddedEnum] = None,
                      is_unnamed: bool = False
                      ):
 
-            if not is_substruct:
+            if member_type == self.MemberType.BaseType:
+                if substruct is not None or subarray is not None:
+                    raise ValueError("Cannot specify a substruct or a subarray for base type member")
+            
+            if member_type == self.MemberType.SubStruct:
+                if substruct is None or subarray is not None:
+                    raise ValueError("Substruct member must specify a substruct only")
+            
+            if member_type == self.MemberType.SubArray:
+                if substruct is not None or subarray is None:
+                    raise ValueError("SubArray member must specify a subarray only")
+
+            if member_type == self.MemberType.BaseType:
                 if original_type_name is None:
-                    raise ValueError('A typename must be given for non-struct member')
+                    raise ValueError('A typename must be given for base type member')
 
             if bitoffset is not None:
                 if not isinstance(bitoffset, int):
@@ -197,18 +217,31 @@ class Struct:
                     raise ValueError(f'substruct must be Struct instance. Got {substruct.__class__.__name__}')
 
             if is_unnamed:
-                if not is_substruct:
+                if member_type != self.MemberType.SubStruct:
                     raise ValueError("Only substruct members can be unnamed")
+            
 
             self.name = name
-            self.is_substruct = is_substruct
+            self.member_type = member_type
             self.original_type_name = original_type_name
             self.bitoffset = bitoffset
             self.byte_offset = byte_offset
             self.bitsize = bitsize
             self.substruct = substruct
-            self.enum = enum
+            self.subarray = subarray
+            self.embedded_enum = embedded_enum
             self.is_unnamed = is_unnamed
+
+        def get_substruct(self) -> "Struct":
+            if self.substruct is None or self.member_type != self.MemberType.SubStruct:
+                raise ValueError("Member is not a substruct")
+            
+            return self.substruct
+        
+        def get_array(self) -> "Array":
+            if self.subarray is None or self.member_type != self.MemberType.SubArray:
+                raise ValueError("Member is not a subarray")   
+            return self.subarray
 
     name: str
     is_anonymous: bool
@@ -228,7 +261,7 @@ class Struct:
         if member.is_unnamed:
             # Unnamed struct,class,union are defined like this : struct { struct {int a; int b;}} x
             # They are considered as being declared at the same level as the members of the parent
-            assert member.is_substruct == True
+            assert member.member_type == self.Member.MemberType.SubStruct
             assert member.substruct is not None
             assert member.byte_offset is not None
 
@@ -240,7 +273,7 @@ class Struct:
                 self.add_member(substruct_member2)
         else:
             if member.name in self.members:
-                raise KeyError('Duplicate member %s' % member.name)
+                raise KeyError(f'Duplicate member {member.name}')
 
             self.members[member.name] = member
 

@@ -261,7 +261,7 @@ class FirmwareDescription:
             remove_bad_fields(metadata_dict['generation_info'], fields2)
 
         generation_timestamp = None
-        generation_info = metadata_dict.get('generation_info', {})
+        generation_info = cast(Optional[GenerationInfoTypedDict], metadata_dict.get('generation_info', {}))
         if generation_info is None:
             generation_info = cast(GenerationInfoTypedDict, {})
 

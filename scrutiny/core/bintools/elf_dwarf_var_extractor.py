@@ -995,14 +995,14 @@ class ElfDwarfVarExtractor:
             name = ''
 
         type_desc = self.get_type_of_var(die)
-        enum: Optional[EmbeddedEnum] = None
+        embedded_enum: Optional[EmbeddedEnum] = None
         if type_desc.type in (TypeOfVar.Struct, TypeOfVar.Class, TypeOfVar.Union):
             substruct = self.get_composite_type_def(type_desc.type_die)  # recursion
             typename = None
         elif type_desc.type in (TypeOfVar.BaseType, TypeOfVar.EnumOnly):
             if type_desc.enum_die is not None:
                 self.die_process_enum(type_desc.enum_die)
-                enum = self.enum_die_map[type_desc.enum_die]
+                embedded_enum = self.enum_die_map[type_desc.enum_die]
 
             if type_desc.type == TypeOfVar.BaseType:
                 self.die_process_base_type(type_desc.type_die)    # Just in case it is unknown yet
@@ -1059,15 +1059,20 @@ class ElfDwarfVarExtractor:
             if self._context.endianess == Endianness.Little:
                 bitoffset = (bytesize * 8) - bitoffset - bitsize
 
+        member_type = Struct.Member.MemberType.BaseType
+        if substruct is not None:
+            member_type = Struct.Member.MemberType.SubStruct
+
         return Struct.Member(
             name=name,
-            is_substruct=True if substruct is not None else False,
+            member_type=member_type,
             original_type_name=typename,
             byte_offset=byte_offset,
             bitoffset=bitoffset,
             bitsize=bitsize,
             substruct=substruct,
-            enum=enum,
+            subarray=None,
+            embedded_enum=embedded_enum,
             is_unnamed=True if (len(name) == 0) else False
         )
 
@@ -1084,20 +1089,20 @@ class ElfDwarfVarExtractor:
 
         path_segments = self.make_varpath(die)
         struct = self.struct_die_map[type_die]
-        startpoint = Struct.Member(struct.name, is_substruct=True, bitoffset=None, bitsize=None, substruct=struct)
+        startpoint = Struct.Member(struct.name, member_type=Struct.Member.MemberType.SubStruct, bitoffset=None, bitsize=None, substruct=struct)
 
         # Start the recursion that will create all the sub elements
         self.register_member_as_var_recursive(path_segments.get_segments_name(), startpoint, location, offset=0)
 
     # Recursive function to dig into a structure and register all possible variables.
     def register_member_as_var_recursive(self, path_segments: List[str], member: Struct.Member, base_location: VariableLocation, offset: int) -> None:
-        if member.is_substruct:
+        if member.member_type == Struct.Member.MemberType.SubStruct:
             assert member.substruct is not None
             struct = member.substruct
             for name, submember in struct.members.items():
                 new_path_segments = path_segments.copy()
                 location = base_location.copy()
-                if submember.is_substruct:
+                if submember.member_type == Struct.Member.MemberType.SubStruct:
                     assert submember.byte_offset is not None
                     new_path_segments.append(name)
                     location.add_offset(submember.byte_offset)
@@ -1120,7 +1125,7 @@ class ElfDwarfVarExtractor:
                     location=location,
                     bitoffset=member.bitoffset,
                     bitsize=member.bitsize,
-                    enum=member.enum
+                    enum=member.embedded_enum
                 )
 
     def register_array_var(self, die: DIE, type_die: DIE, location: VariableLocation) -> None:
