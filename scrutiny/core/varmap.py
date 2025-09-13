@@ -38,8 +38,6 @@ def make_segments(path:str) -> List[str]:
     return [segment for segment in pieces if segment]
 
 def join_segments(segments:List[str]) -> str:
-    if len(segments) == 0:
-        return '/'
     return '/'+'/'.join(segments)
 
 @dataclass
@@ -60,6 +58,8 @@ class ComplexPath:
 
     @classmethod
     def from_string(cls, path:str) -> Self:
+        """Parse a path with information encoded and extract it
+        ex: /aaa/bbb[2][3]/ccc = /aaa/bbb/ccc + {array: /aaa/bbb, (2,3)}"""
         segments = make_segments(path)
         raw_segments:List[str] = []
         array_pos:List[Optional[Tuple[int,...]]] = []
@@ -204,14 +204,14 @@ class VarMap:
         return self._typename2typeid_map[binary_type_name]   # Type is an integer as string
 
     def _get_type(self, vardef: VariableEntry) -> EmbeddedDataType:
-        type_id = str(vardef['type_id'])
+        type_id = str(vardef['type_id'])    # type_id is a required field
         if type_id not in self._content.typemap:
             raise KeyError(f'Type "{type_id}" refer to a type not in type map')
         typename = self._content.typemap[type_id]['type']
         return EmbeddedDataType[typename]  # Enums support square brackets
 
     def _get_addr(self, vardef: VariableEntry) -> int:
-        return vardef['addr']
+        return vardef['addr']   # addr is a required field
 
     def _get_var_def(self, fullname: str, version_key:SupportedVersionKeys) -> VariableEntry:
         if not self.has_var(fullname):
@@ -246,8 +246,8 @@ class VarMap:
         return self._content.endianness
 
     def write(self, filename: str, indent: int = 4) -> None:
-        with open(filename, 'w') as f:
-            f.write(self.get_json(indent))
+        with open(filename, 'wb') as f:
+            f.write(self.get_json(indent).encode('utf8'))
 
     def get_json(self, indent: int = 4) -> str:
         return json.dumps(self._content.to_dict(), indent=indent)

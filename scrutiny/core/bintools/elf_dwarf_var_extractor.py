@@ -16,10 +16,10 @@ from elftools.elf.elffile import ELFFile
 from sortedcontainers import SortedSet
 
 import os
-import math
-from enum import Enum, auto
 import logging
 import inspect
+from copy import copy
+from enum import Enum, auto
 from dataclasses import dataclass
 from inspect import currentframe
 from fnmatch import fnmatch
@@ -235,7 +235,7 @@ class CuName:
         return self.fullpath
 
     def go_up(self) -> None:
-        """Add a the closest directory name to the display name.
+        """Add the closest directory name to the display name.
         /aaa/bbb/ccc, ddd -->  /aaa/bbb, ccc_ddd"""
         if len(self.segments) > 0:
             last_dir = self.segments.pop()
@@ -243,7 +243,6 @@ class CuName:
                 raise ElfParsingError('Cannot go up')
             self.display_name = self.PATH_JOIN_CHAR.join([last_dir, self.display_name])
         else:
-
             raise ElfParsingError('Cannot go up')
 
     def make_unique_numbered_name(self, name_set: Set[str]) -> None:
@@ -264,6 +263,38 @@ class Context:
 
 
 class ElfDwarfVarExtractor:
+
+    class ParseErrors:
+        __slots__ = ('_exceptions', )
+
+        _exceptions:List[Exception]
+        
+        def __init__(self) -> None:
+            self._exceptions = []
+
+        def register_error(self, e:Exception) -> None:
+            self._exceptions.append(e)
+
+        def total_count(self, exclude:List[Type[Exception]] = []) -> int:
+            if len(exclude) == 0:
+                return len(self._exceptions)
+
+            count = 0
+            for e in self.iter_exc(exclude):
+                count += 1
+            return count
+
+        def iter_exc(self, exclude:List[Type[Exception]] = []) -> Generator[Exception, None, None]:
+            exclude2 = tuple(exclude)
+            for e in self._exceptions:
+                if not isinstance(e, exclude2):
+                    yield e
+        
+        def get_first_exc(self, exclude:List[Type[Exception]] = []) -> Optional[Exception]:
+            gen = self.iter_exc(exclude)
+            return next(gen, None)
+
+
     DEFAULTS_NAMES: Dict[str, str] = {
         Tags.DW_TAG_structure_type: '<struct>',
         Tags.DW_TAG_enumeration_type: '<enum>',
@@ -287,6 +318,7 @@ class ElfDwarfVarExtractor:
     _ignore_cu_patterns: List[str]
     _path_ignore_patterns: List[str]
     _anonymous_type_typedef_map: Dict[DIE, DIE]
+    _parse_errors: ParseErrors
 
     _context: Context
 
@@ -313,6 +345,7 @@ class ElfDwarfVarExtractor:
         )
 
         self.initial_stack_depth = len(inspect.stack())
+        self._parse_errors = self.ParseErrors()
 
         if filename is not None:
             self._load_from_elf_file(filename)
@@ -331,6 +364,9 @@ class ElfDwarfVarExtractor:
             funcname = inspect.stack()[1][3]
             pad = '|  ' * (stack_depth - 1) + '|--'
             self.logger.debug(f"{pad}{funcname}({self._make_name_for_log(die)})")
+
+    def get_errors(self) -> ParseErrors:
+        return self._parse_errors
 
     def get_varmap(self) -> VarMap:
         return self.varmap
@@ -613,6 +649,7 @@ class ElfDwarfVarExtractor:
     def _load_from_elf_file(self, filename: str) -> None:
         with open(filename, 'rb') as f:
             elffile = ELFFile(f)
+            self._parse_errors = self.ParseErrors()
 
             if not elffile.has_dwarf_info():
                 raise ElfParsingError('File has no DWARF info')
@@ -716,6 +753,7 @@ class ElfDwarfVarExtractor:
             try:
                 self.build_typedef_map_recursive(child)
             except Exception as e:
+                self._parse_errors.register_error(e)
                 tools.log_exception(self.logger, e, f"Failed to scan typedefs var under {child}.")
 
     def extract_var_recursive(self, die: DIE) -> None:
@@ -732,6 +770,7 @@ class ElfDwarfVarExtractor:
             try:
                 self.extract_var_recursive(child)
             except Exception as e:
+                self._parse_errors.register_error(e)
                 tools.log_exception(self.logger, e, f"Failed to extract var under {child}.")
 
     def get_typename_from_die(self, die: DIE) -> str:
@@ -996,9 +1035,11 @@ class ElfDwarfVarExtractor:
 
         type_desc = self.get_type_of_var(die)
         embedded_enum: Optional[EmbeddedEnum] = None
+        substruct:Optional[Struct] = None
+        subarray:Optional[Array] = None
+        typename:Optional[str] = None
         if type_desc.type in (TypeOfVar.Struct, TypeOfVar.Class, TypeOfVar.Union):
             substruct = self.get_composite_type_def(type_desc.type_die)  # recursion
-            typename = None
         elif type_desc.type in (TypeOfVar.BaseType, TypeOfVar.EnumOnly):
             if type_desc.enum_die is not None:
                 self.die_process_enum(type_desc.enum_die)
@@ -1012,8 +1053,8 @@ class ElfDwarfVarExtractor:
                 typename = self.process_enum_only_type(type_desc.enum_die)
             else:
                 raise ElfParsingError("Impossible to process base type")
-
-            substruct = None
+        elif type_desc.type == TypeOfVar.Array:
+            subarray = self.get_array_def(type_desc.type_die)
         else:
             self.logger.warning(
                 f"Line {get_linenumber()}: Found a member with a type die {self._make_name_for_log(type_desc.type_die)} (type={type_desc.type.name}). Not supported yet")
@@ -1062,6 +1103,8 @@ class ElfDwarfVarExtractor:
         member_type = Struct.Member.MemberType.BaseType
         if substruct is not None:
             member_type = Struct.Member.MemberType.SubStruct
+        if subarray is not None:
+            member_type = Struct.Member.MemberType.SubArray
 
         return Struct.Member(
             name=name,
@@ -1071,7 +1114,7 @@ class ElfDwarfVarExtractor:
             bitoffset=bitoffset,
             bitsize=bitsize,
             substruct=substruct,
-            subarray=None,
+            subarray=subarray,
             embedded_enum=embedded_enum,
             is_unnamed=True if (len(name) == 0) else False
         )
@@ -1087,7 +1130,7 @@ class ElfDwarfVarExtractor:
             self.logger.warning(f"Skipping structure at location NULL address. {die}")
             return
 
-        path_segments = self.make_varpath(die)
+        path_segments = self.make_varpath(die)  # Leftmost part.
         struct = self.struct_die_map[type_die]
         startpoint = Struct.Member(struct.name, member_type=Struct.Member.MemberType.SubStruct, bitoffset=None, bitsize=None, substruct=struct)
 
@@ -1106,11 +1149,16 @@ class ElfDwarfVarExtractor:
                     assert submember.byte_offset is not None
                     new_path_segments.append(name)
                     location.add_offset(submember.byte_offset)
-
+                elif submember.member_type == Struct.Member.MemberType.SubArray:
+                    self.logger.warning("Not implemented!")
+                    pass
                 elif submember.byte_offset is not None:
                     offset = submember.byte_offset
 
                 self.register_member_as_var_recursive(new_path_segments, submember, location, offset)
+        elif member.member_type == Struct.Member.MemberType.SubArray:
+            self.logger.warning("Not implemented!")
+            pass
         else:
             location = base_location.copy()
             assert member.byte_offset is not None
@@ -1137,7 +1185,7 @@ class ElfDwarfVarExtractor:
         path_segments = varpath.get_segments_name()
         name = path_segments.pop()
         array = self.array_die_map[type_die]
-
+        return 
         if self._allowed_by_filters(path_segments, name, location):
             self.varmap.add_variable(
                 path_segments=path_segments,
