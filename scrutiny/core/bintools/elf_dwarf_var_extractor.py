@@ -1179,11 +1179,8 @@ class ElfDwarfVarExtractor:
                 new_path_segments = path_segments.copy()
                 new_path_segments.append(name)
                 
-                if submember.member_type == Struct.Member.MemberType.SubStruct:
+                if submember.member_type in (Struct.Member.MemberType.SubStruct, Struct.Member.MemberType.SubArray):
                     assert submember.byte_offset is not None
-                    location.add_offset(submember.byte_offset)
-                elif submember.member_type == Struct.Member.MemberType.SubArray:
-                    assert submember.byte_offset is not None                    
                     location.add_offset(submember.byte_offset)
                 elif submember.byte_offset is not None:
                     offset = submember.byte_offset
@@ -1193,13 +1190,16 @@ class ElfDwarfVarExtractor:
             array = member.get_array()
 
             if isinstance(array.datatype, EmbeddedDataType):
-                self.varmap.add_variable(
-                    path_segments=path_segments,
-                    original_type_name=array.element_type_name,
-                    location=base_location,
-                    array_segments=array_segments.to_varmap_format(),
-                    enum=None # Todo
-                )
+                if self._allowed_by_filters(path_segments, base_location):
+                    new_array_segments = array_segments.shallow_copy()
+                    new_array_segments.add(path_segments, array)
+                    self.varmap.add_variable(
+                        path_segments=path_segments,
+                        original_type_name=array.element_type_name,
+                        location=base_location,
+                        array_segments=new_array_segments.to_varmap_format(),
+                        enum=None # Todo
+                    )
             
             pass
         else:
