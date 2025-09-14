@@ -7,7 +7,7 @@ import json
 from test import ScrutinyUnitTest
 from scrutiny.core.varmap import VarMap
 from scrutiny.core.basic_types import Endianness, EmbeddedDataType
-from scrutiny.core.variable import VariableLocation, Array
+from scrutiny.core.variable import VariableLocation, UntypedArray
 from scrutiny.core.embedded_enum import EmbeddedEnum
 
 
@@ -24,15 +24,15 @@ class TestVarmap(ScrutinyUnitTest):
             varmap.register_base_type('uint32_t', EmbeddedDataType.uint64)  # name collision and different type. not allowed
         varmap.register_base_type('int32_t', EmbeddedDataType.sint32)
 
-        varmap.add_variable(['aaa', 'bbb'], 'ccc', VariableLocation(0x1234), original_type_name='float')
-        varmap.add_variable(['aaa', 'bbb', 'ddd'], 'eee', VariableLocation(0x5555), original_type_name='uint32_t', bitsize=4, bitoffset=6)
-        varmap.add_variable(['aaa', 'bbb', 'ddd'], 'fff', VariableLocation(0x8000), original_type_name='int32_t',
+        varmap.add_variable(['aaa', 'bbb', 'ccc'], VariableLocation(0x1234), original_type_name='float')
+        varmap.add_variable(['aaa', 'bbb', 'ddd', 'eee'], VariableLocation(0x5555), original_type_name='uint32_t', bitsize=4, bitoffset=6)
+        varmap.add_variable(['aaa', 'bbb', 'ddd', 'fff'], VariableLocation(0x8000), original_type_name='int32_t',
                             bitsize=4, bitoffset=6, enum=EmbeddedEnum("my_enum", {'aaa': 100, 'bbb': 200}))
 
         with self.assertRaises(Exception):
-            varmap.add_variable([], 'a', VariableLocation(0), original_type_name='uint32_t')
+            varmap.add_variable(['a'], VariableLocation(0), original_type_name='uint32_t')
         with self.assertRaises(Exception):
-            varmap.add_variable([], 'b', VariableLocation(1110), original_type_name='asdasd')
+            varmap.add_variable(['b'], VariableLocation(1110), original_type_name='asdasd')
 
         self.assertTrue(varmap.has_var('/aaa/bbb/ccc'))
         self.assertTrue(varmap.has_var('/aaa/bbb/ddd/eee'))
@@ -95,15 +95,15 @@ class TestVarmap(ScrutinyUnitTest):
         varmap.register_base_type('float', EmbeddedDataType.float32)
         varmap.register_base_type('uint32_t', EmbeddedDataType.uint32)
 
-        varmap.add_variable(['aaa', 'bbb'], 'ccc', VariableLocation(0x1234), original_type_name='float')
-        varmap.add_variable(['aaa', 'bbb', 'ddd'], 'eee', VariableLocation(0x5555), original_type_name='uint32_t', bitsize=4, bitoffset=6)
-        varmap.add_variable(['aaa', 'bbb', 'ddd'], 'fff', VariableLocation(0x8000), original_type_name='uint32_t',
+        varmap.add_variable(['aaa', 'bbb', 'ccc'], VariableLocation(0x1234), original_type_name='float')
+        varmap.add_variable(['aaa', 'bbb', 'ddd', 'eee'], VariableLocation(0x5555), original_type_name='uint32_t', bitsize=4, bitoffset=6)
+        varmap.add_variable(['aaa', 'bbb', 'ddd', 'fff'], VariableLocation(0x8000), original_type_name='uint32_t',
                             bitsize=4, bitoffset=6, enum=EmbeddedEnum("my_enum", {'aaa': 100, 'bbb': 200}))
 
         varmap2 = VarMap.from_json(varmap.get_json())
 
         varmap2.register_base_type('int32_t', EmbeddedDataType.sint32)
-        varmap2.add_variable(['aaa', 'bbb', 'ddd'], 'xxx', VariableLocation(0x8004), original_type_name='int32_t',
+        varmap2.add_variable(['aaa', 'bbb', 'ddd',  'xxx'], VariableLocation(0x8004), original_type_name='int32_t',
                              bitsize=4, bitoffset=6, enum=EmbeddedEnum("my_enum2", {'aaa2': 100, 'bbb2': 200}))
 
         xxx = varmap2.get_var('/aaa/bbb/ddd/xxx')
@@ -180,9 +180,9 @@ class TestVarmap(ScrutinyUnitTest):
         varmap.set_endianness(Endianness.Big)
         self.assertEqual(varmap.get_endianness(), Endianness.Big)
         varmap.register_base_type('float', EmbeddedDataType.float32)
-        varmap.add_variable(['aaa', 'bbb', 'ccc'], 'ddd', VariableLocation(0x1234), original_type_name='float', array_segments={
-            '/aaa/bbb' : Array((3,3), 4, 'asd'),
-            '/aaa/bbb/ccc/ddd' : Array((5,6,7), 4, 'xxx')
+        varmap.add_variable(['aaa', 'bbb', 'ccc', 'ddd'], VariableLocation(0x1234), original_type_name='float', array_segments={
+            '/aaa/bbb' : UntypedArray((3,3), 'asd', 4),
+            '/aaa/bbb/ccc/ddd' : UntypedArray((5,6,7), 'xxx', 4)
         })
 
         varmap.get_var_from_complex_name('/aaa/bbb[1][2]/ccc/ddd[2][3][4]')
