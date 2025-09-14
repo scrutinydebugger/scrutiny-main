@@ -16,7 +16,7 @@ import re
 from pathlib import Path
 from dataclasses import dataclass
 
-from scrutiny.core.variable import Variable, VariableLocation, Array
+from scrutiny.core.variable import Variable, VariableLocation, Array, UntypedArray
 from scrutiny.core.basic_types import EmbeddedDataType, Endianness
 from scrutiny.core.embedded_enum import EmbeddedEnum, EmbeddedEnumDef
 from scrutiny.tools.typing import *
@@ -254,7 +254,6 @@ class VarMap:
 
     def add_variable(self,
                      path_segments: List[str],
-                     name: str,
                      location: VariableLocation,
                      original_type_name: str,
                      bitsize: Optional[int] = None,
@@ -262,7 +261,7 @@ class VarMap:
                      enum: Optional[EmbeddedEnum] = None,
                      array_segments: Optional[Dict[str, Array]] = None
                      ) -> None:
-        fullname = self.make_fullname(path_segments, name)
+        fullname = join_segments(path_segments)
 
         if self._logger.isEnabledFor(logging.DEBUG):  # pragma: no cover
             self._logger.debug(f"Adding {fullname}")
@@ -295,11 +294,11 @@ class VarMap:
 
             entry['enum'] = self._enums_to_id_map[enum]
 
-        if array_segments is not None:
+        if array_segments is not None and len(array_segments) > 0:
             entry['array_segments'] = {}
             for path, array in array_segments.items():
                 entry['array_segments'][path] = {
-                    'byte_size': array.element_byte_size,
+                    'byte_size': array.get_element_byte_size(),
                     'dims': list(array.dims)
                 }
 
@@ -351,10 +350,6 @@ class VarMap:
             v = True
         return v
 
-
-    def make_fullname(self, path_segments: List[str], name: str) -> str:
-        return join_segments(path_segments + [name])
-
     def get_enum_by_name(self, name: str) -> List[EmbeddedEnum]:
         outlist = []
         for enumdef in self._content.enums.values():
@@ -398,7 +393,7 @@ class VarMap:
             dims = tuple(array['dims'])
             bytesize = array['byte_size']
             try:
-                arr = Array(dims, bytesize, '')
+                arr = UntypedArray(dims, '', bytesize)
                 byte_offset += arr.byte_position_of(pos) * byte_multiplier
                 byte_multiplier *= arr.get_total_byte_size()
             except Exception as e:

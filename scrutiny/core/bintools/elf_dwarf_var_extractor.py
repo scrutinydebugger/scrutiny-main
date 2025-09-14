@@ -18,14 +18,14 @@ from sortedcontainers import SortedSet
 import os
 import logging
 import inspect
-from copy import copy
+from copy import copy, deepcopy
 from enum import Enum, auto
 from dataclasses import dataclass
 from inspect import currentframe
 from fnmatch import fnmatch
 
 from scrutiny.core.bintools.demangler import GccDemangler
-from scrutiny.core.varmap import VarMap
+from scrutiny.core.varmap import VarMap, make_segments, join_segments
 from scrutiny.core.basic_types import *
 from scrutiny.core.variable import *
 from scrutiny.core.embedded_enum import *
@@ -131,6 +131,32 @@ class VarPathSegment:
         self.name = name
         self.array = array
 
+class ArraySegments:
+    __slots__ = ('_storage', )
+
+    _storage:Dict[str, Array]
+
+    def __init__(self) -> None:
+        self._storage = {}
+
+    def add(self, segments:List[str], array:Array) -> None:
+        path = join_segments(segments)
+        if path in self._storage:
+            raise KeyError(f"Duplicate array definition for {path}")
+        self._storage[path] = array
+
+    def to_varmap_format(self) -> Dict[str, Array]:
+        return self._storage
+    
+    def shallow_copy(self) -> "ArraySegments":
+        o = ArraySegments()
+        o._storage = self._storage.copy()
+        return o
+
+    def deep_copy(self) -> "ArraySegments":
+        o = ArraySegments()
+        o._storage = deepcopy(self._storage)
+        return o
 
 class VarPath:
     __slots__ = ('segments', )
@@ -728,9 +754,9 @@ class ElfDwarfVarExtractor:
 
         return Endianness.Little  # Little is the most common, default on this
 
-    def _allowed_by_filters(self, path_segments: List[str], name: str, location: VariableLocation) -> bool:
+    def _allowed_by_filters(self, path_segments: List[str], location: VariableLocation) -> bool:
         """Tells if we can register a variable to the varmap and log the reason for not allowing if applicable."""
-        fullname = self.varmap.make_fullname(path_segments, name)
+        fullname =join_segments(path_segments)
 
         allow = True
         for ignore_pattern in self._path_ignore_patterns:
@@ -931,7 +957,7 @@ class ElfDwarfVarExtractor:
 
         return struct
 
-    def get_array_def(self, die: DIE) -> Array:
+    def get_array_def(self, die: DIE) -> TypedArray:
         self._log_debug_process_die(die)
         if die.tag != Tags.DW_TAG_array_type:
             raise ValueError('DIE must be an array')
@@ -963,23 +989,24 @@ class ElfDwarfVarExtractor:
 
         element_type = self.get_type_of_var(die)
 
+        array_element_type:Union[Struct, EmbeddedDataType]
         if element_type.type in (TypeOfVar.Class, TypeOfVar.Struct, TypeOfVar.Union):
             self.die_process_struct_class_union(element_type.type_die)
             struct = self.struct_die_map[element_type.type_die]
             if struct.byte_size is None:
                 raise ElfParsingError(f"Array of elements of unknown size: {die}")
-            element_byte_size = struct.byte_size
+            array_element_type = struct
 
         elif element_type.type == TypeOfVar.BaseType:
             self.die_process_base_type(element_type.type_die)
-            element_byte_size = self.get_size_from_type_die(element_type.type_die)
+            array_element_type = self.varmap.get_vartype_from_base_type(self.get_typename_from_die(element_type.type_die))
         else:
             raise NotImplementedError(f"Array of element of type {element_type.type.name} not supported")
 
-        return Array(
+        return TypedArray(
             dims=tuple(dims),
-            element_byte_size=element_byte_size,
-            element_type_name=self.get_name_no_none(element_type.type_die)
+            element_type_name=self.get_name_no_none(element_type.type_die),
+            datatype=array_element_type
         )
 
     def has_member_byte_offset(self, die: DIE) -> bool:
@@ -1036,7 +1063,7 @@ class ElfDwarfVarExtractor:
         type_desc = self.get_type_of_var(die)
         embedded_enum: Optional[EmbeddedEnum] = None
         substruct:Optional[Struct] = None
-        subarray:Optional[Array] = None
+        subarray:Optional[TypedArray] = None
         typename:Optional[str] = None
         if type_desc.type in (TypeOfVar.Struct, TypeOfVar.Class, TypeOfVar.Union):
             substruct = self.get_composite_type_def(type_desc.type_die)  # recursion
@@ -1129,35 +1156,51 @@ class ElfDwarfVarExtractor:
         if location.is_null():
             self.logger.warning(f"Skipping structure at location NULL address. {die}")
             return
-
+        array_segments = ArraySegments()
         path_segments = self.make_varpath(die)  # Leftmost part.
         struct = self.struct_die_map[type_die]
         startpoint = Struct.Member(struct.name, member_type=Struct.Member.MemberType.SubStruct, bitoffset=None, bitsize=None, substruct=struct)
 
         # Start the recursion that will create all the sub elements
-        self.register_member_as_var_recursive(path_segments.get_segments_name(), startpoint, location, offset=0)
+        self.register_member_as_var_recursive(path_segments.get_segments_name(), startpoint, location, offset=0, array_segments=array_segments)
 
     # Recursive function to dig into a structure and register all possible variables.
-    def register_member_as_var_recursive(self, path_segments: List[str], member: Struct.Member, base_location: VariableLocation, offset: int) -> None:
+    def register_member_as_var_recursive(self, 
+                                         path_segments: List[str], 
+                                         member: Struct.Member, 
+                                         base_location: VariableLocation, 
+                                         offset: int,
+                                         array_segments:ArraySegments) -> None:
         if member.member_type == Struct.Member.MemberType.SubStruct:
             assert member.substruct is not None
             struct = member.substruct
             for name, submember in struct.members.items():
-                new_path_segments = path_segments.copy()
                 location = base_location.copy()
+                new_path_segments = path_segments.copy()
+                new_path_segments.append(name)
+                
                 if submember.member_type == Struct.Member.MemberType.SubStruct:
                     assert submember.byte_offset is not None
-                    new_path_segments.append(name)
                     location.add_offset(submember.byte_offset)
                 elif submember.member_type == Struct.Member.MemberType.SubArray:
-                    self.logger.warning("Not implemented!")
-                    pass
+                    assert submember.byte_offset is not None                    
+                    location.add_offset(submember.byte_offset)
                 elif submember.byte_offset is not None:
                     offset = submember.byte_offset
 
-                self.register_member_as_var_recursive(new_path_segments, submember, location, offset)
+                self.register_member_as_var_recursive(new_path_segments, submember, location, offset, array_segments)
         elif member.member_type == Struct.Member.MemberType.SubArray:
-            self.logger.warning("Not implemented!")
+            array = member.get_array()
+
+            if isinstance(array.datatype, EmbeddedDataType):
+                self.varmap.add_variable(
+                    path_segments=path_segments,
+                    original_type_name=array.element_type_name,
+                    location=base_location,
+                    array_segments=array_segments.to_varmap_format(),
+                    enum=None # Todo
+                )
+            
             pass
         else:
             location = base_location.copy()
@@ -1165,14 +1208,14 @@ class ElfDwarfVarExtractor:
             assert member.original_type_name is not None
             location.add_offset(member.byte_offset)
 
-            if self._allowed_by_filters(path_segments, member.name, location):
+            if self._allowed_by_filters(path_segments, location):
                 self.varmap.add_variable(
                     path_segments=path_segments,
-                    name=member.name,
                     original_type_name=member.original_type_name,
                     location=location,
                     bitoffset=member.bitoffset,
                     bitsize=member.bitsize,
+                    array_segments=array_segments.to_varmap_format(),
                     enum=member.embedded_enum
                 )
 
@@ -1195,9 +1238,9 @@ class ElfDwarfVarExtractor:
                 enum=None,
                 array_segments=varpath.get_arrays_by_path()
             )
+    
 
     def maybe_register_variable(self,
-                                name: str,
                                 path_segments: List[str],
                                 location: VariableLocation,
                                 original_type_name: str,
@@ -1205,16 +1248,14 @@ class ElfDwarfVarExtractor:
                                 ) -> None:
         """Adds a variable to the varmap if it satisfies the filters provided by the users.
 
-            :param name: Name of the variable
             :param path_segments: List of str representing each level of display tree
             :param location: The address of the variable
             :param original_type_name: The name of the underlying type. Must be a name coming from the binary. Will resolve to an EmbeddedDataType
             :param enum: Optional enum to associate with the type
         """
-        if self._allowed_by_filters(path_segments, name, location):
+        if self._allowed_by_filters(path_segments, location):
             self.varmap.add_variable(
                 path_segments=path_segments,
-                name=name,
                 location=location,
                 original_type_name=original_type_name,
                 enum=enum
@@ -1241,7 +1282,10 @@ class ElfDwarfVarExtractor:
             return VariableLocation.from_bytes(dieloc[1:], self._context.endianess)
         return None
 
-    def die_process_variable(self, die: DIE, location: Optional[VariableLocation] = None) -> None:
+    def die_process_variable(self, 
+                             die: DIE, 
+                             location: Optional[VariableLocation] = None
+                             ) -> None:
         """Process a variable die and insert a variable in the varmap object if it has an absolute address"""
         # We are looking at a forward declaration. Nothing we can do with that. drop it.
 
@@ -1260,6 +1304,9 @@ class ElfDwarfVarExtractor:
             if location is not None:
                 type_desc = self.get_type_of_var(die)
 
+                if self.get_name(die) == 'my_globalA':
+                    pass
+                
                 # Composite type
                 if type_desc.type in (TypeOfVar.Struct, TypeOfVar.Class, TypeOfVar.Union):
                     self.die_process_struct_class_union(type_desc.type_die)
@@ -1271,8 +1318,6 @@ class ElfDwarfVarExtractor:
                 elif type_desc.type in (TypeOfVar.BaseType, TypeOfVar.EnumOnly):
                     varpath = self.make_varpath(die)
                     path_segments = varpath.get_segments_name()
-                    name = path_segments.pop()
-                    # name = self.get_name_no_none(die)
 
                     enum: Optional[EmbeddedEnum] = None
                     if type_desc.enum_die is not None:
@@ -1290,7 +1335,6 @@ class ElfDwarfVarExtractor:
                         raise ElfParsingError("Impossible to process base type")
 
                     self.maybe_register_variable(
-                        name=name,
                         path_segments=path_segments,
                         location=location,
                         original_type_name=typename,
