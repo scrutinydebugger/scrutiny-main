@@ -68,16 +68,16 @@ class Endianness(Enum):
         elif self == Endianness.Big:
             return 'big'
         else:
-            raise ValueError(f"Unsupported endianness {self}")    
-    
+            raise ValueError(f"Unsupported endianness {self}")
+
     @classmethod
-    def from_str(cls, s:str) -> "Endianness":
+    def from_str(cls, s: str) -> "Endianness":
         s = s.lower().strip()
         if s == 'little':
             return Endianness.Little
         if s == 'big':
             return Endianness.Big
-        
+
         raise ValueError(f"Invalid endianness {s}")
 
 

@@ -131,15 +131,16 @@ class VarPathSegment:
         self.name = name
         self.array = array
 
+
 class ArraySegments:
     __slots__ = ('_storage', )
 
-    _storage:Dict[str, Array]
+    _storage: Dict[str, Array]
 
     def __init__(self) -> None:
         self._storage = {}
 
-    def add(self, segments:List[str], array:Array) -> None:
+    def add(self, segments: List[str], array: Array) -> None:
         path = join_segments(segments)
         if path in self._storage:
             raise KeyError(f"Duplicate array definition for {path}")
@@ -147,7 +148,7 @@ class ArraySegments:
 
     def to_varmap_format(self) -> Dict[str, Array]:
         return self._storage
-    
+
     def shallow_copy(self) -> "ArraySegments":
         o = ArraySegments()
         o._storage = self._storage.copy()
@@ -157,6 +158,7 @@ class ArraySegments:
         o = ArraySegments()
         o._storage = deepcopy(self._storage)
         return o
+
 
 class VarPath:
     __slots__ = ('segments', )
@@ -293,15 +295,15 @@ class ElfDwarfVarExtractor:
     class ParseErrors:
         __slots__ = ('_exceptions', )
 
-        _exceptions:List[Exception]
-        
+        _exceptions: List[Exception]
+
         def __init__(self) -> None:
             self._exceptions = []
 
-        def register_error(self, e:Exception) -> None:
+        def register_error(self, e: Exception) -> None:
             self._exceptions.append(e)
 
-        def total_count(self, exclude:List[Type[Exception]] = []) -> int:
+        def total_count(self, exclude: List[Type[Exception]] = []) -> int:
             if len(exclude) == 0:
                 return len(self._exceptions)
 
@@ -310,16 +312,15 @@ class ElfDwarfVarExtractor:
                 count += 1
             return count
 
-        def iter_exc(self, exclude:List[Type[Exception]] = []) -> Generator[Exception, None, None]:
+        def iter_exc(self, exclude: List[Type[Exception]] = []) -> Generator[Exception, None, None]:
             exclude2 = tuple(exclude)
             for e in self._exceptions:
                 if not isinstance(e, exclude2):
                     yield e
-        
-        def get_first_exc(self, exclude:List[Type[Exception]] = []) -> Optional[Exception]:
+
+        def get_first_exc(self, exclude: List[Type[Exception]] = []) -> Optional[Exception]:
             gen = self.iter_exc(exclude)
             return next(gen, None)
-
 
     DEFAULTS_NAMES: Dict[str, str] = {
         Tags.DW_TAG_structure_type: '<struct>',
@@ -756,7 +757,7 @@ class ElfDwarfVarExtractor:
 
     def _allowed_by_filters(self, path_segments: List[str], location: VariableLocation) -> bool:
         """Tells if we can register a variable to the varmap and log the reason for not allowing if applicable."""
-        fullname =join_segments(path_segments)
+        fullname = join_segments(path_segments)
 
         allow = True
         for ignore_pattern in self._path_ignore_patterns:
@@ -989,7 +990,7 @@ class ElfDwarfVarExtractor:
 
         element_type = self.get_type_of_var(die)
 
-        array_element_type:Union[Struct, EmbeddedDataType]
+        array_element_type: Union[Struct, EmbeddedDataType]
         if element_type.type in (TypeOfVar.Class, TypeOfVar.Struct, TypeOfVar.Union):
             self.die_process_struct_class_union(element_type.type_die)
             struct = self.struct_die_map[element_type.type_die]
@@ -1062,9 +1063,9 @@ class ElfDwarfVarExtractor:
 
         type_desc = self.get_type_of_var(die)
         embedded_enum: Optional[EmbeddedEnum] = None
-        substruct:Optional[Struct] = None
-        subarray:Optional[TypedArray] = None
-        typename:Optional[str] = None
+        substruct: Optional[Struct] = None
+        subarray: Optional[TypedArray] = None
+        typename: Optional[str] = None
         if type_desc.type in (TypeOfVar.Struct, TypeOfVar.Class, TypeOfVar.Union):
             substruct = self.get_composite_type_def(type_desc.type_die)  # recursion
         elif type_desc.type in (TypeOfVar.BaseType, TypeOfVar.EnumOnly):
@@ -1165,12 +1166,12 @@ class ElfDwarfVarExtractor:
         self.register_member_as_var_recursive(path_segments.get_segments_name(), startpoint, location, offset=0, array_segments=array_segments)
 
     # Recursive function to dig into a structure and register all possible variables.
-    def register_member_as_var_recursive(self, 
-                                         path_segments: List[str], 
-                                         member: Struct.Member, 
-                                         base_location: VariableLocation, 
+    def register_member_as_var_recursive(self,
+                                         path_segments: List[str],
+                                         member: Struct.Member,
+                                         base_location: VariableLocation,
                                          offset: int,
-                                         array_segments:ArraySegments) -> None:
+                                         array_segments: ArraySegments) -> None:
         if member.member_type == Struct.Member.MemberType.SubStruct:
             assert member.substruct is not None
             struct = member.substruct
@@ -1178,7 +1179,7 @@ class ElfDwarfVarExtractor:
                 location = base_location.copy()
                 new_path_segments = path_segments.copy()
                 new_path_segments.append(name)
-                
+
                 if submember.member_type in (Struct.Member.MemberType.SubStruct, Struct.Member.MemberType.SubArray):
                     assert submember.byte_offset is not None
                     location.add_offset(submember.byte_offset)
@@ -1198,9 +1199,9 @@ class ElfDwarfVarExtractor:
                         original_type_name=array.element_type_name,
                         location=base_location,
                         array_segments=new_array_segments.to_varmap_format(),
-                        enum=None # Todo
+                        enum=None  # Todo
                     )
-            
+
             pass
         else:
             location = base_location.copy()
@@ -1228,7 +1229,7 @@ class ElfDwarfVarExtractor:
         path_segments = varpath.get_segments_name()
         name = path_segments.pop()
         array = self.array_die_map[type_die]
-        return 
+        return
         if self._allowed_by_filters(path_segments, name, location):
             self.varmap.add_variable(
                 path_segments=path_segments,
@@ -1238,7 +1239,6 @@ class ElfDwarfVarExtractor:
                 enum=None,
                 array_segments=varpath.get_arrays_by_path()
             )
-    
 
     def maybe_register_variable(self,
                                 path_segments: List[str],
@@ -1282,8 +1282,8 @@ class ElfDwarfVarExtractor:
             return VariableLocation.from_bytes(dieloc[1:], self._context.endianess)
         return None
 
-    def die_process_variable(self, 
-                             die: DIE, 
+    def die_process_variable(self,
+                             die: DIE,
                              location: Optional[VariableLocation] = None
                              ) -> None:
         """Process a variable die and insert a variable in the varmap object if it has an absolute address"""
@@ -1306,7 +1306,7 @@ class ElfDwarfVarExtractor:
 
                 if self.get_name(die) == 'my_globalA':
                     pass
-                
+
                 # Composite type
                 if type_desc.type in (TypeOfVar.Struct, TypeOfVar.Class, TypeOfVar.Union):
                     self.die_process_struct_class_union(type_desc.type_die)

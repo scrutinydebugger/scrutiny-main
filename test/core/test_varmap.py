@@ -103,7 +103,7 @@ class TestVarmap(ScrutinyUnitTest):
         varmap2 = VarMap.from_json(varmap.get_json())
 
         varmap2.register_base_type('int32_t', EmbeddedDataType.sint32)
-        varmap2.add_variable(['aaa', 'bbb', 'ddd',  'xxx'], VariableLocation(0x8004), original_type_name='int32_t',
+        varmap2.add_variable(['aaa', 'bbb', 'ddd', 'xxx'], VariableLocation(0x8004), original_type_name='int32_t',
                              bitsize=4, bitoffset=6, enum=EmbeddedEnum("my_enum2", {'aaa2': 100, 'bbb2': 200}))
 
         xxx = varmap2.get_var('/aaa/bbb/ddd/xxx')
@@ -155,7 +155,7 @@ class TestVarmap(ScrutinyUnitTest):
                         "eVal1": 0,
                         "eVal2": 1,
                         "eVal3": 100,
-                        "eVal4": 101 
+                        "eVal4": 101
                     }
                 }
             }
@@ -171,9 +171,8 @@ class TestVarmap(ScrutinyUnitTest):
 
         self.assertEqual(v1.get_type(), EmbeddedDataType.sint32)
         self.assertEqual(v2.get_type(), EmbeddedDataType.uint32)
-        self.assertEqual(v2.get_enum().name, 'EnumA' )
+        self.assertEqual(v2.get_enum().name, 'EnumA')
 
-    
     def test_get_var_with_array_info(self):
 
         varmap = VarMap()
@@ -181,8 +180,8 @@ class TestVarmap(ScrutinyUnitTest):
         self.assertEqual(varmap.get_endianness(), Endianness.Big)
         varmap.register_base_type('float', EmbeddedDataType.float32)
         varmap.add_variable(['aaa', 'bbb', 'ccc', 'ddd'], VariableLocation(0x1234), original_type_name='float', array_segments={
-            '/aaa/bbb' : UntypedArray((3,3), 'asd', 4),
-            '/aaa/bbb/ccc/ddd' : UntypedArray((5,6,7), 'xxx', 4)
+            '/aaa/bbb': UntypedArray((3, 3), 'asd', 4),
+            '/aaa/bbb/ccc/ddd': UntypedArray((5, 6, 7), 'xxx', 4)
         })
 
         varmap.get_var_from_complex_name('/aaa/bbb[1][2]/ccc/ddd[2][3][4]')

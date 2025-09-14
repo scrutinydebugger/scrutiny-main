@@ -24,6 +24,7 @@ from scrutiny.tools import validation
 
 _complex_path_segment_regex = re.compile(r'(.+?)((\[\d+\])+)$')
 
+
 class TypeEntry(TypedDict):
     name: str
     type: str
@@ -33,36 +34,39 @@ class ArrayDef(TypedDict):
     dims: List[int]
     byte_size: int
 
-def make_segments(path:str) -> List[str]:
+
+def make_segments(path: str) -> List[str]:
     pieces = path.split('/')
     return [segment for segment in pieces if segment]
 
-def join_segments(segments:List[str]) -> str:
-    return '/'+'/'.join(segments)
+
+def join_segments(segments: List[str]) -> str:
+    return '/' + '/'.join(segments)
+
 
 @dataclass
 class ComplexPath:
     __slots__ = ('raw_segments', 'array_pos')
-    
-    raw_segments:List[str]
-    array_pos:List[Optional[Tuple[int, ...]]]
+
+    raw_segments: List[str]
+    array_pos: List[Optional[Tuple[int, ...]]]
 
     def get_path_to_array_pos_dict(self) -> Dict[str, Tuple[int, ...]]:
-        outdict:Dict[str, Tuple[int, ...]] = {}
+        outdict: Dict[str, Tuple[int, ...]] = {}
         for i in range(len(self.array_pos)):
-            pos =  self.array_pos[i]
+            pos = self.array_pos[i]
             if pos is not None:
-                outdict[join_segments(self.raw_segments[:i+1])] = pos
+                outdict[join_segments(self.raw_segments[:i + 1])] = pos
 
         return outdict
 
     @classmethod
-    def from_string(cls, path:str) -> Self:
+    def from_string(cls, path: str) -> Self:
         """Parse a path with information encoded and extract it
         ex: /aaa/bbb[2][3]/ccc = /aaa/bbb/ccc + {array: /aaa/bbb, (2,3)}"""
         segments = make_segments(path)
-        raw_segments:List[str] = []
-        array_pos:List[Optional[Tuple[int,...]]] = []
+        raw_segments: List[str] = []
+        array_pos: List[Optional[Tuple[int, ...]]] = []
         for i in range(len(segments)):
             m = _complex_path_segment_regex.match(segments[i])
             if m:
@@ -74,11 +78,12 @@ class ComplexPath:
             else:
                 raw_segments.append(segments[i])
                 array_pos.append(None)
-        
+
         return cls(
-            raw_segments = raw_segments,
-            array_pos = array_pos
+            raw_segments=raw_segments,
+            array_pos=array_pos
         )
+
 
 class VariableEntry(TypedDict, total=False):
     type_id: str  # integer as string because of json format that can't have a dict key as int
@@ -88,8 +93,10 @@ class VariableEntry(TypedDict, total=False):
     enum: int
     array_segments: Dict[str, ArrayDef]
 
-SupportedVersionKeys:TypeAlias = Literal['v1']
-VariableDict:TypeAlias = Dict[SupportedVersionKeys, Dict[str, VariableEntry]]
+
+SupportedVersionKeys: TypeAlias = Literal['v1']
+VariableDict: TypeAlias = Dict[SupportedVersionKeys, Dict[str, VariableEntry]]
+
 
 class VarMap:
 
@@ -132,10 +139,10 @@ class VarMap:
 
             variables = d['variables']
             if 'v1' not in variables:   # Backward compatibility with unversioned files
-                variables = {'v1' : cast(Dict[str, VariableEntry], variables)}
-            
+                variables = {'v1': cast(Dict[str, VariableEntry], variables)}
+
             self.variables = {
-                'v1' : variables['v1']  # Cherry pick the versions we know. Will drop unsupported stuff from the future
+                'v1': variables['v1']  # Cherry pick the versions we know. Will drop unsupported stuff from the future
             }
 
     _logger: logging.Logger
@@ -213,7 +220,7 @@ class VarMap:
     def _get_addr(self, vardef: VariableEntry) -> int:
         return vardef['addr']   # addr is a required field
 
-    def _get_var_def(self, fullname: str, version_key:SupportedVersionKeys) -> VariableEntry:
+    def _get_var_def(self, fullname: str, version_key: SupportedVersionKeys) -> VariableEntry:
         if not self.has_var(fullname):
             raise ValueError(f'{fullname} not in Variable Description File')
         return self._content.variables[version_key][fullname]
@@ -302,7 +309,7 @@ class VarMap:
                     'dims': list(array.dims)
                 }
 
-        version_container:SupportedVersionKeys = 'v1'    # Can add logic in the future to decide based on features above
+        version_container: SupportedVersionKeys = 'v1'    # Can add logic in the future to decide based on features above
         self._content.variables[version_container][fullname] = entry
 
     def register_base_type(self, original_name: str, vartype: EmbeddedDataType) -> None:
@@ -367,21 +374,20 @@ class VarMap:
 
     def validate(self) -> None:
         pass
-    
 
-    def get_var_from_complex_name(self, path:str) -> Variable:
+    def get_var_from_complex_name(self, path: str) -> Variable:
         parsed = ComplexPath.from_string(path)
         raw_path = join_segments(parsed.raw_segments)
         vardef = self._get_var_def(raw_path, 'v1')
         path2pos = parsed.get_path_to_array_pos_dict()
-        
-        array_segments_def={}
+
+        array_segments_def = {}
         if 'array_segments' in vardef:
             array_segments_def = vardef['array_segments']
 
         if len(array_segments_def) != len(path2pos):
             raise ValueError("The array identifiers does not match the variable definition")
-        
+
         path_by_length = sorted(list(array_segments_def.keys()), key=lambda x: len(x))
         byte_multiplier = 1
         byte_offset = 0
@@ -400,7 +406,7 @@ class VarMap:
                 raise ValueError(f'The array identifiers does not match the variable definition. {e}')
 
         new_address = self._get_addr(vardef) + byte_offset
-        
+
         segments = make_segments(path)
         return Variable(
             name=segments[-1],

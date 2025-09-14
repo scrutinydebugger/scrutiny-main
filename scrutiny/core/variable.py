@@ -101,18 +101,18 @@ class VariableLocation:
 
 class Array(abc.ABC):
     __slots__ = ('dims', 'element_type_name', '_multipliers')
-                  
+
     dims: Tuple[int, ...]
     element_type_name: str
     _multipliers: Tuple[int, ...]
-    
+
     def __init__(self, dims: Tuple[int, ...], element_type_name: str) -> None:
         if len(dims) == 0:
             raise ValueError("No dimensions set")
         for dim in dims:
             if dim <= 0:
                 raise ValueError("Invalid dimension")
-            
+
         self.dims = dims
         self.element_type_name = element_type_name
         self._multipliers = tuple([math.prod(dims[i + 1:]) for i in range(len(dims))])    # No need to check boundaries, prod([]) = 1
@@ -124,7 +124,7 @@ class Array(abc.ABC):
     def get_element_count(self) -> int:
         """Returns the total number of element in the array"""
         return math.prod(self.dims)
-    
+
     def get_total_byte_size(self) -> int:
         """Return the total size in bytes of the array"""
         return self.get_element_count() * self.get_element_byte_size()
@@ -147,30 +147,32 @@ class Array(abc.ABC):
         """Return the linear bytes index that can be used to address an element based on a N-dimension position"""
         return self.position_of(pos) * self.get_element_byte_size()
 
+
 class UntypedArray(Array):
     """Represent an N dimensions embedded array with no type, just a size available"""
     __slots__ = ('element_byte_size',)
 
     element_byte_size: int
-    
-    def __init__(self, dims: Tuple[int, ...], element_type_name: str, element_byte_size:int) -> None:
+
+    def __init__(self, dims: Tuple[int, ...], element_type_name: str, element_byte_size: int) -> None:
         super().__init__(dims, element_type_name)
         self.element_byte_size = element_byte_size
-       
+
     def get_element_byte_size(self) -> int:
         """Return the size of a single element in bytes"""
-        return self.element_byte_size 
+        return self.element_byte_size
+
 
 class TypedArray(Array):
     """Represent an N dimensions embedded array"""
     __slots__ = ('datatype', )
 
     datatype: Union["Struct", EmbeddedDataType]
-    
-    def __init__(self, dims: Tuple[int, ...], element_type_name: str, datatype:Union["Struct", EmbeddedDataType]) -> None:
+
+    def __init__(self, dims: Tuple[int, ...], element_type_name: str, datatype: Union["Struct", EmbeddedDataType]) -> None:
         super().__init__(dims, element_type_name)
         self.datatype = datatype
-       
+
     def get_element_byte_size(self) -> int:
         """Return the size of a single element in bytes"""
         if isinstance(self.datatype, EmbeddedDataType):
@@ -188,6 +190,7 @@ class TypedArray(Array):
             element_byte_size=self.get_element_byte_size()
         )
 
+
 class Struct:
     class Member:
         class MemberType(enum.Enum):
@@ -202,7 +205,7 @@ class Struct:
         byte_offset: Optional[int]
         bitsize: Optional[int]
         substruct: Optional['Struct']
-        subarray:Optional[TypedArray]
+        subarray: Optional[TypedArray]
         embedded_enum: Optional[EmbeddedEnum]
         is_unnamed: bool
 
@@ -213,7 +216,7 @@ class Struct:
                      bitoffset: Optional[int] = None,
                      bitsize: Optional[int] = None,
                      substruct: Optional['Struct'] = None,
-                     subarray : Optional[TypedArray] = None,
+                     subarray: Optional[TypedArray] = None,
                      embedded_enum: Optional[EmbeddedEnum] = None,
                      is_unnamed: bool = False
                      ):
@@ -221,11 +224,11 @@ class Struct:
             if member_type == self.MemberType.BaseType:
                 if substruct is not None or subarray is not None:
                     raise ValueError("Cannot specify a substruct or a subarray for base type member")
-            
+
             if member_type == self.MemberType.SubStruct:
                 if substruct is None or subarray is not None:
                     raise ValueError("Substruct member must specify a substruct only")
-            
+
             if member_type == self.MemberType.SubArray:
                 if substruct is not None or subarray is None:
                     raise ValueError("SubArray member must specify a subarray only")
@@ -259,7 +262,6 @@ class Struct:
             if is_unnamed:
                 if member_type != self.MemberType.SubStruct:
                     raise ValueError("Only substruct members can be unnamed")
-            
 
             self.name = name
             self.member_type = member_type
@@ -275,12 +277,12 @@ class Struct:
         def get_substruct(self) -> "Struct":
             if self.substruct is None or self.member_type != self.MemberType.SubStruct:
                 raise ValueError("Member is not a substruct")
-            
+
             return self.substruct
-        
+
         def get_array(self) -> "TypedArray":
             if self.subarray is None or self.member_type != self.MemberType.SubArray:
-                raise ValueError("Member is not a subarray")   
+                raise ValueError("Member is not a subarray")
             return self.subarray
 
     name: str
