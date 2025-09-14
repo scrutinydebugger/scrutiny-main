@@ -8,6 +8,7 @@
 
 import re
 from test import ScrutinyUnitTest
+from test.artifacts import get_artifact
 from scrutiny.core.bintools.elf_dwarf_var_extractor import ElfDwarfVarExtractor
 
 from scrutiny.tools.typing import *
@@ -54,6 +55,34 @@ class TestElf2VarMap(ScrutinyUnitTest):
             strin, expected = case[0], case[1]
             segments = ElfDwarfVarExtractor.split_demangled_name(strin)
             self.assertEqual(segments, expected)
+
+    def test_extract_arrays(self):
+        testbin = get_artifact('testarray_dwarf4.elf')
+        extractor = ElfDwarfVarExtractor(testbin)
+        varmap = extractor.get_varmap()
+
+        v = '/global/my_global_A/x'
+        self.assertTrue(varmap.has_var(v))
+        self.assertFalse(varmap.has_array_segments(v))
+
+        v = '/global/my_global_A/y'
+        self.assertTrue(varmap.has_var(v))
+        self.assertTrue(varmap.has_array_segments(v))
+        array_segments = varmap.get_array_segments(v)
+        self.assertIn(v, array_segments)
+        self.assertEqual(array_segments[v].dims, (2, 3))
+        self.assertEqual(array_segments[v].element_byte_size, 2)
+
+        v = '/global/my_global_int32_array'
+        self.assertTrue(varmap.has_var(v))
+        self.assertTrue(varmap.has_array_segments(v))
+        array_segments = varmap.get_array_segments(v)
+        self.assertIn(v, array_segments)
+        self.assertEqual(array_segments[v].dims, (10, 20))
+        self.assertEqual(array_segments[v].element_byte_size, 4)
+
+        v = '/static/main.cpp/main/my_static_A/x'
+        self.assertTrue(varmap.has_var(v))
 
 
 if __name__ == '__main__':

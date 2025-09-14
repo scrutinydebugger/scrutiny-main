@@ -230,6 +230,9 @@ class VarMap:
             return vardef['bitsize']
         return None
 
+    def _get_array_segments(self, vardef: VariableEntry) -> Dict[str, ArrayDef]:
+        return vardef.get('array_segments', {})
+
     def _get_bitoffset(self, vardef: VariableEntry) -> Optional[int]:
         if 'bitoffset' in vardef:
             return vardef['bitoffset']
@@ -356,6 +359,21 @@ class VarMap:
         if fullname in self._content.variables['v1']:
             v = True
         return v
+
+    def has_array_segments(self, fullname: str) -> bool:
+        vardef = self._get_var_def(fullname, "v1")
+        return len(vardef.get('array_segments', {})) > 0
+
+    def get_array_segments(self, fullname: str) -> Dict[str, UntypedArray]:
+        vardef = self._get_var_def(fullname, "v1")
+        dout: Dict[str, UntypedArray] = {}
+        for path, array_def in self._get_array_segments(vardef).items():
+            dout[path] = UntypedArray(
+                dims=tuple(array_def['dims']),
+                element_type_name='',
+                element_byte_size=array_def['byte_size']
+            )
+        return dout
 
     def get_enum_by_name(self, name: str) -> List[EmbeddedEnum]:
         outlist = []
