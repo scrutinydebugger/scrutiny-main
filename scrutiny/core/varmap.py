@@ -364,6 +364,9 @@ class VarMap:
         vardef = self._get_var_def(fullname, "v1")
         return len(vardef.get('array_segments', {})) > 0
 
+    def has_enum(self, fullname: str) -> bool:
+        return self.get_enum(fullname) is not None
+
     def get_array_segments(self, fullname: str) -> Dict[str, UntypedArray]:
         vardef = self._get_var_def(fullname, "v1")
         dout: Dict[str, UntypedArray] = {}
@@ -374,6 +377,10 @@ class VarMap:
                 element_byte_size=array_def['byte_size']
             )
         return dout
+
+    def get_enum(self, fullname: str) -> Optional[EmbeddedEnum]:
+        vardef = self._get_var_def(fullname, "v1")
+        return self._get_enum(vardef)
 
     def get_enum_by_name(self, name: str) -> List[EmbeddedEnum]:
         outlist = []

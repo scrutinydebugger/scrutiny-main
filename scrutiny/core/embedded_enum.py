@@ -28,12 +28,36 @@ class EmbeddedEnum:
     name: str
     vals: Dict[str, int]
 
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, EmbeddedEnum):
+            return False
+
+        if self.name != other.name:
+            return False
+
+        if self.vals != other.vals:
+            return False
+
+        return True
+
+    def __hash__(self) -> int:
+        items = list(self.vals.items())
+        items.sort(key=lambda x: x[0])
+        h = hash(self.name)
+        for k, v in items:
+            h ^= hash(k)
+            h ^= hash(v)
+        return h
+
     def __init__(self, name: str, vals: Optional[Dict[str, int]] = None):
         self.name = name
         self.vals = {}
         if vals is not None:
             for k, v in vals.items():
                 self.add_value(k, v)
+
+    def __repr__(self) -> str:
+        return f'<{self.__class__.__name__} "{self.name}" ({len(self.vals)} values) at 0x{id(self):08x}>'
 
     def get_first_value_name_match(self, wanted_val: int) -> Optional[str]:
         """Return the name associated with a value. In case of duplicates, the first found is returned.

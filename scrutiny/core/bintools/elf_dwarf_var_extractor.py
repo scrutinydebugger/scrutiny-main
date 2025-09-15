@@ -179,7 +179,7 @@ class VarPath:
         for i in range(len(self.segments)):
             array = self.segments[i].array
             if array is not None:
-                segment_str = [x.name for x in self.segments[:i+1]]
+                segment_str = [x.name for x in self.segments[:i + 1]]
                 out.add(segment_str, array)
         return out
 
@@ -466,15 +466,10 @@ class ElfDwarfVarExtractor:
     def get_cu_name(self, die: DIE) -> str:
         return self.cu_name_map[die.cu]
 
-    def get_die_at_spec(self, die: DIE) -> DIE:
-        self._log_debug_process_die(die)
-        return die.get_DIE_from_attribute(Attrs.DW_AT_specification)
-
-    def get_die_at_abstract_origin(self, die: DIE) -> DIE:
-        self._log_debug_process_die(die)
-        return die.get_DIE_from_attribute(Attrs.DW_AT_abstract_origin)
-
     def get_enum_from_type_descriptor(self, type_desc: TypeDescriptor) -> Optional[EmbeddedEnum]:
+        if type_desc.type == TypeOfVar.Array:
+            type_desc = self.get_type_of_var(type_desc.type_die)
+
         if type_desc.enum_die is not None:
             if type_desc.enum_die in self.enum_die_map:
                 return self.enum_die_map[type_desc.enum_die]
@@ -794,9 +789,6 @@ class ElfDwarfVarExtractor:
 
         self._log_debug_process_die(die)
 
-        if self.get_name(die) == 'my_global_array_of_C':
-            pass
-
         if die.tag == Tags.DW_TAG_variable:
             self.die_process_variable(die)
 
@@ -989,7 +981,7 @@ class ElfDwarfVarExtractor:
             elif Attrs.DW_AT_upper_bound in subrange_die.attributes:
                 nb_element = int(subrange_die.attributes[Attrs.DW_AT_upper_bound].value) + 1
             else:
-                self.logger.debug("Array with no dimension. Skipping")  # This can happen 
+                self.logger.debug("Array with no dimension. Skipping")  # This can happen
                 return None
 
             if Attrs.DW_AT_lower_bound in subrange_die.attributes:
@@ -1000,6 +992,9 @@ class ElfDwarfVarExtractor:
             dims.append(nb_element)
 
         element_type = self.get_type_of_var(die)
+
+        if element_type.enum_die is not None:
+            self.die_process_enum(element_type.enum_die)
 
         array_element_type: Union[Struct, EmbeddedDataType]
         if element_type.type in (TypeOfVar.Class, TypeOfVar.Struct, TypeOfVar.Union):
@@ -1216,7 +1211,8 @@ class ElfDwarfVarExtractor:
                 )
             elif isinstance(array.datatype, Struct):
                 substruct = array.datatype
-                member = Struct.Member(substruct.name, member_type=Struct.Member.MemberType.SubStruct, bitoffset=None, bitsize=None, substruct=substruct)
+                member = Struct.Member(substruct.name, member_type=Struct.Member.MemberType.SubStruct,
+                                       bitoffset=None, bitsize=None, substruct=substruct)
                 self.register_member_as_var_recursive(path_segments, member, base_location, offset, new_array_segments)
             else:
                 raise ElfParsingError(f"Array of {array.datatype.__class__.__name__} are not expected")
@@ -1244,13 +1240,12 @@ class ElfDwarfVarExtractor:
 
         varpath = self.make_varpath(die)
         path_segments_name = varpath.get_segments_name()
-        
+
         array = self.array_die_map.get(type_desc.type_die, None)
         if array is None:
             return  # Incomplete arrays are possible in the debug symbols. Translate to missing in our dict.
-
         array_segments = varpath.get_array_segments()
-        
+
         if isinstance(array.datatype, EmbeddedDataType):
             self.maybe_register_variable(
                 path_segments=path_segments_name,
@@ -1322,57 +1317,56 @@ class ElfDwarfVarExtractor:
                              location: Optional[VariableLocation] = None
                              ) -> None:
         """Process a variable die and insert a variable in the varmap object if it has an absolute address"""
-        # We are looking at a forward declaration. Nothing we can do with that. drop it.
-
         if location is None:
             location = self.get_location(die)
 
-        if Attrs.DW_AT_specification in die.attributes:
-            vardie = self.get_die_at_spec(die)
+        if Attrs.DW_AT_specification in die.attributes:  # Defined somewhere else
+            vardie = die.get_DIE_from_attribute(Attrs.DW_AT_specification)
             self.die_process_variable(vardie, location=location)  # Recursion
+            return
 
-        elif Attrs.DW_AT_abstract_origin in die.attributes:
-            vardie = self.get_die_at_abstract_origin(die)
+        if Attrs.DW_AT_abstract_origin in die.attributes:  # Defined somewhere else
+            vardie = die.get_DIE_from_attribute(Attrs.DW_AT_abstract_origin)
             self.die_process_variable(vardie, location=location)  # Recursion
+            return
 
-        else:
-            if location is not None:
-                type_desc = self.get_type_of_var(die)
+        if location is not None:
+            type_desc = self.get_type_of_var(die)
 
-                if type_desc.enum_die is not None:
-                    self.die_process_enum(type_desc.enum_die)
+            if type_desc.enum_die is not None:
+                self.die_process_enum(type_desc.enum_die)
 
-                # Composite type
-                if type_desc.type in (TypeOfVar.Struct, TypeOfVar.Class, TypeOfVar.Union):
-                    self.die_process_struct_class_union(type_desc.type_die)
-                    self.register_struct_var(die, type_desc, location)
-                elif type_desc.type == TypeOfVar.Array:
-                    self.die_process_array(type_desc.type_die)
-                    self.register_array_var(die, type_desc, location)
-                # Base type
-                elif type_desc.type in (TypeOfVar.BaseType, TypeOfVar.EnumOnly):
-                    varpath = self.make_varpath(die)
-                    path_segments = varpath.get_segments_name()
+            # Composite type
+            if type_desc.type in (TypeOfVar.Struct, TypeOfVar.Class, TypeOfVar.Union):
+                self.die_process_struct_class_union(type_desc.type_die)
+                self.register_struct_var(die, type_desc, location)
+            elif type_desc.type == TypeOfVar.Array:
+                self.die_process_array(type_desc.type_die)
+                self.register_array_var(die, type_desc, location)
+            # Base type
+            elif type_desc.type in (TypeOfVar.BaseType, TypeOfVar.EnumOnly):
+                varpath = self.make_varpath(die)
+                path_segments = varpath.get_segments_name()
 
-                    if type_desc.type == TypeOfVar.BaseType:   # Most common case
-                        self.die_process_base_type(type_desc.type_die)    # Just in case it is unknown yet
-                        typename = self.get_typename_from_die(type_desc.type_die)
-                    elif type_desc.type == TypeOfVar.EnumOnly:    # clang dwarf v2 may do that for enums
-                        assert type_desc.enum_die is type_desc.type_die
-                        assert type_desc.enum_die is not None
-                        typename = self.process_enum_only_type(type_desc.enum_die)
-                    else:
-                        raise ElfParsingError("Impossible to process base type")
-
-                    self.maybe_register_variable(
-                        path_segments=path_segments,
-                        location=location,
-                        original_type_name=typename,
-                        enum=self.get_enum_from_type_descriptor(type_desc)
-                    )
+                if type_desc.type == TypeOfVar.BaseType:   # Most common case
+                    self.die_process_base_type(type_desc.type_die)    # Just in case it is unknown yet
+                    typename = self.get_typename_from_die(type_desc.type_die)
+                elif type_desc.type == TypeOfVar.EnumOnly:    # clang dwarf v2 may do that for enums
+                    assert type_desc.enum_die is type_desc.type_die
+                    assert type_desc.enum_die is not None
+                    typename = self.process_enum_only_type(type_desc.enum_die)
                 else:
-                    self.logger.warning(
-                        f"Line {get_linenumber()}: Found a variable with a type die {self._make_name_for_log(type_desc.type_die)} (type={type_desc.type.name}). Not supported yet")
+                    raise ElfParsingError("Impossible to process base type")
+
+                self.maybe_register_variable(
+                    path_segments=path_segments,
+                    location=location,
+                    original_type_name=typename,
+                    enum=self.get_enum_from_type_descriptor(type_desc)
+                )
+            else:
+                self.logger.warning(
+                    f"Line {get_linenumber()}: Found a variable with a type die {self._make_name_for_log(type_desc.type_die)} (type={type_desc.type.name}). Not supported yet")
 
     def die_process_typedef(self, typedef_die: DIE) -> None:
         if Attrs.DW_AT_type in typedef_die.attributes:
@@ -1412,7 +1406,7 @@ class ElfDwarfVarExtractor:
         name = self.get_name(die)
         if name is None:
             if Attrs.DW_AT_specification in die.attributes:
-                spec_die = self.get_die_at_spec(die)
+                spec_die = die.get_DIE_from_attribute(Attrs.DW_AT_specification)
                 name = self.get_name(spec_die)
 
         # There is a name avaialble, we add it to the path and keep going
