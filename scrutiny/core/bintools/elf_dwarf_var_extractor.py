@@ -125,9 +125,9 @@ class TypeDescriptor:
 class VarPathSegment:
     __slots__ = ('name', 'array')
     name: str
-    array: Optional[Array]
+    array: Optional[TypedArray]
 
-    def __init__(self, name: str, array: Optional[Array] = None) -> None:
+    def __init__(self, name: str, array: Optional[TypedArray] = None) -> None:
         self.name = name
         self.array = array
 
@@ -135,19 +135,19 @@ class VarPathSegment:
 class ArraySegments:
     __slots__ = ('_storage', )
 
-    _storage: Dict[str, Array]
+    _storage: Dict[str, TypedArray]
 
     def __init__(self) -> None:
         self._storage = {}
 
-    def add(self, segments: List[str], array: Array) -> None:
+    def add(self, segments: List[str], array: TypedArray) -> None:
         path = join_segments(segments)
         if path in self._storage:
             raise KeyError(f"Duplicate array definition for {path}")
         self._storage[path] = array
 
     def to_varmap_format(self) -> Dict[str, Array]:
-        return self._storage
+        return cast(Dict[str, Array], self._storage)
 
     def shallow_copy(self) -> "ArraySegments":
         o = ArraySegments()
@@ -168,22 +168,20 @@ class VarPath:
     def __init__(self) -> None:
         self.segments = []
 
-    def prepend_segment(self, name: str, array: Optional[Array] = None) -> None:
+    def prepend_segment(self, name: str, array: Optional[TypedArray] = None) -> None:
         self.segments.insert(0, VarPathSegment(name=name, array=array))
 
     def get_segments_name(self) -> List[str]:
         return [segment.name for segment in self.segments]
 
-    def get_arrays_by_path(self) -> Dict[str, Array]:
-        outd: Dict[str, Array] = {}
-
-        path = ''
-        for segment in self.segments:
-            path += '/' + segment.name
-            if segment.array is not None:
-                outd[path] = segment.array
-
-        return outd
+    def get_array_segments(self) -> ArraySegments:
+        out = ArraySegments()
+        for i in range(len(self.segments)):
+            array = self.segments[i].array
+            if array is not None:
+                segment_str = [x.name for x in self.segments[:i+1]]
+                out.add(segment_str, array)
+        return out
 
 
 class Architecture(Enum):
@@ -796,6 +794,9 @@ class ElfDwarfVarExtractor:
 
         self._log_debug_process_die(die)
 
+        if self.get_name(die) == 'my_global_array_of_C':
+            pass
+
         if die.tag == Tags.DW_TAG_variable:
             self.die_process_variable(die)
 
@@ -821,14 +822,15 @@ class ElfDwarfVarExtractor:
     # Process die of type "base type". Register the type in the global index and maps it to a known type.
     def die_process_base_type(self, die: DIE) -> None:
         self._log_debug_process_die(die)
-        name = self.get_typename_from_die(die)
-        encoding = DwarfEncoding(cast(int, die.attributes[Attrs.DW_AT_encoding].value))
-        bytesize = self.get_size_from_type_die(die)
-        basetype = self.get_core_base_type(encoding, bytesize)
-        self.logger.debug(f"Registering base type: {name} as {basetype.name}")
-        self.varmap.register_base_type(name, basetype)
+        if die not in self.die2vartype_map:
+            name = self.get_typename_from_die(die)
+            encoding = DwarfEncoding(cast(int, die.attributes[Attrs.DW_AT_encoding].value))
+            bytesize = self.get_size_from_type_die(die)
+            basetype = self.get_core_base_type(encoding, bytesize)
+            self.logger.debug(f"Registering base type: {name} as {basetype.name}")
+            self.varmap.register_base_type(name, basetype)
 
-        self.die2vartype_map[die] = basetype
+            self.die2vartype_map[die] = basetype
 
     def read_enum_die_name(self, die: DIE) -> str:
         """Reads the name of the enum die"""
@@ -1202,9 +1204,9 @@ class ElfDwarfVarExtractor:
             array = member.get_array()
             member.embedded_enum
 
+            new_array_segments = array_segments.shallow_copy()
+            new_array_segments.add(path_segments, array)
             if isinstance(array.datatype, EmbeddedDataType):
-                new_array_segments = array_segments.shallow_copy()
-                new_array_segments.add(path_segments, array)
                 self.maybe_register_variable(
                     path_segments=path_segments,
                     original_type_name=array.element_type_name,
@@ -1213,7 +1215,11 @@ class ElfDwarfVarExtractor:
                     enum=member.embedded_enum
                 )
             elif isinstance(array.datatype, Struct):
-                self.logger.warning("Unsupported struct with arrays of struct as member")
+                substruct = array.datatype
+                member = Struct.Member(substruct.name, member_type=Struct.Member.MemberType.SubStruct, bitoffset=None, bitsize=None, substruct=substruct)
+                self.register_member_as_var_recursive(path_segments, member, base_location, offset, new_array_segments)
+            else:
+                raise ElfParsingError(f"Array of {array.datatype.__class__.__name__} are not expected")
 
         else:
             location = base_location.copy()
@@ -1237,22 +1243,31 @@ class ElfDwarfVarExtractor:
             return
 
         varpath = self.make_varpath(die)
-        path_segments = varpath.get_segments_name()
+        path_segments_name = varpath.get_segments_name()
         
         array = self.array_die_map.get(type_desc.type_die, None)
         if array is None:
             return  # Incomplete arrays are possible in the debug symbols. Translate to missing in our dict.
 
+        array_segments = varpath.get_array_segments()
+        
         if isinstance(array.datatype, EmbeddedDataType):
             self.maybe_register_variable(
-                path_segments=path_segments,
+                path_segments=path_segments_name,
                 location=location,
                 original_type_name=array.element_type_name,
                 enum=self.get_enum_from_type_descriptor(type_desc),
-                array_segments=varpath.get_arrays_by_path()
+                array_segments=array_segments.to_varmap_format()
             )
         elif isinstance(array.datatype, Struct):
-            self.logger.warning("Unsupported arrays of struct")
+            path_segments = self.make_varpath(die)  # Leftmost part.
+            struct = array.datatype
+            startpoint = Struct.Member(struct.name, member_type=Struct.Member.MemberType.SubStruct, bitoffset=None, bitsize=None, substruct=struct)
+
+            # Start the recursion that will create all the sub elements
+            self.register_member_as_var_recursive(path_segments.get_segments_name(), startpoint, location, offset=0, array_segments=array_segments)
+        else:
+            raise ElfParsingError(f"Array of {array.datatype.__class__.__name__} are not expected")
 
     def maybe_register_variable(self,
                                 path_segments: List[str],
@@ -1377,7 +1392,7 @@ class ElfDwarfVarExtractor:
         if die.tag == Tags.DW_TAG_compile_unit:  # Top level reached, we're done
             return varpath
 
-        array: Optional[Array] = None
+        array: Optional[TypedArray] = None
         if die.tag == Tags.DW_TAG_variable:
             array = self.array_die_map.get(self.get_type_of_var(die).type_die, None)
 
