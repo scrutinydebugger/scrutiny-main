@@ -7,6 +7,13 @@
 #   Copyright (c) 2022 Scrutiny Debugger
 
 import re
+import unittest
+import subprocess
+import tempfile
+import os
+import sys
+
+from test import logger
 from test import ScrutinyUnitTest
 from test.artifacts import get_artifact
 from scrutiny.core.bintools.elf_dwarf_var_extractor import ElfDwarfVarExtractor
@@ -14,7 +21,7 @@ from scrutiny.core.bintools.elf_dwarf_var_extractor import ElfDwarfVarExtractor
 from scrutiny.tools.typing import *
 
 
-class TestElf2VarMap(ScrutinyUnitTest):
+class TestElf2VarMapBasics(ScrutinyUnitTest):
 
     def test_unique_cu_name(self):
         unique_name_regex = re.compile(r'cu(\d+)_(.+)')
@@ -56,11 +63,92 @@ class TestElf2VarMap(ScrutinyUnitTest):
             segments = ElfDwarfVarExtractor.split_demangled_name(strin)
             self.assertEqual(segments, expected)
 
-    def test_extract_arrays(self):
-        testbin = get_artifact('testarray_dwarf4.elf')
-        extractor = ElfDwarfVarExtractor(testbin)
-        varmap = extractor.get_varmap()
+def has_elf_toolchain(compiler, cppfilt) -> bool:
+    print(sys.platform )
+    if sys.platform == 'win32':
+        return False
+    
+    if subprocess.call(["which", compiler]) != 0:
+        return False
+    
+    if subprocess.call(["which", cppfilt]) != 0:
+        return False
+    
+    return True
 
+class TestElf2VarMapFromBuilds(ScrutinyUnitTest):
+
+    def _make_varmap(self, code:str, dwarf_version=4, compiler = "g++", cppfilt='c++filt'):
+        with tempfile.TemporaryDirectory() as d:
+            main_cpp = os.path.join(d, 'main.cpp')
+            outbin = os.path.join(d, 'out.bin')
+            with open(main_cpp, 'wb') as f:
+                f.write(code.encode('utf8'))
+            
+            p = subprocess.Popen([compiler, '-no-pie', f'-gdwarf-{dwarf_version}', main_cpp, '-o', outbin], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            stdout, stderr  = p.communicate()
+
+            logger.debug(stdout.decode('utf8'))
+            logger.debug(stderr.decode('utf8'))
+
+
+            if p.returncode != 0:
+                raise RuntimeError("Failed to compile code")
+            
+            with open(outbin, 'rb') as f:
+                if f.read(4) != b'\x7fELF':
+                    raise RuntimeError("Toolchain does not produce an elf.")
+            
+            extractor = ElfDwarfVarExtractor(outbin, cppfilt=cppfilt)
+            return extractor.get_varmap()
+
+
+    @unittest.skipIf(not has_elf_toolchain(compiler='g++', cppfilt='c++filt'), "No toolchain available")
+    def test_extract_arrays(self):
+        code = """
+#include <cstdint>
+#pragma pack(push, 1)
+struct A
+{
+    int32_t x;
+    int16_t y[2][3];
+};
+
+struct B
+{
+    int32_t x2;
+    A y2[4][5];
+};
+
+struct C {
+    uint32_t a;
+    uint32_t b;
+};
+#pragma pack(pop)
+
+A my_global_A;
+B my_global_B;
+C my_global_C;
+A my_global_array_of_A[3];
+B my_global_array_of_B[4];
+C my_global_array_of_C[5];
+int32_t my_global_int32_array[10][20];
+
+int main(int argc, char* argv[])
+{
+    static volatile A my_static_A;
+    static volatile B my_static_B;
+    static volatile C my_static_C;
+    static volatile A my_static_array_of_A[5];
+    static volatile B my_static_array_of_B[6];
+    static volatile C my_static_array_of_C[7];
+    static volatile int32_t my_global_int32_array[10][20];
+
+    return 0;
+}
+"""
+
+        varmap = self._make_varmap(code, dwarf_version=4, compiler='g++', cppfilt='c++filt')
         v = '/global/my_global_A/x'
         self.assertTrue(varmap.has_var(v))
         self.assertFalse(varmap.has_array_segments(v))
