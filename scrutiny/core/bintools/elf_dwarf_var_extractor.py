@@ -929,7 +929,9 @@ class ElfDwarfVarExtractor:
         self._log_debug_process_die(die)
 
         if die not in self.array_die_map:
-            self.array_die_map[die] = self.get_array_def(die)
+            array = self.get_array_def(die)
+            if array is not None:
+                self.array_die_map[die] = array
 
     def get_composite_type_def(self, die: DIE) -> Struct:
         """Get the definition of a struct/class/union type"""
@@ -964,7 +966,7 @@ class ElfDwarfVarExtractor:
 
         return struct
 
-    def get_array_def(self, die: DIE) -> TypedArray:
+    def get_array_def(self, die: DIE) -> Optional[TypedArray]:
         self._log_debug_process_die(die)
         if die.tag != Tags.DW_TAG_array_type:
             raise ValueError('DIE must be an array')
@@ -985,7 +987,8 @@ class ElfDwarfVarExtractor:
             elif Attrs.DW_AT_upper_bound in subrange_die.attributes:
                 nb_element = int(subrange_die.attributes[Attrs.DW_AT_upper_bound].value) + 1
             else:
-                raise ElfParsingError(f"Cannot find the number of element from subrange {subrange_die}")
+                self.logger.debug("Array with no dimension. Skipping")  # This can happen 
+                return None
 
             if Attrs.DW_AT_lower_bound in subrange_die.attributes:
                 lower_bound = int(subrange_die.attributes[Attrs.DW_AT_lower_bound].value)
@@ -1089,6 +1092,8 @@ class ElfDwarfVarExtractor:
                 raise ElfParsingError("Impossible to process base type")
         elif type_desc.type == TypeOfVar.Array:
             subarray = self.get_array_def(type_desc.type_die)
+            if subarray is None:    # Not avaialble. Incomplete, no dimensions avaialble
+                return None
         else:
             self.logger.warning(
                 f"Line {get_linenumber()}: Found a member with a type die {self._make_name_for_log(type_desc.type_die)} (type={type_desc.type.name}). Not supported yet")
@@ -1233,7 +1238,10 @@ class ElfDwarfVarExtractor:
 
         varpath = self.make_varpath(die)
         path_segments = varpath.get_segments_name()
-        array = self.array_die_map[type_desc.type_die]
+        
+        array = self.array_die_map.get(type_desc.type_die, None)
+        if array is None:
+            return  # Incomplete arrays are possible in the debug symbols. Translate to missing in our dict.
 
         if isinstance(array.datatype, EmbeddedDataType):
             self.maybe_register_variable(
