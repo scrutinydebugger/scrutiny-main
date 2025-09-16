@@ -30,6 +30,13 @@ KNOWN_ENUMS: KnownEnumTypedDict = {
             "BBB": 1,
             "CCC": 2
         }
+    },
+    'File4EnumA': {
+        "name": "File4EnumA",
+        "values": {
+            "XXX": 123,
+            "YYY": 456
+        }
     }
 }
 
@@ -205,3 +212,16 @@ class BaseTestAppMakeVarmapTest(BaseVarmapTest):
                         value_at_loc=0x34B, bitoffset=12, bitsize=10, enum='File3EnumInClass')
         self.assert_var('/global/file3_test_class/m_file3_complex_struct/field3/field3_enum_bitfields/p3', EmbeddedDataType.uint32,
                         value_at_loc=0x2A8, bitoffset=22, bitsize=10, enum='File3EnumInClass')
+
+
+    def test_file4(self):
+        self.assert_var('/global/file4classB/some_bool', EmbeddedDataType.boolean, value_at_loc=True)
+        self.assert_var('/global/file4classB/array_of_A2[2][0]/xxx', EmbeddedDataType.uint32, value_at_loc=0xdeadbeef)
+        #self.assert_var('/global/file4classB/array_of_A2[2][0]/yyy[0][0]', EmbeddedDataType.sint32, value_at_loc=0x10001111)
+        #self.assert_var('/global/file4classB/array_of_A2[2][0]/yyy[0][1]', EmbeddedDataType.sint32, value_at_loc=0x20002222)
+        #self.assert_var('/global/file4classB/array_of_A2[2][0]/yyy[0][2]', EmbeddedDataType.sint32, value_at_loc=0x30003333)
+        #self.assert_var('/global/file4classB/array_of_A2[2][0]/yyy[1][2]', EmbeddedDataType.sint32, value_at_loc=0x40004444)
+        #self.assert_var('/global/file4classB/array_of_A2[2][0]/zzz[0][0][0]', EmbeddedDataType.uint16, value_at_loc=0x5566)
+        #self.assert_var('/global/file4classB/array_of_A2[2][0]/zzz[1][2][3]', EmbeddedDataType.uint16, value_at_loc=0x6789)
+        #self.assert_var('/global/file4classB/array_of_A2[2][0]/A2enum', EmbeddedDataType.uint16, value_at_loc=456, enum='File4EnumA')
+        
