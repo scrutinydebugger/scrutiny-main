@@ -355,3 +355,15 @@ class TemporaryFileCopy(object):
             os.remove(self._temp_path)
         self._temp_path = None
         return False
+
+
+def uleb128_decode(data:bytes) -> int:
+    val = 0
+    shift = 0
+    if data[-1] & 0x80 != 0:
+        raise ValueError("Invalid ULEB128 data")
+    for b in data:
+        val |= (b & 0x7f) << shift
+        shift += 7
+    
+    return val

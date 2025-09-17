@@ -45,8 +45,12 @@ class BaseVarmapTest:
             if not hasattr(cls, "known_enums"):
                 cls.known_enums = None
             extractor = ElfDwarfVarExtractor(cls.bin_filename, cppfilt=cls._CPP_FILT)
+            error_ignore = [NotImplementedError]
+            first_error = extractor.get_errors().get_first_exc(error_ignore)
+            if first_error is not None:
+                raise RuntimeError("Parsing errors occured") from first_error
             varmap = extractor.get_varmap()
-            cls.varmap = VarMap(varmap.get_json())
+            cls.varmap = VarMap.from_file_content(varmap.get_json().encode('utf8'))
             cls.memdump = None
             if cls.memdump_filename is not None:
                 cls.memdump = MemoryContent(cls.memdump_filename)

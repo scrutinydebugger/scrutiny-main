@@ -62,6 +62,24 @@ class Endianness(Enum):
     Big = 1
     """Big endian. 0x12345678 is stored as 12 34 56 78 """
 
+    def to_str(self) -> str:
+        if self == Endianness.Little:
+            return 'little'
+        elif self == Endianness.Big:
+            return 'big'
+        else:
+            raise ValueError(f"Unsupported endianness {self}")
+
+    @classmethod
+    def from_str(cls, s: str) -> "Endianness":
+        s = s.lower().strip()
+        if s == 'little':
+            return Endianness.Little
+        if s == 'big':
+            return Endianness.Big
+
+        raise ValueError(f"Invalid endianness {s}")
+
 
 class DataTypeType(Enum):
     _sint = (0 << 4)

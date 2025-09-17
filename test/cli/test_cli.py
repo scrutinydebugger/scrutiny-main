@@ -140,12 +140,13 @@ class TestCLI(ScrutinyUnitTest):
 
         with RedirectStdout() as stdout:
             cli.run(['elf2varmap', demobin_path], except_failed=True)
-            VarMap(stdout.read())  # make sure the output is loadable. Don't check content, there's another test suite for that
+            # make sure the output is loadable. Don't check content, there's another test suite for that
+            VarMap.from_file_content(stdout.read().encode('utf8'))
 
         with tempfile.TemporaryDirectory() as tempdirname:
             outputfile = os.path.join(tempdirname, 'varmap.json')
             cli.run(['elf2varmap', demobin_path, '--output', outputfile], except_failed=True)
-            VarMap(outputfile)  # make sure the output is loadable. Don't check content, there's another test suite for that
+            VarMap.from_file(outputfile)  # make sure the output is loadable. Don't check content, there's another test suite for that
 
     # Test all commands related to manipulating Scrutiny Firmware Description
     @SkipOnException(EnvionmentNotSetUpException)

@@ -150,7 +150,6 @@ class BaseCustomeTestArm32R52_ArmNoneEabiGcc10_2(BaseVarmapTest):
         self.assert_var('/global/file1StructDInstance/bitfieldE', EmbeddedDataType.uint32,
                         bitoffset=0, bitsize=10, value_at_loc=777, addr=v.get_address() + 8)
 
-    @unittest.skip("Not implemented yet")
     def test_array1(self):
         self.assert_var('/global/file2GlobalArray1Int5[0]', EmbeddedDataType.sint32, value_at_loc=1111)
         self.assert_var('/global/file2GlobalArray1Int5[1]', EmbeddedDataType.sint32, value_at_loc=2222)
@@ -158,12 +157,11 @@ class BaseCustomeTestArm32R52_ArmNoneEabiGcc10_2(BaseVarmapTest):
         self.assert_var('/global/file2GlobalArray1Int5[3]', EmbeddedDataType.sint32, value_at_loc=4444)
         self.assert_var('/global/file2GlobalArray1Int5[4]', EmbeddedDataType.sint32, value_at_loc=5555)
 
-    @unittest.skip("Not implemented yet")
     def test_array_2d(self):
-        self.assert_var('/global/file2GlobalArray2x2Float[0]', EmbeddedDataType.float32, value_at_loc=1.1)
-        self.assert_var('/global/file2GlobalArray2x2Float[1]', EmbeddedDataType.float32, value_at_loc=2.2)
-        self.assert_var('/global/file2GlobalArray2x2Float[2]', EmbeddedDataType.float32, value_at_loc=3.3)
-        self.assert_var('/global/file2GlobalArray2x2Float[3]', EmbeddedDataType.float32, value_at_loc=4.4)
+        self.assert_var('/global/file2GlobalArray2x2Float[0][0]', EmbeddedDataType.float32, value_at_loc=1.1)
+        self.assert_var('/global/file2GlobalArray2x2Float[0][1]', EmbeddedDataType.float32, value_at_loc=2.2)
+        self.assert_var('/global/file2GlobalArray2x2Float[1][0]', EmbeddedDataType.float32, value_at_loc=3.3)
+        self.assert_var('/global/file2GlobalArray2x2Float[1][1]', EmbeddedDataType.float32, value_at_loc=4.4)
 
     def test_class_file2(self):
         self.assert_var('/global/file2ClassBInstance/intInClassB', EmbeddedDataType.sint32, value_at_loc=-11111)

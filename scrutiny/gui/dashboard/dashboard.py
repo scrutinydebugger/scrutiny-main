@@ -226,7 +226,7 @@ class CustomFactory(QtAds.CDockComponentsFactory):
     # QtAds will also delete the internal C++ object on widget deletion.
     # Periodic prunes of the storage will then delete the python object
 
-    @tools.copy_type(QtAds.CDockComponentsFactory)
+    @tools.copy_type(QtAds.CDockComponentsFactory.__init__)
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self._shiboken_storage = ShibokenRefKeeper()

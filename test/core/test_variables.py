@@ -252,6 +252,31 @@ class TestVariables(ScrutinyUnitTest):
             Variable('a', vartype=combination[0], path_segments=[], location=0,
                      endianness=Endianness.Big, bitoffset=combination[1], bitsize=combination[2])
 
+    def test_array(self):
+        arr = UntypedArray((2, 3, 4), 'float', 4)
+        self.assertEqual(arr.get_element_count(), 24)
+        self.assertEqual(arr.get_total_byte_size(), 96)
+        print(arr._multipliers)
+        self.assertEqual(arr.position_of((1, 2, 2)), 22)
+        self.assertEqual(arr.position_of((1, 0, 0)), 12)
+        self.assertEqual(arr.position_of((0, 2, 0)), 8)
+        self.assertEqual(arr.position_of((0, 2, 3)), 11)
+        self.assertEqual(arr.position_of((0, 0, 0)), 0)
+        self.assertEqual(arr.byte_position_of((0, 2, 3)), 44)
+
+        for pos in [
+            (0, 0, 4), (0, 0, -1),
+            (0, 3, 0), (0, -1, 0),
+            (2, 0, 0), (-1, 0, 0),
+            (0, 0), (0, 0, 0, 0),
+        ]:
+            with self.assertRaises(Exception, msg=f'{pos}'):
+                arr.position_of(pos)
+
+        for dims in [(0, 2, 3), (-1, 2, 3)]:
+            with self.assertRaises(Exception, msg=f'{dims}'):
+                UntypedArray(dims, 'asd', 3)
+
 
 if __name__ == '__main__':
     import unittest

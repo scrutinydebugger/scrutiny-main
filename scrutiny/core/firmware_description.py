@@ -142,14 +142,13 @@ class FirmwareDescription:
     metadata: SFDMetadata
     firmwareid: bytes
     aliases: Dict[str, Alias]
-    logger: logging.Logger
+    logger: logging.Logger = logging.getLogger(__name__)
 
     def __init__(self, firmwareid: bytes, varmap: VarMap, metadata: SFDMetadata):
         self.firmwareid = firmwareid
         self.varmap = varmap
         self.metadata = metadata
         self.aliases = {}
-        self.logger = logging.getLogger(self.__class__.__name__)
 
     @classmethod
     def load_from_filesystem(cls, file_folder: str) -> "FirmwareDescription":
@@ -210,7 +209,7 @@ class FirmwareDescription:
                 metadata = cls.read_metadata(f)   # This is a json file
 
             with zipsfd.open(cls.VARMAP_FILENAME, 'r') as f:
-                varmap = VarMap(f.read())  # Json file
+                varmap = VarMap.from_file_content(f.read())  # Json file
 
             sfd = FirmwareDescription(firmwareid, varmap, metadata)
             if cls.ALIAS_FILE in zipsfd.namelist():
@@ -262,7 +261,7 @@ class FirmwareDescription:
             remove_bad_fields(metadata_dict['generation_info'], fields2)
 
         generation_timestamp = None
-        generation_info = metadata_dict.get('generation_info', {})
+        generation_info = cast(Optional[GenerationInfoTypedDict], metadata_dict.get('generation_info', {}))
         if generation_info is None:
             generation_info = cast(GenerationInfoTypedDict, {})
 
@@ -315,7 +314,7 @@ class FirmwareDescription:
         else:
             raise Exception('Cannot find varmap file at %s' % path)
 
-        return VarMap(fullpath)
+        return VarMap.from_file(fullpath)
 
     def append_aliases(self, aliases: Union[List[Alias], Dict[str, Alias]]) -> None:
         """Add some aliases to the actual SFD"""
@@ -397,7 +396,7 @@ class FirmwareDescription:
 
     def get_vars_for_datastore(self) -> Generator[Tuple[str, Variable], None, None]:
         """Returns all variables in this SFD with a Generator to avoid consuming memory."""
-        for fullname, vardef in self.varmap.iterate_vars():
+        for fullname, vardef in self.varmap.iterate_simple_vars():
             yield (fullname, vardef)
 
     def get_aliases_for_datastore(self, entry_type: Optional[WatchableType] = None) -> Generator[Tuple[str, Alias], None, None]:

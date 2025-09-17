@@ -9,10 +9,16 @@
 __all__ = [
     'VariableLocation',
     'Struct',
-    'Variable'
+    'Variable',
+    'Array',
+    'TypedArray',
+    'UntypedArray'
 ]
 
 import struct
+import math
+import enum
+import abc
 from scrutiny.core.basic_types import Endianness, EmbeddedDataType
 from scrutiny.core.embedded_enum import EmbeddedEnum
 from scrutiny.core.codecs import Codecs, Encodable, UIntCodec
@@ -93,32 +99,143 @@ class VariableLocation:
         return '<%s - 0x%08X>' % (self.__class__.__name__, self.get_address())
 
 
+class Array(abc.ABC):
+    __slots__ = ('dims', 'element_type_name', '_multipliers')
+
+    dims: Tuple[int, ...]
+    element_type_name: str
+    _multipliers: Tuple[int, ...]
+
+    def __init__(self, dims: Tuple[int, ...], element_type_name: str) -> None:
+        if len(dims) == 0:
+            raise ValueError("No dimensions set")
+        for dim in dims:
+            if dim <= 0:
+                raise ValueError("Invalid dimension")
+
+        self.dims = dims
+        self.element_type_name = element_type_name
+        self._multipliers = tuple([math.prod(dims[i + 1:]) for i in range(len(dims))])    # No need to check boundaries, prod([]) = 1
+
+    @abc.abstractmethod
+    def get_element_byte_size(self) -> int:
+        raise NotImplementedError("Abstract method")
+
+    def get_element_count(self) -> int:
+        """Returns the total number of element in the array"""
+        return math.prod(self.dims)
+
+    def get_total_byte_size(self) -> int:
+        """Return the total size in bytes of the array"""
+        return self.get_element_count() * self.get_element_byte_size()
+
+    def position_of(self, pos: Tuple[int, ...]) -> int:
+        """Return the linear index that can be used to address an element based on a N-dimension position"""
+        if len(pos) != len(self.dims):
+            raise ValueError("Shape mismatch")
+
+        nbdim = len(pos)
+        index = 0
+        for i in range(nbdim):
+            if pos[i] >= self.dims[i] or pos[i] < 0:
+                raise ValueError("Index out of bound")
+            index += pos[i] * self._multipliers[i]
+
+        return index
+
+    def byte_position_of(self, pos: Tuple[int, ...]) -> int:
+        """Return the linear bytes index that can be used to address an element based on a N-dimension position"""
+        return self.position_of(pos) * self.get_element_byte_size()
+
+
+class UntypedArray(Array):
+    """Represent an N dimensions embedded array with no type, just a size available"""
+    __slots__ = ('element_byte_size',)
+
+    element_byte_size: int
+
+    def __init__(self, dims: Tuple[int, ...], element_type_name: str, element_byte_size: int) -> None:
+        super().__init__(dims, element_type_name)
+        self.element_byte_size = element_byte_size
+
+    def get_element_byte_size(self) -> int:
+        """Return the size of a single element in bytes"""
+        return self.element_byte_size
+
+
+class TypedArray(Array):
+    """Represent an N dimensions embedded array"""
+    __slots__ = ('datatype', )
+
+    datatype: Union["Struct", EmbeddedDataType]
+
+    def __init__(self, dims: Tuple[int, ...], element_type_name: str, datatype: Union["Struct", EmbeddedDataType]) -> None:
+        super().__init__(dims, element_type_name)
+        self.datatype = datatype
+
+    def get_element_byte_size(self) -> int:
+        """Return the size of a single element in bytes"""
+        if isinstance(self.datatype, EmbeddedDataType):
+            return self.datatype.get_size_byte()
+        if isinstance(self.datatype, Struct):
+            if self.datatype.byte_size is not None:
+                return self.datatype.byte_size
+            raise RuntimeError(f"No element size available for struct {self.datatype.name}")
+        raise RuntimeError(f"Unsupported datatype {self.datatype.__class__.__name__}")
+
+    def to_untyped_array(self) -> UntypedArray:
+        return UntypedArray(
+            self.dims,
+            self.element_type_name,
+            element_byte_size=self.get_element_byte_size()
+        )
+
+
 class Struct:
     class Member:
+        class MemberType(enum.Enum):
+            BaseType = enum.auto()
+            SubStruct = enum.auto()
+            SubArray = enum.auto()
+
         name: str
-        is_substruct: bool
+        member_type: MemberType
         original_type_name: Optional[str]
         bitoffset: Optional[int]
         byte_offset: Optional[int]
         bitsize: Optional[int]
         substruct: Optional['Struct']
-        enum: Optional[EmbeddedEnum]
+        subarray: Optional[TypedArray]
+        embedded_enum: Optional[EmbeddedEnum]
         is_unnamed: bool
 
         def __init__(self, name: str,
-                     is_substruct: bool = False,
+                     member_type: MemberType,
                      original_type_name: Optional[str] = None,
                      byte_offset: Optional[int] = None,
                      bitoffset: Optional[int] = None,
                      bitsize: Optional[int] = None,
                      substruct: Optional['Struct'] = None,
-                     enum: Optional[EmbeddedEnum] = None,
+                     subarray: Optional[TypedArray] = None,
+                     embedded_enum: Optional[EmbeddedEnum] = None,
                      is_unnamed: bool = False
                      ):
 
-            if not is_substruct:
+            if member_type == self.MemberType.BaseType:
+                if substruct is not None or subarray is not None:
+                    raise ValueError("Cannot specify a substruct or a subarray for base type member")
+
+            if member_type == self.MemberType.SubStruct:
+                if substruct is None or subarray is not None:
+                    raise ValueError("Substruct member must specify a substruct only")
+
+            if member_type == self.MemberType.SubArray:
+                if substruct is not None or subarray is None:
+                    raise ValueError("SubArray member must specify a subarray only")
+
+            if member_type == self.MemberType.BaseType:
                 if original_type_name is None:
-                    raise ValueError('A typename must be given for non-struct member')
+                    raise ValueError('A typename must be given for base type member')
 
             if bitoffset is not None:
                 if not isinstance(bitoffset, int):
@@ -143,25 +260,39 @@ class Struct:
                     raise ValueError(f'substruct must be Struct instance. Got {substruct.__class__.__name__}')
 
             if is_unnamed:
-                if not is_substruct:
+                if member_type != self.MemberType.SubStruct:
                     raise ValueError("Only substruct members can be unnamed")
 
             self.name = name
-            self.is_substruct = is_substruct
+            self.member_type = member_type
             self.original_type_name = original_type_name
             self.bitoffset = bitoffset
             self.byte_offset = byte_offset
             self.bitsize = bitsize
             self.substruct = substruct
-            self.enum = enum
+            self.subarray = subarray
+            self.embedded_enum = embedded_enum
             self.is_unnamed = is_unnamed
+
+        def get_substruct(self) -> "Struct":
+            if self.substruct is None or self.member_type != self.MemberType.SubStruct:
+                raise ValueError("Member is not a substruct")
+
+            return self.substruct
+
+        def get_array(self) -> "TypedArray":
+            if self.subarray is None or self.member_type != self.MemberType.SubArray:
+                raise ValueError("Member is not a subarray")
+            return self.subarray
 
     name: str
     is_anonymous: bool
     members: Dict[str, "Struct.Member"]
+    byte_size: Optional[int]
 
-    def __init__(self, name: str) -> None:
+    def __init__(self, name: str, byte_size: Optional[int] = None) -> None:
         self.name = name
+        self.byte_size = byte_size
         self.members = {}
 
     def add_member(self, member: "Struct.Member") -> None:
@@ -172,7 +303,7 @@ class Struct:
         if member.is_unnamed:
             # Unnamed struct,class,union are defined like this : struct { struct {int a; int b;}} x
             # They are considered as being declared at the same level as the members of the parent
-            assert member.is_substruct == True
+            assert member.member_type == self.Member.MemberType.SubStruct
             assert member.substruct is not None
             assert member.byte_offset is not None
 
@@ -184,7 +315,7 @@ class Struct:
                 self.add_member(substruct_member2)
         else:
             if member.name in self.members:
-                raise KeyError('Duplicate member %s' % member.name)
+                raise KeyError(f'Duplicate member {member.name}')
 
             self.members[member.name] = member
 

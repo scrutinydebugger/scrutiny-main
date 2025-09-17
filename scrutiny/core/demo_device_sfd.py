@@ -35,12 +35,12 @@ class DemoDeviceSFD(FirmwareDescription):
         varmap.register_base_type("uint32", EmbeddedDataType.uint32)
         varmap.register_base_type("bool", EmbeddedDataType.boolean)
 
-        varmap.add_variable(['static', 'main.cpp'], "counter", VariableLocation(0x1000), "float")
-        varmap.add_variable(['static', 'main.cpp'], "counter_enable", VariableLocation(0x1004), "bool")
+        varmap.add_variable(['static', 'main.cpp', "counter"], VariableLocation(0x1000), "float")
+        varmap.add_variable(['static', 'main.cpp', "counter_enable"], VariableLocation(0x1004), "bool")
 
-        varmap.add_variable(['global', 'device'], "uptime", VariableLocation(0x1008), "uint32")
-        varmap.add_variable(['global', 'sinewave_generator'], "output", VariableLocation(0x100c), "float")
-        varmap.add_variable(['global', 'sinewave_generator'], "frequency", VariableLocation(0x1010), "float")
+        varmap.add_variable(['global', 'device', "uptime"], VariableLocation(0x1008), "uint32")
+        varmap.add_variable(['global', 'sinewave_generator', "output"], VariableLocation(0x100c), "float")
+        varmap.add_variable(['global', 'sinewave_generator', "frequency"], VariableLocation(0x1010), "float")
 
         aliases = [
             Alias("/Up Time", target='/global/device/uptime'),
