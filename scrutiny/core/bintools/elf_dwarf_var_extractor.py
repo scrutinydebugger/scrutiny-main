@@ -789,6 +789,9 @@ class ElfDwarfVarExtractor:
 
         self._log_debug_process_die(die)
 
+        if self.get_name(die) == 'file4classB':
+            pass
+
         if die.tag == Tags.DW_TAG_variable:
             self.die_process_variable(die)
 
@@ -1037,6 +1040,7 @@ class ElfDwarfVarExtractor:
             if val[0] != self.DW_OP_plus_uconst:
                 raise ElfParsingError(f"Does not know how to read member location for die {die}. Operator is unsupported")
 
+            return tools.uleb128_decode(bytes(val[1:]))
             return int.from_bytes(val[1:], byteorder='little' if self._context.endianess == Endianness.Little else 'big')
 
         raise ElfParsingError(f"Does not know how to read member location for die {die}")

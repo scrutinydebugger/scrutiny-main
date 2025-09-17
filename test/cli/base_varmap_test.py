@@ -63,7 +63,7 @@ class BaseVarmapTest:
             raise self.init_exception
 
     def load_var(self, fullname: str):
-        return self.varmap.get_var_from_complex_name(fullname)
+        return self.varmap.get_var(fullname)
 
     def assert_var(self,
                    fullname,

@@ -86,7 +86,7 @@ class TestVarmap(ScrutinyUnitTest):
             with self.assertRaises(Exception):
                 list(candidate.get_enum_by_name('asd'))
 
-            all_vars = list(candidate.iterate_vars())
+            all_vars = list(candidate.iterate_simple_vars())
             self.assertEqual(len(all_vars), 3)
 
     def test_add_stuff_after_reload(self):
@@ -184,4 +184,4 @@ class TestVarmap(ScrutinyUnitTest):
             '/aaa/bbb/ccc/ddd': UntypedArray((5, 6, 7), 'xxx', 4)
         })
 
-        varmap.get_var_from_complex_name('/aaa/bbb[1][2]/ccc/ddd[2][3][4]')
+        varmap.get_var('/aaa/bbb[1][2]/ccc/ddd[2][3][4]')

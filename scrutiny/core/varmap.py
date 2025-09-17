@@ -94,8 +94,7 @@ class VariableEntry(TypedDict, total=False):
     array_segments: Dict[str, ArrayDef]
 
 
-SupportedVersionKeys: TypeAlias = Literal['v1']
-VariableDict: TypeAlias = Dict[SupportedVersionKeys, Dict[str, VariableEntry]]
+VariableDict: TypeAlias = Dict[str, VariableEntry]
 
 
 class VarMap:
@@ -116,7 +115,7 @@ class VarMap:
         def __init__(self) -> None:
             self.endianness = Endianness.Little
             self.typemap = {}
-            self.variables = {"v1": {}}
+            self.variables = {}
             self.enums = {}
 
         def to_dict(self) -> "VarMap.SerializableContentDict":
@@ -136,14 +135,7 @@ class VarMap:
             self.endianness = Endianness.from_str(d['endianness'])
             self.typemap = d['type_map']
             self.enums = d['enums']
-
-            variables = d['variables']
-            if 'v1' not in variables:   # Backward compatibility with unversioned files
-                variables = {'v1': cast(Dict[str, VariableEntry], variables)}
-
-            self.variables = {
-                'v1': variables['v1']  # Cherry pick the versions we know. Will drop unsupported stuff from the future
-            }
+            self.variables = d['variables']
 
     _logger: logging.Logger
     _content: SerializableContent
@@ -220,10 +212,10 @@ class VarMap:
     def _get_addr(self, vardef: VariableEntry) -> int:
         return vardef['addr']   # addr is a required field
 
-    def _get_var_def(self, fullname: str, version_key: SupportedVersionKeys) -> VariableEntry:
+    def _get_var_def(self, fullname: str) -> VariableEntry:
         if not self.has_var(fullname):
             raise ValueError(f'{fullname} not in Variable Description File')
-        return self._content.variables[version_key][fullname]
+        return self._content.variables[fullname]
 
     def _get_bitsize(self, vardef: VariableEntry) -> Optional[int]:
         if 'bitsize' in vardef:
@@ -312,8 +304,7 @@ class VarMap:
                     'dims': list(array.dims)
                 }
 
-        version_container: SupportedVersionKeys = 'v1'    # Can add logic in the future to decide based on features above
-        self._content.variables[version_container][fullname] = entry
+        self._content.variables[fullname] = entry
 
     def register_base_type(self, original_name: str, vartype: EmbeddedDataType) -> None:
         validation.assert_type(vartype, 'vartype', EmbeddedDataType)
@@ -339,36 +330,21 @@ class VarMap:
     def is_known_type(self, binary_type_name: str) -> bool:
         return (binary_type_name in self._typename2typeid_map)
 
-    def get_var(self, fullname: str) -> Variable:
-        segments = make_segments(fullname)
-        vardef = self._get_var_def(fullname, 'v1')
-        # Todo : Handles array here
-        return Variable(
-            name=segments[-1],
-            vartype=self._get_type(vardef),
-            path_segments=segments[:-1],
-            location=self._get_addr(vardef),
-            endianness=self.get_endianness(),
-            bitsize=self._get_bitsize(vardef),
-            bitoffset=self._get_bitoffset(vardef),
-            enum=self._get_enum(vardef)
-        )
-
     def has_var(self, fullname: str) -> bool:
         v = False
-        if fullname in self._content.variables['v1']:
+        if fullname in self._content.variables:
             v = True
         return v
 
     def has_array_segments(self, fullname: str) -> bool:
-        vardef = self._get_var_def(fullname, "v1")
+        vardef = self._get_var_def(fullname)
         return len(vardef.get('array_segments', {})) > 0
 
     def has_enum(self, fullname: str) -> bool:
         return self.get_enum(fullname) is not None
 
     def get_array_segments(self, fullname: str) -> Dict[str, UntypedArray]:
-        vardef = self._get_var_def(fullname, "v1")
+        vardef = self._get_var_def(fullname)
         dout: Dict[str, UntypedArray] = {}
         for path, array_def in self._get_array_segments(vardef).items():
             dout[path] = UntypedArray(
@@ -379,7 +355,7 @@ class VarMap:
         return dout
 
     def get_enum(self, fullname: str) -> Optional[EmbeddedEnum]:
-        vardef = self._get_var_def(fullname, "v1")
+        vardef = self._get_var_def(fullname)
         return self._get_enum(vardef)
 
     def get_enum_by_name(self, name: str) -> List[EmbeddedEnum]:
@@ -393,17 +369,32 @@ class VarMap:
 
         return outlist
 
-    def iterate_vars(self) -> Generator[Tuple[str, Variable], None, None]:
-        for fullname in self._content.variables['v1']:
-            yield (fullname, self.get_var(fullname))
+    def iterate_simple_vars(self) -> Generator[Tuple[str, Variable], None, None]:
+        for fullname in self._content.variables:
+            segments = make_segments(fullname)
+            vardef = self._get_var_def(fullname)
+            # TODO: Hide arrays for now. We need a better varmap API to fill the datastore
+            if len(vardef.get('array_segments', {})) == 0:
+                v = Variable(
+                    name=segments[-1],
+                    vartype=self._get_type(vardef),
+                    path_segments=segments[:-1],
+                    location=self._get_addr(vardef),
+                    endianness=self.get_endianness(),
+                    bitsize=self._get_bitsize(vardef),
+                    bitoffset=self._get_bitoffset(vardef),
+                    enum=self._get_enum(vardef)
+                )
+
+                yield (fullname, v)
 
     def validate(self) -> None:
         pass
 
-    def get_var_from_complex_name(self, path: str) -> Variable:
+    def get_var(self, path: str) -> Variable:
         parsed = ComplexPath.from_string(path)
         raw_path = join_segments(parsed.raw_segments)
-        vardef = self._get_var_def(raw_path, 'v1')
+        vardef = self._get_var_def(raw_path)
         path2pos = parsed.get_path_to_array_pos_dict()
 
         array_segments_def = {}
@@ -414,7 +405,6 @@ class VarMap:
             raise ValueError("The array identifiers does not match the variable definition")
 
         path_by_length = sorted(list(array_segments_def.keys()), key=lambda x: len(x))
-        byte_multiplier = 1
         byte_offset = 0
         for k in reversed(path_by_length):
             if k not in path2pos:
@@ -425,8 +415,7 @@ class VarMap:
             bytesize = array['byte_size']
             try:
                 arr = UntypedArray(dims, '', bytesize)
-                byte_offset += arr.byte_position_of(pos) * byte_multiplier
-                byte_multiplier *= arr.get_total_byte_size()
+                byte_offset += arr.byte_position_of(pos)
             except Exception as e:
                 raise ValueError(f'The array identifiers does not match the variable definition. {e}')
 
