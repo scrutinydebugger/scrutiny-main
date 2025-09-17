@@ -1,3 +1,10 @@
+#    test_varmap.py
+#        A test suite for the VarMap class
+#
+#   - License : MIT - See LICENSE file.
+#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#   Copyright (c) 2025 Scrutiny Debugger
 
 from binascii import unhexlify
 import tempfile

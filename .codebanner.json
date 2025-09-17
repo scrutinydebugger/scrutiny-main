@@ -70,7 +70,6 @@
         "scrutiny/core/variable.py": {
             "docstring": "Variable class represent a variable, will be included in VarMap"
         },
-        
         "scrutiny/core/varmap.py": {
             "docstring": "A VarMap list all variables in a firmware file along with their types, address, bit offset, etc\n. It is a simplified version of the DWARF debugging symbols."
         },
@@ -883,6 +882,9 @@
         },
         "scrutiny/gui/dialogs/device_config/demo_mode_info_dialog.py": {
             "docstring": "A dialog explaining what the demo device is and what it does"
+        },
+        "test/core/test_varmap.py": {
+            "docstring": "A test suite for the VarMap class"
         }
     }
 }
