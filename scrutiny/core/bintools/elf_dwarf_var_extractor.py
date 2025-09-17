@@ -1041,7 +1041,6 @@ class ElfDwarfVarExtractor:
                 raise ElfParsingError(f"Does not know how to read member location for die {die}. Operator is unsupported")
 
             return tools.uleb128_decode(bytes(val[1:]))
-            return int.from_bytes(val[1:], byteorder='little' if self._context.endianess == Endianness.Little else 'big')
 
         raise ElfParsingError(f"Does not know how to read member location for die {die}")
 
@@ -1201,7 +1200,6 @@ class ElfDwarfVarExtractor:
                 self.register_member_as_var_recursive(new_path_segments, submember, location, offset, array_segments)
         elif member.member_type == Struct.Member.MemberType.SubArray:
             array = member.get_array()
-            member.embedded_enum
 
             new_array_segments = array_segments.shallow_copy()
             new_array_segments.add(path_segments, array)
