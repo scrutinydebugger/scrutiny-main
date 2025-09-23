@@ -1,3 +1,11 @@
+#    math_expr.py
+#        A math expression parser based of https://github.com/louisfisch/mathematical-expression-parser
+#
+#   - License : MIT - See LICENSE file.
+#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#   Copyright (c) 2025 Scrutiny Debugger
+
 __all__ = ['ParsingError', 'parse_expr']
 
 import math
@@ -23,7 +31,6 @@ _FUNCTIONS: Dict[str, Callable[..., float]] = {
     'floor': math.floor,
     'fmod': math.fmod,
     'hypot': math.hypot,
-    'ldexp': math.ldexp,
     'log': math.log,
     'log10': math.log10,
     'pow': math.pow,
@@ -46,16 +53,16 @@ class ParsingError(Exception):
 
 class _Parser:
 
-    expr: str
-    index: int
-    vars: Dict[str, Any]
+    _expr: str
+    _index: int
+    _vars: Dict[str, Any]
 
     def __init__(self, expr: str, vars: Optional[Dict[str, Any]] = None) -> None:
-        self.expr = expr
-        self.index = 0
-        self.vars = {} if vars == None else vars.copy()
+        self._expr = expr
+        self._index = 0
+        self._vars = {} if vars == None else vars.copy()
         for constant in _CONSTANTS.keys():
-            if self.vars.get(constant) != None:
+            if self._vars.get(constant) != None:
                 raise ParsingError(f"Cannot redefine the value of {constant}")
 
     def get_val(self) -> float:
@@ -63,32 +70,32 @@ class _Parser:
         self._skip_whitespace()
 
         if self._has_next():
-            raise ParsingError(f"Unexpected character found: '{self._peek()}' at index {self.index}")
+            raise ParsingError(f"Unexpected character found: '{self._peek()}' at index {self._index}")
         return value
 
     def _peek(self) -> str:
-        return self.expr[self.index:self.index + 1]
+        return self._expr[self._index:self._index + 1]
 
     def _has_next(self) -> bool:
-        return self.index < len(self.expr)
+        return self._index < len(self._expr)
 
     def _is_next(self, value: str) -> bool:
-        return self.expr[self.index:self.index + len(value)] == value
+        return self._expr[self._index:self._index + len(value)] == value
 
     def _pop_if_next(self, value: str) -> bool:
         if self._is_next(value):
-            self.index += len(value)
+            self._index += len(value)
             return True
         return False
 
     def _pop_expected(self, value: str) -> None:
         if not self._pop_if_next(value):
-            raise ParsingError(f"Expected {value} at index {self.index}")
+            raise ParsingError(f"Expected {value} at index {self._index}")
 
     def _skip_whitespace(self) -> None:
         while self._has_next():
             if self._peek() in ' \t\n\r':
-                self.index += 1
+                self._index += 1
             else:
                 return
 
@@ -103,10 +110,10 @@ class _Parser:
             char = self._peek()
 
             if char == '+':
-                self.index += 1
+                self._index += 1
                 values.append(self._parse_mul())
             elif char == '-':
-                self.index += 1
+                self._index += 1
                 values.append(-1 * self._parse_mul())
             else:
                 break
@@ -121,11 +128,11 @@ class _Parser:
             char = self._peek()
 
             if char == '*':
-                self.index += 1
+                self._index += 1
                 values.append(self._parse_power())
             elif char == '/':
-                div_index = self.index
-                self.index += 1
+                div_index = self._index
+                self._index += 1
                 denominator = self._parse_power()
 
                 if denominator == 0:
@@ -148,7 +155,7 @@ class _Parser:
             char = self._peek()
 
             if char == '^':
-                self.index += 1
+                self._index += 1
                 values.append(self._parse_power())
             else:
                 break
@@ -159,7 +166,6 @@ class _Parser:
         v = math.pow(values[pos - 1], values[pos])
         pos -= 1
         while pos > 0:
-            print(values[pos])
             v = math.pow(values[pos - 1], v)
             pos -= 1
 
@@ -170,13 +176,13 @@ class _Parser:
         char = self._peek()
 
         if char == '(':
-            self.index += 1
+            self._index += 1
             value = self._parse_expr()
             self._skip_whitespace()
 
             if self._peek() != ')':
-                raise ParsingError(f"No closing parenthesis found at character {self.index}")
-            self.index += 1
+                raise ParsingError(f"No closing parenthesis found at character {self._index}")
+            self._index += 1
             return value
         else:
             return self._parse_neg()
@@ -199,7 +205,7 @@ class _Parser:
         char = self._peek()
 
         if char == '-':
-            self.index += 1
+            self._index += 1
             return -1 * self._parse_parenthesis()
         else:
             return self._parse_val()
@@ -209,7 +215,7 @@ class _Parser:
         char = self._peek()
 
         if char in '0123456789.':
-            return self._parse_number()
+            return self._parse_constant()
         else:
             return self._parse_var()
 
@@ -221,7 +227,7 @@ class _Parser:
 
             if char.lower() in '_abcdefghijklmnopqrstuvwxyz0123456789':
                 var.append(char)
-                self.index += 1
+                self._index += 1
             else:
                 break
         var_str = ''.join(var)
@@ -235,13 +241,13 @@ class _Parser:
         if constant != None:
             return constant
 
-        value = self.vars.get(var_str, None)
+        value = self._vars.get(var_str, None)
         if value != None:
             return float(value)
 
         raise ParsingError(f"Unrecognized variable: '{var_str}'")
 
-    def _parse_number(self) -> float:
+    def _parse_constant(self) -> float:
         self._skip_whitespace()
         strValue = ''
         decimal_found = False
@@ -252,19 +258,19 @@ class _Parser:
 
             if char == '.':
                 if decimal_found:
-                    raise ParsingError(f"Found an extra period in a number at character {self.index}")
+                    raise ParsingError(f"Unexpected decimal separator at {self._index}")
                 decimal_found = True
                 strValue += '.'
             elif char in '0123456789':
                 strValue += char
             else:
                 break
-            self.index += 1
+            self._index += 1
 
         if len(strValue) == 0:
             if char == '':
                 raise ParsingError("Unexpected end found")
             else:
-                raise ParsingError(f"Unexpected token at index {self.index}")
+                raise ParsingError(f"Unexpected token at index {self._index}")
 
         return float(strValue)

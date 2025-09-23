@@ -885,6 +885,12 @@
         },
         "test/core/test_varmap.py": {
             "docstring": "A test suite for the VarMap class"
+        },
+        "test/core/test_math_expr.py": {
+            "docstring": "Test suite for the math parser"
+        },
+        "scrutiny/core/math_expr.py": {
+            "docstring": "A math expression parser based of https://github.com/louisfisch/mathematical-expression-parser"
         }
     }
 }
