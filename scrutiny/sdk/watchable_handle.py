@@ -278,7 +278,7 @@ class WatchableHandle:
         If a string is assigned, the value is sent as is to the server and the server will parse the string.
         The server will accepts "true", "false" or a mathematical expression supporting arithmetic operators (``+``,``-``,``*``,``/``,``^``), 
         base prefix (``0x``, ``0b``), scientific notation (1.5e-2), constants (such as pi) and common math functions. including:  
-        
+
         ``abs``,``exp``,``pow``,``sqrt``,``mod``,
         ``ceil``,``floor``,``log``,``ln``,``log10``,
         ``hypot``,``degrees``,``radians``,

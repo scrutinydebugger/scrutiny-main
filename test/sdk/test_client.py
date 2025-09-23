@@ -1089,7 +1089,7 @@ class TestClient(ScrutinyUnitTest):
         rpv1000 = self.client.watch('/rpv/x1000')
         counter = rpv1000.update_counter
         rpv1000.value = 'sqrt(100)*pow(2,8)+25/2'   # Will be parsed by the server API. Make sure we send as is.
-        
+
         self.assertEqual(rpv1000.value, 2572.5)
         self.assertEqual(len(self.device_handler.write_logs), 1)
         self.assertIsInstance(self.device_handler.write_logs[0], WriteRPVLog)

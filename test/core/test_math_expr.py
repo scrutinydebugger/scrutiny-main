@@ -42,22 +42,22 @@ class TestMathExpr(ScrutinyUnitTest):
         self.assertEqual(parse_math_expr("--2"), 2)
         self.assertEqual(parse_math_expr("---2"), -2)
 
-        self.assertEqual(parse_math_expr("2 + 3"),  5)
-        self.assertEqual(parse_math_expr("10 + 20"),  30)
-        self.assertEqual(parse_math_expr("0 + 0"),  0)
-        self.assertEqual(parse_math_expr("-5 + 3"),  -2)
-        self.assertEqual(parse_math_expr("10 - 3"),  7)
-        self.assertEqual(parse_math_expr("5 - 8"),  -3)
-        self.assertEqual(parse_math_expr("0 - 5"),  -5)
-        self.assertEqual(parse_math_expr("-3 - 2"),  -5)
-        self.assertEqual(parse_math_expr("4 * 3"),  12)
-        self.assertEqual(parse_math_expr("7 * 0"),  0)
-        self.assertEqual(parse_math_expr("-2 * 5"),  -10)
-        self.assertEqual(parse_math_expr("-3 * -4"),  12)
-        self.assertEqual(parse_math_expr("15 / 3"),  5.0)
-        self.assertEqual(parse_math_expr("10 / 4"),  2.5)
-        self.assertEqual(parse_math_expr("-8 / 2"),  -4.0)
-        self.assertEqual(parse_math_expr("7 / -2"),  -3.5)
+        self.assertEqual(parse_math_expr("2 + 3"), 5)
+        self.assertEqual(parse_math_expr("10 + 20"), 30)
+        self.assertEqual(parse_math_expr("0 + 0"), 0)
+        self.assertEqual(parse_math_expr("-5 + 3"), -2)
+        self.assertEqual(parse_math_expr("10 - 3"), 7)
+        self.assertEqual(parse_math_expr("5 - 8"), -3)
+        self.assertEqual(parse_math_expr("0 - 5"), -5)
+        self.assertEqual(parse_math_expr("-3 - 2"), -5)
+        self.assertEqual(parse_math_expr("4 * 3"), 12)
+        self.assertEqual(parse_math_expr("7 * 0"), 0)
+        self.assertEqual(parse_math_expr("-2 * 5"), -10)
+        self.assertEqual(parse_math_expr("-3 * -4"), 12)
+        self.assertEqual(parse_math_expr("15 / 3"), 5.0)
+        self.assertEqual(parse_math_expr("10 / 4"), 2.5)
+        self.assertEqual(parse_math_expr("-8 / 2"), -4.0)
+        self.assertEqual(parse_math_expr("7 / -2"), -3.5)
 
         self.assertEqual(parse_math_expr("2 + 3 * 4 - 5 / 2.5"), 12.0)
         self.assertEqual(parse_math_expr("(2 + 3) * (4 - 1) + 10"), 25)
@@ -66,7 +66,7 @@ class TestMathExpr(ScrutinyUnitTest):
         self.assertEqual(parse_math_expr("1 + 2 * 3 + 4 * 5 + 6"), 33)
         self.assertEqual(parse_math_expr("(1 + 2) * (3 + 4) * (5 - 3)"), 42)
 
-        self.assertEqual(parse_math_expr("-12.5e-1*2.1e2/(1.1E1^2+0x123)"), -12.5e-1*2.1e2/(1.1E1**2+0x123))
+        self.assertEqual(parse_math_expr("-12.5e-1*2.1e2/(1.1E1^2+0x123)"), -12.5e-1 * 2.1e2 / (1.1E1**2 + 0x123))
 
     def test_parentheses(self):
         self.assertEqual(parse_math_expr("(2 + 3)"), 5)
@@ -94,7 +94,7 @@ class TestMathExpr(ScrutinyUnitTest):
         self.assertEqual(parse_math_expr("2 * 3 + 4 * 5"), 26)
         self.assertEqual(parse_math_expr("10 / 2 * 3"), 15.0)
         self.assertEqual(parse_math_expr("8 - 3 + 2"), 7)
-        
+
     def test_math_func(self):
         self.assertEqual(parse_math_expr("sin(0)"), math.sin(0))
         self.assertEqual(parse_math_expr("sin ( 0 )"), math.sin(0))
@@ -102,12 +102,12 @@ class TestMathExpr(ScrutinyUnitTest):
         self.assertEqual(parse_math_expr("sin(pi)"), math.sin(math.pi))
         self.assertEqual(parse_math_expr("sin(pi/4*2)"), math.sin(math.pi / 4 * 2))
         self.assertEqual(parse_math_expr("abs(sin(3*pi/2))"), abs(math.sin(3 * math.pi / 2)))
-        self.assertEqual(parse_math_expr("atan2(2,3)"), math.atan2(2,3))
+        self.assertEqual(parse_math_expr("atan2(2,3)"), math.atan2(2, 3))
         self.assertEqual(parse_math_expr("mod(10,3)"), 1)
         self.assertEqual(parse_math_expr("2*mod(10,3)"), 2)
 
         self.assertEqual(parse_math_expr("-(abs(sin(3*pi/2))+1)"), -(abs(math.sin(3 * math.pi / 2)) + 1))
-        
+
         self.assertEqual(parse_math_expr("ln(10)"), math.log(10, math.e))
         self.assertEqual(parse_math_expr("log(128, 2)"), 7)
 
@@ -162,9 +162,9 @@ class TestMathExpr(ScrutinyUnitTest):
         self.assertEqual(parse_math_expr("-0b101"), -5)
         self.assertEqual(parse_math_expr("-0b101 * 0b111"), -35)
         self.assertEqual(parse_math_expr("0b100000001010100001101000010010001001"), 0b100000001010100001101000010010001001)
-        
+
     def test_malformed_expr(self):
-        expressions=[
+        expressions = [
             '1.2.3',
             '2**3',
             '1++1',

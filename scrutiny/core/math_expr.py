@@ -20,7 +20,7 @@ _FUNCTIONS: Dict[str, Callable[..., float]] = {
     'abs': math.fabs,
     'exp': math.exp,
     'pow': math.pow,
-    'sqrt': math.sqrt,    
+    'sqrt': math.sqrt,
     'mod': math.fmod,
     'ceil': math.ceil,
     'floor': math.floor,
@@ -46,8 +46,10 @@ _FUNCTIONS: Dict[str, Callable[..., float]] = {
 def parse_math_expr(expr: str) -> float:
     return _Parser(expr).get_val()
 
+
 class ParsingError(Exception):
     pass
+
 
 class _Parser:
 
@@ -276,7 +278,7 @@ class _Parser:
                 if exponent_found:
                     raise ParsingError(f"Unexpected '{char}' at {self._index}")
                 exponent_found = True
-            
+
             elif char in allowed_charset or (char in "+-" and exponent_found and not exponent_sign_found):
                 if exponent_found:
                     exponent_sign_found = True
@@ -296,12 +298,12 @@ class _Parser:
         if exponent_found:
             if exponent_str == '':
                 if char == '':
-                    raise ParsingError("Unexpected end found")                
+                    raise ParsingError("Unexpected end found")
             try:
                 exponent = float(exponent_str)
             except ValueError:
                 raise ParsingError(f"Unexpected '{char}' at {self._index}")
-            
+
         try:
             if base == 10:
                 return float(str_val) * (10**exponent)
