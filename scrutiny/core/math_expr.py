@@ -6,50 +6,48 @@
 #
 #   Copyright (c) 2025 Scrutiny Debugger
 
-__all__ = ['ParsingError', 'parse_expr']
+__all__ = ['ParsingError', 'parse_math_expr']
 
 import math
+import string
 from scrutiny.tools.typing import *
 
 _CONSTANTS: Dict[str, float] = {
-    'pi': math.pi,
-    'e': math.e
+    'pi': math.pi
 }
 
 _FUNCTIONS: Dict[str, Callable[..., float]] = {
-    'abs': lambda x: abs(float(x)),
-    'acos': math.acos,
-    'asin': math.asin,
-    'atan': math.atan,
-    'atan2': math.atan2,
+    'abs': math.fabs,
+    'exp': math.exp,
+    'pow': math.pow,
+    'sqrt': math.sqrt,    
+    'mod': math.fmod,
     'ceil': math.ceil,
+    'floor': math.floor,
+    'log': math.log,
+    'ln': lambda x: math.log(x, math.e),
+    'log10': math.log10,
+    'hypot': math.hypot,
+    'degrees': math.degrees,
+    'radians': math.radians,
     'cos': math.cos,
     'cosh': math.cosh,
-    'degrees': math.degrees,
-    'exp': math.exp,
-    'fabs': math.fabs,
-    'floor': math.floor,
-    'fmod': math.fmod,
-    'hypot': math.hypot,
-    'log': math.log,
-    'log10': math.log10,
-    'pow': math.pow,
-    'radians': math.radians,
+    'acos': math.acos,
     'sin': math.sin,
     'sinh': math.sinh,
-    'sqrt': math.sqrt,
+    'asin': math.asin,
     'tan': math.tan,
-    'tanh': math.tanh
+    'tanh': math.tanh,
+    'atan': math.atan,
+    'atan2': math.atan2,
 }
 
 
-def parse_expr(expr: str) -> float:
+def parse_math_expr(expr: str) -> float:
     return _Parser(expr).get_val()
-
 
 class ParsingError(Exception):
     pass
-
 
 class _Parser:
 
@@ -94,10 +92,9 @@ class _Parser:
 
     def _skip_whitespace(self) -> None:
         while self._has_next():
-            if self._peek() in ' \t\n\r':
-                self._index += 1
-            else:
+            if self._peek() not in string.whitespace:
                 return
+            self._index += 1
 
     def _parse_expr(self) -> float:
         return self._parse_add()
@@ -162,12 +159,12 @@ class _Parser:
 
         values.append(1)
         assert len(values) >= 2
-        pos = len(values) - 1
-        v = math.pow(values[pos - 1], values[pos])
-        pos -= 1
-        while pos > 0:
-            v = math.pow(values[pos - 1], v)
-            pos -= 1
+        last = len(values) - 1
+        v = math.pow(values[last - 1], values[last])
+        last -= 1
+        while last > 0:
+            v = math.pow(values[last - 1], v)
+            last -= 1
 
         return v
 
@@ -206,7 +203,7 @@ class _Parser:
 
         if char == '-':
             self._index += 1
-            return -1 * self._parse_parenthesis()
+            return -1 * self._parse_power()
         else:
             return self._parse_val()
 
@@ -214,8 +211,8 @@ class _Parser:
         self._skip_whitespace()
         char = self._peek()
 
-        if char in '0123456789.':
-            return self._parse_constant()
+        if char in '0123456789.':   # hex and bin val must start with 0, so this is fine
+            return self._parse_literal()
         else:
             return self._parse_var()
 
@@ -247,30 +244,68 @@ class _Parser:
 
         raise ParsingError(f"Unrecognized variable: '{var_str}'")
 
-    def _parse_constant(self) -> float:
+    def _parse_literal(self) -> float:
         self._skip_whitespace()
-        strValue = ''
+        str_val = ''
         decimal_found = False
+        exponent_str = ""
+        exponent_found = False
+        exponent_sign_found = False
         char = ''
+        exponent = float(0)
+
+        if self._pop_if_next("0b"):
+            allowed_charset = "01"
+            base = 2
+        elif self._pop_if_next("0x"):
+            allowed_charset = "0123456789abcdef"
+            base = 16
+        else:
+            allowed_charset = "0123456789"
+            base = 10
 
         while self._has_next():
-            char = self._peek()
+            char = self._peek().lower()
 
             if char == '.':
-                if decimal_found:
-                    raise ParsingError(f"Unexpected decimal separator at {self._index}")
+                if decimal_found or base != 10 or exponent_found:
+                    raise ParsingError(f"Unexpected '{char}' at {self._index}")
                 decimal_found = True
-                strValue += '.'
-            elif char in '0123456789':
-                strValue += char
+                str_val += char
+            elif char == 'e' and base == 10:
+                if exponent_found:
+                    raise ParsingError(f"Unexpected '{char}' at {self._index}")
+                exponent_found = True
+            
+            elif char in allowed_charset or (char in "+-" and exponent_found and not exponent_sign_found):
+                if exponent_found:
+                    exponent_sign_found = True
+                    exponent_str += char
+                else:
+                    str_val += char
             else:
                 break
             self._index += 1
 
-        if len(strValue) == 0:
+        if len(str_val) == 0:
             if char == '':
                 raise ParsingError("Unexpected end found")
             else:
-                raise ParsingError(f"Unexpected token at index {self._index}")
+                raise ParsingError(f"Unexpected '{char}' at {self._index}")
 
-        return float(strValue)
+        if exponent_found:
+            if exponent_str == '':
+                if char == '':
+                    raise ParsingError("Unexpected end found")                
+            try:
+                exponent = float(exponent_str)
+            except ValueError:
+                raise ParsingError(f"Unexpected '{char}' at {self._index}")
+            
+        try:
+            if base == 10:
+                return float(str_val) * (10**exponent)
+            else:
+                return float(int(str_val, base=base))
+        except Exception as e:
+            raise ParsingError(f"Error while parsing literal before {self._index}. Underlying error: {e}")

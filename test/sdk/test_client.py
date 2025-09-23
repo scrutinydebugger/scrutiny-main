@@ -1084,6 +1084,22 @@ class TestClient(ScrutinyUnitTest):
         var1.wait_update(previous_counter=counter, timeout=2)
         self.assertEqual(var1.value, 0x789456)
 
+    def test_write_single_val_math_expr(self):
+        # Make sure we can write a single watchable using a math expression as string
+        rpv1000 = self.client.watch('/rpv/x1000')
+        counter = rpv1000.update_counter
+        rpv1000.value = 'sqrt(100)*pow(2,8)+25/2'   # Will be parsed by the server API. Make sure we send as is.
+        
+        self.assertEqual(rpv1000.value, 2572.5)
+        self.assertEqual(len(self.device_handler.write_logs), 1)
+        self.assertIsInstance(self.device_handler.write_logs[0], WriteRPVLog)
+        assert isinstance(self.device_handler.write_logs[0], WriteRPVLog)
+
+        self.assertEqual(self.device_handler.write_logs[0].rpv_id, 0x1000)
+        self.assertEqual(self.device_handler.write_logs[0].data, struct.pack('>f', 2572.5))  # RPV are big endian always
+        rpv1000.wait_update(previous_counter=counter, timeout=2)
+        self.assertEqual(rpv1000.value, 2572.5)
+
     def test_write_single_val_enum(self):
         # Make sure we can write a single watchable
         var2 = self.client.watch('/a/b/var2')

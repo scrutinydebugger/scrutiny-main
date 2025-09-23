@@ -61,7 +61,7 @@ A handle will exist if a previous call to  :meth:`watch<scrutiny.sdk.client.Scru
 -----
 
 .. autoclass:: scrutiny.sdk.watchable_handle.WatchableHandle
-    :exclude-members: __new__
+    :exclude-members: __new__, __init__
     :member-order: bysource
     :members: display_path, name, type, datatype, value, value_bool, value_int, value_float, 
         value_enum, has_enum, get_enum, parse_enum_val, write_value_str,
@@ -105,6 +105,7 @@ method. Alternatively, to wait for updates from all watched variables at once, t
             time.sleep(0.1)
         
         w3.value = 123  # Blocking write. This statement blocks until the device has confirmed that the variable is correctly written (or raise on failure).
+        w3.value = 'floor(1.23e5*cos(radians(5^2)))' # The expression will be parsed by the server. the value written will be 111475
 
 .. note:: 
 

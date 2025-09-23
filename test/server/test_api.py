@@ -2053,6 +2053,8 @@ class TestAPI(ScrutinyUnitTest):
             dict(inval="-2000.2", valid=True, outval=-2000.2),
             dict(inval="0x100", valid=True, outval=256),
             dict(inval="-0x100", valid=True, outval=-256),
+            dict(inval="0b10101011", valid=True, outval=0xAB),
+            dict(inval="abs(-10)*2+sqrt(100)", valid=True, outval=30),  # Make sure we can parse math expressions
             dict(inval=-1234.2, valid=True, outval=-1234.2),
             dict(inval=True, valid=True, outval=True),
             dict(inval="true", valid=True, outval=True),

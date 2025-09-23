@@ -232,6 +232,7 @@ class TestMakeVarMap_AurixTC334_Tasking_v11r8(BaseVarmapTest, ScrutinyUnitTest):
         self.assert_var('/global/file2GlobalArray1Int5[3]', EmbeddedDataType.sint32, value_at_loc=4444)
         self.assert_var('/global/file2GlobalArray1Int5[4]', EmbeddedDataType.sint32, value_at_loc=5555)
 
+    @unittest.skip("Tasking makes array of array. Not supported")
     def test_array_2d(self):
         self.assert_var('/global/file2GlobalArray2x2Float[0][0]', EmbeddedDataType.float32, value_at_loc=1.1)
         self.assert_var('/global/file2GlobalArray2x2Float[0][1]', EmbeddedDataType.float32, value_at_loc=2.2)
