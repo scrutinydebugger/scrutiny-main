@@ -1003,10 +1003,7 @@ class ServerManager:
             if handle is None:
                 raise Exception(f"Item {fqn} is not being watched. Cannot write its value")
 
-            if isinstance(value, str):
-                handle.write_value_str(value)  # Defer data parsing to the server
-            else:
-                handle.value = value
+            handle.value = value    # String parsing is done on by the server
 
         def ui_callback(_: None, exception: Optional[Exception]) -> None:
             callback(exception)

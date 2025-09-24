@@ -357,7 +357,7 @@ class TemporaryFileCopy(object):
         return False
 
 
-def uleb128_decode(data:bytes) -> int:
+def uleb128_decode(data: bytes) -> int:
     val = 0
     shift = 0
     if data[-1] & 0x80 != 0:
@@ -365,5 +365,5 @@ def uleb128_decode(data:bytes) -> int:
     for b in data:
         val |= (b & 0x7f) << shift
         shift += 7
-    
+
     return val

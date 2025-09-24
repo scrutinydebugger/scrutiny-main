@@ -237,19 +237,6 @@ class WatchableHandle:
 
         return self._configuration.enum.get_value(val)
 
-    def write_value_str(self, val: str) -> None:
-        """Write a value as a string and let the server parse it to a numerical value.
-        Supports true/false, hexadecimal (with 0x prefix), float, int and possibly more. 
-
-        :param val: The string value
-
-        :raise TypeError: Given parameter not of the expected type
-        :raise TimeoutException: If the request times out
-        :raise OperationFailure: If the request fails for any reason, including an unparsable value.
-        """
-        validation.assert_type(val, 'val', str)
-        self._write(val, parse_enum=False)
-
     @property
     def display_path(self) -> str:
         """Contains the watchable full tree path"""
@@ -283,25 +270,38 @@ class WatchableHandle:
 
     @property
     def value(self) -> ValType:
+        """The value without cast.
+
+        - When reading, return a ``int``, ``float`` or ``bool``. 
+        - When writing, accepts ``int``, ``float``, ``bool`` or a ``str``.
+
+        If a string is assigned, the value is sent as is to the server and the server will parse the string.
+        The server will accepts "true", "false" or a mathematical expression supporting arithmetic operators (``+``, ``-``, ``*``, ``/``, ``^``), 
+        base prefix (``0x``, ``0b``), scientific notation (1.5e-2), constants (such as pi) and common math functions. including:  ``abs``, ``exp``, ``pow``, ``sqrt``, ``mod``,
+        ``ceil``, ``floor``, ``log``, ``ln``, ``log10``,
+        ``hypot``, ``degrees``, ``radians``,
+        ``cos``, ``cosh``, ``acos``, ``sin``, ``sinh``, ``asin``, ``tan``, ``tanh``, ``atan``, ``atan2``
+
+        """
         return self._read()
 
     @value.setter
-    def value(self, val: ValType) -> None:
+    def value(self, val: Union[ValType, str]) -> None:
         self._write(val, parse_enum=False)
 
     @property
     def value_bool(self) -> bool:
-        """The value casted as bool"""
+        """The value cast as ``bool``"""
         return bool(self.value)
 
     @property
     def value_int(self) -> int:
-        """The value casted as int"""
+        """The value cast as ``int``"""
         return int(self.value)
 
     @property
     def value_float(self) -> float:
-        """The value casted as float"""
+        """The value cast as ``float``"""
         return float(self.value)
 
     @property

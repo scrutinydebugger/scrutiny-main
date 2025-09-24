@@ -35,6 +35,7 @@ import time
 
 from scrutiny import tools
 
+from scrutiny.core.math_expr import parse_math_expr
 from scrutiny.server.timebase import server_timebase
 from scrutiny.server.datalogging.datalogging_storage import DataloggingStorage
 from scrutiny.server.datalogging.datalogging_manager import DataloggingManager
@@ -1295,13 +1296,9 @@ class API:
                     value = True
                 elif valstr == "false":
                     value = False
-                elif valstr.startswith("0x"):
-                    value = int(valstr[2:], 16)
-                elif valstr.startswith("-0x"):
-                    value = -int(valstr[3:], 16)
                 else:
                     try:
-                        value = float(valstr)
+                        value = parse_math_expr(valstr)
                     except Exception:
                         value = None
             if value is None or not isinstance(value, (int, float, bool)):
