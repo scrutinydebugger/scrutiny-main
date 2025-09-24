@@ -256,7 +256,6 @@ class TestVariables(ScrutinyUnitTest):
         arr = UntypedArray((2, 3, 4), 'float', 4)
         self.assertEqual(arr.get_element_count(), 24)
         self.assertEqual(arr.get_total_byte_size(), 96)
-        print(arr._multipliers)
         self.assertEqual(arr.position_of((1, 2, 2)), 22)
         self.assertEqual(arr.position_of((1, 0, 0)), 12)
         self.assertEqual(arr.position_of((0, 2, 0)), 8)

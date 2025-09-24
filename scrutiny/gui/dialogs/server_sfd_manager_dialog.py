@@ -505,7 +505,6 @@ class ServerSFDManagerDialog(QDialog):
                 ui_thread_callback=ui_thread_upload_complete
             )
 
-        print("zzz")
         self._server_manager.schedule_client_request(
             user_func=ephemerous_thread_upload_init,
             ui_thread_callback=ui_thread_upload_init_completed
