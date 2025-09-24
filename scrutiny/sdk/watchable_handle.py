@@ -276,13 +276,11 @@ class WatchableHandle:
         - When writing, accepts ``int``, ``float``, ``bool`` or a ``str``.
 
         If a string is assigned, the value is sent as is to the server and the server will parse the string.
-        The server will accepts "true", "false" or a mathematical expression supporting arithmetic operators (``+``,``-``,``*``,``/``,``^``), 
-        base prefix (``0x``, ``0b``), scientific notation (1.5e-2), constants (such as pi) and common math functions. including:  
-
-        ``abs``,``exp``,``pow``,``sqrt``,``mod``,
-        ``ceil``,``floor``,``log``,``ln``,``log10``,
-        ``hypot``,``degrees``,``radians``,
-        ``cos``,``cosh``,``acos``,``sin``,``sinh``,``asin``,``tan``,``tanh``,``atan``,``atan2``,
+        The server will accepts "true", "false" or a mathematical expression supporting arithmetic operators (``+``, ``-``, ``*``, ``/``, ``^``), 
+        base prefix (``0x``, ``0b``), scientific notation (1.5e-2), constants (such as pi) and common math functions. including:  ``abs``, ``exp``, ``pow``, ``sqrt``, ``mod``,
+        ``ceil``, ``floor``, ``log``, ``ln``, ``log10``,
+        ``hypot``, ``degrees``, ``radians``,
+        ``cos``, ``cosh``, ``acos``, ``sin``, ``sinh``, ``asin``, ``tan``, ``tanh``, ``atan``, ``atan2``
 
         """
         return self._read()
@@ -293,17 +291,17 @@ class WatchableHandle:
 
     @property
     def value_bool(self) -> bool:
-        """The value casted as bool"""
+        """The value cast as ``bool``"""
         return bool(self.value)
 
     @property
     def value_int(self) -> int:
-        """The value casted as int"""
+        """The value cast as ``int``"""
         return int(self.value)
 
     @property
     def value_float(self) -> float:
-        """The value casted as float"""
+        """The value cast as ``float``"""
         return float(self.value)
 
     @property
