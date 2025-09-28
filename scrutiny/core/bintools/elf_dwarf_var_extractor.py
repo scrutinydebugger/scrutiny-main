@@ -371,7 +371,7 @@ class ElfDwarfVarExtractor:
 
         self.initial_stack_depth = len(inspect.stack())
         self._parse_errors = self.ParseErrors()
-
+        
         if filename is not None:
             self._load_from_elf_file(filename)
 
@@ -1006,16 +1006,26 @@ class ElfDwarfVarExtractor:
             if struct.byte_size is None:
                 raise ElfParsingError(f"Array of elements of unknown size: {die}")
             array_element_type = struct
+            element_type_name=self.get_name_no_none(element_type.type_die)
 
         elif element_type.type == TypeOfVar.BaseType:
             self.die_process_base_type(element_type.type_die)
             array_element_type = self.varmap.get_vartype_from_base_type(self.get_typename_from_die(element_type.type_die))
+            element_type_name = self.get_name_no_none(element_type.type_die)
+        elif element_type.type == TypeOfVar.Array:
+            subarray = self.get_array_def(element_type.type_die)
+            if subarray is None:
+                return None
+            dims.extend(subarray.dims)
+            element_type_name = subarray.element_type_name
+            array_element_type = subarray.datatype
         else:
-            raise NotImplementedError(f"Array of element of type {element_type.type.name} not supported")
+            self.logger.warning(f"Line {get_linenumber()}: Array of element of type {element_type.type.name} not supported. Skipping")  # This can happen
+            return None
 
         return TypedArray(
             dims=tuple(dims),
-            element_type_name=self.get_name_no_none(element_type.type_die),
+            element_type_name=element_type_name,
             datatype=array_element_type
         )
 
@@ -1237,7 +1247,9 @@ class ElfDwarfVarExtractor:
 
     def register_array_var(self, die: DIE, type_desc: TypeDescriptor, location: VariableLocation) -> None:
         if location.is_null():
-            self.logger.warning(f"Skipping array at location NULL address. {die}")
+            name = self.get_name(die, default="<no-name>")
+            self.logger.warning(f"Line {get_linenumber()}: Skipping array {name} at location NULL address.")
+            self.logger.debug(f"{die}")
             return
 
         varpath = self.make_varpath(die)
