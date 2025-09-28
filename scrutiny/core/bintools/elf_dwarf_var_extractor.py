@@ -1012,6 +1012,10 @@ class ElfDwarfVarExtractor:
             self.die_process_base_type(element_type.type_die)
             array_element_type = self.varmap.get_vartype_from_base_type(self.get_typename_from_die(element_type.type_die))
             element_type_name = self.get_name_no_none(element_type.type_die)
+        elif element_type.type == TypeOfVar.EnumOnly:
+            assert element_type.enum_die is element_type.type_die
+            element_type_name = self.process_enum_only_type(element_type.enum_die)
+            array_element_type = self.varmap.get_vartype_from_base_type(element_type_name)
         elif element_type.type == TypeOfVar.Array:
             subarray = self.get_array_def(element_type.type_die)
             if subarray is None:

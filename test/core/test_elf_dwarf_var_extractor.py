@@ -90,6 +90,11 @@ class TestElf2VarMapFromBuilds(ScrutinyUnitTest):
             outbin = os.path.join(d, 'out.bin')
             with open(main_cpp, 'wb') as f:
                 f.write(code.encode('utf8'))
+            
+            try:
+                subprocess.check_call([compiler, '--help'],stdout=subprocess.DEVNULL)
+            except Exception:
+                raise unittest.SkipTest(f"{compiler} is not installed.") 
 
             p = subprocess.Popen([compiler, '-no-pie', f'-gdwarf-{dwarf_version}', main_cpp,
                                  '-o', outbin], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -133,6 +138,10 @@ struct C {
     uint32_t a;
     EnumA b;
 };
+
+typedef int32_t arr1[5];
+typedef arr1 arr2[4];
+
 #pragma pack(pop)
 
 A my_global_A;
@@ -143,6 +152,7 @@ B my_global_array_of_B[4];
 C my_global_array_of_C[5];
 int32_t my_global_int32_array[10][20];
 EnumA my_global_enum_array[11][12];
+arr2 my_global_array_of_array345[3];
 
 int main(int argc, char* argv[])
 {
@@ -157,359 +167,373 @@ int main(int argc, char* argv[])
 }
 """
 
-        for dwarf_version in (2, 3, 4):
-            with self.subTest(f"dwarf{dwarf_version}"):
-                varmap = self._make_varmap(code, dwarf_version=dwarf_version, compiler='g++', cppfilt='c++filt')
+        for compiler in ['g++', 'clang++']:
+            for dwarf_version in [2,3,4]:
+                with self.subTest(f"{compiler}-dwarf{dwarf_version}"):
+                    varmap = self._make_varmap(code, dwarf_version=dwarf_version, compiler=compiler, cppfilt='c++filt')
 
-                enum_list = varmap.get_enum_by_name('EnumA')
-                self.assertEqual(len(enum_list), 1)
-                enumA = enum_list[0]
-                self.assertEqual(enumA.get_value('AAA'), 0)
-                self.assertEqual(enumA.get_value('BBB'), 1)
-                self.assertEqual(enumA.get_value('CCC'), 2)
+                    enum_list = varmap.get_enum_by_name('EnumA')
+                    self.assertEqual(len(enum_list), 1)
+                    enumA = enum_list[0]
+                    self.assertEqual(enumA.get_value('AAA'), 0)
+                    self.assertEqual(enumA.get_value('BBB'), 1)
+                    self.assertEqual(enumA.get_value('CCC'), 2)
 
-                # === my_global_int32_array ===
-                v = '/global/my_global_int32_array'
-                self.assertTrue(varmap.has_var(v))
-                self.assertTrue(varmap.has_array_segments(v))
-                array_segments = varmap.get_array_segments(v)
-                self.assertEqual(len(array_segments), 1)
-                self.assertIn(v, array_segments)
-                self.assertEqual(array_segments[v].dims, (10, 20))
-                self.assertEqual(array_segments[v].element_byte_size, 4)
+                    # === my_global_int32_array ===
+                    v = '/global/my_global_int32_array'
+                    self.assertTrue(varmap.has_var(v))
+                    self.assertTrue(varmap.has_array_segments(v))
+                    array_segments = varmap.get_array_segments(v)
+                    self.assertEqual(len(array_segments), 1)
+                    self.assertIn(v, array_segments)
+                    self.assertEqual(array_segments[v].dims, (10, 20))
+                    self.assertEqual(array_segments[v].element_byte_size, 4)
 
-                # === my_static_int32_array ===
-                v = '/static/main.cpp/main/my_static_int32_array'
-                self.assertTrue(varmap.has_var(v))
-                self.assertTrue(varmap.has_array_segments(v))
-                array_segments = varmap.get_array_segments(v)
-                self.assertEqual(len(array_segments), 1)
-                self.assertIn(v, array_segments)
-                self.assertEqual(array_segments[v].dims, (15, 10))
-                self.assertEqual(array_segments[v].element_byte_size, 4)
+                    # === my_static_int32_array ===
+                    v = '/static/main.cpp/main/my_static_int32_array'
+                    self.assertTrue(varmap.has_var(v))
+                    self.assertTrue(varmap.has_array_segments(v))
+                    array_segments = varmap.get_array_segments(v)
+                    self.assertEqual(len(array_segments), 1)
+                    self.assertIn(v, array_segments)
+                    self.assertEqual(array_segments[v].dims, (15, 10))
+                    self.assertEqual(array_segments[v].element_byte_size, 4)
 
-                # === my_global_enum_array ===
-                v = '/global/my_global_enum_array'
-                self.assertTrue(varmap.has_var(v))
-                self.assertTrue(varmap.has_array_segments(v))
-                array_segments = varmap.get_array_segments(v)
-                enum = varmap.get_enum(v)
-                self.assertEqual(enum, enumA)
-                self.assertEqual(len(array_segments), 1)
-                self.assertIn(v, array_segments)
-                self.assertEqual(array_segments[v].dims, (11, 12))
-                self.assertEqual(array_segments[v].element_byte_size, 4)
+                    # === my_global_enum_array ===
+                    v = '/global/my_global_enum_array'
+                    self.assertTrue(varmap.has_var(v))
+                    self.assertTrue(varmap.has_array_segments(v))
+                    array_segments = varmap.get_array_segments(v)
+                    enum = varmap.get_enum(v)
+                    self.assertEqual(enum, enumA)
+                    self.assertEqual(len(array_segments), 1)
+                    self.assertIn(v, array_segments)
+                    self.assertEqual(array_segments[v].dims, (11, 12))
+                    self.assertEqual(array_segments[v].element_byte_size, 4)
 
-# region struct A
-                # == my_global_A ===
-                v = '/global/my_global_A/x'
-                self.assertTrue(varmap.has_var(v))
-                self.assertEqual(varmap.get_enum(v), enumA)
-                self.assertFalse(varmap.has_array_segments(v))
+    # region struct A
+                    # == my_global_A ===
+                    v = '/global/my_global_A/x'
+                    self.assertTrue(varmap.has_var(v))
+                    self.assertEqual(varmap.get_enum(v), enumA)
+                    self.assertFalse(varmap.has_array_segments(v))
 
-                v = '/global/my_global_A/y'
-                self.assertTrue(varmap.has_var(v))
-                self.assertFalse(varmap.has_enum(v))
-                self.assertTrue(varmap.has_array_segments(v))
-                array_segments = varmap.get_array_segments(v)
-                self.assertIn(v, array_segments)
-                self.assertEqual(array_segments[v].dims, (2, 3))
-                self.assertEqual(array_segments[v].element_byte_size, 2)
+                    v = '/global/my_global_A/y'
+                    self.assertTrue(varmap.has_var(v))
+                    self.assertFalse(varmap.has_enum(v))
+                    self.assertTrue(varmap.has_array_segments(v))
+                    array_segments = varmap.get_array_segments(v)
+                    self.assertIn(v, array_segments)
+                    self.assertEqual(array_segments[v].dims, (2, 3))
+                    self.assertEqual(array_segments[v].element_byte_size, 2)
 
-                # === my_static_A ===
-                v = '/static/main.cpp/main/my_static_A/x'
-                self.assertTrue(varmap.has_var(v))
-                self.assertEqual(varmap.get_enum(v), enumA)
-                self.assertFalse(varmap.has_array_segments(v))
+                    # === my_static_A ===
+                    v = '/static/main.cpp/main/my_static_A/x'
+                    self.assertTrue(varmap.has_var(v))
+                    self.assertEqual(varmap.get_enum(v), enumA)
+                    self.assertFalse(varmap.has_array_segments(v))
 
-                v = '/static/main.cpp/main/my_static_A/y'
-                self.assertTrue(varmap.has_var(v))
-                self.assertFalse(varmap.has_enum(v))
-                self.assertTrue(varmap.has_array_segments(v))
-                array_segments = varmap.get_array_segments(v)
-                self.assertIn(v, array_segments)
-                self.assertEqual(array_segments[v].dims, (2, 3))
-                self.assertEqual(array_segments[v].element_byte_size, 2)
+                    v = '/static/main.cpp/main/my_static_A/y'
+                    self.assertTrue(varmap.has_var(v))
+                    self.assertFalse(varmap.has_enum(v))
+                    self.assertTrue(varmap.has_array_segments(v))
+                    array_segments = varmap.get_array_segments(v)
+                    self.assertIn(v, array_segments)
+                    self.assertEqual(array_segments[v].dims, (2, 3))
+                    self.assertEqual(array_segments[v].element_byte_size, 2)
 
-                # ===   my_global_array_of_A ====
-                v = '/global/my_global_array_of_A/x'
-                self.assertTrue(varmap.has_var(v))
-                self.assertEqual(varmap.get_enum(v), enumA)
-                self.assertTrue(varmap.has_array_segments(v))
-                array_segments = varmap.get_array_segments(v)
-                p1 = '/global/my_global_array_of_A'
-                self.assertEqual(len(array_segments), 1)
-                self.assertEqual(array_segments[p1].dims, (3,))
-                self.assertEqual(array_segments[p1].element_byte_size, 4 + 2 * 3 * 2)
+                    # ===   my_global_array_of_A ====
+                    v = '/global/my_global_array_of_A/x'
+                    self.assertTrue(varmap.has_var(v))
+                    self.assertEqual(varmap.get_enum(v), enumA)
+                    self.assertTrue(varmap.has_array_segments(v))
+                    array_segments = varmap.get_array_segments(v)
+                    p1 = '/global/my_global_array_of_A'
+                    self.assertEqual(len(array_segments), 1)
+                    self.assertEqual(array_segments[p1].dims, (3,))
+                    self.assertEqual(array_segments[p1].element_byte_size, 4 + 2 * 3 * 2)
 
-                v = '/global/my_global_array_of_A/y'
-                self.assertTrue(varmap.has_var(v))
-                self.assertFalse(varmap.has_enum(v))
-                self.assertTrue(varmap.has_array_segments(v))
-                array_segments = varmap.get_array_segments(v)
-                self.assertEqual(len(array_segments), 2)
-                p1 = '/global/my_global_array_of_A'
-                self.assertEqual(array_segments[p1].dims, (3,))
-                self.assertEqual(array_segments[p1].element_byte_size, 4 + 2 * 3 * 2)
-                p2 = '/global/my_global_array_of_A/y'
-                self.assertEqual(array_segments[p2].dims, (2, 3))
-                self.assertEqual(array_segments[p2].element_byte_size, 2)
+                    v = '/global/my_global_array_of_A/y'
+                    self.assertTrue(varmap.has_var(v))
+                    self.assertFalse(varmap.has_enum(v))
+                    self.assertTrue(varmap.has_array_segments(v))
+                    array_segments = varmap.get_array_segments(v)
+                    self.assertEqual(len(array_segments), 2)
+                    p1 = '/global/my_global_array_of_A'
+                    self.assertEqual(array_segments[p1].dims, (3,))
+                    self.assertEqual(array_segments[p1].element_byte_size, 4 + 2 * 3 * 2)
+                    p2 = '/global/my_global_array_of_A/y'
+                    self.assertEqual(array_segments[p2].dims, (2, 3))
+                    self.assertEqual(array_segments[p2].element_byte_size, 2)
 
-                # ===   my_static_array_of_A ====
-                v = '/static/main.cpp/main/my_static_array_of_A/x'
-                self.assertTrue(varmap.has_var(v))
-                self.assertEqual(varmap.get_enum(v), enumA)
-                self.assertTrue(varmap.has_array_segments(v))
-                array_segments = varmap.get_array_segments(v)
-                p1 = '/static/main.cpp/main/my_static_array_of_A'
-                self.assertEqual(len(array_segments), 1)
-                self.assertEqual(array_segments[p1].dims, (5,))
-                self.assertEqual(array_segments[p1].element_byte_size, 4 + 2 * 3 * 2)
+                    # ===   my_static_array_of_A ====
+                    v = '/static/main.cpp/main/my_static_array_of_A/x'
+                    self.assertTrue(varmap.has_var(v))
+                    self.assertEqual(varmap.get_enum(v), enumA)
+                    self.assertTrue(varmap.has_array_segments(v))
+                    array_segments = varmap.get_array_segments(v)
+                    p1 = '/static/main.cpp/main/my_static_array_of_A'
+                    self.assertEqual(len(array_segments), 1)
+                    self.assertEqual(array_segments[p1].dims, (5,))
+                    self.assertEqual(array_segments[p1].element_byte_size, 4 + 2 * 3 * 2)
 
-                v = '/static/main.cpp/main/my_static_array_of_A/y'
-                self.assertTrue(varmap.has_var(v))
-                self.assertFalse(varmap.has_enum(v))
-                self.assertTrue(varmap.has_array_segments(v))
-                array_segments = varmap.get_array_segments(v)
-                self.assertEqual(len(array_segments), 2)
-                p1 = '/static/main.cpp/main/my_static_array_of_A'
-                self.assertEqual(array_segments[p1].dims, (5,))
-                self.assertEqual(array_segments[p1].element_byte_size, 4 + 2 * 3 * 2)
-                p2 = '/static/main.cpp/main/my_static_array_of_A/y'
-                self.assertEqual(array_segments[p2].dims, (2, 3))
-                self.assertEqual(array_segments[p2].element_byte_size, 2)
-# endregion
+                    v = '/static/main.cpp/main/my_static_array_of_A/y'
+                    self.assertTrue(varmap.has_var(v))
+                    self.assertFalse(varmap.has_enum(v))
+                    self.assertTrue(varmap.has_array_segments(v))
+                    array_segments = varmap.get_array_segments(v)
+                    self.assertEqual(len(array_segments), 2)
+                    p1 = '/static/main.cpp/main/my_static_array_of_A'
+                    self.assertEqual(array_segments[p1].dims, (5,))
+                    self.assertEqual(array_segments[p1].element_byte_size, 4 + 2 * 3 * 2)
+                    p2 = '/static/main.cpp/main/my_static_array_of_A/y'
+                    self.assertEqual(array_segments[p2].dims, (2, 3))
+                    self.assertEqual(array_segments[p2].element_byte_size, 2)
+    # endregion
 
-# region struct B
-                # === my_global_B ===
-                v = '/global/my_global_B/x2'
-                self.assertTrue(varmap.has_var(v))
-                self.assertFalse(varmap.has_enum(v))
-                self.assertFalse(varmap.has_array_segments(v))
+    # region struct B
+                    # === my_global_B ===
+                    v = '/global/my_global_B/x2'
+                    self.assertTrue(varmap.has_var(v))
+                    self.assertFalse(varmap.has_enum(v))
+                    self.assertFalse(varmap.has_array_segments(v))
 
-                v = '/global/my_global_B/y2/x'
-                self.assertTrue(varmap.has_var(v))
-                self.assertEqual(varmap.get_enum(v), enumA)
-                self.assertTrue(varmap.has_array_segments(v))
-                array_segments = varmap.get_array_segments(v)
-                self.assertEqual(len(array_segments), 1)
-                p1 = "/global/my_global_B/y2"
-                self.assertIn(p1, array_segments)
-                self.assertEqual(array_segments[p1].dims, (4, 5))
-                self.assertEqual(array_segments[p1].element_byte_size, 4 + 2 * 3 * 2)
+                    v = '/global/my_global_B/y2/x'
+                    self.assertTrue(varmap.has_var(v))
+                    self.assertEqual(varmap.get_enum(v), enumA)
+                    self.assertTrue(varmap.has_array_segments(v))
+                    array_segments = varmap.get_array_segments(v)
+                    self.assertEqual(len(array_segments), 1)
+                    p1 = "/global/my_global_B/y2"
+                    self.assertIn(p1, array_segments)
+                    self.assertEqual(array_segments[p1].dims, (4, 5))
+                    self.assertEqual(array_segments[p1].element_byte_size, 4 + 2 * 3 * 2)
 
-                v = '/global/my_global_B/y2/y'
-                self.assertTrue(varmap.has_var(v))
-                self.assertFalse(varmap.has_enum(v))
-                self.assertTrue(varmap.has_array_segments(v))
-                array_segments = varmap.get_array_segments(v)
-                self.assertEqual(len(array_segments), 2)
-                p1 = "/global/my_global_B/y2"
-                self.assertIn(p1, array_segments)
-                self.assertEqual(array_segments[p1].dims, (4, 5))
-                self.assertEqual(array_segments[p1].element_byte_size, 4 + 2 * 3 * 2)
-                p2 = "/global/my_global_B/y2/y"
-                self.assertIn(p2, array_segments)
-                self.assertEqual(array_segments[p2].dims, (2, 3))
-                self.assertEqual(array_segments[p2].element_byte_size, 2)
+                    v = '/global/my_global_B/y2/y'
+                    self.assertTrue(varmap.has_var(v))
+                    self.assertFalse(varmap.has_enum(v))
+                    self.assertTrue(varmap.has_array_segments(v))
+                    array_segments = varmap.get_array_segments(v)
+                    self.assertEqual(len(array_segments), 2)
+                    p1 = "/global/my_global_B/y2"
+                    self.assertIn(p1, array_segments)
+                    self.assertEqual(array_segments[p1].dims, (4, 5))
+                    self.assertEqual(array_segments[p1].element_byte_size, 4 + 2 * 3 * 2)
+                    p2 = "/global/my_global_B/y2/y"
+                    self.assertIn(p2, array_segments)
+                    self.assertEqual(array_segments[p2].dims, (2, 3))
+                    self.assertEqual(array_segments[p2].element_byte_size, 2)
 
-                # === my_static_B ===
-                v = '/static/main.cpp/main/my_static_B/x2'
-                self.assertTrue(varmap.has_var(v))
-                self.assertFalse(varmap.has_enum(v))
-                self.assertFalse(varmap.has_array_segments(v))
+                    # === my_static_B ===
+                    v = '/static/main.cpp/main/my_static_B/x2'
+                    self.assertTrue(varmap.has_var(v))
+                    self.assertFalse(varmap.has_enum(v))
+                    self.assertFalse(varmap.has_array_segments(v))
 
-                v = '/static/main.cpp/main/my_static_B/y2/x'
-                self.assertTrue(varmap.has_var(v))
-                self.assertEqual(varmap.get_enum(v), enumA)
-                self.assertTrue(varmap.has_array_segments(v))
-                array_segments = varmap.get_array_segments(v)
-                self.assertEqual(len(array_segments), 1)
-                p1 = "/static/main.cpp/main/my_static_B/y2"
-                self.assertIn(p1, array_segments)
-                self.assertEqual(array_segments[p1].dims, (4, 5))
-                self.assertEqual(array_segments[p1].element_byte_size, 4 + 2 * 3 * 2)
+                    v = '/static/main.cpp/main/my_static_B/y2/x'
+                    self.assertTrue(varmap.has_var(v))
+                    self.assertEqual(varmap.get_enum(v), enumA)
+                    self.assertTrue(varmap.has_array_segments(v))
+                    array_segments = varmap.get_array_segments(v)
+                    self.assertEqual(len(array_segments), 1)
+                    p1 = "/static/main.cpp/main/my_static_B/y2"
+                    self.assertIn(p1, array_segments)
+                    self.assertEqual(array_segments[p1].dims, (4, 5))
+                    self.assertEqual(array_segments[p1].element_byte_size, 4 + 2 * 3 * 2)
 
-                v = '/static/main.cpp/main/my_static_B/y2/y'
-                self.assertTrue(varmap.has_var(v))
-                self.assertFalse(varmap.has_enum(v))
-                self.assertTrue(varmap.has_array_segments(v))
-                array_segments = varmap.get_array_segments(v)
-                self.assertEqual(len(array_segments), 2)
-                p1 = "/static/main.cpp/main/my_static_B/y2"
-                self.assertIn(p1, array_segments)
-                self.assertEqual(array_segments[p1].dims, (4, 5))
-                self.assertEqual(array_segments[p1].element_byte_size, 4 + 2 * 3 * 2)
-                p2 = "/static/main.cpp/main/my_static_B/y2/y"
-                self.assertIn(p2, array_segments)
-                self.assertEqual(array_segments[p2].dims, (2, 3))
-                self.assertEqual(array_segments[p2].element_byte_size, 2)
+                    v = '/static/main.cpp/main/my_static_B/y2/y'
+                    self.assertTrue(varmap.has_var(v))
+                    self.assertFalse(varmap.has_enum(v))
+                    self.assertTrue(varmap.has_array_segments(v))
+                    array_segments = varmap.get_array_segments(v)
+                    self.assertEqual(len(array_segments), 2)
+                    p1 = "/static/main.cpp/main/my_static_B/y2"
+                    self.assertIn(p1, array_segments)
+                    self.assertEqual(array_segments[p1].dims, (4, 5))
+                    self.assertEqual(array_segments[p1].element_byte_size, 4 + 2 * 3 * 2)
+                    p2 = "/static/main.cpp/main/my_static_B/y2/y"
+                    self.assertIn(p2, array_segments)
+                    self.assertEqual(array_segments[p2].dims, (2, 3))
+                    self.assertEqual(array_segments[p2].element_byte_size, 2)
 
-                # === my_global_array_of_B ===
-                v = '/global/my_global_array_of_B/x2'
-                self.assertTrue(varmap.has_var(v))
-                self.assertFalse(varmap.has_enum(v))
-                self.assertTrue(varmap.has_array_segments(v))
-                array_segments = varmap.get_array_segments(v)
-                self.assertEqual(len(array_segments), 1)
-                p1 = "/global/my_global_array_of_B"
-                self.assertIn(p1, array_segments)
-                self.assertEqual(array_segments[p1].dims, (4, ))
-                self.assertEqual(array_segments[p1].element_byte_size, 4 + 4 * 5 * (4 + 2 * 3 * 2))
+                    # === my_global_array_of_B ===
+                    v = '/global/my_global_array_of_B/x2'
+                    self.assertTrue(varmap.has_var(v))
+                    self.assertFalse(varmap.has_enum(v))
+                    self.assertTrue(varmap.has_array_segments(v))
+                    array_segments = varmap.get_array_segments(v)
+                    self.assertEqual(len(array_segments), 1)
+                    p1 = "/global/my_global_array_of_B"
+                    self.assertIn(p1, array_segments)
+                    self.assertEqual(array_segments[p1].dims, (4, ))
+                    self.assertEqual(array_segments[p1].element_byte_size, 4 + 4 * 5 * (4 + 2 * 3 * 2))
 
-                v = '/global/my_global_array_of_B/y2/x'
-                self.assertTrue(varmap.has_var(v))
-                self.assertEqual(varmap.get_enum(v), enumA)
-                self.assertTrue(varmap.has_array_segments(v))
-                array_segments = varmap.get_array_segments(v)
-                self.assertEqual(len(array_segments), 2)
-                p1 = "/global/my_global_array_of_B"
-                self.assertIn(p1, array_segments)
-                self.assertEqual(array_segments[p1].dims, (4, ))
-                self.assertEqual(array_segments[p1].element_byte_size, 4 + 4 * 5 * (4 + 2 * 3 * 2))
-                p2 = "/global/my_global_array_of_B/y2"
-                self.assertIn(p1, array_segments)
-                self.assertEqual(array_segments[p2].dims, (4, 5))
-                self.assertEqual(array_segments[p2].element_byte_size, 4 + 2 * 3 * 2)
+                    v = '/global/my_global_array_of_B/y2/x'
+                    self.assertTrue(varmap.has_var(v))
+                    self.assertEqual(varmap.get_enum(v), enumA)
+                    self.assertTrue(varmap.has_array_segments(v))
+                    array_segments = varmap.get_array_segments(v)
+                    self.assertEqual(len(array_segments), 2)
+                    p1 = "/global/my_global_array_of_B"
+                    self.assertIn(p1, array_segments)
+                    self.assertEqual(array_segments[p1].dims, (4, ))
+                    self.assertEqual(array_segments[p1].element_byte_size, 4 + 4 * 5 * (4 + 2 * 3 * 2))
+                    p2 = "/global/my_global_array_of_B/y2"
+                    self.assertIn(p1, array_segments)
+                    self.assertEqual(array_segments[p2].dims, (4, 5))
+                    self.assertEqual(array_segments[p2].element_byte_size, 4 + 2 * 3 * 2)
 
-                v = '/global/my_global_array_of_B/y2/y'
-                self.assertTrue(varmap.has_var(v))
-                self.assertFalse(varmap.has_enum(v))
-                self.assertTrue(varmap.has_array_segments(v))
-                array_segments = varmap.get_array_segments(v)
-                self.assertEqual(len(array_segments), 3)
-                p1 = "/global/my_global_array_of_B"
-                self.assertIn(p1, array_segments)
-                self.assertEqual(array_segments[p1].dims, (4, ))
-                self.assertEqual(array_segments[p1].element_byte_size, 4 + 4 * 5 * (4 + 2 * 3 * 2))
-                p2 = "/global/my_global_array_of_B/y2"
-                self.assertIn(p2, array_segments)
-                self.assertEqual(array_segments[p2].dims, (4, 5))
-                self.assertEqual(array_segments[p2].element_byte_size, 4 + 2 * 3 * 2)
-                p3 = "/global/my_global_array_of_B/y2/y"
-                self.assertIn(p3, array_segments)
-                self.assertEqual(array_segments[p3].dims, (2, 3))
-                self.assertEqual(array_segments[p3].element_byte_size, 2)
+                    v = '/global/my_global_array_of_B/y2/y'
+                    self.assertTrue(varmap.has_var(v))
+                    self.assertFalse(varmap.has_enum(v))
+                    self.assertTrue(varmap.has_array_segments(v))
+                    array_segments = varmap.get_array_segments(v)
+                    self.assertEqual(len(array_segments), 3)
+                    p1 = "/global/my_global_array_of_B"
+                    self.assertIn(p1, array_segments)
+                    self.assertEqual(array_segments[p1].dims, (4, ))
+                    self.assertEqual(array_segments[p1].element_byte_size, 4 + 4 * 5 * (4 + 2 * 3 * 2))
+                    p2 = "/global/my_global_array_of_B/y2"
+                    self.assertIn(p2, array_segments)
+                    self.assertEqual(array_segments[p2].dims, (4, 5))
+                    self.assertEqual(array_segments[p2].element_byte_size, 4 + 2 * 3 * 2)
+                    p3 = "/global/my_global_array_of_B/y2/y"
+                    self.assertIn(p3, array_segments)
+                    self.assertEqual(array_segments[p3].dims, (2, 3))
+                    self.assertEqual(array_segments[p3].element_byte_size, 2)
 
-                # === my_static_array_of_B ===
-                v = '/static/main.cpp/main/my_static_array_of_B/x2'
-                self.assertTrue(varmap.has_var(v))
-                self.assertFalse(varmap.has_enum(v))
-                self.assertTrue(varmap.has_array_segments(v))
-                array_segments = varmap.get_array_segments(v)
-                self.assertEqual(len(array_segments), 1)
-                p1 = "/static/main.cpp/main/my_static_array_of_B"
-                self.assertIn(p1, array_segments)
-                self.assertEqual(array_segments[p1].dims, (6, ))
-                self.assertEqual(array_segments[p1].element_byte_size, 4 + 4 * 5 * (4 + 2 * 3 * 2))
+                    # === my_static_array_of_B ===
+                    v = '/static/main.cpp/main/my_static_array_of_B/x2'
+                    self.assertTrue(varmap.has_var(v))
+                    self.assertFalse(varmap.has_enum(v))
+                    self.assertTrue(varmap.has_array_segments(v))
+                    array_segments = varmap.get_array_segments(v)
+                    self.assertEqual(len(array_segments), 1)
+                    p1 = "/static/main.cpp/main/my_static_array_of_B"
+                    self.assertIn(p1, array_segments)
+                    self.assertEqual(array_segments[p1].dims, (6, ))
+                    self.assertEqual(array_segments[p1].element_byte_size, 4 + 4 * 5 * (4 + 2 * 3 * 2))
 
-                v = '/static/main.cpp/main/my_static_array_of_B/y2/x'
-                self.assertTrue(varmap.has_var(v))
-                self.assertEqual(varmap.get_enum(v), enumA)
-                self.assertTrue(varmap.has_array_segments(v))
-                array_segments = varmap.get_array_segments(v)
-                self.assertEqual(len(array_segments), 2)
-                p1 = "/static/main.cpp/main/my_static_array_of_B"
-                self.assertIn(p1, array_segments)
-                self.assertEqual(array_segments[p1].dims, (6, ))
-                self.assertEqual(array_segments[p1].element_byte_size, 4 + 4 * 5 * (4 + 2 * 3 * 2))
-                p2 = "/static/main.cpp/main/my_static_array_of_B/y2"
-                self.assertIn(p1, array_segments)
-                self.assertEqual(array_segments[p2].dims, (4, 5))
-                self.assertEqual(array_segments[p2].element_byte_size, 4 + 2 * 3 * 2)
+                    v = '/static/main.cpp/main/my_static_array_of_B/y2/x'
+                    self.assertTrue(varmap.has_var(v))
+                    self.assertEqual(varmap.get_enum(v), enumA)
+                    self.assertTrue(varmap.has_array_segments(v))
+                    array_segments = varmap.get_array_segments(v)
+                    self.assertEqual(len(array_segments), 2)
+                    p1 = "/static/main.cpp/main/my_static_array_of_B"
+                    self.assertIn(p1, array_segments)
+                    self.assertEqual(array_segments[p1].dims, (6, ))
+                    self.assertEqual(array_segments[p1].element_byte_size, 4 + 4 * 5 * (4 + 2 * 3 * 2))
+                    p2 = "/static/main.cpp/main/my_static_array_of_B/y2"
+                    self.assertIn(p1, array_segments)
+                    self.assertEqual(array_segments[p2].dims, (4, 5))
+                    self.assertEqual(array_segments[p2].element_byte_size, 4 + 2 * 3 * 2)
 
-                v = '/static/main.cpp/main/my_static_array_of_B/y2/y'
-                self.assertTrue(varmap.has_var(v))
-                self.assertFalse(varmap.has_enum(v))
-                self.assertTrue(varmap.has_array_segments(v))
-                array_segments = varmap.get_array_segments(v)
-                self.assertEqual(len(array_segments), 3)
-                p1 = "/static/main.cpp/main/my_static_array_of_B"
-                self.assertIn(p1, array_segments)
-                self.assertEqual(array_segments[p1].dims, (6, ))
-                self.assertEqual(array_segments[p1].element_byte_size, 4 + 4 * 5 * (4 + 2 * 3 * 2))
-                p2 = "/static/main.cpp/main/my_static_array_of_B/y2"
-                self.assertIn(p2, array_segments)
-                self.assertEqual(array_segments[p2].dims, (4, 5))
-                self.assertEqual(array_segments[p2].element_byte_size, 4 + 2 * 3 * 2)
-                p3 = "/static/main.cpp/main/my_static_array_of_B/y2/y"
-                self.assertIn(p3, array_segments)
-                self.assertEqual(array_segments[p3].dims, (2, 3))
-                self.assertEqual(array_segments[p3].element_byte_size, 2)
+                    v = '/static/main.cpp/main/my_static_array_of_B/y2/y'
+                    self.assertTrue(varmap.has_var(v))
+                    self.assertFalse(varmap.has_enum(v))
+                    self.assertTrue(varmap.has_array_segments(v))
+                    array_segments = varmap.get_array_segments(v)
+                    self.assertEqual(len(array_segments), 3)
+                    p1 = "/static/main.cpp/main/my_static_array_of_B"
+                    self.assertIn(p1, array_segments)
+                    self.assertEqual(array_segments[p1].dims, (6, ))
+                    self.assertEqual(array_segments[p1].element_byte_size, 4 + 4 * 5 * (4 + 2 * 3 * 2))
+                    p2 = "/static/main.cpp/main/my_static_array_of_B/y2"
+                    self.assertIn(p2, array_segments)
+                    self.assertEqual(array_segments[p2].dims, (4, 5))
+                    self.assertEqual(array_segments[p2].element_byte_size, 4 + 2 * 3 * 2)
+                    p3 = "/static/main.cpp/main/my_static_array_of_B/y2/y"
+                    self.assertIn(p3, array_segments)
+                    self.assertEqual(array_segments[p3].dims, (2, 3))
+                    self.assertEqual(array_segments[p3].element_byte_size, 2)
 
-# endregion
+    # endregion
 
-# region struct C
+    # region struct C
 
-                # === my_global_C ===
-                v = '/global/my_global_C/a'
-                self.assertTrue(varmap.has_var(v))
-                self.assertFalse(varmap.has_array_segments(v))
-                self.assertIsNone(varmap.get_enum(v))
+                    # === my_global_C ===
+                    v = '/global/my_global_C/a'
+                    self.assertTrue(varmap.has_var(v))
+                    self.assertFalse(varmap.has_array_segments(v))
+                    self.assertIsNone(varmap.get_enum(v))
 
-                v = '/global/my_global_C/b'
-                self.assertTrue(varmap.has_var(v))
-                self.assertFalse(varmap.has_array_segments(v))
-                self.assertEqual(varmap.get_enum(v), enumA)
+                    v = '/global/my_global_C/b'
+                    self.assertTrue(varmap.has_var(v))
+                    self.assertFalse(varmap.has_array_segments(v))
+                    self.assertEqual(varmap.get_enum(v), enumA)
 
-                # === my_global_array_of_C ===
-                v = '/global/my_global_array_of_C/a'
-                self.assertTrue(varmap.has_var(v))
-                self.assertIsNone(varmap.get_enum(v))
-                self.assertTrue(varmap.has_array_segments(v))
-                array_segments = varmap.get_array_segments(v)
-                self.assertEqual(len(array_segments), 1)
-                p1 = "/global/my_global_array_of_C"
-                self.assertIn(p1, array_segments)
-                self.assertEqual(array_segments[p1].dims, (5, ))
-                self.assertEqual(array_segments[p1].element_byte_size, 8)
+                    # === my_global_array_of_C ===
+                    v = '/global/my_global_array_of_C/a'
+                    self.assertTrue(varmap.has_var(v))
+                    self.assertIsNone(varmap.get_enum(v))
+                    self.assertTrue(varmap.has_array_segments(v))
+                    array_segments = varmap.get_array_segments(v)
+                    self.assertEqual(len(array_segments), 1)
+                    p1 = "/global/my_global_array_of_C"
+                    self.assertIn(p1, array_segments)
+                    self.assertEqual(array_segments[p1].dims, (5, ))
+                    self.assertEqual(array_segments[p1].element_byte_size, 8)
 
-                v = '/global/my_global_array_of_C/b'
-                self.assertTrue(varmap.has_var(v))
-                self.assertEqual(varmap.get_enum(v), enumA)
-                self.assertTrue(varmap.has_array_segments(v))
-                array_segments = varmap.get_array_segments(v)
-                self.assertEqual(len(array_segments), 1)
-                p1 = "/global/my_global_array_of_C"
-                self.assertIn(p1, array_segments)
-                self.assertEqual(array_segments[p1].dims, (5, ))
-                self.assertEqual(array_segments[p1].element_byte_size, 8)
+                    v = '/global/my_global_array_of_C/b'
+                    self.assertTrue(varmap.has_var(v))
+                    self.assertEqual(varmap.get_enum(v), enumA)
+                    self.assertTrue(varmap.has_array_segments(v))
+                    array_segments = varmap.get_array_segments(v)
+                    self.assertEqual(len(array_segments), 1)
+                    p1 = "/global/my_global_array_of_C"
+                    self.assertIn(p1, array_segments)
+                    self.assertEqual(array_segments[p1].dims, (5, ))
+                    self.assertEqual(array_segments[p1].element_byte_size, 8)
 
-                # === my_static_C ===
-                v = '/static/main.cpp/main/my_static_C/a'
-                self.assertTrue(varmap.has_var(v))
-                self.assertIsNone(varmap.get_enum(v))
-                self.assertFalse(varmap.has_array_segments(v))
+                    # === my_static_C ===
+                    v = '/static/main.cpp/main/my_static_C/a'
+                    self.assertTrue(varmap.has_var(v))
+                    self.assertIsNone(varmap.get_enum(v))
+                    self.assertFalse(varmap.has_array_segments(v))
 
-                v = '/static/main.cpp/main/my_static_C/b'
-                self.assertTrue(varmap.has_var(v))
-                self.assertFalse(varmap.has_array_segments(v))
-                self.assertEqual(varmap.get_enum(v), enumA)
+                    v = '/static/main.cpp/main/my_static_C/b'
+                    self.assertTrue(varmap.has_var(v))
+                    self.assertFalse(varmap.has_array_segments(v))
+                    self.assertEqual(varmap.get_enum(v), enumA)
 
-                # === my_static_array_of_C ===
-                v = '/static/main.cpp/main/my_static_array_of_C/a'
-                self.assertTrue(varmap.has_var(v))
-                self.assertIsNone(varmap.get_enum(v))
-                self.assertTrue(varmap.has_array_segments(v))
-                array_segments = varmap.get_array_segments(v)
-                self.assertEqual(len(array_segments), 1)
-                p1 = "/static/main.cpp/main/my_static_array_of_C"
-                self.assertIn(p1, array_segments)
-                self.assertEqual(array_segments[p1].dims, (7, ))
-                self.assertEqual(array_segments[p1].element_byte_size, 8)
+                    # === my_static_array_of_C ===
+                    v = '/static/main.cpp/main/my_static_array_of_C/a'
+                    self.assertTrue(varmap.has_var(v))
+                    self.assertIsNone(varmap.get_enum(v))
+                    self.assertTrue(varmap.has_array_segments(v))
+                    array_segments = varmap.get_array_segments(v)
+                    self.assertEqual(len(array_segments), 1)
+                    p1 = "/static/main.cpp/main/my_static_array_of_C"
+                    self.assertIn(p1, array_segments)
+                    self.assertEqual(array_segments[p1].dims, (7, ))
+                    self.assertEqual(array_segments[p1].element_byte_size, 8)
 
-                v = '/static/main.cpp/main/my_static_array_of_C/b'
-                self.assertTrue(varmap.has_var(v))
-                self.assertEqual(varmap.get_enum(v), enumA)
-                self.assertTrue(varmap.has_array_segments(v))
-                array_segments = varmap.get_array_segments(v)
-                self.assertEqual(len(array_segments), 1)
-                p1 = "/static/main.cpp/main/my_static_array_of_C"
-                self.assertIn(p1, array_segments)
-                self.assertEqual(array_segments[p1].dims, (7, ))
-                self.assertEqual(array_segments[p1].element_byte_size, 8)
-# endregion
+                    v = '/static/main.cpp/main/my_static_array_of_C/b'
+                    self.assertTrue(varmap.has_var(v))
+                    self.assertEqual(varmap.get_enum(v), enumA)
+                    self.assertTrue(varmap.has_array_segments(v))
+                    array_segments = varmap.get_array_segments(v)
+                    self.assertEqual(len(array_segments), 1)
+                    p1 = "/static/main.cpp/main/my_static_array_of_C"
+                    self.assertIn(p1, array_segments)
+                    self.assertEqual(array_segments[p1].dims, (7, ))
+                    self.assertEqual(array_segments[p1].element_byte_size, 8)
+    # endregion
 
+
+    #region my_global_array_of_array345
+                    # Clang makes array of array in the dwarf structure instead of a single array with multiple subranges
+                    v = '/global/my_global_array_of_array345'
+                    self.assertTrue(varmap.has_var(v))
+                    self.assertIsNone(varmap.get_enum(v))
+                    self.assertTrue(varmap.has_array_segments(v))
+                    array_segments = varmap.get_array_segments(v)
+                    self.assertEqual(len(array_segments), 1)
+                    self.assertEqual(array_segments[v].dims, (3,4,5))
+                    self.assertEqual(array_segments[v].element_byte_size, 4)
+
+    #endregion
 
 if __name__ == '__main__':
     import unittest
