@@ -50,9 +50,10 @@ class SFDStorageManager:
     install_callbacks: List[InstallCallback]
     uninstall_callbacks: List[UninstallCallback]
     demo_device_sfd: DemoDeviceSFD
+    logger:logging.Logger
 
     @classmethod
-    def clean_firmware_id(self, firmwareid: str) -> str:
+    def clean_firmware_id(cls, firmwareid: str) -> str:
         """Normalize the firmware ID"""
         if not isinstance(firmwareid, str):
             raise ValueError('Firmware ID must be a string')
@@ -65,6 +66,7 @@ class SFDStorageManager:
         self.install_callbacks = []
         self.uninstall_callbacks = []
         self.demo_device_sfd = DemoDeviceSFD()
+        self.logger = logging.getLogger(self.__class__.__name__)
 
     def register_install_callback(self, callback: InstallCallback) -> None:
         self.install_callbacks.append(callback)
@@ -109,7 +111,7 @@ class SFDStorageManager:
         output_file = os.path.join(self.get_storage_dir(create=True), firmware_id_ascii)
 
         if os.path.isfile(output_file) and ignore_exist == False:
-            logging.warning('A Scrutiny Firmware Description file with the same firmware ID was already installed. Overwriting.')
+            self.logger.warning('A Scrutiny Firmware Description file with the same firmware ID was already installed. Overwriting.')
 
         sfd.write(output_file)  # Write the Firmware Description file in storage folder with firmware ID as name
 
