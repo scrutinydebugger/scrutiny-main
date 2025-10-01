@@ -1,3 +1,11 @@
+#    test_scrutiny_path.py
+#        A test suite for the ScrutinyPath class
+#
+#   - License : MIT - See LICENSE file.
+#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#   Copyright (c) 2025 Scrutiny Debugger
+
 from test import ScrutinyUnitTest
 from scrutiny.core.scrutiny_path import ScrutinyPath
 from scrutiny.core.variable import UntypedArray

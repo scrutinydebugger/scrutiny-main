@@ -1,3 +1,12 @@
+#    scrutiny_path.py
+#        A class that can manipulate and interpret a path refering to a watchable in the server
+#        and cli toolchains.
+#
+#   - License : MIT - See LICENSE file.
+#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#   Copyright (c) 2025 Scrutiny Debugger
+
 __all__ = ['ScrutinyPath']
 
 from dataclasses import dataclass
@@ -9,61 +18,84 @@ from scrutiny.core.variable import UntypedArray, Array
 
 @dataclass
 class ScrutinyPath:
+    """A class to manipulate and interpret paths used to refer to watchable elements across the project"""
     _complex_path_segment_regex = re.compile(r'(.+?)((\[\d+\])+)$')
-    __slots__ = ('segments', 'raw_segments', 'array_pos')
+    __slots__ = ('_segments', '_raw_segments', '_array_pos')
 
-    segments:List[str]
-    raw_segments: List[str]
-    array_pos: List[Optional[Tuple[int, ...]]]
+    _segments:List[str]
+    _raw_segments: List[str]
+    _array_pos: List[Optional[Tuple[int, ...]]]
 
     def __str__(self) -> str:
         return self.to_str()
     
     def to_str(self) -> str:
-        return self.join_segments(self.segments)
+        """Return the path as a string with the encoded location information, if any"""
+        return self.join_segments(self._segments)
 
     def to_raw_str(self) -> str:
-        return self.join_segments(self.raw_segments)
+        """Return the path as a string without the encoded location information"""
+        return self.join_segments(self._raw_segments)
 
     @staticmethod
     def make_segments(path: str) -> List[str]:
+        """Splits a path string into an list of string segments"""
         pieces = path.split('/')
         return [segment for segment in pieces if segment]
 
     @staticmethod
     def join_segments(segments: List[str]) -> str:
+        """Joins a list of string segments into a path string"""
         return '/' + '/'.join(segments)
     
     def get_segments(self) -> List[str]:
-        return self.segments.copy()
+        """Get all path segments"""
+        return self._segments.copy()
 
     def get_name_segment(self) -> str:
-        return self.segments[-1]
+        """Get only the last path segments, corresponding to its name"""
+        return self._segments[-1]
     
     def get_segments_without_name(self) -> List[str]:
-        return self.segments[:-1]
+        """Get all path segments except the last one (the name)"""
+        return self._segments[:-1]
 
     def get_raw_segments(self) -> List[str]:
-        return self.raw_segments.copy()
+        """Get all path segments, without encoded information"""
+        return self._raw_segments.copy()
 
     def get_raw_name_segment(self) -> str:
-        return self.raw_segments[-1]
+        """Get only the last path segments without encoded information, corresponding to its name"""
+        return self._raw_segments[-1]
     
     def get_raw_segments_without_name(self) -> List[str]:
-        return self.raw_segments[:-1]
+        """Get all path segments without encoded information except the last one (the name)"""
+        return self._raw_segments[:-1]
     
     def has_array_information(self) -> bool:
-        for v in self.array_pos:
+        """Tells if there is array information encoded in the path"""
+        for v in self._array_pos:
             if v is not None:
                 return True
         return False
 
     def get_path_to_array_pos_dict(self) -> Dict[str, Tuple[int, ...]]:
+        """Extract the array information from the path and return it in a format easier to work with. 
+        Returns a dict mapping the subpath to a position.
+        
+        /aaa[2]/bbb/ccc[3][4] 
+        becomes:
+        {
+            '/aaa':(2,), 
+            '/aaa/bbb/ccc':(3,4)
+        }
+        
+        """
         outdict: Dict[str, Tuple[int, ...]] = {}
-        for i in range(len(self.array_pos)):
-            pos = self.array_pos[i]
+        for i in range(len(self._array_pos)):
+            pos = self._array_pos[i]
             if pos is not None:
-                outdict[self.join_segments(self.raw_segments[:i + 1])] = pos
+                outdict[self.join_segments(self._raw_segments[:i + 1])] = pos
 
         return outdict
 
@@ -87,12 +119,14 @@ class ScrutinyPath:
                 array_pos.append(None)
 
         return cls(
-            segments = segments,
-            raw_segments=raw_segments,
-            array_pos=array_pos
+            _segments = segments,
+            _raw_segments=raw_segments,
+            _array_pos=array_pos
         )
 
     def compute_address_offset(self, array_segments_dict:Mapping[str, Array]) -> int:
+        """Tells by how many bytes an address should be shifted to find the referenced element
+        based of the information encoded in the path"""
         path2pos = self.get_path_to_array_pos_dict()
 
         if len(path2pos) != len(array_segments_dict):

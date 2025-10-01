@@ -891,6 +891,15 @@
         },
         "scrutiny/core/math_expr.py": {
             "docstring": "A math expression parser based of https://github.com/louisfisch/mathematical-expression-parser"
+        },
+        "test/core/test_scrutiny_path.py": {
+            "docstring": "A test suite for the ScrutinyPath class"
+        },
+        "scrutiny/server/datastore/datastore_template_var.py": {
+            "docstring": "A definition of a tempalte that can generate DatastoreVariableEntries from additional information encoded in a path"
+        },
+        "scrutiny/core/scrutiny_path.py": {
+            "docstring": "A class that can manipulate and interpret a path refering to a watchable in the server and cli toolchains."
         }
     }
 }

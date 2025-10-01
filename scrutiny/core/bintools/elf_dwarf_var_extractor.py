@@ -25,9 +25,10 @@ from inspect import currentframe
 from fnmatch import fnmatch
 
 from scrutiny.core.bintools.demangler import GccDemangler
-from scrutiny.core.varmap import VarMap, make_segments, join_segments
+from scrutiny.core.varmap import VarMap
 from scrutiny.core.basic_types import *
 from scrutiny.core.variable import *
+from scrutiny.core.scrutiny_path import ScrutinyPath
 from scrutiny.core.embedded_enum import *
 from scrutiny.exceptions import EnvionmentNotSetUpException
 from scrutiny import tools
@@ -141,7 +142,7 @@ class ArraySegments:
         self._storage = {}
 
     def add(self, segments: List[str], array: TypedArray) -> None:
-        path = join_segments(segments)
+        path = ScrutinyPath.join_segments(segments)
         if path in self._storage:
             raise KeyError(f"Duplicate array definition for {path}")
         self._storage[path] = array
@@ -756,7 +757,7 @@ class ElfDwarfVarExtractor:
 
     def _allowed_by_filters(self, path_segments: List[str], location: VariableLocation) -> bool:
         """Tells if we can register a variable to the varmap and log the reason for not allowing if applicable."""
-        fullname = join_segments(path_segments)
+        fullname = ScrutinyPath.join_segments(path_segments)
 
         allow = True
         for ignore_pattern in self._path_ignore_patterns:
@@ -788,9 +789,6 @@ class ElfDwarfVarExtractor:
         # definitions that are used by a variables, the rest will be ignored.
 
         self._log_debug_process_die(die)
-
-        if self.get_name(die) == 'file4classB':
-            pass
 
         if die.tag == Tags.DW_TAG_variable:
             self.die_process_variable(die)

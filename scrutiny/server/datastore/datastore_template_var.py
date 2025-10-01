@@ -1,3 +1,11 @@
+#    datastore_template_var.py
+#        A definition of a tempalte that can generate DatastoreVariableEntries from additional
+#        information encoded in a path
+#
+#   - License : MIT - See LICENSE file.
+#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#   Copyright (c) 2025 Scrutiny Debugger
 
 from scrutiny.server.datastore.datastore_entry import DatastoreVariableEntry
 from scrutiny.core.variable import *

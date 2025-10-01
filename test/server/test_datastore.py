@@ -448,6 +448,9 @@ class TestDataStore(ScrutinyUnitTest):
         self.assertEqual(alias_var_1_enum.get_enum().name, 'alias_var1_enum')
         self.assertEqual(alias_rpv_entry_enum.get_enum().name, 'alias_rpv_enum')
 
+    def test_entry_template(self):
+        ds = Datastore()
+        ds.register_var_template()
 
 if __name__ == '__main__':
     import unittest

@@ -12,18 +12,14 @@ __all__ = ['VarMap']
 
 import json
 import logging
-import re
 from pathlib import Path
-from dataclasses import dataclass
 
 from scrutiny.core.variable import Variable, VariableLocation, Array, UntypedArray
 from scrutiny.core.basic_types import EmbeddedDataType, Endianness
 from scrutiny.core.embedded_enum import EmbeddedEnum, EmbeddedEnumDef
+from scrutiny.core.scrutiny_path import ScrutinyPath
 from scrutiny.tools.typing import *
 from scrutiny.tools import validation
-
-_complex_path_segment_regex = re.compile(r'(.+?)((\[\d+\])+)$')
-
 
 class TypeEntry(TypedDict):
     name: str
@@ -33,56 +29,6 @@ class TypeEntry(TypedDict):
 class ArrayDef(TypedDict):
     dims: List[int]
     byte_size: int
-
-
-def make_segments(path: str) -> List[str]:
-    pieces = path.split('/')
-    return [segment for segment in pieces if segment]
-
-
-def join_segments(segments: List[str]) -> str:
-    return '/' + '/'.join(segments)
-
-
-@dataclass
-class ComplexPath:
-    __slots__ = ('raw_segments', 'array_pos')
-
-    raw_segments: List[str]
-    array_pos: List[Optional[Tuple[int, ...]]]
-
-    def get_path_to_array_pos_dict(self) -> Dict[str, Tuple[int, ...]]:
-        outdict: Dict[str, Tuple[int, ...]] = {}
-        for i in range(len(self.array_pos)):
-            pos = self.array_pos[i]
-            if pos is not None:
-                outdict[join_segments(self.raw_segments[:i + 1])] = pos
-
-        return outdict
-
-    @classmethod
-    def from_string(cls, path: str) -> Self:
-        """Parse a path with information encoded and extract it
-        ex: /aaa/bbb[2][3]/ccc = /aaa/bbb/ccc + {array: /aaa/bbb, (2,3)}"""
-        segments = make_segments(path)
-        raw_segments: List[str] = []
-        array_pos: List[Optional[Tuple[int, ...]]] = []
-        for i in range(len(segments)):
-            m = _complex_path_segment_regex.match(segments[i])
-            if m:
-                name_part = m.group(1)
-                raw_segments.append(name_part)
-                array_part = m.group(2)
-                pos = tuple([int(x) for x in re.findall(r'\d+', array_part)])
-                array_pos.append(pos)
-            else:
-                raw_segments.append(segments[i])
-                array_pos.append(None)
-
-        return cls(
-            raw_segments=raw_segments,
-            array_pos=array_pos
-        )
 
 
 class VariableEntry(TypedDict, total=False):
@@ -263,7 +209,7 @@ class VarMap:
                      enum: Optional[EmbeddedEnum] = None,
                      array_segments: Optional[Dict[str, Array]] = None
                      ) -> None:
-        fullname = join_segments(path_segments)
+        fullname = ScrutinyPath.join_segments(path_segments)
 
         if self._logger.isEnabledFor(logging.DEBUG):  # pragma: no cover
             self._logger.debug(f"Adding {fullname}")
@@ -371,7 +317,7 @@ class VarMap:
 
     def iterate_simple_vars(self) -> Generator[Tuple[str, Variable], None, None]:
         for fullname in self._content.variables:
-            segments = make_segments(fullname)
+            segments = ScrutinyPath.make_segments(fullname)
             vardef = self._get_var_def(fullname)
             # TODO: Hide arrays for now. We need a better varmap API to fill the datastore
             if len(vardef.get('array_segments', {})) == 0:
@@ -392,36 +338,23 @@ class VarMap:
         pass
 
     def get_var(self, path: str) -> Variable:
-        parsed = ComplexPath.from_string(path)
-        raw_path = join_segments(parsed.raw_segments)
+        parsed_path = ScrutinyPath.from_string(path)
+        raw_path = ScrutinyPath.join_segments(parsed_path.raw_segments)
         vardef = self._get_var_def(raw_path)
-        path2pos = parsed.get_path_to_array_pos_dict()
 
-        array_segments_def = {}
+        array_segments:Dict[str, Array] = {}
         if 'array_segments' in vardef:
-            array_segments_def = vardef['array_segments']
+            for segment_path, array_def in vardef['array_segments'].items():
+                array_segments[segment_path] = UntypedArray(
+                    dims=tuple(array_def['dims']),
+                    element_byte_size=array_def['byte_size'],
+                    element_type_name=''
+                )
 
-        if len(array_segments_def) != len(path2pos):
-            raise ValueError("The array identifiers does not match the variable definition")
-
-        path_by_length = sorted(list(array_segments_def.keys()), key=lambda x: len(x))
-        byte_offset = 0
-        for k in reversed(path_by_length):
-            if k not in path2pos:
-                raise ValueError("The array identifiers does not match the variable definition. Array not indexed")
-            pos = path2pos[k]
-            array = array_segments_def[k]
-            dims = tuple(array['dims'])
-            bytesize = array['byte_size']
-            try:
-                arr = UntypedArray(dims, '', bytesize)
-                byte_offset += arr.byte_position_of(pos)
-            except Exception as e:
-                raise ValueError(f'The array identifiers does not match the variable definition. {e}')
-
+        byte_offset = parsed_path.compute_address_offset(array_segments)
         new_address = self._get_addr(vardef) + byte_offset
 
-        segments = make_segments(path)
+        segments = ScrutinyPath.make_segments(path)
         return Variable(
             name=segments[-1],
             vartype=self._get_type(vardef),
