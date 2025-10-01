@@ -582,18 +582,18 @@ class TestClient(ScrutinyUnitTest):
     def fill_datastore(self):
         rpv1000 = datastore.DatastoreRPVEntry('/rpv/x1000', RuntimePublishedValue(0x1000, EmbeddedDataType.float32))
         var1 = datastore.DatastoreVariableEntry('/a/b/var1',
-                                                core_Variable('var1',
+                                                core_Variable(
                                                               vartype=EmbeddedDataType.uint32,
-                                                              path_segments=['a', 'b'],
+                                                              path_segments=['a', 'b', 'var1'],
                                                               location=0x1234,
                                                               endianness=Endianness.Little
                                                               )
                                                 )
 
         var2 = datastore.DatastoreVariableEntry('/a/b/var2',
-                                                core_Variable('var2',
+                                                core_Variable(
                                                               vartype=EmbeddedDataType.boolean,
-                                                              path_segments=['a', 'b'],
+                                                              path_segments=['a', 'b', 'var2'],
                                                               location=0x4568,
                                                               endianness=Endianness.Little,
                                                               )
@@ -605,9 +605,9 @@ class TestClient(ScrutinyUnitTest):
             'ccc': 3
         })
         var3 = datastore.DatastoreVariableEntry('/a/b/var3',
-                                                core_Variable('var3',
+                                                core_Variable(
                                                               vartype=EmbeddedDataType.uint8,
-                                                              path_segments=['a', 'b'],
+                                                              path_segments=['a', 'b', 'var3'],
                                                               location=0xAAAA,
                                                               endianness=Endianness.Little,
                                                               enum=var3_enum

@@ -24,9 +24,8 @@ class TestDataStore(ScrutinyUnitTest):
         self.target_update_callback_call_history = {}
 
     def make_dummy_entries(self, n: int, entry_type: WatchableType, prefix='path'):
-        dummy_var = Variable('dummy',
-                             vartype=EmbeddedDataType.float32,
-                             path_segments=['a', 'b', 'c'],
+        dummy_var = Variable(vartype=EmbeddedDataType.float32,
+                             path_segments=['a', 'b', 'c', 'dummy'],
                              location=0x12345678,
                              endianness=Endianness.Little
                              )
@@ -399,9 +398,8 @@ class TestDataStore(ScrutinyUnitTest):
         self.assertTargetUpdateCallbackCalled(alias_rpv_1_2, n=1)
 
     def test_enum_access(self):
-        var1 = Variable('var1',
-                        vartype=EmbeddedDataType.uint32,
-                        path_segments=['a', 'b', 'c'],
+        var1 = Variable(vartype=EmbeddedDataType.uint32,
+                        path_segments=['a', 'b', 'c', 'var1'],
                         location=0x12345678,
                         endianness=Endianness.Little,
                         enum=EmbeddedEnum('var1_enum', vals={'a': 1, 'b': 2, 'c': 3})

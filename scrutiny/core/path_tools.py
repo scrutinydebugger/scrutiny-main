@@ -6,6 +6,8 @@
 #
 #   Copyright (c) 2025 Scrutiny Debugger
 
+__all__ = ['make_segments', 'join_segments']
+
 from scrutiny.tools.typing import *
 
 

@@ -31,7 +31,7 @@ from scrutiny.tools.typing import *
 
 def make_dummy_var_entries(address, n, vartype=EmbeddedDataType.float32) -> Generator[DatastoreVariableEntry, None, None]:
     for i in range(n):
-        dummy_var = Variable('dummy', vartype=vartype, path_segments=['a', 'b', 'c'],
+        dummy_var = Variable(vartype=vartype, path_segments=['a', 'b', 'c', 'dummy'],
                              location=address + i * vartype.get_size_bit() // 8, endianness=Endianness.Little)
         entry = DatastoreVariableEntry('path_%d' % i, variable_def=dummy_var)
         yield entry
