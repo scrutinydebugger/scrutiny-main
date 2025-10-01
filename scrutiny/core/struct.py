@@ -1,3 +1,10 @@
+#    struct.py
+#        Definition of a struct, mainly used for parsing DWARF symbols
+#
+#   - License : MIT - See LICENSE file.
+#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#   Copyright (c) 2025 Scrutiny Debugger
 
 __all__ = ['Struct']
 
@@ -8,6 +15,7 @@ from scrutiny.tools.typing import *
 
 if TYPE_CHECKING:
     from scrutiny.core.array import TypedArray
+
 
 class Struct:
     class Member:

@@ -900,6 +900,15 @@
         },
         "scrutiny/core/scrutiny_path.py": {
             "docstring": "A class that can manipulate and interpret a path refering to a watchable in the server and cli toolchains."
+        },
+        "scrutiny/core/struct.py": {
+            "docstring": "Definition of a struct, mainly used for parsing DWARF symbols"
+        },
+        "scrutiny/core/path_tools.py": {
+            "docstring": "Tools for scrutiny path manipulation"
+        },
+        "scrutiny/core/array.py": {
+            "docstring": "Definition of arrays. Mostly used for parsing DWARF symbols and interpreting ScrutinyPath with arrays information encoded"
         }
     }
 }

@@ -1,3 +1,11 @@
+#    array.py
+#        Definition of arrays. Mostly used for parsing DWARF symbols and interpreting ScrutinyPath
+#        with arrays information encoded
+#
+#   - License : MIT - See LICENSE file.
+#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#   Copyright (c) 2025 Scrutiny Debugger
 
 __all__ = [
     'Array',
@@ -11,6 +19,7 @@ import abc
 from scrutiny.core.basic_types import EmbeddedDataType
 from scrutiny.tools.typing import *
 from scrutiny.core.struct import Struct
+
 
 class Array(abc.ABC):
     __slots__ = ('dims', 'element_type_name', '_multipliers')

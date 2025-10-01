@@ -15,10 +15,11 @@ from scrutiny.tools.typing import *
 from scrutiny.core.array import Array
 from scrutiny.core import path_tools
 
+
 @dataclass
 class ScrutinyPath:
     """A class to manipulate and interpret paths used to refer to watchable elements across the project"""
-    
+
     _complex_path_segment_regex = re.compile(r'(.+?)((\[\d+\])+)$')
     __slots__ = ('_segments', '_raw_segments', '_array_pos')
 

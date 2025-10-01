@@ -91,6 +91,7 @@ class VariableLocation:
     def __repr__(self) -> str:
         return '<%s - 0x%08X>' % (self.__class__.__name__, self.get_address())
 
+
 class Variable:
     """
     One of the most basic type of data (with RPV and Alias).

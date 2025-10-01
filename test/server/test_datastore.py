@@ -450,7 +450,7 @@ class TestDataStore(ScrutinyUnitTest):
 
     def test_entry_template(self):
         ds = Datastore()
-        #ds.register_var_template()
+        # ds.register_var_template()
 
 
 if __name__ == '__main__':
