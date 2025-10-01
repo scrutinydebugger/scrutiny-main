@@ -51,7 +51,7 @@ class DatastoreTemplateVar:
         self._array_nodes[path] = array
 
     def instantiate(self, path: ScrutinyPath) -> DatastoreVariableEntry:
-        byte_offset = path.get_address_offset(self._array_nodes)
+        byte_offset = path.compute_address_offset(self._array_nodes)
 
         var = Variable(
             name=path.get_name_segment(),

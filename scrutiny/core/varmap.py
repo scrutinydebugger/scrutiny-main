@@ -340,7 +340,7 @@ class VarMap:
 
     def get_var(self, path: str) -> Variable:
         parsed_path = ScrutinyPath.from_string(path)
-        raw_path = ScrutinyPath.join_segments(parsed_path.raw_segments)
+        raw_path = ScrutinyPath.join_segments(parsed_path.get_raw_segments())
         vardef = self._get_var_def(raw_path)
 
         array_segments: Dict[str, Array] = {}
