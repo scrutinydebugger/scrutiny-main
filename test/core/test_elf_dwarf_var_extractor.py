@@ -15,7 +15,6 @@ import sys
 
 from test import logger
 from test import ScrutinyUnitTest
-from test.artifacts import get_artifact
 from scrutiny.core.bintools.elf_dwarf_var_extractor import ElfDwarfVarExtractor
 
 from scrutiny.tools.typing import *

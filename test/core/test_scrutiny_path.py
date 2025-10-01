@@ -7,16 +7,17 @@
 #   Copyright (c) 2025 Scrutiny Debugger
 
 from test import ScrutinyUnitTest
+from scrutiny.core import path_tools
 from scrutiny.core.scrutiny_path import ScrutinyPath
-from scrutiny.core.variable import UntypedArray
+from scrutiny.core.array import UntypedArray
 
 
 class TestScrutinyPath(ScrutinyUnitTest):
     def test_segments_manipulation(self):
-        self.assertEqual(ScrutinyPath.join_segments(['aaa', 'bbb', 'ccc']), '/aaa/bbb/ccc')
-        self.assertEqual(ScrutinyPath.join_segments([]), '/')
-        self.assertEqual(ScrutinyPath.make_segments('/aaa/bbb/ccc'), ['aaa', 'bbb', 'ccc'])
-        self.assertEqual(ScrutinyPath.make_segments('/aaa/bbb///ccc//'), ['aaa', 'bbb', 'ccc'])
+        self.assertEqual(path_tools.join_segments(['aaa', 'bbb', 'ccc']), '/aaa/bbb/ccc')
+        self.assertEqual(path_tools.join_segments([]), '/')
+        self.assertEqual(path_tools.make_segments('/aaa/bbb/ccc'), ['aaa', 'bbb', 'ccc'])
+        self.assertEqual(path_tools.make_segments('/aaa/bbb///ccc//'), ['aaa', 'bbb', 'ccc'])
 
     def test_path_parsing(self):
         self.assertFalse(ScrutinyPath.from_string('/aaa/bbb/ccc').has_array_information())

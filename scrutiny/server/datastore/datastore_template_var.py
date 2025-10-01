@@ -9,6 +9,7 @@
 
 from scrutiny.server.datastore.datastore_entry import DatastoreVariableEntry
 from scrutiny.core.variable import *
+from scrutiny.core.array import *
 from scrutiny.core.basic_types import *
 from scrutiny.core.embedded_enum import EmbeddedEnum
 from scrutiny.core.scrutiny_path import *
@@ -54,9 +55,8 @@ class DatastoreTemplateVar:
         byte_offset = path.compute_address_offset(self._array_nodes)
 
         var = Variable(
-            name=path.get_name_segment(),
             vartype=self._vartype,
-            path_segments=path.get_segments_without_name(),
+            path_segments=path.get_segments(),
             location=self._base_address + byte_offset,
             endianness=self._endianness,
             bitsize=self._bitsize,

@@ -14,10 +14,12 @@ import json
 import logging
 from pathlib import Path
 
-from scrutiny.core.variable import Variable, VariableLocation, Array, UntypedArray
+from scrutiny.core.variable import Variable, VariableLocation
+from scrutiny.core.array import Array, UntypedArray
 from scrutiny.core.basic_types import EmbeddedDataType, Endianness
 from scrutiny.core.embedded_enum import EmbeddedEnum, EmbeddedEnumDef
 from scrutiny.core.scrutiny_path import ScrutinyPath
+from scrutiny.core import path_tools
 from scrutiny.tools.typing import *
 from scrutiny.tools import validation
 
@@ -210,7 +212,7 @@ class VarMap:
                      enum: Optional[EmbeddedEnum] = None,
                      array_segments: Optional[Dict[str, Array]] = None
                      ) -> None:
-        fullname = ScrutinyPath.join_segments(path_segments)
+        fullname = path_tools.join_segments(path_segments)
 
         if self._logger.isEnabledFor(logging.DEBUG):  # pragma: no cover
             self._logger.debug(f"Adding {fullname}")
@@ -318,14 +320,13 @@ class VarMap:
 
     def iterate_simple_vars(self) -> Generator[Tuple[str, Variable], None, None]:
         for fullname in self._content.variables:
-            segments = ScrutinyPath.make_segments(fullname)
+            parsed_path = ScrutinyPath.from_string(fullname)
             vardef = self._get_var_def(fullname)
             # TODO: Hide arrays for now. We need a better varmap API to fill the datastore
             if len(vardef.get('array_segments', {})) == 0:
                 v = Variable(
-                    name=segments[-1],
                     vartype=self._get_type(vardef),
-                    path_segments=segments[:-1],
+                    path_segments=parsed_path.get_segments(),
                     location=self._get_addr(vardef),
                     endianness=self.get_endianness(),
                     bitsize=self._get_bitsize(vardef),
@@ -340,7 +341,7 @@ class VarMap:
 
     def get_var(self, path: str) -> Variable:
         parsed_path = ScrutinyPath.from_string(path)
-        raw_path = ScrutinyPath.join_segments(parsed_path.get_raw_segments())
+        raw_path = parsed_path.to_raw_str()
         vardef = self._get_var_def(raw_path)
 
         array_segments: Dict[str, Array] = {}
@@ -355,11 +356,9 @@ class VarMap:
         byte_offset = parsed_path.compute_address_offset(array_segments)
         new_address = self._get_addr(vardef) + byte_offset
 
-        segments = ScrutinyPath.make_segments(path)
         return Variable(
-            name=segments[-1],
             vartype=self._get_type(vardef),
-            path_segments=segments[:-1],
+            path_segments=parsed_path.get_segments(),
             location=new_address,
             endianness=self.get_endianness(),
             bitsize=self._get_bitsize(vardef),

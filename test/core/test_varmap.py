@@ -14,7 +14,8 @@ import json
 from test import ScrutinyUnitTest
 from scrutiny.core.varmap import VarMap
 from scrutiny.core.basic_types import Endianness, EmbeddedDataType
-from scrutiny.core.variable import VariableLocation, UntypedArray
+from scrutiny.core.variable import VariableLocation
+from scrutiny.core.array import UntypedArray
 from scrutiny.core.embedded_enum import EmbeddedEnum
 
 

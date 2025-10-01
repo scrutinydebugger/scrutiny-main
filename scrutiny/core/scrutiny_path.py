@@ -12,12 +12,13 @@ __all__ = ['ScrutinyPath']
 from dataclasses import dataclass
 import re
 from scrutiny.tools.typing import *
-from scrutiny.core.variable import UntypedArray, Array
-
+from scrutiny.core.array import Array
+from scrutiny.core import path_tools
 
 @dataclass
 class ScrutinyPath:
     """A class to manipulate and interpret paths used to refer to watchable elements across the project"""
+    
     _complex_path_segment_regex = re.compile(r'(.+?)((\[\d+\])+)$')
     __slots__ = ('_segments', '_raw_segments', '_array_pos')
 
@@ -30,22 +31,11 @@ class ScrutinyPath:
 
     def to_str(self) -> str:
         """Return the path as a string with the encoded location information, if any"""
-        return self.join_segments(self._segments)
+        return path_tools.join_segments(self._segments)
 
     def to_raw_str(self) -> str:
         """Return the path as a string without the encoded location information"""
-        return self.join_segments(self._raw_segments)
-
-    @staticmethod
-    def make_segments(path: str) -> List[str]:
-        """Splits a path string into an list of string segments"""
-        pieces = path.split('/')
-        return [segment for segment in pieces if segment]
-
-    @staticmethod
-    def join_segments(segments: List[str]) -> str:
-        """Joins a list of string segments into a path string"""
-        return '/' + '/'.join(segments)
+        return path_tools.join_segments(self._raw_segments)
 
     def get_segments(self) -> List[str]:
         """Get all path segments"""
@@ -94,7 +84,7 @@ class ScrutinyPath:
         for i in range(len(self._array_pos)):
             pos = self._array_pos[i]
             if pos is not None:
-                outdict[self.join_segments(self._raw_segments[:i + 1])] = pos
+                outdict[path_tools.join_segments(self._raw_segments[:i + 1])] = pos
 
         return outdict
 
@@ -102,7 +92,7 @@ class ScrutinyPath:
     def from_string(cls, path: str) -> Self:
         """Parse a path with information encoded and extract it
         ex: /aaa/bbb[2][3]/ccc = /aaa/bbb/ccc + {array: /aaa/bbb, (2,3)}"""
-        segments = cls.make_segments(path)
+        segments = path_tools.make_segments(path)
         raw_segments: List[str] = []
         array_pos: List[Optional[Tuple[int, ...]]] = []
         for i in range(len(segments)):
