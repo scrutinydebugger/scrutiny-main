@@ -372,7 +372,7 @@ class ElfDwarfVarExtractor:
 
         self.initial_stack_depth = len(inspect.stack())
         self._parse_errors = self.ParseErrors()
-        
+
         if filename is not None:
             self._load_from_elf_file(filename)
 
@@ -1004,7 +1004,7 @@ class ElfDwarfVarExtractor:
             if struct.byte_size is None:
                 raise ElfParsingError(f"Array of elements of unknown size: {die}")
             array_element_type = struct
-            element_type_name=self.get_name_no_none(element_type.type_die)
+            element_type_name = self.get_name_no_none(element_type.type_die)
 
         elif element_type.type == TypeOfVar.BaseType:
             self.die_process_base_type(element_type.type_die)
@@ -1022,7 +1022,8 @@ class ElfDwarfVarExtractor:
             element_type_name = subarray.element_type_name
             array_element_type = subarray.datatype
         else:
-            self.logger.warning(f"Line {get_linenumber()}: Array of element of type {element_type.type.name} not supported. Skipping")  # This can happen
+            # This can happen
+            self.logger.warning(f"Line {get_linenumber()}: Array of element of type {element_type.type.name} not supported. Skipping")
             return None
 
         return TypedArray(

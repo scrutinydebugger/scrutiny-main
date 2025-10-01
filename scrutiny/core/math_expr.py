@@ -16,15 +16,17 @@ _CONSTANTS: Dict[str, float] = {
     'pi': math.pi
 }
 
-def _round(val:float, digit:Optional[float] = None) -> float:
+
+def _round(val: float, digit: Optional[float] = None) -> float:
     if digit is None:
         return round(val)
-    
+
     digit_int = int(digit)
     decimal_part = abs(float(digit_int) - digit)
     if decimal_part > 1e-10:
         raise ValueError("digit must be an integer")
     return round(val, digit_int)
+
 
 _FUNCTIONS: Dict[str, Callable[..., float]] = {
     'abs': math.fabs,

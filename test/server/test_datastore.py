@@ -452,6 +452,7 @@ class TestDataStore(ScrutinyUnitTest):
         ds = Datastore()
         ds.register_var_template()
 
+
 if __name__ == '__main__':
     import unittest
     unittest.main()

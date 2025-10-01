@@ -90,11 +90,11 @@ class TestElf2VarMapFromBuilds(ScrutinyUnitTest):
             outbin = os.path.join(d, 'out.bin')
             with open(main_cpp, 'wb') as f:
                 f.write(code.encode('utf8'))
-            
+
             try:
-                subprocess.check_call([compiler, '--help'],stdout=subprocess.DEVNULL)
+                subprocess.check_call([compiler, '--help'], stdout=subprocess.DEVNULL)
             except Exception:
-                raise unittest.SkipTest(f"{compiler} is not installed.") 
+                raise unittest.SkipTest(f"{compiler} is not installed.")
 
             p = subprocess.Popen([compiler, '-no-pie', f'-gdwarf-{dwarf_version}', main_cpp,
                                  '-o', outbin], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -168,7 +168,7 @@ int main(int argc, char* argv[])
 """
 
         for compiler in ['g++', 'clang++']:
-            for dwarf_version in [2,3,4]:
+            for dwarf_version in [2, 3, 4]:
                 with self.subTest(f"{compiler}-dwarf{dwarf_version}"):
                     varmap = self._make_varmap(code, dwarf_version=dwarf_version, compiler=compiler, cppfilt='c++filt')
 
@@ -521,8 +521,7 @@ int main(int argc, char* argv[])
                     self.assertEqual(array_segments[p1].element_byte_size, 8)
     # endregion
 
-
-    #region my_global_array_of_array345
+    # region my_global_array_of_array345
                     # Clang makes array of array in the dwarf structure instead of a single array with multiple subranges
                     v = '/global/my_global_array_of_array345'
                     self.assertTrue(varmap.has_var(v))
@@ -530,10 +529,11 @@ int main(int argc, char* argv[])
                     self.assertTrue(varmap.has_array_segments(v))
                     array_segments = varmap.get_array_segments(v)
                     self.assertEqual(len(array_segments), 1)
-                    self.assertEqual(array_segments[v].dims, (3,4,5))
+                    self.assertEqual(array_segments[v].dims, (3, 4, 5))
                     self.assertEqual(array_segments[v].element_byte_size, 4)
 
-    #endregion
+    # endregion
+
 
 if __name__ == '__main__':
     import unittest

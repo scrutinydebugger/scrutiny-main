@@ -21,6 +21,7 @@ from scrutiny.core.scrutiny_path import ScrutinyPath
 from scrutiny.tools.typing import *
 from scrutiny.tools import validation
 
+
 class TypeEntry(TypedDict):
     name: str
     type: str
@@ -342,7 +343,7 @@ class VarMap:
         raw_path = ScrutinyPath.join_segments(parsed_path.raw_segments)
         vardef = self._get_var_def(raw_path)
 
-        array_segments:Dict[str, Array] = {}
+        array_segments: Dict[str, Array] = {}
         if 'array_segments' in vardef:
             for segment_path, array_def in vardef['array_segments'].items():
                 array_segments[segment_path] = UntypedArray(
