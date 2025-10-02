@@ -188,8 +188,8 @@ class TestVarmap(ScrutinyUnitTest):
         self.assertEqual(varmap.get_endianness(), Endianness.Big)
         varmap.register_base_type('float', EmbeddedDataType.float32)
         varmap.add_variable(['aaa', 'bbb', 'ccc', 'ddd'], VariableLocation(0x1234), original_type_name='float', array_segments={
-            '/aaa/bbb': UntypedArray((3, 3), 'asd', 4),
-            '/aaa/bbb/ccc/ddd': UntypedArray((5, 6, 7), 'xxx', 4)
+            '/aaa/bbb': UntypedArray((3, 3),  4),
+            '/aaa/bbb/ccc/ddd': UntypedArray((5, 6, 7), 4)
         })
 
         varmap.get_var('/aaa/bbb[1][2]/ccc/ddd[2][3][4]')

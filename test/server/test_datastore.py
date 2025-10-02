@@ -8,9 +8,12 @@
 
 from scrutiny.server.datastore.datastore import Datastore
 from scrutiny.server.datastore.datastore_entry import *
+from scrutiny.server.datastore.datastore_template_var import DatastoreTemplateVar
 from scrutiny.core.alias import Alias
 from scrutiny.core.variable import *
+from scrutiny.core.array import UntypedArray
 from scrutiny.core.embedded_enum import EmbeddedEnum
+from scrutiny.core.scrutiny_path import ScrutinyPath
 from scrutiny.core.basic_types import *
 from test import ScrutinyUnitTest
 from scrutiny.tools.typing import *
@@ -447,9 +450,23 @@ class TestDataStore(ScrutinyUnitTest):
         self.assertEqual(alias_rpv_entry_enum.get_enum().name, 'alias_rpv_enum')
 
     def test_entry_template(self):
-        ds = Datastore()
-        # ds.register_var_template()
+        template = DatastoreTemplateVar(
+            access_name="/aaa/bbb/ccc/ddd",
+            vartype=EmbeddedDataType.float32,
+            base_address=1000,
+            endianness=Endianness.Little,
+            bitoffset=None,
+            bitsize=None,
+            enum=None
+        )
 
+        template.add_array_node('/aaa/bbb', UntypedArray((2,3), 100))
+        template.add_array_node('/aaa/bbb/ccc/ddd', UntypedArray((4,5), 4))
+
+        entry = template.instantiate(ScrutinyPath.from_string('/aaa/bbb[1][0]/ccc/ddd[2][3]'))
+        self.assertEqual(entry.get_address(), 1000 + (1*3+0)*100+(2*5+3)*4)
+        self.assertEqual(entry.get_display_path(), "/aaa/bbb[1][0]/ccc/ddd[2][3]")
+        self.assertEqual(entry.get_data_type(), EmbeddedDataType.float32)
 
 if __name__ == '__main__':
     import unittest

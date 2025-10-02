@@ -1030,8 +1030,8 @@ class ElfDwarfVarExtractor:
 
         return TypedArray(
             dims=tuple(dims),
-            element_type_name=element_type_name,
-            datatype=array_element_type
+            datatype=array_element_type,
+            element_type_name=element_type_name
         )
 
     def has_member_byte_offset(self, die: DIE) -> bool:

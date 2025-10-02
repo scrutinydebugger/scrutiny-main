@@ -76,7 +76,7 @@ class UntypedArray(Array):
 
     element_byte_size: int
 
-    def __init__(self, dims: Tuple[int, ...], element_type_name: str, element_byte_size: int) -> None:
+    def __init__(self, dims: Tuple[int, ...], element_byte_size: int, element_type_name: str="") -> None:
         super().__init__(dims, element_type_name)
         self.element_byte_size = element_byte_size
 
@@ -91,7 +91,7 @@ class TypedArray(Array):
 
     datatype: Union["Struct", EmbeddedDataType]
 
-    def __init__(self, dims: Tuple[int, ...], element_type_name: str, datatype: Union["Struct", EmbeddedDataType]) -> None:
+    def __init__(self, dims: Tuple[int, ...], datatype: Union["Struct", EmbeddedDataType], element_type_name: str="") -> None:
         super().__init__(dims, element_type_name)
         self.datatype = datatype
 
@@ -108,6 +108,6 @@ class TypedArray(Array):
     def to_untyped_array(self) -> UntypedArray:
         return UntypedArray(
             self.dims,
-            self.element_type_name,
-            element_byte_size=self.get_element_byte_size()
+            element_byte_size=self.get_element_byte_size(),
+            element_type_name=self.element_type_name,
         )

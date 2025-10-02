@@ -43,8 +43,8 @@ class TestScrutinyPath(ScrutinyUnitTest):
     def test_array_position_extension(self):
         path = ScrutinyPath.from_string('/aaa[3][4]/bbb/ccc[2]')
         d = {
-            '/aaa': UntypedArray((10, 20), '', 100),
-            '/aaa/bbb/ccc': UntypedArray((5,), '', 8)
+            '/aaa': UntypedArray((10, 20), 100),
+            '/aaa/bbb/ccc': UntypedArray((5,), 8)
         }
 
         offset = path.compute_address_offset(d)
@@ -55,22 +55,22 @@ class TestScrutinyPath(ScrutinyUnitTest):
         path = ScrutinyPath.from_string('/aaa[3][4]/bbb/ccc[2]')
 
         d = {
-            '/aaa': UntypedArray((10, 20), '', 100),
-            '/aaa/bbb/cc': UntypedArray((5,), '', 8)
+            '/aaa': UntypedArray((10, 20), 100),
+            '/aaa/bbb/cc': UntypedArray((5,), 8)
         }
         with self.assertRaises(Exception):
             path.compute_address_offset(d)
 
         d = {
-            '/aaa': UntypedArray((2, 20), '', 100),
-            '/aaa/bbb/ccc': UntypedArray((5,), '', 8)
+            '/aaa': UntypedArray((2, 20), 100),
+            '/aaa/bbb/ccc': UntypedArray((5,), 8)
         }
         with self.assertRaises(Exception):
             path.compute_address_offset(d)
 
         d = {
-            '/aaa': UntypedArray((2, 20), '', 100),
-            '/aaa/bbb': UntypedArray((5,), '', 8)
+            '/aaa': UntypedArray((2, 20), 100),
+            '/aaa/bbb': UntypedArray((5,), 8)
         }
         with self.assertRaises(Exception):
             path.compute_address_offset(d)

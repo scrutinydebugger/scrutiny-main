@@ -7,6 +7,8 @@
 #
 #   Copyright (c) 2025 Scrutiny Debugger
 
+__all__ = ['DatastoreTemplateVar']
+
 from scrutiny.server.datastore.datastore_entry import DatastoreVariableEntry
 from scrutiny.core.variable import *
 from scrutiny.core.array import *
@@ -45,6 +47,9 @@ class DatastoreTemplateVar:
         self._bitoffset = bitoffset
         self._bitsize = bitsize
         self._enum = enum
+
+    def get_access_name(self) -> str:
+        return self._access_name
 
     def add_array_node(self, path: str, array: UntypedArray) -> None:
         if path in self._array_nodes:

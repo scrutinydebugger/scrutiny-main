@@ -254,7 +254,7 @@ class TestVariables(ScrutinyUnitTest):
                      endianness=Endianness.Big, bitoffset=combination[1], bitsize=combination[2])
 
     def test_array(self):
-        arr = UntypedArray((2, 3, 4), 'float', 4)
+        arr = UntypedArray((2, 3, 4), 4)
         self.assertEqual(arr.get_element_count(), 24)
         self.assertEqual(arr.get_total_byte_size(), 96)
         self.assertEqual(arr.position_of((1, 2, 2)), 22)
@@ -275,7 +275,7 @@ class TestVariables(ScrutinyUnitTest):
 
         for dims in [(0, 2, 3), (-1, 2, 3)]:
             with self.assertRaises(Exception, msg=f'{dims}'):
-                UntypedArray(dims, 'asd', 3)
+                UntypedArray(dims, 3)
 
 
 if __name__ == '__main__':
