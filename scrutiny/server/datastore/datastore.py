@@ -13,6 +13,7 @@ __all__ = ['Datastore']
 import logging
 import functools
 from scrutiny.core.basic_types import WatchableType
+from scrutiny.core.scrutiny_path import ScrutinyPath
 from scrutiny.server.datastore.datastore_entry import *
 from scrutiny.server.datastore.datastore_template_var import DatastoreTemplateVar
 from scrutiny import tools
@@ -35,32 +36,33 @@ class Datastore:
     It's the same as having 3 datastore, one for each type.
     """
 
-    logger: logging.Logger
-    entries: Dict[WatchableType, Dict[str, DatastoreEntry]]
-    displaypath2idmap: Dict[WatchableType, Dict[str, str]]
-    watcher_map: Dict[WatchableType, Dict[str, Set[str]]]
-    global_watch_callbacks: List[WatchCallback]
-    global_unwatch_callbacks: List[WatchCallback]
-    target_update_request_queue: "List[UpdateTargetRequest]"
-    var_entry_templates:Dict[WatchableType, Dict[str, DatastoreTemplateVar]]
+    _logger: logging.Logger
+    _entries: Dict[WatchableType, Dict[str, DatastoreEntry]]
+    _displaypath2idmap: Dict[WatchableType, Dict[str, str]]
+    _watcher_map: Dict[WatchableType, Dict[str, Set[str]]]
+    _global_watch_callbacks: List[WatchCallback]
+    _global_unwatch_callbacks: List[WatchCallback]
+    _target_update_request_queue: "List[UpdateTargetRequest]"
+    _var_entry_templates: Dict[str, DatastoreTemplateVar]
+    _display_path_to_templated_entries_map:Dict[str, DatastoreEntry]
 
     MAX_ENTRY: int = 1000000
 
     def __init__(self) -> None:
-        self.logger = logging.getLogger(self.__class__.__name__)
-        self.global_watch_callbacks = []    # When somebody starts watching an entry,m these callbacks are called
-        self.global_unwatch_callbacks = []  # When somebody stops watching an entry, these callbacks are called
+        self._logger = logging.getLogger(self.__class__.__name__)
+        self._global_watch_callbacks = []    # When somebody starts watching an entry,m these callbacks are called
+        self._global_unwatch_callbacks = []  # When somebody stops watching an entry, these callbacks are called
 
-        self.entries = {}
-        self.watcher_map = {}
-        self.displaypath2idmap = {}
-        self.var_entry_templates = {}
-        self.target_update_request_queue = []
+        self._entries = {}
+        self._watcher_map = {}
+        self._displaypath2idmap = {}
+        self._var_entry_templates = {}
+        self._display_path_to_templated_entries_map = {}
+        self._target_update_request_queue = []
         for watchable_type in WatchableType.all():
-            self.entries[watchable_type] = {}
-            self.watcher_map[watchable_type] = {}
-            self.displaypath2idmap[watchable_type] = {}
-            self.var_entry_templates[watchable_type] = {}
+            self._entries[watchable_type] = {}
+            self._watcher_map[watchable_type] = {}
+            self._displaypath2idmap[watchable_type] = {}
 
     def clear(self, watchable_type: Optional[WatchableType] = None) -> None:
         """ Deletes all entries of a given type. All types if None"""
@@ -70,10 +72,12 @@ class Datastore:
             type_to_clear_list = [watchable_type]
 
         for type_to_clear in type_to_clear_list:
-            self.entries[type_to_clear] = {}
-            self.watcher_map[type_to_clear] = {}
-            self.displaypath2idmap[type_to_clear] = {}
-            self.var_entry_templates[type_to_clear] = {}
+            self._entries[type_to_clear] = {}
+            self._watcher_map[type_to_clear] = {}
+            self._displaypath2idmap[type_to_clear] = {}
+
+        self._display_path_to_templated_entries_map.clear()
+        self._var_entry_templates.clear()
 
     def add_entries_quiet(self, entries: List[DatastoreEntry]) -> None:
         """ Add many entries without raising exceptions. Silently remove failing ones"""
@@ -85,7 +89,7 @@ class Datastore:
         try:
             self.add_entry(entry)
         except Exception as e:
-            self.logger.debug(str(e))
+            self._logger.debug(str(e))
 
     def add_entries(self, entries: List[DatastoreEntry]) -> None:
         """ Add multiple entries to the datastore"""
@@ -96,7 +100,7 @@ class Datastore:
         """ Add a single entry to the datastore."""
         entry_id = entry.get_id()
         for watchable_type in WatchableType.all():
-            if entry_id in self.entries[watchable_type]:
+            if entry_id in self._entries[watchable_type]:
                 raise ValueError('Duplicate datastore entry')
 
         if self.get_entries_count() >= self.MAX_ENTRY:
@@ -104,43 +108,68 @@ class Datastore:
 
         if isinstance(entry, DatastoreAliasEntry):
             resolved_entry = entry.resolve()
-            if resolved_entry.get_id() not in self.entries[resolved_entry.get_type()]:
+            if resolved_entry.get_id() not in self._entries[resolved_entry.get_type()]:
                 raise KeyError('Alias ID %s (%s) refer to entry ID %s (%s) that is not in the datastore' %
                                (entry.get_id(), entry.get_display_path(), resolved_entry.get_id(), resolved_entry.get_display_path()))
 
-        self.entries[entry.get_type()][entry.get_id()] = entry
-        self.displaypath2idmap[entry.get_type()][entry.get_display_path()] = entry.get_id()
+        self._entries[entry.get_type()][entry.get_id()] = entry
+        self._displaypath2idmap[entry.get_type()][entry.get_display_path()] = entry.get_id()
+
+    def remove_entry(self, entry_or_entryid:Union[DatastoreEntry, str]) -> None:
+        for watcher in self.get_watchers(entry_or_entryid):
+            self.stop_watching(entry_or_entryid, watcher)
+
+        entry_id = self._get_entry_id(entry_or_entryid)
+        entry = self.get_entry(entry_id)
+        
+        with tools.SuppressException(KeyError):
+            del self._display_path_to_templated_entries_map[entry.display_path]
+
+        for watchable_type in WatchableType.all():
+            if entry_id in self._entries[watchable_type]:
+                del self._entries[watchable_type][entry_id]
 
     def get_entry(self, entry_id: str) -> DatastoreEntry:
         """ Fetch a datastore entry by its ID"""
         for watchable_type in WatchableType.all():
-            if entry_id in self.entries[watchable_type]:
-                return self.entries[watchable_type][entry_id]
+            if entry_id in self._entries[watchable_type]:
+                return self._entries[watchable_type][entry_id]
         raise KeyError('Entry with ID %s not found in datastore' % entry_id)
 
     def get_entry_by_display_path(self, display_path: str) -> DatastoreEntry:
         """ Find an entry by its display path, which is supposed to be unique"""
+        parsed_path = ScrutinyPath.from_string(display_path)
+        
+        display_path = parsed_path.to_str()
         for watchable_type in WatchableType.all():
-            display_path = DatastoreEntry.clean_display_path(display_path)
-            if display_path in self.displaypath2idmap[watchable_type]:
-                entry_id = self.displaypath2idmap[watchable_type][display_path]
-                if entry_id in self.entries[watchable_type]:
-                    return self.entries[watchable_type][entry_id]
+            if display_path in self._displaypath2idmap[watchable_type]:
+                entry_id = self._displaypath2idmap[watchable_type][display_path]
+                if entry_id in self._entries[watchable_type]:
+                    return self._entries[watchable_type][entry_id]
+        
+
+        if parsed_path.has_encoded_information():
+            template_path = parsed_path.to_raw_str()
+            if template_path in self._var_entry_templates:
+                template = self._var_entry_templates[template_path]
+                new_entry = template.instantiate(parsed_path)
+                self._display_path_to_templated_entries_map[display_path] = new_entry
+                self.add_entry(new_entry)
+                return new_entry
 
         raise KeyError('Entry with display path %s not found in datastore' % display_path)
 
     def add_watch_callback(self, callback: WatchCallback) -> None:
         """ Mainly used to notify device handler that a new variable is to be polled"""
-        self.global_watch_callbacks.append(callback)
+        self._global_watch_callbacks.append(callback)
 
     def add_unwatch_callback(self, callback: WatchCallback) -> None:
-        self.global_unwatch_callbacks.append(callback)
+        self._global_unwatch_callbacks.append(callback)
 
     def start_watching(self,
-                       entry_id: Union[DatastoreEntry, str],
+                       entry_or_entryid: Union[DatastoreEntry, str],
                        watcher: str,
-                       value_change_callback: Optional[UserValueChangeCallback] = None,
-                       target_update_callback: Optional[UpdateTargetRequestCallback] = None
+                       value_change_callback: Optional[UserValueChangeCallback] = None
                        ) -> None:
         """ 
         Register a new callback on the entry identified by the given entry_id.
@@ -148,66 +177,79 @@ class Datastore:
         We ensure to call the callback for each watcher.
         """
 
-        entry_id = self.interpret_entry_id(entry_id)
+        entry_id = self._get_entry_id(entry_or_entryid)
         entry = self.get_entry(entry_id)
 
-        if entry_id not in self.watcher_map[entry.get_type()]:
-            self.watcher_map[entry.get_type()][entry.get_id()] = set()
-        self.watcher_map[entry.get_type()][entry_id].add(watcher)
+        if entry_id not in self._watcher_map[entry.get_type()]:
+            self._watcher_map[entry.get_type()][entry.get_id()] = set()
+        self._watcher_map[entry.get_type()][entry_id].add(watcher)
 
         if not entry.has_value_change_callback(watcher):
             if value_change_callback is not None:
                 entry.register_value_change_callback(owner=watcher, callback=value_change_callback)
 
         # Mainly used to notify device handler that a new variable is to be polled
-        for callback in self.global_watch_callbacks:
+        for callback in self._global_watch_callbacks:
             callback(entry_id)
 
         if isinstance(entry, DatastoreAliasEntry):
             # Alias are tricky. When we subscribe to them, another hidden subscription to the referenced entry is made here
-            alias_value_change_callback = functools.partial(self.alias_value_change_callback, watching_entry=entry)
+            alias_value_change_callback = functools.partial(self._alias_value_change_callback, watching_entry=entry)
             self.start_watching(
-                entry_id=entry.resolve(),
-                watcher=self.make_owner_from_alias_entry(entry),
+                entry_or_entryid=entry.resolve(),
+                watcher=self._make_owner_from_alias_entry(entry),
                 value_change_callback=alias_value_change_callback
             )
 
-    def is_watching(self, entry: Union[DatastoreEntry, str], watcher: str) -> bool:
+    def is_watching(self, entry_or_entryid: Union[DatastoreEntry, str], watcher: str) -> bool:
         """ Tell if the given watcher is actually watching an entry"""
-        entry_id = self.interpret_entry_id(entry)
+        entry_id = self._get_entry_id(entry_or_entryid)
         entry = self.get_entry(entry_id)
-        if entry_id not in self.watcher_map[entry.get_type()]:
+        if entry_id not in self._watcher_map[entry.get_type()]:
             return False
-        return watcher in self.watcher_map[entry.get_type()][entry_id]
+        return watcher in self._watcher_map[entry.get_type()][entry_id]
 
-    def get_watchers(self, entry: Union[DatastoreEntry, str]) -> List[str]:
+    def get_watchers(self, entry_or_entryid: Union[DatastoreEntry, str]) -> List[str]:
         """ Get the list of watchers on a given entry"""
-        entry_id = self.interpret_entry_id(entry)
+        entry_id = self._get_entry_id(entry_or_entryid)
         entry = self.get_entry(entry_id)
-        if entry_id not in self.watcher_map[entry.get_type()]:
+        if entry_id not in self._watcher_map[entry.get_type()]:
             return []
-        return list(self.watcher_map[entry.get_type()][entry_id])
+        return list(self._watcher_map[entry.get_type()][entry_id])
+    
+    def has_watchers(self, entry_or_entryid: Union[DatastoreEntry, str]) -> bool:
+        """Tells if the entry has at least one watcher"""
+        if isinstance(entry_or_entryid, str):
+            entry = self.get_entry(entry_or_entryid)
+        else:
+            entry = entry_or_entryid
+        
+        entry_id = entry.get_id()
+        if  entry_id not in self._watcher_map[entry.get_type()]:
+            return False
+        
+        return len(self._watcher_map[entry.get_type()][entry_id]) > 0
 
-    def stop_watching(self, entry_id: Union[DatastoreEntry, str], watcher: str) -> None:
+    def stop_watching(self, entry_or_entryid: Union[DatastoreEntry, str], watcher: str) -> None:
         """ Remove the callback for a given watcher on a given entry"""
-        entry_id = self.interpret_entry_id(entry_id)
+        entry_id = self._get_entry_id(entry_or_entryid)
         entry = self.get_entry(entry_id)
 
         with tools.SuppressException():
-            self.watcher_map[entry.get_type()][entry_id].remove(watcher)
+            self._watcher_map[entry.get_type()][entry_id].remove(watcher)
 
         with tools.SuppressException():
-            if len(self.watcher_map[entry.get_type()][entry_id]) == 0:
-                del self.watcher_map[entry.get_type()][entry_id]
+            if len(self._watcher_map[entry.get_type()][entry_id]) == 0:
+                del self._watcher_map[entry.get_type()][entry_id]
 
                 if isinstance(entry, DatastoreAliasEntry):
                     # Special handling for Aliases.
                     # If nobody watches this alias, then we can remove the internal subscription to the referenced entry
-                    self.stop_watching(entry.resolve(), self.make_owner_from_alias_entry(entry))
+                    self.stop_watching(entry.resolve(), self._make_owner_from_alias_entry(entry))
 
         entry.unregister_value_change_callback(watcher)
 
-        for callback in self.global_unwatch_callbacks:
+        for callback in self._global_unwatch_callbacks:
             callback(entry_id)  # Mainly used by the device handler to know it can stop polling that entry
 
     def stop_watching_all(self, watcher: str) -> None:
@@ -220,89 +262,68 @@ class Datastore:
         """ Fetch all entries of a given type. All types if None"""
         watchable_types = WatchableType.all() if watchable_type is None else [watchable_type]
         for watchable_type in watchable_types:
-            for entry_id in self.entries[watchable_type]:
-                yield self.entries[watchable_type][entry_id]
-
-    def interpret_entry_id(self, entry_id: Union[DatastoreEntry, str]) -> str:
-        """ Get the entry ID of a given entry."""
-        if isinstance(entry_id, DatastoreEntry):
-            return entry_id.get_id()
-        else:
-            return entry_id
+            for entry_id in self._entries[watchable_type]:
+                yield self._entries[watchable_type][entry_id]
 
     def get_entries_count(self, watchable_type: Optional[WatchableType] = None) -> int:
         """ Returns the number of entries of a given type. All types if None"""
         val = 0
         typelist = [watchable_type] if watchable_type is not None else WatchableType.all()
         for thetype in typelist:
-            val += len(self.entries[thetype])
+            val += len(self._entries[thetype])
 
         return val
 
-    def set_value(self, entry_id: Union[DatastoreEntry, str], value: Any) -> None:
+    def set_value(self, entry_or_entryid: Union[DatastoreEntry, str], value: Any) -> None:
         """ Sets the value on an entry"""
-        entry_id = self.interpret_entry_id(entry_id)
+        entry_id = self._get_entry_id(entry_or_entryid)
         entry = self.get_entry(entry_id)
         entry.set_value(value)
 
-    def update_target_value(self, entry_id: Union[DatastoreEntry, str], value: Any, callback: UpdateTargetRequestCallback) -> UpdateTargetRequest:
+    def update_target_value(self, entry_or_entryid: Union[DatastoreEntry, str], value: Any, callback: UpdateTargetRequestCallback) -> UpdateTargetRequest:
         """Enqueue a write request on the datastore entry. Will be picked up by the device side to be executed"""
-        if isinstance(entry_id, DatastoreEntry):
-            entry = entry_id
+        if isinstance(entry_or_entryid, DatastoreEntry):
+            entry = entry_or_entryid
         else:
-            entry = self.get_entry(entry_id)
+            entry = self.get_entry(entry_or_entryid)
         update_request = UpdateTargetRequest(value, entry=entry, callback=callback)
 
         if isinstance(entry, DatastoreAliasEntry):
             new_value = entry.aliasdef.compute_user_to_device(value)
-            nested_callback = functools.partial(self.alias_target_update_callback, update_request)
+            nested_callback = functools.partial(self._alias_target_update_callback, update_request)
             new_request = self.update_target_value(entry.resolve(), new_value, callback=nested_callback)
             if new_request.is_complete():  # Edge case if failed to enqueue request.
                 new_request.complete(success=update_request.is_complete())
             return update_request
         else:
-            self.target_update_request_queue.append(update_request)
+            self._target_update_request_queue.append(update_request)
 
         return update_request
-
-    def alias_target_update_callback(self, alias_request: UpdateTargetRequest, success: bool, entry: DatastoreEntry, timestamp: float) -> None:
-        """Callback used by an alias to grab the result of the target update and apply it to its own"""
-        # entry is a var or a RPV
-        alias_request.complete(success=success)
 
     def pop_target_update_request(self) -> Optional[UpdateTargetRequest]:
         """ Returns the next write request to be processed and removes it form the queue"""
         try:
-            return self.target_update_request_queue.pop(0)
+            return self._target_update_request_queue.pop(0)
         except IndexError:
             return None
 
     def peek_target_update_request(self) -> Optional[UpdateTargetRequest]:
         """ Returns the next write request to be processed without removing it from the queue"""
         try:
-            return self.target_update_request_queue[0]
+            return self._target_update_request_queue[0]
         except IndexError:
             return None
 
     def has_pending_target_update(self) -> bool:
-        return len(self.target_update_request_queue) > 0
+        return len(self._target_update_request_queue) > 0
 
     def get_pending_target_update_count(self) -> int:
-        return len(self.target_update_request_queue)
+        return len(self._target_update_request_queue)
 
     def get_watched_entries_id(self, watchable_type: WatchableType) -> List[str]:
         """ Get a list of all watched entries ID of a given type."""
-        return list(self.watcher_map[watchable_type].keys())
-
-    def make_owner_from_alias_entry(self, entry: DatastoreAliasEntry) -> str:
-        """ When somebody subscribes to an alias, the datastore starts watching the pointed entry
-        This method creates a watcher name based on the alias ID"""
-        return 'alias_' + entry.get_id()
-
-    def alias_value_change_callback(self, owner: str, entry: DatastoreEntry, watching_entry: DatastoreAliasEntry) -> None:
-        """ This callback is the one given when the datastore starts watching an entry because somebody wants to watch an alias."""
-        watching_entry.set_value_internal(entry.get_value())
-
+        return list(self._watcher_map[watchable_type].keys())
+    
     @classmethod
     def is_rpv_path(cls, path: str) -> bool:
         """Returns True if the tree-like path matches the expected RPV default path (i.e. /rpv/x1234)"""
@@ -310,9 +331,37 @@ class Datastore:
 
     def register_var_template(self, template:DatastoreTemplateVar) -> None:
         key = template.get_access_name()
-        if key in self.var_entry_templates[WatchableType.Variable]:
+        if key in self._var_entry_templates:
             raise KeyError("Duplicate datastore variable entry template")
         
-        self.var_entry_templates[WatchableType.Variable][key] = template
+        self._var_entry_templates[key] = template
 
-    
+
+# region Private
+
+    def _prune_unwatched_templated_entries(self) -> None:
+        for display_path, entry in self._display_path_to_templated_entries_map.items():
+            if not self.has_watchers(entry):
+                self.remove_entry(entry)
+
+    def _get_entry_id(self, entry_or_entryid: Union[DatastoreEntry, str]) -> str:
+        """ Get the entry ID of a given entry."""
+        if isinstance(entry_or_entryid, DatastoreEntry):
+            return entry_or_entryid.get_id()
+        else:
+            return entry_or_entryid
+
+    def _make_owner_from_alias_entry(self, entry: DatastoreAliasEntry) -> str:
+        """ When somebody subscribes to an alias, the datastore starts watching the pointed entry
+        This method creates a watcher name based on the alias ID"""
+        return 'alias_' + entry.get_id()
+
+    def _alias_value_change_callback(self, owner: str, entry: DatastoreEntry, watching_entry: DatastoreAliasEntry) -> None:
+        """ This callback is the one given when the datastore starts watching an entry because somebody wants to watch an alias."""
+        watching_entry.set_value_internal(entry.get_value())
+
+    def _alias_target_update_callback(self, alias_request: UpdateTargetRequest, success: bool, entry: DatastoreEntry, timestamp: float) -> None:
+        """Callback used by an alias to grab the result of the target update and apply it to its own"""
+        # entry is a var or a RPV
+        alias_request.complete(success=success)
+#endregion

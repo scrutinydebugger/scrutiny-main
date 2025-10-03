@@ -68,6 +68,11 @@ class ScrutinyPath:
             if v is not None:
                 return True
         return False
+    
+    def has_encoded_information(self) -> bool:
+        """Tells if there is any information encoded in the path. Including arrays"""
+        # Future proofing in case we encode more than just arrays
+        return self.has_array_information()
 
     def get_path_to_array_pos_dict(self) -> Dict[str, Tuple[int, ...]]:
         """Extract the array information from the path and return it in a format easier to work with. 
