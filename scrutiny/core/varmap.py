@@ -341,9 +341,9 @@ class VarMap:
                 )
                 for path, array_def in array_segments.items():
                     arr = UntypedArray(
-                        dims=tuple(array_def['dims']), 
-                        element_byte_size=array_def['byte_size'] 
-                        )
+                        dims=tuple(array_def['dims']),
+                        element_byte_size=array_def['byte_size']
+                    )
                     factory.add_array_node(path, arr)
                 yield (fullname, factory)
             else:

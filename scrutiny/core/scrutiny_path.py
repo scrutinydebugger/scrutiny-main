@@ -68,7 +68,7 @@ class ScrutinyPath:
             if v is not None:
                 return True
         return False
-    
+
     def has_encoded_information(self) -> bool:
         """Tells if there is any information encoded in the path. Including arrays"""
         # Future proofing in case we encode more than just arrays

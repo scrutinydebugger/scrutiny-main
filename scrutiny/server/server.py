@@ -80,7 +80,7 @@ class ScrutinyServer:
     start_time: float
     stop_event: threading.Event
 
-    last_datastore_maintenance:float
+    last_datastore_maintenance: float
     DATASTORE_MAINTENANCE_PERIOD = 5
 
     def __init__(self,
@@ -156,7 +156,7 @@ class ScrutinyServer:
         if t - self.last_datastore_maintenance > self.DATASTORE_MAINTENANCE_PERIOD:
             self.datastore.periodic_maintenance()
             self.last_datastore_maintenance = t
-            
+
         self.datalogging_manager.process()
         self.device_handler.process()
         self.sfd_handler.process()

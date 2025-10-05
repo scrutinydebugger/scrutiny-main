@@ -462,8 +462,8 @@ class TestDataStore(ScrutinyUnitTest):
             ),
             access_name="/aaa/bbb/ccc/ddd",
         )
-        factory.add_array_node('/aaa/bbb', UntypedArray((2,3), 100))
-        factory.add_array_node('/aaa/bbb/ccc/ddd', UntypedArray((4,5), 4))
+        factory.add_array_node('/aaa/bbb', UntypedArray((2, 3), 100))
+        factory.add_array_node('/aaa/bbb/ccc/ddd', UntypedArray((4, 5), 4))
 
         ds.register_var_factory(factory)
 
@@ -472,7 +472,7 @@ class TestDataStore(ScrutinyUnitTest):
         self.assertEqual(ds.get_entries_count(), 1)
 
         self.assertIsInstance(entry, DatastoreVariableEntry)
-        self.assertEqual(entry.get_address(), 1000 + (1*3+0)*100+(2*5+3)*4)
+        self.assertEqual(entry.get_address(), 1000 + (1 * 3 + 0) * 100 + (2 * 5 + 3) * 4)
         self.assertEqual(entry.get_display_path(), "/aaa/bbb[1][0]/ccc/ddd[2][3]")
         self.assertEqual(entry.get_data_type(), EmbeddedDataType.float32)
 
@@ -484,7 +484,7 @@ class TestDataStore(ScrutinyUnitTest):
         ds.stop_watching(entry, 'watcher1')
         ds.periodic_maintenance()
         self.assertEqual(ds.get_entries_count(), 1)
-        
+
         ds.stop_watching(entry, 'watcher2')
         ds.periodic_maintenance()
         self.assertEqual(ds.get_entries_count(), 0)
@@ -496,9 +496,7 @@ class TestDataStore(ScrutinyUnitTest):
 
         with self.assertRaises(Exception):
             ds.get_entry_by_display_path('/aaa/bbb[1][0]/ccc/ddd[2][3]')
-    
 
-    
 
 if __name__ == '__main__':
     import unittest

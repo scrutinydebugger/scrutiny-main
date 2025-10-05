@@ -706,7 +706,7 @@ class API:
         # Check existence of all watchable before doing anything.
         subscribed: Dict[str, api_typing.DatastoreEntryDefinition] = {}
         for path in req['watchables']:
-            entry:Optional[DatastoreEntry] = None
+            entry: Optional[DatastoreEntry] = None
             try:
                 entry = self.datastore.get_entry_by_display_path(path)  # Will raise an exception if not existent
             except KeyError as e:
@@ -714,10 +714,10 @@ class API:
 
             if entry is None:
                 pass
-            
+
             if entry is None:
                 raise InvalidRequestException(req, 'Unknown watchable : %s' % str(path))
-            
+
             subscribed[path] = self.make_datastore_entry_definition(entry)
 
         for path in req['watchables']:

@@ -1,3 +1,11 @@
+#    variable_factory.py
+#        A class that can instantiate variables based on a base variable and additional information.
+#        Mainly to instantiate array items
+#
+#   - License : MIT - See LICENSE file.
+#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#   Copyright (c) 2025 Scrutiny Debugger
 
 __all__ = ['VariableFactory']
 
@@ -7,17 +15,18 @@ from scrutiny.core.scrutiny_path import ScrutinyPath
 from scrutiny.core.variable import Variable
 from scrutiny.tools.typing import *
 
+
 class VariableFactory:
-    __slots__ = ['_base_var',  '_access_name', '_array_nodes', ]
+    __slots__ = ['_base_var', '_access_name', '_array_nodes', ]
 
     _base_var: Variable
     _access_name: str
     _array_nodes: Dict[str, UntypedArray]
 
     def __init__(self,
-                access_name: str,
-                base_var: Variable
-                ) -> None:
+                 access_name: str,
+                 base_var: Variable
+                 ) -> None:
         self._access_name = access_name
         self._base_var = base_var
         self._array_nodes = {}

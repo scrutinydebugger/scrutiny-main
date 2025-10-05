@@ -44,7 +44,7 @@ class Datastore:
     _global_unwatch_callbacks: List[WatchCallback]
     _target_update_request_queue: "List[UpdateTargetRequest]"
     _var_factories: Dict[str, VariableFactory]
-    _display_path_to_templated_entries_map:Dict[str, DatastoreEntry]
+    _display_path_to_templated_entries_map: Dict[str, DatastoreEntry]
 
     MAX_ENTRY: int = 1000000
 
@@ -115,7 +115,7 @@ class Datastore:
         self._entries[entry.get_type()][entry.get_id()] = entry
         self._displaypath2idmap[entry.get_type()][entry.get_display_path()] = entry.get_id()
 
-    def remove_entry(self, entry_or_entryid:Union[DatastoreEntry, str]) -> None:
+    def remove_entry(self, entry_or_entryid: Union[DatastoreEntry, str]) -> None:
         for watcher in self.get_watchers(entry_or_entryid):
             self.stop_watching(entry_or_entryid, watcher)
 
@@ -139,14 +139,13 @@ class Datastore:
     def get_entry_by_display_path(self, display_path: str) -> DatastoreEntry:
         """ Find an entry by its display path, which is supposed to be unique"""
         parsed_path = ScrutinyPath.from_string(display_path)
-        
+
         display_path = parsed_path.to_str()
         for watchable_type in WatchableType.all():
             if display_path in self._displaypath2idmap[watchable_type]:
                 entry_id = self._displaypath2idmap[watchable_type][display_path]
                 if entry_id in self._entries[watchable_type]:
                     return self._entries[watchable_type][entry_id]
-        
 
         if parsed_path.has_encoded_information():
             factory_path = parsed_path.to_raw_str()
@@ -216,18 +215,18 @@ class Datastore:
         if entry_id not in self._watcher_map[entry.get_type()]:
             return []
         return list(self._watcher_map[entry.get_type()][entry_id])
-    
+
     def has_watchers(self, entry_or_entryid: Union[DatastoreEntry, str]) -> bool:
         """Tells if the entry has at least one watcher"""
         if isinstance(entry_or_entryid, str):
             entry = self.get_entry(entry_or_entryid)
         else:
             entry = entry_or_entryid
-        
+
         entry_id = entry.get_id()
-        if  entry_id not in self._watcher_map[entry.get_type()]:
+        if entry_id not in self._watcher_map[entry.get_type()]:
             return False
-        
+
         return len(self._watcher_map[entry.get_type()][entry_id]) > 0
 
     def stop_watching(self, entry_or_entryid: Union[DatastoreEntry, str], watcher: str) -> None:
@@ -323,17 +322,17 @@ class Datastore:
     def get_watched_entries_id(self, watchable_type: WatchableType) -> List[str]:
         """ Get a list of all watched entries ID of a given type."""
         return list(self._watcher_map[watchable_type].keys())
-    
+
     @classmethod
     def is_rpv_path(cls, path: str) -> bool:
         """Returns True if the tree-like path matches the expected RPV default path (i.e. /rpv/x1234)"""
         return DatastoreRPVEntry.is_valid_path(path)
 
-    def register_var_factory(self, factory:VariableFactory) -> None:
+    def register_var_factory(self, factory: VariableFactory) -> None:
         key = factory.get_access_name()
         if key in self._var_factories:
             raise KeyError("Duplicate datastore variable factory")
-        
+
         self._var_factories[key] = factory
 
     def get_var_factory_count(self) -> int:
@@ -344,6 +343,7 @@ class Datastore:
 
 
 # region Private
+
 
     def _prune_unwatched_templated_entries(self) -> None:
         for entry in list(self._display_path_to_templated_entries_map.values()):
@@ -370,4 +370,4 @@ class Datastore:
         """Callback used by an alias to grab the result of the target update and apply it to its own"""
         # entry is a var or a RPV
         alias_request.complete(success=success)
-#endregion
+# endregion
