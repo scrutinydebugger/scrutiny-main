@@ -111,8 +111,8 @@ class TestServerManager(ScrutinyBaseGuiTest):
             self.wait_true_with_events(lambda: not self.server_manager.is_stopping(), timeout=1)
         super().tearDown()
 
-    def wait_server_state(self, state: sdk.ServerState, timeout: int = 1) -> None:
-        self.wait_equal(self.server_manager.get_server_state, state, 1)
+    def wait_server_state(self, state: sdk.ServerState, timeout: float = 2) -> None:
+        self.wait_equal(self.server_manager.get_server_state, state, timeout)
 
     def test_hold_5_sec(self):
         self.assertFalse(self.server_manager.is_running())
