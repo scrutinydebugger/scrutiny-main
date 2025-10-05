@@ -1,7 +1,7 @@
 #    device_handler.py
 #        Manage the communication with the device at high level.
 #        Try to establish a connection, once it succeed, reads the device configuration.
-#        
+#
 #        Will keep the communication ongoing and will request for memory dump based on the
 #        Datastore state
 #
@@ -530,7 +530,7 @@ class DeviceHandler:
         self.dispatcher.set_size_limits(max_request_payload_size=max_request_payload_size, max_response_payload_size=max_response_payload_size)
         self.datalogging_poller.set_max_response_payload_size(max_response_payload_size)
 
-        self.datastore.clear(entry_type=WatchableType.RuntimePublishedValue)    # Device handler own RPVs
+        self.datastore.clear(watchable_type=WatchableType.RuntimePublishedValue)    # Device handler own RPVs
         self.protocol.configure_rpvs([])    # Empty list
 
     # Open communication channel based on config

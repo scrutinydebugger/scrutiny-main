@@ -14,7 +14,8 @@ import json
 from test import ScrutinyUnitTest
 from scrutiny.core.varmap import VarMap
 from scrutiny.core.basic_types import Endianness, EmbeddedDataType
-from scrutiny.core.variable import VariableLocation, UntypedArray
+from scrutiny.core.variable import VariableLocation
+from scrutiny.core.array import UntypedArray
 from scrutiny.core.embedded_enum import EmbeddedEnum
 
 
@@ -93,7 +94,7 @@ class TestVarmap(ScrutinyUnitTest):
             with self.assertRaises(Exception):
                 list(candidate.get_enum_by_name('asd'))
 
-            all_vars = list(candidate.iterate_simple_vars())
+            all_vars = list(candidate.iterate_vars())
             self.assertEqual(len(all_vars), 3)
 
     def test_add_stuff_after_reload(self):
@@ -187,8 +188,8 @@ class TestVarmap(ScrutinyUnitTest):
         self.assertEqual(varmap.get_endianness(), Endianness.Big)
         varmap.register_base_type('float', EmbeddedDataType.float32)
         varmap.add_variable(['aaa', 'bbb', 'ccc', 'ddd'], VariableLocation(0x1234), original_type_name='float', array_segments={
-            '/aaa/bbb': UntypedArray((3, 3), 'asd', 4),
-            '/aaa/bbb/ccc/ddd': UntypedArray((5, 6, 7), 'xxx', 4)
+            '/aaa/bbb': UntypedArray((3, 3), 4),
+            '/aaa/bbb/ccc/ddd': UntypedArray((5, 6, 7), 4)
         })
 
         varmap.get_var('/aaa/bbb[1][2]/ccc/ddd[2][3][4]')

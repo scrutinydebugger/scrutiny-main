@@ -891,6 +891,27 @@
         },
         "scrutiny/core/math_expr.py": {
             "docstring": "A math expression parser based of https://github.com/louisfisch/mathematical-expression-parser"
+        },
+        "test/core/test_scrutiny_path.py": {
+            "docstring": "A test suite for the ScrutinyPath class"
+        },
+        "scrutiny/core/scrutiny_path.py": {
+            "docstring": "A class that can manipulate and interpret a path refering to a watchable in the server and cli toolchains."
+        },
+        "scrutiny/core/struct.py": {
+            "docstring": "Definition of a struct, mainly used for parsing DWARF symbols"
+        },
+        "scrutiny/core/path_tools.py": {
+            "docstring": "Tools for scrutiny path manipulation"
+        },
+        "scrutiny/core/array.py": {
+            "docstring": "Definition of arrays. Mostly used for parsing DWARF symbols and interpreting ScrutinyPath with arrays information encoded"
+        },
+        "test/core/test_variable_factory.py": {
+            "docstring": "A test suite for the VariableFactory"
+        },
+        "scrutiny/core/variable_factory.py": {
+            "docstring": "A class that can instantiate variables based on a base variable and additional information. Mainly to instantiate array items "
         }
     }
 }

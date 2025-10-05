@@ -9,6 +9,7 @@
 import struct
 
 from scrutiny.core.variable import *
+from scrutiny.core.array import *
 from binascii import unhexlify
 from test import ScrutinyUnitTest
 from scrutiny.core.basic_types import EmbeddedDataType, Endianness
@@ -21,10 +22,10 @@ def d2f(d):
 class TestVariables(ScrutinyUnitTest):
     def test_variable_encode_no_bitfield(self):
         # Floating point
-        f32_le = Variable('float32_le', vartype=EmbeddedDataType.float32, path_segments=[], location=0, endianness=Endianness.Little)
-        f32_be = Variable('float32_be', vartype=EmbeddedDataType.float32, path_segments=[], location=0, endianness=Endianness.Big)
-        f64_le = Variable('float64_le', vartype=EmbeddedDataType.float64, path_segments=[], location=0, endianness=Endianness.Little)
-        f64_be = Variable('float64_be', vartype=EmbeddedDataType.float64, path_segments=[], location=0, endianness=Endianness.Big)
+        f32_le = Variable(vartype=EmbeddedDataType.float32, path_segments=['float32_le'], location=0, endianness=Endianness.Little)
+        f32_be = Variable(vartype=EmbeddedDataType.float32, path_segments=['float32_be'], location=0, endianness=Endianness.Big)
+        f64_le = Variable(vartype=EmbeddedDataType.float64, path_segments=['float64_le'], location=0, endianness=Endianness.Little)
+        f64_be = Variable(vartype=EmbeddedDataType.float64, path_segments=['float64_be'], location=0, endianness=Endianness.Big)
 
         self.assertEqual(f32_le.encode(-1.2)[0], struct.pack('<f', -1.2))
         self.assertEqual(f32_be.encode(1.2)[0], struct.pack('>f', 1.2))
@@ -32,14 +33,14 @@ class TestVariables(ScrutinyUnitTest):
         self.assertEqual(f64_be.encode(1.2)[0], struct.pack('>d', 1.2))
 
         # Signed int
-        int8_le = Variable('int8_le', vartype=EmbeddedDataType.sint8, path_segments=[], location=0, endianness=Endianness.Little)
-        int8_be = Variable('int8_be', vartype=EmbeddedDataType.sint8, path_segments=[], location=0, endianness=Endianness.Big)
-        int16_le = Variable('int16_le', vartype=EmbeddedDataType.sint16, path_segments=[], location=0, endianness=Endianness.Little)
-        int16_be = Variable('int16_be', vartype=EmbeddedDataType.sint16, path_segments=[], location=0, endianness=Endianness.Big)
-        int32_le = Variable('int32_le', vartype=EmbeddedDataType.sint32, path_segments=[], location=0, endianness=Endianness.Little)
-        int32_be = Variable('int32_be', vartype=EmbeddedDataType.sint32, path_segments=[], location=0, endianness=Endianness.Big)
-        int64_le = Variable('int64_le', vartype=EmbeddedDataType.sint64, path_segments=[], location=0, endianness=Endianness.Little)
-        int64_be = Variable('int64_be', vartype=EmbeddedDataType.sint64, path_segments=[], location=0, endianness=Endianness.Big)
+        int8_le = Variable(vartype=EmbeddedDataType.sint8, path_segments=['int8_le'], location=0, endianness=Endianness.Little)
+        int8_be = Variable(vartype=EmbeddedDataType.sint8, path_segments=['int8_be'], location=0, endianness=Endianness.Big)
+        int16_le = Variable(vartype=EmbeddedDataType.sint16, path_segments=['int16_le'], location=0, endianness=Endianness.Little)
+        int16_be = Variable(vartype=EmbeddedDataType.sint16, path_segments=['int16_be'], location=0, endianness=Endianness.Big)
+        int32_le = Variable(vartype=EmbeddedDataType.sint32, path_segments=['int32_le'], location=0, endianness=Endianness.Little)
+        int32_be = Variable(vartype=EmbeddedDataType.sint32, path_segments=['int32_be'], location=0, endianness=Endianness.Big)
+        int64_le = Variable(vartype=EmbeddedDataType.sint64, path_segments=['int64_le'], location=0, endianness=Endianness.Little)
+        int64_be = Variable(vartype=EmbeddedDataType.sint64, path_segments=['int64_be'], location=0, endianness=Endianness.Big)
 
         self.assertEqual(int8_le.encode(-42)[0], struct.pack('<b', -42))
         self.assertEqual(int8_be.encode(43)[0], struct.pack('>b', 43))
@@ -51,14 +52,14 @@ class TestVariables(ScrutinyUnitTest):
         self.assertEqual(int64_be.encode(0x1122334455667788)[0], struct.pack('>q', 0x1122334455667788))
 
         # Unsigned int
-        uint8_le = Variable('uint8_le', vartype=EmbeddedDataType.uint8, path_segments=[], location=0, endianness=Endianness.Little)
-        uint8_be = Variable('uint8_be', vartype=EmbeddedDataType.uint8, path_segments=[], location=0, endianness=Endianness.Big)
-        uint16_le = Variable('uint16_le', vartype=EmbeddedDataType.uint16, path_segments=[], location=0, endianness=Endianness.Little)
-        uint16_be = Variable('uint16_be', vartype=EmbeddedDataType.uint16, path_segments=[], location=0, endianness=Endianness.Big)
-        uint32_le = Variable('uint32_le', vartype=EmbeddedDataType.uint32, path_segments=[], location=0, endianness=Endianness.Little)
-        uint32_be = Variable('uint32_be', vartype=EmbeddedDataType.uint32, path_segments=[], location=0, endianness=Endianness.Big)
-        uint64_le = Variable('uint64_le', vartype=EmbeddedDataType.uint64, path_segments=[], location=0, endianness=Endianness.Little)
-        uint64_be = Variable('uint64_be', vartype=EmbeddedDataType.uint64, path_segments=[], location=0, endianness=Endianness.Big)
+        uint8_le = Variable(vartype=EmbeddedDataType.uint8, path_segments=['uint8_le'], location=0, endianness=Endianness.Little)
+        uint8_be = Variable(vartype=EmbeddedDataType.uint8, path_segments=['uint8_be'], location=0, endianness=Endianness.Big)
+        uint16_le = Variable(vartype=EmbeddedDataType.uint16, path_segments=['uint16_le'], location=0, endianness=Endianness.Little)
+        uint16_be = Variable(vartype=EmbeddedDataType.uint16, path_segments=['uint16_be'], location=0, endianness=Endianness.Big)
+        uint32_le = Variable(vartype=EmbeddedDataType.uint32, path_segments=['uint32_le'], location=0, endianness=Endianness.Little)
+        uint32_be = Variable(vartype=EmbeddedDataType.uint32, path_segments=['uint32_be'], location=0, endianness=Endianness.Big)
+        uint64_le = Variable(vartype=EmbeddedDataType.uint64, path_segments=['uint64_le'], location=0, endianness=Endianness.Little)
+        uint64_be = Variable(vartype=EmbeddedDataType.uint64, path_segments=['uint64_be'], location=0, endianness=Endianness.Big)
 
         self.assertEqual(uint8_le.encode(0xaa)[0], struct.pack('<B', 0xaa))
         self.assertEqual(uint8_be.encode(0x55)[0], struct.pack('>B', 0x55))
@@ -70,8 +71,8 @@ class TestVariables(ScrutinyUnitTest):
         self.assertEqual(uint64_be.encode(0xffeeddccbbaa9988)[0], struct.pack('>Q', 0xffeeddccbbaa9988))
 
         # Booleans
-        bool_le = Variable('bool_le', vartype=EmbeddedDataType.boolean, path_segments=[], location=0, endianness=Endianness.Little)
-        bool_be = Variable('bool_be', vartype=EmbeddedDataType.boolean, path_segments=[], location=0, endianness=Endianness.Little)
+        bool_le = Variable(vartype=EmbeddedDataType.boolean, path_segments=['bool_le'], location=0, endianness=Endianness.Little)
+        bool_be = Variable(vartype=EmbeddedDataType.boolean, path_segments=['bool_be'], location=0, endianness=Endianness.Little)
 
         self.assertEqual(bool_le.encode(True)[0], struct.pack('<B', 1))
         self.assertEqual(bool_be.encode(True)[0], struct.pack('>B', 1))
@@ -80,10 +81,10 @@ class TestVariables(ScrutinyUnitTest):
 
     def test_variable_decode_no_bitfield(self):
         # Floating point
-        f32_le = Variable('float32_le', vartype=EmbeddedDataType.float32, path_segments=[], location=0, endianness=Endianness.Little)
-        f32_be = Variable('float32_be', vartype=EmbeddedDataType.float32, path_segments=[], location=0, endianness=Endianness.Big)
-        f64_le = Variable('float64_le', vartype=EmbeddedDataType.float64, path_segments=[], location=0, endianness=Endianness.Little)
-        f64_be = Variable('float64_be', vartype=EmbeddedDataType.float64, path_segments=[], location=0, endianness=Endianness.Big)
+        f32_le = Variable(vartype=EmbeddedDataType.float32, path_segments=['float32_le'], location=0, endianness=Endianness.Little)
+        f32_be = Variable(vartype=EmbeddedDataType.float32, path_segments=['float32_be'], location=0, endianness=Endianness.Big)
+        f64_le = Variable(vartype=EmbeddedDataType.float64, path_segments=['float64_le'], location=0, endianness=Endianness.Little)
+        f64_be = Variable(vartype=EmbeddedDataType.float64, path_segments=['float64_be'], location=0, endianness=Endianness.Big)
 
         self.assertEqual(f32_le.decode(struct.pack('<f', -1.2)), d2f(-1.2))
         self.assertEqual(f32_be.decode(struct.pack('>f', 1.2)), d2f(1.2))
@@ -91,14 +92,14 @@ class TestVariables(ScrutinyUnitTest):
         self.assertEqual(f64_be.decode(struct.pack('>d', 1.2)), 1.2)
 
         # Signed int
-        int8_le = Variable('int8_le', vartype=EmbeddedDataType.sint8, path_segments=[], location=0, endianness=Endianness.Little)
-        int8_be = Variable('int8_be', vartype=EmbeddedDataType.sint8, path_segments=[], location=0, endianness=Endianness.Big)
-        int16_le = Variable('int16_le', vartype=EmbeddedDataType.sint16, path_segments=[], location=0, endianness=Endianness.Little)
-        int16_be = Variable('int16_be', vartype=EmbeddedDataType.sint16, path_segments=[], location=0, endianness=Endianness.Big)
-        int32_le = Variable('int32_le', vartype=EmbeddedDataType.sint32, path_segments=[], location=0, endianness=Endianness.Little)
-        int32_be = Variable('int32_be', vartype=EmbeddedDataType.sint32, path_segments=[], location=0, endianness=Endianness.Big)
-        int64_le = Variable('int64_le', vartype=EmbeddedDataType.sint64, path_segments=[], location=0, endianness=Endianness.Little)
-        int64_be = Variable('int64_be', vartype=EmbeddedDataType.sint64, path_segments=[], location=0, endianness=Endianness.Big)
+        int8_le = Variable(vartype=EmbeddedDataType.sint8, path_segments=['int8_le'], location=0, endianness=Endianness.Little)
+        int8_be = Variable(vartype=EmbeddedDataType.sint8, path_segments=['int8_be'], location=0, endianness=Endianness.Big)
+        int16_le = Variable(vartype=EmbeddedDataType.sint16, path_segments=['int16_le'], location=0, endianness=Endianness.Little)
+        int16_be = Variable(vartype=EmbeddedDataType.sint16, path_segments=['int16_be'], location=0, endianness=Endianness.Big)
+        int32_le = Variable(vartype=EmbeddedDataType.sint32, path_segments=['int32_le'], location=0, endianness=Endianness.Little)
+        int32_be = Variable(vartype=EmbeddedDataType.sint32, path_segments=['int32_be'], location=0, endianness=Endianness.Big)
+        int64_le = Variable(vartype=EmbeddedDataType.sint64, path_segments=['int64_le'], location=0, endianness=Endianness.Little)
+        int64_be = Variable(vartype=EmbeddedDataType.sint64, path_segments=['int64_be'], location=0, endianness=Endianness.Big)
 
         self.assertEqual(int8_le.decode(struct.pack('<b', -42)), -42)
         self.assertEqual(int8_be.decode(struct.pack('>b', 43)), 43)
@@ -110,14 +111,14 @@ class TestVariables(ScrutinyUnitTest):
         self.assertEqual(int64_be.decode(struct.pack('>q', 0x1122334455667788)), 0x1122334455667788)
 
         # Unsigned int
-        uint8_le = Variable('uint8_le', vartype=EmbeddedDataType.uint8, path_segments=[], location=0, endianness=Endianness.Little)
-        uint8_be = Variable('uint8_be', vartype=EmbeddedDataType.uint8, path_segments=[], location=0, endianness=Endianness.Big)
-        uint16_le = Variable('uint16_le', vartype=EmbeddedDataType.uint16, path_segments=[], location=0, endianness=Endianness.Little)
-        uint16_be = Variable('uint16_be', vartype=EmbeddedDataType.uint16, path_segments=[], location=0, endianness=Endianness.Big)
-        uint32_le = Variable('uint32_le', vartype=EmbeddedDataType.uint32, path_segments=[], location=0, endianness=Endianness.Little)
-        uint32_be = Variable('uint32_be', vartype=EmbeddedDataType.uint32, path_segments=[], location=0, endianness=Endianness.Big)
-        uint64_le = Variable('uint64_le', vartype=EmbeddedDataType.uint64, path_segments=[], location=0, endianness=Endianness.Little)
-        uint64_be = Variable('uint64_be', vartype=EmbeddedDataType.uint64, path_segments=[], location=0, endianness=Endianness.Big)
+        uint8_le = Variable(vartype=EmbeddedDataType.uint8, path_segments=['uint8_le'], location=0, endianness=Endianness.Little)
+        uint8_be = Variable(vartype=EmbeddedDataType.uint8, path_segments=['uint8_be'], location=0, endianness=Endianness.Big)
+        uint16_le = Variable(vartype=EmbeddedDataType.uint16, path_segments=['uint16_le'], location=0, endianness=Endianness.Little)
+        uint16_be = Variable(vartype=EmbeddedDataType.uint16, path_segments=['uint16_be'], location=0, endianness=Endianness.Big)
+        uint32_le = Variable(vartype=EmbeddedDataType.uint32, path_segments=['uint32_le'], location=0, endianness=Endianness.Little)
+        uint32_be = Variable(vartype=EmbeddedDataType.uint32, path_segments=['uint32_be'], location=0, endianness=Endianness.Big)
+        uint64_le = Variable(vartype=EmbeddedDataType.uint64, path_segments=['uint64_le'], location=0, endianness=Endianness.Little)
+        uint64_be = Variable(vartype=EmbeddedDataType.uint64, path_segments=['uint64_be'], location=0, endianness=Endianness.Big)
 
         self.assertEqual(uint8_le.decode(struct.pack('<B', 0xaa)), 0xaa)
         self.assertEqual(uint8_be.decode(struct.pack('>B', 0x55)), 0x55)
@@ -129,8 +130,8 @@ class TestVariables(ScrutinyUnitTest):
         self.assertEqual(uint64_be.decode(struct.pack('>Q', 0xffeeddccbbaa9988)), 0xffeeddccbbaa9988)
 
         # Booleans
-        bool_le = Variable('bool_le', vartype=EmbeddedDataType.boolean, path_segments=[], location=0, endianness=Endianness.Little)
-        bool_be = Variable('bool_be', vartype=EmbeddedDataType.boolean, path_segments=[], location=0, endianness=Endianness.Little)
+        bool_le = Variable(vartype=EmbeddedDataType.boolean, path_segments=['bool_le'], location=0, endianness=Endianness.Little)
+        bool_be = Variable(vartype=EmbeddedDataType.boolean, path_segments=['bool_be'], location=0, endianness=Endianness.Little)
 
         self.assertEqual(bool_le.decode(struct.pack('<B', 1)), True)
         self.assertEqual(bool_be.decode(struct.pack('>B', 1)), True)
@@ -138,24 +139,24 @@ class TestVariables(ScrutinyUnitTest):
         self.assertEqual(bool_be.decode(struct.pack('>B', 0)), False)
 
     def test_write_masks_no_bitfield(self):
-        uint8_le = Variable('uint8_le', vartype=EmbeddedDataType.uint8, path_segments=[], location=0, endianness=Endianness.Little)
-        uint8_be = Variable('uint8_be', vartype=EmbeddedDataType.uint8, path_segments=[], location=0, endianness=Endianness.Big)
-        uint16_le = Variable('uint16_le', vartype=EmbeddedDataType.uint16, path_segments=[], location=0, endianness=Endianness.Little)
-        uint16_be = Variable('uint16_be', vartype=EmbeddedDataType.uint16, path_segments=[], location=0, endianness=Endianness.Big)
-        uint32_le = Variable('uint32_le', vartype=EmbeddedDataType.uint32, path_segments=[], location=0, endianness=Endianness.Little)
-        uint32_be = Variable('uint32_be', vartype=EmbeddedDataType.uint32, path_segments=[], location=0, endianness=Endianness.Big)
-        uint64_le = Variable('uint64_le', vartype=EmbeddedDataType.uint64, path_segments=[], location=0, endianness=Endianness.Little)
-        uint64_be = Variable('uint64_be', vartype=EmbeddedDataType.uint64, path_segments=[], location=0, endianness=Endianness.Big)
-        int8_le = Variable('int8_le', vartype=EmbeddedDataType.sint8, path_segments=[], location=0, endianness=Endianness.Little)
-        int8_be = Variable('int8_be', vartype=EmbeddedDataType.sint8, path_segments=[], location=0, endianness=Endianness.Big)
-        int16_le = Variable('int16_le', vartype=EmbeddedDataType.sint16, path_segments=[], location=0, endianness=Endianness.Little)
-        int16_be = Variable('int16_be', vartype=EmbeddedDataType.sint16, path_segments=[], location=0, endianness=Endianness.Big)
-        int32_le = Variable('int32_le', vartype=EmbeddedDataType.sint32, path_segments=[], location=0, endianness=Endianness.Little)
-        int32_be = Variable('int32_be', vartype=EmbeddedDataType.sint32, path_segments=[], location=0, endianness=Endianness.Big)
-        int64_le = Variable('int64_le', vartype=EmbeddedDataType.sint64, path_segments=[], location=0, endianness=Endianness.Little)
-        int64_be = Variable('int64_be', vartype=EmbeddedDataType.sint64, path_segments=[], location=0, endianness=Endianness.Big)
-        bool_le = Variable('bool_le', vartype=EmbeddedDataType.boolean, path_segments=[], location=0, endianness=Endianness.Little)
-        bool_be = Variable('bool_be', vartype=EmbeddedDataType.boolean, path_segments=[], location=0, endianness=Endianness.Little)
+        uint8_le = Variable(vartype=EmbeddedDataType.uint8, path_segments=['uint8_le'], location=0, endianness=Endianness.Little)
+        uint8_be = Variable(vartype=EmbeddedDataType.uint8, path_segments=['uint8_be'], location=0, endianness=Endianness.Big)
+        uint16_le = Variable(vartype=EmbeddedDataType.uint16, path_segments=['uint16_le'], location=0, endianness=Endianness.Little)
+        uint16_be = Variable(vartype=EmbeddedDataType.uint16, path_segments=['uint16_be'], location=0, endianness=Endianness.Big)
+        uint32_le = Variable(vartype=EmbeddedDataType.uint32, path_segments=['uint32_le'], location=0, endianness=Endianness.Little)
+        uint32_be = Variable(vartype=EmbeddedDataType.uint32, path_segments=['uint32_be'], location=0, endianness=Endianness.Big)
+        uint64_le = Variable(vartype=EmbeddedDataType.uint64, path_segments=['uint64_le'], location=0, endianness=Endianness.Little)
+        uint64_be = Variable(vartype=EmbeddedDataType.uint64, path_segments=['uint64_be'], location=0, endianness=Endianness.Big)
+        int8_le = Variable(vartype=EmbeddedDataType.sint8, path_segments=['int8_le'], location=0, endianness=Endianness.Little)
+        int8_be = Variable(vartype=EmbeddedDataType.sint8, path_segments=['int8_be'], location=0, endianness=Endianness.Big)
+        int16_le = Variable(vartype=EmbeddedDataType.sint16, path_segments=['int16_le'], location=0, endianness=Endianness.Little)
+        int16_be = Variable(vartype=EmbeddedDataType.sint16, path_segments=['int16_be'], location=0, endianness=Endianness.Big)
+        int32_le = Variable(vartype=EmbeddedDataType.sint32, path_segments=['int32_le'], location=0, endianness=Endianness.Little)
+        int32_be = Variable(vartype=EmbeddedDataType.sint32, path_segments=['int32_be'], location=0, endianness=Endianness.Big)
+        int64_le = Variable(vartype=EmbeddedDataType.sint64, path_segments=['int64_le'], location=0, endianness=Endianness.Little)
+        int64_be = Variable(vartype=EmbeddedDataType.sint64, path_segments=['int64_be'], location=0, endianness=Endianness.Big)
+        bool_le = Variable(vartype=EmbeddedDataType.boolean, path_segments=['bool_le'], location=0, endianness=Endianness.Little)
+        bool_be = Variable(vartype=EmbeddedDataType.boolean, path_segments=['bool_be'], location=0, endianness=Endianness.Little)
 
         self.assertEqual(uint8_le.get_bitfield_mask(), unhexlify('FF'))
         self.assertEqual(uint8_be.get_bitfield_mask(), unhexlify('FF'))
@@ -177,7 +178,7 @@ class TestVariables(ScrutinyUnitTest):
         self.assertEqual(bool_be.get_bitfield_mask(), unhexlify('FF'))
 
     def assert_var_bitfield_mask(self, vartype: EmbeddedDataType, endianness: Endianness, bitoffset: int, bitsize: int, expected_mask: bytes) -> None:
-        v = Variable('aaa', vartype=vartype, path_segments=[],
+        v = Variable(vartype=vartype, path_segments=['aaa'],
                      location=0, endianness=endianness, bitoffset=bitoffset, bitsize=bitsize)
         self.assertEqual(v.get_bitfield_mask(), expected_mask)
 
@@ -227,10 +228,10 @@ class TestVariables(ScrutinyUnitTest):
 
         for combination in exception_combinations:
             with self.assertRaises(ValueError):
-                Variable('a', vartype=combination[0], path_segments=[], location=0,
+                Variable(vartype=combination[0], path_segments=['a'], location=0,
                          endianness=Endianness.Little, bitoffset=combination[1], bitsize=combination[2])
             with self.assertRaises(ValueError):
-                Variable('a', vartype=combination[0], path_segments=[], location=0,
+                Variable(vartype=combination[0], path_segments=['a'], location=0,
                          endianness=Endianness.Big, bitoffset=combination[1], bitsize=combination[2])
 
         ok_combinations = [
@@ -247,13 +248,13 @@ class TestVariables(ScrutinyUnitTest):
         ]
 
         for combination in ok_combinations:
-            Variable('a', vartype=combination[0], path_segments=[], location=0,
+            Variable(vartype=combination[0], path_segments=[], location=0,
                      endianness=Endianness.Little, bitoffset=combination[1], bitsize=combination[2])
-            Variable('a', vartype=combination[0], path_segments=[], location=0,
+            Variable(vartype=combination[0], path_segments=[], location=0,
                      endianness=Endianness.Big, bitoffset=combination[1], bitsize=combination[2])
 
     def test_array(self):
-        arr = UntypedArray((2, 3, 4), 'float', 4)
+        arr = UntypedArray((2, 3, 4), 4)
         self.assertEqual(arr.get_element_count(), 24)
         self.assertEqual(arr.get_total_byte_size(), 96)
         self.assertEqual(arr.position_of((1, 2, 2)), 22)
@@ -274,7 +275,7 @@ class TestVariables(ScrutinyUnitTest):
 
         for dims in [(0, 2, 3), (-1, 2, 3)]:
             with self.assertRaises(Exception, msg=f'{dims}'):
-                UntypedArray(dims, 'asd', 3)
+                UntypedArray(dims, 3)
 
 
 if __name__ == '__main__':

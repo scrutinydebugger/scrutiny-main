@@ -1008,11 +1008,11 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
         )
 
     def _signal_tree_selection_changed_slot(self) -> None:
-        """Whent he user selected/deselected a signal in the right menu"""
+        """When the user selected/deselected a signal in the right menu"""
         self.update_emphasize_state()
 
     def _signal_tree_content_changed_slot(self) -> None:
-        """A watchable has been added/remove from the watchable tree"""
+        """A watchable has been added/removed from the watchable tree"""
         self._graph_config_widget.update_content()
 
     def _chk_show_trigger_changed_slot(self, state: Qt.CheckState) -> None:

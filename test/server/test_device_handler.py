@@ -338,27 +338,24 @@ class TestDeviceHandler(ScrutinyUnitTest):
     def test_read_write_variables(self):
         vfloat32 = DatastoreVariableEntry('dummy_float32',
                                           variable_def=Variable(
-                                              'dummy_float32',
                                               vartype=EmbeddedDataType.float32,
-                                              path_segments=[],
+                                              path_segments=['dummy_float32'],
                                               location=0x10000,
                                               endianness=Endianness.Little)
                                           )
 
         vint64 = DatastoreVariableEntry('dummy_sint64',
                                         variable_def=Variable(
-                                            'dummy_sint64',
                                             vartype=EmbeddedDataType.sint64,
-                                            path_segments=[],
+                                            path_segments=['dummy_sint64'],
                                             location=0x10010,
                                             endianness=Endianness.Little)
                                         )
 
         vbool = DatastoreVariableEntry('dummy_bool',
                                        variable_def=Variable(
-                                           'dummy_bool',
                                            vartype=EmbeddedDataType.boolean,
-                                           path_segments=[],
+                                           path_segments=['dummy_bool'],
                                            location=0x10020,
                                            endianness=Endianness.Little)
                                        )

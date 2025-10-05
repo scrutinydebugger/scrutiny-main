@@ -25,9 +25,12 @@ from inspect import currentframe
 from fnmatch import fnmatch
 
 from scrutiny.core.bintools.demangler import GccDemangler
-from scrutiny.core.varmap import VarMap, make_segments, join_segments
+from scrutiny.core.varmap import VarMap
 from scrutiny.core.basic_types import *
 from scrutiny.core.variable import *
+from scrutiny.core.struct import *
+from scrutiny.core.array import *
+from scrutiny.core import path_tools
 from scrutiny.core.embedded_enum import *
 from scrutiny.exceptions import EnvionmentNotSetUpException
 from scrutiny import tools
@@ -141,7 +144,7 @@ class ArraySegments:
         self._storage = {}
 
     def add(self, segments: List[str], array: TypedArray) -> None:
-        path = join_segments(segments)
+        path = path_tools.join_segments(segments)
         if path in self._storage:
             raise KeyError(f"Duplicate array definition for {path}")
         self._storage[path] = array
@@ -756,7 +759,7 @@ class ElfDwarfVarExtractor:
 
     def _allowed_by_filters(self, path_segments: List[str], location: VariableLocation) -> bool:
         """Tells if we can register a variable to the varmap and log the reason for not allowing if applicable."""
-        fullname = join_segments(path_segments)
+        fullname = path_tools.join_segments(path_segments)
 
         allow = True
         for ignore_pattern in self._path_ignore_patterns:
@@ -788,9 +791,6 @@ class ElfDwarfVarExtractor:
         # definitions that are used by a variables, the rest will be ignored.
 
         self._log_debug_process_die(die)
-
-        if self.get_name(die) == 'file4classB':
-            pass
 
         if die.tag == Tags.DW_TAG_variable:
             self.die_process_variable(die)
@@ -1006,17 +1006,32 @@ class ElfDwarfVarExtractor:
             if struct.byte_size is None:
                 raise ElfParsingError(f"Array of elements of unknown size: {die}")
             array_element_type = struct
+            element_type_name = self.get_name_no_none(element_type.type_die)
 
         elif element_type.type == TypeOfVar.BaseType:
             self.die_process_base_type(element_type.type_die)
             array_element_type = self.varmap.get_vartype_from_base_type(self.get_typename_from_die(element_type.type_die))
+            element_type_name = self.get_name_no_none(element_type.type_die)
+        elif element_type.type == TypeOfVar.EnumOnly:
+            assert element_type.enum_die is element_type.type_die
+            element_type_name = self.process_enum_only_type(element_type.enum_die)
+            array_element_type = self.varmap.get_vartype_from_base_type(element_type_name)
+        elif element_type.type == TypeOfVar.Array:
+            subarray = self.get_array_def(element_type.type_die)
+            if subarray is None:
+                return None
+            dims.extend(subarray.dims)
+            element_type_name = subarray.element_type_name
+            array_element_type = subarray.datatype
         else:
-            raise NotImplementedError(f"Array of element of type {element_type.type.name} not supported")
+            # This can happen
+            self.logger.warning(f"Line {get_linenumber()}: Array of element of type {element_type.type.name} not supported. Skipping")
+            return None
 
         return TypedArray(
             dims=tuple(dims),
-            element_type_name=self.get_name_no_none(element_type.type_die),
-            datatype=array_element_type
+            datatype=array_element_type,
+            element_type_name=element_type_name
         )
 
     def has_member_byte_offset(self, die: DIE) -> bool:
@@ -1237,7 +1252,9 @@ class ElfDwarfVarExtractor:
 
     def register_array_var(self, die: DIE, type_desc: TypeDescriptor, location: VariableLocation) -> None:
         if location.is_null():
-            self.logger.warning(f"Skipping array at location NULL address. {die}")
+            name = self.get_name(die, default="<no-name>")
+            self.logger.warning(f"Line {get_linenumber()}: Skipping array {name} at location NULL address.")
+            self.logger.debug(f"{die}")
             return
 
         varpath = self.make_varpath(die)

@@ -50,7 +50,7 @@ class SFDStorageManager:
     install_callbacks: List[InstallCallback]
     uninstall_callbacks: List[UninstallCallback]
     demo_device_sfd: DemoDeviceSFD
-    logger:logging.Logger
+    logger: logging.Logger
 
     @classmethod
     def clean_firmware_id(cls, firmwareid: str) -> str:

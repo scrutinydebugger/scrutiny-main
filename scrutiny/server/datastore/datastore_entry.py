@@ -23,8 +23,8 @@ import queue
 from scrutiny.server.timebase import server_timebase
 from scrutiny.core.basic_types import RuntimePublishedValue
 from scrutiny.core.basic_types import EmbeddedDataType, Endianness, WatchableType
-from scrutiny.core.variable import Variable
 from scrutiny.core.embedded_enum import EmbeddedEnum
+from scrutiny.core.variable import Variable
 from scrutiny.core.codecs import *
 from scrutiny.core.alias import Alias
 from scrutiny.tools.global_counters import global_i64_counter

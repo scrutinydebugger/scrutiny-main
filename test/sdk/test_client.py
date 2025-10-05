@@ -582,21 +582,21 @@ class TestClient(ScrutinyUnitTest):
     def fill_datastore(self):
         rpv1000 = datastore.DatastoreRPVEntry('/rpv/x1000', RuntimePublishedValue(0x1000, EmbeddedDataType.float32))
         var1 = datastore.DatastoreVariableEntry('/a/b/var1',
-                                                core_Variable('var1',
-                                                              vartype=EmbeddedDataType.uint32,
-                                                              path_segments=['a', 'b'],
-                                                              location=0x1234,
-                                                              endianness=Endianness.Little
-                                                              )
+                                                core_Variable(
+                                                    vartype=EmbeddedDataType.uint32,
+                                                    path_segments=['a', 'b', 'var1'],
+                                                    location=0x1234,
+                                                    endianness=Endianness.Little
+                                                )
                                                 )
 
         var2 = datastore.DatastoreVariableEntry('/a/b/var2',
-                                                core_Variable('var2',
-                                                              vartype=EmbeddedDataType.boolean,
-                                                              path_segments=['a', 'b'],
-                                                              location=0x4568,
-                                                              endianness=Endianness.Little,
-                                                              )
+                                                core_Variable(
+                                                    vartype=EmbeddedDataType.boolean,
+                                                    path_segments=['a', 'b', 'var2'],
+                                                    location=0x4568,
+                                                    endianness=Endianness.Little,
+                                                )
                                                 )
 
         var3_enum = EmbeddedEnum('var3_enum', vals={
@@ -605,13 +605,13 @@ class TestClient(ScrutinyUnitTest):
             'ccc': 3
         })
         var3 = datastore.DatastoreVariableEntry('/a/b/var3',
-                                                core_Variable('var3',
-                                                              vartype=EmbeddedDataType.uint8,
-                                                              path_segments=['a', 'b'],
-                                                              location=0xAAAA,
-                                                              endianness=Endianness.Little,
-                                                              enum=var3_enum
-                                                              )
+                                                core_Variable(
+                                                    vartype=EmbeddedDataType.uint8,
+                                                    path_segments=['a', 'b', 'var3'],
+                                                    location=0xAAAA,
+                                                    endianness=Endianness.Little,
+                                                    enum=var3_enum
+                                                )
                                                 )
 
         alias_var1 = datastore.DatastoreAliasEntry(

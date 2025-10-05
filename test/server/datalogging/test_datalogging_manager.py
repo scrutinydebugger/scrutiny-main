@@ -11,6 +11,7 @@ import struct
 import scrutiny.server.datalogging.definitions.api as api_datalogging
 import scrutiny.server.datalogging.definitions.device as device_datalogging
 from scrutiny.core import datalogging as core_datalogging
+from scrutiny.core import path_tools
 from scrutiny.server.datastore.datastore import *
 from scrutiny.server.datastore.datastore_entry import *
 from scrutiny.core.variable import Variable
@@ -145,11 +146,11 @@ class StubbedDeviceHandler:
 class TestDataloggingManager(ScrutinyUnitTest):
 
     def make_var_entry(self, path: str, address: int, datatype: EmbeddedDataType, endianness: Endianness = Endianness.Little) -> DatastoreVariableEntry:
-        v = Variable(path, datatype, [], address, endianness)
+        v = Variable(datatype, path_tools.make_segments(path), address, endianness)
         return DatastoreVariableEntry(path, v)
 
     def make_varbit_entry(self, path: str, address: int, datatype: EmbeddedDataType, bitoffset: int, bitsize: int, endianness: Endianness) -> DatastoreVariableEntry:
-        v = Variable(path, datatype, [], address, endianness, bitoffset=bitoffset, bitsize=bitsize)
+        v = Variable(datatype, path_tools.make_segments(path), address, endianness, bitoffset=bitoffset, bitsize=bitsize)
         return DatastoreVariableEntry(path, v)
 
     def make_rpv_entry(self, path: str, rpv_id: int, datatype: EmbeddedDataType) -> DatastoreRPVEntry:

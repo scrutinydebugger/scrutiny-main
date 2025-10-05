@@ -504,8 +504,8 @@ class TestAPI(ScrutinyUnitTest):
                     enum = EmbeddedEnum('some_enum')
                     for k, v in enum_dict.items():
                         enum.add_value(k, v)
-                dummy_var = Variable('dummy', vartype=EmbeddedDataType.float32, path_segments=[
-                    'a', 'b', 'c'], location=0x12345678, endianness=Endianness.Little, enum=enum)
+                dummy_var = Variable(vartype=EmbeddedDataType.float32, path_segments=[
+                    'a', 'b', 'c', 'dummy'], location=0x12345678, endianness=Endianness.Little, enum=enum)
                 entry = DatastoreVariableEntry(name, variable_def=dummy_var)
             elif entry_type == WatchableType.Alias:
                 entry = DatastoreAliasEntry(Alias(name, target='none'), refentry=alias_bucket[i])
@@ -2003,19 +2003,19 @@ class TestAPI(ScrutinyUnitTest):
         self.assertEqual(response['reqid'], 555)
 
     def test_write_watchable_bad_values(self):
-        varf32 = Variable('dummyf32', vartype=EmbeddedDataType.float32, path_segments=[
-                          'a', 'b', 'c'], location=0x12345678, endianness=Endianness.Little)
-        vars32 = Variable('dummys32', vartype=EmbeddedDataType.sint32, path_segments=[
-                          'a', 'b', 'c'], location=0x12345678, endianness=Endianness.Little)
-        varu32 = Variable('dummyu32', vartype=EmbeddedDataType.uint32, path_segments=[
-                          'a', 'b', 'c'], location=0x12345678, endianness=Endianness.Little)
-        varbool = Variable('dummybool', vartype=EmbeddedDataType.boolean, path_segments=[
-                           'a', 'b', 'c'], location=0x12345678, endianness=Endianness.Little)
+        varf32 = Variable(vartype=EmbeddedDataType.float32, path_segments=[
+                          'a', 'b', 'c', 'dummyf32'], location=0x12345678, endianness=Endianness.Little)
+        vars32 = Variable(vartype=EmbeddedDataType.sint32, path_segments=[
+                          'a', 'b', 'c', 'dummys32'], location=0x12345678, endianness=Endianness.Little)
+        varu32 = Variable(vartype=EmbeddedDataType.uint32, path_segments=[
+                          'a', 'b', 'c', 'dummyu32'], location=0x12345678, endianness=Endianness.Little)
+        varbool = Variable(vartype=EmbeddedDataType.boolean, path_segments=[
+                           'a', 'b', 'c', 'dummybool'], location=0x12345678, endianness=Endianness.Little)
 
-        entryf32 = DatastoreVariableEntry(varf32.name, variable_def=varf32)
-        entrys32 = DatastoreVariableEntry(vars32.name, variable_def=vars32)
-        entryu32 = DatastoreVariableEntry(varu32.name, variable_def=varu32)
-        entrybool = DatastoreVariableEntry(varbool.name, variable_def=varbool)
+        entryf32 = DatastoreVariableEntry(varf32.get_fullname(), variable_def=varf32)
+        entrys32 = DatastoreVariableEntry(vars32.get_fullname(), variable_def=vars32)
+        entryu32 = DatastoreVariableEntry(varu32.get_fullname(), variable_def=varu32)
+        entrybool = DatastoreVariableEntry(varbool.get_fullname(), variable_def=varbool)
 
         alias_f32 = Alias("alias_f32", target="xxx", target_type=WatchableType.Variable, gain=2.0, offset=-10, min=-100, max=100)
         alias_u32 = Alias("alias_u32", target="xxx", target_type=WatchableType.Variable, gain=2.0,

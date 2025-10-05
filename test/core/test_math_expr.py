@@ -108,9 +108,6 @@ class TestMathExpr(ScrutinyUnitTest):
 
         self.assertEqual(parse_math_expr("-(abs(sin(3*pi/2))+1)"), -(abs(math.sin(3 * math.pi / 2)) + 1))
 
-
-
-
         self.assertEqual(parse_math_expr('abs(-2)'), 2)
         self.assertEqual(parse_math_expr('exp(2)'), math.exp(2))
         self.assertEqual(parse_math_expr('pow(2,5)'), 32)
@@ -126,7 +123,7 @@ class TestMathExpr(ScrutinyUnitTest):
         self.assertEqual(parse_math_expr('log10(1000)'), 3)
         self.assertEqual(parse_math_expr('hypot(3,4)'), 5)
         self.assertEqual(parse_math_expr('degrees(pi/2)'), 90)
-        self.assertEqual(parse_math_expr('radians(-90)'), -math.pi/2)
+        self.assertEqual(parse_math_expr('radians(-90)'), -math.pi / 2)
         self.assertEqual(parse_math_expr('cos(0.2)'), math.cos(0.2))
         self.assertEqual(parse_math_expr('cosh(0.2)'), math.cosh(0.2))
         self.assertEqual(parse_math_expr('acos(0.2)'), math.acos(0.2))
@@ -136,7 +133,7 @@ class TestMathExpr(ScrutinyUnitTest):
         self.assertEqual(parse_math_expr('tan(0.2)'), math.tan(0.2))
         self.assertEqual(parse_math_expr('tanh(0.2)'), math.tanh(0.2))
         self.assertEqual(parse_math_expr('atan(0.2)'), math.atan(0.2))
-        self.assertEqual(parse_math_expr('atan2(10,5)'), math.atan2(10,5))
+        self.assertEqual(parse_math_expr('atan2(10,5)'), math.atan2(10, 5))
 
     def test_negative_numbers(self):
         self.assertEqual(parse_math_expr("-5"), -5)
