@@ -69,6 +69,7 @@ python -m nuitka                                    \
     --noinclude-unittest-mode=allow                 \
     --include-package-data=scrutiny.gui.assets      \
     --include-data-file="${LICENSE_FILE}"="LICENSE" \
+    --include-data-file="${ICON_PNG}"=$(basename "${ICON_PNG}")     \
     --product-name="${PRODUCT_NAME}"                \
     --product-version="${SCRUTINY_VERSION}"         \
     --copyright="${COPYRIGHT_STRING}"               \
