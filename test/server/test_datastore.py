@@ -8,12 +8,11 @@
 
 from scrutiny.server.datastore.datastore import Datastore
 from scrutiny.server.datastore.datastore_entry import *
-from scrutiny.server.datastore.datastore_template_var import DatastoreTemplateVar
 from scrutiny.core.alias import Alias
-from scrutiny.core.variable import *
+from scrutiny.core.variable import Variable
+from scrutiny.core.variable_factory import VariableFactory
 from scrutiny.core.array import UntypedArray
 from scrutiny.core.embedded_enum import EmbeddedEnum
-from scrutiny.core.scrutiny_path import ScrutinyPath
 from scrutiny.core.basic_types import *
 from test import ScrutinyUnitTest
 from scrutiny.tools.typing import *
@@ -253,8 +252,8 @@ class TestDataStore(ScrutinyUnitTest):
             self.assertTargetUpdateCallbackCalled(entries[4], 0, "WatchableType=%s" % entry_type)
 
             # Add a 2 callbacks with different owner. Should make 2 calls
-            ds.start_watching(entries[4].get_id(), watcher=owner, target_update_callback=self.target_update_callback)
-            ds.start_watching(entries[4].get_id(), watcher=owner2, target_update_callback=self.target_update_callback)
+            ds.start_watching(entries[4].get_id(), watcher=owner)
+            ds.start_watching(entries[4].get_id(), watcher=owner2)
             ds.update_target_value(entries[4], 4, callback=self.target_update_callback)
             ds.pop_target_update_request().complete(success=False)
             self.assertTargetUpdateCallbackCalled(entries[0], 2, "WatchableType=%s" % entry_type)
@@ -449,24 +448,57 @@ class TestDataStore(ScrutinyUnitTest):
         self.assertEqual(alias_var_1_enum.get_enum().name, 'alias_var1_enum')
         self.assertEqual(alias_rpv_entry_enum.get_enum().name, 'alias_rpv_enum')
 
-    def test_entry_template(self):
-        template = DatastoreTemplateVar(
+    def test_entry_template_lifetime(self):
+        ds = Datastore()
+        factory = VariableFactory(
+            base_var=Variable(
+                path_segments=[],
+                location=1000,
+                vartype=EmbeddedDataType.float32,
+                endianness=Endianness.Little,
+                bitoffset=None,
+                bitsize=None,
+                enum=None
+            ),
             access_name="/aaa/bbb/ccc/ddd",
-            vartype=EmbeddedDataType.float32,
-            base_address=1000,
-            endianness=Endianness.Little,
-            bitoffset=None,
-            bitsize=None,
-            enum=None
         )
+        factory.add_array_node('/aaa/bbb', UntypedArray((2,3), 100))
+        factory.add_array_node('/aaa/bbb/ccc/ddd', UntypedArray((4,5), 4))
 
-        template.add_array_node('/aaa/bbb', UntypedArray((2,3), 100))
-        template.add_array_node('/aaa/bbb/ccc/ddd', UntypedArray((4,5), 4))
+        ds.register_var_factory(factory)
 
-        entry = template.instantiate(ScrutinyPath.from_string('/aaa/bbb[1][0]/ccc/ddd[2][3]'))
+        self.assertEqual(ds.get_entries_count(), 0)
+        entry = ds.get_entry_by_display_path('/aaa/bbb[1][0]/ccc/ddd[2][3]')
+        self.assertEqual(ds.get_entries_count(), 1)
+
+        self.assertIsInstance(entry, DatastoreVariableEntry)
         self.assertEqual(entry.get_address(), 1000 + (1*3+0)*100+(2*5+3)*4)
         self.assertEqual(entry.get_display_path(), "/aaa/bbb[1][0]/ccc/ddd[2][3]")
         self.assertEqual(entry.get_data_type(), EmbeddedDataType.float32)
+
+        ds.start_watching(entry, 'watcher1')
+        ds.start_watching(entry, 'watcher2')
+        ds.periodic_maintenance()
+        self.assertEqual(ds.get_entries_count(), 1)
+
+        ds.stop_watching(entry, 'watcher1')
+        ds.periodic_maintenance()
+        self.assertEqual(ds.get_entries_count(), 1)
+        
+        ds.stop_watching(entry, 'watcher2')
+        ds.periodic_maintenance()
+        self.assertEqual(ds.get_entries_count(), 0)
+
+        self.assertEqual(ds.get_var_factory_count(), 1)
+        ds.clear()
+
+        self.assertEqual(ds.get_var_factory_count(), 0)
+
+        with self.assertRaises(Exception):
+            ds.get_entry_by_display_path('/aaa/bbb[1][0]/ccc/ddd[2][3]')
+    
+
+    
 
 if __name__ == '__main__':
     import unittest

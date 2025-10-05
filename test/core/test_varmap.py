@@ -193,3 +193,4 @@ class TestVarmap(ScrutinyUnitTest):
         })
 
         varmap.get_var('/aaa/bbb[1][2]/ccc/ddd[2][3][4]')
+    

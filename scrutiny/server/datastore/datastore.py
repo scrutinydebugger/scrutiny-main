@@ -15,7 +15,7 @@ import functools
 from scrutiny.core.basic_types import WatchableType
 from scrutiny.core.scrutiny_path import ScrutinyPath
 from scrutiny.server.datastore.datastore_entry import *
-from scrutiny.server.datastore.datastore_template_var import DatastoreTemplateVar
+from scrutiny.core.variable_factory import VariableFactory
 from scrutiny import tools
 
 from scrutiny.tools.typing import *
@@ -43,7 +43,7 @@ class Datastore:
     _global_watch_callbacks: List[WatchCallback]
     _global_unwatch_callbacks: List[WatchCallback]
     _target_update_request_queue: "List[UpdateTargetRequest]"
-    _var_entry_templates: Dict[str, DatastoreTemplateVar]
+    _var_factories: Dict[str, VariableFactory]
     _display_path_to_templated_entries_map:Dict[str, DatastoreEntry]
 
     MAX_ENTRY: int = 1000000
@@ -56,7 +56,7 @@ class Datastore:
         self._entries = {}
         self._watcher_map = {}
         self._displaypath2idmap = {}
-        self._var_entry_templates = {}
+        self._var_factories = {}
         self._display_path_to_templated_entries_map = {}
         self._target_update_request_queue = []
         for watchable_type in WatchableType.all():
@@ -77,7 +77,7 @@ class Datastore:
             self._displaypath2idmap[type_to_clear] = {}
 
         self._display_path_to_templated_entries_map.clear()
-        self._var_entry_templates.clear()
+        self._var_factories.clear()
 
     def add_entries_quiet(self, entries: List[DatastoreEntry]) -> None:
         """ Add many entries without raising exceptions. Silently remove failing ones"""
@@ -121,7 +121,7 @@ class Datastore:
 
         entry_id = self._get_entry_id(entry_or_entryid)
         entry = self.get_entry(entry_id)
-        
+
         with tools.SuppressException(KeyError):
             del self._display_path_to_templated_entries_map[entry.display_path]
 
@@ -149,15 +149,15 @@ class Datastore:
         
 
         if parsed_path.has_encoded_information():
-            template_path = parsed_path.to_raw_str()
-            if template_path in self._var_entry_templates:
-                template = self._var_entry_templates[template_path]
-                new_entry = template.instantiate(parsed_path)
+            factory_path = parsed_path.to_raw_str()
+            if factory_path in self._var_factories:
+                factory = self._var_factories[factory_path]
+                new_entry = DatastoreVariableEntry(parsed_path.to_str(), factory.instantiate(parsed_path))
                 self._display_path_to_templated_entries_map[display_path] = new_entry
                 self.add_entry(new_entry)
                 return new_entry
 
-        raise KeyError('Entry with display path %s not found in datastore' % display_path)
+        raise KeyError(f'Entry with display path {display_path} not found in datastore')
 
     def add_watch_callback(self, callback: WatchCallback) -> None:
         """ Mainly used to notify device handler that a new variable is to be polled"""
@@ -329,18 +329,24 @@ class Datastore:
         """Returns True if the tree-like path matches the expected RPV default path (i.e. /rpv/x1234)"""
         return DatastoreRPVEntry.is_valid_path(path)
 
-    def register_var_template(self, template:DatastoreTemplateVar) -> None:
-        key = template.get_access_name()
-        if key in self._var_entry_templates:
-            raise KeyError("Duplicate datastore variable entry template")
+    def register_var_factory(self, factory:VariableFactory) -> None:
+        key = factory.get_access_name()
+        if key in self._var_factories:
+            raise KeyError("Duplicate datastore variable factory")
         
-        self._var_entry_templates[key] = template
+        self._var_factories[key] = factory
+
+    def get_var_factory_count(self) -> int:
+        return len(self._var_factories)
+
+    def periodic_maintenance(self) -> None:
+        self._prune_unwatched_templated_entries()
 
 
 # region Private
 
     def _prune_unwatched_templated_entries(self) -> None:
-        for display_path, entry in self._display_path_to_templated_entries_map.items():
+        for entry in list(self._display_path_to_templated_entries_map.values()):
             if not self.has_watchers(entry):
                 self.remove_entry(entry)
 

@@ -80,6 +80,9 @@ class ScrutinyServer:
     start_time: float
     stop_event: threading.Event
 
+    last_datastore_maintenance:float
+    DATASTORE_MAINTENANCE_PERIOD = 5
+
     def __init__(self,
                  input_config: Optional[Union[str, ServerConfig]] = None,
                  additional_config: Optional[ServerConfig] = None
@@ -132,6 +135,7 @@ class ScrutinyServer:
             rx_event=self.rx_data_event
         )
         self.start_time = time.monotonic()
+        self.last_datastore_maintenance = self.start_time
 
     def validate_config(self) -> None:
         if self.config['debug']:
@@ -146,7 +150,13 @@ class ScrutinyServer:
         self.sfd_handler.init()
 
     def process(self) -> None:
+        t = time.monotonic()
         self.api.process()
+
+        if t - self.last_datastore_maintenance > self.DATASTORE_MAINTENANCE_PERIOD:
+            self.datastore.periodic_maintenance()
+            self.last_datastore_maintenance = t
+            
         self.datalogging_manager.process()
         self.device_handler.process()
         self.sfd_handler.process()

@@ -15,6 +15,7 @@ import logging
 from pathlib import Path
 
 from scrutiny.core.variable import Variable, VariableLocation
+from scrutiny.core.variable_factory import VariableFactory
 from scrutiny.core.array import Array, UntypedArray
 from scrutiny.core.basic_types import EmbeddedDataType, Endianness
 from scrutiny.core.embedded_enum import EmbeddedEnum, EmbeddedEnumDef
@@ -318,22 +319,34 @@ class VarMap:
 
         return outlist
 
-    def iterate_simple_vars(self) -> Generator[Tuple[str, Variable], None, None]:
+    def iterate_vars(self) -> Generator[Tuple[str, Union[Variable, VariableFactory]], None, None]:
         for fullname in self._content.variables:
             parsed_path = ScrutinyPath.from_string(fullname)
             vardef = self._get_var_def(fullname)
-            # TODO: Hide arrays for now. We need a better varmap API to fill the datastore
-            if len(vardef.get('array_segments', {})) == 0:
-                v = Variable(
-                    vartype=self._get_type(vardef),
-                    path_segments=parsed_path.get_segments(),
-                    location=self._get_addr(vardef),
-                    endianness=self.get_endianness(),
-                    bitsize=self._get_bitsize(vardef),
-                    bitoffset=self._get_bitoffset(vardef),
-                    enum=self._get_enum(vardef)
-                )
+            v = Variable(
+                vartype=self._get_type(vardef),
+                path_segments=parsed_path.get_segments(),
+                location=self._get_addr(vardef),
+                endianness=self.get_endianness(),
+                bitsize=self._get_bitsize(vardef),
+                bitoffset=self._get_bitoffset(vardef),
+                enum=self._get_enum(vardef)
+            )
 
+            array_segments = vardef.get('array_segments', None)
+            if array_segments is not None:
+                factory = VariableFactory(
+                    base_var=v,
+                    access_name=fullname
+                )
+                for path, array_def in array_segments.items():
+                    arr = UntypedArray(
+                        dims=tuple(array_def['dims']), 
+                        element_byte_size=array_def['byte_size'] 
+                        )
+                    factory.add_array_node(path, arr)
+                yield (fullname, factory)
+            else:
                 yield (fullname, v)
 
     def validate(self) -> None:

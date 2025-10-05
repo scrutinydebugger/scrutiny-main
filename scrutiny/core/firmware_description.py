@@ -396,8 +396,10 @@ class FirmwareDescription:
 
     def get_vars_for_datastore(self) -> Generator[Tuple[str, Variable], None, None]:
         """Returns all variables in this SFD with a Generator to avoid consuming memory."""
-        for fullname, vardef in self.varmap.iterate_simple_vars():
-            yield (fullname, vardef)
+        for fullname, var in self.varmap.iterate_vars():
+            if isinstance(var, Variable):
+                yield (fullname, var)
+            # todo : Factory
 
     def get_aliases_for_datastore(self, entry_type: Optional[WatchableType] = None) -> Generator[Tuple[str, Alias], None, None]:
         """Returns all alias in this SFD with a Generator to avoid consuming memory."""
