@@ -16,6 +16,7 @@ __all__ = [
 ]
 
 import os
+import enum
 import logging
 import traceback
 import math
@@ -36,6 +37,7 @@ import time
 from scrutiny import tools
 
 from scrutiny.core.math_expr import parse_math_expr
+from scrutiny.core.variable_factory import VariableFactory
 from scrutiny.server.timebase import server_timebase
 from scrutiny.server.datalogging.datalogging_storage import DataloggingStorage
 from scrutiny.server.datalogging.datalogging_manager import DataloggingManager
@@ -75,6 +77,8 @@ class APIConfig(TypedDict, total=False):
 
 UpdateVarCallback = Callable[[str, DatastoreEntry], None]
 TargetUpdateCallback = Callable[[str, DatastoreEntry], None]
+EntryOrVarFactory: TypeAlias = Union[DatastoreEntry, VariableFactory]
+EntryOrVarFactoryGenerator = Generator[Union[DatastoreEntry, VariableFactory], None, None]
 
 
 class InvalidRequestException(Exception):
@@ -604,60 +608,85 @@ class API:
         if len(type_to_include) == 0:
             type_to_include = [WatchableType.Variable, WatchableType.Alias, WatchableType.RuntimePublishedValue]
 
-        # Sends RPV first, variable last
-        priority = [WatchableType.RuntimePublishedValue, WatchableType.Alias, WatchableType.Variable]
-        entries_generator: Dict[WatchableType, Generator[DatastoreEntry, None, None]] = {}
-
-        def filtered_generator(gen: Generator[DatastoreEntry, None, None]) -> Generator[DatastoreEntry, None, None]:
+        def filtered_generator(gen: EntryOrVarFactoryGenerator) -> EntryOrVarFactoryGenerator:
             if name_filters is None:
                 yield from gen
             else:
-                for entry in gen:
+                for element in gen:
                     for name_filter in name_filters:
-                        if fnmatch(entry.display_path, name_filter):
-                            yield entry
-                            break   # Break the filter loop, next entry
+                        if isinstance(element, DatastoreEntry):
+                            if fnmatch(element.display_path, name_filter):
+                                yield element
+                                break   # Break the filter loop, next entry
+                        elif isinstance(element, VariableFactory):
+                            if fnmatch(element.get_access_name(), name_filter):
+                                yield element
+                                break   # Break the filter loop, next entry
 
         def empty_generator() -> Generator[DatastoreEntry, None, None]:
             yield from []
 
-        for entry_type in priority:
-            gen = self.datastore.get_all_entries(entry_type) if entry_type in type_to_include else empty_generator()
-            entries_generator[entry_type] = filtered_generator(gen)
+        class WatchableGroup(enum.Enum):
+            RuntimePublishedValue = 'rpv'
+            Alias = 'alias'
+            Variable = 'var'
+            VariableFactory = 'var_factory'
+
+        # Sends RPV first, variable last
+        priority = [WatchableGroup.RuntimePublishedValue, WatchableGroup.Alias, WatchableGroup.Variable, WatchableGroup.VariableFactory]
+        generators: Dict[WatchableGroup, EntryOrVarFactoryGenerator] = {}
+
+        for group_type in priority:
+            gen: EntryOrVarFactoryGenerator
+            if group_type == WatchableGroup.RuntimePublishedValue:
+                gen = self.datastore.get_all_entries(
+                    WatchableType.RuntimePublishedValue) if WatchableType.RuntimePublishedValue in type_to_include else empty_generator()
+            elif group_type == WatchableGroup.Alias:
+                gen = self.datastore.get_all_entries(WatchableType.Alias) if WatchableType.Alias in type_to_include else empty_generator()
+            elif group_type == WatchableGroup.Variable:
+                gen = self.datastore.get_all_entries(WatchableType.Variable) if WatchableType.Variable in type_to_include else empty_generator()
+            elif group_type == WatchableGroup.VariableFactory:
+                gen = self.datastore.get_all_variable_factory() if WatchableType.Variable in type_to_include else empty_generator()
+            else:
+                raise RuntimeError("Unsupported element group")
+
+            generators[group_type] = filtered_generator(gen)
 
         done = False
-        batch_content: Dict[WatchableType, List[DatastoreEntry]]
-        remainders: Dict[WatchableType, List[DatastoreEntry]] = {
-            WatchableType.RuntimePublishedValue: [],
-            WatchableType.Alias: [],
-            WatchableType.Variable: []
+
+        remainders: Dict[WatchableGroup, List[EntryOrVarFactory]] = {
+            WatchableGroup.RuntimePublishedValue: [],
+            WatchableGroup.Alias: [],
+            WatchableGroup.Variable: [],
+            WatchableGroup.VariableFactory: []
         }
 
         while not done:
             batch_count = 0
-            batch_content = {
-                WatchableType.RuntimePublishedValue: [],
-                WatchableType.Alias: [],
-                WatchableType.Variable: []
+            batch_content: Dict[WatchableGroup, List[EntryOrVarFactory]] = {
+                WatchableGroup.RuntimePublishedValue: [],
+                WatchableGroup.Alias: [],
+                WatchableGroup.Variable: [],
+                WatchableGroup.VariableFactory: [],
             }
 
             stopiter_count = 0
-            for entry_type in priority:
+            for group_type in priority:
                 possible_remainder = max_per_response - batch_count
-                batch_content[entry_type] += remainders[entry_type][0:possible_remainder]
-                remainder_consumed = len(batch_content[entry_type])
-                remainders[entry_type] = remainders[entry_type][remainder_consumed:]
+                batch_content[group_type] += remainders[group_type][0:possible_remainder]
+                remainder_consumed = len(batch_content[group_type])
+                remainders[group_type] = remainders[group_type][remainder_consumed:]
                 batch_count += remainder_consumed
 
                 slice_stop = max_per_response - batch_count
-                the_slice = list(itertools.islice(entries_generator[entry_type], slice_stop))
-                batch_content[entry_type] += the_slice
+                the_slice = list(itertools.islice(generators[group_type], slice_stop))
+                batch_content[group_type] += the_slice
                 batch_count += len(the_slice)
 
-                if len(remainders[entry_type]) == 0:
+                if len(remainders[group_type]) == 0:
                     try:
-                        peek = next(entries_generator[entry_type])
-                        remainders[entry_type].append(peek)
+                        peek = next(generators[group_type])
+                        remainders[group_type].append(peek)
                     except StopIteration:
                         stopiter_count += 1
 
@@ -667,14 +696,16 @@ class API:
                 'cmd': self.Command.Api2Client.GET_WATCHABLE_LIST_RESPONSE,
                 'reqid': self.get_req_id(req),
                 'qty': {
-                    'var': len(batch_content[WatchableType.Variable]),
-                    'alias': len(batch_content[WatchableType.Alias]),
-                    'rpv': len(batch_content[WatchableType.RuntimePublishedValue])
+                    'var': len(batch_content[WatchableGroup.Variable]),
+                    'alias': len(batch_content[WatchableGroup.Alias]),
+                    'rpv': len(batch_content[WatchableGroup.RuntimePublishedValue]),
+                    'var_factory': len(batch_content[WatchableGroup.VariableFactory])
                 },
                 'content': {
-                    'var': [self.make_datastore_entry_definition(x, include_type=False) for x in batch_content[WatchableType.Variable]],
-                    'alias': [self.make_datastore_entry_definition(x, include_type=False) for x in batch_content[WatchableType.Alias]],
-                    'rpv': [self.make_datastore_entry_definition(x, include_type=False) for x in batch_content[WatchableType.RuntimePublishedValue]]
+                    'var': [self.make_datastore_entry_definition(cast(DatastoreEntry, x), include_type=False) for x in batch_content[WatchableGroup.Variable]],
+                    'alias': [self.make_datastore_entry_definition(cast(DatastoreEntry, x), include_type=False) for x in batch_content[WatchableGroup.Alias]],
+                    'rpv': [self.make_datastore_entry_definition(cast(DatastoreEntry, x), include_type=False) for x in batch_content[WatchableGroup.RuntimePublishedValue]],
+                    'var_factory': [self.make_variable_factory_definition(cast(VariableFactory, x), include_type=False) for x in batch_content[WatchableGroup.VariableFactory]],
                 },
                 'done': done
             }
@@ -691,6 +722,7 @@ class API:
                 'var': self.datastore.get_entries_count(WatchableType.Variable),
                 'alias': self.datastore.get_entries_count(WatchableType.Alias),
                 'rpv': self.datastore.get_entries_count(WatchableType.RuntimePublishedValue),
+                'var_factory': self.datastore.get_var_factory_count()
             }
         }
 
@@ -2162,6 +2194,45 @@ class API:
                 'name': enum.get_name(),
                 'values': enum_def['values']
             }
+
+        return definition
+
+    def make_variable_factory_definition(self,
+                                         factory: VariableFactory,
+                                         include_type: bool = True,
+                                         include_display_path: bool = True,
+                                         include_datatype: bool = True,
+                                         include_enum: bool = True
+                                         ) -> api_typing.VariableFactoryDefinition:
+        # Craft the data structure sent by the API to give the available watchables
+        definition: api_typing.VariableFactoryDefinition = {
+            'factory_params': {
+                'array_nodes': {}
+            }
+        }
+
+        var = factory.get_base_variable()
+
+        if include_datatype:
+            definition['datatype'] = self.get_datatype_name(var.get_type())
+
+        if include_display_path:
+            definition['display_path'] = factory.get_access_name()
+
+        if include_type:
+            definition['type'] = self.get_watchable_type_name(WatchableType.Variable)
+
+        if include_enum and var.has_enum():
+            enum = var.get_enum()
+            assert enum is not None
+            enum_def = enum.get_def()
+            definition['enum'] = {  # Cherry pick items to avoid sending too much to client
+                'name': enum.get_name(),
+                'values': enum_def['values']
+            }
+
+        for path, array in factory.get_array_nodes().items():
+            definition['factory_params']['array_nodes'][path] = list(array.dims)
 
         return definition
 

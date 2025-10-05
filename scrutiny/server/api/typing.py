@@ -74,6 +74,10 @@ class EnumDefinition(TypedDict):
     values: Dict[str, int]
 
 
+class VarFactoryParams(TypedDict):
+    array_nodes: Dict[str, List[int]]
+
+
 class DatastoreEntryDefinition(TypedDict, total=False):
     id: str
     display_path: str
@@ -82,10 +86,15 @@ class DatastoreEntryDefinition(TypedDict, total=False):
     enum: Optional[EnumDefinition]  # Can be missing. Default to None
 
 
+class VariableFactoryDefinition(DatastoreEntryDefinition):
+    factory_params: VarFactoryParams
+
+
 class WatchableListContent(TypedDict):
     var: List[DatastoreEntryDefinition]
     alias: List[DatastoreEntryDefinition]
     rpv: List[DatastoreEntryDefinition]
+    var_factory: List[VariableFactoryDefinition]
 
 
 class SamplingRate(TypedDict):
@@ -136,6 +145,7 @@ class WatchableCount(TypedDict):
     alias: int
     var: int
     rpv: int
+    var_factory: int
 
 
 class UpdateRecord(TypedDict):

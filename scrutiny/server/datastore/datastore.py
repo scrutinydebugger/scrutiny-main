@@ -165,11 +165,18 @@ class Datastore:
     def add_unwatch_callback(self, callback: WatchCallback) -> None:
         self._global_unwatch_callbacks.append(callback)
 
+    def start_watching_by_display_path(self,
+                                       display_path: str,
+                                       watcher: str,
+                                       value_change_callback: Optional[UserValueChangeCallback] = None) -> DatastoreEntry:
+        entry = self.get_entry_by_display_path(display_path)    # Invoke the factory if needed
+        return self.start_watching(entry, watcher, value_change_callback)
+
     def start_watching(self,
                        entry_or_entryid: Union[DatastoreEntry, str],
                        watcher: str,
                        value_change_callback: Optional[UserValueChangeCallback] = None
-                       ) -> None:
+                       ) -> DatastoreEntry:
         """ 
         Register a new callback on the entry identified by the given entry_id.
         The watcher parameter will be given back when calling the callback.
@@ -199,6 +206,8 @@ class Datastore:
                 watcher=self._make_owner_from_alias_entry(entry),
                 value_change_callback=alias_value_change_callback
             )
+
+        return entry
 
     def is_watching(self, entry_or_entryid: Union[DatastoreEntry, str], watcher: str) -> bool:
         """ Tell if the given watcher is actually watching an entry"""
@@ -245,6 +254,10 @@ class Datastore:
                     # Special handling for Aliases.
                     # If nobody watches this alias, then we can remove the internal subscription to the referenced entry
                     self.stop_watching(entry.resolve(), self._make_owner_from_alias_entry(entry))
+
+        if entry.display_path in self._display_path_to_templated_entries_map:
+            if not self.has_watchers(entry):
+                self.remove_entry(entry)
 
         entry.unregister_value_change_callback(watcher)
 
@@ -338,12 +351,11 @@ class Datastore:
     def get_var_factory_count(self) -> int:
         return len(self._var_factories)
 
-    def periodic_maintenance(self) -> None:
-        self._prune_unwatched_templated_entries()
-
+    def get_all_variable_factory(self) -> Generator[VariableFactory, None, None]:
+        for factory in self._var_factories.values():
+            yield factory
 
 # region Private
-
 
     def _prune_unwatched_templated_entries(self) -> None:
         for entry in list(self._display_path_to_templated_entries_map.values()):
