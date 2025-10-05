@@ -90,11 +90,6 @@ class TestElf2VarMapFromBuilds(ScrutinyUnitTest):
             with open(main_cpp, 'wb') as f:
                 f.write(code.encode('utf8'))
 
-            try:
-                subprocess.check_call([compiler, '--help'], stdout=subprocess.DEVNULL)
-            except Exception:
-                raise unittest.SkipTest(f"{compiler} is not installed.")
-
             p = subprocess.Popen([compiler, '-no-pie', f'-gdwarf-{dwarf_version}', main_cpp,
                                  '-o', outbin], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             stdout, stderr = p.communicate()
@@ -112,7 +107,10 @@ class TestElf2VarMapFromBuilds(ScrutinyUnitTest):
             extractor = ElfDwarfVarExtractor(outbin, cppfilt=cppfilt)
             return extractor.get_varmap()
 
-    @unittest.skipIf(not has_elf_toolchain(compiler='g++', cppfilt='c++filt'), "No toolchain available")
+    @unittest.skipIf(
+            not has_elf_toolchain(compiler='g++', cppfilt='c++filt')
+            or not has_elf_toolchain(compiler='clang++', cppfilt='c++filt'), 
+            "No toolchain available")
     def test_extract_arrays(self):
         code = """
 #include <cstdint>
