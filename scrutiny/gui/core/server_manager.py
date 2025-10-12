@@ -994,12 +994,12 @@ class ServerManager:
         :param callback: A callback to call on completion. If the single parameter is None, completed successfully, otherwise will be the exception raised
 
         """
-        watchable_config = self._registry.get_watchable_fqn(fqn)
-        if watchable_config is None:
+        server_id = self._registry.get_server_id_fqn(fqn)
+        if server_id is None:
             raise Exception(f"Item {fqn} is not in the registry. Cannot write its value")
 
         def threaded_func(client: ScrutinyClient) -> None:
-            handle = client.try_get_existing_watch_handle_by_server_id(watchable_config.server_id)
+            handle = client.try_get_existing_watch_handle_by_server_id(server_id)
             if handle is None:
                 raise Exception(f"Item {fqn} is not being watched. Cannot write its value")
 

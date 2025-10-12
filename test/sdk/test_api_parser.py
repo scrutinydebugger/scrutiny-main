@@ -41,7 +41,6 @@ class TestApiParser(ScrutinyUnitTest):
                 "qty": {"var": 2, "alias": 2, "rpv": 1},
                 "content": {
                     "var": [{
-                        "id": "id1",
                         "display_path": "/a/b/c",
                         "datatype": "sint32",
                         "enum": {
@@ -53,22 +52,18 @@ class TestApiParser(ScrutinyUnitTest):
                             }
                         }
                     }, {
-                        "id": "id2",
                         "display_path": "/a/b/d",
                         "datatype": "uint64",
                     }],
                     "alias": [{
-                        "id": "id3",
                         "display_path": "/x/y/z",
                         "datatype": "float32",
                     },
                         {
-                        "id": "id4",
                         "display_path": "/x/y/w",
                         "datatype": "float64",
                     }],
                     "rpv": [{
-                        "id": "id5",
                         "display_path": "/aaa/bbb/ccc",
                         "datatype": "sint8",
                     }]
@@ -102,7 +97,6 @@ class TestApiParser(ScrutinyUnitTest):
 
         o = res.data[WatchableType.Variable]['/a/b/c']
         self.assertEqual(o.watchable_type, WatchableType.Variable)
-        self.assertEqual(o.server_id, 'id1')
         self.assertEqual(o.datatype, EmbeddedDataType.sint32)
         self.assertEqual(o.enum.name, 'example_enum')
         self.assertEqual(o.enum.vals['aaa'], 1)
@@ -112,22 +106,18 @@ class TestApiParser(ScrutinyUnitTest):
 
         o = res.data[WatchableType.Variable]['/a/b/d']
         self.assertEqual(o.watchable_type, WatchableType.Variable)
-        self.assertEqual(o.server_id, 'id2')
         self.assertEqual(o.datatype, EmbeddedDataType.uint64)
 
         o = res.data[WatchableType.Alias]['/x/y/z']
         self.assertEqual(o.watchable_type, WatchableType.Alias)
-        self.assertEqual(o.server_id, 'id3')
         self.assertEqual(o.datatype, EmbeddedDataType.float32)
 
         o = res.data[WatchableType.Alias]['/x/y/w']
         self.assertEqual(o.watchable_type, WatchableType.Alias)
-        self.assertEqual(o.server_id, 'id4')
         self.assertEqual(o.datatype, EmbeddedDataType.float64)
 
         o = res.data[WatchableType.RuntimePublishedValue]['/aaa/bbb/ccc']
         self.assertEqual(o.watchable_type, WatchableType.RuntimePublishedValue)
-        self.assertEqual(o.server_id, 'id5')
         self.assertEqual(o.datatype, EmbeddedDataType.sint8)
 
         for wt in ('var', 'alias', 'rpv'):
@@ -138,7 +128,7 @@ class TestApiParser(ScrutinyUnitTest):
 
         for wt in ('var', 'alias', 'rpv'):
             for val in [[], {}, None, 3.5, 1, True, Delete, ""]:
-                for field in ("id", 'datatype', 'display_path'):
+                for field in ('datatype', 'display_path'):
                     with self.assertRaises(sdk.exceptions.BadResponseError, msg=f"wt={wt}, val={val}, field={field}"):
                         response = base()
                         if val == Delete:

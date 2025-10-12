@@ -18,8 +18,7 @@ from scrutiny import sdk
 from scrutiny.gui import assets
 from scrutiny.gui.themes import scrutiny_get_theme
 from scrutiny.gui.widgets.watchable_tree import FolderItemSerializableData, WatchableItemSerializableData
-from scrutiny.gui.core.server_manager import ValueUpdate
-from scrutiny.gui.core.watchable_registry import WatchableRegistryNodeNotFoundError, WatcherNotFoundError
+from scrutiny.gui.core.watchable_registry import WatchableRegistryNodeNotFoundError, WatcherNotFoundError, RegistryValueUpdate
 from scrutiny.gui.components.locals.base_local_component import ScrutinyGUIBaseLocalComponent
 from scrutiny.gui.widgets.watchable_tree import WatchableTreeWidget, WatchableStandardItem, FolderStandardItem, BaseWatchableRegistryTreeStandardItem
 from scrutiny.gui.components.locals.watch.watch_tree_model import WatchComponentTreeModel, ValueStandardItem, WatchComponentTreeWidget, SerializableTreeDescriptor
@@ -278,7 +277,7 @@ class WatchComponent(ScrutinyGUIBaseLocalComponent):
         """Take the given row and create a watcher on the registry for the row"""
         value_item = self._tree_model.get_value_item(item)
 
-        def update_val_closure(watcher_id: Union[str, int], vals: List[ValueUpdate]) -> None:
+        def update_val_closure(watcher_id: Union[str, int], vals: List[RegistryValueUpdate]) -> None:
             self._update_val_callback(value_item, watcher_id, vals)
 
         def unwatch_closure(watcher_id: Union[str, int], server_path: str, watchable_config: sdk.WatchableConfiguration) -> None:
@@ -376,7 +375,7 @@ class WatchComponent(ScrutinyGUIBaseLocalComponent):
 
         self._tree.map_to_watchable_node(update_func, start_node)
 
-    def _update_val_callback(self, item: ValueStandardItem, watcher_id: Union[str, int], vals: List[ValueUpdate]) -> None:
+    def _update_val_callback(self, item: ValueStandardItem, watcher_id: Union[str, int], vals: List[RegistryValueUpdate]) -> None:
         """The function called when we receive value updates from the server"""
         assert len(vals) > 0
         can_update = True
@@ -386,7 +385,7 @@ class WatchComponent(ScrutinyGUIBaseLocalComponent):
                 can_update = False  # Don't change the content. The user is writing something
 
         if can_update:
-            item.set_value(vals[-1].value)
+            item.set_value(vals[-1].update.value)
 
     def _value_written_slot(self, fqn: str, value: Union[str, int, float, bool]) -> None:
         """The QT slot called when the user input a new value in a value field"""

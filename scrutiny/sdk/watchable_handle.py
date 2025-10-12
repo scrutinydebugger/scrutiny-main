@@ -34,7 +34,7 @@ class WatchableHandle:
     _client: "ScrutinyClient"   # The client that created this handle
     _display_path: str      # The display path
     _shortname: str         # Name of the last element in the display path
-    _configuration: Optional[WatchableConfiguration]
+    _configuration: Optional[WatchableConfigurationWithServerID]
 
     _lock: threading.Lock   # A lock to access the value
     _status: ValueStatus            # Status of the value. Tells if the value is valid or not and why it is invalid if not
@@ -60,7 +60,7 @@ class WatchableHandle:
 
         return f'<{self.__class__.__name__} "{self._shortname}" [{self._configuration.datatype.name}] at {addr}>'
 
-    def _configure(self, config: WatchableConfiguration) -> None:
+    def _configure(self, config: WatchableConfigurationWithServerID) -> None:
         with self._lock:
             self._configuration = config
             self._status = ValueStatus.NeverSet

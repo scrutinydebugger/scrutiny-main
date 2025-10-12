@@ -134,15 +134,15 @@ class TestListeners(ScrutinyUnitTest):
         self.w4 = WatchableHandle(dummy_client, '/aaa/bbb/ccc4')
         self.w5 = WatchableHandle(dummy_client, '/aaa/bbb/ccc5')
 
-        self.w1._configure(sdk.WatchableConfiguration(watchable_type=WatchableType.Variable,
+        self.w1._configure(sdk.WatchableConfigurationWithServerID(watchable_type=WatchableType.Variable,
                            datatype=EmbeddedDataType.float32, server_id='w1', enum=None))
-        self.w2._configure(sdk.WatchableConfiguration(watchable_type=WatchableType.Variable,
+        self.w2._configure(sdk.WatchableConfigurationWithServerID(watchable_type=WatchableType.Variable,
                            datatype=EmbeddedDataType.sint32, server_id='w2', enum=None))
-        self.w3._configure(sdk.WatchableConfiguration(watchable_type=WatchableType.Alias,
+        self.w3._configure(sdk.WatchableConfigurationWithServerID(watchable_type=WatchableType.Alias,
                            datatype=EmbeddedDataType.uint32, server_id='w3', enum=None))
-        self.w4._configure(sdk.WatchableConfiguration(watchable_type=WatchableType.RuntimePublishedValue,
+        self.w4._configure(sdk.WatchableConfigurationWithServerID(watchable_type=WatchableType.RuntimePublishedValue,
                            datatype=EmbeddedDataType.float64, server_id='w4', enum=None))
-        self.w5._configure(sdk.WatchableConfiguration(watchable_type=WatchableType.RuntimePublishedValue,
+        self.w5._configure(sdk.WatchableConfigurationWithServerID(watchable_type=WatchableType.RuntimePublishedValue,
                            datatype=EmbeddedDataType.boolean, server_id='w5', enum=None))
 
     def test_listener_working_behavior(self):

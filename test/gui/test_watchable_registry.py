@@ -10,7 +10,7 @@ from scrutiny import sdk
 from scrutiny.core.basic_types import EmbeddedDataType
 from scrutiny.core.embedded_enum import EmbeddedEnum
 from scrutiny.gui.core.watchable_registry import (WatchableRegistry, WatchableRegistryError,
-                                                  WatchableRegistryNodeContent, ValueUpdate, WatcherNotFoundError,
+                                                  WatchableRegistryIntermediateNode, ValueUpdate, WatcherNotFoundError,
                                                   WatchableRegistryNodeNotFoundError)
 from scrutiny.tools.thread_enforcer import ThreadEnforcer
 from scrutiny.gui.core.threads import QT_THREAD_NAME
@@ -20,21 +20,21 @@ from datetime import datetime
 from scrutiny.tools.typing import *
 
 DUMMY_DATASET_RPV = {
-    '/rpv/rpv1000': sdk.WatchableConfiguration(server_id='rpv_111', watchable_type=sdk.WatchableType.RuntimePublishedValue, datatype=sdk.EmbeddedDataType.float32, enum=None),
-    '/rpv/rpv1001': sdk.WatchableConfiguration(server_id='rpv_222', watchable_type=sdk.WatchableType.RuntimePublishedValue, datatype=sdk.EmbeddedDataType.float32, enum=None)
+    '/rpv/rpv1000': sdk.WatchableConfiguration(watchable_type=sdk.WatchableType.RuntimePublishedValue, datatype=sdk.EmbeddedDataType.float32, enum=None),
+    '/rpv/rpv1001': sdk.WatchableConfiguration(watchable_type=sdk.WatchableType.RuntimePublishedValue, datatype=sdk.EmbeddedDataType.float32, enum=None)
 }
 
 DUMMY_DATASET_ALIAS = {
-    '/alias/xxx/alias1': sdk.WatchableConfiguration(server_id='alias_111', watchable_type=sdk.WatchableType.Alias, datatype=sdk.EmbeddedDataType.float32, enum=None),
-    '/alias/alias2': sdk.WatchableConfiguration(server_id='alias_222', watchable_type=sdk.WatchableType.Alias, datatype=sdk.EmbeddedDataType.float32, enum=None),
-    '/alias/alias3': sdk.WatchableConfiguration(server_id='alias_333', watchable_type=sdk.WatchableType.Alias, datatype=sdk.EmbeddedDataType.float32, enum=None)
+    '/alias/xxx/alias1': sdk.WatchableConfiguration(watchable_type=sdk.WatchableType.Alias, datatype=sdk.EmbeddedDataType.float32, enum=None),
+    '/alias/alias2': sdk.WatchableConfiguration(watchable_type=sdk.WatchableType.Alias, datatype=sdk.EmbeddedDataType.float32, enum=None),
+    '/alias/alias3': sdk.WatchableConfiguration(watchable_type=sdk.WatchableType.Alias, datatype=sdk.EmbeddedDataType.float32, enum=None)
 }
 
 DUMMY_DATASET_VAR = {
-    '/var/xxx/var1': sdk.WatchableConfiguration(server_id='var_111', watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None),
-    '/var/xxx/var2': sdk.WatchableConfiguration(server_id='var_222', watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None),
-    '/var/var3': sdk.WatchableConfiguration(server_id='var_333', watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None),
-    '/var/var4': sdk.WatchableConfiguration(server_id='var_444', watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None)
+    '/var/xxx/var1': sdk.WatchableConfiguration(watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None),
+    '/var/xxx/var2': sdk.WatchableConfiguration(watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None),
+    '/var/var3': sdk.WatchableConfiguration(watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None),
+    '/var/var4': sdk.WatchableConfiguration(watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None)
 }
 
 
@@ -316,12 +316,12 @@ class TestWatchableRegistry(ScrutinyUnitTest):
         with self.assertRaises(WatcherNotFoundError):
             self.registry.watch_fqn('watcher_idontexist', var2fqn)
 
-        serverid_var1 = self.registry.read_fqn(var1fqn).server_id
-        serverid_var2 = self.registry.read_fqn(var2fqn).server_id
+        registr_id_var1 = self.registry.read_fqn(var1fqn).registry_id
+        registr_id_var2 = self.registry.read_fqn(var2fqn).registry_id
 
         # Check watcher states
-        self.assertEqual(self.registry.watcher_count_by_server_id(serverid_var1), 2)
-        self.assertEqual(self.registry.watcher_count_by_server_id(serverid_var2), 1)
+        self.assertEqual(self.registry.watcher_count_by_registry_id(registr_id_var1), 2)
+        self.assertEqual(self.registry.watcher_count_by_registry_id(registr_id_var2), 1)
         self.assertEqual(self.registry.node_watcher_count_fqn(var1fqn), 2)
         self.assertEqual(self.registry.node_watcher_count_fqn(var2fqn), 1)
 

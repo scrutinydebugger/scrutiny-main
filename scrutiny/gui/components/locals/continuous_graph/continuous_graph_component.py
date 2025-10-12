@@ -27,7 +27,7 @@ from scrutiny.gui import assets
 from scrutiny.gui.app_settings import app_settings
 from scrutiny.gui.tools import prompt
 from scrutiny.gui.tools.invoker import invoke_later, invoke_in_qt_thread
-from scrutiny.gui.core.watchable_registry import WatchableRegistryNodeNotFoundError, ValueUpdate
+from scrutiny.gui.core.watchable_registry import WatchableRegistryNodeNotFoundError, RegistryValueUpdate
 from scrutiny.gui.widgets.feedback_label import FeedbackLabel
 from scrutiny.gui.components.locals.base_local_component import ScrutinyGUIBaseLocalComponent
 from scrutiny.gui.widgets.graph_signal_tree import GraphSignalTree, ChartSeriesWatchableStandardItem, AxisContent
@@ -183,7 +183,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
     """A label to report error to the user"""
     _splitter: QSplitter
     """The splitter between the graph and the signal/axis tree"""
-    _serverid2signal_item: Dict[str, ChartSeriesWatchableStandardItem]
+    _registryid2signal_item: Dict[int, ChartSeriesWatchableStandardItem]
     """A dictionnary mapping server_id associated with ValueUpdates broadcast by the server to their respective signal (a tree item, which has a reference to the chart series) """
     _first_val_dt: Optional[datetime]
     """The server timestamp of the first value gotten. Used to offset the ValueUpdates timestamps to 0"""
@@ -216,7 +216,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
         return scrutiny_get_theme().load_medium_icon(assets.Icons.ContinuousGraph)
 
     def setup(self) -> None:
-        self._serverid2signal_item = {}
+        self._registryid2signal_item = {}
         self._xaxis = ScrutinyValueAxisWithMinMax(self)
         self._xaxis.setTitleText("Time [s]")
         self._xaxis.setTitleVisible(True)
@@ -444,10 +444,10 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
             with tools.SuppressException():
                 self._chartview.chart().removeAxis(yaxis)
 
-        for signal_item in self._serverid2signal_item.values():
+        for signal_item in self._registryid2signal_item.values():
             if signal_item.series_attached():
                 signal_item.detach_series()  # Will reload original icons if any
-        self._serverid2signal_item.clear()
+        self._registryid2signal_item.clear()
         self._xaxis.setRange(0, 1)
         self._xaxis.clear_minmax()
         self._yaxes.clear()
@@ -524,7 +524,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
                 for signal_item in axis.signal_items:   # For each watchable under that axis
                     try:
                         # We will use that server ID to lookup the right chart series on value update broadcast by the server
-                        server_id = self.watchable_registry.watch_fqn(self._watcher_id(), signal_item.fqn)
+                        registry_id = self.watchable_registry.watch_fqn(self._watcher_id(), signal_item.fqn)
                     except WatchableRegistryNodeNotFoundError as e:
                         self._report_error(f"Signal {signal_item.text()} is not available.")
                         self.watchable_registry.unwatch_all(self._watcher_id())
@@ -535,7 +535,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
                     self._chartview.chart().addSeries(series)
                     signal_item.attach_series(series)
                     signal_item.show_series()
-                    self._serverid2signal_item[server_id] = signal_item  # The main lookup
+                    self._registryid2signal_item[registry_id] = signal_item  # The main lookup
                     series.setName(signal_item.text())
                     series.attachAxis(self._xaxis)
                     series.attachAxis(yaxis)
@@ -618,7 +618,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
         based on wether they are selected or not"""
         emphasized_yaxes_id: Set[int] = set()
         selected_index = self._signal_tree.selectedIndexes()
-        for item in self._serverid2signal_item.values():
+        for item in self._registryid2signal_item.values():
             if item.series_attached():
                 series = self._get_item_series(item)
                 if item.index() in selected_index:
@@ -669,18 +669,18 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
         # Reverse lookup of the server id / item map.
         # We do that just so the columns in the CSV file is in the same order as the right menu
         # Right-click -> Save to CSV also follow the same ordering. We want the 2 CSV files to be identical
-        def get_server_id_from_signal_item(arg: ChartSeriesWatchableStandardItem) -> str:
-            for server_id, item in self._serverid2signal_item.items():
+        def get_registry_id_from_signal_item(arg: ChartSeriesWatchableStandardItem) -> int:
+            for registry_id, item in self._registryid2signal_item.items():
                 if item is arg:
-                    return server_id
+                    return registry_id
             raise KeyError(f"Could not find the server ID for item: {arg.text()}")
 
-        # Creates the list of columns following the same order has the export_to_csv feature
+        # Creates the list of columns following the same order as the export_to_csv feature
         signals = self._signal_tree.get_signals()
         for axis in signals:
             for signal_item in axis.signal_items:
                 columns.append(CSVLogger.ColumnDescriptor(
-                    server_id=get_server_id_from_signal_item(signal_item),
+                    signal_id=str(get_registry_id_from_signal_item(signal_item)),
                     name=signal_item.text(),
                     fullpath=signal_item.fqn
                 ))
@@ -715,7 +715,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
 
     def _all_series(self) -> Generator[RealTimeScrutinyLineSeries, None, None]:
         """Return the list of all series in the graph"""
-        for item in self._serverid2signal_item.values():
+        for item in self._registryid2signal_item.values():
             yield self._get_item_series(item)
 
     def _maybe_enable_opengl_drawing(self, val: bool) -> None:
@@ -825,25 +825,26 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
     def _clear_feedback(self) -> None:
         self._feedback_label.clear()
 
-    def _val_update_callback(self, watcher_id: Union[str, int], value_updates: List[ValueUpdate]) -> None:
+    def _val_update_callback(self, watcher_id: Union[str, int], value_updates: List[RegistryValueUpdate]) -> None:
         """Invoked when we have new data available"""
         if not self._state.has_content:  # We don't check for acquiring just in case an extra value was in transit when we stop.
             self.logger.error("Received value updates when no graph was ready")
             return
 
         if self._first_val_dt is None:
-            self._first_val_dt = value_updates[0].update_timestamp   # precise to the microsecond. Coming from the server
+            self._first_val_dt = value_updates[0].update.update_timestamp   # precise to the microsecond. Coming from the server
 
         tstart = self._first_val_dt
 
-        def get_x(val: ValueUpdate) -> float:    # A getter to get the relative timestamp
-            return (val.update_timestamp - tstart).total_seconds()
+        def get_x(val: RegistryValueUpdate) -> float:    # A getter to get the relative timestamp
+            return (val.update.update_timestamp - tstart).total_seconds()
 
         if self._csv_logger is not None:
             try:
-                self._csv_logger.write(value_updates)
+                updates = [x.update for x in value_updates]
+                signal_ids = [str(x.registry_id) for x in value_updates]
+                self._csv_logger.write(updates, signal_ids)
             except Exception as e:
-
                 tools.log_exception(self.logger, e, "CSV logger failed to write")
                 self._report_error(f"Error while logging CSV. \n {e}")
                 self._csv_logger.stop()
@@ -852,9 +853,9 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
         try:
             for value_update in value_updates:
                 xval = get_x(value_update)
-                yval = float(value_update.value)
+                yval = float(value_update.update.value)
 
-                series = self._get_item_series(self._serverid2signal_item[value_update.watchable.server_id])
+                series = self._get_item_series(self._registryid2signal_item[value_update.registry_id])
                 yaxis = self._get_series_yaxis(series)
                 series.add_point(QPointF(xval, yval))
                 self._xaxis.update_minmax(xval)
@@ -889,8 +890,8 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
     def _round_robin_recompute_single_series_min_max(self, full: bool) -> None:
         """Compute a series min/max values. 
         if full=``False``, does only 1 series per call to reduce the load on the CPU. Does all if full=``True``"""
-        sorted_ids = sorted(list(self._serverid2signal_item.keys()))
-        all_series = [self._get_item_series(self._serverid2signal_item[server_id]) for server_id in sorted_ids]
+        sorted_ids = sorted(list(self._registryid2signal_item.keys()))
+        all_series = [self._get_item_series(self._registryid2signal_item[server_id]) for server_id in sorted_ids]
 
         if full:
             self._y_minmax_recompute_index = 0

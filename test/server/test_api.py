@@ -569,10 +569,12 @@ class TestAPI(ScrutinyUnitTest):
         self.assertIn('var', response['qty'])
         self.assertIn('alias', response['qty'])
         self.assertIn('rpv', response['qty'])
+        self.assertIn('var_factory', response['qty'])
         self.assertIn('content', response)
         self.assertIn('var', response['content'])
         self.assertIn('alias', response['content'])
         self.assertIn('rpv', response['content'])
+        self.assertIn('var_factory', response['content'])
         self.assertEqual(response['cmd'], 'response_get_watchable_list')
 
     # Fetch list of var/alias. Ensure response is well formatted, accurate, complete, no duplicates
@@ -583,11 +585,11 @@ class TestAPI(ScrutinyUnitTest):
 
         expected_entries_in_response = {}
         for entry in var_entries:
-            expected_entries_in_response[entry.get_id()] = entry
+            expected_entries_in_response[entry.get_display_path()] = entry
         for entry in alias_entries:
-            expected_entries_in_response[entry.get_id()] = entry
+            expected_entries_in_response[entry.get_display_path()] = entry
         for entry in rpv_entries:
-            expected_entries_in_response[entry.get_id()] = entry
+            expected_entries_in_response[entry.get_display_path()] = entry
         # Add entries in the datastore that we will reread through the API
         self.datastore.add_entries(var_entries)
         self.datastore.add_entries(alias_entries)
@@ -621,18 +623,16 @@ class TestAPI(ScrutinyUnitTest):
             entrytype = item[0]
             api_entry = item[1]
 
-            self.assertIn('id', api_entry)
             self.assertIn('display_path', api_entry)
 
-            self.assertIn(api_entry['id'], expected_entries_in_response)
-            entry: DatastoreEntry = expected_entries_in_response[api_entry['id']]
+            self.assertIn(api_entry['display_path'], expected_entries_in_response)
+            entry: DatastoreEntry = expected_entries_in_response[api_entry['display_path']]
 
-            self.assertEqual(entry.get_id(), api_entry['id'])
             self.assertEqual(entry.get_type(), entrytype)
             self.assertEqual(API.get_datatype_name(entry.get_data_type()), api_entry['datatype'])
             self.assertEqual(entry.get_display_path(), api_entry['display_path'])
 
-            del expected_entries_in_response[api_entry['id']]
+            del expected_entries_in_response[api_entry['display_path']]
 
         self.assertEqual(len(expected_entries_in_response), 0)
 
@@ -643,11 +643,11 @@ class TestAPI(ScrutinyUnitTest):
 
         expected_entries_in_response = {}
         for entry in var_entries:
-            expected_entries_in_response[entry.get_id()] = entry
+            expected_entries_in_response[entry.get_display_path()] = entry
         for entry in alias_entries:
-            expected_entries_in_response[entry.get_id()] = entry
+            expected_entries_in_response[entry.get_display_path()] = entry
         for entry in rpv_entries:
-            expected_entries_in_response[entry.get_id()] = entry
+            expected_entries_in_response[entry.get_display_path()] = entry
         # Add entries in the datastore that we will reread through the API
         self.datastore.add_entries(var_entries)
         self.datastore.add_entries(alias_entries)
@@ -688,18 +688,16 @@ class TestAPI(ScrutinyUnitTest):
             entrytype = item[0]
             api_entry = item[1]
 
-            self.assertIn('id', api_entry)
             self.assertIn('display_path', api_entry)
 
-            self.assertIn(api_entry['id'], expected_entries_in_response)
-            entry: DatastoreEntry = expected_entries_in_response[api_entry['id']]
+            self.assertIn(api_entry['display_path'], expected_entries_in_response)
+            entry: DatastoreEntry = expected_entries_in_response[api_entry['display_path']]
 
-            self.assertEqual(entry.get_id(), api_entry['id'])
             self.assertEqual(entry.get_type(), entrytype)
             self.assertEqual(API.get_datatype_name(entry.get_data_type()), api_entry['datatype'])
             self.assertEqual(entry.get_display_path(), api_entry['display_path'])
 
-            del expected_entries_in_response[api_entry['id']]
+            del expected_entries_in_response[api_entry['display_path']]
 
         self.assertEqual(len(expected_entries_in_response), 0)
 
@@ -732,17 +730,17 @@ class TestAPI(ScrutinyUnitTest):
         if no_filter or 'var' in type_filter:
             nbr_expected_var = len(var_entries)
             for entry in var_entries:
-                expected_entries_in_response[entry.get_id()] = entry
+                expected_entries_in_response[entry.get_display_path()] = entry
 
         if no_filter or 'alias' in type_filter:
             nbr_expected_alias = len(alias_entries)
             for entry in alias_entries:
-                expected_entries_in_response[entry.get_id()] = entry
+                expected_entries_in_response[entry.get_display_path()] = entry
 
         if no_filter or 'rpv' in type_filter:
             nbr_expected_rpv = len(rpv_entries)
             for entry in rpv_entries:
-                expected_entries_in_response[entry.get_id()] = entry
+                expected_entries_in_response[entry.get_display_path()] = entry
 
         # Add entries in the datastore that we will reread through the API
         self.datastore.add_entries(var_entries)
@@ -779,17 +777,15 @@ class TestAPI(ScrutinyUnitTest):
             entrytype = item[0]
             api_entry = item[1]
 
-            self.assertIn('id', api_entry)
             self.assertIn('display_path', api_entry)
 
-            self.assertIn(api_entry['id'], expected_entries_in_response)
-            entry = expected_entries_in_response[api_entry['id']]
+            self.assertIn(api_entry['display_path'], expected_entries_in_response)
+            entry = expected_entries_in_response[api_entry['display_path']]
 
-            self.assertEqual(entry.get_id(), api_entry['id'])
             self.assertEqual(entry.get_type(), entrytype)
             self.assertEqual(entry.get_display_path(), api_entry['display_path'])
 
-            del expected_entries_in_response[api_entry['id']]
+            del expected_entries_in_response[api_entry['display_path']]
 
         self.assertEqual(len(expected_entries_in_response), 0)
 
@@ -808,13 +804,13 @@ class TestAPI(ScrutinyUnitTest):
         expected_entries_in_response = {}
 
         for entry in var_entries:
-            expected_entries_in_response[entry.get_id()] = entry
+            expected_entries_in_response[entry.get_display_path()] = entry
 
         for entry in alias_entries:
-            expected_entries_in_response[entry.get_id()] = entry
+            expected_entries_in_response[entry.get_display_path()] = entry
 
         for entry in rpv_entries:
-            expected_entries_in_response[entry.get_id()] = entry
+            expected_entries_in_response[entry.get_display_path()] = entry
 
         # Add entries in the datastore that we will reread through the API
         self.datastore.add_entries(var_entries)
@@ -868,17 +864,15 @@ class TestAPI(ScrutinyUnitTest):
                 entrytype = item[0]
                 api_entry = item[1]
 
-                self.assertIn('id', api_entry)
                 self.assertIn('display_path', api_entry)
 
-                self.assertIn(api_entry['id'], expected_entries_in_response)
-                entry = expected_entries_in_response[api_entry['id']]
+                self.assertIn(api_entry['display_path'], expected_entries_in_response)
+                entry = expected_entries_in_response[api_entry['display_path']]
 
-                self.assertEqual(entry.get_id(), api_entry['id'])
                 self.assertEqual(entry.get_type(), entrytype)
                 self.assertEqual(entry.get_display_path(), api_entry['display_path'])
 
-                del expected_entries_in_response[api_entry['id']]
+                del expected_entries_in_response[api_entry['display_path']]
 
         self.assertEqual(len(expected_entries_in_response), 0)
 

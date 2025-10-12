@@ -40,7 +40,7 @@ default_server_info = sdk.ServerInfo(
 
 class StubbedWatchableHandle(tools.UnitTestStub):
     display_path: str
-    configuration: sdk.WatchableConfiguration
+    configuration: sdk.WatchableConfigurationWithServerID
     _invalid: bool
     _value: Union[int, str, float, bool]
 
@@ -52,7 +52,7 @@ class StubbedWatchableHandle(tools.UnitTestStub):
                  ) -> None:
 
         self.display_path = display_path
-        self.configuration = sdk.WatchableConfiguration(
+        self.configuration = sdk.WatchableConfigurationWithServerID(
             watchable_type=watchable_type,
             datatype=datatype,
             enum=enum,

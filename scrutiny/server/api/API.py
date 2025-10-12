@@ -736,7 +736,7 @@ class API:
             raise InvalidRequestException(req, 'Invalid or missing watchables list')
 
         # Check existence of all watchable before doing anything.
-        subscribed: Dict[str, api_typing.DatastoreEntryDefinition] = {}
+        subscribed: Dict[str, api_typing.DatastoreEntryDefinitionWithId] = {}
         for path in req['watchables']:
             entry: Optional[DatastoreEntry] = None
             try:
@@ -750,7 +750,9 @@ class API:
             if entry is None:
                 raise InvalidRequestException(req, 'Unknown watchable : %s' % str(path))
 
-            subscribed[path] = self.make_datastore_entry_definition(entry)
+            entry_definition = cast(api_typing.DatastoreEntryDefinitionWithId, self.make_datastore_entry_definition(entry))
+            entry_definition['id'] = entry.get_id()
+            subscribed[path] = entry_definition
 
         for path in req['watchables']:
             self.datastore.start_watching(
@@ -2174,7 +2176,7 @@ class API:
                                         ) -> api_typing.DatastoreEntryDefinition:
         # Craft the data structure sent by the API to give the available watchables
         definition: api_typing.DatastoreEntryDefinition = {
-            'id': entry.get_id()
+            
         }
 
         if include_datatype:

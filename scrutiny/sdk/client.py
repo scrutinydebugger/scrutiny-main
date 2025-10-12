@@ -1183,7 +1183,7 @@ class ScrutinyClient:
                     if request._watchable._configuration is not None:
                         api_req['updates'].append({
                             'batch_index': n,
-                            'watchable': request._watchable._configuration.server_id,
+                            'watchable': request._watchable.server_id,
                             'value': request._value
                         })
                         batch_dict[n] = request

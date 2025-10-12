@@ -79,12 +79,13 @@ class VarFactoryParams(TypedDict):
 
 
 class DatastoreEntryDefinition(TypedDict, total=False):
-    id: str
     display_path: str
     datatype: Datatype
     type: WatchableType              # Can be missing
     enum: Optional[EnumDefinition]  # Can be missing. Default to None
 
+class DatastoreEntryDefinitionWithId(DatastoreEntryDefinition):
+    id:str
 
 class VariableFactoryDefinition(DatastoreEntryDefinition):
     factory_params: VarFactoryParams
@@ -386,7 +387,7 @@ class S2C:
         done: bool
 
     class SubscribeWatchable(BaseS2CMessage):
-        subscribed: Dict[str, DatastoreEntryDefinition]
+        subscribed: Dict[str, DatastoreEntryDefinitionWithId]
 
     class UnsubscribeWatchable(BaseS2CMessage):
         unsubscribed: List[str]
