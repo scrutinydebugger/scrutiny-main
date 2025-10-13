@@ -814,12 +814,14 @@ class WatchableConfiguration:
     enum: Optional[EmbeddedEnum]
     """An optional enumeration associated with the possible values of the item"""
 
+
 @dataclass(frozen=True)
 class WatchableConfigurationWithServerID(WatchableConfiguration):
     """(Immutable struct) Represents a watchable available in the server datastore"""
 
-    server_id : str
+    server_id: str
     """The unique ID assigned to that watchable item by the server"""
+
 
 @dataclass(frozen=True)
 class ServerStatistics:

@@ -2176,7 +2176,7 @@ class API:
                                         ) -> api_typing.DatastoreEntryDefinition:
         # Craft the data structure sent by the API to give the available watchables
         definition: api_typing.DatastoreEntryDefinition = {
-            
+
         }
 
         if include_datatype:

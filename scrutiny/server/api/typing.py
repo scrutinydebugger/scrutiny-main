@@ -84,8 +84,10 @@ class DatastoreEntryDefinition(TypedDict, total=False):
     type: WatchableType              # Can be missing
     enum: Optional[EnumDefinition]  # Can be missing. Default to None
 
+
 class DatastoreEntryDefinitionWithId(DatastoreEntryDefinition):
-    id:str
+    id: str
+
 
 class VariableFactoryDefinition(DatastoreEntryDefinition):
     factory_params: VarFactoryParams

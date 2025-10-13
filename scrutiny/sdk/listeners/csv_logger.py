@@ -249,7 +249,7 @@ class CSVLogger:
         """Return ``True`` if the CSV logger is started"""
         return self._started
 
-    def write(self, updates: List[ValueUpdate], signal_id_list:Optional[List[str]] = None) -> None:
+    def write(self, updates: List[ValueUpdate], signal_id_list: Optional[List[str]] = None) -> None:
         """Write a sequence of :class:`ValueUpdate<scrutiny.sdk.listeners.ValueUpdate> to the CSV output. 
 
         :param updates: A list of :class:`ValueUpdate<scrutiny.sdk.listeners.ValueUpdate>` given by a listener
@@ -260,7 +260,7 @@ class CSVLogger:
         assert self._csv_writer is not None
         if len(updates) == 0:
             return
-        
+
         if signal_id_list is not None:
             if len(updates) != len(signal_id_list):
                 raise ValueError("List of IDs mismatch with update list given.")
@@ -271,7 +271,7 @@ class CSVLogger:
 
         def get_reltime(val: ValueUpdate) -> float:    # A getter to get the relative timestamp
             return (val.update_timestamp - tstart).total_seconds()
-        
+
         for i in range(len(updates)):
             update = updates[i]
             signal_id = update.watchable.server_id if signal_id_list is None else signal_id_list[i]

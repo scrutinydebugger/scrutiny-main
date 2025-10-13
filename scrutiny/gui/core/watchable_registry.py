@@ -1,6 +1,6 @@
 #    watchable_registry.py
 #        A storage object that keeps a local copy of all the watchable (Variable/Alias/RPV)
-#        avaialble on the server.
+#        available on the server.
 #        Lots of overlapping feature with the server datastore, with few fundamentals differences.
 #
 #   - License : MIT - See LICENSE file.
@@ -29,48 +29,47 @@ from scrutiny.gui.core.threads import QT_THREAD_NAME
 from scrutiny import tools
 from scrutiny.tools.thread_enforcer import enforce_thread
 from scrutiny.tools.typing import *
-from scrutiny.tools.global_counters import global_i64_counter
 
 WatcherIdType = Union[str, int]
 
 
 class ServerRegistryBidirectionalMap:
     __slots__ = ('r2s', 's2r')
-    r2s:Dict[int, str]
-    s2r:Dict[str, int]
+    r2s: Dict[int, str]
+    s2r: Dict[str, int]
 
     def __init__(self) -> None:
         self.r2s = {}
         self.s2r = {}
 
-    def get_server_id(self, registry_id:int) -> str:
+    def get_server_id(self, registry_id: int) -> str:
         return self.r2s[registry_id]
-    
-    def get_registry_id(self, server_id:str) -> int:
+
+    def get_registry_id(self, server_id: str) -> int:
         return self.s2r[server_id]
 
-    def get_server_id_or_none(self, registry_id:int) -> Optional[str]:
+    def get_server_id_or_none(self, registry_id: int) -> Optional[str]:
         if registry_id in self.r2s:
             return self.r2s[registry_id]
         return None
-    
-    def get_registry_id_or_none(self, server_id:str) -> Optional[int]:
+
+    def get_registry_id_or_none(self, server_id: str) -> Optional[int]:
         if server_id in self.s2r:
             return self.s2r[server_id]
         return None
-    
-    def map(self, registry_id:int, server_id:str) -> None:
+
+    def map(self, registry_id: int, server_id: str) -> None:
         self.r2s[registry_id] = server_id
         self.s2r[server_id] = registry_id
 
-    def unmap_by_registry_id(self, registry_id:int) -> None:
+    def unmap_by_registry_id(self, registry_id: int) -> None:
         with tools.SuppressException(KeyError):
             server_id = self.r2s[registry_id]
             with tools.SuppressException(KeyError):
                 del self.s2r[server_id]
             del self.r2s[registry_id]
 
-    def unmap_by_server_id(self, server_id:str) -> None:
+    def unmap_by_server_id(self, server_id: str) -> None:
         with tools.SuppressException(KeyError):
             registry_id = self.s2r[server_id]
             with tools.SuppressException(KeyError):
@@ -85,8 +84,9 @@ class ServerRegistryBidirectionalMap:
 @dataclass(frozen=True)
 class RegistryValueUpdate:
     __slots__ = ('sdk_update', 'registry_id')
-    sdk_update:ValueUpdate
-    registry_id:int
+    sdk_update: ValueUpdate
+    registry_id: int
+
 
 @dataclass
 class ParsedFullyQualifiedName:
@@ -125,13 +125,16 @@ GlobalUnwatchCallback = Callable[[WatcherIdType, str, sdk.WatchableConfiguration
 
 @dataclass(init=False)
 class WatchableRegistryEntryNode:
-    """Leaf node in the tree."""
+    """Leaf node in the tree that is a single watchable"""
+
+    __slots__ = ('configuration', 'server_path', 'registry_id', '_watcher_count')
+
     configuration: sdk.WatchableConfiguration
     server_path: str
-    registry_id:int
+    registry_id: int
     _watcher_count: int
 
-    def __init__(self, registry:"WatchableRegistry", server_path: str, config: sdk.WatchableConfiguration) -> None:
+    def __init__(self, registry: "WatchableRegistry", server_path: str, config: sdk.WatchableConfiguration) -> None:
         self.server_path = server_path
         self.configuration = config
         self._watcher_count = 0
@@ -140,8 +143,9 @@ class WatchableRegistryEntryNode:
 
 @dataclass(frozen=True)
 class WatchableRegistryIntermediateNode:
-    """Stripped down version of the WatchableRegistryEntryNode that can be given to the user."""
+    """An intermediate node that contains watchable and other subnodes"""
     __slots__ = ['watchables', 'subtree']
+
     watchables: Dict[str, WatchableRegistryEntryNode]
     subtree: List[str]
 
@@ -151,7 +155,7 @@ class Watcher:
     watcher_id: WatcherIdType
     value_update_callback: WatcherValueUpdateCallback
     unwatch_callback: UnwatchCallback
-    
+
     subscribed_registry_id: Set[int]
 
     def __init__(self,
@@ -186,15 +190,25 @@ class WatchableRegistry:
         var_count: int
 
     _trees: Dict[sdk.WatchableType, Any]
+    """The main storage of the registry, implemented with recursive dicts"""
     _watchable_count: Dict[sdk.WatchableType, int]
+    """A summary count of the number of watchables in the registry, grouped by type"""
     _global_watch_callbacks: Optional[GlobalWatchCallback]
+    """A callback to be called whenever any watcher starts watching a node """
     _global_unwatch_callbacks: Optional[GlobalUnwatchCallback]
+    """A callback to be called whenever any watcher stops watching a node """
     _logger: logging.Logger
+    """The logger object"""
     _tree_change_counters: Dict[sdk.WatchableType, int]
+    """Counter keeping track how many times the tree is being modified, grouped by watchable entry. Mostly used to trigger "change" event from the server manager"""
     _watchers: Dict[WatcherIdType, Watcher]
+    """A dict mapping a watcher ID to its watcher object"""
     _watched_entries: Dict[int, WatchableRegistryEntryNode]
-    _node_counter:int
-    _serverid_map:Dict[sdk.WatchableType, ServerRegistryBidirectionalMap]
+    """Dict mapping a registry ID to a node being watched"""
+    _node_counter: int
+    """Used to generate incrementing registry IDs to assign on watchables"""
+    _serverid_map: Dict[sdk.WatchableType, ServerRegistryBidirectionalMap]
+    """Bidirectional maps, mapping Server ID to Registry ID, grouped by watchable types"""
 
     @staticmethod
     def split_path(path: str) -> List[str]:
@@ -227,13 +241,19 @@ class WatchableRegistry:
 
     @enforce_thread(QT_THREAD_NAME)
     def _make_node_id(self) -> int:
+        """Create a unique registry ID"""
         v = self._node_counter
         self._node_counter += 1
         return v
 
     @enforce_thread(QT_THREAD_NAME)
     def _add_watchable(self, path: str, config: sdk.WatchableConfiguration) -> None:
-        """Adds a single watchable to the tree storage"""
+        """Adds a single watchable to the tree storage
+
+        :param path: Path to add the node to
+        :param config: Watchable config object. Represent a set of watchable properties
+
+        """
         parts = self.split_path(path)
         if len(parts) == 0:
             raise WatchableRegistryError(f"Empty path : {path}")
@@ -272,17 +292,48 @@ class WatchableRegistry:
         else:
             raise WatchableRegistryError(f"Unexpected item of type {node.__class__.__name__} inside the registry")
 
-
     @enforce_thread(QT_THREAD_NAME)
-    def assign_serverid_to_node_by_registry_id(self, watchable_type:sdk.WatchableType, registry_id:int, server_id:str) -> None:
+    def assign_serverid_to_node_by_registry_id(self, watchable_type: sdk.WatchableType, registry_id: int, server_id: str) -> None:
+        """Assign a server ID to a watchable node so it can be looked up later when a value update must be broadcast.
+
+        :param watchable_type: The type of watchable
+        :param registry_id: The registry ID of the node
+        :param server_id: The server ID to assign
+        """
+
         self._serverid_map[watchable_type].map(registry_id, server_id)
 
     @enforce_thread(QT_THREAD_NAME)
-    def clear_serverid_from_node_by_registry_id(self, watchable_type:sdk.WatchableType, registry_id:int) -> None:
+    def assign_serverid_to_node(self, watchable_type: sdk.WatchableType, path: str, server_id: str) -> None:
+        """Assign a server ID to a watchable node so it can be looked up later when a value update must be broadcast
+
+        :param watchable_type: The type of watchable
+        :param path: The tree path of the targeted node. Must point to a watchable node
+        :param server_id: The server ID to assign
+        """
+        node = self.get_watchable_node(watchable_type, path)
+        if node is None:
+            self._logger.error(f"Failed to assign a server ID to {path}")
+            return
+
+        self.assign_serverid_to_node_by_registry_id(watchable_type, node.registry_id, server_id)
+
+    def assign_serverid_to_node_fqn(self, fqn: str, server_id: str) -> None:
+        """Assign a server ID to a watchable node so it can be looked up later when a value update must be broadcast.
+
+        :param fqn: The node Fully Qualified Name
+        :param server_id: The server ID to assign
+        """
+        parsed = self.FQN.parse(fqn)
+        self.assign_serverid_to_node(parsed.watchable_type, parsed.path, server_id)
+
+    @enforce_thread(QT_THREAD_NAME)
+    def clear_serverid_from_node_by_registry_id(self, watchable_type: sdk.WatchableType, registry_id: int) -> None:
+        """Removes the server ID associated with a registry node."""
         self._serverid_map[watchable_type].unmap_by_registry_id(registry_id)
 
     @enforce_thread(QT_THREAD_NAME)
-    def clear_serverid_from_node(self, watchable_type:sdk.WatchableType, path:str) -> None:
+    def clear_serverid_from_node(self, watchable_type: sdk.WatchableType, path: str) -> None:
         node = self.get_watchable_node(watchable_type, path)
         if node is None:
             self._logger.error(f"Failed to clear the server ID onto {path}")
@@ -291,29 +342,24 @@ class WatchableRegistry:
         self.clear_serverid_from_node_by_registry_id(watchable_type, node.registry_id)
 
     @enforce_thread(QT_THREAD_NAME)
-    def assign_serverid_to_node(self, watchable_type:sdk.WatchableType, path:str,  server_id:str) -> None:
-        node = self.get_watchable_node(watchable_type, path)
-        if node is None:
-            self._logger.error(f"Failed to assign a server ID to {path}")
-            return
-        
-        self.assign_serverid_to_node_by_registry_id(watchable_type, node.registry_id, server_id)
-    
-    def assign_serverid_to_node_fqn(self, fqn:str, server_id:str) -> None:
-        parsed = self.FQN.parse(fqn)
-        self.assign_serverid_to_node(parsed.watchable_type, parsed.path, server_id)
-    
-
-    @enforce_thread(QT_THREAD_NAME)
     def broadcast_value_updates_to_watchers(self, updates: List[ValueUpdate]) -> None:
-        update_with_registry_id:List[Tuple[int, ValueUpdate]] = []
+        """Broadcast a a list of SDK ValueUpdates created by a listener to all the registry watchers.
+        This method will use the ValueUpdate server ID property to find the corresponding registry entry, then
+        forward to every watchers of that entry
+
+        :param updates: List of ValueUpdates
+        """
+
+        # First, lookup the registry ID of each value update.
+        update_with_registry_id: List[Tuple[int, ValueUpdate]] = []
         for update in updates:
             registry_id = self._serverid_map[update.watchable.type].get_registry_id_or_none(update.watchable.server_id)
-            if registry_id is not None:
-                update_with_registry_id.append( (registry_id, update) )
-        
+            if registry_id is not None:  # Ignore the update if there is no server ID associated
+                update_with_registry_id.append((registry_id, update))
+
+        # Then broadcast to every watchers
         for watcher_id, watcher in self._watchers.items():
-            filtered_updates:List[RegistryValueUpdate] = []
+            filtered_updates: List[RegistryValueUpdate] = []
             for registry_id, update in update_with_registry_id:
                 if registry_id in watcher.subscribed_registry_id:
                     filtered_updates.append(RegistryValueUpdate(update, registry_id))
@@ -326,6 +372,15 @@ class WatchableRegistry:
                          value_update_callback: WatcherValueUpdateCallback,
                          unwatch_callback: UnwatchCallback,
                          ignore_duplicate: bool = False) -> None:
+        """Register a watcher to the registry. A watcher must be registered prior to watching an element.
+
+        :param watcher_id: A string identifying the watcher
+        :param value_update_callback: The callback to be called when a ValueUpdate is received
+        :param unwatch_callback: A callback to be called when the watcher unwatch an element. Can be triggered by :meth:`unwatch<scrutiny.gui.core.watchable_registry.WatchableRegistry.unwatch>` 
+            or by the element being watched becoming unavailable
+        :param ignore_duplicate: A string identifying the watcher
+
+        """
         # Create the Watcher first to validate the args
         watcher = Watcher(
             watcher_id=watcher_id,
@@ -398,6 +453,11 @@ class WatchableRegistry:
 
     @enforce_thread(QT_THREAD_NAME)
     def _unwatch_node_list(self, nodes: Iterable[WatchableRegistryEntryNode], watcher: Watcher) -> None:
+        """Make a watcher unwatch multiple registry elements
+
+        :param nodes: List of element to unwatch
+        :param watcher: The target watcher
+        """
         removed_list: List[WatchableRegistryEntryNode] = []
         for node in nodes:
             if node.registry_id in watcher.subscribed_registry_id:
@@ -423,6 +483,10 @@ class WatchableRegistry:
 
     @enforce_thread(QT_THREAD_NAME)
     def unwatch_all(self, watcher_id: WatcherIdType) -> None:
+        """Unwatch every registry entry presently watched by the given watcher
+
+        :param watcher_id: The unique ID of the watcher
+        """
         try:
             watcher = self._watchers[watcher_id]
         except KeyError:
@@ -430,10 +494,8 @@ class WatchableRegistry:
 
         nodes: List[WatchableRegistryEntryNode] = []
         for registry_id in watcher.subscribed_registry_id:
-            try:
+            with tools.LogException(self._logger, KeyError, "Missing node in watched_entry", str_level=logging.WARNING):
                 nodes.append(self._watched_entries[registry_id])
-            except KeyError as e:
-                tools.log_exception(self._logger, e, "Missing node in watched_entry", str_level=logging.WARNING)
 
         self._unwatch_node_list(nodes, watcher)
 
@@ -532,25 +594,56 @@ class WatchableRegistry:
         return self.read(parsed.watchable_type, parsed.path)
 
     def get_watchable_node_fqn(self, fqn: str) -> Optional[WatchableRegistryEntryNode]:
+        """Access a node from the registry and return it if it is a watchable node. Returns ``None`` if no node exist or if the accessed node is not a Watchable
+        
+        :param fqn: The node Fully Qualified Name
+        :return: The node referred to by the given FQN
+        """
         node = self.read_fqn(fqn)
         if not isinstance(node, WatchableRegistryEntryNode):
             return None
         return node
 
     def get_watchable_node(self, watchable_type: sdk.WatchableType, path: str) -> Optional[WatchableRegistryEntryNode]:
+        """Access a node from the registry and return it if it is a watchable node. Returns ``None`` if no node exist or if the accessed node is not a Watchable
+        
+        :watchable_type: The type of node to read
+        :path: The tree path of the node
+        :return: The node referred to by the given path
+        """
+
         node = self.read(watchable_type, path)
         if not isinstance(node, WatchableRegistryEntryNode):
             return None
         return node
-    
-    def get_server_id_fqn(self, fqn:str) -> Optional[str]:
+
+    def get_server_id_fqn(self, fqn: str) -> Optional[str]:
+        """Reads the associated Server ID of a node. Returns ``None`` if :
+          - The node does not exist
+          - The node is not a watchable
+          - There is no Server ID associated with that node
+
+          :param fqn: The node Fully Qualified Name
+          :return: The server ID of the node or ``None`` if not available
+          """
         parsed = self.FQN.parse(fqn)
         return self.get_server_id(parsed.watchable_type, parsed.path)
 
     def get_server_id(self, watchable_type: sdk.WatchableType, path: str) -> Optional[str]:
+        """Reads the associated Server ID of a node. Returns ``None`` if :
+          - The node does not exist
+          - The node is not a watchable
+          - There is no Server ID associated with that node
+
+        :watchable_type: The type of node to read
+        :path: The tree path of the node
+        
+        :return: The server ID of the node or ``None`` if not available
+        """
+                
         node = self.get_watchable_node(watchable_type, path)
         if node is None:
-            return  None
+            return None
         return self._serverid_map[node.configuration.watchable_type].get_server_id_or_none(node.registry_id)
 
     def is_watchable_fqn(self, fqn: str) -> bool:
@@ -570,7 +663,7 @@ class WatchableRegistry:
 
         :param data: The data to add. Classified in dict[watchable_type][path]. 
         """
-        touched:Dict[sdk.WatchableType, bool] = dict( (wt, False) for wt in sdk.WatchableType.all() )
+        touched: Dict[sdk.WatchableType, bool] = dict((wt, False) for wt in sdk.WatchableType.all())
 
         for wt in data.keys():
             if len(data[wt]) > 0:
@@ -628,7 +721,7 @@ class WatchableRegistry:
             total_remaining_data += self.get_watchable_count(watchable_type)
             self._trees[watchable_type] = {}
             self._watchable_count[watchable_type] = 0
-        
+
         if total_remaining_data == 0:
             self._node_counter = 0  # Avoid growing forever
 

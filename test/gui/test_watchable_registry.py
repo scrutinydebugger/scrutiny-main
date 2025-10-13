@@ -69,9 +69,10 @@ class StubbedWatchableHandle:
     def server_id(self):
         return self.configuration.server_id
 
-    @property 
+    @property
     def type(self):
         return self.configuration.watchable_type
+
 
 class TestWatchableRegistry(ScrutinyUnitTest):
     def setUp(self) -> None:
@@ -671,7 +672,7 @@ class TestWatchableRegistry(ScrutinyUnitTest):
             'watcher2': [],
         }
 
-        def watcher_unwatch_callback(watcher_id, fqn: str, config: sdk.WatchableConfiguration, registry_id:int):
+        def watcher_unwatch_callback(watcher_id, fqn: str, config: sdk.WatchableConfiguration, registry_id: int):
             watcher_unwatch_list[watcher_id].append(fqn)
 
         self.registry.register_watcher('watcher1', lambda *x, **y: None, watcher_unwatch_callback)
@@ -680,10 +681,10 @@ class TestWatchableRegistry(ScrutinyUnitTest):
         global_watch_callback_list: List[Tuple[str, str]] = []
         global_unwatch_callback_list: List[Tuple[str, str]] = []
 
-        def watch_callback(watcher_id: str, server_path: str, watchable_config: sdk.WatchableConfiguration, registry_id:int):
+        def watch_callback(watcher_id: str, server_path: str, watchable_config: sdk.WatchableConfiguration, registry_id: int):
             global_watch_callback_list.append((watcher_id, server_path))
 
-        def unwatch_callback(watcher_id: str, server_path: str, watchable_config: sdk.WatchableConfiguration, registry_id:int):
+        def unwatch_callback(watcher_id: str, server_path: str, watchable_config: sdk.WatchableConfiguration, registry_id: int):
             global_unwatch_callback_list.append((watcher_id, server_path))
 
         self.registry.register_global_watch_callback(watch_callback, unwatch_callback)

@@ -656,7 +656,8 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
         # We are back to 0 watcher.
         # Start a new series of watch unwatch.
         ui_callback_count = self.server_manager._qt_watch_unwatch_ui_callback_call_count
-        watchable_config = sdk.WatchableConfigurationWithServerID(sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None, server_id='xxx')
+        watchable_config = sdk.WatchableConfigurationWithServerID(
+            sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None, server_id='xxx')
         self.registry.watch(watcher1, sdk.WatchableType.Variable, 'a/b/c')
         self.registry.unwatch(watcher1, sdk.WatchableType.Variable, 'a/b/c')
         self.registry.watch(watcher1, sdk.WatchableType.Variable, 'a/b/c')
@@ -742,30 +743,30 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
         # expect a gui watcher that subscribe to the registry to receive the update
 
         varpath = '/aaa/bbb/ccc'
-        watch1_config  = sdk.WatchableConfigurationWithServerID(
-            sdk.WatchableType.Variable, 
-            datatype=sdk.EmbeddedDataType.float32, 
-            enum=None, 
+        watch1_config = sdk.WatchableConfigurationWithServerID(
+            sdk.WatchableType.Variable,
+            datatype=sdk.EmbeddedDataType.float32,
+            enum=None,
             server_id='aaa')
-        
+
         self.registry._add_watchable(varpath, watch1_config)
         all_updates = []
 
         def callback(watcher, updates):
             for update in updates:
                 all_updates.append(update)
-        
+
         self.registry.register_watcher('hello', callback, lambda *x, **y: None)
         watch1_ = self.registry.watch('hello', watch1_config.watchable_type, varpath)
-        
+
         watch_request = self.get_watch_request(assert_single=True)
         watch_request.simulate_success(watch1_config)
-        
+
         self.wait_true_with_events(lambda: self.fake_client.watch_handle_exists(varpath), 2)
-        
+
         watch1 = self.fake_client.try_get_existing_watch_handle(varpath)
         watch1.set_value(1234)
-        self.wait_true_with_events(lambda: self.registry.get_server_id( watch1_config.watchable_type, varpath) is not None, 1)
+        self.wait_true_with_events(lambda: self.registry.get_server_id(watch1_config.watchable_type, varpath) is not None, 1)
 
         self.server_manager._listener.subscribe(watch1)
         self.server_manager._listener._broadcast_update([watch1])

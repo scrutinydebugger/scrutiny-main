@@ -2487,7 +2487,7 @@ class TestClient(ScrutinyUnitTest):
         self.assertEqual(len(watchables[sdk.WatchableType.Alias]), 2)
         self.assertEqual(len(watchables[sdk.WatchableType.RuntimePublishedValue]), 1)
 
-        def test_watchable_received(watchable_type:WatchableType, path:str):
+        def test_watchable_received(watchable_type: WatchableType, path: str):
             self.assertIn(path, watchables[watchable_type])
             entry = self.datastore.get_entry_by_display_path(path)
             self.assertEqual(watchables[watchable_type][path].watchable_type, entry.get_type())
@@ -2526,7 +2526,7 @@ class TestClient(ScrutinyUnitTest):
         self.assertEqual(len(watchables[sdk.WatchableType.Alias]), 2)
         self.assertEqual(len(watchables[sdk.WatchableType.RuntimePublishedValue]), 1)
 
-        def test_watchable_received(watchable_type:WatchableType, path:str):
+        def test_watchable_received(watchable_type: WatchableType, path: str):
             self.assertIn(path, watchables[watchable_type])
             entry = self.datastore.get_entry_by_display_path(path)
             self.assertEqual(watchables[watchable_type][path].watchable_type, entry.get_type())
@@ -2556,7 +2556,7 @@ class TestClient(ScrutinyUnitTest):
         self.assertEqual(len(watchables[sdk.WatchableType.Alias]), 1)       # 1 instead of 2
         self.assertEqual(len(watchables[sdk.WatchableType.RuntimePublishedValue]), 1)
 
-        def test_watchable_received(watchable_type:WatchableType, path:str):
+        def test_watchable_received(watchable_type: WatchableType, path: str):
             self.assertIn(path, watchables[watchable_type])
             entry = self.datastore.get_entry_by_display_path(path)
             self.assertEqual(watchables[watchable_type][path].watchable_type, entry.get_type())

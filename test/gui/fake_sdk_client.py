@@ -87,7 +87,7 @@ class StubbedWatchableHandle(tools.UnitTestStub):
     @property
     def value(self) -> Union[int, bool, float, str]:
         return self._value
-    
+
     @property
     def type(self) -> sdk.WatchableType:
         return self.configuration.watchable_type
@@ -247,8 +247,8 @@ class FakeSDKClient(tools.UnitTestStub):
             return self._handle_cache[path]
         except KeyError:
             return None
-        
-    def watch_handle_exists(self, path:str) -> bool:
+
+    def watch_handle_exists(self, path: str) -> bool:
         return path in self._handle_cache
 
     def download_watchable_list(self, types: Optional[List[sdk.WatchableType]] = None,
