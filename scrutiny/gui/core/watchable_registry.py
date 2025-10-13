@@ -85,7 +85,7 @@ class ServerRegistryBidirectionalMap:
 @dataclass(frozen=True)
 class RegistryValueUpdate:
     __slots__ = ('sdk_update', 'registry_id')
-    update:ValueUpdate
+    sdk_update:ValueUpdate
     registry_id:int
 
 @dataclass
@@ -118,9 +118,9 @@ TYPESTR_MAP_WT2S: Dict[sdk.WatchableType, str] = {v: k for k, v in TYPESTR_MAP_S
 
 
 WatcherValueUpdateCallback = Callable[[WatcherIdType, List[RegistryValueUpdate]], None]
-UnwatchCallback = Callable[[WatcherIdType, str, sdk.WatchableConfiguration], None]
-GlobalWatchCallback = Callable[[WatcherIdType, str, sdk.WatchableConfiguration], None]
-GlobalUnwatchCallback = Callable[[WatcherIdType, str, sdk.WatchableConfiguration], None]
+UnwatchCallback = Callable[[WatcherIdType, str, sdk.WatchableConfiguration, int], None]
+GlobalWatchCallback = Callable[[WatcherIdType, str, sdk.WatchableConfiguration, int], None]
+GlobalUnwatchCallback = Callable[[WatcherIdType, str, sdk.WatchableConfiguration, int], None]
 
 
 @dataclass(init=False)
@@ -272,8 +272,37 @@ class WatchableRegistry:
         else:
             raise WatchableRegistryError(f"Unexpected item of type {node.__class__.__name__} inside the registry")
 
-    def map_server_id(self, watchable_type:sdk.WatchableType, server_id:str, registry_id:int) -> None:
+
+    @enforce_thread(QT_THREAD_NAME)
+    def assign_serverid_to_node_by_registry_id(self, watchable_type:sdk.WatchableType, registry_id:int, server_id:str) -> None:
         self._serverid_map[watchable_type].map(registry_id, server_id)
+
+    @enforce_thread(QT_THREAD_NAME)
+    def clear_serverid_from_node_by_registry_id(self, watchable_type:sdk.WatchableType, registry_id:int) -> None:
+        self._serverid_map[watchable_type].unmap_by_registry_id(registry_id)
+
+    @enforce_thread(QT_THREAD_NAME)
+    def clear_serverid_from_node(self, watchable_type:sdk.WatchableType, path:str) -> None:
+        node = self.get_watchable_node(watchable_type, path)
+        if node is None:
+            self._logger.error(f"Failed to clear the server ID onto {path}")
+            return
+
+        self.clear_serverid_from_node_by_registry_id(watchable_type, node.registry_id)
+
+    @enforce_thread(QT_THREAD_NAME)
+    def assign_serverid_to_node(self, watchable_type:sdk.WatchableType, path:str,  server_id:str) -> None:
+        node = self.get_watchable_node(watchable_type, path)
+        if node is None:
+            self._logger.error(f"Failed to assign a server ID to {path}")
+            return
+        
+        self.assign_serverid_to_node_by_registry_id(watchable_type, node.registry_id, server_id)
+    
+    def assign_serverid_to_node_fqn(self, fqn:str, server_id:str) -> None:
+        parsed = self.FQN.parse(fqn)
+        self.assign_serverid_to_node(parsed.watchable_type, parsed.path, server_id)
+    
 
     @enforce_thread(QT_THREAD_NAME)
     def broadcast_value_updates_to_watchers(self, updates: List[ValueUpdate]) -> None:
@@ -363,7 +392,7 @@ class WatchableRegistry:
             added = True
 
         if added and self._global_watch_callbacks is not None:
-            self._global_watch_callbacks(watcher_id, node.server_path, node.configuration)
+            self._global_watch_callbacks(watcher_id, node.server_path, node.configuration, node.registry_id)
 
         return node.registry_id
 
@@ -374,7 +403,7 @@ class WatchableRegistry:
             if node.registry_id in watcher.subscribed_registry_id:
                 fqn = WatchableRegistry.FQN.make(node.configuration.watchable_type, node.server_path)
                 try:
-                    watcher.unwatch_callback(watcher.watcher_id, fqn, node.configuration)
+                    watcher.unwatch_callback(watcher.watcher_id, fqn, node.configuration, node.registry_id)
                 except Exception as e:
                     msg = f"Error in unwatch_callback callback for watcher ID {watcher.watcher_id} while unwatching {fqn}"
                     tools.log_exception(self._logger, e, msg)
@@ -390,7 +419,7 @@ class WatchableRegistry:
         # Callback is outside of lock on purpose to allow it to access the registry too. Deadlock will happen otherwise
         if self._global_unwatch_callbacks is not None:
             for node in removed_list:
-                self._global_unwatch_callbacks(watcher.watcher_id, node.server_path, node.configuration)
+                self._global_unwatch_callbacks(watcher.watcher_id, node.server_path, node.configuration, node.registry_id)
 
     @enforce_thread(QT_THREAD_NAME)
     def unwatch_all(self, watcher_id: WatcherIdType) -> None:
@@ -502,14 +531,24 @@ class WatchableRegistry:
         parsed = self.FQN.parse(fqn)
         return self.read(parsed.watchable_type, parsed.path)
 
-    def get_watchable_fqn(self, fqn: str) -> Optional[WatchableRegistryEntryNode]:
+    def get_watchable_node_fqn(self, fqn: str) -> Optional[WatchableRegistryEntryNode]:
         node = self.read_fqn(fqn)
+        if not isinstance(node, WatchableRegistryEntryNode):
+            return None
+        return node
+
+    def get_watchable_node(self, watchable_type: sdk.WatchableType, path: str) -> Optional[WatchableRegistryEntryNode]:
+        node = self.read(watchable_type, path)
         if not isinstance(node, WatchableRegistryEntryNode):
             return None
         return node
     
     def get_server_id_fqn(self, fqn:str) -> Optional[str]:
-        node = self.get_watchable_fqn(fqn)
+        parsed = self.FQN.parse(fqn)
+        return self.get_server_id(parsed.watchable_type, parsed.path)
+
+    def get_server_id(self, watchable_type: sdk.WatchableType, path: str) -> Optional[str]:
+        node = self.get_watchable_node(watchable_type, path)
         if node is None:
             return  None
         return self._serverid_map[node.configuration.watchable_type].get_server_id_or_none(node.registry_id)

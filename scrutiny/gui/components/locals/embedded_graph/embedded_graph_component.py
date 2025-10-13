@@ -1073,7 +1073,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
         axes = self._signal_tree.get_signals()
         for axis in axes:
             for item in axis.signal_items:
-                watchable_node = self.watchable_registry.get_watchable_fqn(item.fqn)  # Might be unavailable
+                watchable_node = self.watchable_registry.get_watchable_node_fqn(item.fqn)  # Might be unavailable
                 if watchable_node is None:
                     return []
                 outlist.append(watchable_node.configuration.datatype)

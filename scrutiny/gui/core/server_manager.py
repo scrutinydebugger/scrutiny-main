@@ -646,6 +646,7 @@ class ServerManager:
         if (attempted_action == self.WatchableRegistrationAction.SUBSCRIBE
                 and registration_status.active_state == self.WatchableRegistrationState.SUBSCRIBED):
             assert client_handle is not None
+            self._registry.assign_serverid_to_node(client_handle.type, server_path, client_handle.server_id)
             self._listener.subscribe(client_handle)
         self._listener.prune_subscriptions()    # Delete dead handles
 
@@ -653,6 +654,7 @@ class ServerManager:
                 and registration_status.pending_action == self.WatchableRegistrationAction.NONE):
             if server_path in self._registration_status_store[watchable_type]:
                 del self._registration_status_store[watchable_type][server_path]    # Save some memory.
+            self._registry.clear_serverid_from_node(watchable_type, server_path)
         else:
             if registration_status.pending_action == self.WatchableRegistrationAction.SUBSCRIBE:
                 self._qt_maybe_request_watch(watchable_type, server_path)
@@ -760,7 +762,7 @@ class ServerManager:
             raise NotImplementedError(f"Unsupported state: {registration_status.active_state}")
 
     @enforce_thread(QT_THREAD_NAME)
-    def _qt_registry_watch_callback(self, watcher_id: Union[str, int], server_path: str, watchable_config: sdk.WatchableConfiguration) -> None:
+    def _qt_registry_watch_callback(self, watcher_id: Union[str, int], server_path: str, watchable_config: sdk.WatchableConfiguration, registry_id:int) -> None:
         """Called when a gui component register a watcher on the registry"""
         # Runs from QT thread
         watcher_count = self._registry.node_watcher_count(watchable_config.watchable_type, server_path)
@@ -768,7 +770,7 @@ class ServerManager:
             self._qt_maybe_request_watch(watchable_config.watchable_type, server_path)
 
     @enforce_thread(QT_THREAD_NAME)
-    def _qt_registry_unwatch_callback(self, watcher_id: Union[str, int], server_path: str, watchable_config: sdk.WatchableConfiguration) -> None:
+    def _qt_registry_unwatch_callback(self, watcher_id: Union[str, int], server_path: str, watchable_config: sdk.WatchableConfiguration, registry_id:int) -> None:
         """Called when a gui component unregister a watcher on the registry"""
         # Runs from QT thread
         watcher_count = self._registry.node_watcher_count(watchable_config.watchable_type, server_path)

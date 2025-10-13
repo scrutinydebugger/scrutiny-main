@@ -247,6 +247,9 @@ class FakeSDKClient(tools.UnitTestStub):
             return self._handle_cache[path]
         except KeyError:
             return None
+        
+    def watch_handle_exists(self, path:str) -> bool:
+        return path in self._handle_cache
 
     def download_watchable_list(self, types: Optional[List[sdk.WatchableType]] = None,
                                 max_per_response: int = 500,
@@ -416,6 +419,7 @@ class FakeSDKClient(tools.UnitTestStub):
         )
 
         self._handle_cache[path] = handle
+        logger.debug(f"Watching {path} (serverid: {wconfig.server_id})")
         return handle
 
     def unwatch(self, path: str) -> StubbedWatchableHandle:

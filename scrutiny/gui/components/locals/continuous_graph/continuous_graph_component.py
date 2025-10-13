@@ -832,16 +832,16 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
             return
 
         if self._first_val_dt is None:
-            self._first_val_dt = value_updates[0].update.update_timestamp   # precise to the microsecond. Coming from the server
+            self._first_val_dt = value_updates[0].sdk_update.update_timestamp   # precise to the microsecond. Coming from the server
 
         tstart = self._first_val_dt
 
         def get_x(val: RegistryValueUpdate) -> float:    # A getter to get the relative timestamp
-            return (val.update.update_timestamp - tstart).total_seconds()
+            return (val.sdk_update.update_timestamp - tstart).total_seconds()
 
         if self._csv_logger is not None:
             try:
-                updates = [x.update for x in value_updates]
+                updates = [x.sdk_update for x in value_updates]
                 signal_ids = [str(x.registry_id) for x in value_updates]
                 self._csv_logger.write(updates, signal_ids)
             except Exception as e:
@@ -853,7 +853,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
         try:
             for value_update in value_updates:
                 xval = get_x(value_update)
-                yval = float(value_update.update.value)
+                yval = float(value_update.sdk_update.value)
 
                 series = self._get_item_series(self._registryid2signal_item[value_update.registry_id])
                 yaxis = self._get_series_yaxis(series)
@@ -876,7 +876,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
             tools.log_exception(self.logger, e, f"Error when receiving data for the chart")
             self.stop_acquisition()
 
-    def _unwatch_callback(self, watcher_id: Union[str, int], server_path: str, watchable_config: sdk.WatchableConfiguration) -> None:
+    def _unwatch_callback(self, watcher_id: Union[str, int], server_path: str, watchable_config: sdk.WatchableConfiguration, registry_id:int) -> None:
         # Should we do something? User feedback if the watchable is not available anymore maybe?
         pass
 

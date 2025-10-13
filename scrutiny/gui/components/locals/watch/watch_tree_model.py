@@ -749,7 +749,7 @@ class WatchComponentTreeModel(WatchableTreeModel):
         """Change the availability of an item based on its availability in the registry. 
         When the watchable referred by an element is not in the registry, becomes "unavailable" (grayed out).
         """
-        watchable_node = self._watchable_registry.get_watchable_fqn(watchable_item.fqn)
+        watchable_node = self._watchable_registry.get_watchable_node_fqn(watchable_item.fqn)
         watchable_config = watchable_node.configuration if watchable_node is not None else None
         was_available = watchable_item.data(AVAILABLE_DATA_ROLE)
         if watchable_config is not None:

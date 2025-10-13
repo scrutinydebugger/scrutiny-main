@@ -1747,8 +1747,8 @@ class ScrutinyClient:
 
         :return: A handle that can read/write the watched element.
         """
+        print("123")
         validation.assert_type(path, 'path', str)
-
         cached_watchable = self.try_get_existing_watch_handle(path)
         if cached_watchable:
             return cached_watchable
@@ -1776,6 +1776,7 @@ class ScrutinyClient:
         req = self._make_request(API.Command.Client2Api.SUBSCRIBE_WATCHABLE, {
             'watchables': [watchable.display_path]  # Single element
         })
+        print("xxxxxx")
         future = self._send(req, wt_subscribe_callback)
         assert future is not None
         future.wait()

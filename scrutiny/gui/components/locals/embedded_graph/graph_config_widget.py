@@ -378,7 +378,7 @@ class GraphConfigWidget(QWidget):
                 fqn_and_name = self._txtw_xaxis_signal.get_watchable()
                 if fqn_and_name is None:
                     return None
-                watchable_node = self._watchable_registry.get_watchable_fqn(fqn_and_name.fqn)
+                watchable_node = self._watchable_registry.get_watchable_node_fqn(fqn_and_name.fqn)
                 if watchable_node is None:
                     return None
                 sample_size += watchable_node.configuration.datatype.get_size_byte()

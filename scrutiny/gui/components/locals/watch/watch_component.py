@@ -280,7 +280,7 @@ class WatchComponent(ScrutinyGUIBaseLocalComponent):
         def update_val_closure(watcher_id: Union[str, int], vals: List[RegistryValueUpdate]) -> None:
             self._update_val_callback(value_item, watcher_id, vals)
 
-        def unwatch_closure(watcher_id: Union[str, int], server_path: str, watchable_config: sdk.WatchableConfiguration) -> None:
+        def unwatch_closure(watcher_id: Union[str, int], server_path: str, watchable_config: sdk.WatchableConfiguration, registry_id:int) -> None:
             pass
 
         watcher_id = self._get_watcher_id(item)
@@ -385,7 +385,7 @@ class WatchComponent(ScrutinyGUIBaseLocalComponent):
                 can_update = False  # Don't change the content. The user is writing something
 
         if can_update:
-            item.set_value(vals[-1].update.value)
+            item.set_value(vals[-1].sdk_update.value)
 
     def _value_written_slot(self, fqn: str, value: Union[str, int, float, bool]) -> None:
         """The QT slot called when the user input a new value in a value field"""

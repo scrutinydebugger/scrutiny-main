@@ -594,29 +594,29 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
         self.wait_true_with_events(lambda: not self.server_manager.is_running() and not self.server_manager.is_stopping(), timeout=1)
         return super().tearDown()
 
-    def get_watch_request(self, timeout: int = 1, assert_single: bool = True):
+    def get_watch_request(self, timeout: float = 2, assert_single: bool = True):
         self.wait_true(lambda: len(self.fake_client._pending_watch_request) > 0, timeout=timeout)
         request = self.fake_client._pending_watch_request.pop()
         if assert_single:
             self.assertEqual(len(self.fake_client._pending_watch_request), 0)
         return request
 
-    def get_unwatch_request(self, timeout: int = 1, assert_single: bool = True):
+    def get_unwatch_request(self, timeout: float = 2, assert_single: bool = True):
         self.wait_true(lambda: len(self.fake_client._pending_unwatch_request) > 0, timeout=timeout)
         request = self.fake_client._pending_unwatch_request.pop()
         if assert_single:
             self.assertEqual(len(self.fake_client._pending_unwatch_request), 0)
         return request
 
-    def assert_no_watch_request(self, max_wait: int = 1):
+    def assert_no_watch_request(self, max_wait: float = 1):
         self.wait_true_with_events(lambda: len(self.fake_client._pending_watch_request) > 0, timeout=max_wait, no_assert=True)
         self.assertEqual(len(self.fake_client._pending_watch_request), 0)
 
-    def assert_no_unwatch_request(self, max_wait: int = 1):
+    def assert_no_unwatch_request(self, max_wait: float = 1):
         self.wait_true_with_events(lambda: len(self.fake_client._pending_unwatch_request) > 0, timeout=max_wait, no_assert=True)
         self.assertEqual(len(self.fake_client._pending_unwatch_request), 0)
 
-    def assert_no_watch_or_unwatch_request(self, max_wait: int = 1):
+    def assert_no_watch_or_unwatch_request(self, max_wait: float = 1):
         func = lambda: len(self.fake_client._pending_unwatch_request) > 0 or len(self.fake_client._pending_watch_request) > 0
         self.wait_true_with_events(func, timeout=max_wait, no_assert=True)
         self.assertFalse(func())
@@ -740,30 +740,39 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
     def test_data_reaches_watchers(self):
         # Simulate a value update broadcast by the client.
         # expect a gui watcher that subscribe to the registry to receive the update
-        watch1 = StubbedWatchableHandle(
-            display_path='/aaa/bbb/ccc',
-            datatype=sdk.EmbeddedDataType.float32,
-            enum=None,
-            server_id='aaa',
-            watchable_type=sdk.WatchableType.Variable
-        )
-        self.registry._add_watchable(watch1.display_path, watch1.configuration)
+
+        varpath = '/aaa/bbb/ccc'
+        watch1_config  = sdk.WatchableConfigurationWithServerID(
+            sdk.WatchableType.Variable, 
+            datatype=sdk.EmbeddedDataType.float32, 
+            enum=None, 
+            server_id='aaa')
+        
+        self.registry._add_watchable(varpath, watch1_config)
         all_updates = []
 
         def callback(watcher, updates):
             for update in updates:
                 all_updates.append(update)
-
+        
         self.registry.register_watcher('hello', callback, lambda *x, **y: None)
-        self.registry.watch('hello', watch1.configuration.watchable_type, watch1.display_path)
+        watch1_ = self.registry.watch('hello', watch1_config.watchable_type, varpath)
+        
+        watch_request = self.get_watch_request(assert_single=True)
+        watch_request.simulate_success(watch1_config)
+        
+        self.wait_true_with_events(lambda: self.fake_client.watch_handle_exists(varpath), 2)
+        
+        watch1 = self.fake_client.try_get_existing_watch_handle(varpath)
         watch1.set_value(1234)
-        self.server_manager._listener.subscribe(watch1)
+        self.wait_true_with_events(lambda: self.registry.get_server_id( watch1_config.watchable_type, varpath) is not None, 1)
 
+        self.server_manager._listener.subscribe(watch1)
         self.server_manager._listener._broadcast_update([watch1])
 
         self.wait_true_with_events(lambda: len(all_updates) > 0, timeout=1)
         self.assertEqual(len(all_updates), 1)
-        self.assertEqual(all_updates[0].value, 1234)
+        self.assertEqual(all_updates[0].sdk_update.value, 1234)
 
 
 class TestQtListener(ScrutinyBaseGuiTest):
