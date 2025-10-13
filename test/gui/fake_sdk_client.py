@@ -87,6 +87,10 @@ class StubbedWatchableHandle(tools.UnitTestStub):
     @property
     def value(self) -> Union[int, bool, float, str]:
         return self._value
+    
+    @property
+    def type(self) -> sdk.WatchableType:
+        return self.configuration.watchable_type
 
 
 @dataclass
@@ -137,7 +141,7 @@ class FakeSDKClient(tools.UnitTestStub):
 
     class FakeWatchRequest(FakeRequest):
         requested_path: str
-        received_configuration: sdk.WatchableConfiguration
+        received_configuration: sdk.WatchableConfigurationWithServerID
 
         def __init__(self, path: str) -> None:
             self.requested_path = path
@@ -147,11 +151,11 @@ class FakeSDKClient(tools.UnitTestStub):
         def get_path(self) -> str:
             return self.requested_path
 
-        def simulate_success(self, configuration: sdk.WatchableConfiguration) -> None:
+        def simulate_success(self, configuration: sdk.WatchableConfigurationWithServerID) -> None:
             self.received_configuration = configuration
             super().simulate_success()
 
-        def get_config(self) -> sdk.WatchableConfiguration:
+        def get_config(self) -> sdk.WatchableConfigurationWithServerID:
             assert self.is_success()
             assert self.received_configuration is not None, "missing configuration"
             return self.received_configuration

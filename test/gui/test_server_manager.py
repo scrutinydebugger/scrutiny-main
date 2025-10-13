@@ -626,7 +626,6 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
         self.registry._add_watchable('a/b/c', sdk.WatchableConfiguration(
             datatype=sdk.EmbeddedDataType.float32,
             enum=None,
-            server_id='abc',
             watchable_type=sdk.WatchableType.Variable
         ))
         watcher1 = 'watcher1'
@@ -657,7 +656,7 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
         # We are back to 0 watcher.
         # Start a new series of watch unwatch.
         ui_callback_count = self.server_manager._qt_watch_unwatch_ui_callback_call_count
-        watchable_config = sdk.WatchableConfiguration('xxx', sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None)
+        watchable_config = sdk.WatchableConfigurationWithServerID(sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None, server_id='xxx')
         self.registry.watch(watcher1, sdk.WatchableType.Variable, 'a/b/c')
         self.registry.unwatch(watcher1, sdk.WatchableType.Variable, 'a/b/c')
         self.registry.watch(watcher1, sdk.WatchableType.Variable, 'a/b/c')
@@ -680,7 +679,6 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
         self.registry._add_watchable('a/b/c', sdk.WatchableConfiguration(
             datatype=sdk.EmbeddedDataType.float32,
             enum=None,
-            server_id='abc',
             watchable_type=sdk.WatchableType.Variable
         ))
 
@@ -706,7 +704,7 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
 
         request2 = self.get_watch_request(assert_single=True)
         self.assert_no_watch_request(max_wait=0.5)
-        some_watchable_config = sdk.WatchableConfiguration(
+        some_watchable_config = sdk.WatchableConfigurationWithServerID(
             server_id='aaa', watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None)
 
         call_count = self.server_manager._qt_watch_unwatch_ui_callback_call_count
