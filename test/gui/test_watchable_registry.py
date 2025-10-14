@@ -11,7 +11,7 @@ from scrutiny.core.basic_types import EmbeddedDataType
 from scrutiny.core.embedded_enum import EmbeddedEnum
 from scrutiny.gui.core.watchable_registry import (WatchableRegistry, WatchableRegistryError, WatchableRegistryEntryNode,
                                                   WatchableRegistryIntermediateNode, ValueUpdate, WatcherNotFoundError,
-                                                  WatchableRegistryNodeNotFoundError)
+                                                  WatchableRegistryNodeNotFoundError, ServerRegistryBidirectionalMap)
 from scrutiny.tools.thread_enforcer import ThreadEnforcer
 from scrutiny.gui.core.threads import QT_THREAD_NAME
 
@@ -760,6 +760,57 @@ class TestWatchableRegistry(ScrutinyUnitTest):
             self.assertEqual(self.registry.node_watcher_count(*fqn_to_args(alias1fqn)), 0)
         with self.assertRaises(WatchableRegistryNodeNotFoundError):
             self.assertEqual(self.registry.node_watcher_count(*fqn_to_args(alias2fqn)), 0)
+
+    def test_bidirectional_map(self):
+        m = ServerRegistryBidirectionalMap()
+        self.assertEqual(len(m), 0)
+        m.map(123, 'hello')
+        self.assertEqual(len(m), 1)
+        self.assertEqual(m.get_registry_id('hello'), 123)
+        self.assertEqual(m.get_server_id(123), 'hello')
+        self.assertIsNone(m.get_registry_id_or_none('aaa'))
+        self.assertIsNone(m.get_server_id_or_none(100))
+
+        with self.assertRaises(KeyError):
+            m.get_server_id(100)
+        with self.assertRaises(KeyError):
+            m.get_registry_id('idontexist')
+
+        m.map(100, 'iexist')
+        self.assertEqual(len(m), 2)
+
+        self.assertEqual(m.get_registry_id('hello'), 123)
+        self.assertEqual(m.get_server_id(123), 'hello')
+
+        self.assertEqual(m.get_registry_id('iexist'), 100)
+        self.assertEqual(m.get_server_id(100), 'iexist')
+
+        m.unmap_by_registry_id(123)
+        self.assertEqual(len(m), 1)
+        self.assertIsNone(m.get_registry_id_or_none('hello'))
+        self.assertIsNone(m.get_server_id_or_none(123))
+
+        self.assertEqual(m.get_registry_id('iexist'), 100)
+        self.assertEqual(m.get_server_id(100), 'iexist')
+
+        m.unmap_by_server_id('iexist')
+        self.assertEqual(len(m), 0)
+        self.assertIsNone(m.get_registry_id_or_none('iexist'))
+        self.assertIsNone(m.get_server_id_or_none(100))
+
+        m.map(1, 'aaa')
+        m.map(2, 'bbb')
+        m.map(3, 'ccc')
+
+        self.assertEqual(len(m), 3)
+        m.clear()
+        self.assertEqual(len(m), 0)
+        self.assertIsNone(m.get_server_id_or_none(1))
+        self.assertIsNone(m.get_server_id_or_none(2))
+        self.assertIsNone(m.get_server_id_or_none(3))
+        self.assertIsNone(m.get_registry_id_or_none('aaa'))
+        self.assertIsNone(m.get_registry_id_or_none('bbb'))
+        self.assertIsNone(m.get_registry_id_or_none('ccc'))
 
     def tearDown(self):
         super().tearDown()

@@ -594,15 +594,24 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
         self.wait_true_with_events(lambda: not self.server_manager.is_running() and not self.server_manager.is_stopping(), timeout=1)
         return super().tearDown()
 
-    def get_watch_request(self, timeout: float = 2, assert_single: bool = True):
-        self.wait_true(lambda: len(self.fake_client._pending_watch_request) > 0, timeout=timeout)
+    def get_watch_request(self, timeout: float = 2, assert_single: bool = True, allow_none: bool = False):
+        self.wait_true(lambda: len(self.fake_client._pending_watch_request) > 0, timeout=timeout, no_assert=allow_none)
+        if len(self.fake_client._pending_watch_request) == 0:
+            if allow_none:
+                return None
+            raise AssertionError(f"No unwatch request received after {timeout} seconds")
+
         request = self.fake_client._pending_watch_request.pop()
         if assert_single:
             self.assertEqual(len(self.fake_client._pending_watch_request), 0)
         return request
 
-    def get_unwatch_request(self, timeout: float = 2, assert_single: bool = True):
-        self.wait_true(lambda: len(self.fake_client._pending_unwatch_request) > 0, timeout=timeout)
+    def get_unwatch_request(self, timeout: float = 2, assert_single: bool = True, allow_none: bool = False):
+        self.wait_true(lambda: len(self.fake_client._pending_unwatch_request) > 0, timeout=timeout, no_assert=allow_none)
+        if len(self.fake_client._pending_unwatch_request) == 0:
+            if allow_none:
+                return None
+            raise AssertionError(f"No unwatch request received after {timeout} seconds")
         request = self.fake_client._pending_unwatch_request.pop()
         if assert_single:
             self.assertEqual(len(self.fake_client._pending_unwatch_request), 0)
@@ -757,7 +766,7 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
                 all_updates.append(update)
 
         self.registry.register_watcher('hello', callback, lambda *x, **y: None)
-        watch1_ = self.registry.watch('hello', watch1_config.watchable_type, varpath)
+        self.registry.watch('hello', watch1_config.watchable_type, varpath)
 
         watch_request = self.get_watch_request(assert_single=True)
         watch_request.simulate_success(watch1_config)
@@ -765,6 +774,7 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
         self.wait_true_with_events(lambda: self.fake_client.watch_handle_exists(varpath), 2)
 
         watch1 = self.fake_client.try_get_existing_watch_handle(varpath)
+        self.assertIsNotNone(watch1)
         watch1.set_value(1234)
         self.wait_true_with_events(lambda: self.registry.get_server_id(watch1_config.watchable_type, varpath) is not None, 1)
 
@@ -774,6 +784,42 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
         self.wait_true_with_events(lambda: len(all_updates) > 0, timeout=1)
         self.assertEqual(len(all_updates), 1)
         self.assertEqual(all_updates[0].sdk_update.value, 1234)
+
+    def test_server_id_association_maintained_properly(self):
+        varpath = '/aaa/bbb/ccc'
+        watch1_config = sdk.WatchableConfigurationWithServerID(
+            sdk.WatchableType.Variable,
+            datatype=sdk.EmbeddedDataType.float32,
+            enum=None,
+            server_id='aaa')
+
+        self.registry._add_watchable(varpath, watch1_config)
+
+        self.assertIsNone(self.registry.get_server_id(watch1_config.watchable_type, varpath))
+
+        noop_callback = lambda *x, **y: None
+        self.registry.register_watcher('watcher1', noop_callback, noop_callback)
+        self.registry.register_watcher('watcher2', noop_callback, noop_callback)
+
+        self.registry.watch('watcher1', watch1_config.watchable_type, varpath)
+        watch_request = self.get_watch_request(assert_single=True)
+        watch_request.simulate_success(watch1_config)
+        self.wait_true_with_events(lambda: self.registry.get_server_id(watch1_config.watchable_type, varpath) is not None, 2)
+
+        self.assertEqual(self.registry.get_server_id(watch1_config.watchable_type, varpath), 'aaa')
+
+        self.registry.watch('watcher2', watch1_config.watchable_type, varpath)
+        self.assertIsNone(self.get_watch_request(timeout=0.5, allow_none=True))  # Shouldn't do a 2nd request
+
+        self.assertEqual(self.registry.get_server_id(watch1_config.watchable_type, varpath), 'aaa')  # Still there
+        self.registry.unwatch_all('watcher1')
+        self.assertIsNone(self.get_unwatch_request(timeout=0.5, allow_none=True))  # Shouldn't unwatch until all watchers are gone
+
+        self.registry.unwatch_all('watcher2')   # Server manager should decide to unwatch now
+        unwatch_request = self.get_unwatch_request(timeout=2, allow_none=False)
+        unwatch_request.simulate_success()
+        # Unwatch is confirmed, the server ID should be removed
+        self.wait_true_with_events(lambda: self.registry.get_server_id(watch1_config.watchable_type, varpath) is None, 2)
 
 
 class TestQtListener(ScrutinyBaseGuiTest):

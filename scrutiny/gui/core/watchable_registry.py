@@ -35,6 +35,7 @@ WatcherIdType = Union[str, int]
 
 class ServerRegistryBidirectionalMap:
     __slots__ = ('r2s', 's2r')
+
     r2s: Dict[int, str]
     s2r: Dict[str, int]
 
@@ -79,6 +80,9 @@ class ServerRegistryBidirectionalMap:
     def clear(self) -> None:
         self.s2r.clear()
         self.r2s.clear()
+
+    def __len__(self) -> int:
+        return len(self.s2r)
 
 
 @dataclass(frozen=True)
@@ -595,7 +599,7 @@ class WatchableRegistry:
 
     def get_watchable_node_fqn(self, fqn: str) -> Optional[WatchableRegistryEntryNode]:
         """Access a node from the registry and return it if it is a watchable node. Returns ``None`` if no node exist or if the accessed node is not a Watchable
-        
+
         :param fqn: The node Fully Qualified Name
         :return: The node referred to by the given FQN
         """
@@ -606,7 +610,7 @@ class WatchableRegistry:
 
     def get_watchable_node(self, watchable_type: sdk.WatchableType, path: str) -> Optional[WatchableRegistryEntryNode]:
         """Access a node from the registry and return it if it is a watchable node. Returns ``None`` if no node exist or if the accessed node is not a Watchable
-        
+
         :watchable_type: The type of node to read
         :path: The tree path of the node
         :return: The node referred to by the given path
@@ -637,10 +641,10 @@ class WatchableRegistry:
 
         :watchable_type: The type of node to read
         :path: The tree path of the node
-        
+
         :return: The server ID of the node or ``None`` if not available
         """
-                
+
         node = self.get_watchable_node(watchable_type, path)
         if node is None:
             return None
