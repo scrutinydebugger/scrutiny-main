@@ -74,18 +74,30 @@ class EnumDefinition(TypedDict):
     values: Dict[str, int]
 
 
+class VarFactoryParams(TypedDict):
+    array_nodes: Dict[str, List[int]]
+
+
 class DatastoreEntryDefinition(TypedDict, total=False):
-    id: str
-    display_path: str
-    datatype: Datatype
+    path: str
+    dtype: Datatype
     type: WatchableType              # Can be missing
     enum: Optional[EnumDefinition]  # Can be missing. Default to None
+
+
+class DatastoreEntryDefinitionWithId(DatastoreEntryDefinition):
+    id: str
+
+
+class VariableFactoryDefinition(DatastoreEntryDefinition):
+    factory_params: VarFactoryParams
 
 
 class WatchableListContent(TypedDict):
     var: List[DatastoreEntryDefinition]
     alias: List[DatastoreEntryDefinition]
     rpv: List[DatastoreEntryDefinition]
+    var_factory: List[VariableFactoryDefinition]
 
 
 class SamplingRate(TypedDict):
@@ -136,6 +148,7 @@ class WatchableCount(TypedDict):
     alias: int
     var: int
     rpv: int
+    var_factory: int
 
 
 class UpdateRecord(TypedDict):
@@ -376,7 +389,7 @@ class S2C:
         done: bool
 
     class SubscribeWatchable(BaseS2CMessage):
-        subscribed: Dict[str, DatastoreEntryDefinition]
+        subscribed: Dict[str, DatastoreEntryDefinitionWithId]
 
     class UnsubscribeWatchable(BaseS2CMessage):
         unsubscribed: List[str]

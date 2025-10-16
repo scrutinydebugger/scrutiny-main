@@ -108,9 +108,9 @@ class TestElf2VarMapFromBuilds(ScrutinyUnitTest):
             return extractor.get_varmap()
 
     @unittest.skipIf(
-            not has_elf_toolchain(compiler='g++', cppfilt='c++filt')
-            or not has_elf_toolchain(compiler='clang++', cppfilt='c++filt'), 
-            "No toolchain available")
+        not has_elf_toolchain(compiler='g++', cppfilt='c++filt')
+        or not has_elf_toolchain(compiler='clang++', cppfilt='c++filt'),
+        "No toolchain available")
     def test_extract_arrays(self):
         code = """
 #include <cstdint>

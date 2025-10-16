@@ -1107,7 +1107,7 @@ class ElfDwarfVarExtractor:
                 raise ElfParsingError("Impossible to process base type")
         elif type_desc.type == TypeOfVar.Array:
             subarray = self.get_array_def(type_desc.type_die)
-            if subarray is None:    # Not avaialble. Incomplete, no dimensions avaialble
+            if subarray is None:    # Not available. Incomplete, no dimensions available
                 return None
         else:
             self.logger.warning(
@@ -1428,7 +1428,7 @@ class ElfDwarfVarExtractor:
                 spec_die = die.get_DIE_from_attribute(Attrs.DW_AT_specification)
                 name = self.get_name(spec_die)
 
-        # There is a name avaialble, we add it to the path and keep going
+        # There is a name available, we add it to the path and keep going
         if name is not None:
             varpath.prepend_segment(name=name, array=array)
             parent = die.get_parent()

@@ -31,6 +31,12 @@ class VariableFactory:
         self._base_var = base_var
         self._array_nodes = {}
 
+    def get_array_nodes(self) -> Dict[str, UntypedArray]:
+        return self._array_nodes
+
+    def get_base_variable(self) -> Variable:
+        return self._base_var
+
     def get_access_name(self) -> str:
         return self._access_name
 

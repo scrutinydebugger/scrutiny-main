@@ -2487,18 +2487,21 @@ class TestClient(ScrutinyUnitTest):
         self.assertEqual(len(watchables[sdk.WatchableType.Alias]), 2)
         self.assertEqual(len(watchables[sdk.WatchableType.RuntimePublishedValue]), 1)
 
+        def test_watchable_received(watchable_type: WatchableType, path: str):
+            self.assertIn(path, watchables[watchable_type])
+            entry = self.datastore.get_entry_by_display_path(path)
+            self.assertEqual(watchables[watchable_type][path].watchable_type, entry.get_type())
+            self.assertEqual(watchables[watchable_type][path].datatype, entry.get_data_type())
+            self.assertEqual(watchables[watchable_type][path].enum, entry.get_enum() if entry.has_enum() else None)
+
         for path in ["/a/b/var1", "/a/b/var2", "/a/b/var3"]:
-            self.assertIn(path, watchables[sdk.WatchableType.Variable])
-            self.assertEqual(watchables[sdk.WatchableType.Variable][path].server_id, self.datastore.get_entry_by_display_path(path).get_id())
+            test_watchable_received(sdk.WatchableType.Variable, path)
 
         for path in ["/a/b/alias_var1", "/a/b/alias_rpv1000"]:
-            self.assertIn(path, watchables[sdk.WatchableType.Alias])
-            self.assertEqual(watchables[sdk.WatchableType.Alias][path].server_id, self.datastore.get_entry_by_display_path(path).get_id())
+            test_watchable_received(sdk.WatchableType.Alias, path)
 
         for path in ["/rpv/x1000"]:
-            self.assertIn(path, watchables[sdk.WatchableType.RuntimePublishedValue])
-            self.assertEqual(watchables[sdk.WatchableType.RuntimePublishedValue][path].server_id,
-                             self.datastore.get_entry_by_display_path(path).get_id())
+            test_watchable_received(sdk.WatchableType.RuntimePublishedValue, path)
 
         nb_response_msg = 0
         for object in self.rx_request_log:
@@ -2523,14 +2526,18 @@ class TestClient(ScrutinyUnitTest):
         self.assertEqual(len(watchables[sdk.WatchableType.Alias]), 2)
         self.assertEqual(len(watchables[sdk.WatchableType.RuntimePublishedValue]), 1)
 
+        def test_watchable_received(watchable_type: WatchableType, path: str):
+            self.assertIn(path, watchables[watchable_type])
+            entry = self.datastore.get_entry_by_display_path(path)
+            self.assertEqual(watchables[watchable_type][path].watchable_type, entry.get_type())
+            self.assertEqual(watchables[watchable_type][path].datatype, entry.get_data_type())
+            self.assertEqual(watchables[watchable_type][path].enum, entry.get_enum() if entry.has_enum() else None)
+
         for path in ["/a/b/alias_var1", "/a/b/alias_rpv1000"]:
-            self.assertIn(path, watchables[sdk.WatchableType.Alias])
-            self.assertEqual(watchables[sdk.WatchableType.Alias][path].server_id, self.datastore.get_entry_by_display_path(path).get_id())
+            test_watchable_received(sdk.WatchableType.Alias, path)
 
         for path in ["/rpv/x1000"]:
-            self.assertIn(path, watchables[sdk.WatchableType.RuntimePublishedValue])
-            self.assertEqual(watchables[sdk.WatchableType.RuntimePublishedValue][path].server_id,
-                             self.datastore.get_entry_by_display_path(path).get_id())
+            test_watchable_received(sdk.WatchableType.RuntimePublishedValue, path)
 
     def test_download_watchable_list_name_filter(self):
         req = self.client.download_watchable_list(name_patterns=["*alias_var*", "/rpv/*"])
@@ -2549,14 +2556,18 @@ class TestClient(ScrutinyUnitTest):
         self.assertEqual(len(watchables[sdk.WatchableType.Alias]), 1)       # 1 instead of 2
         self.assertEqual(len(watchables[sdk.WatchableType.RuntimePublishedValue]), 1)
 
+        def test_watchable_received(watchable_type: WatchableType, path: str):
+            self.assertIn(path, watchables[watchable_type])
+            entry = self.datastore.get_entry_by_display_path(path)
+            self.assertEqual(watchables[watchable_type][path].watchable_type, entry.get_type())
+            self.assertEqual(watchables[watchable_type][path].datatype, entry.get_data_type())
+            self.assertEqual(watchables[watchable_type][path].enum, entry.get_enum() if entry.has_enum() else None)
+
         for path in ["/a/b/alias_var1"]:
-            self.assertIn(path, watchables[sdk.WatchableType.Alias])
-            self.assertEqual(watchables[sdk.WatchableType.Alias][path].server_id, self.datastore.get_entry_by_display_path(path).get_id())
+            test_watchable_received(sdk.WatchableType.Alias, path)
 
         for path in ["/rpv/x1000"]:
-            self.assertIn(path, watchables[sdk.WatchableType.RuntimePublishedValue])
-            self.assertEqual(watchables[sdk.WatchableType.RuntimePublishedValue][path].server_id,
-                             self.datastore.get_entry_by_display_path(path).get_id())
+            test_watchable_received(sdk.WatchableType.RuntimePublishedValue, path)
 
     def test_download_watchable_list_multi_chunk(self):
         req = self.client.download_watchable_list(max_per_response=1)

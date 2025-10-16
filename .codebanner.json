@@ -476,7 +476,7 @@
             "docstring": "Exceptions related to the GUI"
         },
         "scrutiny/gui/core/watchable_registry.py": {
-            "docstring": "A storage object that keeps a local copy of all the watchable (Variable/Alias/RPV) avaialble on the server. \nLots of overlapping feature with the server datastore, with few fundamentals differences."
+            "docstring": "A storage object that keeps a local copy of all the watchable (Variable/Alias/RPV) available on the server. \nLots of overlapping feature with the server datastore, with few fundamentals differences."
         },
         "scrutiny/gui/core/server_manager.py": {
             "docstring": "Object that handles the communication with the server and inform the rest of the GUI about what's happening on the other side of the socket. Based on the SDK ScrutinyClient"

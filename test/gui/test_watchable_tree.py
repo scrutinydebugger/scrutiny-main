@@ -21,21 +21,21 @@ from test.gui.base_gui_test import ScrutinyBaseGuiTest
 from scrutiny.tools.typing import *
 
 DUMMY_DATASET_RPV = {
-    '/rpv/rpv1000': sdk.WatchableConfiguration(server_id='rpv_111', watchable_type=sdk.WatchableType.RuntimePublishedValue, datatype=sdk.EmbeddedDataType.float32, enum=None),
-    '/rpv/rpv1001': sdk.WatchableConfiguration(server_id='rpv_222', watchable_type=sdk.WatchableType.RuntimePublishedValue, datatype=sdk.EmbeddedDataType.float32, enum=None)
+    '/rpv/rpv1000': sdk.WatchableConfiguration(watchable_type=sdk.WatchableType.RuntimePublishedValue, datatype=sdk.EmbeddedDataType.float32, enum=None),
+    '/rpv/rpv1001': sdk.WatchableConfiguration(watchable_type=sdk.WatchableType.RuntimePublishedValue, datatype=sdk.EmbeddedDataType.float32, enum=None)
 }
 
 DUMMY_DATASET_ALIAS = {
-    '/alias/yyy/alias1': sdk.WatchableConfiguration(server_id='alias_111', watchable_type=sdk.WatchableType.Alias, datatype=sdk.EmbeddedDataType.float32, enum=None),
-    '/alias/alias2': sdk.WatchableConfiguration(server_id='alias_222', watchable_type=sdk.WatchableType.Alias, datatype=sdk.EmbeddedDataType.float32, enum=None),
-    '/alias/alias3': sdk.WatchableConfiguration(server_id='alias_333', watchable_type=sdk.WatchableType.Alias, datatype=sdk.EmbeddedDataType.float32, enum=None)
+    '/alias/yyy/alias1': sdk.WatchableConfiguration(watchable_type=sdk.WatchableType.Alias, datatype=sdk.EmbeddedDataType.float32, enum=None),
+    '/alias/alias2': sdk.WatchableConfiguration(watchable_type=sdk.WatchableType.Alias, datatype=sdk.EmbeddedDataType.float32, enum=None),
+    '/alias/alias3': sdk.WatchableConfiguration(watchable_type=sdk.WatchableType.Alias, datatype=sdk.EmbeddedDataType.float32, enum=None)
 }
 
 DUMMY_DATASET_VAR = {
-    '/var/xxx/var1': sdk.WatchableConfiguration(server_id='var_111', watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None),
-    '/var/xxx/var2': sdk.WatchableConfiguration(server_id='var_222', watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None),
-    '/var/var3': sdk.WatchableConfiguration(server_id='var_333', watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None),
-    '/var/var4': sdk.WatchableConfiguration(server_id='var_444', watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None)
+    '/var/xxx/var1': sdk.WatchableConfiguration(watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None),
+    '/var/xxx/var2': sdk.WatchableConfiguration(watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None),
+    '/var/var3': sdk.WatchableConfiguration(watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None),
+    '/var/var4': sdk.WatchableConfiguration(watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None)
 }
 
 TreeItem = Union[FolderStandardItem, WatchableStandardItem]
@@ -769,11 +769,11 @@ class TestWatchTreeModel(BaseWatchableTreeTest):
         self.registry.clear()
         self.registry.write_content({
             sdk.WatchableType.Variable: {
-                'aaa': sdk.WatchableConfiguration('aaa', sdk.WatchableType.Variable, sdk.EmbeddedDataType.boolean, None),
-                'bbb': sdk.WatchableConfiguration('bbb', sdk.WatchableType.Variable, sdk.EmbeddedDataType.boolean, None),
-                'ccc/ddd': sdk.WatchableConfiguration('ddd', sdk.WatchableType.Variable, sdk.EmbeddedDataType.boolean, None),
-                'eee': sdk.WatchableConfiguration('eee', sdk.WatchableType.Variable, sdk.EmbeddedDataType.boolean, None),
-                'fff': sdk.WatchableConfiguration('fff', sdk.WatchableType.Variable, sdk.EmbeddedDataType.boolean, None),
+                'aaa': sdk.WatchableConfiguration(sdk.WatchableType.Variable, sdk.EmbeddedDataType.boolean, None),
+                'bbb': sdk.WatchableConfiguration(sdk.WatchableType.Variable, sdk.EmbeddedDataType.boolean, None),
+                'ccc/ddd': sdk.WatchableConfiguration(sdk.WatchableType.Variable, sdk.EmbeddedDataType.boolean, None),
+                'eee': sdk.WatchableConfiguration(sdk.WatchableType.Variable, sdk.EmbeddedDataType.boolean, None),
+                'fff': sdk.WatchableConfiguration(sdk.WatchableType.Variable, sdk.EmbeddedDataType.boolean, None),
             }
         })
 

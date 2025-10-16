@@ -276,20 +276,16 @@ def parse_get_watchable_list(response: api_typing.S2C.GetWatchableList) -> GetWa
             keyprefix = f'content.{typekey}[{i}]'
             element = response['content'][typekey][i]
 
-            _check_response_dict(cmd, element, 'id', str, keyprefix)
-            _check_response_dict(cmd, element, 'display_path', str, keyprefix)
-            _check_response_dict(cmd, element, 'datatype', str, keyprefix)
+            _check_response_dict(cmd, element, 'path', str, keyprefix)
+            _check_response_dict(cmd, element, 'dtype', str, keyprefix)
 
-            if element['datatype'] not in API.APISTR_2_DATATYPE:
-                raise sdk.exceptions.BadResponseError(f"Unknown datatype {element['datatype']}")
+            if element['dtype'] not in API.APISTR_2_DATATYPE:
+                raise sdk.exceptions.BadResponseError(f"Unknown datatype {element['dtype']}")
 
-            if len(element['id']) == 0:
-                raise sdk.exceptions.BadResponseError(f"Empty server id")
+            if len(element['path']) == 0:
+                raise sdk.exceptions.BadResponseError(f"Empty path")
 
-            if len(element['display_path']) == 0:
-                raise sdk.exceptions.BadResponseError(f"Empty display path")
-
-            datatype = EmbeddedDataType(API.APISTR_2_DATATYPE[element['datatype']])
+            datatype = EmbeddedDataType(API.APISTR_2_DATATYPE[element['dtype']])
 
             enum: Optional[EmbeddedEnum] = None
             if 'enum' in element and element['enum'] is not None:
@@ -309,8 +305,7 @@ def parse_get_watchable_list(response: api_typing.S2C.GetWatchableList) -> GetWa
                         raise sdk.exceptions.BadResponseError('Invalid enum. Value is not an integer')
                     enum.add_value(key, val)
 
-            outdata.data[watchable_type][element['display_path']] = sdk.WatchableConfiguration(
-                server_id=element['id'],
+            outdata.data[watchable_type][element['path']] = sdk.WatchableConfiguration(
                 watchable_type=watchable_type,
                 datatype=datatype,
                 enum=enum
@@ -319,20 +314,20 @@ def parse_get_watchable_list(response: api_typing.S2C.GetWatchableList) -> GetWa
     return outdata
 
 
-def parse_subscribe_watchable_response(response: api_typing.S2C.SubscribeWatchable) -> Dict[str, sdk.WatchableConfiguration]:
+def parse_subscribe_watchable_response(response: api_typing.S2C.SubscribeWatchable) -> Dict[str, sdk.WatchableConfigurationWithServerID]:
     """Parse a response to get_watchable_list and assume the request was for a single watchable"""
     assert isinstance(response, dict)
     assert 'cmd' in response
     cmd = response['cmd']
     assert cmd == API.Command.Api2Client.SUBSCRIBE_WATCHABLE_RESPONSE
 
-    outdict: Dict[str, sdk.WatchableConfiguration] = {}
+    outdict: Dict[str, sdk.WatchableConfigurationWithServerID] = {}
     _check_response_dict(cmd, response, 'subscribed', dict)
     for k, v in response['subscribed'].items():
         if not isinstance(k, str):
             raise sdk.exceptions.BadResponseError('Gotten a subscription dict with invalid key')
 
-        _check_response_dict(cmd, v, 'datatype', str)
+        _check_response_dict(cmd, v, 'dtype', str)
         _check_response_dict(cmd, v, 'type', str)
         _check_response_dict(cmd, v, 'id', str)
 
@@ -349,10 +344,10 @@ def parse_subscribe_watchable_response(response: api_typing.S2C.SubscribeWatchab
                     raise sdk.exceptions.BadResponseError('Invalid enum. Value is not an integer')
                 enum.add_value(key, val)
 
-        if v['datatype'] not in API.APISTR_2_DATATYPE:
-            raise sdk.exceptions.BadResponseError(f"Unknown datatype {v['datatype']}")
+        if v['dtype'] not in API.APISTR_2_DATATYPE:
+            raise sdk.exceptions.BadResponseError(f"Unknown datatype {v['dtype']}")
 
-        datatype = EmbeddedDataType(API.APISTR_2_DATATYPE[v['datatype']])
+        datatype = EmbeddedDataType(API.APISTR_2_DATATYPE[v['dtype']])
         if v['type'] == 'alias':
             watchable_type = sdk.WatchableType.Alias
         elif v['type'] == 'var':
@@ -362,7 +357,7 @@ def parse_subscribe_watchable_response(response: api_typing.S2C.SubscribeWatchab
         else:
             raise sdk.exceptions.BadResponseError(f"Unsupported watchable type {v['type']}")
 
-        outdict[k] = sdk.WatchableConfiguration(
+        outdict[k] = sdk.WatchableConfigurationWithServerID(
             server_id=v['id'],
             watchable_type=watchable_type,
             datatype=datatype,

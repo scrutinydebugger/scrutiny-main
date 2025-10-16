@@ -1183,7 +1183,7 @@ class ScrutinyClient:
                     if request._watchable._configuration is not None:
                         api_req['updates'].append({
                             'batch_index': n,
-                            'watchable': request._watchable._configuration.server_id,
+                            'watchable': request._watchable.server_id,
                             'value': request._value
                         })
                         batch_dict[n] = request
@@ -1748,7 +1748,6 @@ class ScrutinyClient:
         :return: A handle that can read/write the watched element.
         """
         validation.assert_type(path, 'path', str)
-
         cached_watchable = self.try_get_existing_watch_handle(path)
         if cached_watchable:
             return cached_watchable
