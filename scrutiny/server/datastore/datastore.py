@@ -341,6 +341,10 @@ class Datastore:
         """Returns True if the tree-like path matches the expected RPV default path (i.e. /rpv/x1234)"""
         return DatastoreRPVEntry.is_valid_path(path)
 
+    def register_var_factories(self, factories: Iterable[VariableFactory]) -> None:
+        for factory in factories:
+            self.register_var_factory(factory)
+
     def register_var_factory(self, factory: VariableFactory) -> None:
         key = factory.get_access_name()
         if key in self._var_factories:

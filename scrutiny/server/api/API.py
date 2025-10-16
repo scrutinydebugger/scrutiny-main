@@ -2180,10 +2180,10 @@ class API:
         }
 
         if include_datatype:
-            definition['datatype'] = self.get_datatype_name(entry.get_data_type())
+            definition['dtype'] = self.get_datatype_name(entry.get_data_type())
 
         if include_display_path:
-            definition['display_path'] = entry.get_display_path()
+            definition['path'] = entry.get_display_path()
 
         if include_type:
             definition['type'] = self.get_watchable_type_name(entry.get_type())
@@ -2216,10 +2216,10 @@ class API:
         var = factory.get_base_variable()
 
         if include_datatype:
-            definition['datatype'] = self.get_datatype_name(var.get_type())
+            definition['dtype'] = self.get_datatype_name(var.get_type())
 
         if include_display_path:
-            definition['display_path'] = factory.get_access_name()
+            definition['path'] = factory.get_access_name()
 
         if include_type:
             definition['type'] = self.get_watchable_type_name(WatchableType.Variable)

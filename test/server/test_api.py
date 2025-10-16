@@ -36,6 +36,8 @@ from scrutiny.server.active_sfd_handler import ActiveSFDHandler
 from scrutiny.server.device.links.dummy_link import DummyLink
 from scrutiny.core.variable import *
 from scrutiny.core.embedded_enum import *
+from scrutiny.core.variable_factory import VariableFactory
+from scrutiny.core.array import UntypedArray
 from scrutiny.core.alias import Alias
 import scrutiny.core.datalogging as core_datalogging
 import scrutiny.server.datalogging.definitions.api as api_datalogging
@@ -483,6 +485,30 @@ class TestAPI(ScrutinyUnitTest):
         self.assert_is_response_command(response, API.Command.Api2Client.INFORM_SERVER_STATUS)
         return response
 
+    def make_dummy_var_factory(self, n, prefix='var_factory',  enum_dict: Optional[Dict[str, int]] = None):
+        enum: Optional[EmbeddedEnum] = None
+        if enum_dict is not None:
+            enum = EmbeddedEnum('some_enum')
+            for k, v in enum_dict.items():
+                enum.add_value(k, v)
+
+        outlist = []
+        for i in range(n):
+            name = '%s_%d' % (prefix, i)
+
+            dummy_var = Variable(
+                vartype=EmbeddedDataType.float32, 
+                path_segments=['x', 'y', 'z', name], 
+                location=0x12345678, 
+                endianness=Endianness.Little, 
+                enum=enum
+                )
+            factory = VariableFactory(access_name=f'/x/y/z/{name}', base_var=dummy_var)
+            factory.add_array_node('/x/y', UntypedArray((2,3,4), 32))
+            outlist.append(factory)
+        
+        return outlist
+
     def make_dummy_entries(self,
                            n,
                            entry_type=WatchableType.Variable,
@@ -493,6 +519,7 @@ class TestAPI(ScrutinyUnitTest):
         entries = []
         if entry_type == WatchableType.Alias:
             assert len(alias_bucket) >= n
+            
             for entry in alias_bucket:
                 assert not isinstance(entry, DatastoreAliasEntry)
 
@@ -582,6 +609,7 @@ class TestAPI(ScrutinyUnitTest):
         var_entries = self.make_dummy_entries(5, entry_type=WatchableType.Variable, prefix='var')
         alias_entries = self.make_dummy_entries(2, entry_type=WatchableType.Alias, prefix='alias', alias_bucket=var_entries)
         rpv_entries = self.make_dummy_entries(8, entry_type=WatchableType.RuntimePublishedValue, prefix='rpv')
+        var_factories = self.make_dummy_var_factory(3, prefix='var_factory')
 
         expected_entries_in_response = {}
         for entry in var_entries:
@@ -594,6 +622,7 @@ class TestAPI(ScrutinyUnitTest):
         self.datastore.add_entries(var_entries)
         self.datastore.add_entries(alias_entries)
         self.datastore.add_entries(rpv_entries)
+        self.datastore.register_var_factories(var_factories)
 
         req = {
             'cmd': 'get_watchable_list'
@@ -608,9 +637,11 @@ class TestAPI(ScrutinyUnitTest):
         self.assertEqual(response['qty']['var'], 5)
         self.assertEqual(response['qty']['alias'], 2)
         self.assertEqual(response['qty']['rpv'], 8)
+        self.assertEqual(response['qty']['var_factory'], 3)
         self.assertEqual(len(response['content']['var']), 5)
         self.assertEqual(len(response['content']['alias']), 2)
         self.assertEqual(len(response['content']['rpv']), 8)
+        self.assertEqual(len(response['content']['var_factory']), 3)
 
         # Put all entries in a single list, paired with the name of the parent key.
         all_entries_same_level = []
@@ -619,22 +650,35 @@ class TestAPI(ScrutinyUnitTest):
         all_entries_same_level += [(WatchableType.RuntimePublishedValue, entry) for entry in response['content']['rpv']]
 
         # We make sure that the list is exact.
-        for item in all_entries_same_level:
-            entrytype = item[0]
-            api_entry = item[1]
+        for entrytype, api_entry in all_entries_same_level:
 
-            self.assertIn('display_path', api_entry)
+            self.assertIn('path', api_entry)
 
-            self.assertIn(api_entry['display_path'], expected_entries_in_response)
-            entry: DatastoreEntry = expected_entries_in_response[api_entry['display_path']]
+            self.assertIn(api_entry['path'], expected_entries_in_response)
+            entry: DatastoreEntry = expected_entries_in_response[api_entry['path']]
 
             self.assertEqual(entry.get_type(), entrytype)
-            self.assertEqual(API.get_datatype_name(entry.get_data_type()), api_entry['datatype'])
-            self.assertEqual(entry.get_display_path(), api_entry['display_path'])
+            self.assertEqual(API.get_datatype_name(entry.get_data_type()), api_entry['dtype'])
+            self.assertEqual(entry.get_display_path(), api_entry['path'])
 
-            del expected_entries_in_response[api_entry['display_path']]
+            del expected_entries_in_response[api_entry['path']]
 
         self.assertEqual(len(expected_entries_in_response), 0)
+        
+        expected_factories = dict([(x.get_access_name(), x) for x in var_factories])
+        for i in range(3):
+            factory = response['content']['var_factory'][i]
+            self.assertIn('dtype', factory)
+            self.assertIn('path', factory)
+            self.assertIn('factory_params', factory)
+            self.assertIn('array_nodes', factory['factory_params'])
+            self.assertIn('/x/y', factory['factory_params']['array_nodes'])
+            self.assertEqual(factory['factory_params']['array_nodes']['/x/y'], [2,3,4] )
+
+            self.assertEqual(factory['dtype'], 'float32')
+            self.assertIn(factory['path'], expected_factories)
+            del expected_factories[factory['path']]
+            
 
     def test_get_watchable_list_with_name_filter(self):
         var_entries = self.make_dummy_entries(5, entry_type=WatchableType.Variable, prefix='/includeme_var')
@@ -684,20 +728,17 @@ class TestAPI(ScrutinyUnitTest):
         all_entries_same_level += [(WatchableType.RuntimePublishedValue, entry) for entry in response['content']['rpv']]
 
         # We make sure that the list is exact.
-        for item in all_entries_same_level:
-            entrytype = item[0]
-            api_entry = item[1]
+        for entrytype, api_entry  in all_entries_same_level:
+            self.assertIn('path', api_entry)
 
-            self.assertIn('display_path', api_entry)
-
-            self.assertIn(api_entry['display_path'], expected_entries_in_response)
-            entry: DatastoreEntry = expected_entries_in_response[api_entry['display_path']]
+            self.assertIn(api_entry['path'], expected_entries_in_response)
+            entry: DatastoreEntry = expected_entries_in_response[api_entry['path']]
 
             self.assertEqual(entry.get_type(), entrytype)
-            self.assertEqual(API.get_datatype_name(entry.get_data_type()), api_entry['datatype'])
-            self.assertEqual(entry.get_display_path(), api_entry['display_path'])
+            self.assertEqual(API.get_datatype_name(entry.get_data_type()), api_entry['dtype'])
+            self.assertEqual(entry.get_display_path(), api_entry['path'])
 
-            del expected_entries_in_response[api_entry['display_path']]
+            del expected_entries_in_response[api_entry['path']]
 
         self.assertEqual(len(expected_entries_in_response), 0)
 
@@ -777,15 +818,15 @@ class TestAPI(ScrutinyUnitTest):
             entrytype = item[0]
             api_entry = item[1]
 
-            self.assertIn('display_path', api_entry)
+            self.assertIn('path', api_entry)
 
-            self.assertIn(api_entry['display_path'], expected_entries_in_response)
-            entry = expected_entries_in_response[api_entry['display_path']]
+            self.assertIn(api_entry['path'], expected_entries_in_response)
+            entry = expected_entries_in_response[api_entry['path']]
 
             self.assertEqual(entry.get_type(), entrytype)
-            self.assertEqual(entry.get_display_path(), api_entry['display_path'])
+            self.assertEqual(entry.get_display_path(), api_entry['path'])
 
-            del expected_entries_in_response[api_entry['display_path']]
+            del expected_entries_in_response[api_entry['path']]
 
         self.assertEqual(len(expected_entries_in_response), 0)
 
@@ -864,15 +905,15 @@ class TestAPI(ScrutinyUnitTest):
                 entrytype = item[0]
                 api_entry = item[1]
 
-                self.assertIn('display_path', api_entry)
+                self.assertIn('path', api_entry)
 
-                self.assertIn(api_entry['display_path'], expected_entries_in_response)
-                entry = expected_entries_in_response[api_entry['display_path']]
+                self.assertIn(api_entry['path'], expected_entries_in_response)
+                entry = expected_entries_in_response[api_entry['path']]
 
                 self.assertEqual(entry.get_type(), entrytype)
-                self.assertEqual(entry.get_display_path(), api_entry['display_path'])
+                self.assertEqual(entry.get_display_path(), api_entry['path'])
 
-                del expected_entries_in_response[api_entry['display_path']]
+                del expected_entries_in_response[api_entry['path']]
 
         self.assertEqual(len(expected_entries_in_response), 0)
 
@@ -913,7 +954,7 @@ class TestAPI(ScrutinyUnitTest):
         obj1 = response['subscribed'][subscribed_entry.get_display_path()]
         self.assertEqual(obj1['id'], subscribed_entry.get_id())
         self.assertEqual(obj1['type'], 'var')
-        self.assertEqual(obj1['datatype'], 'float32')
+        self.assertEqual(obj1['dtype'], 'float32')
         self.assertNotIn('enum', obj1)  # No enum in this one
 
         self.assertIsNone(self.wait_for_response(timeout=0.2))
@@ -952,7 +993,7 @@ class TestAPI(ScrutinyUnitTest):
         obj1 = response['subscribed'][subscribed_entry.get_display_path()]
         self.assertEqual(obj1['id'], subscribed_entry.get_id())
         self.assertEqual(obj1['type'], 'var')
-        self.assertEqual(obj1['datatype'], 'float32')
+        self.assertEqual(obj1['dtype'], 'float32')
         self.assertIn('enum', obj1)  # No enum in this one
         self.assertIn('name', obj1['enum'])
         self.assertIn('values', obj1['enum'])

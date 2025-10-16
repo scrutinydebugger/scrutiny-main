@@ -276,16 +276,16 @@ def parse_get_watchable_list(response: api_typing.S2C.GetWatchableList) -> GetWa
             keyprefix = f'content.{typekey}[{i}]'
             element = response['content'][typekey][i]
 
-            _check_response_dict(cmd, element, 'display_path', str, keyprefix)
-            _check_response_dict(cmd, element, 'datatype', str, keyprefix)
+            _check_response_dict(cmd, element, 'path', str, keyprefix)
+            _check_response_dict(cmd, element, 'dtype', str, keyprefix)
 
-            if element['datatype'] not in API.APISTR_2_DATATYPE:
-                raise sdk.exceptions.BadResponseError(f"Unknown datatype {element['datatype']}")
+            if element['dtype'] not in API.APISTR_2_DATATYPE:
+                raise sdk.exceptions.BadResponseError(f"Unknown datatype {element['dtype']}")
 
-            if len(element['display_path']) == 0:
-                raise sdk.exceptions.BadResponseError(f"Empty display path")
+            if len(element['path']) == 0:
+                raise sdk.exceptions.BadResponseError(f"Empty path")
 
-            datatype = EmbeddedDataType(API.APISTR_2_DATATYPE[element['datatype']])
+            datatype = EmbeddedDataType(API.APISTR_2_DATATYPE[element['dtype']])
 
             enum: Optional[EmbeddedEnum] = None
             if 'enum' in element and element['enum'] is not None:
@@ -305,7 +305,7 @@ def parse_get_watchable_list(response: api_typing.S2C.GetWatchableList) -> GetWa
                         raise sdk.exceptions.BadResponseError('Invalid enum. Value is not an integer')
                     enum.add_value(key, val)
 
-            outdata.data[watchable_type][element['display_path']] = sdk.WatchableConfiguration(
+            outdata.data[watchable_type][element['path']] = sdk.WatchableConfiguration(
                 watchable_type=watchable_type,
                 datatype=datatype,
                 enum=enum
@@ -327,7 +327,7 @@ def parse_subscribe_watchable_response(response: api_typing.S2C.SubscribeWatchab
         if not isinstance(k, str):
             raise sdk.exceptions.BadResponseError('Gotten a subscription dict with invalid key')
 
-        _check_response_dict(cmd, v, 'datatype', str)
+        _check_response_dict(cmd, v, 'dtype', str)
         _check_response_dict(cmd, v, 'type', str)
         _check_response_dict(cmd, v, 'id', str)
 
@@ -344,10 +344,10 @@ def parse_subscribe_watchable_response(response: api_typing.S2C.SubscribeWatchab
                     raise sdk.exceptions.BadResponseError('Invalid enum. Value is not an integer')
                 enum.add_value(key, val)
 
-        if v['datatype'] not in API.APISTR_2_DATATYPE:
-            raise sdk.exceptions.BadResponseError(f"Unknown datatype {v['datatype']}")
+        if v['dtype'] not in API.APISTR_2_DATATYPE:
+            raise sdk.exceptions.BadResponseError(f"Unknown datatype {v['dtype']}")
 
-        datatype = EmbeddedDataType(API.APISTR_2_DATATYPE[v['datatype']])
+        datatype = EmbeddedDataType(API.APISTR_2_DATATYPE[v['dtype']])
         if v['type'] == 'alias':
             watchable_type = sdk.WatchableType.Alias
         elif v['type'] == 'var':

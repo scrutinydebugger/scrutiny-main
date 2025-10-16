@@ -79,8 +79,8 @@ class VarFactoryParams(TypedDict):
 
 
 class DatastoreEntryDefinition(TypedDict, total=False):
-    display_path: str
-    datatype: Datatype
+    path: str
+    dtype: Datatype
     type: WatchableType              # Can be missing
     enum: Optional[EnumDefinition]  # Can be missing. Default to None
 

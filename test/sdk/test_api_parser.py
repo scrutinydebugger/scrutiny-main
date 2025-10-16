@@ -41,8 +41,8 @@ class TestApiParser(ScrutinyUnitTest):
                 "qty": {"var": 2, "alias": 2, "rpv": 1},
                 "content": {
                     "var": [{
-                        "display_path": "/a/b/c",
-                        "datatype": "sint32",
+                        "path": "/a/b/c",
+                        "dtype": "sint32",
                         "enum": {
                             "name": "example_enum",
                             "values": {
@@ -52,20 +52,20 @@ class TestApiParser(ScrutinyUnitTest):
                             }
                         }
                     }, {
-                        "display_path": "/a/b/d",
-                        "datatype": "uint64",
+                        "path": "/a/b/d",
+                        "dtype": "uint64",
                     }],
                     "alias": [{
-                        "display_path": "/x/y/z",
-                        "datatype": "float32",
+                        "path": "/x/y/z",
+                        "dtype": "float32",
                     },
                         {
-                        "display_path": "/x/y/w",
-                        "datatype": "float64",
+                        "path": "/x/y/w",
+                        "dtype": "float64",
                     }],
                     "rpv": [{
-                        "display_path": "/aaa/bbb/ccc",
-                        "datatype": "sint8",
+                        "path": "/aaa/bbb/ccc",
+                        "dtype": "sint8",
                     }]
                 }
             }
@@ -128,7 +128,7 @@ class TestApiParser(ScrutinyUnitTest):
 
         for wt in ('var', 'alias', 'rpv'):
             for val in [[], {}, None, 3.5, 1, True, Delete, ""]:
-                for field in ('datatype', 'display_path'):
+                for field in ('dtype', 'path'):
                     with self.assertRaises(sdk.exceptions.BadResponseError, msg=f"wt={wt}, val={val}, field={field}"):
                         response = base()
                         if val == Delete:
@@ -188,12 +188,12 @@ class TestApiParser(ScrutinyUnitTest):
                     '/a/b/c': {
                         'id': 'abc',
                         'type': 'var',
-                        'datatype': 'float32'
+                        'dtype': 'float32'
                     },
                     '/a/b/d': {
                         'id': 'abd',
                         'type': 'alias',
-                        'datatype': 'sint8',
+                        'dtype': 'sint8',
                         'enum': {
                             'name': 'the_enum',
                             'values': {
@@ -245,9 +245,9 @@ class TestApiParser(ScrutinyUnitTest):
             with self.assertRaises(sdk.exceptions.BadResponseError, msg=f'val={val}'):
                 msg = base()
                 if val is delete:
-                    del msg['subscribed']['/a/b/c']['datatype']
+                    del msg['subscribed']['/a/b/c']['dtype']
                 else:
-                    msg['subscribed']['/a/b/c']['datatype'] = val
+                    msg['subscribed']['/a/b/c']['dtype'] = val
                 parser.parse_subscribe_watchable_response(msg)
 
         for val in [1, True, [], None, {}, delete]:
