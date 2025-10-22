@@ -2940,5 +2940,5 @@ class ScrutinyClient:
     @property
     def port(self) -> Optional[int]:
         """Port of the the server is listening to"""
-        with self._user_lock:#
+        with self._user_lock:
             return int(self._port) if self._port is not None else None
