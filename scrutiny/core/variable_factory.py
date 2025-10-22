@@ -43,6 +43,8 @@ class VariableFactory:
     def add_array_node(self, path: str, array: UntypedArray) -> None:
         if path in self._array_nodes:
             raise KeyError(f"Duplicate array node at {path}")
+        if not self._access_name.startswith(path):
+            raise ValueError(f"Cannot add an array node at {path} for access name {self._access_name}")
         self._array_nodes[path] = array
 
     def instantiate(self, path: Union[ScrutinyPath, str]) -> Variable:

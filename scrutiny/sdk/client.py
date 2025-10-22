@@ -2749,7 +2749,7 @@ class ScrutinyClient:
             self._pending_watchable_download_request[req['reqid']] = request_handle
 
         self._send(req)
-        # responses will be catched by the worker thread and the request handle will be updated
+        # responses will be caught by the worker thread and the request handle will be updated
         # using the response request_id echo.
 
         return request_handle
@@ -2940,5 +2940,5 @@ class ScrutinyClient:
     @property
     def port(self) -> Optional[int]:
         """Port of the the server is listening to"""
-        with self._user_lock:
+        with self._user_lock:#
             return int(self._port) if self._port is not None else None
