@@ -47,9 +47,13 @@ class CSVLogger:
 
     @dataclass
     class ColumnDescriptor:
-        server_id: str
+        """Define a column in the CSV output"""
+        signal_id: str
+        """A unique ID that represent the element being logged."""
         name: str
+        """The name of the column"""
         fullpath: Optional[str]
+        """An optional, more detailed path to the element being logged that will be written on the row above the"""
 
     EXTENSION = '.csv'
 
@@ -203,7 +207,7 @@ class CSVLogger:
 
     def define_columns_from_handles(self, watchable_handles: Iterable[WatchableHandle]) -> None:
         """Define the CSV columns from a list of Watchable handles. Columns are in the same order as the provided sequence"""
-        descriptors = [self.ColumnDescriptor(server_id=h.server_id, name=h.name, fullpath=h.display_path) for h in watchable_handles]
+        descriptors = [self.ColumnDescriptor(signal_id=h.server_id, name=h.name, fullpath=h.display_path) for h in watchable_handles]
         self.define_columns(descriptors)
 
     def define_columns(self, columns: Iterable[ColumnDescriptor]) -> None:
@@ -219,7 +223,7 @@ class CSVLogger:
         self._actual_vals = [None] * len(self._column_descriptors)
         self._column_map = {}
         for i in range(len(self._column_descriptors)):
-            self._column_map[self._column_descriptors[i].server_id] = i
+            self._column_map[self._column_descriptors[i].signal_id] = i
 
     def start(self) -> None:
         """Start the CSV logger. Open the first file and initialize the internal states"""
@@ -245,12 +249,21 @@ class CSVLogger:
         """Return ``True`` if the CSV logger is started"""
         return self._started
 
-    def write(self, updates: List[ValueUpdate]) -> None:
-        """Write a sequence of :class:`ValueUpdate<scrutiny.sdk.listeners.ValueUpdate> to the CSV output. """
+    def write(self, updates: List[ValueUpdate], signal_id_list: Optional[List[str]] = None) -> None:
+        """Write a sequence of :class:`ValueUpdate<scrutiny.sdk.listeners.ValueUpdate> to the CSV output. 
+
+        :param updates: A list of :class:`ValueUpdate<scrutiny.sdk.listeners.ValueUpdate>` given by a listener
+        :param updates: A list of ID to map the value updates to the right column. If not specified, the watchable :attr:`server_id<scrutiny.sdk.watchable_handle.WatchableHandler.server_id>` will 
+            be used, assuming the columns were defined with :meth:`define_columns_from_handles()<scrutiny.sdk.csv_logger.CSVLogger.define_columns_from_handles>`
+        """
 
         assert self._csv_writer is not None
         if len(updates) == 0:
             return
+
+        if signal_id_list is not None:
+            if len(updates) != len(signal_id_list):
+                raise ValueError("List of IDs mismatch with update list given.")
 
         if self._first_val_dt is None:
             self._first_val_dt = updates[0].update_timestamp
@@ -259,8 +272,10 @@ class CSVLogger:
         def get_reltime(val: ValueUpdate) -> float:    # A getter to get the relative timestamp
             return (val.update_timestamp - tstart).total_seconds()
 
-        for update in updates:
-            col_index = self._column_map[update.watchable.server_id]
+        for i in range(len(updates)):
+            update = updates[i]
+            signal_id = update.watchable.server_id if signal_id_list is None else signal_id_list[i]
+            col_index = self._column_map[signal_id]
             x = get_reltime(update)
             if x > self._actual_x:
                 self._flush_row()

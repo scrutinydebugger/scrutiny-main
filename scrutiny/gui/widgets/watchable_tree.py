@@ -25,7 +25,7 @@ from PySide6.QtGui import QStandardItem, QIcon, QKeyEvent
 from PySide6.QtWidgets import QWidget
 from PySide6.QtCore import Qt, QModelIndex
 from scrutiny.gui import assets
-from scrutiny.gui.core.watchable_registry import WatchableRegistry, WatchableRegistryNodeContent
+from scrutiny.gui.core.watchable_registry import WatchableRegistry, WatchableRegistryIntermediateNode
 from scrutiny.gui.core.scrutiny_drag_data import WatchableListDescriptor, SingleWatchableDescriptor, ScrutinyDragData
 from scrutiny.gui.tools import watchabletype_2_icon
 from scrutiny.gui.themes import scrutiny_get_theme
@@ -334,7 +334,7 @@ class WatchableTreeModel(BaseTreeModel):
         if path.endswith('/'):
             path = path[:-1]
 
-        if isinstance(content, WatchableRegistryNodeContent):  # Equivalent to a folder
+        if isinstance(content, WatchableRegistryIntermediateNode):  # Equivalent to a folder
             for name in content.subtree:
                 subtree_path = f'{path}/{name}'
                 folder_fqn: Optional[str] = None
@@ -357,14 +357,14 @@ class WatchableTreeModel(BaseTreeModel):
                         keep_folder_fqn=keep_folder_fqn,
                         level=level + 1)
 
-            for name, watchable_config in content.watchables.items():
+            for name, watchable_node in content.watchables.items():
                 watchable_path = f'{path}/{name}'
                 row = self.make_watchable_row(
                     name=name,
-                    watchable_type=watchable_config.watchable_type,
+                    watchable_type=watchable_node.configuration.watchable_type,
                     fqn=WatchableRegistry.FQN.make(watchable_type, watchable_path),
                     editable=editable,
-                    extra_columns=self.get_watchable_extra_columns(watchable_config)
+                    extra_columns=self.get_watchable_extra_columns(watchable_node.configuration)
                 )
                 parent.appendRow(row)
 

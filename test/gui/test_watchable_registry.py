@@ -9,32 +9,33 @@
 from scrutiny import sdk
 from scrutiny.core.basic_types import EmbeddedDataType
 from scrutiny.core.embedded_enum import EmbeddedEnum
-from scrutiny.gui.core.watchable_registry import (WatchableRegistry, WatchableRegistryError,
-                                                  WatchableRegistryNodeContent, ValueUpdate, WatcherNotFoundError,
-                                                  WatchableRegistryNodeNotFoundError)
+from scrutiny.gui.core.watchable_registry import (WatchableRegistry, WatchableRegistryError, WatchableRegistryEntryNode,
+                                                  WatchableRegistryIntermediateNode, ValueUpdate, WatcherNotFoundError,
+                                                  WatchableRegistryNodeNotFoundError, ServerRegistryBidirectionalMap)
 from scrutiny.tools.thread_enforcer import ThreadEnforcer
 from scrutiny.gui.core.threads import QT_THREAD_NAME
 
 from test import ScrutinyUnitTest
 from datetime import datetime
 from scrutiny.tools.typing import *
+from uuid import uuid4
 
 DUMMY_DATASET_RPV = {
-    '/rpv/rpv1000': sdk.WatchableConfiguration(server_id='rpv_111', watchable_type=sdk.WatchableType.RuntimePublishedValue, datatype=sdk.EmbeddedDataType.float32, enum=None),
-    '/rpv/rpv1001': sdk.WatchableConfiguration(server_id='rpv_222', watchable_type=sdk.WatchableType.RuntimePublishedValue, datatype=sdk.EmbeddedDataType.float32, enum=None)
+    '/rpv/rpv1000': sdk.WatchableConfiguration(watchable_type=sdk.WatchableType.RuntimePublishedValue, datatype=sdk.EmbeddedDataType.float32, enum=None),
+    '/rpv/rpv1001': sdk.WatchableConfiguration(watchable_type=sdk.WatchableType.RuntimePublishedValue, datatype=sdk.EmbeddedDataType.float32, enum=None)
 }
 
 DUMMY_DATASET_ALIAS = {
-    '/alias/xxx/alias1': sdk.WatchableConfiguration(server_id='alias_111', watchable_type=sdk.WatchableType.Alias, datatype=sdk.EmbeddedDataType.float32, enum=None),
-    '/alias/alias2': sdk.WatchableConfiguration(server_id='alias_222', watchable_type=sdk.WatchableType.Alias, datatype=sdk.EmbeddedDataType.float32, enum=None),
-    '/alias/alias3': sdk.WatchableConfiguration(server_id='alias_333', watchable_type=sdk.WatchableType.Alias, datatype=sdk.EmbeddedDataType.float32, enum=None)
+    '/alias/xxx/alias1': sdk.WatchableConfiguration(watchable_type=sdk.WatchableType.Alias, datatype=sdk.EmbeddedDataType.float32, enum=None),
+    '/alias/alias2': sdk.WatchableConfiguration(watchable_type=sdk.WatchableType.Alias, datatype=sdk.EmbeddedDataType.float32, enum=None),
+    '/alias/alias3': sdk.WatchableConfiguration(watchable_type=sdk.WatchableType.Alias, datatype=sdk.EmbeddedDataType.float32, enum=None)
 }
 
 DUMMY_DATASET_VAR = {
-    '/var/xxx/var1': sdk.WatchableConfiguration(server_id='var_111', watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None),
-    '/var/xxx/var2': sdk.WatchableConfiguration(server_id='var_222', watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None),
-    '/var/var3': sdk.WatchableConfiguration(server_id='var_333', watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None),
-    '/var/var4': sdk.WatchableConfiguration(server_id='var_444', watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None)
+    '/var/xxx/var1': sdk.WatchableConfiguration(watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None),
+    '/var/xxx/var2': sdk.WatchableConfiguration(watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None),
+    '/var/var3': sdk.WatchableConfiguration(watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None),
+    '/var/var4': sdk.WatchableConfiguration(watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None)
 }
 
 
@@ -47,7 +48,7 @@ All_DUMMY_DATA = {
 
 class StubbedWatchableHandle:
     display_path: str
-    configuration: sdk.WatchableConfiguration
+    configuration: sdk.WatchableConfigurationWithServerID
 
     def __init__(self, display_path: str,
                  watchable_type: sdk.WatchableType,
@@ -57,7 +58,7 @@ class StubbedWatchableHandle:
                  ) -> None:
 
         self.display_path = display_path
-        self.configuration = sdk.WatchableConfiguration(
+        self.configuration = sdk.WatchableConfigurationWithServerID(
             watchable_type=watchable_type,
             datatype=datatype,
             enum=enum,
@@ -68,6 +69,10 @@ class StubbedWatchableHandle:
     def server_id(self):
         return self.configuration.server_id
 
+    @property
+    def type(self):
+        return self.configuration.watchable_type
+
 
 class TestWatchableRegistry(ScrutinyUnitTest):
     def setUp(self) -> None:
@@ -77,12 +82,13 @@ class TestWatchableRegistry(ScrutinyUnitTest):
 
     def make_fake_watchable_from_registry(self, fqn: str) -> StubbedWatchableHandle:
         node = self.registry.read_fqn(fqn)
+        assert isinstance(node, WatchableRegistryEntryNode)
         return StubbedWatchableHandle(
             display_path=WatchableRegistry.FQN.parse(fqn).path,
-            watchable_type=node.watchable_type,
-            datatype=node.datatype,
-            server_id=node.server_id,
-            enum=node.enum
+            watchable_type=node.configuration.watchable_type,
+            datatype=node.configuration.datatype,
+            server_id=uuid4().hex,
+            enum=node.configuration.enum
         )
 
     def test_ignore_empty_data(self):
@@ -121,15 +127,12 @@ class TestWatchableRegistry(ScrutinyUnitTest):
 
     def test_internal_direct_add_get(self):
         obj1 = sdk.WatchableConfiguration(
-
-            server_id="aaa",
             watchable_type=sdk.WatchableType.Alias,
             datatype=sdk.EmbeddedDataType.float32,
             enum=None
         )
 
         obj2 = sdk.WatchableConfiguration(
-            server_id="bbb",
             watchable_type=sdk.WatchableType.Variable,
             datatype=sdk.EmbeddedDataType.float32,
             enum=None
@@ -139,15 +142,14 @@ class TestWatchableRegistry(ScrutinyUnitTest):
         self.registry._add_watchable('/a/b/d/e', obj2)   # type is optional when setting
 
         o1 = self.registry.read(sdk.WatchableType.Alias, '/a/b/c')
-        self.assertIs(o1, obj1)
+        self.assertIs(o1.configuration, obj1)
         self.assertIsNone(self.registry.read(sdk.WatchableType.Variable, '/a/b/c'))
 
         o2 = self.registry.read_fqn('var:/a/b/d/e')
-        self.assertIs(obj2, o2)
+        self.assertIs(obj2, o2.configuration)
 
     def test_root_not_writable(self):
         obj1 = sdk.WatchableConfiguration(
-            server_id="aaa",
             watchable_type=sdk.WatchableType.Alias,
             datatype=sdk.EmbeddedDataType.float32,
             enum=None
@@ -169,14 +171,12 @@ class TestWatchableRegistry(ScrutinyUnitTest):
 
     def test_cannot_overwrite_without_clear(self):
         obj1 = sdk.WatchableConfiguration(
-            server_id="aaa",
             watchable_type=sdk.WatchableType.Variable,
             datatype=sdk.EmbeddedDataType.float32,
             enum=None
         )
 
         obj2 = sdk.WatchableConfiguration(
-            server_id="bbb",
             watchable_type=sdk.WatchableType.Variable,
             datatype=sdk.EmbeddedDataType.float32,
             enum=None
@@ -188,14 +188,12 @@ class TestWatchableRegistry(ScrutinyUnitTest):
 
     def test_can_have_same_path_if_different_type(self):
         obj1 = sdk.WatchableConfiguration(
-            server_id="aaa",
             watchable_type=sdk.WatchableType.Alias,
             datatype=sdk.EmbeddedDataType.float32,
             enum=None
         )
 
         obj2 = sdk.WatchableConfiguration(
-            server_id="bbb",
             watchable_type=sdk.WatchableType.Variable,
             datatype=sdk.EmbeddedDataType.float32,
             enum=None
@@ -213,33 +211,33 @@ class TestWatchableRegistry(ScrutinyUnitTest):
             self.registry._add_watchable(path, desc)
 
         node = self.registry.read_fqn('var:/')
-        assert isinstance(node, WatchableRegistryNodeContent)
+        assert isinstance(node, WatchableRegistryIntermediateNode)
         self.assertEqual(len(node.watchables), 0)
         self.assertEqual(len(node.subtree), 1)
 
         self.assertIn('var', node.subtree)
 
         node = self.registry.read_fqn('var:/var')
-        assert isinstance(node, WatchableRegistryNodeContent)
+        assert isinstance(node, WatchableRegistryIntermediateNode)
         self.assertEqual(len(node.watchables), 2)
         self.assertEqual(len(node.subtree), 1)
 
         self.assertIn('xxx', node.subtree)
         self.assertIn('var3', node.watchables)
-        self.assertEqual(DUMMY_DATASET_VAR['/var/var3'], node.watchables['var3'])
+        self.assertEqual(DUMMY_DATASET_VAR['/var/var3'], node.watchables['var3'].configuration)
 
         self.assertIn('var4', node.watchables)
-        self.assertEqual(DUMMY_DATASET_VAR['/var/var4'], node.watchables['var4'])
+        self.assertEqual(DUMMY_DATASET_VAR['/var/var4'], node.watchables['var4'].configuration)
 
         node = self.registry.read_fqn('var:/var/xxx')
-        assert isinstance(node, WatchableRegistryNodeContent)
+        assert isinstance(node, WatchableRegistryIntermediateNode)
         self.assertEqual(len(node.watchables), 2)
         self.assertEqual(len(node.subtree), 0)
 
         self.assertIn('var1', node.watchables)
-        self.assertEqual(DUMMY_DATASET_VAR['/var/xxx/var1'], node.watchables['var1'])
+        self.assertEqual(DUMMY_DATASET_VAR['/var/xxx/var1'], node.watchables['var1'].configuration)
         self.assertIn('var2', node.watchables)
-        self.assertEqual(DUMMY_DATASET_VAR['/var/xxx/var2'], node.watchables['var2'])
+        self.assertEqual(DUMMY_DATASET_VAR['/var/xxx/var2'], node.watchables['var2'].configuration)
 
     def test_clear_by_type(self):
         self.registry.write_content(All_DUMMY_DATA)
@@ -309,6 +307,9 @@ class TestWatchableRegistry(ScrutinyUnitTest):
         var1_sdk_handle = self.make_fake_watchable_from_registry(var1fqn)
         var2_sdk_handle = self.make_fake_watchable_from_registry(var2fqn)
 
+        self.registry.assign_serverid_to_node_fqn(var1fqn, var1_sdk_handle.server_id)
+        self.registry.assign_serverid_to_node_fqn(var2fqn, var2_sdk_handle.server_id)
+
         self.registry.watch('watcher1', sdk.WatchableType.Variable, '/var/xxx/var1')
         self.registry.watch_fqn('watcher2', var1fqn)
         self.registry.watch_fqn('watcher2', var2fqn)
@@ -316,12 +317,12 @@ class TestWatchableRegistry(ScrutinyUnitTest):
         with self.assertRaises(WatcherNotFoundError):
             self.registry.watch_fqn('watcher_idontexist', var2fqn)
 
-        serverid_var1 = self.registry.read_fqn(var1fqn).server_id
-        serverid_var2 = self.registry.read_fqn(var2fqn).server_id
+        registr_id_var1 = self.registry.read_fqn(var1fqn).registry_id
+        registr_id_var2 = self.registry.read_fqn(var2fqn).registry_id
 
         # Check watcher states
-        self.assertEqual(self.registry.watcher_count_by_server_id(serverid_var1), 2)
-        self.assertEqual(self.registry.watcher_count_by_server_id(serverid_var2), 1)
+        self.assertEqual(self.registry.watcher_count_by_registry_id(registr_id_var1), 2)
+        self.assertEqual(self.registry.watcher_count_by_registry_id(registr_id_var2), 1)
         self.assertEqual(self.registry.node_watcher_count_fqn(var1fqn), 2)
         self.assertEqual(self.registry.node_watcher_count_fqn(var2fqn), 1)
 
@@ -335,13 +336,13 @@ class TestWatchableRegistry(ScrutinyUnitTest):
         self.registry.broadcast_value_updates_to_watchers([update1_1, update1_2])
         self.assertEqual(len(update_val_callback_history['watcher1']), 1)
         self.assertEqual(len(update_val_callback_history['watcher2']), 1)
-        self.assertEqual(update_val_callback_history['watcher1'][0], [update1_1, update1_2])
-        self.assertEqual(update_val_callback_history['watcher2'][0], [update1_1, update1_2])
+        self.assertEqual([x.sdk_update for x in update_val_callback_history['watcher1'][0]], [update1_1, update1_2])
+        self.assertEqual([x.sdk_update for x in update_val_callback_history['watcher2'][0]], [update1_1, update1_2])
 
         self.registry.broadcast_value_updates_to_watchers([update2_1])
         self.assertEqual(len(update_val_callback_history['watcher1']), 1)
         self.assertEqual(len(update_val_callback_history['watcher2']), 2)
-        self.assertEqual(update_val_callback_history['watcher2'][1], [update2_1])
+        self.assertEqual([x.sdk_update for x in update_val_callback_history['watcher2'][1]], [update2_1])
 
         self.registry.unwatch_fqn('watcher2', var1fqn)
         self.assertEqual(self.registry.node_watcher_count_fqn(var1fqn), 1)
@@ -351,7 +352,7 @@ class TestWatchableRegistry(ScrutinyUnitTest):
         self.registry.broadcast_value_updates_to_watchers([update1_3])
         self.assertEqual(len(update_val_callback_history['watcher1']), 2)
         self.assertEqual(len(update_val_callback_history['watcher2']), 2)  # Did not receive the latest update
-        self.assertEqual(update_val_callback_history['watcher1'][1], [update1_3])
+        self.assertEqual([x.sdk_update for x in update_val_callback_history['watcher1'][1]], [update1_3])
 
         self.registry.unwatch_fqn('watcher1', var1fqn)
         self.registry.unwatch_fqn('watcher2', var2fqn)
@@ -395,7 +396,7 @@ class TestWatchableRegistry(ScrutinyUnitTest):
         def update_val_callback(watcher, value_list):
             update_val_callback_history[watcher].append(value_list)
 
-        def unwatch_callback(watcher, fqn, wc):
+        def unwatch_callback(watcher, fqn, wc, registry_id):
             unwatch_callback_history[watcher].append(fqn)
 
         self.registry.register_watcher('watcher1', update_val_callback, unwatch_callback)
@@ -414,6 +415,9 @@ class TestWatchableRegistry(ScrutinyUnitTest):
         var2_sdk_handle = self.make_fake_watchable_from_registry(var2fqn)
         var3_sdk_handle = self.make_fake_watchable_from_registry(var3fqn)
 
+        self.registry.assign_serverid_to_node_fqn(var1fqn, var1_sdk_handle.server_id)
+        self.registry.assign_serverid_to_node_fqn(var2fqn, var2_sdk_handle.server_id)
+        self.registry.assign_serverid_to_node_fqn(var3fqn, var3_sdk_handle.server_id)
         self.registry.watch_fqn('watcher1', var1fqn)
         self.registry.watch_fqn('watcher2', var1fqn)
         self.registry.watch_fqn('watcher2', var2fqn)
@@ -510,8 +514,8 @@ class TestWatchableRegistry(ScrutinyUnitTest):
             self.registry.watch('watcher1', sdk.WatchableType.Variable, '/var/xxx/var1')
             self.registry.watch_fqn('watcher2', var1fqn)
             self.registry.watch_fqn('watcher2', var2fqn)
-            serverid_var1 = self.registry.read_fqn(var1fqn).server_id
-            serverid_var2 = self.registry.read_fqn(var2fqn).server_id
+            registry_id_var1 = self.registry.read_fqn(var1fqn).registry_id
+            registry_id_var2 = self.registry.read_fqn(var2fqn).registry_id
             self.assertEqual(self.registry.node_watcher_count_fqn(var1fqn), 2)
             self.assertEqual(self.registry.node_watcher_count_fqn(var2fqn), 1)
             self.assertEqual(self.registry.watched_entries_count(), 2)
@@ -524,8 +528,8 @@ class TestWatchableRegistry(ScrutinyUnitTest):
             with self.assertRaises(WatchableRegistryError):
                 self.registry.node_watcher_count_fqn(var2fqn)
 
-            self.assertEqual(self.registry.watcher_count_by_server_id(serverid_var1), 0)
-            self.assertEqual(self.registry.watcher_count_by_server_id(serverid_var2), 0)
+            self.assertEqual(self.registry.watcher_count_by_registry_id(registry_id_var1), 0)
+            self.assertEqual(self.registry.watcher_count_by_registry_id(registry_id_var2), 0)
 
             self.registry.write_content({sdk.WatchableType.Variable: DUMMY_DATASET_VAR})
             self.assertEqual(self.registry.node_watcher_count_fqn(var1fqn), 0)
@@ -548,11 +552,11 @@ class TestWatchableRegistry(ScrutinyUnitTest):
         watch_calls_history = []
         unwatch_calls_history = []
 
-        def watch_callback(watcher_id, display_path, watchable):
-            watch_calls_history.append((watcher_id, display_path, watchable))
+        def watch_callback(watcher_id, display_path, watchable_config, registry_id):
+            watch_calls_history.append((watcher_id, display_path, watchable_config, registry_id))
 
-        def unwatch_callback(watcher_id, display_path, watchable):
-            unwatch_calls_history.append((watcher_id, display_path, watchable))
+        def unwatch_callback(watcher_id, display_path, watchable_config, registry_id):
+            unwatch_calls_history.append((watcher_id, display_path, watchable_config, registry_id))
 
         def dummy_callback(*args, **kwargs):
             pass
@@ -572,8 +576,8 @@ class TestWatchableRegistry(ScrutinyUnitTest):
         self.assertEqual(len(watch_calls_history), 2)
         self.assertEqual(len(unwatch_calls_history), 0)
 
-        self.assertEqual(watch_calls_history[0], ('watcher1', '/var/xxx/var1', var1))
-        self.assertEqual(watch_calls_history[1], ('watcher2', '/var/xxx/var1', var1))
+        self.assertEqual(watch_calls_history[0], ('watcher1', '/var/xxx/var1', var1.configuration, var1.registry_id))
+        self.assertEqual(watch_calls_history[1], ('watcher2', '/var/xxx/var1', var1.configuration, var1.registry_id))
 
         self.registry.unwatch_fqn('watcher1', 'var:/var/xxx/var1')
         self.assertEqual(len(watch_calls_history), 2)
@@ -582,8 +586,8 @@ class TestWatchableRegistry(ScrutinyUnitTest):
         self.assertEqual(len(watch_calls_history), 2)
         self.assertEqual(len(unwatch_calls_history), 2)
 
-        self.assertEqual(unwatch_calls_history[0], ('watcher1', '/var/xxx/var1', var1))
-        self.assertEqual(unwatch_calls_history[1], ('watcher2', '/var/xxx/var1', var1))
+        self.assertEqual(unwatch_calls_history[0], ('watcher1', '/var/xxx/var1', var1.configuration, var1.registry_id))
+        self.assertEqual(unwatch_calls_history[1], ('watcher2', '/var/xxx/var1', var1.configuration, var1.registry_id))
 
     def test_change_counter(self):
         self.assertEqual(self.registry.get_change_counters(), {
@@ -668,7 +672,7 @@ class TestWatchableRegistry(ScrutinyUnitTest):
             'watcher2': [],
         }
 
-        def watcher_unwatch_callback(watcher_id, fqn: str, config: sdk.WatchableConfiguration):
+        def watcher_unwatch_callback(watcher_id, fqn: str, config: sdk.WatchableConfiguration, registry_id: int):
             watcher_unwatch_list[watcher_id].append(fqn)
 
         self.registry.register_watcher('watcher1', lambda *x, **y: None, watcher_unwatch_callback)
@@ -677,10 +681,10 @@ class TestWatchableRegistry(ScrutinyUnitTest):
         global_watch_callback_list: List[Tuple[str, str]] = []
         global_unwatch_callback_list: List[Tuple[str, str]] = []
 
-        def watch_callback(watcher_id: str, server_path: str, watchable_config: sdk.WatchableConfiguration):
+        def watch_callback(watcher_id: str, server_path: str, watchable_config: sdk.WatchableConfiguration, registry_id: int):
             global_watch_callback_list.append((watcher_id, server_path))
 
-        def unwatch_callback(watcher_id: str, server_path: str, watchable_config: sdk.WatchableConfiguration):
+        def unwatch_callback(watcher_id: str, server_path: str, watchable_config: sdk.WatchableConfiguration, registry_id: int):
             global_unwatch_callback_list.append((watcher_id, server_path))
 
         self.registry.register_global_watch_callback(watch_callback, unwatch_callback)
@@ -756,6 +760,57 @@ class TestWatchableRegistry(ScrutinyUnitTest):
             self.assertEqual(self.registry.node_watcher_count(*fqn_to_args(alias1fqn)), 0)
         with self.assertRaises(WatchableRegistryNodeNotFoundError):
             self.assertEqual(self.registry.node_watcher_count(*fqn_to_args(alias2fqn)), 0)
+
+    def test_bidirectional_map(self):
+        m = ServerRegistryBidirectionalMap()
+        self.assertEqual(len(m), 0)
+        m.map(123, 'hello')
+        self.assertEqual(len(m), 1)
+        self.assertEqual(m.get_registry_id('hello'), 123)
+        self.assertEqual(m.get_server_id(123), 'hello')
+        self.assertIsNone(m.get_registry_id_or_none('aaa'))
+        self.assertIsNone(m.get_server_id_or_none(100))
+
+        with self.assertRaises(KeyError):
+            m.get_server_id(100)
+        with self.assertRaises(KeyError):
+            m.get_registry_id('idontexist')
+
+        m.map(100, 'iexist')
+        self.assertEqual(len(m), 2)
+
+        self.assertEqual(m.get_registry_id('hello'), 123)
+        self.assertEqual(m.get_server_id(123), 'hello')
+
+        self.assertEqual(m.get_registry_id('iexist'), 100)
+        self.assertEqual(m.get_server_id(100), 'iexist')
+
+        m.unmap_by_registry_id(123)
+        self.assertEqual(len(m), 1)
+        self.assertIsNone(m.get_registry_id_or_none('hello'))
+        self.assertIsNone(m.get_server_id_or_none(123))
+
+        self.assertEqual(m.get_registry_id('iexist'), 100)
+        self.assertEqual(m.get_server_id(100), 'iexist')
+
+        m.unmap_by_server_id('iexist')
+        self.assertEqual(len(m), 0)
+        self.assertIsNone(m.get_registry_id_or_none('iexist'))
+        self.assertIsNone(m.get_server_id_or_none(100))
+
+        m.map(1, 'aaa')
+        m.map(2, 'bbb')
+        m.map(3, 'ccc')
+
+        self.assertEqual(len(m), 3)
+        m.clear()
+        self.assertEqual(len(m), 0)
+        self.assertIsNone(m.get_server_id_or_none(1))
+        self.assertIsNone(m.get_server_id_or_none(2))
+        self.assertIsNone(m.get_server_id_or_none(3))
+        self.assertIsNone(m.get_registry_id_or_none('aaa'))
+        self.assertIsNone(m.get_registry_id_or_none('bbb'))
+        self.assertIsNone(m.get_registry_id_or_none('ccc'))
 
     def tearDown(self):
         super().tearDown()

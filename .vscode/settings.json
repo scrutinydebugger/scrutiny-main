@@ -76,6 +76,9 @@
                 "resposne" : "response",
                 "improt" : "import",
                 "suer" : "user",
+                "catched" : "caught",
+                "tmep" : "temp",
+                "tmepoorary" : "temporary",
             }
         }]
 }

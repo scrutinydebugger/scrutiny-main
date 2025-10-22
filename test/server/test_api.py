@@ -36,6 +36,8 @@ from scrutiny.server.active_sfd_handler import ActiveSFDHandler
 from scrutiny.server.device.links.dummy_link import DummyLink
 from scrutiny.core.variable import *
 from scrutiny.core.embedded_enum import *
+from scrutiny.core.variable_factory import VariableFactory
+from scrutiny.core.array import UntypedArray
 from scrutiny.core.alias import Alias
 import scrutiny.core.datalogging as core_datalogging
 import scrutiny.server.datalogging.definitions.api as api_datalogging
@@ -483,6 +485,39 @@ class TestAPI(ScrutinyUnitTest):
         self.assert_is_response_command(response, API.Command.Api2Client.INFORM_SERVER_STATUS)
         return response
 
+    def make_dummy_var_factory(self, n,  prefix='var_factory', segments:Optional[List[str]]=None, arraynodes:Optional[Dict[str, UntypedArray]]=None,  enum_dict: Optional[Dict[str, int]] = None):
+        enum: Optional[EmbeddedEnum] = None
+        if enum_dict is not None:
+            enum = EmbeddedEnum('some_enum')
+            for k, v in enum_dict.items():
+                enum.add_value(k, v)
+        if segments is None:
+            assert arraynodes is None
+            segments = ['x', 'y', 'z']
+            arraynodes = {
+                '/x/y' : UntypedArray((2,3,4), 32)
+            }
+
+        outlist = []
+        for i in range(n):
+            name = '%s_%d' % (prefix, i)
+
+            dummy_var = Variable(
+                vartype=EmbeddedDataType.float32, 
+                path_segments=segments + [name], 
+                location=0x12345678, 
+                endianness=Endianness.Little, 
+                enum=enum
+                )
+            
+            factory = VariableFactory(access_name=dummy_var.get_fullname(), base_var=dummy_var)
+            if arraynodes is not None:
+                for path, arr in arraynodes.items():
+                    factory.add_array_node(path, arr)
+            outlist.append(factory)
+        
+        return outlist
+
     def make_dummy_entries(self,
                            n,
                            entry_type=WatchableType.Variable,
@@ -493,6 +528,7 @@ class TestAPI(ScrutinyUnitTest):
         entries = []
         if entry_type == WatchableType.Alias:
             assert len(alias_bucket) >= n
+            
             for entry in alias_bucket:
                 assert not isinstance(entry, DatastoreAliasEntry)
 
@@ -569,10 +605,12 @@ class TestAPI(ScrutinyUnitTest):
         self.assertIn('var', response['qty'])
         self.assertIn('alias', response['qty'])
         self.assertIn('rpv', response['qty'])
+        self.assertIn('var_factory', response['qty'])
         self.assertIn('content', response)
         self.assertIn('var', response['content'])
         self.assertIn('alias', response['content'])
         self.assertIn('rpv', response['content'])
+        self.assertIn('var_factory', response['content'])
         self.assertEqual(response['cmd'], 'response_get_watchable_list')
 
     # Fetch list of var/alias. Ensure response is well formatted, accurate, complete, no duplicates
@@ -580,18 +618,20 @@ class TestAPI(ScrutinyUnitTest):
         var_entries = self.make_dummy_entries(5, entry_type=WatchableType.Variable, prefix='var')
         alias_entries = self.make_dummy_entries(2, entry_type=WatchableType.Alias, prefix='alias', alias_bucket=var_entries)
         rpv_entries = self.make_dummy_entries(8, entry_type=WatchableType.RuntimePublishedValue, prefix='rpv')
+        var_factories = self.make_dummy_var_factory(3, prefix='var_factory')
 
         expected_entries_in_response = {}
         for entry in var_entries:
-            expected_entries_in_response[entry.get_id()] = entry
+            expected_entries_in_response[entry.get_display_path()] = entry
         for entry in alias_entries:
-            expected_entries_in_response[entry.get_id()] = entry
+            expected_entries_in_response[entry.get_display_path()] = entry
         for entry in rpv_entries:
-            expected_entries_in_response[entry.get_id()] = entry
+            expected_entries_in_response[entry.get_display_path()] = entry
         # Add entries in the datastore that we will reread through the API
         self.datastore.add_entries(var_entries)
         self.datastore.add_entries(alias_entries)
         self.datastore.add_entries(rpv_entries)
+        self.datastore.register_var_factories(var_factories)
 
         req = {
             'cmd': 'get_watchable_list'
@@ -606,9 +646,11 @@ class TestAPI(ScrutinyUnitTest):
         self.assertEqual(response['qty']['var'], 5)
         self.assertEqual(response['qty']['alias'], 2)
         self.assertEqual(response['qty']['rpv'], 8)
+        self.assertEqual(response['qty']['var_factory'], 3)
         self.assertEqual(len(response['content']['var']), 5)
         self.assertEqual(len(response['content']['alias']), 2)
         self.assertEqual(len(response['content']['rpv']), 8)
+        self.assertEqual(len(response['content']['var_factory']), 3)
 
         # Put all entries in a single list, paired with the name of the parent key.
         all_entries_same_level = []
@@ -617,37 +659,51 @@ class TestAPI(ScrutinyUnitTest):
         all_entries_same_level += [(WatchableType.RuntimePublishedValue, entry) for entry in response['content']['rpv']]
 
         # We make sure that the list is exact.
-        for item in all_entries_same_level:
-            entrytype = item[0]
-            api_entry = item[1]
+        for entrytype, api_entry in all_entries_same_level:
 
-            self.assertIn('id', api_entry)
-            self.assertIn('display_path', api_entry)
+            self.assertIn('path', api_entry)
 
-            self.assertIn(api_entry['id'], expected_entries_in_response)
-            entry: DatastoreEntry = expected_entries_in_response[api_entry['id']]
+            self.assertIn(api_entry['path'], expected_entries_in_response)
+            entry: DatastoreEntry = expected_entries_in_response[api_entry['path']]
 
-            self.assertEqual(entry.get_id(), api_entry['id'])
             self.assertEqual(entry.get_type(), entrytype)
-            self.assertEqual(API.get_datatype_name(entry.get_data_type()), api_entry['datatype'])
-            self.assertEqual(entry.get_display_path(), api_entry['display_path'])
+            self.assertEqual(API.get_datatype_name(entry.get_data_type()), api_entry['dtype'])
+            self.assertEqual(entry.get_display_path(), api_entry['path'])
 
-            del expected_entries_in_response[api_entry['id']]
+            del expected_entries_in_response[api_entry['path']]
 
         self.assertEqual(len(expected_entries_in_response), 0)
+        
+        expected_factories = dict([(x.get_access_name(), x) for x in var_factories])
+        for i in range(3):
+            factory = response['content']['var_factory'][i]
+            self.assertIn('dtype', factory)
+            self.assertIn('path', factory)
+            self.assertIn('factory_params', factory)
+            self.assertIn('array_nodes', factory['factory_params'])
+            self.assertIn('/x/y', factory['factory_params']['array_nodes'])
+            self.assertEqual(factory['factory_params']['array_nodes']['/x/y'], [2,3,4] )
+
+            self.assertEqual(factory['dtype'], 'float32')
+            self.assertIn(factory['path'], expected_factories)
+            del expected_factories[factory['path']]
+            
 
     def test_get_watchable_list_with_name_filter(self):
         var_entries = self.make_dummy_entries(5, entry_type=WatchableType.Variable, prefix='/includeme_var')
         alias_entries = self.make_dummy_entries(2, entry_type=WatchableType.Alias, prefix='/includeme_alias', alias_bucket=var_entries)
         rpv_entries = self.make_dummy_entries(8, entry_type=WatchableType.RuntimePublishedValue, prefix='/includeme_rpv')
+        var_factories = self.make_dummy_var_factory(3, segments=['includeme','x'], arraynodes={'/includeme' : UntypedArray((2,3), 32)}, prefix='var_factory')
+        self.datastore.register_var_factories(var_factories)
 
         expected_entries_in_response = {}
+        expected_factories = dict([(x.get_access_name(), x) for x in var_factories])
         for entry in var_entries:
-            expected_entries_in_response[entry.get_id()] = entry
+            expected_entries_in_response[entry.get_display_path()] = entry
         for entry in alias_entries:
-            expected_entries_in_response[entry.get_id()] = entry
+            expected_entries_in_response[entry.get_display_path()] = entry
         for entry in rpv_entries:
-            expected_entries_in_response[entry.get_id()] = entry
+            expected_entries_in_response[entry.get_display_path()] = entry
         # Add entries in the datastore that we will reread through the API
         self.datastore.add_entries(var_entries)
         self.datastore.add_entries(alias_entries)
@@ -656,6 +712,8 @@ class TestAPI(ScrutinyUnitTest):
         self.datastore.add_entries(self.make_dummy_entries(5, entry_type=WatchableType.Variable, prefix='/excludeme_var'))
         self.datastore.add_entries(self.make_dummy_entries(5, entry_type=WatchableType.Alias, prefix='/excludeme_alias', alias_bucket=var_entries))
         self.datastore.add_entries(self.make_dummy_entries(5, entry_type=WatchableType.RuntimePublishedValue, prefix='/excludeme_rpv'))
+        var_factories = self.make_dummy_var_factory(5, segments=['excludeme','x'], arraynodes={'/excludeme' : UntypedArray((2,3), 32)}, prefix='var_factory')
+        self.datastore.register_var_factories(var_factories)
 
         req = {
             'cmd': 'get_watchable_list',
@@ -673,9 +731,11 @@ class TestAPI(ScrutinyUnitTest):
         self.assertEqual(response['qty']['var'], 5)
         self.assertEqual(response['qty']['alias'], 2)
         self.assertEqual(response['qty']['rpv'], 8)
+        self.assertEqual(response['qty']['var_factory'], 3)
         self.assertEqual(len(response['content']['var']), 5)
         self.assertEqual(len(response['content']['alias']), 2)
         self.assertEqual(len(response['content']['rpv']), 8)
+        self.assertEqual(len(response['content']['var_factory']), 3)
 
         # Put all entries in a single list, paired with the name of the parent key.
         all_entries_same_level = []
@@ -684,24 +744,24 @@ class TestAPI(ScrutinyUnitTest):
         all_entries_same_level += [(WatchableType.RuntimePublishedValue, entry) for entry in response['content']['rpv']]
 
         # We make sure that the list is exact.
-        for item in all_entries_same_level:
-            entrytype = item[0]
-            api_entry = item[1]
+        for entrytype, api_entry  in all_entries_same_level:
+            self.assertIn('path', api_entry)
 
-            self.assertIn('id', api_entry)
-            self.assertIn('display_path', api_entry)
+            self.assertIn(api_entry['path'], expected_entries_in_response)
+            entry: DatastoreEntry = expected_entries_in_response[api_entry['path']]
 
-            self.assertIn(api_entry['id'], expected_entries_in_response)
-            entry: DatastoreEntry = expected_entries_in_response[api_entry['id']]
-
-            self.assertEqual(entry.get_id(), api_entry['id'])
             self.assertEqual(entry.get_type(), entrytype)
-            self.assertEqual(API.get_datatype_name(entry.get_data_type()), api_entry['datatype'])
-            self.assertEqual(entry.get_display_path(), api_entry['display_path'])
+            self.assertEqual(API.get_datatype_name(entry.get_data_type()), api_entry['dtype'])
+            self.assertEqual(entry.get_display_path(), api_entry['path'])
 
-            del expected_entries_in_response[api_entry['id']]
+            del expected_entries_in_response[api_entry['path']]
 
         self.assertEqual(len(expected_entries_in_response), 0)
+
+        for i in range(3):
+            factory = response['content']['var_factory'][i]
+            self.assertIn(factory['path'], expected_factories)
+            del expected_factories[factory['path']]
 
     # Fetch list of var/alias and sets all sort of type filter.
 
@@ -722,32 +782,39 @@ class TestAPI(ScrutinyUnitTest):
         var_entries = self.make_dummy_entries(5, entry_type=WatchableType.Variable, prefix='var')
         alias_entries = self.make_dummy_entries(3, entry_type=WatchableType.Alias, prefix='alias', alias_bucket=var_entries)
         rpv_entries = self.make_dummy_entries(8, entry_type=WatchableType.RuntimePublishedValue, prefix='rpv')
+        var_factories = self.make_dummy_var_factory(4, prefix='var_factory')
 
         no_filter = True if type_filter is None or type_filter == '' or isinstance(type_filter, list) and len(type_filter) == 0 else False
 
         nbr_expected_var = 0
         nbr_expected_alias = 0
         nbr_expected_rpv = 0
+        nbr_expected_var_factory = 0
         expected_entries_in_response = {}
+        expected_var_factory_in_response = {}
         if no_filter or 'var' in type_filter:
             nbr_expected_var = len(var_entries)
             for entry in var_entries:
-                expected_entries_in_response[entry.get_id()] = entry
+                expected_entries_in_response[entry.get_display_path()] = entry
+            
+            expected_var_factory_in_response = dict([(x.get_access_name(), x) for x in var_factories])
+            nbr_expected_var_factory = len(expected_var_factory_in_response)
 
         if no_filter or 'alias' in type_filter:
             nbr_expected_alias = len(alias_entries)
             for entry in alias_entries:
-                expected_entries_in_response[entry.get_id()] = entry
+                expected_entries_in_response[entry.get_display_path()] = entry
 
         if no_filter or 'rpv' in type_filter:
             nbr_expected_rpv = len(rpv_entries)
             for entry in rpv_entries:
-                expected_entries_in_response[entry.get_id()] = entry
+                expected_entries_in_response[entry.get_display_path()] = entry
 
         # Add entries in the datastore that we will reread through the API
         self.datastore.add_entries(var_entries)
         self.datastore.add_entries(alias_entries)
         self.datastore.add_entries(rpv_entries)
+        self.datastore.register_var_factories(var_factories)
 
         req = {
             'cmd': 'get_watchable_list',
@@ -765,9 +832,11 @@ class TestAPI(ScrutinyUnitTest):
         self.assertEqual(response['qty']['var'], nbr_expected_var)
         self.assertEqual(response['qty']['alias'], nbr_expected_alias)
         self.assertEqual(response['qty']['rpv'], nbr_expected_rpv)
+        self.assertEqual(response['qty']['var_factory'], nbr_expected_var_factory)
         self.assertEqual(len(response['content']['var']), nbr_expected_var)
         self.assertEqual(len(response['content']['alias']), nbr_expected_alias)
         self.assertEqual(len(response['content']['rpv']), nbr_expected_rpv)
+        self.assertEqual(len(response['content']['var_factory']), nbr_expected_var_factory)
 
         # Put all entries in a single list, paired with the name of the parent key.
         all_entries_same_level = []
@@ -779,19 +848,23 @@ class TestAPI(ScrutinyUnitTest):
             entrytype = item[0]
             api_entry = item[1]
 
-            self.assertIn('id', api_entry)
-            self.assertIn('display_path', api_entry)
+            self.assertIn('path', api_entry)
 
-            self.assertIn(api_entry['id'], expected_entries_in_response)
-            entry = expected_entries_in_response[api_entry['id']]
+            self.assertIn(api_entry['path'], expected_entries_in_response)
+            entry = expected_entries_in_response[api_entry['path']]
 
-            self.assertEqual(entry.get_id(), api_entry['id'])
             self.assertEqual(entry.get_type(), entrytype)
-            self.assertEqual(entry.get_display_path(), api_entry['display_path'])
+            self.assertEqual(entry.get_display_path(), api_entry['path'])
 
-            del expected_entries_in_response[api_entry['id']]
+            del expected_entries_in_response[api_entry['path']]
 
         self.assertEqual(len(expected_entries_in_response), 0)
+
+        for i in range(len(expected_var_factory_in_response)):
+            factory = response['content']['var_factory'][i]
+            self.assertIn(factory['path'], expected_var_factory_in_response)
+            del expected_var_factory_in_response[factory['path']]
+        self.assertEqual(len(expected_var_factory_in_response), 0)
 
     # Fetch list of var/alias and sets a limit of items per response.
     # List should be broken in multiple messages
@@ -800,26 +873,30 @@ class TestAPI(ScrutinyUnitTest):
         nVar = 19
         nAlias = 17
         nRpv = 21
+        nVarFactory=11
         max_per_response = 10
         var_entries = self.make_dummy_entries(nVar, entry_type=WatchableType.Variable, prefix='var')
         alias_entries = self.make_dummy_entries(nAlias, entry_type=WatchableType.Alias, prefix='alias', alias_bucket=var_entries)
         rpv_entries = self.make_dummy_entries(nRpv, entry_type=WatchableType.RuntimePublishedValue, prefix='rpv')
+        var_factories = self.make_dummy_var_factory(nVarFactory, prefix='var_factory')
 
         expected_entries_in_response = {}
+        expected_var_factory_in_response = dict([(x.get_access_name(), x) for x in var_factories])
 
         for entry in var_entries:
-            expected_entries_in_response[entry.get_id()] = entry
+            expected_entries_in_response[entry.get_display_path()] = entry
 
         for entry in alias_entries:
-            expected_entries_in_response[entry.get_id()] = entry
+            expected_entries_in_response[entry.get_display_path()] = entry
 
         for entry in rpv_entries:
-            expected_entries_in_response[entry.get_id()] = entry
+            expected_entries_in_response[entry.get_display_path()] = entry
 
         # Add entries in the datastore that we will reread through the API
         self.datastore.add_entries(var_entries)
         self.datastore.add_entries(alias_entries)
         self.datastore.add_entries(rpv_entries)
+        self.datastore.register_var_factories(var_factories)
 
         req = {
             'cmd': 'get_watchable_list',
@@ -828,13 +905,14 @@ class TestAPI(ScrutinyUnitTest):
 
         self.send_request(req)
         responses = []
-        nresponse = math.ceil((nVar + nAlias + nRpv) / max_per_response)
+        nresponse = math.ceil((nVar + nAlias + nRpv + nVarFactory) / max_per_response)
         for i in range(nresponse):
             responses.append(self.wait_and_load_response())
 
         received_vars = []
         received_alias = []
         received_rpvs = []
+        received_var_factories = []
 
         for i in range(len(responses)):
             response = responses[i]
@@ -844,18 +922,19 @@ class TestAPI(ScrutinyUnitTest):
             received_vars += response['content']['var']
             received_alias += response['content']['alias']
             received_rpvs += response['content']['rpv']
+            received_var_factories += response['content']['var_factory']
 
             if i < len(responses) - 1:
                 self.assertEqual(response['done'], False)
-                self.assertEqual(response['qty']['var'] + response['qty']['alias'] + response['qty']['rpv'], max_per_response)
+                self.assertEqual(response['qty']['var'] + response['qty']['alias'] + response['qty']['rpv'] + response['qty']['var_factory'], max_per_response)
                 self.assertEqual(len(response['content']['var']) + len(response['content']['alias']) +
-                                 len(response['content']['rpv']), max_per_response)
+                                 len(response['content']['rpv']) + len(response['content']['var_factory']), max_per_response)
             else:
-                remaining_items = nVar + nAlias + nRpv - (len(responses) - 1) * max_per_response
+                remaining_items = nVar + nAlias + nRpv + nVarFactory - (len(responses) - 1) * max_per_response
                 self.assertEqual(response['done'], True)
-                self.assertEqual(response['qty']['var'] + response['qty']['alias'] + response['qty']['rpv'], remaining_items)
+                self.assertEqual(response['qty']['var'] + response['qty']['alias'] + response['qty']['rpv'] + response['qty']['var_factory'], remaining_items)
                 self.assertEqual(len(response['content']['var']) + len(response['content']['alias']) +
-                                 len(response['content']['rpv']), remaining_items)
+                                 len(response['content']['rpv']) + + len(response['content']['var_factory']), remaining_items)
 
             # Put all entries in a single list, paired with the name of the parent key.
             all_entries_same_level = []
@@ -868,19 +947,23 @@ class TestAPI(ScrutinyUnitTest):
                 entrytype = item[0]
                 api_entry = item[1]
 
-                self.assertIn('id', api_entry)
-                self.assertIn('display_path', api_entry)
+                self.assertIn('path', api_entry)
 
-                self.assertIn(api_entry['id'], expected_entries_in_response)
-                entry = expected_entries_in_response[api_entry['id']]
+                self.assertIn(api_entry['path'], expected_entries_in_response)
+                entry = expected_entries_in_response[api_entry['path']]
 
-                self.assertEqual(entry.get_id(), api_entry['id'])
                 self.assertEqual(entry.get_type(), entrytype)
-                self.assertEqual(entry.get_display_path(), api_entry['display_path'])
+                self.assertEqual(entry.get_display_path(), api_entry['path'])
 
-                del expected_entries_in_response[api_entry['id']]
+                del expected_entries_in_response[api_entry['path']]
 
         self.assertEqual(len(expected_entries_in_response), 0)
+
+        for i in range(len(expected_var_factory_in_response)):
+            factory = received_var_factories[i]
+            self.assertIn(factory['path'], expected_var_factory_in_response)
+            del expected_var_factory_in_response[factory['path']]
+        self.assertEqual(len(expected_var_factory_in_response), 0)
 
     def assert_valid_value_update_message(self, msg):
         self.assert_no_error(msg)
@@ -919,7 +1002,7 @@ class TestAPI(ScrutinyUnitTest):
         obj1 = response['subscribed'][subscribed_entry.get_display_path()]
         self.assertEqual(obj1['id'], subscribed_entry.get_id())
         self.assertEqual(obj1['type'], 'var')
-        self.assertEqual(obj1['datatype'], 'float32')
+        self.assertEqual(obj1['dtype'], 'float32')
         self.assertNotIn('enum', obj1)  # No enum in this one
 
         self.assertIsNone(self.wait_for_response(timeout=0.2))
@@ -958,7 +1041,7 @@ class TestAPI(ScrutinyUnitTest):
         obj1 = response['subscribed'][subscribed_entry.get_display_path()]
         self.assertEqual(obj1['id'], subscribed_entry.get_id())
         self.assertEqual(obj1['type'], 'var')
-        self.assertEqual(obj1['datatype'], 'float32')
+        self.assertEqual(obj1['dtype'], 'float32')
         self.assertIn('enum', obj1)  # No enum in this one
         self.assertIn('name', obj1['enum'])
         self.assertIn('values', obj1['enum'])

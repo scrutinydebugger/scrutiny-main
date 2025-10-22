@@ -22,21 +22,21 @@ SERVER_MANAGER_CONFIG = ServerConfig('127.0.0.1', 5555)
 
 
 DUMMY_DATASET_RPV = {
-    '/rpv/rpv1000': sdk.WatchableConfiguration(server_id='rpv_111', watchable_type=sdk.WatchableType.RuntimePublishedValue, datatype=sdk.EmbeddedDataType.float32, enum=None),
-    '/rpv/rpv1001': sdk.WatchableConfiguration(server_id='rpv_222', watchable_type=sdk.WatchableType.RuntimePublishedValue, datatype=sdk.EmbeddedDataType.float32, enum=None)
+    '/rpv/rpv1000': sdk.WatchableConfiguration(watchable_type=sdk.WatchableType.RuntimePublishedValue, datatype=sdk.EmbeddedDataType.float32, enum=None),
+    '/rpv/rpv1001': sdk.WatchableConfiguration(watchable_type=sdk.WatchableType.RuntimePublishedValue, datatype=sdk.EmbeddedDataType.float32, enum=None)
 }
 
 DUMMY_DATASET_ALIAS = {
-    '/alias/xxx/alias1': sdk.WatchableConfiguration(server_id='alias_111', watchable_type=sdk.WatchableType.Alias, datatype=sdk.EmbeddedDataType.float32, enum=None),
-    '/alias/alias2': sdk.WatchableConfiguration(server_id='alias_222', watchable_type=sdk.WatchableType.Alias, datatype=sdk.EmbeddedDataType.float32, enum=None),
-    '/alias/alias3': sdk.WatchableConfiguration(server_id='alias_333', watchable_type=sdk.WatchableType.Alias, datatype=sdk.EmbeddedDataType.float32, enum=None)
+    '/alias/xxx/alias1': sdk.WatchableConfiguration(watchable_type=sdk.WatchableType.Alias, datatype=sdk.EmbeddedDataType.float32, enum=None),
+    '/alias/alias2': sdk.WatchableConfiguration(watchable_type=sdk.WatchableType.Alias, datatype=sdk.EmbeddedDataType.float32, enum=None),
+    '/alias/alias3': sdk.WatchableConfiguration(watchable_type=sdk.WatchableType.Alias, datatype=sdk.EmbeddedDataType.float32, enum=None)
 }
 
 DUMMY_DATASET_VAR = {
-    '/var/xxx/var1': sdk.WatchableConfiguration(server_id='var_111', watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None),
-    '/var/xxx/var2': sdk.WatchableConfiguration(server_id='var_222', watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None),
-    '/var/var3': sdk.WatchableConfiguration(server_id='var_333', watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None),
-    '/var/var4': sdk.WatchableConfiguration(server_id='var_444', watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None)
+    '/var/xxx/var1': sdk.WatchableConfiguration(watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None),
+    '/var/xxx/var2': sdk.WatchableConfiguration(watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None),
+    '/var/var3': sdk.WatchableConfiguration(watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None),
+    '/var/var4': sdk.WatchableConfiguration(watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None)
 }
 
 DUMMY_DEVICE = sdk.DeviceInfo(
@@ -594,29 +594,38 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
         self.wait_true_with_events(lambda: not self.server_manager.is_running() and not self.server_manager.is_stopping(), timeout=1)
         return super().tearDown()
 
-    def get_watch_request(self, timeout: int = 1, assert_single: bool = True):
-        self.wait_true(lambda: len(self.fake_client._pending_watch_request) > 0, timeout=timeout)
+    def get_watch_request(self, timeout: float = 2, assert_single: bool = True, allow_none: bool = False):
+        self.wait_true(lambda: len(self.fake_client._pending_watch_request) > 0, timeout=timeout, no_assert=allow_none)
+        if len(self.fake_client._pending_watch_request) == 0:
+            if allow_none:
+                return None
+            raise AssertionError(f"No unwatch request received after {timeout} seconds")
+
         request = self.fake_client._pending_watch_request.pop()
         if assert_single:
             self.assertEqual(len(self.fake_client._pending_watch_request), 0)
         return request
 
-    def get_unwatch_request(self, timeout: int = 1, assert_single: bool = True):
-        self.wait_true(lambda: len(self.fake_client._pending_unwatch_request) > 0, timeout=timeout)
+    def get_unwatch_request(self, timeout: float = 2, assert_single: bool = True, allow_none: bool = False):
+        self.wait_true(lambda: len(self.fake_client._pending_unwatch_request) > 0, timeout=timeout, no_assert=allow_none)
+        if len(self.fake_client._pending_unwatch_request) == 0:
+            if allow_none:
+                return None
+            raise AssertionError(f"No unwatch request received after {timeout} seconds")
         request = self.fake_client._pending_unwatch_request.pop()
         if assert_single:
             self.assertEqual(len(self.fake_client._pending_unwatch_request), 0)
         return request
 
-    def assert_no_watch_request(self, max_wait: int = 1):
+    def assert_no_watch_request(self, max_wait: float = 1):
         self.wait_true_with_events(lambda: len(self.fake_client._pending_watch_request) > 0, timeout=max_wait, no_assert=True)
         self.assertEqual(len(self.fake_client._pending_watch_request), 0)
 
-    def assert_no_unwatch_request(self, max_wait: int = 1):
+    def assert_no_unwatch_request(self, max_wait: float = 1):
         self.wait_true_with_events(lambda: len(self.fake_client._pending_unwatch_request) > 0, timeout=max_wait, no_assert=True)
         self.assertEqual(len(self.fake_client._pending_unwatch_request), 0)
 
-    def assert_no_watch_or_unwatch_request(self, max_wait: int = 1):
+    def assert_no_watch_or_unwatch_request(self, max_wait: float = 1):
         func = lambda: len(self.fake_client._pending_unwatch_request) > 0 or len(self.fake_client._pending_watch_request) > 0
         self.wait_true_with_events(func, timeout=max_wait, no_assert=True)
         self.assertFalse(func())
@@ -626,7 +635,6 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
         self.registry._add_watchable('a/b/c', sdk.WatchableConfiguration(
             datatype=sdk.EmbeddedDataType.float32,
             enum=None,
-            server_id='abc',
             watchable_type=sdk.WatchableType.Variable
         ))
         watcher1 = 'watcher1'
@@ -657,7 +665,8 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
         # We are back to 0 watcher.
         # Start a new series of watch unwatch.
         ui_callback_count = self.server_manager._qt_watch_unwatch_ui_callback_call_count
-        watchable_config = sdk.WatchableConfiguration('xxx', sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None)
+        watchable_config = sdk.WatchableConfigurationWithServerID(
+            sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None, server_id='xxx')
         self.registry.watch(watcher1, sdk.WatchableType.Variable, 'a/b/c')
         self.registry.unwatch(watcher1, sdk.WatchableType.Variable, 'a/b/c')
         self.registry.watch(watcher1, sdk.WatchableType.Variable, 'a/b/c')
@@ -680,7 +689,6 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
         self.registry._add_watchable('a/b/c', sdk.WatchableConfiguration(
             datatype=sdk.EmbeddedDataType.float32,
             enum=None,
-            server_id='abc',
             watchable_type=sdk.WatchableType.Variable
         ))
 
@@ -706,7 +714,7 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
 
         request2 = self.get_watch_request(assert_single=True)
         self.assert_no_watch_request(max_wait=0.5)
-        some_watchable_config = sdk.WatchableConfiguration(
+        some_watchable_config = sdk.WatchableConfigurationWithServerID(
             server_id='aaa', watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None)
 
         call_count = self.server_manager._qt_watch_unwatch_ui_callback_call_count
@@ -742,14 +750,15 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
     def test_data_reaches_watchers(self):
         # Simulate a value update broadcast by the client.
         # expect a gui watcher that subscribe to the registry to receive the update
-        watch1 = StubbedWatchableHandle(
-            display_path='/aaa/bbb/ccc',
+
+        varpath = '/aaa/bbb/ccc'
+        watch1_config = sdk.WatchableConfigurationWithServerID(
+            sdk.WatchableType.Variable,
             datatype=sdk.EmbeddedDataType.float32,
             enum=None,
-            server_id='aaa',
-            watchable_type=sdk.WatchableType.Variable
-        )
-        self.registry._add_watchable(watch1.display_path, watch1.configuration)
+            server_id='aaa')
+
+        self.registry._add_watchable(varpath, watch1_config)
         all_updates = []
 
         def callback(watcher, updates):
@@ -757,15 +766,60 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
                 all_updates.append(update)
 
         self.registry.register_watcher('hello', callback, lambda *x, **y: None)
-        self.registry.watch('hello', watch1.configuration.watchable_type, watch1.display_path)
-        watch1.set_value(1234)
-        self.server_manager._listener.subscribe(watch1)
+        self.registry.watch('hello', watch1_config.watchable_type, varpath)
 
+        watch_request = self.get_watch_request(assert_single=True)
+        watch_request.simulate_success(watch1_config)
+
+        self.wait_true_with_events(lambda: self.fake_client.watch_handle_exists(varpath), 2)
+
+        watch1 = self.fake_client.try_get_existing_watch_handle(varpath)
+        self.assertIsNotNone(watch1)
+        watch1.set_value(1234)
+        self.wait_true_with_events(lambda: self.registry.get_server_id(watch1_config.watchable_type, varpath) is not None, 1)
+
+        self.server_manager._listener.subscribe(watch1)
         self.server_manager._listener._broadcast_update([watch1])
 
         self.wait_true_with_events(lambda: len(all_updates) > 0, timeout=1)
         self.assertEqual(len(all_updates), 1)
-        self.assertEqual(all_updates[0].value, 1234)
+        self.assertEqual(all_updates[0].sdk_update.value, 1234)
+
+    def test_server_id_association_maintained_properly(self):
+        varpath = '/aaa/bbb/ccc'
+        watch1_config = sdk.WatchableConfigurationWithServerID(
+            sdk.WatchableType.Variable,
+            datatype=sdk.EmbeddedDataType.float32,
+            enum=None,
+            server_id='aaa')
+
+        self.registry._add_watchable(varpath, watch1_config)
+
+        self.assertIsNone(self.registry.get_server_id(watch1_config.watchable_type, varpath))
+
+        noop_callback = lambda *x, **y: None
+        self.registry.register_watcher('watcher1', noop_callback, noop_callback)
+        self.registry.register_watcher('watcher2', noop_callback, noop_callback)
+
+        self.registry.watch('watcher1', watch1_config.watchable_type, varpath)
+        watch_request = self.get_watch_request(assert_single=True)
+        watch_request.simulate_success(watch1_config)
+        self.wait_true_with_events(lambda: self.registry.get_server_id(watch1_config.watchable_type, varpath) is not None, 2)
+
+        self.assertEqual(self.registry.get_server_id(watch1_config.watchable_type, varpath), 'aaa')
+
+        self.registry.watch('watcher2', watch1_config.watchable_type, varpath)
+        self.assertIsNone(self.get_watch_request(timeout=0.5, allow_none=True))  # Shouldn't do a 2nd request
+
+        self.assertEqual(self.registry.get_server_id(watch1_config.watchable_type, varpath), 'aaa')  # Still there
+        self.registry.unwatch_all('watcher1')
+        self.assertIsNone(self.get_unwatch_request(timeout=0.5, allow_none=True))  # Shouldn't unwatch until all watchers are gone
+
+        self.registry.unwatch_all('watcher2')   # Server manager should decide to unwatch now
+        unwatch_request = self.get_unwatch_request(timeout=2, allow_none=False)
+        unwatch_request.simulate_success()
+        # Unwatch is confirmed, the server ID should be removed
+        self.wait_true_with_events(lambda: self.registry.get_server_id(watch1_config.watchable_type, varpath) is None, 2)
 
 
 class TestQtListener(ScrutinyBaseGuiTest):

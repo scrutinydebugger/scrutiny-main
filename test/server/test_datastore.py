@@ -478,15 +478,12 @@ class TestDataStore(ScrutinyUnitTest):
 
         ds.start_watching(entry, 'watcher1')
         ds.start_watching(entry, 'watcher2')
-        ds.periodic_maintenance()
         self.assertEqual(ds.get_entries_count(), 1)
 
         ds.stop_watching(entry, 'watcher1')
-        ds.periodic_maintenance()
         self.assertEqual(ds.get_entries_count(), 1)
 
         ds.stop_watching(entry, 'watcher2')
-        ds.periodic_maintenance()
         self.assertEqual(ds.get_entries_count(), 0)
 
         self.assertEqual(ds.get_var_factory_count(), 1)

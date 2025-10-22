@@ -1183,7 +1183,7 @@ class ScrutinyClient:
                     if request._watchable._configuration is not None:
                         api_req['updates'].append({
                             'batch_index': n,
-                            'watchable': request._watchable._configuration.server_id,
+                            'watchable': request._watchable.server_id,
                             'value': request._value
                         })
                         batch_dict[n] = request
@@ -1748,7 +1748,6 @@ class ScrutinyClient:
         :return: A handle that can read/write the watched element.
         """
         validation.assert_type(path, 'path', str)
-
         cached_watchable = self.try_get_existing_watch_handle(path)
         if cached_watchable:
             return cached_watchable
@@ -2750,7 +2749,7 @@ class ScrutinyClient:
             self._pending_watchable_download_request[req['reqid']] = request_handle
 
         self._send(req)
-        # responses will be catched by the worker thread and the request handle will be updated
+        # responses will be caught by the worker thread and the request handle will be updated
         # using the response request_id echo.
 
         return request_handle
@@ -2941,5 +2940,5 @@ class ScrutinyClient:
     @property
     def port(self) -> Optional[int]:
         """Port of the the server is listening to"""
-        with self._user_lock:
+        with self._user_lock:#
             return int(self._port) if self._port is not None else None
