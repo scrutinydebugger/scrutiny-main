@@ -525,7 +525,7 @@ class ServerManager:
                 if self._thread_state.runtime_watchables_download_request.is_success:
                     data = self._thread_state.runtime_watchables_download_request.get()
                     content = {
-                        sdk.WatchableType.RuntimePublishedValue : data.rpv
+                        sdk.WatchableType.RuntimePublishedValue: data.rpv
                     }
                     invoke_in_qt_thread_synchronized(lambda: self._registry.write_content(content), timeout=2)
                     self._signals.registry_changed.emit()
@@ -544,8 +544,8 @@ class ServerManager:
                 if self._thread_state.sfd_watchables_download_request.is_success:
                     data = self._thread_state.sfd_watchables_download_request.get()
                     content = {
-                        sdk.WatchableType.Variable : data.var,
-                        sdk.WatchableType.Alias : data.alias,
+                        sdk.WatchableType.Variable: data.var,
+                        sdk.WatchableType.Alias: data.alias,
                     }
                     invoke_in_qt_thread_synchronized(lambda: self._registry.write_content(content), timeout=2)
                     self._signals.registry_changed.emit()

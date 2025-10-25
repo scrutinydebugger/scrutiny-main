@@ -627,7 +627,7 @@ class TestClient(ScrutinyUnitTest):
         )
 
         factory_abc = VariableFactory('/aa/bb/cc', core_Variable(EmbeddedDataType.float32, ['aa', 'bb', 'cc'], 0x5555, Endianness.Little))
-        factory_abc.add_array_node('/aa/bb', UntypedArray((2,3,4), 100) )
+        factory_abc.add_array_node('/aa/bb', UntypedArray((2, 3, 4), 100))
 
         self.datastore.add_entry(rpv1000)
         self.datastore.add_entry(var1)
@@ -2467,14 +2467,16 @@ class TestClient(ScrutinyUnitTest):
     def test_get_watchable_count(self):
         count = self.client.get_watchable_count()
         self.assertIsInstance(count, dict)
-        self.assertEqual(len(count), 3)
-        self.assertIn(sdk.WatchableType.Variable, count)
-        self.assertIn(sdk.WatchableType.Alias, count)
-        self.assertIn(sdk.WatchableType.RuntimePublishedValue, count)
+        self.assertEqual(len(count), 4)
+        self.assertIn(sdk.ServerDatastoreContentType.Variable, count)
+        self.assertIn(sdk.ServerDatastoreContentType.Alias, count)
+        self.assertIn(sdk.ServerDatastoreContentType.RuntimePublishedValue, count)
+        self.assertIn(sdk.ServerDatastoreContentType.VariableFactory, count)
 
-        self.assertEqual(count[sdk.WatchableType.Variable], 3)
-        self.assertEqual(count[sdk.WatchableType.Alias], 2)
-        self.assertEqual(count[sdk.WatchableType.RuntimePublishedValue], 1)
+        self.assertEqual(count[sdk.ServerDatastoreContentType.Variable], 3)
+        self.assertEqual(count[sdk.ServerDatastoreContentType.Alias], 2)
+        self.assertEqual(count[sdk.ServerDatastoreContentType.RuntimePublishedValue], 1)
+        self.assertEqual(count[sdk.ServerDatastoreContentType.VariableFactory], 1)
 
     def test_download_watchable_list(self):
         req = self.client.download_watchable_list()
@@ -2483,31 +2485,41 @@ class TestClient(ScrutinyUnitTest):
         self.assertTrue(req.completed)
         self.assertTrue(req.is_success)
 
-        watchables = req.get()
+        content = req.get()
 
-        self.assertIn(sdk.WatchableType.Variable, watchables)
-        self.assertIn(sdk.WatchableType.Alias, watchables)
-        self.assertIn(sdk.WatchableType.RuntimePublishedValue, watchables)
+        self.assertEqual(len(content.var), 3)
+        self.assertEqual(len(content.alias), 2)
+        self.assertEqual(len(content.rpv), 1)
+        self.assertEqual(len(content.var_factory), 1)
 
-        self.assertEqual(len(watchables[sdk.WatchableType.Variable]), 3)
-        self.assertEqual(len(watchables[sdk.WatchableType.Alias]), 2)
-        self.assertEqual(len(watchables[sdk.WatchableType.RuntimePublishedValue]), 1)
-
-        def test_watchable_received(watchable_type: WatchableType, path: str):
-            self.assertIn(path, watchables[watchable_type])
+        def test_watchable_received(bucket: Dict[str, sdk.WatchableConfiguration], path: str):
             entry = self.datastore.get_entry_by_display_path(path)
-            self.assertEqual(watchables[watchable_type][path].watchable_type, entry.get_type())
-            self.assertEqual(watchables[watchable_type][path].datatype, entry.get_data_type())
-            self.assertEqual(watchables[watchable_type][path].enum, entry.get_enum() if entry.has_enum() else None)
+            self.assertEqual(bucket[path].watchable_type, entry.get_type())
+            self.assertEqual(bucket[path].datatype, entry.get_data_type())
+            self.assertEqual(bucket[path].enum, entry.get_enum() if entry.has_enum() else None)
+
+        def test_factory_received(path: str):
+            factory = self.datastore.get_var_factory_by_access_path(path)
+            self.assertEqual(factory.get_access_name(), path)
+            received_factory = content.var_factory[path]
+            self.assertEqual(received_factory.datatype, factory.get_base_variable().get_type())
+            self.assertEqual(received_factory.enum, factory.get_base_variable().get_enum())
+            self.assertEqual(len(received_factory.array_dims), len(factory.get_array_nodes()))
+            for subpath, array in factory.get_array_nodes().items():
+                self.assertIn(subpath, received_factory.array_dims)
+                self.assertEqual(received_factory.array_dims[subpath], array.dims)
 
         for path in ["/a/b/var1", "/a/b/var2", "/a/b/var3"]:
-            test_watchable_received(sdk.WatchableType.Variable, path)
+            test_watchable_received(content.var, path)
 
         for path in ["/a/b/alias_var1", "/a/b/alias_rpv1000"]:
-            test_watchable_received(sdk.WatchableType.Alias, path)
+            test_watchable_received(content.alias, path)
 
         for path in ["/rpv/x1000"]:
-            test_watchable_received(sdk.WatchableType.RuntimePublishedValue, path)
+            test_watchable_received(content.rpv, path)
+
+        for path in ['/aa/bb/cc']:
+            test_factory_received(path)
 
         nb_response_msg = 0
         for object in self.rx_request_log:
@@ -2522,28 +2534,24 @@ class TestClient(ScrutinyUnitTest):
         self.assertTrue(req.completed)
         self.assertTrue(req.is_success)
 
-        watchables = req.get()
+        content = req.get()
 
-        self.assertIn(sdk.WatchableType.Variable, watchables)
-        self.assertIn(sdk.WatchableType.Alias, watchables)
-        self.assertIn(sdk.WatchableType.RuntimePublishedValue, watchables)
+        self.assertEqual(len(content.var), 0)   # 0 instead of 3
+        self.assertEqual(len(content.alias), 2)
+        self.assertEqual(len(content.rpv), 1)
+        self.assertEqual(len(content.var_factory), 0)   # 0 instead of 1
 
-        self.assertEqual(len(watchables[sdk.WatchableType.Variable]), 0)  # 0 instead of 3
-        self.assertEqual(len(watchables[sdk.WatchableType.Alias]), 2)
-        self.assertEqual(len(watchables[sdk.WatchableType.RuntimePublishedValue]), 1)
-
-        def test_watchable_received(watchable_type: WatchableType, path: str):
-            self.assertIn(path, watchables[watchable_type])
+        def test_watchable_received(bucket: Dict[str, sdk.WatchableConfiguration], path: str):
             entry = self.datastore.get_entry_by_display_path(path)
-            self.assertEqual(watchables[watchable_type][path].watchable_type, entry.get_type())
-            self.assertEqual(watchables[watchable_type][path].datatype, entry.get_data_type())
-            self.assertEqual(watchables[watchable_type][path].enum, entry.get_enum() if entry.has_enum() else None)
+            self.assertEqual(bucket[path].watchable_type, entry.get_type())
+            self.assertEqual(bucket[path].datatype, entry.get_data_type())
+            self.assertEqual(bucket[path].enum, entry.get_enum() if entry.has_enum() else None)
 
         for path in ["/a/b/alias_var1", "/a/b/alias_rpv1000"]:
-            test_watchable_received(sdk.WatchableType.Alias, path)
+            test_watchable_received(content.alias, path)
 
         for path in ["/rpv/x1000"]:
-            test_watchable_received(sdk.WatchableType.RuntimePublishedValue, path)
+            test_watchable_received(content.rpv, path)
 
     def test_download_watchable_list_name_filter(self):
         req = self.client.download_watchable_list(name_patterns=["*alias_var*", "/rpv/*"])
@@ -2552,28 +2560,24 @@ class TestClient(ScrutinyUnitTest):
         self.assertTrue(req.completed)
         self.assertTrue(req.is_success)
 
-        watchables = req.get()
+        content = req.get()
 
-        self.assertIn(sdk.WatchableType.Variable, watchables)
-        self.assertIn(sdk.WatchableType.Alias, watchables)
-        self.assertIn(sdk.WatchableType.RuntimePublishedValue, watchables)
+        self.assertEqual(len(content.var), 0)   # 0 instead of 3
+        self.assertEqual(len(content.alias), 1)  # 1 instead of 2
+        self.assertEqual(len(content.rpv), 1)
+        self.assertEqual(len(content.var_factory), 0)   # 0 instead of 1
 
-        self.assertEqual(len(watchables[sdk.WatchableType.Variable]), 0)    # 0 instead of 3
-        self.assertEqual(len(watchables[sdk.WatchableType.Alias]), 1)       # 1 instead of 2
-        self.assertEqual(len(watchables[sdk.WatchableType.RuntimePublishedValue]), 1)
-
-        def test_watchable_received(watchable_type: WatchableType, path: str):
-            self.assertIn(path, watchables[watchable_type])
+        def test_watchable_received(bucket: Dict[str, sdk.WatchableConfiguration], path: str):
             entry = self.datastore.get_entry_by_display_path(path)
-            self.assertEqual(watchables[watchable_type][path].watchable_type, entry.get_type())
-            self.assertEqual(watchables[watchable_type][path].datatype, entry.get_data_type())
-            self.assertEqual(watchables[watchable_type][path].enum, entry.get_enum() if entry.has_enum() else None)
+            self.assertEqual(bucket[path].watchable_type, entry.get_type())
+            self.assertEqual(bucket[path].datatype, entry.get_data_type())
+            self.assertEqual(bucket[path].enum, entry.get_enum() if entry.has_enum() else None)
 
         for path in ["/a/b/alias_var1"]:
-            test_watchable_received(sdk.WatchableType.Alias, path)
+            test_watchable_received(content.alias, path)
 
         for path in ["/rpv/x1000"]:
-            test_watchable_received(sdk.WatchableType.RuntimePublishedValue, path)
+            test_watchable_received(content.rpv, path)
 
     def test_download_watchable_list_multi_chunk(self):
         req = self.client.download_watchable_list(max_per_response=1)
@@ -2582,23 +2586,19 @@ class TestClient(ScrutinyUnitTest):
         self.assertTrue(req.completed)
         self.assertTrue(req.is_success)
 
-        watchables = req.get()
+        content = req.get()
 
-        self.assertIn(sdk.WatchableType.Variable, watchables)
-        self.assertIn(sdk.WatchableType.Alias, watchables)
-        self.assertIn(sdk.WatchableType.RuntimePublishedValue, watchables)
-
-        self.assertEqual(len(watchables[sdk.WatchableType.Variable]), 3)
-        self.assertEqual(len(watchables[sdk.WatchableType.Alias]), 2)
-        self.assertEqual(len(watchables[sdk.WatchableType.RuntimePublishedValue]), 1)
+        self.assertEqual(len(content.var), 3)
+        self.assertEqual(len(content.alias), 2)
+        self.assertEqual(len(content.rpv), 1)
+        self.assertEqual(len(content.var_factory), 1)
 
         # Make sure the server transmitted 1 watchable definition per message. We use the client logs to validate
         nb_response_msg = 0
         for object in self.rx_request_log:
             if 'cmd' in object and object['cmd'] == API.Command.Api2Client.GET_WATCHABLE_LIST_RESPONSE:
                 nb_response_msg += 1
-        expected_response_count = len(watchables[sdk.WatchableType.Variable]) + \
-            len(watchables[sdk.WatchableType.Alias]) + len(watchables[sdk.WatchableType.RuntimePublishedValue])
+        expected_response_count = len(content.var) + len(content.alias) + len(content.rpv) + len(content.var_factory)
 
         self.assertEqual(nb_response_msg, expected_response_count)
 

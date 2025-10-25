@@ -158,6 +158,11 @@ class Datastore:
 
         raise KeyError(f'Entry with display path {display_path} not found in datastore')
 
+    def get_var_factory_by_access_path(self, access_path: str) -> VariableFactory:
+        if access_path not in self._var_factories:
+            raise KeyError(f"No Variable Factory located at {access_path}")
+        return self._var_factories[access_path]
+
     def add_watch_callback(self, callback: WatchCallback) -> None:
         """ Mainly used to notify device handler that a new variable is to be polled"""
         self._global_watch_callbacks.append(callback)

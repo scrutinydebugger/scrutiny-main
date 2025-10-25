@@ -44,7 +44,7 @@ class VariableFactory:
     def add_array_node(self, path: str, array: UntypedArray) -> None:
         if path in self._array_nodes:
             raise KeyError(f"Duplicate array node at {path}")
-        
+
         if not path_tools.is_subpath(subpath=path, path=self._access_name):
             raise ValueError(f"Cannot add an array node at {path} for access name {self._access_name}")
         self._array_nodes[path] = array

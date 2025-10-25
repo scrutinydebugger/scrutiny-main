@@ -1,3 +1,11 @@
+#    test_basics.py
+#        Test basic classes of the SDK
+#
+#   - License : MIT - See LICENSE file.
+#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#   Copyright (c) 2025 Scrutiny Debugger
+
 import unittest
 from scrutiny import sdk
 from test import ScrutinyUnitTest
@@ -9,15 +17,15 @@ class TestDatalogging(ScrutinyUnitTest):
             access_path="/aa/bb/cc/dd",
             datatype=sdk.EmbeddedDataType.float32,
             array_dims={
-                '/aa/bb' : (2,3),
-                '/aa/bb/cc/dd' : (5,)
-                },
+                '/aa/bb': (2, 3),
+                '/aa/bb/cc/dd': (5,)
+            },
             enum=None
         )
 
         self.assertEqual(factory_interface.count_possible_paths(), 30)
         all_paths = list(factory_interface.iterate_possible_paths())
-        all_paths_unique = set(all_paths)   
+        all_paths_unique = set(all_paths)
         self.assertEqual(len(all_paths), len(all_paths_unique))
         self.assertEqual(len(all_paths_unique), factory_interface.count_possible_paths())
 
@@ -56,6 +64,7 @@ class TestDatalogging(ScrutinyUnitTest):
         self.assertIn('/aa/bb[1][2]/cc/dd[2]', all_paths_unique)
         self.assertIn('/aa/bb[1][2]/cc/dd[3]', all_paths_unique)
         self.assertIn('/aa/bb[1][2]/cc/dd[4]', all_paths_unique)
+
 
 if __name__ == '__main__':
     unittest.main()

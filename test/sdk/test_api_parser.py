@@ -38,7 +38,7 @@ class TestApiParser(ScrutinyUnitTest):
                 "cmd": "response_get_watchable_list",
                 "reqid": 123,
                 "done": True,
-                "qty": {"var": 2, "alias": 2, "rpv": 1, 'var_factory':1},
+                "qty": {"var": 2, "alias": 2, "rpv": 1, 'var_factory': 1},
                 "content": {
                     "var": [{
                         "path": "/a/b/c",
@@ -55,13 +55,13 @@ class TestApiParser(ScrutinyUnitTest):
                         "path": "/a/b/d",
                         "dtype": "uint64",
                     }],
-                    'var_factory' : [
+                    'var_factory': [
                         {
                             "path": "/qq/ww/ee",
                             "dtype": "sint16",
-                            'factory_params' : {
-                                'array_nodes' : {
-                                    '/qq/ww' : [2,3,4]
+                            'factory_params': {
+                                'array_nodes': {
+                                    '/qq/ww': [2, 3, 4]
                                 }
                             }
                         }
@@ -190,7 +190,6 @@ class TestApiParser(ScrutinyUnitTest):
                 response["content"]['var'][0]['enum']['values']["aaa"] = val
                 parser.parse_get_watchable_list(response)
 
-
         for val in [None, 3.5, 1, True, "", Delete]:
             with self.assertRaises(sdk.exceptions.BadResponseError, msg=f"val={val}"):
                 response = base()
@@ -209,13 +208,13 @@ class TestApiParser(ScrutinyUnitTest):
                     response["content"]["var_factory"][0]["factory_params"]['array_nodes'] = val
                 parser.parse_get_watchable_list(response)
 
-        for key in [None, 3.5, 1, True, "", '/', '/qq/ww/e', '/qq/ww/ee/rr', 'aksdghaskd']: # valid values are: /qq, /qq/ww, /qq/ww/ee
+        for key in [None, 3.5, 1, True, "", '/', '/qq/ww/e', '/qq/ww/ee/rr', 'aksdghaskd']:  # valid values are: /qq, /qq/ww, /qq/ww/ee
             with self.assertRaises(sdk.exceptions.BadResponseError, msg=f"key={key}"):
                 response = base()
-                response["content"]["var_factory"][0]["factory_params"]['array_nodes'][key] = [1,2,3]
+                response["content"]["var_factory"][0]["factory_params"]['array_nodes'][key] = [1, 2, 3]
                 parser.parse_get_watchable_list(response)
 
-        for val in [None, 3.5, 1, True, ""]: 
+        for val in [None, 3.5, 1, True, ""]:
             with self.assertRaises(sdk.exceptions.BadResponseError, msg=f"val={val}"):
                 response = base()
                 response["content"]["var_factory"][0]["factory_params"]['array_nodes']['/a/bb'] = val

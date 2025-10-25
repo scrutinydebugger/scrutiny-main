@@ -83,7 +83,7 @@ class DataloggingCompletion:
 @dataclass
 class GetWatchableListResponse:
     done: bool
-    data:sdk.WatchableListContentPart
+    data: sdk.WatchableListContentPart
 
 
 @dataclass
@@ -255,7 +255,7 @@ def parse_get_watchable_list(response: api_typing.S2C.GetWatchableList) -> GetWa
 
     outdata = GetWatchableListResponse(
         done=response['done'],
-        data = sdk.WatchableListContentPart()
+        data=sdk.WatchableListContentPart()
     )
 
     typekey_to_dict_ref: Dict[WATCHABLE_TYPE_KEY, Dict[str, sdk.WatchableConfiguration]] = {
@@ -269,7 +269,7 @@ def parse_get_watchable_list(response: api_typing.S2C.GetWatchableList) -> GetWa
         'var': sdk.WatchableType.Variable,
     }
 
-    def get_enum(element:Union[api_typing.DatastoreEntryDefinition, api_typing.VariableFactoryDefinition]) -> Optional[EmbeddedEnum]:
+    def get_enum(element: Union[api_typing.DatastoreEntryDefinition, api_typing.VariableFactoryDefinition]) -> Optional[EmbeddedEnum]:
         enum: Optional[EmbeddedEnum] = None
         if 'enum' in element and element['enum'] is not None:
             _check_response_dict(cmd, element, 'enum', dict)
@@ -289,41 +289,40 @@ def parse_get_watchable_list(response: api_typing.S2C.GetWatchableList) -> GetWa
                 enum.add_value(key, val)
         return enum
 
-    def get_dtype(element:Union[api_typing.DatastoreEntryDefinition, api_typing.VariableFactoryDefinition], keyprefix:str) -> EmbeddedDataType:
+    def get_dtype(element: Union[api_typing.DatastoreEntryDefinition, api_typing.VariableFactoryDefinition], keyprefix: str) -> EmbeddedDataType:
         _check_response_dict(cmd, element, 'dtype', str, keyprefix)
-    
+
         if element['dtype'] not in API.APISTR_2_DATATYPE:
             raise sdk.exceptions.BadResponseError(f"Unknown datatype {element['dtype']}")
 
         return EmbeddedDataType(API.APISTR_2_DATATYPE[element['dtype']])
 
-    def get_path(element:Union[api_typing.DatastoreEntryDefinition, api_typing.VariableFactoryDefinition], keyprefix:str) -> str:
+    def get_path(element: Union[api_typing.DatastoreEntryDefinition, api_typing.VariableFactoryDefinition], keyprefix: str) -> str:
         _check_response_dict(cmd, element, 'path', str, keyprefix)
         if len(element['path']) == 0:
             raise sdk.exceptions.BadResponseError(f"Empty path")
         return element['path']
-    
 
-    def get_array_dims(element:api_typing.VariableFactoryDefinition, keyprefix:str) -> Dict[str, Tuple[int,...]]:
+    def get_array_dims(element: api_typing.VariableFactoryDefinition, keyprefix: str) -> Dict[str, Tuple[int, ...]]:
         _check_response_dict(cmd, element, 'factory_params.array_nodes', dict, keyprefix)
-        outdict:Dict[str, Tuple[int,...]] = {}
+        outdict: Dict[str, Tuple[int, ...]] = {}
         keyprefix += ".factory_params.array_nodes"
         for path, dims in element['factory_params']['array_nodes'].items():
             if not isinstance(path, str) or len(path) == 0:
                 raise sdk.exceptions.BadResponseError(f"{keyprefix}: Array definition not mapped to a valid string")
-            
+
             if not isinstance(dims, list):
                 raise sdk.exceptions.BadResponseError(f"{keyprefix}: Array dimensions are not a list")
-            
+
             for dim in dims:
                 if not isinstance(dim, int):
                     raise sdk.exceptions.BadResponseError(f"{keyprefix}: Invalid array dimensions")
 
             if path in outdict:
                 raise sdk.exceptions.BadResponseError(f"{keyprefix}: Duplicate array node path")
-            
+
             outdict[path] = tuple(dims)
-        
+
         return outdict
 
     for typekey in ['rpv', 'alias', 'var', 'var_factory']:
@@ -342,7 +341,7 @@ def parse_get_watchable_list(response: api_typing.S2C.GetWatchableList) -> GetWa
                 path = get_path(element, keyprefix)
                 datatype = get_dtype(element, keyprefix)
                 enum = get_enum(element)
-                
+
                 outdict[path] = sdk.WatchableConfiguration(
                     watchable_type=typekey_to_watchable_type[typekey],
                     datatype=datatype,
@@ -352,14 +351,15 @@ def parse_get_watchable_list(response: api_typing.S2C.GetWatchableList) -> GetWa
             for i in range(len(container)):
                 keyprefix = f'content.{typekey}[{i}]'
                 element = cast(api_typing.VariableFactoryDefinition, container[i])
-                
+
                 path = get_path(element, keyprefix)
                 datatype = get_dtype(element, keyprefix)
                 enum = get_enum(element)
                 array_dims = get_array_dims(element, keyprefix)
                 for subpath in array_dims.keys():
                     if not path_tools.is_subpath(subpath, path):
-                        raise sdk.exceptions.BadResponseError(f"Received a Variable Factory with array nodes that does not match the access path ({path}).")
+                        raise sdk.exceptions.BadResponseError(
+                            f"Received a Variable Factory with array nodes that does not match the access path ({path}).")
 
                 outdata.data.var_factory[path] = sdk.VariableFactoryInterface(
                     access_path=path,
@@ -369,7 +369,6 @@ def parse_get_watchable_list(response: api_typing.S2C.GetWatchableList) -> GetWa
                 )
         else:
             raise sdk.exceptions.BadResponseError(f"Unknown data type {typekey}")
-
 
     return outdata
 

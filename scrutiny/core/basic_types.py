@@ -266,7 +266,7 @@ class ServerDatastoreContentType(str, Enum):
 
     def to_str(self) -> str:
         return str(self)
-    
+
     @classmethod
     def from_str(cls, v: str) -> "ServerDatastoreContentType":
-        return ServerDatastoreContentType(v)    
+        return ServerDatastoreContentType(v)
