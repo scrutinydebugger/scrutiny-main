@@ -21,6 +21,7 @@ from scrutiny.core.firmware_description import MetadataTypedDict
 from scrutiny.server.api.API import API
 from scrutiny.server.api import typing as api_typing
 
+from scrutiny.core import path_tools
 from scrutiny.tools.typing import *
 import typing
 
@@ -82,7 +83,7 @@ class DataloggingCompletion:
 @dataclass
 class GetWatchableListResponse:
     done: bool
-    data: Dict[sdk.WatchableType, Dict[str, sdk.WatchableConfiguration]]
+    data:sdk.WatchableListContentPart
 
 
 @dataclass
@@ -244,72 +245,131 @@ def parse_get_watchable_list(response: api_typing.S2C.GetWatchableList) -> GetWa
     _check_response_dict(cmd, response, 'qty.alias', int)
     _check_response_dict(cmd, response, 'qty.rpv', int)
     _check_response_dict(cmd, response, 'qty.var', int)
+    _check_response_dict(cmd, response, 'qty.var_factory', int)
     _check_response_dict(cmd, response, 'done', bool)
 
     _check_response_dict(cmd, response, 'content.alias', list)
     _check_response_dict(cmd, response, 'content.rpv', list)
     _check_response_dict(cmd, response, 'content.var', list)
+    _check_response_dict(cmd, response, 'content.var_factory', list)
 
     outdata = GetWatchableListResponse(
         done=response['done'],
-        data={
-            sdk.WatchableType.Variable: {},
-            sdk.WatchableType.RuntimePublishedValue: {},
-            sdk.WatchableType.Alias: {},
-        }
+        data = sdk.WatchableListContentPart()
     )
 
+    typekey_to_dict_ref: Dict[WATCHABLE_TYPE_KEY, Dict[str, sdk.WatchableConfiguration]] = {
+        'rpv': outdata.data.rpv,
+        'alias': outdata.data.alias,
+        'var': outdata.data.var
+    }
     typekey_to_watchable_type: Dict[WATCHABLE_TYPE_KEY, sdk.WatchableType] = {
         'rpv': sdk.WatchableType.RuntimePublishedValue,
         'alias': sdk.WatchableType.Alias,
         'var': sdk.WatchableType.Variable,
     }
 
-    typekey: Literal['rpv', 'alias', 'var']
-    for typekey in typing.get_args(WATCHABLE_TYPE_KEY):
-        watchable_type = typekey_to_watchable_type[typekey]
+    def get_enum(element:Union[api_typing.DatastoreEntryDefinition, api_typing.VariableFactoryDefinition]) -> Optional[EmbeddedEnum]:
+        enum: Optional[EmbeddedEnum] = None
+        if 'enum' in element and element['enum'] is not None:
+            _check_response_dict(cmd, element, 'enum', dict)
+            _check_response_dict(cmd, element, 'enum.name', str)
+            _check_response_dict(cmd, element, 'enum.values', dict)
+            if len(element['enum']['name']) == 0:
+                raise sdk.exceptions.BadResponseError(f"Empty enum name")
+
+            enum = EmbeddedEnum(name=element['enum']['name'])
+            for key, val in element['enum']['values'].items():
+                if not isinstance(key, str):
+                    raise sdk.exceptions.BadResponseError('Invalid enum. Key is not a string')
+                if len(key) == 0:
+                    raise sdk.exceptions.BadResponseError('Invalid enum. Key is an empty string')
+                if not isinstance(val, int) or isinstance(val, bool):   # bools are int for python
+                    raise sdk.exceptions.BadResponseError('Invalid enum. Value is not an integer')
+                enum.add_value(key, val)
+        return enum
+
+    def get_dtype(element:Union[api_typing.DatastoreEntryDefinition, api_typing.VariableFactoryDefinition], keyprefix:str) -> EmbeddedDataType:
+        _check_response_dict(cmd, element, 'dtype', str, keyprefix)
+    
+        if element['dtype'] not in API.APISTR_2_DATATYPE:
+            raise sdk.exceptions.BadResponseError(f"Unknown datatype {element['dtype']}")
+
+        return EmbeddedDataType(API.APISTR_2_DATATYPE[element['dtype']])
+
+    def get_path(element:Union[api_typing.DatastoreEntryDefinition, api_typing.VariableFactoryDefinition], keyprefix:str) -> str:
+        _check_response_dict(cmd, element, 'path', str, keyprefix)
+        if len(element['path']) == 0:
+            raise sdk.exceptions.BadResponseError(f"Empty path")
+        return element['path']
+    
+
+    def get_array_dims(element:api_typing.VariableFactoryDefinition, keyprefix:str) -> Dict[str, Tuple[int,...]]:
+        _check_response_dict(cmd, element, 'factory_params.array_nodes', dict, keyprefix)
+        outdict:Dict[str, Tuple[int,...]] = {}
+        keyprefix += ".factory_params.array_nodes"
+        for path, dims in element['factory_params']['array_nodes'].items():
+            if not isinstance(path, str) or len(path) == 0:
+                raise sdk.exceptions.BadResponseError(f"{keyprefix}: Array definition not mapped to a valid string")
+            
+            if not isinstance(dims, list):
+                raise sdk.exceptions.BadResponseError(f"{keyprefix}: Array dimensions are not a list")
+            
+            for dim in dims:
+                if not isinstance(dim, int):
+                    raise sdk.exceptions.BadResponseError(f"{keyprefix}: Invalid array dimensions")
+
+            if path in outdict:
+                raise sdk.exceptions.BadResponseError(f"{keyprefix}: Duplicate array node path")
+            
+            outdict[path] = tuple(dims)
+        
+        return outdict
+
+    for typekey in ['rpv', 'alias', 'var', 'var_factory']:
+        typekey = cast(Literal['rpv', 'alias', 'var', 'var_factory'], typekey)
         if response['qty'][typekey] != len(response['content'][typekey]):
             raise sdk.exceptions.BadResponseError(
                 f"Mismatch between expected element count ({response['qty'][typekey]}) and actual element count ({len(response['content'][typekey])})")
 
-        for i in range(len(response['content'][typekey])):
-            keyprefix = f'content.{typekey}[{i}]'
-            element = response['content'][typekey][i]
+        container = response['content'][typekey]
+        if typekey in ['var', 'alias', 'rpv']:
+            typekey = cast(Literal['var', 'alias', 'rpv'], typekey)
+            outdict = typekey_to_dict_ref[typekey]
+            for i in range(len(container)):
+                keyprefix = f'content.{typekey}[{i}]'
+                element = cast(api_typing.DatastoreEntryDefinition, container[i])
+                path = get_path(element, keyprefix)
+                datatype = get_dtype(element, keyprefix)
+                enum = get_enum(element)
+                
+                outdict[path] = sdk.WatchableConfiguration(
+                    watchable_type=typekey_to_watchable_type[typekey],
+                    datatype=datatype,
+                    enum=enum
+                )
+        elif typekey == 'var_factory':
+            for i in range(len(container)):
+                keyprefix = f'content.{typekey}[{i}]'
+                element = cast(api_typing.VariableFactoryDefinition, container[i])
+                
+                path = get_path(element, keyprefix)
+                datatype = get_dtype(element, keyprefix)
+                enum = get_enum(element)
+                array_dims = get_array_dims(element, keyprefix)
+                for subpath in array_dims.keys():
+                    if not path_tools.is_subpath(subpath, path):
+                        raise sdk.exceptions.BadResponseError(f"Received a Variable Factory with array nodes that does not match the access path ({path}).")
 
-            _check_response_dict(cmd, element, 'path', str, keyprefix)
-            _check_response_dict(cmd, element, 'dtype', str, keyprefix)
+                outdata.data.var_factory[path] = sdk.VariableFactoryInterface(
+                    access_path=path,
+                    datatype=datatype,
+                    enum=enum,
+                    array_dims=array_dims
+                )
+        else:
+            raise sdk.exceptions.BadResponseError(f"Unknown data type {typekey}")
 
-            if element['dtype'] not in API.APISTR_2_DATATYPE:
-                raise sdk.exceptions.BadResponseError(f"Unknown datatype {element['dtype']}")
-
-            if len(element['path']) == 0:
-                raise sdk.exceptions.BadResponseError(f"Empty path")
-
-            datatype = EmbeddedDataType(API.APISTR_2_DATATYPE[element['dtype']])
-
-            enum: Optional[EmbeddedEnum] = None
-            if 'enum' in element and element['enum'] is not None:
-                _check_response_dict(cmd, element, 'enum', dict)
-                _check_response_dict(cmd, element, 'enum.name', str)
-                _check_response_dict(cmd, element, 'enum.values', dict)
-                if len(element['enum']['name']) == 0:
-                    raise sdk.exceptions.BadResponseError(f"Empty enum name")
-
-                enum = EmbeddedEnum(name=element['enum']['name'])
-                for key, val in element['enum']['values'].items():
-                    if not isinstance(key, str):
-                        raise sdk.exceptions.BadResponseError('Invalid enum. Key is not a string')
-                    if len(key) == 0:
-                        raise sdk.exceptions.BadResponseError('Invalid enum. Key is an empty string')
-                    if not isinstance(val, int) or isinstance(val, bool):   # bools are int for python
-                        raise sdk.exceptions.BadResponseError('Invalid enum. Value is not an integer')
-                    enum.add_value(key, val)
-
-            outdata.data[watchable_type][element['path']] = sdk.WatchableConfiguration(
-                watchable_type=watchable_type,
-                datatype=datatype,
-                enum=enum
-            )
 
     return outdata
 
@@ -1133,7 +1193,7 @@ def parse_user_command_response(response: api_typing.S2C.UserCommand) -> sdk.Use
     )
 
 
-def parse_get_watchable_count(response: api_typing.S2C.GetWatchableCount) -> Dict[sdk.WatchableType, int]:
+def parse_get_watchable_count(response: api_typing.S2C.GetWatchableCount) -> Dict[sdk.ServerDatastoreContentType, int]:
     assert isinstance(response, dict)
     assert 'cmd' in response
     cmd = response['cmd']
@@ -1142,17 +1202,19 @@ def parse_get_watchable_count(response: api_typing.S2C.GetWatchableCount) -> Dic
     _check_response_dict(cmd, response, 'qty.var', int)
     _check_response_dict(cmd, response, 'qty.alias', int)
     _check_response_dict(cmd, response, 'qty.rpv', int)
+    _check_response_dict(cmd, response, 'qty.var_factory', int)
 
-    WatchableTypeKey = Literal['rpv', 'alias', 'var']
-    key: WatchableTypeKey
-    for key in typing.get_args(WatchableTypeKey):
+    ContentTypeKey = Literal['rpv', 'alias', 'var', 'var_factory']
+    key: ContentTypeKey
+    for key in typing.get_args(ContentTypeKey):
         if response['qty'][key] < 0:
             raise sdk.exceptions.BadResponseError("Received a negative number of watchable")
 
     return {
-        sdk.WatchableType.Variable: response['qty']['var'],
-        sdk.WatchableType.Alias: response['qty']['alias'],
-        sdk.WatchableType.RuntimePublishedValue: response['qty']['rpv']
+        sdk.ServerDatastoreContentType.Variable: response['qty']['var'],
+        sdk.ServerDatastoreContentType.Alias: response['qty']['alias'],
+        sdk.ServerDatastoreContentType.RuntimePublishedValue: response['qty']['rpv'],
+        sdk.ServerDatastoreContentType.VariableFactory: response['qty']['var_factory']
     }
 
 

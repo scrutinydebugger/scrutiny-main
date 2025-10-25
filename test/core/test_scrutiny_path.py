@@ -19,6 +19,18 @@ class TestScrutinyPath(ScrutinyUnitTest):
         self.assertEqual(path_tools.make_segments('/aaa/bbb/ccc'), ['aaa', 'bbb', 'ccc'])
         self.assertEqual(path_tools.make_segments('/aaa/bbb///ccc//'), ['aaa', 'bbb', 'ccc'])
 
+        self.assertFalse(path_tools.is_subpath('', '/a/b/c'))
+        self.assertFalse(path_tools.is_subpath('/', '/a/b/c'))
+        self.assertFalse(path_tools.is_subpath('/aa/b', '/aa/bb/cc'))
+        self.assertTrue(path_tools.is_subpath('/aa', '/aa/bb/cc'))
+        self.assertTrue(path_tools.is_subpath('/aa/', '/aa/bb/cc'))
+        self.assertTrue(path_tools.is_subpath('/aa/bb', '/aa/bb/cc'))
+        self.assertTrue(path_tools.is_subpath('/aa/bb/', '/aa/bb/cc'))
+        self.assertTrue(path_tools.is_subpath('/aa/bb/cc', '/aa/bb/cc'))
+        self.assertTrue(path_tools.is_subpath('/aa/bb//cc/', '/aa/bb/cc'))
+        self.assertFalse(path_tools.is_subpath('/aa/bb/cc/dd', '/aa/bb/cc'))
+        self.assertFalse(path_tools.is_subpath('/', '/'))
+
     def test_path_parsing(self):
         self.assertFalse(ScrutinyPath.from_string('/aaa/bbb/ccc').has_array_information())
 

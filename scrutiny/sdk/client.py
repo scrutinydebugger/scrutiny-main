@@ -67,7 +67,7 @@ class CallbackState(enum.Enum):
 
 
 ApiResponseCallback = Callable[[CallbackState, Optional[api_typing.S2CMessage]], None]
-WatchableListType = Dict[WatchableType, Dict[str, WatchableConfiguration]]
+NewDataCallback = Callable[[sdk.WatchableListContentPart, bool], None]
 
 T = TypeVar('T')
 
@@ -182,32 +182,25 @@ class WatchableListDownloadRequest(PendingRequest):
     :param new_data_callback: A callback to process the segmented data as it comes in. Called from the internal thread.     
     """
     _request_id: int
-    _watchable_list: WatchableListType
-    _new_data_callback: Optional[Callable[[Dict[sdk.WatchableType, Dict[str, sdk.WatchableConfiguration]], bool], None]]
+    _buffered_content: sdk.WatchableListContentPart
+    _new_data_callback: Optional[NewDataCallback]
 
     def __init__(self,
                  client: "ScrutinyClient",
                  request_id: int,
-                 new_data_callback: Optional[Callable[[Dict[sdk.WatchableType, Dict[str, sdk.WatchableConfiguration]], bool], None]] = None
+                 new_data_callback: Optional[NewDataCallback] = None
                  ) -> None:
         self._request_id = request_id
-        self._watchable_list = {
-            WatchableType.Variable: {},
-            WatchableType.Alias: {},
-            WatchableType.RuntimePublishedValue: {}
-        }
+        self._buffered_content = sdk.WatchableListContentPart()
         self._new_data_callback = new_data_callback
 
         super().__init__(client)
 
-    def _add_data(self, data: Dict[sdk.WatchableType, Dict[str, sdk.WatchableConfiguration]], done: bool) -> None:
+    def _add_data(self, data: sdk.WatchableListContentPart, done: bool) -> None:
         if self._new_data_callback is not None:
             self._new_data_callback(data, done)
-        else:
-            # User has no callback to process it. Let's buffer the response for him
-            for watchable_type in WatchableType.all():
-                if watchable_type in data:
-                    self._watchable_list[watchable_type].update(data[watchable_type])
+        else:   # User has no callback to process it. Let's buffer the response for him
+            self._buffered_content.extend(data)
         self._update_expiration_timer()
 
     def cancel(self) -> None:
@@ -223,7 +216,7 @@ class WatchableListDownloadRequest(PendingRequest):
         except sdk.exceptions.OperationFailure:
             pass
 
-    def get(self) -> WatchableListType:
+    def get(self) -> sdk.WatchableListContentPart:
         """
         Returns the definition of all the watchables obtained through this request, classified by type.
 
@@ -238,7 +231,7 @@ class WatchableListDownloadRequest(PendingRequest):
         if not self.is_success:
             raise sdk.exceptions.InvalidValueError("Watchable list failed to download fully")
 
-        return self._watchable_list
+        return self._buffered_content
 
 
 class SFDDownloadRequest(PendingRequest):
@@ -2654,7 +2647,7 @@ class ScrutinyClient:
         with self._main_lock:
             self._listeners.append(listener)
 
-    def get_watchable_count(self) -> Dict[WatchableType, int]:
+    def get_watchable_count(self) -> Dict[ServerDatastoreContentType, int]:
         """
         Request the server with the number of available watchable items, organized per type
 
@@ -2668,7 +2661,7 @@ class ScrutinyClient:
 
         @dataclass
         class Container:
-            obj: Optional[Dict[WatchableType, int]]
+            obj: Optional[Dict[sdk.ServerDatastoreContentType, int]]
         cb_data: Container = Container(obj=None)  # Force pass by ref
 
         def wt_get_watchable_count_callback(state: CallbackState, response: Optional[api_typing.S2CMessage]) -> None:
@@ -2689,8 +2682,7 @@ class ScrutinyClient:
                                 types: Optional[List[WatchableType]] = None,
                                 max_per_response: int = 500,
                                 name_patterns: List[str] = [],
-                                partial_reception_callback: Optional[Callable[[
-                                    Dict[sdk.WatchableType, Dict[str, sdk.WatchableConfiguration]], bool], None]] = None
+                                partial_reception_callback: Optional[Callable[[sdk.WatchableListContentPart, bool], None]] = None
                                 ) -> WatchableListDownloadRequest:
         """
             Request the server for the list of watchable items available in its datastore.
@@ -2700,7 +2692,7 @@ class ScrutinyClient:
             :param name_patterns: List of name filters in the form of a glob string. Any watchable with a path that matches at least one name filter will be returned. 
                 All watchables are returned if ``None``
             :param partial_reception_callback: A callback to be called by the client whenever new data is received by the server. Data might be segmented
-                in several parts. Expected signature : ``my_callback(data, last_segment)`` where ``data`` is a dictionary of the form ``data[watchable_type][path] = watchable``
+                in several parts. Expected signature : ``my_callback(data, last_segment)`` where ``data`` is a dictionary of the form ``data.<type>[path] = watchable``
                 and ``last_segment`` indicate if that data segment was the last one.
                 If ``None`` is given, the received data will be stored inside the request object and can be fetched once the request has completed by 
                 calling :meth:`get()<scrutiny.sdk.client.WatchableListDownloadRequest.get>`
@@ -2800,7 +2792,7 @@ class ScrutinyClient:
         """Update a single datalogging acquisition stored on the server.
 
         :param reference_id: The unique ``reference_id`` of the acquisition to delete.
-        :param name: New name for the acquisition. 
+        :param name: New name for the acquisition.  
 
         :raise OperationFailure: If the request to the server fails
         :raise TypeError: Given parameter not of the expected type

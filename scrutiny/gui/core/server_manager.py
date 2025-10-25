@@ -524,7 +524,10 @@ class ServerManager:
                 self._logger.debug("Download of watchable list is complete. Group : runtime")
                 if self._thread_state.runtime_watchables_download_request.is_success:
                     data = self._thread_state.runtime_watchables_download_request.get()
-                    invoke_in_qt_thread_synchronized(lambda: self._registry.write_content(data), timeout=2)
+                    content = {
+                        sdk.WatchableType.RuntimePublishedValue : data.rpv
+                    }
+                    invoke_in_qt_thread_synchronized(lambda: self._registry.write_content(content), timeout=2)
                     self._signals.registry_changed.emit()
                 else:
                     invoke_in_qt_thread_synchronized(lambda: self._registry.clear_content_by_type(
@@ -540,7 +543,11 @@ class ServerManager:
                 self._logger.debug("Download of watchable list is complete. Group : SFD")
                 if self._thread_state.sfd_watchables_download_request.is_success:
                     data = self._thread_state.sfd_watchables_download_request.get()
-                    invoke_in_qt_thread_synchronized(lambda: self._registry.write_content(data), timeout=2)
+                    content = {
+                        sdk.WatchableType.Variable : data.var,
+                        sdk.WatchableType.Alias : data.alias,
+                    }
+                    invoke_in_qt_thread_synchronized(lambda: self._registry.write_content(content), timeout=2)
                     self._signals.registry_changed.emit()
                 else:
                     invoke_in_qt_thread_synchronized(lambda: self._registry.clear_content_by_type(

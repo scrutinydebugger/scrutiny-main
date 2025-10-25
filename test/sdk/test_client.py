@@ -12,6 +12,8 @@ import os
 from scrutiny.core.basic_types import *
 from scrutiny.core.datalogging import *
 from scrutiny.core.variable import Variable as core_Variable
+from scrutiny.core.variable_factory import VariableFactory
+from scrutiny.core.array import UntypedArray
 from scrutiny.core.alias import Alias as core_Alias
 from scrutiny.core.codecs import Codecs
 from scrutiny.core.embedded_enum import EmbeddedEnum
@@ -624,12 +626,16 @@ class TestClient(ScrutinyUnitTest):
             refentry=rpv1000
         )
 
+        factory_abc = VariableFactory('/aa/bb/cc', core_Variable(EmbeddedDataType.float32, ['aa', 'bb', 'cc'], 0x5555, Endianness.Little))
+        factory_abc.add_array_node('/aa/bb', UntypedArray((2,3,4), 100) )
+
         self.datastore.add_entry(rpv1000)
         self.datastore.add_entry(var1)
         self.datastore.add_entry(var2)
         self.datastore.add_entry(var3)
         self.datastore.add_entry(alias_var1)
         self.datastore.add_entry(alias_rpv1000)
+        self.datastore.register_var_factory(factory_abc)
 
     def wait_for_server(self, n=2, timeout=2):
         time.sleep(0)
@@ -2630,11 +2636,11 @@ class TestClient(ScrutinyUnitTest):
         self.assertTrue(req.completed)
         self.assertTrue(req.is_success)
 
-        nb_entries = self.datastore.get_entries_count()
+        nb_entries = self.datastore.get_entries_count() + self.datastore.get_var_factory_count()
         self.assertEqual(len(callback_history), nb_entries)
         received_path = set()
         for i in range(len(callback_history)):
-            data = cast(Dict[sdk.WatchableType, Dict[str, sdk.WatchableConfiguration]], callback_history[i][0])
+            data = cast(sdk.WatchableListContentPart, callback_history[i][0])
             last_segment = callback_history[i][1]
 
             if i < len(callback_history) - 1:
@@ -2642,14 +2648,19 @@ class TestClient(ScrutinyUnitTest):
             else:
                 self.assertTrue(last_segment)
 
-            for key in data.keys():
-                self.assertIsInstance(key, sdk.WatchableType)
-                for path in data[key].keys():
+            for key in ['var', 'alias', 'rpv', 'var_factory']:
+                d = getattr(data, key)
+                for path in d.keys():
                     self.assertIsInstance(path, str)
-                    obj = data[key][path]
-                    self.assertIsInstance(obj, sdk.WatchableConfiguration)
+                    obj = d[path]
+                    if key == 'var_factory':
+                        self.assertIsInstance(obj, sdk.VariableFactoryInterface)
+                        for path in obj.iterate_possible_paths():
+                            self.datastore.get_entry_by_display_path(path)  # Check that this entry exist
+                    else:
+                        self.assertIsInstance(obj, sdk.WatchableConfiguration)
+                        self.datastore.get_entry_by_display_path(path)  # Check that this entry exist
 
-                    self.datastore.get_entry_by_display_path(path)  # Check that this entry exist
                     self.assertNotIn(path, received_path, "Received duplicate item")
                     received_path.add(path)
 

@@ -301,9 +301,7 @@ class TestServerManager(ScrutinyBaseGuiTest):
                 self.assertFalse(self.registry.has_data(sdk.WatchableType.Alias))
                 self.assertFalse(self.registry.has_data(sdk.WatchableType.Variable))
             else:
-                req._add_data({
-                    sdk.WatchableType.RuntimePublishedValue: DUMMY_DATASET_RPV
-                }, done=True)
+                req._add_data(sdk.WatchableListContentPart(rpv=DUMMY_DATASET_RPV), done=True)
                 self.fake_client._complete_success_watchable_list_request(req._request_id)
                 self.wait_events_and_clear([EventType.WATCHABLE_REGISTRY_CHANGED], timeout=2)
                 self.assertTrue(self.registry.has_data(sdk.WatchableType.RuntimePublishedValue))
@@ -357,18 +355,12 @@ class TestServerManager(ScrutinyBaseGuiTest):
                 req_rpv.cancel()
                 req_alias_var.cancel()
             else:
-                req_rpv._add_data({
-                    sdk.WatchableType.RuntimePublishedValue: DUMMY_DATASET_RPV
-                }, done=True)
+                req_rpv._add_data(sdk.WatchableListContentPart(rpv=DUMMY_DATASET_RPV), done=True)
                 self.fake_client._complete_success_watchable_list_request(req_rpv._request_id)
                 self.wait_events_and_clear([EventType.WATCHABLE_REGISTRY_CHANGED], timeout=2)
 
-                req_alias_var._add_data({
-                    sdk.WatchableType.Alias: DUMMY_DATASET_ALIAS
-                }, done=False)
-                req_alias_var._add_data({
-                    sdk.WatchableType.Variable: DUMMY_DATASET_VAR
-                }, done=True)
+                req_alias_var._add_data(sdk.WatchableListContentPart(alias=DUMMY_DATASET_ALIAS), done=False)
+                req_alias_var._add_data(sdk.WatchableListContentPart(var=DUMMY_DATASET_VAR), done=True)
                 self.fake_client._complete_success_watchable_list_request(req_alias_var._request_id)
                 self.wait_events_and_clear([EventType.WATCHABLE_REGISTRY_CHANGED], timeout=2)
 
@@ -424,18 +416,12 @@ class TestServerManager(ScrutinyBaseGuiTest):
             req_rpv = calls[rpv_call_registry].request
             req_alias_var = calls[alias_var_call_registry].request
 
-            req_rpv._add_data({
-                sdk.WatchableType.RuntimePublishedValue: DUMMY_DATASET_RPV
-            }, done=True)
+            req_rpv._add_data(sdk.WatchableListContentPart(rpv=DUMMY_DATASET_RPV), done=True)
             self.fake_client._complete_success_watchable_list_request(req_rpv._request_id)
             self.wait_events_and_clear([EventType.WATCHABLE_REGISTRY_CHANGED], timeout=2)
 
-            req_alias_var._add_data({
-                sdk.WatchableType.Alias: DUMMY_DATASET_ALIAS
-            }, done=False)
-            req_alias_var._add_data({
-                sdk.WatchableType.Variable: DUMMY_DATASET_VAR
-            }, done=True)
+            req_alias_var._add_data(sdk.WatchableListContentPart(alias=DUMMY_DATASET_ALIAS), done=False)
+            req_alias_var._add_data(sdk.WatchableListContentPart(var=DUMMY_DATASET_VAR), done=True)
             self.fake_client._complete_success_watchable_list_request(req_alias_var._request_id)
             self.wait_events_and_clear([EventType.WATCHABLE_REGISTRY_CHANGED], timeout=2)
 

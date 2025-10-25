@@ -573,11 +573,13 @@ class TestAPI(ScrutinyUnitTest):
         var_entries = self.make_dummy_entries(5, entry_type=WatchableType.Variable, prefix='var')
         alias_entries = self.make_dummy_entries(3, entry_type=WatchableType.Alias, prefix='alias', alias_bucket=var_entries)
         rpv_entries = self.make_dummy_entries(8, entry_type=WatchableType.RuntimePublishedValue, prefix='rpv')
+        var_factories = self.make_dummy_var_factory(4, prefix='var_factory')
 
         # Add entries in the datastore that we will reread through the API
         self.datastore.add_entries(var_entries)
         self.datastore.add_entries(alias_entries)
         self.datastore.add_entries(rpv_entries)
+        self.datastore.register_var_factories(var_factories)
 
         req = {
             'cmd': 'get_watchable_count'
@@ -592,11 +594,13 @@ class TestAPI(ScrutinyUnitTest):
         self.assertIn('var', response['qty'])
         self.assertIn('alias', response['qty'])
         self.assertIn('rpv', response['qty'])
+        self.assertIn('var_factory', response['qty'])
 
         self.assertEqual(response['cmd'], 'response_get_watchable_count')
         self.assertEqual(response['qty']['var'], 5)
         self.assertEqual(response['qty']['alias'], 3)
         self.assertEqual(response['qty']['rpv'], 8)
+        self.assertEqual(response['qty']['var_factory'], 4)
 
     def assert_get_watchable_list_response_format(self, response):
         self.assertIn('cmd', response)
