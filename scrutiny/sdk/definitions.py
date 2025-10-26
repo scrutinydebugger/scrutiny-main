@@ -34,6 +34,8 @@ __all__ = [
     'UserCommandResponse',
     'WatchableConfiguration',
     'WatchableConfigurationWithServerID',
+    'VariableFactoryInterface',
+    'WatchableListContentPart',
     'DataloggingEncoding',
     'SamplingRate',
     'FixedFreqSamplingRate',
@@ -44,9 +46,12 @@ __all__ = [
 ]
 
 import enum
+import math
+import itertools
 from dataclasses import dataclass
 from scrutiny.core.basic_types import MemoryRegion, EmbeddedDataType, WatchableType
 from scrutiny.core.embedded_enum import EmbeddedEnum
+from scrutiny.core import path_tools
 from scrutiny.core.firmware_description import SFDMetadata, SFDGenerationInfo
 from scrutiny.core.datalogging import DataloggingState
 from scrutiny.tools import validation
@@ -157,7 +162,7 @@ class DataloggingListChangeType(enum.Enum):
     """The server datalogging storage has been cleared completely"""
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class SupportedFeatureMap:
     """(Immutable struct) Represent the list of features that the connected device supports"""
 
@@ -175,7 +180,7 @@ class SupportedFeatureMap:
     Watching 64 bits variables does not depends on the device and is therefore always possible"""
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class DataloggingInfo:
     """(Immutable struct) Information about the datalogger that are volatile (change during the normal operation)"""
 
@@ -226,7 +231,7 @@ class VariableFreqSamplingRate(SamplingRate):
         validation.assert_type(self.name, 'name', str)
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class DataloggingCapabilities:
     """(Immutable struct) Tells what the device is able to achieve in terms of datalogging"""
 
@@ -251,7 +256,7 @@ class DataloggingCapabilities:
             validation.assert_type(self.sampling_rates[i], f'sampling_rates[{i}]', SamplingRate)
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class DeviceInfo:
     """(Immutable struct) Information about the device connected to the server"""
 
@@ -298,10 +303,10 @@ class DeviceInfo:
     """List of memory region that are read-only"""
 
     datalogging_capabilities: Optional[DataloggingCapabilities]
-    """Contains the device datalogging capabilites. ``None`` if datalogging is not supported"""
+    """Contains the device datalogging capabilities. ``None`` if datalogging is not supported"""
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class SFDInfo:
     """(Immutable struct) Represent a Scrutiny Firmware Description"""
 
@@ -447,7 +452,7 @@ class SerialLinkConfig(BaseLinkConfig):
     baudrate: int
     """Communication speed in baud/sec"""
     start_delay: float
-    """A delay of communication silence after opening the port. Accomodate devices that triggers a bootloader upon port open (like Arduino)."""
+    """A delay of communication silence after opening the port. Accommodate devices that triggers a bootloader upon port open (like Arduino)."""
     stopbits: StopBits = StopBits.ONE
     """Number of stop bits. 1, 1.5, 2"""
     databits: DataBits = DataBits.EIGHT
@@ -753,7 +758,7 @@ class CANLinkConfig(BaseLinkConfig):
 SupportedLinkConfig = Union[UDPLinkConfig, TCPLinkConfig, SerialLinkConfig, RTTLinkConfig, NoneLinkConfig, CANLinkConfig]
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class DeviceLinkInfo:
     """(Immutable struct) Represent a communication link between the server and a device"""
 
@@ -767,7 +772,7 @@ class DeviceLinkInfo:
     """``True`` if the server is running an emulated device for demo purpose. ``False`` otherwise"""
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class ServerInfo:
     """(Immutable struct) A summary of everything going on on the server side. Status broadcast by the server to every client."""
 
@@ -787,7 +792,7 @@ class ServerInfo:
     """Communication channel presently used to communicate with the device"""
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class UserCommandResponse:
     """(Immutable struct) Response returned by the device after performing a :meth:`ScrutinyClient.user_command<scrutiny.sdk.client.ScrutinyClient.user_command>`"""
 
@@ -801,7 +806,7 @@ class UserCommandResponse:
         return f'{self.__class__.__name__}(subfunction={self.subfunction}, data=b\'{hexlify(self.data).decode()}\')'
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class WatchableConfiguration:
     """(Immutable struct) Represents a watchable available in the server datastore"""
 
@@ -815,16 +820,132 @@ class WatchableConfiguration:
     """An optional enumeration associated with the possible values of the item"""
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class WatchableConfigurationWithServerID(WatchableConfiguration):
-    """(Immutable struct) Represents a watchable available in the server datastore"""
+    """(Immutable struct) Represents a watchable available in the server datastore with a server_id available"""
 
     server_id: str
     """The unique ID assigned to that watchable item by the server"""
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
+class VariableFactoryInterface:
+    """(Immutable struct) Represent a VariableFactory in the server. Can be sued to generate locally
+    all the variables that the server can instantiate from this factory.
+    Mainly used to create every array elements from a set of dimensions
+    """
+
+    access_path: str
+    """The basic path of the factory with encoded array information"""
+
+    datatype: EmbeddedDataType
+    """The data type of the value in the embedded firmware that this watchable refers to"""
+
+    enum: Optional[EmbeddedEnum]
+    """An optional enumeration associated with the possible values of the item"""
+
+    array_dims: Dict[str, Tuple[int, ...]]
+    """The dims of each subpath that are arrays element"""
+
+    def count_possible_paths(self) -> int:
+        """Returns how many path his factory can generate"""
+        if not self.is_valid():
+            return 0
+
+        total = 1
+        for dims in self.array_dims.values():
+            total *= math.prod(dims)
+        return total
+
+    def is_valid(self) -> bool:
+        """Tells if this VariableFactory as valid parameters"""
+        segments = path_tools.make_segments(self.access_path)
+        for path, dims in self.array_dims.items():
+            array_segments = path_tools.make_segments(path)
+            if len(array_segments) == 0 or len(array_segments) > len(segments):
+                return False
+            temp_path = path_tools.join_segments(segments[0:len(array_segments)])
+            if temp_path != path_tools.join_segments(array_segments):
+                return False
+
+            if len(dims) == 0:
+                return False
+
+            for dim in dims:
+                if dim <= 0:
+                    return False
+
+        return True
+
+    def iterate_possible_paths(self) -> Generator[Tuple[str, WatchableConfiguration], None, None]:
+        """Return all the variable display path that can be generated by this factory"""
+        if not self.is_valid():
+            return
+
+        segments = path_tools.make_segments(self.access_path)
+        array_dims_sorted_by_path = sorted([(path, dims) for path, dims in self.array_dims.items()], key=lambda x: x[0])
+        segments_position_lookup = [len(path_tools.make_segments(x[0])) - 1 for x in array_dims_sorted_by_path]
+        dims_count_lookup = [len(x[1]) for x in array_dims_sorted_by_path]
+        dims_iterator: List["range"] = []
+        for path, dims in array_dims_sorted_by_path:
+            dims_iterator.extend([range(x) for x in dims])
+
+        # Each iteration is a variable with all dimensions in the same list
+        # for /aa/bb[2][3]/cc[4].  this will iterate:  (0,0,0), (0,0,1), (0,0,2), (0,0,3), (0,1,0), etc...
+        for pos in itertools.product(*dims_iterator):
+            segments_copy = segments.copy()
+            for i in range(len(array_dims_sorted_by_path)):
+                dim_count = dims_count_lookup[i]
+                segment_pos = pos[0:dim_count]
+                pos = pos[dim_count:]
+                segments_copy[segments_position_lookup[i]] += ''.join([f'[{p}]' for p in segment_pos])
+
+            path = path_tools.join_segments(segments_copy)
+            watchable_def = WatchableConfiguration(
+                datatype=self.datatype,
+                watchable_type=WatchableType.Variable,
+                enum=self.enum
+            )
+            yield (path, watchable_def)
+
+
+@dataclass(slots=True, init=False)
+class WatchableListContentPart:
+    """A partial dataset received from the server when downloading the watchable list"""
+
+    def __init__(self,
+                 var: Optional[Dict[str, WatchableConfiguration]] = None,
+                 alias: Optional[Dict[str, WatchableConfiguration]] = None,
+                 rpv: Optional[Dict[str, WatchableConfiguration]] = None,
+                 var_factory: Optional[Dict[str, VariableFactoryInterface]] = None
+                 ) -> None:
+        self.var = {} if var is None else var
+        self.alias = {} if alias is None else alias
+        self.rpv = {} if rpv is None else rpv
+        self.var_factory = {} if var_factory is None else var_factory
+
+    var: Dict[str, WatchableConfiguration]
+    """The variables in the server datastore"""
+
+    alias: Dict[str, WatchableConfiguration]
+    """The aliases in the server datastore """
+
+    rpv: Dict[str, WatchableConfiguration]
+    """The runtime Published values in the server datastore """
+
+    var_factory: Dict[str, VariableFactoryInterface]
+    """The Variable factories (to instantiate variables from arrays) in the server datastore """
+
+    def extend(self, other: "WatchableListContentPart") -> None:
+        self.var.update(other.var)
+        self.alias.update(other.alias)
+        self.rpv.update(other.rpv)
+        self.var_factory.update(other.var_factory)
+
+
+@dataclass(frozen=True, slots=True)
 class ServerStatistics:
+    """Some statistics giving an insight of what's happening on the server side"""
 
     uptime: float
     """Time in seconds elapsed since the server has been started"""

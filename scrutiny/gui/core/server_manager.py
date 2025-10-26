@@ -7,7 +7,7 @@
 #
 #   Copyright (c) 2024 Scrutiny Debugger
 
-__all__ = ['ServerManager', 'ServerConfig', 'ValueUpdate', 'Statistics']
+__all__ = ['ServerManager', 'ServerConfig', 'ValueUpdate']
 
 from scrutiny import sdk
 import threading
@@ -15,6 +15,7 @@ import time
 import logging
 import queue
 import enum
+import os
 from copy import copy
 from dataclasses import dataclass
 
@@ -261,10 +262,13 @@ class ServerManager:
         datalogging_storage_updated = Signal(sdk.DataloggingListChangeType, str)  # type, reference_id
 
     RECONNECT_DELAY = 1
+    VAR_FACTORY_MAX_WATCHABLE = 1024            # Arbitrary value
+    VAR_FACTORY_MAX_TOTAL_GENERATED_VAR = 65536  # Arbitrary value
+
     _client: ScrutinyClient
     """The SDK client object that talks with the server"""
     _thread: Optional[threading.Thread]
-    """The thread tyhat runs the synchronous client"""
+    """The thread that runs the synchronous client"""
     _registry: WatchableRegistry
     """The watchable registry that holds the list of available watchables, downloaded from the server"""
 
@@ -291,7 +295,7 @@ class ServerManager:
     """Counter that tells how many status update we received"""
 
     _registration_status_store: Dict[sdk.WatchableType, Dict[str, WatchableRegistrationStatus]]
-    """A dictionnary tha tmaps servepath to a subscribtion status. Used to deal with request for subscription happening while another is not complete."""
+    """A dictionary that maps server paths to a subscription status. Used to deal with request for subscription happening while another is not complete."""
 
     _unit_test: bool
     """Enable some internal instrumentation for unit testing"""
@@ -400,6 +404,19 @@ class ServerManager:
         self._signals.device_ready.connect(self._device_ready_callback)
         self._signals.device_disconnected.connect(self._device_disconnected_callback)
         self._signals.server_disconnected.connect(self._server_disconnected_callback)
+
+        def read_env_positive_int(name: str, default: int) -> int:
+            if name in os.environ:
+                with tools.LogException(self._logger, Exception, f"Invalid value for {name}", str_level=logging.WARNING, suppress_exception=True):
+                    v = int(os.environ[name])
+                    if v < 0:
+                        raise ValueError(f"{name} cannot be negative")
+                    return v
+            return default
+
+        self.VAR_FACTORY_MAX_WATCHABLE = read_env_positive_int('SCRUTINY_GUI_MAX_GENERATED_VAR_PER_ELEMENT', self.VAR_FACTORY_MAX_WATCHABLE)
+        self.VAR_FACTORY_MAX_TOTAL_GENERATED_VAR = read_env_positive_int(
+            'SCRUTINY_GUI_MAX_TOTAL_GENERATED_VAR', self.VAR_FACTORY_MAX_TOTAL_GENERATED_VAR)
 
     # region Private - internal thread
 
@@ -524,7 +541,10 @@ class ServerManager:
                 self._logger.debug("Download of watchable list is complete. Group : runtime")
                 if self._thread_state.runtime_watchables_download_request.is_success:
                     data = self._thread_state.runtime_watchables_download_request.get()
-                    invoke_in_qt_thread_synchronized(lambda: self._registry.write_content(data), timeout=2)
+                    content = {
+                        sdk.WatchableType.RuntimePublishedValue: data.rpv
+                    }
+                    invoke_in_qt_thread_synchronized(lambda: self._registry.write_content(content), timeout=2)
                     self._signals.registry_changed.emit()
                 else:
                     invoke_in_qt_thread_synchronized(lambda: self._registry.clear_content_by_type(
@@ -540,7 +560,13 @@ class ServerManager:
                 self._logger.debug("Download of watchable list is complete. Group : SFD")
                 if self._thread_state.sfd_watchables_download_request.is_success:
                     data = self._thread_state.sfd_watchables_download_request.get()
-                    invoke_in_qt_thread_synchronized(lambda: self._registry.write_content(data), timeout=2)
+                    generated_var = self._make_var_watchable_from_factories(data.var_factory)
+                    data.var.update(generated_var)
+                    content = {
+                        sdk.WatchableType.Variable: data.var,
+                        sdk.WatchableType.Alias: data.alias,
+                    }
+                    invoke_in_qt_thread_synchronized(lambda: self._registry.write_content(content), timeout=2)
                     self._signals.registry_changed.emit()
                 else:
                     invoke_in_qt_thread_synchronized(lambda: self._registry.clear_content_by_type(
@@ -607,6 +633,42 @@ class ServerManager:
             self._logger.debug("Cleared registry for types: %s" % ([x.name for x in type_list]))
         if ctx.had_data:
             self._signals.registry_changed.emit()
+
+    def _make_var_watchable_from_factories(self, var_factories: Dict[str, sdk.VariableFactoryInterface]) -> Dict[str, sdk.WatchableConfiguration]:
+        """Take the variable factories received from the server and generate all the var watchables from them.
+        Might drop some of them to avoid bloating the registry with large buffers 
+        """
+        outdict: Dict[str, sdk.WatchableConfiguration] = {}
+        var_factories_filt: List[sdk.VariableFactoryInterface] = []
+        # Start by removing var factory that generate too many elements
+        for access_path, factory in var_factories.items():
+            path_count = factory.count_possible_paths()
+            if path_count <= self.VAR_FACTORY_MAX_WATCHABLE:
+                var_factories_filt.append(factory)
+            else:
+                if self._logger.isEnabledFor(logging.DEBUG):
+                    self._logger.debug(
+                        f"Ignoring variable factory \"{access_path}\" because it would generate too many watchables ({path_count}). Max={self.VAR_FACTORY_MAX_WATCHABLE}")
+
+        # Then successively remove factories to keep the number of generated watchables below a threshold
+        # Remove from biggest to smallest
+        var_factories_filt.sort(key=lambda x: x.count_possible_paths(), reverse=True)
+        total_element = sum([x.count_possible_paths() for x in var_factories_filt])
+        to_remove = max(total_element - self.VAR_FACTORY_MAX_TOTAL_GENERATED_VAR, 0)
+        removed = 0
+        while removed < to_remove and len(var_factories_filt) > 0:
+            if self._logger.isEnabledFor(logging.DEBUG):
+                self._logger.debug(
+                    f"Ignoring variable factory \"{var_factories_filt[0].access_path}\" because to avoid generating too much variables")
+            removed += var_factories_filt[0].count_possible_paths()
+            del var_factories_filt[0]
+
+        # Create a dict for the output
+        for factory in var_factories_filt:
+            for path, definition in factory.iterate_possible_paths():
+                outdict[path] = definition
+
+        return outdict
 
     # endregion
 
@@ -1005,7 +1067,7 @@ class ServerManager:
             if handle is None:
                 raise Exception(f"Item {fqn} is not being watched. Cannot write its value")
 
-            handle.value = value    # String parsing is done on by the server
+            handle.value = value    # String parsing is done by the server
 
         def ui_callback(_: None, exception: Optional[Exception]) -> None:
             callback(exception)
@@ -1037,7 +1099,7 @@ class ServerManager:
     def start(self, config: ServerConfig) -> None:
         # Called from the QT thread
         """Makes the server manager try to connect and monitor server state changes
-        Will autoreconnect on disconnection
+        Will auto-reconnect on disconnection
         """
         self._logger.debug("ServerManager.start() called")
         if self.is_running():

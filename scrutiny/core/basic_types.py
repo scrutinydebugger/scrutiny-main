@@ -13,7 +13,8 @@ __all__ = [
     'EmbeddedDataType',
     'RuntimePublishedValue',
     'MemoryRegion',
-    'WatchableType'
+    'WatchableType',
+    'ServerDatastoreContentType',
 ]
 
 from enum import Enum
@@ -239,3 +240,33 @@ class WatchableType(str, Enum):
     @classmethod
     def from_str(cls, v: str) -> "WatchableType":
         return WatchableType(v)
+
+
+class ServerDatastoreContentType(str, Enum):
+    """(Enum) Type of items that can be downloaded from the server.
+     This enum contains all watchable types + some special items.
+     """
+
+    Variable = 'var'
+    """A variable found in the device firmware debug symbols."""
+    RuntimePublishedValue = 'rpv'
+    """A readable/writable element identified by a 16bits ID. Explicitly defined in the device firmware source code"""
+    Alias = 'alias'
+    """A symbolic link watchable that can refers to a :attr:`Variable` or a :attr:`RuntimePublishedValue`"""
+    VariableFactory = 'var_factory'
+    """A data structure containing a pattern that can generate variables. Mainly used for array instantiation"""
+
+    @classmethod
+    def all(cls) -> List["ServerDatastoreContentType"]:
+        """Return the list of valid items. Mainly for unit testing"""
+        return [cls.Variable, cls.RuntimePublishedValue, cls.Alias, cls.VariableFactory]
+
+    def __str__(self) -> str:
+        return self.value
+
+    def to_str(self) -> str:
+        return str(self)
+
+    @classmethod
+    def from_str(cls, v: str) -> "ServerDatastoreContentType":
+        return ServerDatastoreContentType(v)

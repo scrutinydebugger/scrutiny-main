@@ -20,3 +20,17 @@ def make_segments(path: str) -> List[str]:
 def join_segments(segments: List[str]) -> str:
     """Joins a list of string segments into a path string"""
     return '/' + '/'.join(segments)
+
+
+def is_subpath(subpath: str, path: str) -> bool:
+    subpath_segments = make_segments(subpath)
+    path_segments = make_segments(path)
+    if len(subpath_segments) > len(path_segments):
+        return False
+    if len(subpath_segments) == 0:
+        return False
+
+    for i in range(len(subpath_segments)):
+        if subpath_segments[i] != path_segments[i]:
+            return False
+    return True

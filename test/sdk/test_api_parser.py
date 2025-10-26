@@ -33,12 +33,12 @@ class Delete:
 class TestApiParser(ScrutinyUnitTest):
 
     def test_parse_get_watchable_list(self):
-        def base():
+        def base() -> api_typing.S2C.GetWatchableList:
             return {
                 "cmd": "response_get_watchable_list",
                 "reqid": 123,
                 "done": True,
-                "qty": {"var": 2, "alias": 2, "rpv": 1},
+                "qty": {"var": 2, "alias": 2, "rpv": 1, 'var_factory': 1},
                 "content": {
                     "var": [{
                         "path": "/a/b/c",
@@ -55,6 +55,17 @@ class TestApiParser(ScrutinyUnitTest):
                         "path": "/a/b/d",
                         "dtype": "uint64",
                     }],
+                    'var_factory': [
+                        {
+                            "path": "/qq/ww/ee",
+                            "dtype": "sint16",
+                            'factory_params': {
+                                'array_nodes': {
+                                    '/qq/ww': [2, 3, 4]
+                                }
+                            }
+                        }
+                    ],
                     "alias": [{
                         "path": "/x/y/z",
                         "dtype": "float32",
@@ -78,25 +89,25 @@ class TestApiParser(ScrutinyUnitTest):
         res = parser.parse_get_watchable_list(base())
         self.assertIsInstance(res, parser.GetWatchableListResponse)
         self.assertEqual(res.done, True)
-        self.assertIsInstance(res.data, dict)
-        self.assertEqual(len(res.data), 3)
+        self.assertIsInstance(res.data.var, dict)
+        self.assertIsInstance(res.data.alias, dict)
+        self.assertIsInstance(res.data.rpv, dict)
+        self.assertIsInstance(res.data.var_factory, dict)
 
-        self.assertIn(WatchableType.Variable, res.data)
-        self.assertIn(WatchableType.Alias, res.data)
-        self.assertIn(WatchableType.RuntimePublishedValue, res.data)
+        self.assertEqual(len(res.data.var), 2)
+        self.assertEqual(len(res.data.alias), 2)
+        self.assertEqual(len(res.data.rpv), 1)
+        self.assertEqual(len(res.data.var_factory), 1)
 
-        self.assertEqual(len(res.data[WatchableType.Variable]), 2)
-        self.assertEqual(len(res.data[WatchableType.Alias]), 2)
-        self.assertEqual(len(res.data[WatchableType.RuntimePublishedValue]), 1)
+        self.assertIn("/a/b/c", res.data.var)
+        self.assertIn("/a/b/d", res.data.var)
+        self.assertIn("/x/y/z", res.data.alias)
+        self.assertIn("/x/y/w", res.data.alias)
+        self.assertIn("/aaa/bbb/ccc", res.data.rpv)
+        self.assertIn("/qq/ww/ee", res.data.var_factory)
 
-        self.assertIn("/a/b/c", res.data[WatchableType.Variable])
-        self.assertIn("/a/b/d", res.data[WatchableType.Variable])
-        self.assertIn("/x/y/z", res.data[WatchableType.Alias])
-        self.assertIn("/x/y/w", res.data[WatchableType.Alias])
-        self.assertIn("/aaa/bbb/ccc", res.data[WatchableType.RuntimePublishedValue])
-
-        o = res.data[WatchableType.Variable]['/a/b/c']
-        self.assertEqual(o.watchable_type, WatchableType.Variable)
+        o = res.data.var['/a/b/c']
+        self.assertEqual(o.watchable_type, ServerDatastoreContentType.Variable)
         self.assertEqual(o.datatype, EmbeddedDataType.sint32)
         self.assertEqual(o.enum.name, 'example_enum')
         self.assertEqual(o.enum.vals['aaa'], 1)
@@ -104,29 +115,29 @@ class TestApiParser(ScrutinyUnitTest):
         self.assertEqual(o.enum.vals['ccc'], 3)
         self.assertEqual(len(o.enum.vals), 3)
 
-        o = res.data[WatchableType.Variable]['/a/b/d']
-        self.assertEqual(o.watchable_type, WatchableType.Variable)
+        o = res.data.var['/a/b/d']
+        self.assertEqual(o.watchable_type, ServerDatastoreContentType.Variable)
         self.assertEqual(o.datatype, EmbeddedDataType.uint64)
 
-        o = res.data[WatchableType.Alias]['/x/y/z']
-        self.assertEqual(o.watchable_type, WatchableType.Alias)
+        o = res.data.alias['/x/y/z']
+        self.assertEqual(o.watchable_type, ServerDatastoreContentType.Alias)
         self.assertEqual(o.datatype, EmbeddedDataType.float32)
 
-        o = res.data[WatchableType.Alias]['/x/y/w']
-        self.assertEqual(o.watchable_type, WatchableType.Alias)
+        o = res.data.alias['/x/y/w']
+        self.assertEqual(o.watchable_type, ServerDatastoreContentType.Alias)
         self.assertEqual(o.datatype, EmbeddedDataType.float64)
 
-        o = res.data[WatchableType.RuntimePublishedValue]['/aaa/bbb/ccc']
-        self.assertEqual(o.watchable_type, WatchableType.RuntimePublishedValue)
+        o = res.data.rpv['/aaa/bbb/ccc']
+        self.assertEqual(o.watchable_type, ServerDatastoreContentType.RuntimePublishedValue)
         self.assertEqual(o.datatype, EmbeddedDataType.sint8)
 
-        for wt in ('var', 'alias', 'rpv'):
+        for wt in ('var', 'alias', 'rpv', 'var_factory'):
             with self.assertRaises(sdk.exceptions.BadResponseError):
                 response = base()
                 response['qty'][wt] = 5
                 res = parser.parse_get_watchable_list(response)
 
-        for wt in ('var', 'alias', 'rpv'):
+        for wt in ('var', 'alias', 'rpv', 'var_factory'):
             for val in [[], {}, None, 3.5, 1, True, Delete, ""]:
                 for field in ('dtype', 'path'):
                     with self.assertRaises(sdk.exceptions.BadResponseError, msg=f"wt={wt}, val={val}, field={field}"):
@@ -177,6 +188,36 @@ class TestApiParser(ScrutinyUnitTest):
             with self.assertRaises(sdk.exceptions.BadResponseError, msg=f"val={val}"):
                 response = base()
                 response["content"]['var'][0]['enum']['values']["aaa"] = val
+                parser.parse_get_watchable_list(response)
+
+        for val in [None, 3.5, 1, True, "", Delete]:
+            with self.assertRaises(sdk.exceptions.BadResponseError, msg=f"val={val}"):
+                response = base()
+                if val == Delete:
+                    del response["content"]["var_factory"][0]["factory_params"]
+                else:
+                    response["content"]["var_factory"][0]["factory_params"] = val
+                parser.parse_get_watchable_list(response)
+
+        for val in [None, 3.5, 1, True, "", Delete]:
+            with self.assertRaises(sdk.exceptions.BadResponseError, msg=f"val={val}"):
+                response = base()
+                if val == Delete:
+                    del response["content"]["var_factory"][0]["factory_params"]['array_nodes']
+                else:
+                    response["content"]["var_factory"][0]["factory_params"]['array_nodes'] = val
+                parser.parse_get_watchable_list(response)
+
+        for key in [None, 3.5, 1, True, "", '/', '/qq/ww/e', '/qq/ww/ee/rr', 'aksdghaskd']:  # valid values are: /qq, /qq/ww, /qq/ww/ee
+            with self.assertRaises(sdk.exceptions.BadResponseError, msg=f"key={key}"):
+                response = base()
+                response["content"]["var_factory"][0]["factory_params"]['array_nodes'][key] = [1, 2, 3]
+                parser.parse_get_watchable_list(response)
+
+        for val in [None, 3.5, 1, True, ""]:
+            with self.assertRaises(sdk.exceptions.BadResponseError, msg=f"val={val}"):
+                response = base()
+                response["content"]["var_factory"][0]["factory_params"]['array_nodes']['/a/bb'] = val
                 parser.parse_get_watchable_list(response)
 
     def test_parse_subscribe_watchable(self):
@@ -1444,6 +1485,7 @@ class TestApiParser(ScrutinyUnitTest):
                     'alias': 10,
                     'var': 20,
                     'rpv': 30,
+                    'var_factory': 40,
                 }
             }
 
@@ -1454,17 +1496,18 @@ class TestApiParser(ScrutinyUnitTest):
 
         msg = base()
         count = parser.parse_get_watchable_count(msg)
-        self.assertEqual(count[WatchableType.Alias], 10)
-        self.assertEqual(count[WatchableType.Variable], 20)
-        self.assertEqual(count[WatchableType.RuntimePublishedValue], 30)
-        self.assertEqual(len(count), 3)
+        self.assertEqual(count[ServerDatastoreContentType.Alias], 10)
+        self.assertEqual(count[ServerDatastoreContentType.Variable], 20)
+        self.assertEqual(count[ServerDatastoreContentType.RuntimePublishedValue], 30)
+        self.assertEqual(count[ServerDatastoreContentType.VariableFactory], 40)
+        self.assertEqual(len(count), 4)
 
         with self.assertRaises(sdk.exceptions.BadResponseError):
             msg = base()
             del msg['qty']
             parser.parse_get_watchable_count(msg)
 
-        for key in ['var', 'alias', 'rpv']:
+        for key in ['var', 'alias', 'rpv', 'var_factory']:
             for val in [None, -1, 2.5, [], {}, True, Delete]:
                 with self.assertRaises(sdk.exceptions.BadResponseError, msg=f"key={key}, val={val}"):
                     msg = base()

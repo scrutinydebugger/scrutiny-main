@@ -255,7 +255,28 @@ Following is the object returned :meth:`download_watchable_list<scrutiny.sdk.cli
 
 -----
 
+.. autoclass:: scrutiny.sdk.ServerDatastoreContentType
+    :exclude-members: __new__, __init__
+    :member-order: bysource
+    :members:
+
+-----
+
 .. autoclass:: scrutiny.sdk.WatchableConfiguration
+    :exclude-members: __new__, __init__
+    :member-order: bysource
+    :members:
+
+-----
+
+.. autoclass:: scrutiny.sdk.WatchableListContentPart
+    :exclude-members: __new__, __init__
+    :member-order: bysource
+    :members:
+
+-----
+
+.. autoclass:: scrutiny.sdk.VariableFactoryInterface
     :exclude-members: __new__, __init__
     :member-order: bysource
     :members:

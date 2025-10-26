@@ -17,6 +17,8 @@ import logging
 from scrutiny.core.firmware_description import FirmwareDescription
 from scrutiny.server.sfd_storage import SFDStorage
 from scrutiny.core.basic_types import WatchableType
+from scrutiny.core.variable import Variable
+from scrutiny.core.variable_factory import VariableFactory
 from scrutiny.server.device.device_handler import DeviceHandler
 from scrutiny.server.datastore.datastore import Datastore
 from scrutiny.server.datastore.datastore_entry import DatastoreAliasEntry, DatastoreVariableEntry
@@ -137,8 +139,11 @@ class ActiveSFDHandler:
             # populate datastore
             for fullname, vardef in self.sfd.get_vars_for_datastore():
                 try:
-                    entry_var = DatastoreVariableEntry(display_path=fullname, variable_def=vardef)
-                    self.datastore.add_entry(entry_var)
+                    if isinstance(vardef, Variable):
+                        entry_var = DatastoreVariableEntry(display_path=fullname, variable_def=vardef)
+                        self.datastore.add_entry(entry_var)
+                    elif isinstance(vardef, VariableFactory):
+                        self.datastore.register_var_factory(vardef)
                 except Exception as e:
                     tools.log_exception(self.logger, e, f"Cannot add entry {fullname}", str_level=logging.WARNING)
 

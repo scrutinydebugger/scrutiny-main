@@ -912,6 +912,9 @@
         },
         "scrutiny/core/variable_factory.py": {
             "docstring": "A class that can instantiate variables based on a base variable and additional information. Mainly to instantiate array items "
+        },
+        "test/sdk/test_basics.py": {
+            "docstring": "Test basic classes of the SDK"
         }
     }
 }

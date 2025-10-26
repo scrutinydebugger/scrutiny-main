@@ -9,6 +9,7 @@
 
 __all__ = ['VariableFactory']
 
+from scrutiny.core import path_tools
 from scrutiny.core.variable import Variable
 from scrutiny.core.array import UntypedArray
 from scrutiny.core.scrutiny_path import ScrutinyPath
@@ -43,7 +44,8 @@ class VariableFactory:
     def add_array_node(self, path: str, array: UntypedArray) -> None:
         if path in self._array_nodes:
             raise KeyError(f"Duplicate array node at {path}")
-        if not self._access_name.startswith(path):
+
+        if not path_tools.is_subpath(subpath=path, path=self._access_name):
             raise ValueError(f"Cannot add an array node at {path} for access name {self._access_name}")
         self._array_nodes[path] = array
 

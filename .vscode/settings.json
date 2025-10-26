@@ -9,7 +9,7 @@
     "python.defaultInterpreterPath" : "venv/bin/python3",
     "[python]": {
         "editor.defaultFormatter": "ms-python.autopep8",
-        "editor.formatOnSave": true
+        "editor.formatOnSave": false
     },
     "python.analysis.extraPaths": ["stubs"],
     "[docker]": {
@@ -79,6 +79,12 @@
                 "catched" : "caught",
                 "tmep" : "temp",
                 "tmepoorary" : "temporary",
+                "tyhat" : "that",
+                "dictionnary" : "dictionary",
+                "watcahbles" : "watchables",
+                "watcahble" : "watchable",
+                "blaoting" : "bloating",
+                "blaot" : "bloat",
             }
         }]
 }
