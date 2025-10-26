@@ -158,10 +158,10 @@ class BaseCustomeTestArm32R52_ArmNoneEabiGcc10_2(BaseVarmapTest):
         self.assert_var('/global/file2GlobalArray1Int5/file2GlobalArray1Int5[4]', EmbeddedDataType.sint32, value_at_loc=5555)
 
     def test_array_2d(self):
-        self.assert_var('/global/file2GlobalArray2x2Float[0][0]', EmbeddedDataType.float32, value_at_loc=1.1)
-        self.assert_var('/global/file2GlobalArray2x2Float[0][1]', EmbeddedDataType.float32, value_at_loc=2.2)
-        self.assert_var('/global/file2GlobalArray2x2Float[1][0]', EmbeddedDataType.float32, value_at_loc=3.3)
-        self.assert_var('/global/file2GlobalArray2x2Float[1][1]', EmbeddedDataType.float32, value_at_loc=4.4)
+        self.assert_var('/global/file2GlobalArray2x2Float/file2GlobalArray2x2Float[0][0]', EmbeddedDataType.float32, value_at_loc=1.1)
+        self.assert_var('/global/file2GlobalArray2x2Float/file2GlobalArray2x2Float[0][1]', EmbeddedDataType.float32, value_at_loc=2.2)
+        self.assert_var('/global/file2GlobalArray2x2Float/file2GlobalArray2x2Float[1][0]', EmbeddedDataType.float32, value_at_loc=3.3)
+        self.assert_var('/global/file2GlobalArray2x2Float/file2GlobalArray2x2Float[1][1]', EmbeddedDataType.float32, value_at_loc=4.4)
 
     def test_class_file2(self):
         self.assert_var('/global/file2ClassBInstance/intInClassB', EmbeddedDataType.sint32, value_at_loc=-11111)

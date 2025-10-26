@@ -20,11 +20,18 @@ class TestDatalogging(ScrutinyUnitTest):
                 '/aa/bb': (2, 3),
                 '/aa/bb/cc/dd': (5,)
             },
-            enum=None
+            enum=sdk.EmbeddedEnum('SomeEnum', {'aaa': 100, 'bbb': 200})
         )
 
         self.assertEqual(factory_interface.count_possible_paths(), 30)
-        all_paths = list(factory_interface.iterate_possible_paths())
+        all_paths = []
+        for path, config in factory_interface.iterate_possible_paths():
+            all_paths.append(path)
+            self.assertEqual(config.datatype, sdk.EmbeddedDataType.float32)
+            self.assertEqual(config.watchable_type, sdk.WatchableType.Variable)
+            self.assertIsNotNone(config.enum)
+            self.assertEqual(config.enum.name, 'SomeEnum')
+            
         all_paths_unique = set(all_paths)
         self.assertEqual(len(all_paths), len(all_paths_unique))
         self.assertEqual(len(all_paths_unique), factory_interface.count_possible_paths())

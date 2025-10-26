@@ -2655,7 +2655,7 @@ class TestClient(ScrutinyUnitTest):
                     obj = d[path]
                     if key == 'var_factory':
                         self.assertIsInstance(obj, sdk.VariableFactoryInterface)
-                        for path in obj.iterate_possible_paths():
+                        for path, config in obj.iterate_possible_paths():
                             self.datastore.get_entry_by_display_path(path)  # Check that this entry exist
                     else:
                         self.assertIsInstance(obj, sdk.WatchableConfiguration)
