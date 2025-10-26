@@ -11,6 +11,7 @@ set -x
 echo -e "\nTesting example code..."
 
 cd $tempdir
+# We don't want errors on redundant casts because we support multiple version of pythons and some older version requires casts that newer don't
 MYPY_OPTIONS="--no-warn-redundant-casts --strict --cache-dir $tempdir"
 
 # HIL testing
