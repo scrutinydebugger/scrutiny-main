@@ -22,6 +22,7 @@ import scrutiny
 import scrutiny.core.firmware_id as firmware_id
 from scrutiny.core.varmap import VarMap
 from scrutiny.core.variable import Variable
+from scrutiny.core.variable_factory import VariableFactory
 from scrutiny.server.datastore.datastore import Datastore
 from scrutiny.core.basic_types import WatchableType
 from scrutiny.core.alias import Alias
@@ -394,13 +395,10 @@ class FirmwareDescription:
         if self.metadata.author is None:
             logging.warning('No valid author defined in %s' % self.METADATA_FILENAME)
 
-    def get_vars_for_datastore(self) -> Generator[Tuple[str, Variable], None, None]:
+    def get_vars_for_datastore(self) -> Generator[Tuple[str, Union[Variable, VariableFactory]], None, None]:
         """Returns all variables in this SFD with a Generator to avoid consuming memory."""
-        for fullname, var in self.varmap.iterate_vars():
-            if isinstance(var, Variable):
-                yield (fullname, var)
-            # todo : Factory
-
+        yield from self.varmap.iterate_vars()
+           
     def get_aliases_for_datastore(self, entry_type: Optional[WatchableType] = None) -> Generator[Tuple[str, Alias], None, None]:
         """Returns all alias in this SFD with a Generator to avoid consuming memory."""
         for k in self.aliases:

@@ -543,6 +543,14 @@ class ServerManager:
                 self._logger.debug("Download of watchable list is complete. Group : SFD")
                 if self._thread_state.sfd_watchables_download_request.is_success:
                     data = self._thread_state.sfd_watchables_download_request.get()
+
+                    temp_var = {}
+                    for a in data.var_factory.values():
+                        for path, definition in a.iterate_possible_paths():
+                            temp_var[path] = definition
+                    self._logger.info(f"We have {len(data.var_factory)} var factories and {len(temp_var)} var derived from them")
+                    data.var.update(temp_var)
+
                     content = {
                         sdk.WatchableType.Variable: data.var,
                         sdk.WatchableType.Alias: data.alias,
