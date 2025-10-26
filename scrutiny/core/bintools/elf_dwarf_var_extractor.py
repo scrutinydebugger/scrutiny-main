@@ -1215,9 +1215,9 @@ class ElfDwarfVarExtractor:
                 self.register_member_as_var_recursive(new_path_segments, submember, location, offset, array_segments)
         elif member.member_type == Struct.Member.MemberType.SubArray:
             array = member.get_array()
-            # We group arrays element together.  /aaa/bbb/ccc/ccc[0].  
+            # We group arrays element together.  /aaa/bbb/ccc/ccc[0].
             # Here, we start with /aaa/bbb/ccc and create /aaa/bbb/ccc/ccc with array on the last node
-            path_segments.append(path_segments[-1]) 
+            path_segments.append(path_segments[-1])
 
             new_array_segments = array_segments.shallow_copy()
             new_array_segments.add(path_segments, array)

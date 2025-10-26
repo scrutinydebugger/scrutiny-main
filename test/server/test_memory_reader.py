@@ -19,6 +19,8 @@ from scrutiny.server.protocol import Protocol, Request, Response
 import scrutiny.server.protocol.typing as protocol_typing
 from scrutiny.server.protocol.commands import *
 from scrutiny.core.variable import *
+from scrutiny.core.variable_factory import VariableFactory
+from scrutiny.core.array import UntypedArray
 from scrutiny.core.basic_types import *
 from test import ScrutinyUnitTest
 from scrutiny.core.codecs import Codecs, Encodable
@@ -157,7 +159,17 @@ class TestMemoryReaderBasicReadOperation(ScrutinyUnitTest):
         address = 0x1000
         ds = Datastore()
         entries = list(make_dummy_var_entries(address=address, n=nfloat, vartype=EmbeddedDataType.float32))
+        factory = VariableFactory('/some/var/factory', Variable(
+            vartype=EmbeddedDataType.float32,
+            location=0x100000,
+            path_segments='/some/var/factory',
+            endianness=Endianness.Little
+        ))
+        factory.add_array_node('/some/var/factory', UntypedArray((10,), 4))
+
         ds.add_entries(entries)
+        ds.register_var_factory(factory)
+
         dispatcher = RequestDispatcher()
 
         protocol = Protocol(1, 0)
@@ -169,12 +181,18 @@ class TestMemoryReaderBasicReadOperation(ScrutinyUnitTest):
 
         for entry in entries:
             ds.start_watching(entry, 'unittest')
+        generated_entry = cast(DatastoreVariableEntry, ds.get_entry_by_display_path('/some/var/factory[5]'))
+        ds.start_watching(generated_entry, 'unittest')
 
+        # Read 1 block of variable + a generated Variable (array)
         expected_blocks_sequence = [
-            [BlockToRead(address, nfloat, entries)]
+            [BlockToRead(address, nfloat, entries), BlockToRead(0x100000 + 5 * 4, 1, [generated_entry])]
         ]
 
         self.generic_test_read_block_sequence(expected_blocks_sequence, reader, dispatcher, protocol, niter=5)
+
+        ds.stop_watching_all('unittest')
+        reader.process()
 
     def test_read_request_multiple_blocks_2blocks_per_req(self):
         # Here, we define 3 non-contiguous block of memory and impose a limit on the request size to allow only 2 blocks read per request.

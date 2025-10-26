@@ -260,14 +260,14 @@ class Datastore:
                     # If nobody watches this alias, then we can remove the internal subscription to the referenced entry
                     self.stop_watching(entry.resolve(), self._make_owner_from_alias_entry(entry))
 
-        if entry.display_path in self._display_path_to_templated_entries_map:
-            if not self.has_watchers(entry):
-                self.remove_entry(entry)
-
         entry.unregister_value_change_callback(watcher)
 
         for callback in self._global_unwatch_callbacks:
             callback(entry_id)  # Mainly used by the device handler to know it can stop polling that entry
+
+        if entry.display_path in self._display_path_to_templated_entries_map:
+            if not self.has_watchers(entry):
+                self.remove_entry(entry)
 
     def stop_watching_all(self, watcher: str) -> None:
         for watchable_type in WatchableType.all():

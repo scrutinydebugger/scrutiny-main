@@ -7,7 +7,7 @@
 #
 #   Copyright (c) 2024 Scrutiny Debugger
 
-__all__ = ['ServerManager', 'ServerConfig', 'ValueUpdate', 'Statistics']
+__all__ = ['ServerManager', 'ServerConfig', 'ValueUpdate']
 
 from scrutiny import sdk
 import threading
@@ -261,10 +261,13 @@ class ServerManager:
         datalogging_storage_updated = Signal(sdk.DataloggingListChangeType, str)  # type, reference_id
 
     RECONNECT_DELAY = 1
+    VAR_FACTORY_MAX_WATCHABLE = 1024
+    VAR_FACTORY_MAX_TOTAL_GENERATED_VAR = 65536
+
     _client: ScrutinyClient
     """The SDK client object that talks with the server"""
     _thread: Optional[threading.Thread]
-    """The thread tyhat runs the synchronous client"""
+    """The thread that runs the synchronous client"""
     _registry: WatchableRegistry
     """The watchable registry that holds the list of available watchables, downloaded from the server"""
 
@@ -291,7 +294,7 @@ class ServerManager:
     """Counter that tells how many status update we received"""
 
     _registration_status_store: Dict[sdk.WatchableType, Dict[str, WatchableRegistrationStatus]]
-    """A dictionnary tha tmaps servepath to a subscribtion status. Used to deal with request for subscription happening while another is not complete."""
+    """A dictionary that maps server paths to a subscription status. Used to deal with request for subscription happening while another is not complete."""
 
     _unit_test: bool
     """Enable some internal instrumentation for unit testing"""
@@ -543,14 +546,8 @@ class ServerManager:
                 self._logger.debug("Download of watchable list is complete. Group : SFD")
                 if self._thread_state.sfd_watchables_download_request.is_success:
                     data = self._thread_state.sfd_watchables_download_request.get()
-
-                    temp_var = {}
-                    for a in data.var_factory.values():
-                        for path, definition in a.iterate_possible_paths():
-                            temp_var[path] = definition
-                    self._logger.info(f"We have {len(data.var_factory)} var factories and {len(temp_var)} var derived from them")
-                    data.var.update(temp_var)
-
+                    generated_var = self._make_var_watchable_from_factories(data.var_factory)
+                    data.var.update(generated_var)
                     content = {
                         sdk.WatchableType.Variable: data.var,
                         sdk.WatchableType.Alias: data.alias,
@@ -622,6 +619,42 @@ class ServerManager:
             self._logger.debug("Cleared registry for types: %s" % ([x.name for x in type_list]))
         if ctx.had_data:
             self._signals.registry_changed.emit()
+
+    def _make_var_watchable_from_factories(self, var_factories: Dict[str, sdk.VariableFactoryInterface]) -> Dict[str, sdk.WatchableConfiguration]:
+        """Take the variable factories received from the server and generate all the var watchables from them.
+        Might drop some of them to avoid bloating the registry with large buffers 
+        """
+        outdict: Dict[str, sdk.WatchableConfiguration] = {}
+        var_factories_filt: List[sdk.VariableFactoryInterface] = []
+        # Start by removing var factory that generate too many elements
+        for access_path, factory in var_factories.items():
+            path_count = factory.count_possible_paths()
+            if path_count <= self.VAR_FACTORY_MAX_WATCHABLE:
+                var_factories_filt.append(factory)
+            else:
+                if self._logger.isEnabledFor(logging.DEBUG):
+                    self._logger.debug(
+                        f"Ignoring variable factory \"{access_path}\" because it would generate too many watchables ({path_count}). Max={self.VAR_FACTORY_MAX_WATCHABLE}")
+
+        # Then successively remove factories to keep the number of generated watchables below a threshold
+        # Remove from biggest to smallest
+        var_factories_filt.sort(key=lambda x: x.count_possible_paths(), reverse=True)
+        total_element = sum([x.count_possible_paths() for x in var_factories_filt])
+        to_remove = max(total_element - self.VAR_FACTORY_MAX_TOTAL_GENERATED_VAR, 0)
+        removed = 0
+        while removed < to_remove and len(var_factories_filt) > 0:
+            if self._logger.isEnabledFor(logging.DEBUG):
+                self._logger.debug(
+                    f"Ignoring variable factory \"{var_factories_filt[0].access_path}\" because to avoid generating too much variables")
+            removed += var_factories_filt[0].count_possible_paths()
+            del var_factories_filt[0]
+
+        # Create a dict for the output
+        for factory in var_factories_filt:
+            for path, definition in factory.iterate_possible_paths():
+                outdict[path] = definition
+
+        return outdict
 
     # endregion
 
