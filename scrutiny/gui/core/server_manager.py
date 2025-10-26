@@ -15,6 +15,7 @@ import time
 import logging
 import queue
 import enum
+import os
 from copy import copy
 from dataclasses import dataclass
 
@@ -261,8 +262,8 @@ class ServerManager:
         datalogging_storage_updated = Signal(sdk.DataloggingListChangeType, str)  # type, reference_id
 
     RECONNECT_DELAY = 1
-    VAR_FACTORY_MAX_WATCHABLE = 1024
-    VAR_FACTORY_MAX_TOTAL_GENERATED_VAR = 65536
+    VAR_FACTORY_MAX_WATCHABLE = 1024            # Arbitrary value
+    VAR_FACTORY_MAX_TOTAL_GENERATED_VAR = 65536  # Arbitrary value
 
     _client: ScrutinyClient
     """The SDK client object that talks with the server"""
@@ -403,6 +404,19 @@ class ServerManager:
         self._signals.device_ready.connect(self._device_ready_callback)
         self._signals.device_disconnected.connect(self._device_disconnected_callback)
         self._signals.server_disconnected.connect(self._server_disconnected_callback)
+
+        def read_env_positive_int(name: str, default: int) -> int:
+            if name in os.environ:
+                with tools.LogException(self._logger, Exception, f"Invalid value for {name}", str_level=logging.WARNING, suppress_exception=True):
+                    v = int(os.environ[name])
+                    if v < 0:
+                        raise ValueError(f"{name} cannot be negative")
+                    return v
+            return default
+
+        self.VAR_FACTORY_MAX_WATCHABLE = read_env_positive_int('SCRUTINY_GUI_MAX_GENERATED_VAR_PER_ELEMENT', self.VAR_FACTORY_MAX_WATCHABLE)
+        self.VAR_FACTORY_MAX_TOTAL_GENERATED_VAR = read_env_positive_int(
+            'SCRUTINY_GUI_MAX_TOTAL_GENERATED_VAR', self.VAR_FACTORY_MAX_TOTAL_GENERATED_VAR)
 
     # region Private - internal thread
 
@@ -1053,7 +1067,7 @@ class ServerManager:
             if handle is None:
                 raise Exception(f"Item {fqn} is not being watched. Cannot write its value")
 
-            handle.value = value    # String parsing is done on by the server
+            handle.value = value    # String parsing is done by the server
 
         def ui_callback(_: None, exception: Optional[Exception]) -> None:
             callback(exception)
@@ -1085,7 +1099,7 @@ class ServerManager:
     def start(self, config: ServerConfig) -> None:
         # Called from the QT thread
         """Makes the server manager try to connect and monitor server state changes
-        Will autoreconnect on disconnection
+        Will auto-reconnect on disconnection
         """
         self._logger.debug("ServerManager.start() called")
         if self.is_running():

@@ -247,7 +247,7 @@ class Datastore:
         """Indicates that a watcher does not want to watch an entry anymore.
         Mainly removes the callback for that watcher for that given entry. 
         Also notifies the rest of the application through callback (mostly MemoryReader/MemoryWriter)
-        
+
         :param entry_or_entryid: The entry to stop watching
         :watcher: The name of the watcher
         """

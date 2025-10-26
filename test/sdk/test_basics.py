@@ -31,7 +31,7 @@ class TestDatalogging(ScrutinyUnitTest):
             self.assertEqual(config.watchable_type, sdk.WatchableType.Variable)
             self.assertIsNotNone(config.enum)
             self.assertEqual(config.enum.name, 'SomeEnum')
-            
+
         all_paths_unique = set(all_paths)
         self.assertEqual(len(all_paths), len(all_paths_unique))
         self.assertEqual(len(all_paths_unique), factory_interface.count_possible_paths())
