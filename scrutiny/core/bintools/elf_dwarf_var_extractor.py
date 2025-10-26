@@ -1215,7 +1215,9 @@ class ElfDwarfVarExtractor:
                 self.register_member_as_var_recursive(new_path_segments, submember, location, offset, array_segments)
         elif member.member_type == Struct.Member.MemberType.SubArray:
             array = member.get_array()
-            path_segments.append(path_segments[-1])
+            # We group arrays element together.  /aaa/bbb/ccc/ccc[0].  
+            # Here, we start with /aaa/bbb/ccc and create /aaa/bbb/ccc/ccc with array on the last node
+            path_segments.append(path_segments[-1]) 
 
             new_array_segments = array_segments.shallow_copy()
             new_array_segments.add(path_segments, array)
@@ -1432,7 +1434,8 @@ class ElfDwarfVarExtractor:
         # There is a name available, we add it to the path and keep going
         if name is not None:
             varpath.prepend_segment(name=name, array=array)
-            varpath.prepend_segment(name=name)  # Add a level to group the array elements togethers /aaa/bbb/ccc/ccc[0]
+            if array is not None:
+                varpath.prepend_segment(name=name)  # Add a level to group the array elements togethers /aaa/bbb/ccc/ccc[0]
             parent = die.get_parent()
             if parent is not None:
                 return self.make_varpath_recursive(parent, varpath)
