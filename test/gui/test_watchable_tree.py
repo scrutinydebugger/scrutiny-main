@@ -299,7 +299,7 @@ class TestWatchableTree(BaseWatchableTreeTest):
         self.model.add_row_to_parent(rowG[0], -1, rowH)
 
         indexes = [rowC[0].index(), rowD[0].index(), rowE[0].index(), rowB[0].index(), rowH[0].index()]
-        indexes_fitlered = self.model.remove_nested_indexes(indexes)
+        indexes_fitlered = self.model.remove_nested_indexes_unordered(indexes)
         self.assertEqual(len(indexes_fitlered), 2)
 
         self.assertIn(rowC[0].index(), indexes_fitlered)
