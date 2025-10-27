@@ -41,14 +41,14 @@ varlist.setup()
 
 registry.write_content({
     WatchableType.Alias: {
-        '/my_var': WatchableConfiguration('my_var', WatchableType.Variable, EmbeddedDataType.float32, enum=None)
+        '/my_var': WatchableConfiguration(WatchableType.Variable, EmbeddedDataType.float32, enum=None)
     },
     WatchableType.RuntimePublishedValue: {
-        '/my_rpva': WatchableConfiguration('my_rpv', WatchableType.RuntimePublishedValue, EmbeddedDataType.float32, enum=None)
+        '/my_rpva': WatchableConfiguration(WatchableType.RuntimePublishedValue, EmbeddedDataType.float32, enum=None)
     },
     WatchableType.Variable: {
-        '/my_alias': WatchableConfiguration('my_alias', WatchableType.Alias, EmbeddedDataType.float32, enum=None),
-        '/alias with very long name': WatchableConfiguration('my_alias', WatchableType.Alias, EmbeddedDataType.float32, enum=None)
+        '/my_alias': WatchableConfiguration(WatchableType.Alias, EmbeddedDataType.float32, enum=None),
+        '/alias with very long name': WatchableConfiguration(WatchableType.Alias, EmbeddedDataType.float32, enum=None)
     },
 })
 varlist.reload_model([WatchableType.Alias, WatchableType.RuntimePublishedValue, WatchableType.Variable])
