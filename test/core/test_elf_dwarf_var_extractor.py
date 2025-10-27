@@ -168,7 +168,6 @@ int main(int argc, char* argv[])
             for dwarf_version in [2, 3, 4]:
                 with self.subTest(f"{compiler}-dwarf{dwarf_version}"):
                     varmap = self._make_varmap(code, dwarf_version=dwarf_version, compiler=compiler, cppfilt='c++filt')
-                    print(varmap.get_json())
 
                     enum_list = varmap.get_enum_by_name('EnumA')
                     self.assertEqual(len(enum_list), 1)

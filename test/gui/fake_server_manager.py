@@ -197,7 +197,8 @@ class FakeServerManager:
             device_link=sdk.DeviceLinkInfo(
                 type=sdk.DeviceLinkType.NONE,
                 config=sdk.NoneLinkConfig(),
-                operational=True
+                operational=True,
+                demo_mode=False
             ),
             datalogging=datalogging,
             device_comm_state=device_comm_state,

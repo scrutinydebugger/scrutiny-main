@@ -263,7 +263,7 @@ class WatchableTreeModel(BaseTreeModel):
                            watchable_type: WatchableType,
                            fqn: str,
                            editable: bool,
-                           extra_columns: List[QStandardItem] = []) -> List[QStandardItem]:
+                           extra_columns: List[QStandardItem]) -> List[QStandardItem]:
         """Makes a watchable row, i.e. a leaf node in the tree
 
         :param name: The name displayed in the GUI

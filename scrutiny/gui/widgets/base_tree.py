@@ -199,7 +199,7 @@ class BaseTreeModel(QStandardItemModel):
         return True
 
     @classmethod
-    def remove_nested_indexes(cls, indexes: Sequence[QModelIndex], columns_to_keep: List[int] = [0]) -> Set[QModelIndex]:
+    def remove_nested_indexes_unordered(cls, indexes: Sequence[QModelIndex], columns_to_keep: List[int] = [0]) -> Set[QModelIndex]:
         """Takes a list of indexes and remove any indexes nested under another index part of the input
 
         :param indexes: The list of indexes to filter
