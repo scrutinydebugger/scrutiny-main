@@ -615,7 +615,11 @@ class WatchComponentTreeModel(WatchableTreeModel):
                         self.update_row_state(item)
 
                 elif node['type'] == 'watchable':
-                    watchable_row = self.make_watchable_row(node['text'], watchable_type=parsed_fqn.watchable_type, fqn=node['fqn'], editable=True, extra_columns=self.get_watchable_extra_columns())
+                    watchable_row = self.make_watchable_row(node['text'],
+                                                            watchable_type=parsed_fqn.watchable_type,
+                                                            fqn=node['fqn'],
+                                                            editable=True,
+                                                            extra_columns=self.get_watchable_extra_columns())
                     self.add_row_to_parent(parent, row_index, watchable_row)
                     main_item = watchable_row[self.nesting_col()]
                     assert isinstance(main_item, WatchableStandardItem)
