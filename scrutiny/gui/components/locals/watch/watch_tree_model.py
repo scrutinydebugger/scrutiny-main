@@ -177,9 +177,10 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
     def contextMenuEvent(self, event: QContextMenuEvent) -> None:
         context_menu = QMenu(self)
         selected_indexes = self.selectedIndexes()
-        selected_indexes_no_nested = self.model().remove_nested_indexes(selected_indexes)
+        selected_indexes_no_nested_unordered = self.model().remove_nested_indexes_unordered(selected_indexes)
         nesting_col = self.model().nesting_col()
-        selected_items_no_nested = [self.model().itemFromIndex(index) for index in selected_indexes_no_nested if index.column() == nesting_col]
+        selected_items_no_nested_unordered = [self.model().itemFromIndex(index)
+                                              for index in selected_indexes_no_nested_unordered if index.column() == nesting_col]
 
         parent, insert_row = self._find_new_folder_position_from_position(event.pos())
 
@@ -187,7 +188,7 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
             self._new_folder(self.NEW_FOLDER_DEFAULT_NAME, parent, insert_row)
 
         def remove_action_slot() -> None:
-            for item in selected_items_no_nested:
+            for item in selected_items_no_nested_unordered:
                 self.model().removeRow(item.row(), item.index().parent())
 
         def copy_path_clipboard_slot() -> None:
@@ -205,7 +206,7 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
         new_folder_action.triggered.connect(new_folder_action_slot)
 
         remove_action = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.RedX), "Remove")
-        remove_action.setEnabled(len(selected_items_no_nested) > 0)
+        remove_action.setEnabled(len(selected_items_no_nested_unordered) > 0)
         remove_action.triggered.connect(remove_action_slot)
 
         copy_path_clipboard_action = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.Copy), "Copy path")
@@ -235,9 +236,10 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
     def keyPressEvent(self, event: QKeyEvent) -> None:
         if event.key() == Qt.Key.Key_Delete:
             model = self.model()
-            indexes_without_nested_values = model.remove_nested_indexes(self.selectedIndexes())  # Avoid errors when parent is deleted before children
-            items = [model.itemFromIndex(index) for index in indexes_without_nested_values]
-            for item in items:
+            indexes_without_nested_values_unordered = model.remove_nested_indexes_unordered(
+                self.selectedIndexes())  # Avoid errors when parent is deleted before children
+            items_unordered = [model.itemFromIndex(index) for index in indexes_without_nested_values_unordered]
+            for item in items_unordered:
                 if item is not None:
                     parent_index = QModelIndex()  # Invalid index
                     if item.parent():
@@ -497,9 +499,9 @@ class WatchComponentTreeModel(WatchableTreeModel):
                     assert item is not None
                     yield item
 
-        top_level_items = [item for item in get_items(self.remove_nested_indexes(indexes))]
+        top_level_items = [item for item in get_items(self.remove_nested_indexes_unordered(indexes))]
 
-        self.sort_items_by_path(top_level_items, top_to_bottom=True)
+        self.sort_items_by_path(top_level_items, top_to_bottom=True)    # Reorganize the items  so that nested elements are consecutive
         move_data = [self.make_serializable_item_index_descriptor(item) for item in top_level_items]
         drag_data = self.make_watchable_list_dragdata_if_possible(top_level_items, data_move=move_data)
 
@@ -577,10 +579,10 @@ class WatchComponentTreeModel(WatchableTreeModel):
 
         elif drag_data.type == ScrutinyDragData.DataType.WatchableList:
             if action == Qt.DropAction.MoveAction:
-                self.logger.debug(f"{log_prefix}: Watch internal move with single element")
+                self.logger.debug(f"{log_prefix}: Watch internal move with list of individual elements")
                 return self.handle_internal_move(parent, row_index, cast(List[SerializableItemIndexDescriptor], drag_data.data_move))
             elif action == Qt.DropAction.CopyAction:
-                self.logger.debug(f"{log_prefix}: Watch external copy with single element")
+                self.logger.debug(f"{log_prefix}: Watch external copy with list of individual elements")
                 watchable_elements = WatchableListDescriptor.from_drag_data(drag_data)
                 if watchable_elements is None:
                     return False

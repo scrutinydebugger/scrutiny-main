@@ -54,8 +54,9 @@ class VarListComponentTreeModel(WatchableTreeModel):
     def mimeData(self, indexes: Sequence[QModelIndex]) -> QMimeData:
         """Generate the mimeData when a drag&drop starts"""
 
-        indexes_without_nested_values = self.remove_nested_indexes(indexes)
-        items = [cast(Optional[BaseWatchableRegistryTreeStandardItem], self.itemFromIndex(x)) for x in indexes_without_nested_values]
+        indexes_without_nested_values = self.remove_nested_indexes_unordered(indexes)
+        # Statement below keeps the original order but does extra lookups in the unordered set
+        items = [cast(Optional[BaseWatchableRegistryTreeStandardItem], self.itemFromIndex(x)) for x in indexes if x in indexes_without_nested_values]
 
         # We first start use to most supported format of watchable list.
         drag_data = self.make_watchable_list_dragdata_if_possible(items)

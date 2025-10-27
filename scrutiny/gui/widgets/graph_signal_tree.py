@@ -520,15 +520,16 @@ class GraphSignalTree(BaseTreeView):
 
     def contextMenuEvent(self, event: QContextMenuEvent) -> None:
         context_menu = QMenu(self)
-        selected_indexes_no_nested = self.model().remove_nested_indexes(self.selectedIndexes())
+        selected_indexes_no_nested_unordered = self.model().remove_nested_indexes_unordered(self.selectedIndexes())
         nesting_col = self.model().nesting_col()
-        selected_items_no_nested = [self.model().itemFromIndex(index) for index in selected_indexes_no_nested if index.column() == nesting_col]
+        selected_items_no_nested_unordered = [self.model().itemFromIndex(index)
+                                              for index in selected_indexes_no_nested_unordered if index.column() == nesting_col]
 
         def new_axis_action_slot() -> None:
             self.model().appendRow(self.model().make_axis_row("New Axis"))
 
         def remove_action_slot() -> None:
-            for item in selected_items_no_nested:
+            for item in selected_items_no_nested_unordered:
                 self.model().removeRow(item.row(), item.index().parent())
 
         new_axis_action = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.GraphAxis), "New Axis")
@@ -561,7 +562,7 @@ class GraphSignalTree(BaseTreeView):
                 show_hide_action.triggered.connect(show_action_slot)
 
         remove_action = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.RedX), "Remove")
-        remove_action.setEnabled(len(selected_items_no_nested) > 0)
+        remove_action.setEnabled(len(selected_items_no_nested_unordered) > 0)
         remove_action.triggered.connect(remove_action_slot)
 
         if self._locked:
@@ -574,7 +575,8 @@ class GraphSignalTree(BaseTreeView):
     def keyPressEvent(self, event: QKeyEvent) -> None:
         if event.key() == Qt.Key.Key_Delete and not self._locked:
             model = self.model()
-            indexes_without_nested_values = model.remove_nested_indexes(self.selectedIndexes())  # Avoid errors when parent is deleted before children
+            indexes_without_nested_values = model.remove_nested_indexes_unordered(
+                self.selectedIndexes())  # Avoid errors when parent is deleted before children
             items = [model.itemFromIndex(index) for index in indexes_without_nested_values]
             for item in items:
                 if item is not None:
