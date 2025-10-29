@@ -915,6 +915,15 @@
         },
         "test/sdk/test_basics.py": {
             "docstring": "Test basic classes of the SDK"
+        },
+        "test/gui/test_varlist_search.py": {
+            "docstring": "Test the varlist search behavior"
+        },
+        "scrutiny/gui/components/globals/varlist/varlist_tree_model.py": {
+            "docstring": "TreeWidget model used for the Variable List component"
+        },
+        "scrutiny/gui/components/globals/varlist/varlist_search.py": {
+            "docstring": "Variable List component search mechanisms and widgets"
         }
     }
 }

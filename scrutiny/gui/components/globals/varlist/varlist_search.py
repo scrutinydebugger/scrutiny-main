@@ -1,3 +1,11 @@
+#    varlist_search.py
+#        Variable List component search mechanisms and widgets
+#
+#   - License : MIT - See LICENSE file.
+#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#   Copyright (c) 2025 Scrutiny Debugger
+
 import enum
 from dataclasses import dataclass
 

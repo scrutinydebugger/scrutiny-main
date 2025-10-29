@@ -1,3 +1,10 @@
+#    test_varlist_search.py
+#        Test the varlist search behavior
+#
+#   - License : MIT - See LICENSE file.
+#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#   Copyright (c) 2025 Scrutiny Debugger
 
 import math
 from PySide6.QtWidgets import QMainWindow
