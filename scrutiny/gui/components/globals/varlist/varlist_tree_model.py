@@ -21,6 +21,7 @@ from scrutiny.gui.widgets.watchable_tree import (
 
 from scrutiny.sdk import WatchableConfiguration
 from scrutiny.tools.typing import *
+from scrutiny.core import path_tools
 
 
 class VarListComponentTreeModel(WatchableTreeModel):
@@ -28,7 +29,7 @@ class VarListComponentTreeModel(WatchableTreeModel):
     Mainly handles drag&drop logic
     """
 
-    def get_watchable_extra_columns(self, watchable_config: Optional[WatchableConfiguration] = None) -> List[QStandardItem]:
+    def get_watchable_extra_columns(self, fqn: str, watchable_config: Optional[WatchableConfiguration] = None) -> List[QStandardItem]:
         """Define the columns to add for a watchable (leaf) row. Called by the parent class"""
         if watchable_config is None:
             return []
@@ -68,6 +69,13 @@ class VarListComponentTreeModel(WatchableTreeModel):
         assert mime_data is not None
         return mime_data
 
+    def _load_node_if_needed(self, node:BaseWatchableRegistryTreeStandardItem) -> None:
+        if not node.is_loaded():
+            fqn = node.fqn
+            assert fqn is not None  # All data is coming from the index, so it has an Fully Qualified Name
+            parsed_fqn = WatchableRegistry.FQN.parse(fqn)
+            self.lazy_load(node, parsed_fqn.watchable_type, parsed_fqn.path)
+
     def find_item_by_fqn(self, fqn: str) -> Optional[BaseWatchableRegistryTreeStandardItem]:
         """Find an item in the model using the Watchable registry.
         In this model, each node has a Fully Qualified Name defined and data is organized 
@@ -84,6 +92,7 @@ class VarListComponentTreeModel(WatchableTreeModel):
 
         parsed = WatchableRegistry.FQN.parse(fqn)
         path_parts = WatchableRegistry.split_path(parsed.path)
+
         if len(path_parts) == 0:
             return None
 
@@ -97,6 +106,7 @@ class VarListComponentTreeModel(WatchableTreeModel):
 
             for row_index in range(item.rowCount()):
                 child = cast(Optional[BaseWatchableRegistryTreeStandardItem], item.child(row_index, 0))
+                self._load_node_if_needed(child)
                 if child is None:
                     continue
                 if child.fqn is None:

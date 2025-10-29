@@ -192,15 +192,13 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
                 self.model().removeRow(item.row(), item.index().parent())
 
         def copy_path_clipboard_slot() -> None:
-            paths: List[str] = []
-            for index in selected_indexes:
-                item = self.model().itemFromIndex(index)
-                if isinstance(item, WatchableStandardItem):
-                    path = WatchableRegistry.FQN.parse(item.fqn).path
-                    paths.append(path)
-
-            if len(paths) > 0:
-                QApplication.clipboard().setText('\n'.join(paths))
+            def iterate_items() -> Generator[WatchableStandardItem, None, None]:
+                for index in selected_indexes:
+                    item = self.model().itemFromIndex(index)
+                    if isinstance(item, WatchableStandardItem):
+                        yield item
+            self.copy_path_clipboard(iterate_items())
+            
 
         new_folder_action = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.Folder), "New Folder")
         new_folder_action.triggered.connect(new_folder_action_slot)
@@ -220,15 +218,6 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
 
         self.display_context_menu(context_menu, event.pos())
         event.accept()
-
-    def display_context_menu(self, menu: QMenu, pos: QPoint) -> None:
-        """Display a menu at given relative position, and make sure it goes below the cursor to mimic what most people are used to"""
-        actions = menu.actions()
-        at: Optional[QAction] = None
-        if len(actions) > 0:
-            pos += QPoint(0, menu.actionGeometry(actions[0]).height())
-            at = actions[0]
-        menu.popup(self.mapToGlobal(pos), at)
 
     def model(self) -> "WatchComponentTreeModel":
         return cast(WatchComponentTreeModel, super().model())
@@ -433,7 +422,7 @@ class WatchComponentTreeModel(WatchableTreeModel):
     def itemFromIndex(self, index: Union[QModelIndex, QPersistentModelIndex]) -> BaseWatchableRegistryTreeStandardItem:
         return cast(BaseWatchableRegistryTreeStandardItem, super().itemFromIndex(index))
 
-    def get_watchable_extra_columns(self, watchable_config: Optional[WatchableConfiguration] = None) -> List[QStandardItem]:
+    def get_watchable_extra_columns(self, fqn: str = "", watchable_config: Optional[WatchableConfiguration] = None) -> List[QStandardItem]:
         # We don't use watchable_config here even if we could.
         # We update the value/type when an item is available by calling update_row_state
         return [ValueStandardItem(), DataTypeStandardItem(), EnumNameStandardItem()]

@@ -160,15 +160,6 @@ class AcquisitionStorageEntryTreeView(BaseTreeView):
 
         self.display_context_menu(context_menu, event.pos())
 
-    def display_context_menu(self, menu: QMenu, pos: QPoint) -> None:
-        """Display a menu at given relative position, and make sure it goes below the cursor to mimic what most people are used to"""
-        actions = menu.actions()
-        at: Optional[QAction] = None
-        if len(actions) > 0:
-            pos += QPoint(0, menu.actionGeometry(actions[0]).height())
-            at = actions[0]
-        menu.popup(self.mapToGlobal(pos), at)
-
     def _rename_selected_acquisition(self) -> None:
         """Makes an item in the treeview editable by the user"""
         selected_indexes = self.selectedIndexes()

@@ -9,11 +9,15 @@
 import enum
 from dataclasses import dataclass
 
-from PySide6.QtWidgets import QWidget, QLineEdit, QProgressBar, QVBoxLayout
+from PySide6.QtWidgets import QWidget, QLineEdit, QProgressBar, QVBoxLayout, QMenu, QApplication
+from PySide6.QtGui import QContextMenuEvent, QStandardItem
 from PySide6.QtCore import Qt, QObject, Signal, QTimer
 from scrutiny.gui.components.globals.varlist.varlist_tree_model import VarListComponentTreeModel
 from scrutiny.gui.widgets.watchable_tree import WatchableStandardItem, WatchableTreeWidget
-from scrutiny.gui.core.watchable_registry import WatchableRegistry, WatchableRegistryIntermediateNode, WatchableRegistryEntryNode
+from scrutiny.gui.core.watchable_registry import WatchableRegistry, WatchableRegistryIntermediateNode
+from scrutiny.gui.themes import scrutiny_get_theme
+from scrutiny.gui import assets
+from scrutiny.core import path_tools
 
 from scrutiny import sdk
 
@@ -31,29 +35,91 @@ class SearchCriteria:
     text: str
 
     def match(self, candidate: SingleResult) -> bool:
-        return self.text in candidate.fqn
+        return self.text in WatchableRegistry.FQN.parse(candidate.fqn).path
 
 
 class SearchResultTreeModel(VarListComponentTreeModel):
+    def get_watchable_extra_columns(self, fqn: str, watchable_config: Optional[sdk.WatchableConfiguration] = None) -> List[QStandardItem]:
+        outlist: List[QStandardItem] = [QStandardItem(WatchableRegistry.FQN.parse(fqn).path)]
+
+        if watchable_config is not None:
+            typecol = QStandardItem(watchable_config.datatype.name)
+            if watchable_config.enum is not None:
+                enumcol = QStandardItem(watchable_config.enum.name)
+                outlist += [typecol, enumcol]
+            else:
+                outlist += [typecol]
+
+        for item in outlist:
+            item.setEditable(False)
+
+        return outlist
+
     def append_result(self, result: SingleResult) -> None:
         parsed = WatchableRegistry.FQN.parse(result.fqn)
+        name_last_part = path_tools.make_segments(parsed.path)[-1]
         row = self.make_watchable_row(
-            name=parsed.path,
+            name=name_last_part,
             watchable_type=parsed.watchable_type,
             fqn=result.fqn,
-            extra_columns=self.get_watchable_extra_columns(result.config),
+            extra_columns=self.get_watchable_extra_columns(result.fqn, result.config),
             editable=False
         )
         self.appendRow(row)
 
 
 class SearchResultTreeWidget(WatchableTreeWidget):
+
+    class _Signals(QObject):
+        show_in_tree = Signal(str)
+
+    _signals: _Signals
+
     def __init__(self, parent: QWidget, model: SearchResultTreeModel) -> None:
         super().__init__(parent, model)
-        self.set_header_labels(['', 'Type', 'Enum'])
+        self.set_header_labels(['', 'Path', 'Type', 'Enum'])
         self.setDragDropMode(self.DragDropMode.DragOnly)
         self.setDragEnabled(True)
         self.setDefaultDropAction(Qt.DropAction.CopyAction)
+        self._signals = self._Signals()
+
+    @property
+    def signals(self) -> _Signals:
+        return self._signals
+
+    def contextMenuEvent(self, event: QContextMenuEvent) -> None:
+        context_menu = QMenu(self)
+        selected_indexes = self.selectedIndexes()
+        nesting_col = self.model().nesting_col()
+        # Assumes that the tree only contains watchable. No folder.
+        selected_items = [cast(WatchableStandardItem, self.model().itemFromIndex(index)) for index in selected_indexes if index.column() == nesting_col]
+
+        def copy_path_clipboard_slot() -> None:
+            self.copy_path_clipboard(selected_items)
+
+        def show_in_tree_slot() -> None:
+            if len(selected_items) != 1:
+                return
+            item = selected_items[0]
+            self._signals.show_in_tree.emit(item.fqn)
+
+
+        show_in_tree_action = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.Eye), "Show in tree")
+        show_in_tree_action.setEnabled(len(selected_items) == 1)
+        show_in_tree_action.triggered.connect(show_in_tree_slot)
+
+        copy_path_clipboard_action = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.Copy), "Copy path")
+        copy_path_clipboard_action.setEnabled(False)
+        copy_path_clipboard_action.triggered.connect(copy_path_clipboard_slot)
+        for index in selected_indexes:
+            item = self.model().itemFromIndex(index)
+            if isinstance(item, WatchableStandardItem):  # At least one watchable, enough to enable
+                copy_path_clipboard_action.setEnabled(True)
+                break
+
+        self.display_context_menu(context_menu, event.pos())
+        event.accept()
+
 
     def model(self) -> SearchResultTreeModel:
         return cast(SearchResultTreeModel, super().model())
@@ -73,6 +139,9 @@ class SearchResultWidget(QWidget):
     class _InternalSignals(QObject):
         continue_consuming = Signal()
         """Signal used to resume search"""
+
+    class _Signals(QObject):
+        show_in_tree = Signal(str)
 
     class State(enum.Enum):
         EMPTY = enum.auto()
@@ -94,6 +163,8 @@ class SearchResultWidget(QWidget):
     """A counter keeping track of how many watchable the search has processed"""
     _internal_signals: _InternalSignals
     """Signals used internally"""
+    _signals: _Signals
+    """Signals visible externally"""
     _search_batch_size: int
     """Number of watchable element to process before taking a pause and processing the event loop"""
     _pause_counter: int
@@ -108,9 +179,11 @@ class SearchResultWidget(QWidget):
         self._search_batch_size = search_batch_size
         self._pause_counter = 0
 
+
         self._state = self.State.EMPTY
         self._watchable_processed_counter = 0
         self._internal_signals = self._InternalSignals()
+        self._signals = self._Signals()
 
         self._progress_bar = QProgressBar(self)
         self._progress_bar.setRange(0, 100)
@@ -124,6 +197,12 @@ class SearchResultWidget(QWidget):
         vlayout.setContentsMargins(0, 0, 0, 0)
 
         self._internal_signals.continue_consuming.connect(self._consume_generator, Qt.ConnectionType.QueuedConnection)
+        self._signals = self._Signals()
+        self._tree.signals.show_in_tree.connect(self._signals.show_in_tree)
+
+    @property
+    def signals(self) -> _Signals:
+        return self._signals
 
     def set_search_batch_size(self, size: int) -> None:
         """Set the number of watchable element to process before taking a pause and processing the event loop"""
@@ -301,3 +380,6 @@ class SearchControlWidget(QWidget):
 
     def _timer_commit_timeout_slot(self) -> None:
         self._commit_text()
+
+    def get_search_string(self) -> str:
+        return self._txt_search.text()

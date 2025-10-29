@@ -12,9 +12,11 @@ __all__ = [
     'VarListComponent',
 ]
 
+import enum
+
 from PySide6.QtWidgets import QVBoxLayout, QWidget, QStackedLayout
 from PySide6.QtGui import QStandardItemModel, QIcon
-from PySide6.QtCore import QModelIndex, Qt
+from PySide6.QtCore import QModelIndex, Qt, QItemSelectionModel
 
 from scrutiny.gui import assets
 from scrutiny.gui.themes import scrutiny_get_theme
@@ -44,6 +46,10 @@ class VarlistComponentTreeWidget(WatchableTreeWidget):
 
 
 class VarListComponent(ScrutinyGUIBaseGlobalComponent):
+    class DisplayMode(enum.Enum):
+        Content = enum.auto()
+        Search = enum.auto()
+
     instance_name: str
 
     _NAME = "Variable List"
@@ -59,6 +65,7 @@ class VarListComponent(ScrutinyGUIBaseGlobalComponent):
     _rpv_folder: BaseWatchableRegistryTreeStandardItem
     _index_change_counters: Dict[WatchableType, int]
     _tree_stack_layout: QStackedLayout
+    _display_mode: DisplayMode
 
     @classmethod
     def get_icon(cls) -> QIcon:
@@ -71,6 +78,7 @@ class VarListComponent(ScrutinyGUIBaseGlobalComponent):
         self._tree = VarlistComponentTreeWidget(self, self._tree_model)
         self._search_controls = SearchControlWidget(self)
         self._search_result_widget = SearchResultWidget(self, self.watchable_registry, search_batch_size=100)
+        self._display_mode = self.DisplayMode.Content
 
         self._search_controls.signals.search_string_updated.connect(self._search_string_updated_slot)
         self._search_controls.signals.search_string_cleared.connect(self._search_string_cleared_slot)
@@ -102,25 +110,34 @@ class VarListComponent(ScrutinyGUIBaseGlobalComponent):
 
         self.server_manager.signals.registry_changed.connect(self.registry_changed_slot)
         self._tree.expanded.connect(self.node_expanded_slot)
+        self._search_result_widget.signals.show_in_tree.connect(self.reveal_fqn)
+
+    def set_display_mode(self, display_mode: DisplayMode) -> None:
+        self._display_mode = display_mode
+        self._update_display()
+
+    def _update_display(self) -> None:
+        if self._display_mode == self.DisplayMode.Content:
+            self._tree_stack_layout.setCurrentWidget(self._tree)
+        elif self._display_mode == self.DisplayMode.Search:
+            self._tree_stack_layout.setCurrentWidget(self._search_result_widget)
+        else:
+            raise NotImplementedError("Unknown display mode")
 
     def _search_string_updated_slot(self, txt: str) -> None:
         self._search_result_widget.start_search(txt)
-        self._tree_stack_layout.setCurrentWidget(self._search_result_widget)
+        self.set_display_mode(self.DisplayMode.Search)
 
     def _search_string_cleared_slot(self) -> None:
         self._search_result_widget.stop_search()
-        self._tree_stack_layout.setCurrentWidget(self._tree)
+        self.set_display_mode(self.DisplayMode.Content)
 
     def node_expanded_slot(self, index: QModelIndex) -> None:
         # Lazy loading implementation
         item = cast(BaseWatchableRegistryTreeStandardItem, cast(QStandardItemModel, index.model()).itemFromIndex(index))
         for row in range(item.rowCount()):
             child = cast(BaseWatchableRegistryTreeStandardItem, item.child(row, 0))
-            if not child.is_loaded():
-                fqn = child.fqn
-                assert fqn is not None  # All data is coming from the index, so it has an Fully Qualified Name
-                parsed_fqn = WatchableRegistry.FQN.parse(fqn)
-                self._tree_model.lazy_load(child, parsed_fqn.watchable_type, parsed_fqn.path)
+            self._tree_model._load_node_if_needed(child)
 
         self._tree.expand_first_column_to_content()
 
@@ -134,6 +151,10 @@ class VarListComponent(ScrutinyGUIBaseGlobalComponent):
                 types_to_reload.append(wt)
         self.reload_model(types_to_reload)
         self._index_change_counters = index_change_counters
+
+        # Restart a search if one was active
+        if self._search_result_widget.searching() or self._search_result_widget.finished():
+            self._search_result_widget.start_search(self._search_controls.get_search_string())
 
     def reload_model(self, watchable_types: List[WatchableType]) -> None:
         """Fully reload to model
@@ -157,6 +178,18 @@ class VarListComponent(ScrutinyGUIBaseGlobalComponent):
             self._var_folder.removeRows(0, self._var_folder.rowCount())
             self._tree.collapse(self._var_folder.index())
             self._tree_model.lazy_load(self._var_folder, WatchableType.Variable, '/')
+
+    def reveal_fqn(self, fqn:str) -> None:
+        item = self._tree_model.find_item_by_fqn(fqn)
+        if item is None:
+            return
+        self._tree.collapseAll()
+        parent = item.parent()
+        while parent is not None:
+            self._tree.expand(parent.index())
+            parent = parent.parent()
+        self._tree.selectionModel().setCurrentIndex(item.index(), QItemSelectionModel.SelectionFlag.ClearAndSelect)
+        self.set_display_mode(self.DisplayMode.Content)
 
     def teardown(self) -> None:
         pass
