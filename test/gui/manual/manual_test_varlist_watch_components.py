@@ -19,6 +19,7 @@ from PySide6.QtWidgets import QMainWindow, QLabel, QWidget, QVBoxLayout, QHBoxLa
 from scrutiny.gui.components.globals.varlist.varlist_component import VarListComponent
 from scrutiny.gui.components.locals.watch.watch_component import WatchComponent
 from scrutiny.gui.core.watchable_registry import WatchableRegistry
+from scrutiny.gui.component_app_interface import AbstractComponentAppInterface
 from test.gui.fake_server_manager import FakeServerManager, ServerConfig
 from scrutiny.tools.typing import *
 
@@ -63,11 +64,22 @@ add_per_group([QLabel("Server Connection"), btn_connect, btn_disconnect])
 add_per_group([QLabel("Device Connection"), btn_device_ready, btn_device_gone])
 add_per_group([QLabel("Firmware Description"), btn_load_sfd, btn_unload_sfd])
 
+class AppInterface(AbstractComponentAppInterface):
+    # Enable global features without dashboard
+
+    varlist:VarListComponent
+    def reveal_varlist_fqn(self, fqn: str) -> None:
+        self.varlist.reveal_fqn(fqn)
+
 component_layout = QHBoxLayout(component_container)
 
-varlist = VarListComponent(main_window=window, instance_name="varlist1", server_manager=server_manager, watchable_registry=registry)
-watch1 = WatchComponent(main_window=window, instance_name="watch1", server_manager=server_manager, watchable_registry=registry)
-watch2 = WatchComponent(main_window=window, instance_name="watch2", server_manager=server_manager, watchable_registry=registry)
+app_interface = AppInterface()
+
+varlist = VarListComponent(main_window=window, instance_name="varlist1", server_manager=server_manager, watchable_registry=registry, app_interface=app_interface)
+watch1 = WatchComponent(main_window=window, instance_name="watch1", server_manager=server_manager, watchable_registry=registry, app_interface=app_interface)
+watch2 = WatchComponent(main_window=window, instance_name="watch2", server_manager=server_manager, watchable_registry=registry, app_interface=app_interface)
+
+app_interface.varlist = varlist 
 
 varlist.setup()
 watch1.setup()

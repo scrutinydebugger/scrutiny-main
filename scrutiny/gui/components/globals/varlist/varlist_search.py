@@ -71,7 +71,7 @@ class SearchResultTreeModel(VarListComponentTreeModel):
 class SearchResultTreeWidget(WatchableTreeWidget):
 
     class _Signals(QObject):
-        show_in_tree = Signal(str)
+        reveal_in_varlist = Signal(str)
 
     _signals: _Signals
 
@@ -97,16 +97,15 @@ class SearchResultTreeWidget(WatchableTreeWidget):
         def copy_path_clipboard_slot() -> None:
             self.copy_path_clipboard(selected_items)
 
-        def show_in_tree_slot() -> None:
+        def reveal_in_varlist_slot() -> None:
             if len(selected_items) != 1:
                 return
             item = selected_items[0]
-            self._signals.show_in_tree.emit(item.fqn)
+            self._signals.reveal_in_varlist.emit(item.fqn)
 
-
-        show_in_tree_action = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.Eye), "Show in tree")
-        show_in_tree_action.setEnabled(len(selected_items) == 1)
-        show_in_tree_action.triggered.connect(show_in_tree_slot)
+        reveal_in_varlist_action = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.Eye), "Reveal in Variable List")
+        reveal_in_varlist_action.setEnabled(len(selected_items) == 1)
+        reveal_in_varlist_action.triggered.connect(reveal_in_varlist_slot)
 
         copy_path_clipboard_action = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.Copy), "Copy path")
         copy_path_clipboard_action.setEnabled(False)
@@ -128,9 +127,7 @@ class SearchResultTreeWidget(WatchableTreeWidget):
 class PauseSearch:
     pass
 
-
 SearchGeneratorType: TypeAlias = Generator[Union[SingleResult, PauseSearch], None, None]
-
 
 class SearchResultWidget(QWidget):
     """A widget able to search the WatchableRegistry and display the search result"""
@@ -141,7 +138,7 @@ class SearchResultWidget(QWidget):
         """Signal used to resume search"""
 
     class _Signals(QObject):
-        show_in_tree = Signal(str)
+        reveal_in_varlist = Signal(str)
 
     class State(enum.Enum):
         EMPTY = enum.auto()
@@ -170,6 +167,7 @@ class SearchResultWidget(QWidget):
     _pause_counter: int
     """Counts the number of pause taken while searching"""
     _progress_bar: QProgressBar
+    """Progress abr showing the search progress"""
 
     def __init__(self, parent: QWidget, watchable_registry: WatchableRegistry, search_batch_size: int = _DEFAULT_SEARCH_ITERATION_BATCH_SIZE) -> None:
         super().__init__(parent)
@@ -178,7 +176,6 @@ class SearchResultWidget(QWidget):
         self._tree = SearchResultTreeWidget(self, self._tree_model)
         self._search_batch_size = search_batch_size
         self._pause_counter = 0
-
 
         self._state = self.State.EMPTY
         self._watchable_processed_counter = 0
@@ -198,7 +195,7 @@ class SearchResultWidget(QWidget):
 
         self._internal_signals.continue_consuming.connect(self._consume_generator, Qt.ConnectionType.QueuedConnection)
         self._signals = self._Signals()
-        self._tree.signals.show_in_tree.connect(self._signals.show_in_tree)
+        self._tree.signals.reveal_in_varlist.connect(self._signals.reveal_in_varlist)
 
     @property
     def signals(self) -> _Signals:

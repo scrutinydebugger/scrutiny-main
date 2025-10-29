@@ -21,7 +21,6 @@ from scrutiny.gui.widgets.watchable_tree import (
 
 from scrutiny.sdk import WatchableConfiguration
 from scrutiny.tools.typing import *
-from scrutiny.core import path_tools
 
 
 class VarListComponentTreeModel(WatchableTreeModel):
@@ -106,11 +105,12 @@ class VarListComponentTreeModel(WatchableTreeModel):
 
             for row_index in range(item.rowCount()):
                 child = cast(Optional[BaseWatchableRegistryTreeStandardItem], item.child(row_index, 0))
-                self._load_node_if_needed(child)
+
                 if child is None:
                     continue
                 if child.fqn is None:
                     continue
+                self._load_node_if_needed(child)
 
                 if WatchableRegistry.FQN.is_equal(child.fqn, wanted_fqn):
                     if len(remaining_parts) == 0:

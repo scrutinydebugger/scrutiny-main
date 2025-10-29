@@ -16,6 +16,7 @@ from PySide6.QtGui import QIcon
 
 from scrutiny.gui.core.server_manager import ServerManager
 from scrutiny.gui.core.watchable_registry import WatchableRegistry
+from scrutiny.gui.component_app_interface import AbstractComponentAppInterface
 from scrutiny.tools.typing import *
 
 if TYPE_CHECKING:   # Prevent circular dependency
@@ -27,17 +28,20 @@ class ScrutinyGUIBaseComponent(QWidget):
     main_window: "MainWindow"
     server_manager: ServerManager
     watchable_registry: WatchableRegistry
+    app:AbstractComponentAppInterface
     logger: logging.Logger
 
     def __init__(self, main_window: "MainWindow",
                  instance_name: str,
                  watchable_registry: WatchableRegistry,
-                 server_manager: ServerManager
+                 server_manager: ServerManager,
+                 app_interface: AbstractComponentAppInterface
                  ) -> None:
         self.instance_name = instance_name
         self.main_window = main_window
         self.server_manager = server_manager
         self.watchable_registry = watchable_registry
+        self.app = app_interface
         self.logger = logging.getLogger(self.__class__.__name__)
         super().__init__()
 

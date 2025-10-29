@@ -14,13 +14,14 @@ __all__ = [
 
 import enum
 
-from PySide6.QtWidgets import QVBoxLayout, QWidget, QStackedLayout
-from PySide6.QtGui import QStandardItemModel, QIcon
+from PySide6.QtWidgets import QVBoxLayout, QWidget, QStackedLayout, QMenu, QTabWidget
+from PySide6.QtGui import QContextMenuEvent, QStandardItemModel, QIcon
 from PySide6.QtCore import QModelIndex, Qt, QItemSelectionModel
 
 from scrutiny.gui import assets
 from scrutiny.gui.themes import scrutiny_get_theme
 from scrutiny.gui.core.watchable_registry import WatchableRegistry
+from scrutiny.gui.widgets.watchable_tree import WatchableStandardItem
 from scrutiny.gui.components.globals.base_global_component import ScrutinyGUIBaseGlobalComponent
 from scrutiny.gui.components.globals.varlist.varlist_tree_model import VarListComponentTreeModel
 from scrutiny.gui.components.globals.varlist.varlist_search import SearchResultWidget, SearchControlWidget
@@ -43,6 +44,27 @@ class VarlistComponentTreeWidget(WatchableTreeWidget):
 
     def model(self) -> VarListComponentTreeModel:
         return cast(VarListComponentTreeModel, super().model())
+    
+    def contextMenuEvent(self, e: QContextMenuEvent) -> None:
+        context_menu = QMenu(self)
+        selected_indexes = self.selectedIndexes()
+        nesting_col = self.model().nesting_col()
+
+        selected_items:List[WatchableStandardItem] = []
+        for index in selected_indexes:
+            if index.column() == nesting_col:
+                item = self.model().itemFromIndex(index) 
+                if isinstance(item, WatchableStandardItem):
+                    selected_items.append(item)
+
+        def copy_path_clipboard_slot() -> None:
+            self.copy_path_clipboard(selected_items)
+
+        copy_path_clipboard_action = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.Copy), "Copy path")
+        copy_path_clipboard_action.triggered.connect(copy_path_clipboard_slot)
+        copy_path_clipboard_action.setEnabled(len(selected_items) > 0)
+
+        self.display_context_menu(context_menu, e.pos())
 
 
 class VarListComponent(ScrutinyGUIBaseGlobalComponent):
@@ -64,7 +86,10 @@ class VarListComponent(ScrutinyGUIBaseGlobalComponent):
     _alias_folder: BaseWatchableRegistryTreeStandardItem
     _rpv_folder: BaseWatchableRegistryTreeStandardItem
     _index_change_counters: Dict[WatchableType, int]
-    _tree_stack_layout: QStackedLayout
+    
+    _browse_tab_index:int
+    _search_tab_index:int
+    _content_tabs:QTabWidget
     _display_mode: DisplayMode
 
     @classmethod
@@ -95,22 +120,21 @@ class VarListComponent(ScrutinyGUIBaseGlobalComponent):
         self._alias_folder = cast(BaseWatchableRegistryTreeStandardItem, alias_row[0])
         self._rpv_folder = cast(BaseWatchableRegistryTreeStandardItem, rpv_row[0])
 
-        layout.addWidget(self._search_controls)
+        self._content_tabs = QTabWidget(self)
+        self._browse_tab_index = self._content_tabs.addTab(self._tree, "Browse")
+        self._search_tab_index = self._content_tabs.addTab(self._search_result_widget, "Search")
 
-        stacked_container = QWidget()
-        self._tree_stack_layout = QStackedLayout(stacked_container)
-        self._tree_stack_layout.setStackingMode(QStackedLayout.StackingMode.StackOne)
-        self._tree_stack_layout.addWidget(self._tree)
-        self._tree_stack_layout.addWidget(self._search_result_widget)
-        layout.addWidget(stacked_container)
-        self._tree_stack_layout.setCurrentWidget(self._tree)
+        layout.addWidget(self._search_controls)
+        layout.addWidget(self._content_tabs)
+        self._content_tabs.setCurrentIndex(self._browse_tab_index)
+        self._content_tabs.setTabEnabled(self._search_tab_index, False)
 
         self.reload_model([WatchableType.RuntimePublishedValue, WatchableType.Alias, WatchableType.Variable])
         self._index_change_counters = self.watchable_registry.get_change_counters()
 
         self.server_manager.signals.registry_changed.connect(self.registry_changed_slot)
         self._tree.expanded.connect(self.node_expanded_slot)
-        self._search_result_widget.signals.show_in_tree.connect(self.reveal_fqn)
+        self._search_result_widget.signals.reveal_in_varlist.connect(self.reveal_fqn)
 
     def set_display_mode(self, display_mode: DisplayMode) -> None:
         self._display_mode = display_mode
@@ -118,18 +142,20 @@ class VarListComponent(ScrutinyGUIBaseGlobalComponent):
 
     def _update_display(self) -> None:
         if self._display_mode == self.DisplayMode.Content:
-            self._tree_stack_layout.setCurrentWidget(self._tree)
+            self._content_tabs.setCurrentIndex(self._browse_tab_index)
         elif self._display_mode == self.DisplayMode.Search:
-            self._tree_stack_layout.setCurrentWidget(self._search_result_widget)
+            self._content_tabs.setCurrentIndex(self._search_tab_index)
         else:
             raise NotImplementedError("Unknown display mode")
 
     def _search_string_updated_slot(self, txt: str) -> None:
         self._search_result_widget.start_search(txt)
+        self._content_tabs.setTabEnabled(self._search_tab_index, True)
         self.set_display_mode(self.DisplayMode.Search)
 
     def _search_string_cleared_slot(self) -> None:
         self._search_result_widget.stop_search()
+        self._content_tabs.setTabEnabled(self._search_tab_index, False)
         self.set_display_mode(self.DisplayMode.Content)
 
     def node_expanded_slot(self, index: QModelIndex) -> None:

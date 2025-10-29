@@ -86,6 +86,7 @@ class WatchComponent(ScrutinyGUIBaseLocalComponent):
         self._tree_model.rowsAboutToBeRemoved.connect(self._row_about_to_be_removed_slot)
         self._tree_model.rowsMoved.connect(self._row_moved_slot)
         self._tree.signals.value_written.connect(self._value_written_slot)
+        self._tree.signals.request_reveal_fqn.connect(self._request_reveal_fqn_slot)
 
         self.update_all_watchable_state()
 
@@ -399,3 +400,7 @@ class WatchComponent(ScrutinyGUIBaseLocalComponent):
         # No need to parse strings. The server auto-converts
         # Supports : Number as strings. Hexadecimal with 0x prefix, true/false, etc.
         self.server_manager.qt_write_watchable_value(fqn, value, ui_callback)
+
+
+    def _request_reveal_fqn_slot(self, fqn:str) -> None:
+        self.app.reveal_varlist_fqn(fqn)
