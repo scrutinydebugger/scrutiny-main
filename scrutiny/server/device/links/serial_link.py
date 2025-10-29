@@ -128,7 +128,7 @@ class SerialLink(AbstractLink):
             bytesize=databits,
             stopbits=stopbits,
             xonxoff=False,
-            rtscts=True,
+            rtscts=False,
             dsrdtr=False
         )
         self.port.reset_input_buffer()      # Clear pending data
