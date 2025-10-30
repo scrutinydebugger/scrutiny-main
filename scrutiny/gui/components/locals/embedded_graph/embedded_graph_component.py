@@ -301,7 +301,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
             may_have_more_to_load=True,
             initial_load_completed=False,
             load_list_in_progress=False,
-            server_connected=(self.server_manager.get_server_state() == sdk.ServerState.Connected)
+            server_connected=(self.app.server_manager.get_server_state() == sdk.ServerState.Connected)
         )
 
         self._teared_down = False
@@ -321,7 +321,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
 
             # Series on continuous graph don't have their X value aligned.
             # We can only show the value next to each point, not all together in the tree
-            self._signal_tree = GraphSignalTree(self, watchable_registry=self.watchable_registry, has_value_col=True)
+            self._signal_tree = GraphSignalTree(self, watchable_registry=self.app.watchable_registry, has_value_col=True)
             self._signal_tree.signals.selection_changed.connect(self._signal_tree_selection_changed_slot)
             self._signal_tree.signals.content_changed.connect(self._signal_tree_content_changed_slot)
 
@@ -361,7 +361,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
 
         def make_acquire_left_pane() -> QWidget:
             self._graph_config_widget = GraphConfigWidget(self,
-                                                          watchable_registry=self.watchable_registry,
+                                                          watchable_registry=self.app.watchable_registry,
                                                           get_signal_dtype_fn=self._get_signal_size_list)
             container = QWidget()
             container_layout = QVBoxLayout(container)
@@ -394,7 +394,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
             self._chk_browse_loaded_sfd_only = QCheckBox("Loaded firmware only")
             self._chk_browse_loaded_sfd_only.setToolTip("Load acquisition taken with the same firmware that the device you're conencted to is using.")
             self._chk_browse_loaded_sfd_only.checkStateChanged.connect(self._checkbox_filter_sfd_checkstate_change_slot)
-            if self.server_manager.get_loaded_sfd() is None:
+            if self.app.server_manager.get_loaded_sfd() is None:
                 self._chk_browse_loaded_sfd_only.setDisabled(True)
 
             self._graph_browse_list_widget = GraphBrowseListWidget(self)
@@ -462,16 +462,16 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
 
         layout.addWidget(self._splitter)
 
-        self.server_manager.signals.server_connected.connect(self._server_connected_slot)
-        self.server_manager.signals.server_disconnected.connect(self._server_disconnected_slot)
-        self.server_manager.signals.device_info_availability_changed.connect(self._update_datalogging_capabilities)
-        self.server_manager.signals.device_disconnected.connect(self._update_datalogging_capabilities)
-        self.server_manager.signals.device_ready.connect(self._update_datalogging_capabilities)
-        self.server_manager.signals.registry_changed.connect(self._registry_changed_slot)
-        self.server_manager.signals.datalogging_state_changed.connect(self._datalogging_state_changed_slot)
-        self.server_manager.signals.datalogging_storage_updated.connect(self._datalogging_storage_updated_slot)
-        self.server_manager.signals.sfd_loaded.connect(self._sfd_loaded_slot)
-        self.server_manager.signals.sfd_unloaded.connect(self._sfd_unloaded_slot)
+        self.app.server_manager.signals.server_connected.connect(self._server_connected_slot)
+        self.app.server_manager.signals.server_disconnected.connect(self._server_disconnected_slot)
+        self.app.server_manager.signals.device_info_availability_changed.connect(self._update_datalogging_capabilities)
+        self.app.server_manager.signals.device_disconnected.connect(self._update_datalogging_capabilities)
+        self.app.server_manager.signals.device_ready.connect(self._update_datalogging_capabilities)
+        self.app.server_manager.signals.registry_changed.connect(self._registry_changed_slot)
+        self.app.server_manager.signals.datalogging_state_changed.connect(self._datalogging_state_changed_slot)
+        self.app.server_manager.signals.datalogging_storage_updated.connect(self._datalogging_storage_updated_slot)
+        self.app.server_manager.signals.sfd_loaded.connect(self._sfd_loaded_slot)
+        self.app.server_manager.signals.sfd_unloaded.connect(self._sfd_unloaded_slot)
         self._update_datalogging_capabilities()
 
         self._graph_config_widget.set_axis_type(XAxisType.MeasuredTime)
@@ -605,7 +605,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
                 for signal in axis_content["signals"]:
                     validation.assert_dict_key(signal, 'fqn', str)
                     validation.assert_dict_key(signal, 'text', str)
-                    parsed = self.watchable_registry.FQN.parse(signal["fqn"])
+                    parsed = self.app.watchable_registry.FQN.parse(signal["fqn"])
                     series_item = ChartSeriesWatchableStandardItem(
                         fqn=signal["fqn"],
                         watchable_type=parsed.watchable_type,
@@ -673,7 +673,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
 
     def _update_datalogging_capabilities(self) -> None:
         """Update the UI with new datalogging capabilities broadcast by the server"""
-        self._graph_config_widget.configure_from_device_info(self.server_manager.get_device_info())
+        self._graph_config_widget.configure_from_device_info(self.app.server_manager.get_device_info())
 
     def _registry_changed_slot(self) -> None:
         """Called when the server manager has finished making a change to the registry"""
@@ -804,7 +804,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
             wpath = ydata.series.logged_watchable.path
             wtype = ydata.series.logged_watchable.type
             series_item = ChartSeriesWatchableStandardItem(
-                fqn=self.watchable_registry.FQN.make(watchable_type=wtype, path=wpath),
+                fqn=self.app.watchable_registry.FQN.make(watchable_type=wtype, path=wpath),
                 watchable_type=wtype,
                 text=ydata.series.name
             )
@@ -986,8 +986,8 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
                 tools.log_exception(self.logger, exception, f"Error while saving graph into {filepath}")
                 invoke_in_qt_thread(lambda: prompt.exception_msgbox(self, exception, "Failed to save", f"Failed to save the graph to {filepath}"))
 
-        loaded_sfd = self.server_manager.get_loaded_sfd()
-        connected_device_info = self.server_manager.get_device_info()
+        loaded_sfd = self.app.server_manager.get_loaded_sfd()
+        connected_device_info = self.app.server_manager.get_device_info()
 
         graph_sfd: Optional[sdk.SFDInfo] = None
         if loaded_sfd is not None and self._displayed_acquisition.firmware_id == loaded_sfd.firmware_id:
@@ -1073,7 +1073,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
         axes = self._signal_tree.get_signals()
         for axis in axes:
             for item in axis.signal_items:
-                watchable_node = self.watchable_registry.get_watchable_node_fqn(item.fqn)  # Might be unavailable
+                watchable_node = self.app.watchable_registry.get_watchable_node_fqn(item.fqn)  # Might be unavailable
                 if watchable_node is None:
                     return []
                 outlist.append(watchable_node.configuration.datatype)
@@ -1112,7 +1112,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
                 result.config.add_signal(
                     axis=sdk_axis,
                     name=signal_item.text(),
-                    signal=self.watchable_registry.FQN.parse(signal_item.fqn).path
+                    signal=self.app.watchable_registry.FQN.parse(signal_item.fqn).path
                 )
 
         if nb_signals == 0:
@@ -1192,7 +1192,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
 
             self._pending_datalogging_request = request
 
-            self.server_manager.schedule_client_request(
+            self.app.server_manager.schedule_client_request(
                 user_func=bg_thread_wait_for_completion,
                 ui_thread_callback=qt_thread_request_completed
             )
@@ -1200,7 +1200,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
             self._acquire_feedback_label.clear()
             self._apply_internal_state()
 
-        self.server_manager.schedule_client_request(
+        self.app.server_manager.schedule_client_request(
             user_func=bg_thread_start_datalog,
             ui_thread_callback=qt_thread_datalog_started
         )
@@ -1211,7 +1211,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
         """When an acquisition is in progress, an overlay on the chart display the progress. This method updates the message
         when the server informs the UI that the datalogger state changed"""
 
-        info = self.server_manager.get_server_info()
+        info = self.app.server_manager.get_server_info()
         if info is None:
             return
         percent: Optional[int] = None
@@ -1277,7 +1277,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
             assert acquisition is not None
             self._display_acquisition(acquisition, source=DisplaySource.ACQUIRED)
 
-        self.server_manager.schedule_client_request(
+        self.app.server_manager.schedule_client_request(
             user_func=bg_thread_download_data,
             ui_thread_callback=qt_thread_receive_acquisition_data
         )
@@ -1293,7 +1293,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
     def _browse_tab_visible_slot(self) -> None:
         """When the user make "Browse" tab visible"""
         # We initiate the download of a first chunk of acquisition list
-        if self.server_manager.get_server_state() == sdk.ServerState.Connected:
+        if self.app.server_manager.get_server_state() == sdk.ServerState.Connected:
             self._do_initial_graph_list_download()
 
     def _datalogging_storage_updated_slot(self, change_type: sdk.DataloggingListChangeType, reference_id: Optional[str]) -> None:
@@ -1314,7 +1314,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
                     if entry is not None:
                         self._graph_browse_list_widget.update_storage_entry(entry)
 
-                self.server_manager.schedule_client_request(bg_thread_update, qt_thread_update)
+                self.app.server_manager.schedule_client_request(bg_thread_update, qt_thread_update)
         elif change_type == sdk.DataloggingListChangeType.NEW:
             if reference_id is not None:
                 def bg_thread_new(client: ScrutinyClient) -> Optional[DataloggingStorageEntry]:
@@ -1324,7 +1324,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
                     if entry is not None:
                         self._graph_browse_list_widget.add_storage_entries([entry])
 
-                self.server_manager.schedule_client_request(bg_thread_new, qt_thread_new)
+                self.app.server_manager.schedule_client_request(bg_thread_new, qt_thread_new)
         else:
             self.logger.warning(f"Unsupported change type {change_type}")
 
@@ -1349,7 +1349,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
             else:
                 self._display_graph_error("Cannot show graph: " + str(error))
 
-        self.server_manager.schedule_client_request(bg_thread_download, qt_thread_show)
+        self.app.server_manager.schedule_client_request(bg_thread_download, qt_thread_show)
 
     def _request_rename_slot(self, reference_id: str, new_name: str) -> None:
         """The user wants to rename an acquisition. Signal comes from the list widget"""
@@ -1363,7 +1363,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
             else:
                 self._browse_feedback_label.clear()
 
-        self.server_manager.schedule_client_request(bg_thread_rename, qt_thread_complete)
+        self.app.server_manager.schedule_client_request(bg_thread_rename, qt_thread_complete)
 
     def _request_delete_single_slot(self, reference_ids: List[str]) -> None:
         """Called when the user requests to delete a single acquisition from the server storage"""
@@ -1383,7 +1383,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
 
         for reference_id in reference_ids:
             partial = functools.partial(bg_thread_delete, reference_id)
-            self.server_manager.schedule_client_request(partial, qt_thread_complete)
+            self.app.server_manager.schedule_client_request(partial, qt_thread_complete)
 
     def _do_initial_graph_list_download(self) -> None:
         """Reset the content of the available acquisitions and downloads the first page of data"""
@@ -1397,7 +1397,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
 
         # If there is a firmware loaded and the user wants to filter by it.
         firmware_id: Optional[str] = None
-        loaded_sfd = self.server_manager.get_loaded_sfd()
+        loaded_sfd = self.app.server_manager.get_loaded_sfd()
         if loaded_sfd is not None and self._chk_browse_loaded_sfd_only.checkState() == Qt.CheckState.Checked:
             firmware_id = loaded_sfd.firmware_id
 
@@ -1426,7 +1426,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
                 self._browse_feedback_label.set_error(msg)
             self._apply_internal_state()
 
-        self.server_manager.schedule_client_request(bg_thread_download, qt_thread_receive)
+        self.app.server_manager.schedule_client_request(bg_thread_download, qt_thread_receive)
 
     def _checkbox_filter_sfd_checkstate_change_slot(self, checkstate: Qt.CheckState) -> None:
         """When the checkbox to filter by firmware ID is checked/unchecked """
@@ -1461,7 +1461,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
             else:
                 self._browse_feedback_label.clear()
 
-        self.server_manager.schedule_client_request(bg_thread_clear, qt_thread_complete)
+        self.app.server_manager.schedule_client_request(bg_thread_clear, qt_thread_complete)
 
     def _btn_load_more_clicked_slot(self) -> None:
         """ When the "Load more" button has been clicked"""
@@ -1497,7 +1497,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
                 self._browse_feedback_label.set_error(msg)
             self._apply_internal_state()
 
-        self.server_manager.schedule_client_request(bg_thread_download, qt_thread_receive)
+        self.app.server_manager.schedule_client_request(bg_thread_download, qt_thread_receive)
 
     def _receive_acquisition_list(self, result: List[DataloggingStorageEntry]) -> None:
         """When we receive a chunk of acquisition metadata entries. We add the data to the actual list"""

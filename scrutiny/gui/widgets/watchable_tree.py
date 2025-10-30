@@ -22,7 +22,7 @@ __all__ = [
 
 from scrutiny.sdk import WatchableType, WatchableConfiguration
 from PySide6.QtGui import QStandardItem, QIcon, QKeyEvent
-from PySide6.QtWidgets import QWidget
+from PySide6.QtWidgets import QWidget, QApplication
 from PySide6.QtCore import Qt, QModelIndex
 from scrutiny.gui import assets
 from scrutiny.gui.core.watchable_registry import WatchableRegistry, WatchableRegistryIntermediateNode
@@ -228,7 +228,7 @@ class WatchableTreeModel(BaseTreeModel):
         super().__init__(parent)
         self._watchable_registry = watchable_registry
 
-    def get_watchable_extra_columns(self, watchable_config: Optional[WatchableConfiguration] = None) -> List[QStandardItem]:
+    def get_watchable_extra_columns(self, fqn: str, watchable_config: Optional[WatchableConfiguration] = None) -> List[QStandardItem]:
         return []
 
     def watchable_item_created(self, item: WatchableStandardItem) -> None:
@@ -359,12 +359,13 @@ class WatchableTreeModel(BaseTreeModel):
 
             for name, watchable_node in content.watchables.items():
                 watchable_path = f'{path}/{name}'
+                fqn = WatchableRegistry.FQN.make(watchable_type, watchable_path)
                 row = self.make_watchable_row(
                     name=name,
                     watchable_type=watchable_node.configuration.watchable_type,
-                    fqn=WatchableRegistry.FQN.make(watchable_type, watchable_path),
+                    fqn=fqn,
                     editable=editable,
-                    extra_columns=self.get_watchable_extra_columns(watchable_node.configuration)
+                    extra_columns=self.get_watchable_extra_columns(fqn, watchable_node.configuration)
                 )
                 parent.appendRow(row)
 
@@ -455,3 +456,12 @@ class WatchableTreeWidget(BaseTreeView):
 
     def model(self) -> WatchableTreeModel:
         return self._model
+
+    def copy_path_clipboard(self, items: Iterable[WatchableStandardItem]) -> None:
+        paths: List[str] = []
+        for item in items:
+            path = WatchableRegistry.FQN.parse(item.fqn).path
+            paths.append(path)
+
+        if len(paths) > 0:
+            QApplication.clipboard().setText('\n'.join(paths))

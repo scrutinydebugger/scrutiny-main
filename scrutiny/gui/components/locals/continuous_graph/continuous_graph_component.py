@@ -246,7 +246,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
 
             # Series on continuous graph don't have their X value aligned.
             # We can only show the value next to each point, not all together in the tree
-            self._signal_tree = GraphSignalTree(self, watchable_registry=self.watchable_registry, has_value_col=True)
+            self._signal_tree = GraphSignalTree(self, watchable_registry=self.app.watchable_registry, has_value_col=True)
             self._signal_tree.setMinimumWidth(self._signal_tree.sizeHint().width())
             self._signal_tree.signals.selection_changed.connect(self._selection_changed_slot)
 
@@ -341,8 +341,8 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
         self._chartview.configure_chart_cursor(self._signal_tree, update_xval)
 
         # App integration
-        self.server_manager.signals.registry_changed.connect(self._registry_changed_slot)
-        self.watchable_registry.register_watcher(self.instance_name, self._val_update_callback, self._unwatch_callback)
+        self.app.server_manager.signals.registry_changed.connect(self._registry_changed_slot)
+        self.app.watchable_registry.register_watcher(self.instance_name, self._val_update_callback, self._unwatch_callback)
         self._apply_internal_state()
 
     def ready(self) -> None:
@@ -353,7 +353,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
 
     def teardown(self) -> None:
         """Called when the component is removed from the dashboard"""
-        self.watchable_registry.unregister_watcher(self._watcher_id())
+        self.app.watchable_registry.unregister_watcher(self._watcher_id())
 
     def get_state(self) -> Dict[Any, Any]:
         def make_state() -> State.ComponentState:
@@ -408,7 +408,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
                     for signal in axis_content["signals"]:
                         validation.assert_dict_key(signal, 'fqn', str)
                         validation.assert_dict_key(signal, 'text', str)
-                        parsed = self.watchable_registry.FQN.parse(signal["fqn"])
+                        parsed = self.app.watchable_registry.FQN.parse(signal["fqn"])
                         series_item = ChartSeriesWatchableStandardItem(
                             fqn=signal["fqn"],
                             watchable_type=parsed.watchable_type,
@@ -460,7 +460,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
     def stop_acquisition(self) -> None:
         """Stop a an ongoing acquisition"""
         self._stop_periodic_graph_maintenance()     # Not required anymore
-        self.watchable_registry.unwatch_all(self._watcher_id())  # Stops to flow of values
+        self.app.watchable_registry.unwatch_all(self._watcher_id())  # Stops to flow of values
         self._state.acquiring = False
         self._state.paused = False
 
@@ -524,10 +524,10 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
                 for signal_item in axis.signal_items:   # For each watchable under that axis
                     try:
                         # We will use that server ID to lookup the right chart series on value update broadcast by the server
-                        registry_id = self.watchable_registry.watch_fqn(self._watcher_id(), signal_item.fqn)
+                        registry_id = self.app.watchable_registry.watch_fqn(self._watcher_id(), signal_item.fqn)
                     except WatchableRegistryNodeNotFoundError as e:
                         self._report_error(f"Signal {signal_item.text()} is not available.")
-                        self.watchable_registry.unwatch_all(self._watcher_id())
+                        self.app.watchable_registry.unwatch_all(self._watcher_id())
                         self.clear_graph()
                         return
 
@@ -545,8 +545,8 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
                     series.hovered.connect(functools.partial(self._series_hovered_slot, signal_item))
 
             # Latch the device details and loaded SFD so that we can write the info into CSV output, even if it disconnect during the acquisition
-            self._graph_sfd = self.server_manager.get_loaded_sfd()
-            self._graph_device_info = self.server_manager.get_device_info()
+            self._graph_sfd = self.app.server_manager.get_loaded_sfd()
+            self._graph_device_info = self.app.server_manager.get_device_info()
 
             # Create the continuous CSV logger if required
             self._csv_logger = None
@@ -558,7 +558,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
                 except Exception as e:
                     self._csv_logger = None
                     self._report_error(f"Cannot start CSV logging. {e}")
-                    self.watchable_registry.unwatch_all(self._watcher_id())
+                    self.app.watchable_registry.unwatch_all(self._watcher_id())
                     self.clear_graph()
                     return
 

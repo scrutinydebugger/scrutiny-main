@@ -30,10 +30,13 @@ from scrutiny.gui.components.globals.base_global_component import ScrutinyGUIBas
 from scrutiny.gui.components.base_component import ScrutinyGUIBaseComponent
 from scrutiny.gui.components.globals.varlist.varlist_component import VarListComponent
 from scrutiny.gui.components.globals.metrics.metrics_component import MetricsComponent
+from scrutiny.gui.component_app_interface import AbstractComponentAppInterface
 
 from scrutiny.gui.dashboard import dashboard_file_format
 from scrutiny.gui.app_settings import app_settings
 from scrutiny.gui.core.persistent_data import gui_persistent_data
+from scrutiny.gui.core.watchable_registry import WatchableRegistry
+from scrutiny.gui.core.server_manager import ServerManager
 
 from scrutiny import tools
 from scrutiny.gui.tools import prompt
@@ -44,8 +47,23 @@ from scrutiny.gui.themes import scrutiny_get_theme
 from scrutiny.tools.typing import *
 from scrutiny.gui import assets
 
+
 if TYPE_CHECKING:
     from scrutiny.gui.main_window import MainWindow
+
+
+class ComponentAppInterface(AbstractComponentAppInterface):
+    _dashboard: "Dashboard"
+    server_manager: ServerManager
+    watchable_registry: WatchableRegistry
+
+    def __init__(self, dashboard: "Dashboard", server_manager: ServerManager, watchable_registry: WatchableRegistry) -> None:
+        self._dashboard = dashboard
+        self.server_manager = server_manager
+        self.watchable_registry = watchable_registry
+
+    def reveal_varlist_fqn(self, fqn: str) -> None:
+        self._dashboard.request_varlist_reveal_fqn(fqn)
 
 
 class ScrutinyDockWidget(QtAds.CDockWidget):
@@ -273,6 +291,7 @@ class Dashboard(QWidget):
     _component_instances: Dict[str, ScrutinyGUIBaseComponent]
     _logger: logging.Logger
     _signals: _Signals
+    _component_app_interface: ComponentAppInterface
 
     _active_file: Optional[Path]
 
@@ -281,6 +300,11 @@ class Dashboard(QWidget):
         self._main_window = main_window
         self._active_file = None
         self._signals = self._Signals()
+        self._component_app_interface = ComponentAppInterface(  # Glue code between dashboard and global services
+            dashboard=self,
+            server_manager=self._main_window.get_server_manager(),
+            watchable_registry=self._main_window.get_watchable_registry()
+        )
 
         self._logger = logging.getLogger(self.__class__.__name__)
         self._component_instances = {}
@@ -317,6 +341,7 @@ class Dashboard(QWidget):
 
 
 # region Public API
+
 
     @property
     def signals(self) -> _Signals:
@@ -510,6 +535,13 @@ class Dashboard(QWidget):
     def dock_manager(self) -> QtAds.CDockManager:
         return self._dock_manager
 
+    def request_varlist_reveal_fqn(self, fqn: str) -> None:
+        dock_widget = self.create_or_show_global_component(VarListComponent, show=True)
+        if dock_widget is not None:
+            varlist = cast(Optional[ScrutinyGUIBaseComponent], dock_widget.widget())
+            assert isinstance(varlist, VarListComponent)
+            varlist.reveal_fqn(fqn)
+
 # endregion
 
 # region Internal
@@ -554,7 +586,11 @@ class Dashboard(QWidget):
             raise NotImplementedError("Unknown component type")
 
         try:
-            widget = component_class(self._main_window, name, self._main_window.get_watchable_registry(), self._main_window.get_server_manager())
+            widget = component_class(
+                main_window=self._main_window,
+                instance_name=name,
+                app_interface=self._component_app_interface
+            )
         except Exception as e:
             tools.log_exception(self._logger, e, f"Failed to create a dashboard component of type {component_class.__name__}")
             return None

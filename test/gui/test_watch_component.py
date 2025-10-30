@@ -11,6 +11,7 @@ from test.gui.fake_server_manager import FakeServerManager
 from test.gui.base_gui_test import ScrutinyBaseGuiTest
 from scrutiny.gui.components.locals.watch.watch_component import WatchComponent, WatchComponentTreeModel
 from scrutiny.gui.core.watchable_registry import WatchableRegistry
+from scrutiny.gui.component_app_interface import AbstractComponentAppInterface
 
 from scrutiny.tools.typing import *
 
@@ -28,11 +29,23 @@ class MainWindowStub(QWidget):
         return self.registry
 
 
+class DummyAppInterface(AbstractComponentAppInterface):
+    def reveal_varlist_fqn(self, fqn: str) -> None:
+        pass
+
+
 class TestWatchComponent(ScrutinyBaseGuiTest):
     def setUp(self):
         super().setUp()
         self.main_window = MainWindowStub()
-        self.watch1 = WatchComponent(self.main_window, 'watch1', self.main_window.get_watchable_registry(), self.main_window.get_server_manager())
+        app_interface = DummyAppInterface()
+        app_interface.server_manager = self.main_window.get_server_manager()
+        app_interface.watchable_registry = self.main_window.get_watchable_registry()
+        self.watch1 = WatchComponent(
+            self.main_window,
+            'watch1',
+            app_interface
+        )
         self.watch1.setup()
 
     def tearDown(self):

@@ -162,6 +162,7 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
 
     class _Signals(QObject):
         value_written = Signal(str, object)    # fqn, value
+        request_reveal_fqn = Signal(str)
 
     signals: _Signals
 
@@ -181,6 +182,7 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
         nesting_col = self.model().nesting_col()
         selected_items_no_nested_unordered = [self.model().itemFromIndex(index)
                                               for index in selected_indexes_no_nested_unordered if index.column() == nesting_col]
+        selected_watchable_items_unordered = [item for item in selected_items_no_nested_unordered if isinstance(item, WatchableStandardItem)]
 
         parent, insert_row = self._find_new_folder_position_from_position(event.pos())
 
@@ -192,15 +194,21 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
                 self.model().removeRow(item.row(), item.index().parent())
 
         def copy_path_clipboard_slot() -> None:
-            paths: List[str] = []
-            for index in selected_indexes:
-                item = self.model().itemFromIndex(index)
-                if isinstance(item, WatchableStandardItem):
-                    path = WatchableRegistry.FQN.parse(item.fqn).path
-                    paths.append(path)
+            def iterate_items() -> Generator[WatchableStandardItem, None, None]:
+                for index in selected_indexes:
+                    item = self.model().itemFromIndex(index)
+                    if isinstance(item, WatchableStandardItem):
+                        yield item
+            self.copy_path_clipboard(iterate_items())
 
-            if len(paths) > 0:
-                QApplication.clipboard().setText('\n'.join(paths))
+        allow_reveal_fqn = False
+        if len(selected_watchable_items_unordered) == 1:
+            if self._model._watchable_registry.is_watchable_fqn(selected_watchable_items_unordered[0].fqn):
+                allow_reveal_fqn = True
+
+        def reveal_fqn_slot() -> None:
+            if len(selected_watchable_items_unordered) == 1 and allow_reveal_fqn:
+                self.signals.request_reveal_fqn.emit(selected_watchable_items_unordered[0].fqn)
 
         new_folder_action = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.Folder), "New Folder")
         new_folder_action.triggered.connect(new_folder_action_slot)
@@ -218,17 +226,12 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
                 copy_path_clipboard_action.setEnabled(True)
                 break
 
+        reveal_in_varlist_action = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.Eye), "Reveal in Variable List")
+        reveal_in_varlist_action.setEnabled(allow_reveal_fqn)
+        reveal_in_varlist_action.triggered.connect(reveal_fqn_slot)
+
         self.display_context_menu(context_menu, event.pos())
         event.accept()
-
-    def display_context_menu(self, menu: QMenu, pos: QPoint) -> None:
-        """Display a menu at given relative position, and make sure it goes below the cursor to mimic what most people are used to"""
-        actions = menu.actions()
-        at: Optional[QAction] = None
-        if len(actions) > 0:
-            pos += QPoint(0, menu.actionGeometry(actions[0]).height())
-            at = actions[0]
-        menu.popup(self.mapToGlobal(pos), at)
 
     def model(self) -> "WatchComponentTreeModel":
         return cast(WatchComponentTreeModel, super().model())
@@ -433,7 +436,7 @@ class WatchComponentTreeModel(WatchableTreeModel):
     def itemFromIndex(self, index: Union[QModelIndex, QPersistentModelIndex]) -> BaseWatchableRegistryTreeStandardItem:
         return cast(BaseWatchableRegistryTreeStandardItem, super().itemFromIndex(index))
 
-    def get_watchable_extra_columns(self, watchable_config: Optional[WatchableConfiguration] = None) -> List[QStandardItem]:
+    def get_watchable_extra_columns(self, fqn: str = "", watchable_config: Optional[WatchableConfiguration] = None) -> List[QStandardItem]:
         # We don't use watchable_config here even if we could.
         # We update the value/type when an item is available by calling update_row_state
         return [ValueStandardItem(), DataTypeStandardItem(), EnumNameStandardItem()]

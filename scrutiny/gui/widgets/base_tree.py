@@ -15,9 +15,9 @@ __all__ = [
 import functools
 import logging
 
-from PySide6.QtGui import QFocusEvent, QStandardItem, QKeyEvent, QStandardItemModel, QColor, QMouseEvent
-from PySide6.QtCore import Qt, QModelIndex, QPersistentModelIndex, QAbstractItemModel
-from PySide6.QtWidgets import QTreeView, QWidget
+from PySide6.QtGui import QFocusEvent, QStandardItem, QKeyEvent, QStandardItemModel, QColor, QMouseEvent, QAction
+from PySide6.QtCore import Qt, QModelIndex, QPersistentModelIndex, QAbstractItemModel, QPoint
+from PySide6.QtWidgets import QTreeView, QWidget, QMenu
 
 from scrutiny.tools.typing import *
 
@@ -343,3 +343,12 @@ class BaseTreeView(QTreeView):
                 return
 
         return super().mousePressEvent(event)
+
+    def display_context_menu(self, menu: QMenu, pos: QPoint) -> None:
+        """Display a menu at given relative position, and make sure it goes below the cursor to mimic what most people are used to"""
+        actions = menu.actions()
+        at: Optional[QAction] = None
+        if len(actions) > 0:
+            pos += QPoint(0, menu.actionGeometry(actions[0]).height())
+            at = actions[0]
+        menu.popup(self.mapToGlobal(pos), at)

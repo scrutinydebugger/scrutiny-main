@@ -20,6 +20,7 @@ for f in $FILES; do
     if [[ "$(basename $f)" = "manual_test_base.py" ]]; then
         continue
     fi
+    echo $f
     python $f
 
     read -p "Continue? [y/n] " yn

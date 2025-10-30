@@ -58,8 +58,8 @@ class MetricsComponent(ScrutinyGUIBaseGlobalComponent):
         self._local_reset_btn.clicked.connect(self._btn_reset_local_click_slot)
         layout.addWidget(self._local_reset_btn)
 
-        self.server_manager.signals.server_connected.connect(self._server_connected_slot)
-        self.server_manager.signals.server_disconnected.connect(self._server_disconnected_slot)
+        self.app.server_manager.signals.server_connected.connect(self._server_connected_slot)
+        self.app.server_manager.signals.server_disconnected.connect(self._server_disconnected_slot)
         self._local_data_timer = QTimer()
         self._local_data_timer.setInterval(200)
         self._local_data_timer.timeout.connect(self._local_stats_timer_timeout)
@@ -70,7 +70,7 @@ class MetricsComponent(ScrutinyGUIBaseGlobalComponent):
         self._server_data_timer.timeout.connect(self._server_stats_timer_timeout)
 
         self._app_stats.clear_server_labels()
-        self._server_connected = (self.server_manager.get_server_state() == sdk.ServerState.Connected)
+        self._server_connected = (self.app.server_manager.get_server_state() == sdk.ServerState.Connected)
         self._visible = False
 
     def visibilityChanged(self, visible: bool) -> None:
@@ -113,7 +113,7 @@ class MetricsComponent(ScrutinyGUIBaseGlobalComponent):
         self._update()
 
     def _local_stats_timer_timeout(self) -> None:
-        self._app_stats.update_local_data(self.server_manager.get_stats())
+        self._app_stats.update_local_data(self.app.server_manager.get_stats())
 
     def _server_stats_timer_timeout(self) -> None:
         def threaded_get_stats(client: ScrutinyClient) -> sdk.ServerStatistics:
@@ -124,14 +124,14 @@ class MetricsComponent(ScrutinyGUIBaseGlobalComponent):
                 self._app_stats.update_server_data(stats)
 
             if exception is not None:
-                if self.server_manager.get_server_state() == sdk.ServerState.Connected:  # Suppresses errors when the server is gone.
+                if self.app.server_manager.get_server_state() == sdk.ServerState.Connected:  # Suppresses errors when the server is gone.
                     tools.log_exception(self.logger, exception, "Failed to read the server metrics")
 
             self._update()  # Will relaunch the server timer if necessary
 
-        self.server_manager.schedule_client_request(threaded_get_stats, ui_callback)
+        self.app.server_manager.schedule_client_request(threaded_get_stats, ui_callback)
 
     def _btn_reset_local_click_slot(self) -> None:
-        self.server_manager.reset_stats()
+        self.app.server_manager.reset_stats()
 
 # endregion

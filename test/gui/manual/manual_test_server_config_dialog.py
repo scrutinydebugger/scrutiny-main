@@ -12,7 +12,6 @@ if __name__ != '__main__':
 import sys
 import os
 
-
 sys.path.insert(0, os.path.dirname(__file__))
 from manual_test_base import make_manual_test_app
 app = make_manual_test_app()
@@ -22,7 +21,6 @@ from scrutiny.gui.core.local_server_runner import LocalServerRunner
 
 from PySide6.QtWidgets import QMainWindow, QPushButton, QWidget, QVBoxLayout, QCheckBox
 from PySide6.QtCore import Qt
-
 
 window = QMainWindow()
 central_widget = QWidget()
