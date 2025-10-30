@@ -11,9 +11,9 @@ __all__ = ['ComponentSidebar']
 
 import functools
 
-from PySide6.QtWidgets import QToolBar, QToolButton, QSizePolicy
+from PySide6.QtWidgets import QToolBar, QToolButton, QSizePolicy, QWidget
 from PySide6.QtCore import Qt, QSize, Signal
-from PySide6.QtGui import QAction
+from PySide6.QtGui import QAction, QContextMenuEvent
 
 from scrutiny.gui.components.locals.base_local_component import ScrutinyGUIBaseLocalComponent
 from scrutiny.gui.components.globals.base_global_component import ScrutinyGUIBaseGlobalComponent
@@ -26,9 +26,10 @@ class ComponentSidebar(QToolBar):
     show_global_component = Signal(type)
 
     def __init__(self,
+                 parent:QWidget,
                  global_components: List[Type[ScrutinyGUIBaseGlobalComponent]],
                  local_components: List[Type[ScrutinyGUIBaseLocalComponent]]) -> None:
-        super().__init__()
+        super().__init__(parent)
 
         self.setIconSize(QSize(32, 24))
 
@@ -63,3 +64,7 @@ class ComponentSidebar(QToolBar):
 
     def trigger_show_global_signal(self, component: Type[ScrutinyGUIBaseGlobalComponent]) -> None:
         self.show_global_component.emit(component)
+
+    def contextMenuEvent(self, event: QContextMenuEvent) -> None:
+        #Override default implementation to avoid having toggleViewAction checkbox with no text.
+        pass

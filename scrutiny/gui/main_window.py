@@ -149,6 +149,7 @@ class MainWindow(QMainWindow):
         hlayout.setSpacing(0)
 
         self._component_sidebar = ComponentSidebar(
+            self,
             global_components=self.ENABLED_GLOBALS_COMPONENTS,
             local_components=self.ENABLED_LOCAL_COMPONENTS
         )
