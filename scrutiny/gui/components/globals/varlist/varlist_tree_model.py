@@ -22,7 +22,6 @@ from scrutiny.gui.widgets.watchable_tree import (
 from scrutiny.sdk import WatchableConfiguration
 from scrutiny.tools.typing import *
 
-
 class VarListComponentTreeModel(WatchableTreeModel):
     """An extension of the data model used by Watchable Trees dedicated for the Variable List Component
     Mainly handles drag&drop logic

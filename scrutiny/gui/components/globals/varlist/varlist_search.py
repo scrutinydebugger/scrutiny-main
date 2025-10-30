@@ -9,7 +9,7 @@
 import enum
 from dataclasses import dataclass
 
-from PySide6.QtWidgets import QWidget, QLineEdit, QProgressBar, QVBoxLayout, QMenu, QApplication
+from PySide6.QtWidgets import QWidget, QLineEdit, QProgressBar, QVBoxLayout, QMenu
 from PySide6.QtGui import QContextMenuEvent, QStandardItem
 from PySide6.QtCore import Qt, QObject, Signal, QTimer
 from scrutiny.gui.components.globals.varlist.varlist_tree_model import VarListComponentTreeModel
@@ -169,7 +169,7 @@ class SearchResultWidget(QWidget):
     _pause_counter: int
     """Counts the number of pause taken while searching"""
     _progress_bar: QProgressBar
-    """Progress abr showing the search progress"""
+    """Progress bar showing the search progress"""
 
     def __init__(self, parent: QWidget, watchable_registry: WatchableRegistry, search_batch_size: int = _DEFAULT_SEARCH_ITERATION_BATCH_SIZE) -> None:
         super().__init__(parent)
