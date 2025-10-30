@@ -43,6 +43,7 @@ from scrutiny.gui.core.watchable_registry import WatchableRegistry
 
 from scrutiny.tools.typing import *
 
+
 class MainWindow(QMainWindow):
     INITIAL_W = 1200
     INITIAL_H = 900

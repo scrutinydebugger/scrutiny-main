@@ -200,7 +200,7 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
                     if isinstance(item, WatchableStandardItem):
                         yield item
             self.copy_path_clipboard(iterate_items())
-        
+
         allow_reveal_fqn = False
         if len(selected_watchable_items_unordered) == 1:
             if self._model._watchable_registry.is_watchable_fqn(selected_watchable_items_unordered[0].fqn):
@@ -225,7 +225,7 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
             if isinstance(item, WatchableStandardItem):  # At least one watchable, enough to enable
                 copy_path_clipboard_action.setEnabled(True)
                 break
-        
+
         reveal_in_varlist_action = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.Eye), "Reveal in Variable List")
         reveal_in_varlist_action.setEnabled(allow_reveal_fqn)
         reveal_in_varlist_action.triggered.connect(reveal_fqn_slot)

@@ -16,14 +16,22 @@ from manual_test_base import make_manual_test_app
 app = make_manual_test_app()
 
 from PySide6.QtWidgets import QMainWindow, QWidget, QHBoxLayout
-from scrutiny.gui import assets
 
 from scrutiny.gui.components.globals.varlist.varlist_component import VarListComponent
 from scrutiny.gui.components.locals.watch.watch_component import WatchComponent
 from scrutiny.gui.core.watchable_registry import WatchableRegistry
-from scrutiny.gui.widgets.graph_signal_tree import GraphSignalModel, GraphSignalTree
+from scrutiny.gui.widgets.graph_signal_tree import GraphSignalTree
+from scrutiny.gui.component_app_interface import AbstractComponentAppInterface
 
 from test.gui.fake_server_manager import FakeServerManager, ServerConfig
+
+
+class DummyAppInterface(AbstractComponentAppInterface):
+    varlist: VarListComponent
+
+    def reveal_varlist_fqn(self, fqn: str) -> None:
+        self.varlist.reveal_fqn(fqn)
+
 
 window = QMainWindow()
 central_widget = QWidget()
@@ -36,9 +44,15 @@ server_manager.simulate_server_connect()
 server_manager.simulate_sfd_loaded()
 server_manager.simulate_device_ready()
 
-varlist = VarListComponent(main_window=window, instance_name="varlist1", server_manager=server_manager, watchable_registry=registry)
-watch1 = WatchComponent(main_window=window, instance_name="watch1", server_manager=server_manager, watchable_registry=registry)
+app_interface = DummyAppInterface()
+app_interface.server_manager = server_manager
+app_interface.watchable_registry = registry
+
+varlist = VarListComponent(main_window=window, instance_name="varlist1", app_interface=app_interface)
+watch1 = WatchComponent(main_window=window, instance_name="watch1", app_interface=app_interface)
 graph_axes_zone = GraphSignalTree(window, registry, has_value_col=True)
+
+app_interface.varlist = varlist
 
 varlist.setup()
 watch1.setup()

@@ -92,7 +92,8 @@ class SearchResultTreeWidget(WatchableTreeWidget):
         selected_indexes = self.selectedIndexes()
         nesting_col = self.model().nesting_col()
         # Assumes that the tree only contains watchable. No folder.
-        selected_items = [cast(WatchableStandardItem, self.model().itemFromIndex(index)) for index in selected_indexes if index.column() == nesting_col]
+        selected_items = [cast(WatchableStandardItem, self.model().itemFromIndex(index))
+                          for index in selected_indexes if index.column() == nesting_col]
 
         def copy_path_clipboard_slot() -> None:
             self.copy_path_clipboard(selected_items)
@@ -119,7 +120,6 @@ class SearchResultTreeWidget(WatchableTreeWidget):
         self.display_context_menu(context_menu, event.pos())
         event.accept()
 
-
     def model(self) -> SearchResultTreeModel:
         return cast(SearchResultTreeModel, super().model())
 
@@ -127,7 +127,9 @@ class SearchResultTreeWidget(WatchableTreeWidget):
 class PauseSearch:
     pass
 
+
 SearchGeneratorType: TypeAlias = Generator[Union[SingleResult, PauseSearch], None, None]
+
 
 class SearchResultWidget(QWidget):
     """A widget able to search the WatchableRegistry and display the search result"""

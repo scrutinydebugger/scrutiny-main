@@ -64,22 +64,27 @@ add_per_group([QLabel("Server Connection"), btn_connect, btn_disconnect])
 add_per_group([QLabel("Device Connection"), btn_device_ready, btn_device_gone])
 add_per_group([QLabel("Firmware Description"), btn_load_sfd, btn_unload_sfd])
 
+
 class AppInterface(AbstractComponentAppInterface):
     # Enable global features without dashboard
 
-    varlist:VarListComponent
+    varlist: VarListComponent
+
     def reveal_varlist_fqn(self, fqn: str) -> None:
         self.varlist.reveal_fqn(fqn)
+
 
 component_layout = QHBoxLayout(component_container)
 
 app_interface = AppInterface()
+app_interface.server_manager = server_manager
+app_interface.watchable_registry = registry
 
-varlist = VarListComponent(main_window=window, instance_name="varlist1", server_manager=server_manager, watchable_registry=registry, app_interface=app_interface)
-watch1 = WatchComponent(main_window=window, instance_name="watch1", server_manager=server_manager, watchable_registry=registry, app_interface=app_interface)
-watch2 = WatchComponent(main_window=window, instance_name="watch2", server_manager=server_manager, watchable_registry=registry, app_interface=app_interface)
+varlist = VarListComponent(main_window=window, instance_name="varlist1", app_interface=app_interface)
+watch1 = WatchComponent(main_window=window, instance_name="watch1", app_interface=app_interface)
+watch2 = WatchComponent(main_window=window, instance_name="watch2", app_interface=app_interface)
 
-app_interface.varlist = varlist 
+app_interface.varlist = varlist
 
 varlist.setup()
 watch1.setup()

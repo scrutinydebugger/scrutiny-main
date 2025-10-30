@@ -44,16 +44,16 @@ class VarlistComponentTreeWidget(WatchableTreeWidget):
 
     def model(self) -> VarListComponentTreeModel:
         return cast(VarListComponentTreeModel, super().model())
-    
+
     def contextMenuEvent(self, e: QContextMenuEvent) -> None:
         context_menu = QMenu(self)
         selected_indexes = self.selectedIndexes()
         nesting_col = self.model().nesting_col()
 
-        selected_items:List[WatchableStandardItem] = []
+        selected_items: List[WatchableStandardItem] = []
         for index in selected_indexes:
             if index.column() == nesting_col:
-                item = self.model().itemFromIndex(index) 
+                item = self.model().itemFromIndex(index)
                 if isinstance(item, WatchableStandardItem):
                     selected_items.append(item)
 
@@ -86,10 +86,10 @@ class VarListComponent(ScrutinyGUIBaseGlobalComponent):
     _alias_folder: BaseWatchableRegistryTreeStandardItem
     _rpv_folder: BaseWatchableRegistryTreeStandardItem
     _index_change_counters: Dict[WatchableType, int]
-    
-    _browse_tab_index:int
-    _search_tab_index:int
-    _content_tabs:QTabWidget
+
+    _browse_tab_index: int
+    _search_tab_index: int
+    _content_tabs: QTabWidget
     _display_mode: DisplayMode
 
     @classmethod
@@ -99,10 +99,10 @@ class VarListComponent(ScrutinyGUIBaseGlobalComponent):
     def setup(self) -> None:
         layout = QVBoxLayout(self)
 
-        self._tree_model = VarListComponentTreeModel(self, watchable_registry=self.watchable_registry)
+        self._tree_model = VarListComponentTreeModel(self, watchable_registry=self.app.watchable_registry)
         self._tree = VarlistComponentTreeWidget(self, self._tree_model)
         self._search_controls = SearchControlWidget(self)
-        self._search_result_widget = SearchResultWidget(self, self.watchable_registry, search_batch_size=100)
+        self._search_result_widget = SearchResultWidget(self, self.app.watchable_registry, search_batch_size=100)
         self._display_mode = self.DisplayMode.Content
 
         self._search_controls.signals.search_string_updated.connect(self._search_string_updated_slot)
@@ -130,9 +130,9 @@ class VarListComponent(ScrutinyGUIBaseGlobalComponent):
         self._content_tabs.setTabEnabled(self._search_tab_index, False)
 
         self.reload_model([WatchableType.RuntimePublishedValue, WatchableType.Alias, WatchableType.Variable])
-        self._index_change_counters = self.watchable_registry.get_change_counters()
+        self._index_change_counters = self.app.watchable_registry.get_change_counters()
 
-        self.server_manager.signals.registry_changed.connect(self.registry_changed_slot)
+        self.app.server_manager.signals.registry_changed.connect(self.registry_changed_slot)
         self._tree.expanded.connect(self.node_expanded_slot)
         self._search_result_widget.signals.reveal_in_varlist.connect(self.reveal_fqn)
 
@@ -169,7 +169,7 @@ class VarListComponent(ScrutinyGUIBaseGlobalComponent):
 
     def registry_changed_slot(self) -> None:
         """Called when the server manager finishes downloading the server watchable list and update the registry"""
-        index_change_counters = self.watchable_registry.get_change_counters()
+        index_change_counters = self.app.watchable_registry.get_change_counters()
         # Identify all the types that changed since the last model update
         types_to_reload = []
         for wt, count in index_change_counters.items():
@@ -205,7 +205,7 @@ class VarListComponent(ScrutinyGUIBaseGlobalComponent):
             self._tree.collapse(self._var_folder.index())
             self._tree_model.lazy_load(self._var_folder, WatchableType.Variable, '/')
 
-    def reveal_fqn(self, fqn:str) -> None:
+    def reveal_fqn(self, fqn: str) -> None:
         item = self._tree_model.find_item_by_fqn(fqn)
         if item is None:
             return

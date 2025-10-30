@@ -27,21 +27,25 @@ class MainWindowStub(QWidget):
 
     def get_watchable_registry(self):
         return self.registry
+
+
 class DummyAppInterface(AbstractComponentAppInterface):
-    def reveal_varlist_fqn(fqn:str) -> None:
+    def reveal_varlist_fqn(self, fqn: str) -> None:
         pass
+
 
 class TestWatchComponent(ScrutinyBaseGuiTest):
     def setUp(self):
         super().setUp()
         self.main_window = MainWindowStub()
+        app_interface = DummyAppInterface()
+        app_interface.server_manager = self.main_window.get_server_manager()
+        app_interface.watchable_registry = self.main_window.get_watchable_registry()
         self.watch1 = WatchComponent(
-            self.main_window, 
-            'watch1', 
-            self.main_window.get_watchable_registry(), 
-            self.main_window.get_server_manager(), 
-            DummyAppInterface()
-            )
+            self.main_window,
+            'watch1',
+            app_interface
+        )
         self.watch1.setup()
 
     def tearDown(self):

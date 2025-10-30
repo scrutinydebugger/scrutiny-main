@@ -68,7 +68,7 @@ class WatchComponent(ScrutinyGUIBaseLocalComponent):
         return scrutiny_get_theme().load_medium_icon(assets.Icons.Watch)
 
     def setup(self) -> None:
-        self._tree_model = WatchComponentTreeModel(self, watchable_registry=self.watchable_registry)
+        self._tree_model = WatchComponentTreeModel(self, watchable_registry=self.app.watchable_registry)
         self._tree = WatchComponentTreeWidget(self, self._tree_model)
         self._teared_down = False
 
@@ -80,7 +80,7 @@ class WatchComponent(ScrutinyGUIBaseLocalComponent):
         self._tree.expanded.connect(self._node_expanded_slot)
         self._tree.collapsed.connect(self._node_collapsed_slot)
 
-        self.server_manager.signals.registry_changed.connect(self._registry_changed_slot)
+        self.app.server_manager.signals.registry_changed.connect(self._registry_changed_slot)
 
         self._tree_model.rowsInserted.connect(self._row_inserted_slot)
         self._tree_model.rowsAboutToBeRemoved.connect(self._row_about_to_be_removed_slot)
@@ -95,7 +95,7 @@ class WatchComponent(ScrutinyGUIBaseLocalComponent):
             self._unwatch_item(item)
             watcher_id = self._get_watcher_id(item)
             try:
-                self.watchable_registry.unregister_watcher(watcher_id)
+                self.app.watchable_registry.unregister_watcher(watcher_id)
             except WatcherNotFoundError:
                 # Should not happen (hopefully). The registry is expected to keep the watchers even after a clear
                 self.logger.error(f"Tried to unregister watcher {watcher_id}, but was not registered")
@@ -285,7 +285,7 @@ class WatchComponent(ScrutinyGUIBaseLocalComponent):
             pass
 
         watcher_id = self._get_watcher_id(item)
-        self.watchable_registry.register_watcher(watcher_id, update_val_closure, unwatch_closure, ignore_duplicate=True)
+        self.app.watchable_registry.register_watcher(watcher_id, update_val_closure, unwatch_closure, ignore_duplicate=True)
 
     def _row_inserted_slot(self, parent: QModelIndex, row_index: int, col_index: int) -> None:
         # This slots is called for every row inserted when new rows. Only parent when existing row
@@ -309,7 +309,7 @@ class WatchComponent(ScrutinyGUIBaseLocalComponent):
             try:
                 # Unregistering causes an unwatch of all watched items.
                 # In this component, each watcher has a single watched item
-                self.watchable_registry.unregister_watcher(watcher_id)
+                self.app.watchable_registry.unregister_watcher(watcher_id)
             except WatcherNotFoundError:
                 # Should not happen (hopefully). The registry is expected to keep the watchers even after a clear
                 self.logger.error(f"Tried to unregister watcher {watcher_id}, but was not registered")
@@ -336,7 +336,7 @@ class WatchComponent(ScrutinyGUIBaseLocalComponent):
         if self.logger.isEnabledFor(logging.DEBUG):  # pragma: no cover
             self.logger.debug(f"Watching item {item.fqn} (watcher ID = {watcher_id})")
         try:
-            self.watchable_registry.watch_fqn(watcher_id, item.fqn)
+            self.app.watchable_registry.watch_fqn(watcher_id, item.fqn)
         except WatchableRegistryNodeNotFoundError:
             # we tolerate because we could simply try to watch to see if the watchable is available.
             # It might not if the server is gone or presently downloading data
@@ -348,7 +348,7 @@ class WatchComponent(ScrutinyGUIBaseLocalComponent):
         if self.logger.isEnabledFor(logging.DEBUG):  # pragma: no cover
             self.logger.debug(f"Unwatching item {item.fqn} (watcher ID = {watcher_id})")
         try:
-            self.watchable_registry.unwatch_fqn(watcher_id, item.fqn)
+            self.app.watchable_registry.unwatch_fqn(watcher_id, item.fqn)
         except WatchableRegistryNodeNotFoundError:
             # We tolerate because a race condition could cause this if the server dies while the GUI is working
             # Should not happen normally
@@ -399,8 +399,7 @@ class WatchComponent(ScrutinyGUIBaseLocalComponent):
             raise ValueError(f"Cannot write the value of {fqn}. Value is of the wrong type: {value.__class__.__name__}")
         # No need to parse strings. The server auto-converts
         # Supports : Number as strings. Hexadecimal with 0x prefix, true/false, etc.
-        self.server_manager.qt_write_watchable_value(fqn, value, ui_callback)
+        self.app.server_manager.qt_write_watchable_value(fqn, value, ui_callback)
 
-
-    def _request_reveal_fqn_slot(self, fqn:str) -> None:
+    def _request_reveal_fqn_slot(self, fqn: str) -> None:
         self.app.reveal_varlist_fqn(fqn)

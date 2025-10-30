@@ -343,7 +343,7 @@ class BaseTreeView(QTreeView):
                 return
 
         return super().mousePressEvent(event)
-    
+
     def display_context_menu(self, menu: QMenu, pos: QPoint) -> None:
         """Display a menu at given relative position, and make sure it goes below the cursor to mimic what most people are used to"""
         actions = menu.actions()

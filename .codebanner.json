@@ -924,6 +924,9 @@
         },
         "scrutiny/gui/components/globals/varlist/varlist_search.py": {
             "docstring": "Variable List component search mechanisms and widgets"
+        },
+        "scrutiny/gui/component_app_interface.py": {
+            "docstring": "The interface to the Scrutiny app seen by the components"
         }
     }
 }

@@ -22,9 +22,20 @@ from PySide6.QtGui import QDoubleValidator
 from scrutiny.gui.widgets.watchable_line_edit import WatchableLineEdit
 from scrutiny.gui.components.globals.varlist.varlist_component import VarListComponent
 from scrutiny.gui.core.watchable_registry import WatchableRegistry
+from scrutiny.gui.component_app_interface import AbstractComponentAppInterface
 
 from scrutiny.sdk import WatchableType, WatchableConfiguration, EmbeddedDataType
 from test.gui.fake_server_manager import FakeServerManager
+
+
+class AppInterface(AbstractComponentAppInterface):
+    # Enable global features without dashboard
+
+    varlist: VarListComponent
+
+    def reveal_varlist_fqn(self, fqn: str) -> None:
+        self.varlist.reveal_fqn(fqn)
+
 
 window = QMainWindow()
 central_widget = QWidget()
@@ -36,7 +47,10 @@ layout = QVBoxLayout(central_widget)
 
 registry = WatchableRegistry()
 server_manager = FakeServerManager(registry)
-varlist = VarListComponent(main_window=window, instance_name="varlist1", server_manager=server_manager, watchable_registry=registry)
+app_interface = AppInterface()
+app_interface.server_manager = server_manager
+app_interface.watchable_registry = registry
+varlist = VarListComponent(main_window=window, instance_name="varlist1", app_interface=app_interface)
 varlist.setup()
 
 registry.write_content({
