@@ -186,7 +186,6 @@ class SearchResultWidget(QWidget):
         self._progress_bar.setRange(0, 100)
         self._progress_bar.setOrientation(Qt.Orientation.Horizontal)
         self._progress_bar.setMaximumHeight(18)
-        self._progress_bar.setTextVisible(False)
 
         vlayout = QVBoxLayout(self)
         vlayout.addWidget(self._progress_bar)
