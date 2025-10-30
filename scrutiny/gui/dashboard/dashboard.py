@@ -68,8 +68,7 @@ class ComponentAppInterface(AbstractComponentAppInterface):
 
 class ScrutinyDockWidget(QtAds.CDockWidget):
 
-    tools.copy_type(QtAds.CDockWidget)
-
+    @tools.copy_type(QtAds.CDockWidget.__init__)
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
 
@@ -87,7 +86,6 @@ class ScrutinyDockWidget(QtAds.CDockWidget):
                 event.accept()
 
         super().keyPressEvent(event)
-
 
 @dataclass
 class SplitterAndSizePair:
