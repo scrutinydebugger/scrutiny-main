@@ -771,7 +771,7 @@ class ScrutinyClient:
                 self._wt_process_next_server_status_update()
 
                 for msg in self._wt_recv(timeout=0.005):
-                    self._wt_process_rx_api_message(msg)
+                    self._wt_process_rx_api_message(cast(api_typing.S2CMessage, msg))
 
                 self._wt_check_callbacks_timeouts()
                 if time.monotonic() - last_deferred_response_timeout_check > 1.0:   # Avoid locking the main lock too often
@@ -1023,7 +1023,7 @@ class ScrutinyClient:
         """Internal method to add middleware on response reception. Mostly for testing"""
         self._rx_message_callbacks.append(callback)
 
-    def _wt_process_rx_api_message(self, msg: Dict[str, Any]) -> None:
+    def _wt_process_rx_api_message(self, msg: api_typing.S2CMessage) -> None:
         self._threading_events.msg_received.set()
         # These callbacks are mainly for testing.
         for callback in self._rx_message_callbacks:
@@ -1065,7 +1065,7 @@ class ScrutinyClient:
             if reqid is not None:   # message is a response to a request
                 self._wt_process_callbacks(cmd, msg, reqid)
 
-    def _wt_process_callbacks(self, cmd: str, msg: Dict[str, Any], reqid: int) -> None:
+    def _wt_process_callbacks(self, cmd: str, msg: api_typing.S2CMessage, reqid: int) -> None:
         callback_entry: Optional[CallbackStorageEntry] = None
         with self._main_lock:
             if reqid in self._callback_storage:
@@ -1120,7 +1120,7 @@ class ScrutinyClient:
                     req = bucket[reqid]
                 except KeyError:
                     continue
-                req._mark_complete(False, failure_reason=msg.get('msg', "No error message provided"))
+                req._mark_complete(False, failure_reason=str(msg.get('msg', "No error message provided")))
 
     def _wt_process_write_watchable_requests(self) -> None:
         # Note _pending_api_batch_writes is always accessed from worker thread
@@ -1483,7 +1483,7 @@ class ScrutinyClient:
         data = data.copy()
         data.update(cmd)
 
-        return data
+        return cast(api_typing.C2SMessage, data)
 
     def _enqueue_write_request(self, request: Union[WriteRequest, BatchWriteContext, FlushPoint]) -> None:
         self._write_request_queue.put(request)

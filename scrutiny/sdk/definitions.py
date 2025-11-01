@@ -209,7 +209,7 @@ class SamplingRate:
     """Name for display only"""
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class FixedFreqSamplingRate(SamplingRate):
     """(Immutable struct) Represent a fixed frequency sampling rate supported by the device"""
 
@@ -222,7 +222,7 @@ class FixedFreqSamplingRate(SamplingRate):
         validation.assert_type(self.frequency, 'frequency', float)
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class VariableFreqSamplingRate(SamplingRate):
     """(Immutable struct) Represent a variable frequency sampling rate supported by the device. Has no known frequency"""
 
@@ -325,7 +325,7 @@ class BaseLinkConfig(abc.ABC):
         raise NotImplementedError("Abstract class")
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class NoneLinkConfig(BaseLinkConfig):
     """(Immutable struct) An Empty object acting as configuration structure for a device link of type :attr:`NONE<scrutiny.sdk.DeviceLinkType.NONE>`
     Exists only to differentiate ``None`` (data not available) from :class:`NoneLinkConfig<scrutiny.sdk.NoneLinkConfig>` (data available - no link configured)
@@ -335,7 +335,7 @@ class NoneLinkConfig(BaseLinkConfig):
         return {}
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class UDPLinkConfig(BaseLinkConfig):
     """(Immutable struct) The configuration structure for a device link of type :attr:`UDP<scrutiny.sdk.DeviceLinkType.UDP>`"""
 
@@ -354,7 +354,7 @@ class UDPLinkConfig(BaseLinkConfig):
         }
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class TCPLinkConfig(BaseLinkConfig):
     """(Immutable struct) The configuration structure for a device link of type :attr:`TCP<scrutiny.sdk.DeviceLinkType.TCP>`"""
 
@@ -374,7 +374,7 @@ class TCPLinkConfig(BaseLinkConfig):
         }
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class SerialLinkConfig(BaseLinkConfig):
     """(Immutable struct) The configuration structure for a device link of type :attr:`Serial<scrutiny.sdk.DeviceLinkType.Serial>`"""
 
