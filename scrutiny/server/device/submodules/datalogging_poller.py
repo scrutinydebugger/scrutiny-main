@@ -48,7 +48,7 @@ DeviceAcquisitionRequestCompletionCallback = Callable[[bool, str,
 DataloggingReceiveSetupCallback = Callable[[device_datalogging.DataloggingSetup], None]
 
 
-@dataclass
+@dataclass(slots=True)
 class AcquisitionRequest:
     """Represent a single request for datalogging coming from the user (DataloggingManager)"""
     loop_id: int
@@ -56,7 +56,7 @@ class AcquisitionRequest:
     completion_callback: DeviceAcquisitionRequestCompletionCallback
 
 
-@dataclass
+@dataclass(slots=True)
 class _ReceivedChunk:
     """Chunk of acquisition data read from the device"""
     acquisition_id: int

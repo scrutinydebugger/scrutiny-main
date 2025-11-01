@@ -62,7 +62,7 @@ class ScrutinyServer:
     """The Scrutiny server that communicate with a device running libscrutiny-embedded and make
     the device internal data available through a multi-client socket API"""
 
-    @dataclass(frozen=True)
+    @dataclass(frozen=True, slots=True)
     class Statistics:
         device: DeviceHandler.Statistics
         api: API.Statistics

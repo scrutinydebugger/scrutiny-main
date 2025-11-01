@@ -284,7 +284,7 @@ class CuName:
             i += 1
 
 
-@dataclass
+@dataclass(slots=True)
 class Context:
     arch: Architecture
     endianess: Endianness

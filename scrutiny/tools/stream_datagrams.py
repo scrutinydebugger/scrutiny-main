@@ -60,10 +60,8 @@ class StreamMaker:
         return out
 
 
-@dataclass
+@dataclass(slots=True)
 class PayloadProperties:
-    __slots__ = ('data_length', 'compressed', 'use_hash')
-
     data_length: int
     compressed: bool
     use_hash: bool

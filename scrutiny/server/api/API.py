@@ -167,7 +167,7 @@ class API:
             DEMO_MODE_RESPONSE = 'response_demo_mode'
             ERROR_RESPONSE = 'error'
 
-    @dataclass
+    @dataclass(slots=True)
     class SfdUploadState:
         expected_next_index: int
         upload_token: str
@@ -175,7 +175,7 @@ class API:
         filepath: Path
         completed: bool
 
-    @dataclass(frozen=True)
+    @dataclass(frozen=True, slots=True)
     class Statistics:
         client_handler: AbstractClientHandler.Statistics
         invalid_request_count: int
@@ -196,7 +196,7 @@ class API:
         CONNECTED: api_typing.DeviceCommStatus = 'connected'
         CONNECTED_READY: api_typing.DeviceCommStatus = 'connected_ready'
 
-    @dataclass
+    @dataclass(slots=True)
     class DataloggingSupportedTriggerCondition:
         condition_id: api_datalogging.TriggerConditionID
         nb_operands: int

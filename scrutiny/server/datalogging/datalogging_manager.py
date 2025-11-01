@@ -45,7 +45,7 @@ class FsmState(enum.Enum):
     SHUTDOWN_CLEAR_PENDING_REQUEST = enum.auto()
 
 
-@dataclass
+@dataclass(slots=True)
 class DeviceSideAcquisitionRequest:
     api_request: api_datalogging.AcquisitionRequest
     device_config: device_datalogging.Configuration

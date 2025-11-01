@@ -87,18 +87,18 @@ class ScrutinyDockWidget(QtAds.CDockWidget):
 
         super().keyPressEvent(event)
 
-@dataclass
+@dataclass(slots=True)
 class SplitterAndSizePair:
     splitter: QtAds.CDockSplitter
     sizes: List[int]
 
 
-@dataclass
+@dataclass(slots=True)
 class BuildSplitterRecursiveMutableData:
     splitter_sizes: List[SplitterAndSizePair]
 
 
-@dataclass
+@dataclass(slots=True)
 class BuildSplitterRecursiveImmutableData:
     name_suffix: str
     top_level: bool

@@ -27,19 +27,19 @@ from scrutiny.tools.typing import *
 import typing
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class WelcomeData:
     server_time_zero_timestamp: float
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class WatchableUpdate:
     server_id: str
     value: Union[bool, int, float]
     server_time_us: float
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class WriteCompletion:
     request_token: str
     watchable: str
@@ -48,13 +48,13 @@ class WriteCompletion:
     batch_index: int
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class WriteConfirmation:
     request_token: str
     count: int
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class MemoryReadCompletion:
     request_token: str
     success: bool
@@ -64,7 +64,7 @@ class MemoryReadCompletion:
     local_monotonic_timestamp: float
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class MemoryWriteCompletion:
     request_token: str
     success: bool
@@ -73,7 +73,7 @@ class MemoryWriteCompletion:
     local_monotonic_timestamp: float
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class DataloggingCompletion:
     request_token: str
     reference_id: Optional[str]
@@ -81,19 +81,19 @@ class DataloggingCompletion:
     detail_msg: str
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class GetWatchableListResponse:
     done: bool
     data: sdk.WatchableListContentPart
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class DataloggingListChangeResponse:
     action: sdk.DataloggingListChangeType
     reference_id: Optional[str]
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class SFDDownloadChunk:
     firmware_id: str
     data: bytes
@@ -101,13 +101,13 @@ class SFDDownloadChunk:
     total_size: int
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class UploadSFDInitResponse:
     token: str
     will_overwrite: bool
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class UploadSFDDataResponse:
     completed: bool
     actual_size: int

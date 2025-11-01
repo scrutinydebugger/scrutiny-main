@@ -120,7 +120,7 @@ class ChartSeriesWatchableStandardItem(WatchableStandardItem):
         return series.isVisible()
 
 
-@dataclass
+@dataclass(slots=True)
 class AxisContent:
     axis_name: str
     axis_item: AxisStandardItem

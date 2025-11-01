@@ -43,7 +43,7 @@ class DataloggerState(Enum):
     ERROR = 5
 
 
-@dataclass
+@dataclass(slots=True)
 class DataloggingSetup:
     """Represent the device datalogging global parameters."""
     buffer_size: int
@@ -51,7 +51,7 @@ class DataloggingSetup:
     max_signal_count: int
 
 
-@dataclass
+@dataclass(slots=True)
 class AcquisitionMetadata:
     """Represent the metadata attached to an acquisition given by the device"""
     acquisition_id: int

@@ -85,17 +85,14 @@ class ServerRegistryBidirectionalMap:
         return len(self.s2r)
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class RegistryValueUpdate:
-    __slots__ = ('sdk_update', 'registry_id')
     sdk_update: ValueUpdate
     registry_id: int
 
 
-@dataclass
+@dataclass(slots=True)
 class ParsedFullyQualifiedName:
-    __slots__ = ('watchable_type', 'path')
-
     watchable_type: sdk.WatchableType
     path: str
 
@@ -127,12 +124,9 @@ GlobalWatchCallback = Callable[[WatcherIdType, str, sdk.WatchableConfiguration, 
 GlobalUnwatchCallback = Callable[[WatcherIdType, str, sdk.WatchableConfiguration, int], None]
 
 
-@dataclass(init=False)
+@dataclass(init=False, slots=True)
 class WatchableRegistryEntryNode:
     """Leaf node in the tree that is a single watchable"""
-
-    __slots__ = ('configuration', 'server_path', 'registry_id', '_watcher_count')
-
     configuration: sdk.WatchableConfiguration
     server_path: str
     registry_id: int
@@ -145,16 +139,15 @@ class WatchableRegistryEntryNode:
         self.registry_id = registry._make_node_id()
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class WatchableRegistryIntermediateNode:
     """An intermediate node that contains watchable and other subnodes"""
-    __slots__ = ['watchables', 'subtree']
 
     watchables: Dict[str, WatchableRegistryEntryNode]
     subtree: List[str]
 
 
-@dataclass(init=False)
+@dataclass(init=False, slots=True)
 class Watcher:
     watcher_id: WatcherIdType
     value_update_callback: WatcherValueUpdateCallback
@@ -184,7 +177,7 @@ class WatchableRegistry:
     """Contains a copy of the watchable list available on the server side
     Act as a relay to dispatch value update event to the internal widgets"""
 
-    @dataclass(frozen=True)
+    @dataclass(frozen=True, slots=True)
     class Statistics:
         """(Immutable struct) Internal metrics for debugging and diagnostics"""
         watched_entries_count: int

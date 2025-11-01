@@ -136,7 +136,7 @@ class CallbackStorageEntry:
         self._timeout = timeout
 
 
-@dataclass
+@dataclass(slots=True)
 class PendingAPIBatchWrite:
     update_dict: Dict[int, WriteRequest]
     confirmation: api_parser.WriteConfirmation
@@ -424,7 +424,7 @@ class ScrutinyClient:
 
     _UNITTEST_DOWNLOAD_CHUNK_SIZE: Optional[int] = None
 
-    @dataclass(frozen=True)
+    @dataclass(frozen=True, slots=True)
     class Statistics:
         """Performance metrics given by the client useful for diagnostic and debugging"""
 
@@ -438,7 +438,7 @@ class ScrutinyClient:
         """Returns the approximated message output rate sent to the server in msg/sec"""
 
     class Events:
-        @dataclass(frozen=True)
+        @dataclass(frozen=True, slots=True)
         class ConnectedEvent:
             """Triggered when the client connects to a Scrutiny server"""
             _filter_flag = 0x01
@@ -450,7 +450,7 @@ class ScrutinyClient:
             def msg(self) -> str:
                 return f"Connected to a Scrutiny server at {self.host}:{self.port}"
 
-        @dataclass(frozen=True)
+        @dataclass(frozen=True, slots=True)
         class DisconnectedEvent:
             """Triggered when the client disconnects from a Scrutiny server"""
             _filter_flag = 0x02
@@ -462,7 +462,7 @@ class ScrutinyClient:
             def msg(self) -> str:
                 return f"Disconnected from server at {self.host}:{self.port}"
 
-        @dataclass(frozen=True)
+        @dataclass(frozen=True, slots=True)
         class DeviceReadyEvent:
             """Triggered when the server establish a communication with a device and the handshake phase is completed"""
             _filter_flag = 0x04
@@ -472,7 +472,7 @@ class ScrutinyClient:
             def msg(self) -> str:
                 return f"A new device is connected and ready. Session ID: {self.session_id} "
 
-        @dataclass(frozen=True)
+        @dataclass(frozen=True, slots=True)
         class DeviceGoneEvent:
             """Triggered when the the communication between the server and a device stops"""
             _filter_flag = 0x08
@@ -482,7 +482,7 @@ class ScrutinyClient:
             def msg(self) -> str:
                 return f"Device is gone. Last session ID: {self.session_id}"
 
-        @dataclass(frozen=True)
+        @dataclass(frozen=True, slots=True)
         class SFDLoadedEvent:
             """Triggered when the server loads a Scrutiny Firmware Description file, making Aliases and Variables available through the API """
             _filter_flag = 0x10
@@ -492,7 +492,7 @@ class ScrutinyClient:
             def msg(self) -> str:
                 return f"Server has loaded a Firmware Description with firmware ID: {self.firmware_id}"
 
-        @dataclass(frozen=True)
+        @dataclass(frozen=True, slots=True)
         class SFDUnLoadedEvent:
             """Triggered when the server unloads a Scrutiny Firmware Description file"""
             _filter_flag = 0x20
@@ -502,7 +502,7 @@ class ScrutinyClient:
             def msg(self) -> str:
                 return f"Server has unloaded a Firmware Description with firmware ID: {self.firmware_id}"
 
-        @dataclass(frozen=True)
+        @dataclass(frozen=True, slots=True)
         class DataloggingStateChanged:
             """Triggered when the server datalogging service changes state or when the acquisition/download completion ratio is updated"""
 
@@ -516,7 +516,7 @@ class ScrutinyClient:
                     msg += f" ({round(self.details.completion_ratio * 100)}%)"
                 return msg
 
-        @dataclass(frozen=True)
+        @dataclass(frozen=True, slots=True)
         class StatusUpdateEvent:
             """Triggered when the a new server status is received"""
 
@@ -527,7 +527,7 @@ class ScrutinyClient:
             def msg(self) -> str:
                 return f"New server status update received"
 
-        @dataclass(frozen=True)
+        @dataclass(frozen=True, slots=True)
         class DataloggingListChanged:
             """Triggered when the list of datalogging acquisition changed on the server (new, removed or updated). 
             A call to :meth:`read_datalogging_acquisitions_metadata<ScrutinyClient.read_datalogging_acquisitions_metadata>` 
@@ -572,12 +572,13 @@ class ScrutinyClient:
             DataloggingListChanged
         ]
 
-    @dataclass
+    @dataclass(slots=True)
     class _ThreadingEvents:
         stop_worker_thread: threading.Event
         disconnect: threading.Event
         disconnected: threading.Event
         msg_received: threading.Event
+        server_status_updated: threading.Event
         sync_complete: threading.Event
         require_sync: threading.Event
         welcome_received: threading.Event
@@ -1970,7 +1971,7 @@ class ScrutinyClient:
         """
         req = self._make_request(API.Command.Client2Api.GET_INSTALLED_SFD)
 
-        @dataclass
+        @dataclass(slots=True)
         class Container:
             obj: Optional[Dict[str, sdk.SFDInfo]]
 
@@ -2074,7 +2075,7 @@ class ScrutinyClient:
         if filesize > API.SFD_MAX_UPLOAD_SIZE:
             raise ValueError(f"File too big. Maximum size {API.SFD_MAX_UPLOAD_SIZE}")
 
-        @dataclass
+        @dataclass(slots=True)
         class Container:
             obj: Optional[api_parser.UploadSFDInitResponse]
 
@@ -2160,7 +2161,7 @@ class ScrutinyClient:
             'size': size
         })
 
-        @dataclass
+        @dataclass(slots=True)
         class Container:
             obj: Optional[str]
         cb_data: Container = Container(obj=None)  # Force pass by ref
@@ -2228,7 +2229,7 @@ class ScrutinyClient:
             'data': b64encode(data).decode('ascii')
         })
 
-        @dataclass
+        @dataclass(slots=True)
         class Container:
             obj: Optional[str]
         cb_data: Container = Container(obj=None)  # Force pass by ref
@@ -2287,7 +2288,7 @@ class ScrutinyClient:
             'reference_id': reference_id
         })
 
-        @dataclass
+        @dataclass(slots=True)
         class Container:
             obj: Optional[sdk.datalogging.DataloggingAcquisition]
         cb_data: Container = Container(obj=None)  # Force pass by ref
@@ -2342,7 +2343,7 @@ class ScrutinyClient:
 
         req = self._make_request(API.Command.Client2Api.REQUEST_DATALOGGING_ACQUISITION, cast(Dict[str, Any], req_data))
 
-        @dataclass
+        @dataclass(slots=True)
         class Container:
             request: Optional[sdk.datalogging.DataloggingRequest]
         cb_data: Container = Container(request=None)  # Force pass by ref
@@ -2387,7 +2388,7 @@ class ScrutinyClient:
             'reference_id': reference_id
         })
 
-        @dataclass
+        @dataclass(slots=True)
         class Container:
             obj: Optional[List[sdk.datalogging.DataloggingStorageEntry]]
         cb_data: Container = Container(obj=None)  # Force pass by ref
@@ -2449,7 +2450,7 @@ class ScrutinyClient:
 
         req = self._make_request(API.Command.Client2Api.LIST_DATALOGGING_ACQUISITION, data)
 
-        @dataclass
+        @dataclass(slots=True)
         class Container:
             obj: Optional[List[sdk.datalogging.DataloggingStorageEntry]]
         cb_data: Container = Container(obj=None)  # Force pass by ref
@@ -2543,7 +2544,7 @@ class ScrutinyClient:
             'data': b64encode(data).decode('utf8')
         })
 
-        @dataclass
+        @dataclass(slots=True)
         class Container:
             obj: Optional[sdk.UserCommandResponse]
         cb_data: Container = Container(obj=None)  # Force pass by ref
@@ -2594,7 +2595,7 @@ class ScrutinyClient:
         """
         req = self._make_request(API.Command.Client2Api.GET_DEVICE_INFO)
 
-        @dataclass
+        @dataclass(slots=True)
         class Container:
             obj: Optional[sdk.DeviceInfo]
         cb_data: Container = Container(obj=None)  # Force pass by ref
@@ -2622,7 +2623,7 @@ class ScrutinyClient:
         """
         req = self._make_request(API.Command.Client2Api.GET_LOADED_SFD)
 
-        @dataclass
+        @dataclass(slots=True)
         class Container:
             obj: Optional[sdk.SFDInfo]
         cb_data: Container = Container(obj=None)  # Force pass by ref
@@ -2659,7 +2660,7 @@ class ScrutinyClient:
         """
         req = self._make_request(API.Command.Client2Api.GET_WATCHABLE_COUNT)
 
-        @dataclass
+        @dataclass(slots=True)
         class Container:
             obj: Optional[Dict[sdk.ServerDatastoreContentType, int]]
         cb_data: Container = Container(obj=None)  # Force pass by ref
@@ -2886,7 +2887,7 @@ class ScrutinyClient:
 
         req = self._make_request(API.Command.Client2Api.GET_SERVER_STATS)
 
-        @dataclass
+        @dataclass(slots=True)
         class Container:
             obj: Optional[sdk.ServerStatistics]
         cb_data: Container = Container(obj=None)  # Force pass by ref

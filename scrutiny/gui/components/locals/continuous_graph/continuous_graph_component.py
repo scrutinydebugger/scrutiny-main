@@ -61,7 +61,7 @@ class State:
         csv_logging: CsvLoggingMenuWidget.SerializableState
 
 
-@dataclass
+@dataclass(slots=True)
 class ContinuousGraphState:
     acquiring: bool
     """We are subscribed to new data update. Data are being actively streamed by the server and points are logged"""
@@ -72,6 +72,7 @@ class ContinuousGraphState:
     use_opengl: bool
     """Indicates that we are using opengl. Coming from an application wide parameter"""
     chart_toolbar_wanted: bool
+    """Indicates that the user wants to see the chart toolbar"""
 
     def autoscale_enabled(self) -> bool:
         return self.acquiring and not self.paused and self.has_content

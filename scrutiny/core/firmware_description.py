@@ -52,7 +52,7 @@ class MetadataTypedDict(TypedDict, total=False):
     generation_info: Optional[GenerationInfoTypedDict]
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class SFDGenerationInfo:
     """(Immutable struct) Metadata relative to the generation of the SFD"""
 
@@ -92,7 +92,7 @@ class SFDGenerationInfo:
         }
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class SFDMetadata:
     """(Immutable struct) All the metadata associated with a Scrutiny Firmware Description"""
 

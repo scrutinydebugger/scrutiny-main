@@ -479,7 +479,7 @@ class SerialLinkConfig(BaseLinkConfig):
         }
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class RTTLinkConfig(BaseLinkConfig):
     """(Immutable struct) The configuration structure for a device link of type :attr:`RTT<scrutiny.sdk.DeviceLinkType.RTT>`"""
 
@@ -538,7 +538,7 @@ class RTTLinkConfig(BaseLinkConfig):
 # region CAN bus
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class CANLinkConfig(BaseLinkConfig):
     """(Immutable struct) The configuration structure for a device link of type :attr:`CAN<scrutiny.sdk.DeviceLinkType.CAN>`"""
 
@@ -556,7 +556,7 @@ class CANLinkConfig(BaseLinkConfig):
         ETAS = 4
         """Use ETAS hardware through the ETAS DLL."""
 
-    @dataclass(frozen=True)
+    @dataclass(frozen=True, slots=True)
     class SocketCANConfig:
         """
         (Immutable struct) A SocketCAN specific configuration used when 
@@ -575,7 +575,7 @@ class CANLinkConfig(BaseLinkConfig):
                 'channel': self.channel
             }
 
-    @dataclass(frozen=True)
+    @dataclass(frozen=True, slots=True)
     class VectorConfig:
         """
         (Immutable struct) A Vector specific configuration used when 
@@ -606,7 +606,7 @@ class CANLinkConfig(BaseLinkConfig):
                 'data_bitrate': self.data_bitrate
             }
 
-    @dataclass(frozen=True)
+    @dataclass(frozen=True, slots=True)
     class KVaserConfig:
         """
         (Immutable struct) A KVaser specific configuration used when 
@@ -638,7 +638,7 @@ class CANLinkConfig(BaseLinkConfig):
                 'fd_non_iso': self.fd_non_iso
             }
 
-    @dataclass(frozen=True)
+    @dataclass(frozen=True, slots=True)
     class PCANConfig:
         """
         (Immutable struct) A PCAN specific configuration used when 
@@ -662,7 +662,7 @@ class CANLinkConfig(BaseLinkConfig):
                 'bitrate': self.bitrate
             }
 
-    @dataclass(frozen=True)
+    @dataclass(frozen=True, slots=True)
     class ETASConfig:
         """
         (Immutable struct) A ETAS specific configuration used when 

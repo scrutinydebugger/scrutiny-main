@@ -15,7 +15,7 @@ if typing.TYPE_CHECKING:
     from scrutiny.gui.gui import ScrutinyQtGUI
 
 
-@dataclass
+@dataclass(slots=True)
 class UnitTests:
     enable: bool
     settings: typing.Optional["ScrutinyQtGUI.Settings"]
