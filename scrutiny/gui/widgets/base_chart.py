@@ -554,7 +554,7 @@ class ScrutinyChartCallout(QGraphicsItem):
         painter.drawText(self._text_rect, self._text)
 
 
-@dataclass
+@dataclass(slots=True)
 class ChartCursorMovedData:
     xval: float
     series: List[ScrutinyLineSeries]
@@ -568,12 +568,12 @@ class ScrutinyChartView(QChartView):
     MIN_RUBBERBAND_SIZE_PX = 5
     """The minimum size the rubberband to emit a zoom event. Prevent accidental zooms"""
 
-    @dataclass
+    @dataclass(slots=True)
     class SeriesPointPair:
         series: ScrutinyLineSeries
         point: QPointF
 
-    @dataclass
+    @dataclass(slots=True)
     class PointColorPair:
         point: QPointF
         color: QColor

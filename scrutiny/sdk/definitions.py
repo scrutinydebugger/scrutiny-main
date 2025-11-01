@@ -209,7 +209,7 @@ class SamplingRate:
     """Name for display only"""
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class FixedFreqSamplingRate(SamplingRate):
     """(Immutable struct) Represent a fixed frequency sampling rate supported by the device"""
 
@@ -222,7 +222,7 @@ class FixedFreqSamplingRate(SamplingRate):
         validation.assert_type(self.frequency, 'frequency', float)
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class VariableFreqSamplingRate(SamplingRate):
     """(Immutable struct) Represent a variable frequency sampling rate supported by the device. Has no known frequency"""
 
@@ -325,7 +325,7 @@ class BaseLinkConfig(abc.ABC):
         raise NotImplementedError("Abstract class")
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class NoneLinkConfig(BaseLinkConfig):
     """(Immutable struct) An Empty object acting as configuration structure for a device link of type :attr:`NONE<scrutiny.sdk.DeviceLinkType.NONE>`
     Exists only to differentiate ``None`` (data not available) from :class:`NoneLinkConfig<scrutiny.sdk.NoneLinkConfig>` (data available - no link configured)
@@ -335,7 +335,7 @@ class NoneLinkConfig(BaseLinkConfig):
         return {}
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class UDPLinkConfig(BaseLinkConfig):
     """(Immutable struct) The configuration structure for a device link of type :attr:`UDP<scrutiny.sdk.DeviceLinkType.UDP>`"""
 
@@ -354,7 +354,7 @@ class UDPLinkConfig(BaseLinkConfig):
         }
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class TCPLinkConfig(BaseLinkConfig):
     """(Immutable struct) The configuration structure for a device link of type :attr:`TCP<scrutiny.sdk.DeviceLinkType.TCP>`"""
 
@@ -374,7 +374,7 @@ class TCPLinkConfig(BaseLinkConfig):
         }
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class SerialLinkConfig(BaseLinkConfig):
     """(Immutable struct) The configuration structure for a device link of type :attr:`Serial<scrutiny.sdk.DeviceLinkType.Serial>`"""
 
@@ -479,7 +479,7 @@ class SerialLinkConfig(BaseLinkConfig):
         }
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class RTTLinkConfig(BaseLinkConfig):
     """(Immutable struct) The configuration structure for a device link of type :attr:`RTT<scrutiny.sdk.DeviceLinkType.RTT>`"""
 
@@ -538,7 +538,7 @@ class RTTLinkConfig(BaseLinkConfig):
 # region CAN bus
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class CANLinkConfig(BaseLinkConfig):
     """(Immutable struct) The configuration structure for a device link of type :attr:`CAN<scrutiny.sdk.DeviceLinkType.CAN>`"""
 
@@ -556,7 +556,7 @@ class CANLinkConfig(BaseLinkConfig):
         ETAS = 4
         """Use ETAS hardware through the ETAS DLL."""
 
-    @dataclass(frozen=True)
+    @dataclass(frozen=True, slots=True)
     class SocketCANConfig:
         """
         (Immutable struct) A SocketCAN specific configuration used when 
@@ -575,7 +575,7 @@ class CANLinkConfig(BaseLinkConfig):
                 'channel': self.channel
             }
 
-    @dataclass(frozen=True)
+    @dataclass(frozen=True, slots=True)
     class VectorConfig:
         """
         (Immutable struct) A Vector specific configuration used when 
@@ -606,7 +606,7 @@ class CANLinkConfig(BaseLinkConfig):
                 'data_bitrate': self.data_bitrate
             }
 
-    @dataclass(frozen=True)
+    @dataclass(frozen=True, slots=True)
     class KVaserConfig:
         """
         (Immutable struct) A KVaser specific configuration used when 
@@ -638,7 +638,7 @@ class CANLinkConfig(BaseLinkConfig):
                 'fd_non_iso': self.fd_non_iso
             }
 
-    @dataclass(frozen=True)
+    @dataclass(frozen=True, slots=True)
     class PCANConfig:
         """
         (Immutable struct) A PCAN specific configuration used when 
@@ -662,7 +662,7 @@ class CANLinkConfig(BaseLinkConfig):
                 'bitrate': self.bitrate
             }
 
-    @dataclass(frozen=True)
+    @dataclass(frozen=True, slots=True)
     class ETASConfig:
         """
         (Immutable struct) A ETAS specific configuration used when 

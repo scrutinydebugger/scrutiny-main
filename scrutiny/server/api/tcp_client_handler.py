@@ -36,14 +36,14 @@ class TCPClientHandlerConfig(TypedDict):
     port: int
 
 
-@dataclass
+@dataclass(slots=True)
 class _ThreadBasics:
     thread: threading.Thread
     started_event: threading.Event
     stop_event: threading.Event
 
 
-@dataclass
+@dataclass(slots=True)
 class ClientInfo:
     sock: socket.socket
     conn_id: str

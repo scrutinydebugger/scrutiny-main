@@ -85,16 +85,16 @@ class EmulatedTimebase:
 
 class DataloggerEmulator:
 
-    @dataclass
+    @dataclass(slots=True)
     class MemorySample:
         data: bytes
 
-    @dataclass
+    @dataclass(slots=True)
     class RPVSample:
         data: Encodable
         datatype: EmbeddedDataType
 
-    @dataclass
+    @dataclass(slots=True)
     class TimeSample:
         data: int
 

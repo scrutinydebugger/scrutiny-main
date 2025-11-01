@@ -22,7 +22,7 @@ from scrutiny.tools import validation
 from scrutiny.tools.typing import *
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class ScrutinyDragData:
     """Represent data being dragged when doing a drag&drop"""
     class DataType(enum.Enum):
@@ -94,7 +94,7 @@ class SerializableWatchableElement(TypedDict):
     fqn: str
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class SingleWatchableDescriptor:
     """Non-serializable description of a single Watchable element"""
 
@@ -128,7 +128,7 @@ class SingleWatchableDescriptor:
         )
 
 
-@dataclass
+@dataclass(slots=True)
 class WatchableListDescriptor:
     """A non serializable object containing a list of :class:`SingleWatchableDescriptor<SingleWatchableDescriptor>`"""
 

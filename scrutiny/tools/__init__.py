@@ -264,31 +264,31 @@ def run_in_thread(fn: Callable[..., T], sync_var: Optional[ThreadSyncer[T]] = No
     thread.start()
 
 
-@dataclass
+@dataclass(slots=True)
 class MutableInt:
     """Helper to pass a int by reference"""
     val: int
 
 
-@dataclass
+@dataclass(slots=True)
 class MutableNullableInt:
     """Helper to pass an Optional[int] by reference"""
     val: Optional[int]
 
 
-@dataclass
+@dataclass(slots=True)
 class MutableFloat:
     """Helper to pass a float by reference"""
     val: float
 
 
-@dataclass
+@dataclass(slots=True)
 class MutableNullableFloat:
     """Helper to pass an Optional[float] by reference"""
     val: Optional[float]
 
 
-@dataclass
+@dataclass(slots=True)
 class MutableBool:
     """Helper to pass a bool by reference"""
     val: bool
@@ -313,7 +313,7 @@ class MutableBool:
         return self.val
 
 
-@dataclass
+@dataclass(slots=True)
 class MutableNullableBool:
     """Helper to pass an Optional[bool] by reference"""
     val: Optional[bool]

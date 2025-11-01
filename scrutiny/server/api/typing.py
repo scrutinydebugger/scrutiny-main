@@ -328,8 +328,6 @@ class C2S:
     class GetServerStats(BaseC2SMessage):
         pass
 
-    GetPossibleLinkConfig = Dict[Any, Any]  # Todo
-
 
 class S2C:
     "Server To Client"
@@ -396,8 +394,6 @@ class S2C:
 
     class WatchableUpdate(BaseS2CMessage):
         updates: List[WatchableUpdateRecord]
-
-    GetPossibleLinkConfig = Dict[Any, Any]  # TODO
 
     class WriteValue(BaseS2CMessage):
         count: int
@@ -499,7 +495,6 @@ C2SMessage = Union[
     C2S.UninstallSFD,
     C2S.SubscribeWatchable,
     C2S.UnsubscribeWatchable,
-    C2S.GetPossibleLinkConfig,
     C2S.WriteValue,
     C2S.RequestDataloggingAcquisition,
     C2S.ReadDataloggingAcquisitionContent,
@@ -529,7 +524,6 @@ S2CMessage = Union[
     S2C.SubscribeWatchable,
     S2C.UnsubscribeWatchable,
     S2C.WatchableUpdate,
-    S2C.GetPossibleLinkConfig,
     S2C.WriteValue,
     S2C.WriteCompletion,
     S2C.RequestDataloggingAcquisition,

@@ -34,7 +34,7 @@ from scrutiny.tools import validation
 from scrutiny.tools.typing import *
 
 
-@dataclass
+@dataclass(slots=True)
 class SerializableComponent:
     TYPE = 'component'
 
@@ -72,7 +72,7 @@ class SerializableComponent:
         assert isinstance(self.state, dict)
 
 
-@dataclass
+@dataclass(slots=True)
 class SerializableDockWidget:
     TYPE = 'dock_widget'
 
@@ -105,7 +105,7 @@ class SerializableDockWidget:
         assert isinstance(self.component, SerializableComponent)
 
 
-@dataclass
+@dataclass(slots=True)
 class SerializableDockArea:
     TYPE = 'dock_area'
     dock_widgets: List[SerializableDockWidget]
@@ -180,7 +180,7 @@ class SidebarLocation(enum.Enum):
         return self.value in (self.__class__.TOP.value, self.__class__.BOTTOM.value)
 
 
-@dataclass
+@dataclass(slots=True)
 class SerializableSideBarComponent:
     TYPE = 'sidebar_component'
     sidebar_location: SidebarLocation
@@ -238,7 +238,7 @@ class SplitterOrientation(enum.Enum):
         return lookup[v]
 
 
-@dataclass
+@dataclass(slots=True)
 class SerializableSplitter:
     TYPE = 'splitter'
 
@@ -296,7 +296,7 @@ class SerializableSplitter:
             assert isinstance(element, (SerializableSplitter, SerializableDockArea))
 
 
-@dataclass
+@dataclass(slots=True)
 class SerializableContainer:
     TYPE = 'container'
     root_splitter: SerializableSplitter
@@ -332,7 +332,7 @@ class SerializableContainer:
             assert isinstance(x, SerializableSideBarComponent)
 
 
-@dataclass
+@dataclass(slots=True)
 class SerializableWindow:
     TYPE = 'window'
 
@@ -370,7 +370,7 @@ class SerializableWindow:
         assert isinstance(self.height, int)
 
 
-@dataclass
+@dataclass(slots=True)
 class SerializableDashboard:
     TYPE = 'dashboard'
 

@@ -21,7 +21,7 @@ from scrutiny import tools
 from scrutiny.tools.typing import *
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class ValueUpdate:
     """(Immutable struct) Contains the relevant information about a watchable update broadcast by the server """
 
@@ -37,7 +37,7 @@ class ValueUpdate:
 
 class BaseListener(abc.ABC):
 
-    @dataclass(frozen=True)
+    @dataclass(frozen=True, slots=True)
     class Statistics:
         """(Immutable struct) A data structure containing several useful debugging metrics for a listener"""
 
@@ -71,11 +71,11 @@ class BaseListener(abc.ABC):
     _thread: Optional[threading.Thread]
     """The listener thread"""
     _setup_error: bool
-    """Flag indicating if a an error occured while calling user setup()"""
+    """Flag indicating if a an error occurred while calling user setup()"""
     _teardown_error: bool
-    """Flag indicating if a an error occured while calling user teardown()"""
+    """Flag indicating if a an error occurred while calling user teardown()"""
     _receive_error: bool
-    """Flag indicating if a an error occured while calling user receive()"""
+    """Flag indicating if a an error occurred while calling user receive()"""
 
     _started_event: threading.Event
     """Event to synchronize start() with its thread."""

@@ -110,7 +110,7 @@ class DeviceHandler:
     and will run read/write request on the device to keep the datastore in sync with the embedded device.
     """
 
-    @dataclass(frozen=True)
+    @dataclass(frozen=True, slots=True)
     class Statistics:
         comm_handler: CommHandler.Statistics
         device_session_count: int

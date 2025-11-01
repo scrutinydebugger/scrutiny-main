@@ -127,6 +127,9 @@ def assert_dict_key(d: Any, name: str, types: Union[Type[Any], Iterable[Type[Any
         part_name = key
     next_parts = parts[1:]
 
+    if not isinstance(d, dict):
+        raise ValueError(f'Field {part_name} is expected to be a dictionary"')
+
     if key not in d:
         raise KeyError(f'Missing field "{part_name}"')
 

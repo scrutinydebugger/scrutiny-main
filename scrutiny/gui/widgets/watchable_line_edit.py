@@ -25,7 +25,7 @@ from scrutiny.sdk import WatchableType
 from scrutiny.gui.themes import scrutiny_get_theme_prop, ScrutinyThemeProperties, scrutiny_get_theme
 
 
-@dataclass
+@dataclass(slots=True)
 class WatchableFQNAndName:
     fqn: str
     name: str

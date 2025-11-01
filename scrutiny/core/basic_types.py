@@ -23,7 +23,7 @@ from scrutiny.tools import validation
 from scrutiny.tools.typing import *
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class MemoryRegion:
     """(Immutable struct) 
     Represent a memory region spanning from ``start`` to ``start+size-1`` inclusively"""
@@ -194,7 +194,7 @@ class EmbeddedDataType(Enum):
             return cls(datatype_type.value | size.value)
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class RuntimePublishedValue:
     """ 
     (Immutable struct) A Runtime Published Value (RPV) is on of the basic element that can be read from a target device.

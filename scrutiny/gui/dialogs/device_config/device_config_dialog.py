@@ -32,7 +32,7 @@ from scrutiny.gui.dialogs.device_config.demo_mode_info_dialog import DemoModeInf
 from scrutiny.tools.typing import *
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class DeviceConfigDialogContentSummary:
     link_type: sdk.DeviceLinkType
     link_config: Optional[sdk.BaseLinkConfig]
@@ -55,7 +55,7 @@ class NoConfigPane(BaseConfigPane):
         return sdk.NoneLinkConfig()
 
 
-@dataclass
+@dataclass(slots=True)
 class SupportedLinkType:
     ui_pane: Type[BaseConfigPane]
     display_name: str

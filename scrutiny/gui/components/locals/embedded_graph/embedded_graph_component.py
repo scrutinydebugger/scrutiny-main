@@ -85,10 +85,10 @@ class State:
         signals: List["State.AxisContent"]
 
 
-@dataclass
+@dataclass(slots=True)
 class EmbeddedGraphState:
     has_content: bool
-    """Chartview ha a graph being displayed"""
+    """ChartView has a graph being displayed"""
     content_source: Optional[DisplaySource]
     """Tells where the content being displayed right now comes from. """
     waiting_on_graph: bool
@@ -96,7 +96,7 @@ class EmbeddedGraphState:
     chart_toolbar_wanted: bool
     """The user wants to see the chart toolbar"""
     has_failure_message: bool
-    """There's a failure message being displayed on the chartview"""
+    """There's a failure message being displayed on the ChartView"""
 
     may_have_more_to_load: bool
     """Browse tab: There might be more data to load"""
@@ -165,7 +165,7 @@ class EmbeddedGraphState:
         return self.initial_load_completed
 
 
-@dataclass
+@dataclass(slots=True)
 class InitialGraphListDownloadConditions:
     firmware_id: Optional[str]
 

@@ -19,7 +19,7 @@ from scrutiny.tools.typing import *
 ClientHandlerConfig = Dict[str, str]
 
 
-@dataclass
+@dataclass(slots=True)
 class ClientHandlerMessage:
     conn_id: str
     obj: Union[api_typing.C2SMessage, api_typing.S2CMessage]
@@ -28,7 +28,7 @@ class ClientHandlerMessage:
 class AbstractClientHandler:
     new_conn_queue: "queue.Queue[str]"
 
-    @dataclass
+    @dataclass(slots=True)
     class Statistics:
         client_count: int
         output_datarate_byte_per_sec: float

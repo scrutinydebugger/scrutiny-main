@@ -33,7 +33,7 @@ if TYPE_CHECKING:
     import _csv
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class AxisDefinition:
     """(Immutable struct) Represent an axis"""
 
@@ -47,7 +47,7 @@ class AxisDefinition:
         validation.assert_type(self.axis_id, 'axis_id', int)
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class LoggedWatchable:
     """(Immutable struct) A structure that identifies a watchable element"""
     path: str
@@ -103,7 +103,7 @@ class DataSeries:
         return len(self.data)
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class DataSeriesWithAxis:
     """(Immutable struct) Dataseries tied to an axis definition"""
 

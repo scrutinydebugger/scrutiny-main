@@ -30,7 +30,7 @@ class SingleResult:
     config: sdk.WatchableConfiguration
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class SearchCriteria:
     text: str
 

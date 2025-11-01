@@ -30,14 +30,14 @@ from scrutiny import tools
 GetSignalDatatypeFn = Callable[[], List[EmbeddedDataType]]
 
 
-@dataclass
+@dataclass(slots=True)
 class TimingEstimation:
     duration: float
     nb_samples: int
     truncated: bool
 
 
-@dataclass
+@dataclass(slots=True)
 class ValidationResult:
     config: Optional[DataloggingConfig]
     valid: bool
