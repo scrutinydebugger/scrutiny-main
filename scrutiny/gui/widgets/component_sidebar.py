@@ -26,7 +26,7 @@ class ComponentSidebar(QToolBar):
     show_global_component = Signal(type)
 
     def __init__(self,
-                 parent:QWidget,
+                 parent: QWidget,
                  global_components: List[Type[ScrutinyGUIBaseGlobalComponent]],
                  local_components: List[Type[ScrutinyGUIBaseLocalComponent]]) -> None:
         super().__init__(parent)
@@ -66,5 +66,5 @@ class ComponentSidebar(QToolBar):
         self.show_global_component.emit(component)
 
     def contextMenuEvent(self, event: QContextMenuEvent) -> None:
-        #Override default implementation to avoid having toggleViewAction checkbox with no text.
+        # Override default implementation to avoid having toggleViewAction checkbox with no text.
         pass

@@ -88,14 +88,16 @@ class InvalidRequestException(Exception):
         self.req = req
 
 
-def _check_request_dict(req:api_typing.C2SMessage, d:Any, name: str, types: Union[Type[Any], Iterable[Type[Any]]], prefix:str='') -> None:
+def _check_request_dict(req: api_typing.C2SMessage, d: Any, name: str, types: Union[Type[Any], Iterable[Type[Any]]], prefix: str = '') -> None:
     try:
         validation.assert_dict_key(d, name, types, prefix)
     except Exception as e:
         raise InvalidRequestException(req, str(e)) from e
 
+
 def _is_dict_with_key(d: Dict[Any, Any], k: Any) -> bool:
     return isinstance(d, dict) and k in d
+
 
 class API:
 
@@ -1451,7 +1453,7 @@ class API:
         x_axis_entry: Optional[DatastoreEntry] = None
         x_axis_signal: Optional[api_datalogging.SignalDefinition] = None
         if x_axis_type == api_datalogging.XAxisType.Signal:
-            
+
             if 'x_axis_signal' not in req or not isinstance(req['x_axis_signal'], dict):
                 raise InvalidRequestException(req, 'Missing a valid x_axis_signal required when x_axis_type=watchable')
 
@@ -1517,7 +1519,7 @@ class API:
         for signal_def in req['signals']:
             _check_request_dict(req, signal_def, 'path', str)
             signal_entry: Optional[DatastoreEntry] = None
-           
+
             with tools.SuppressException():
                 signal_entry = self.datastore.get_entry_by_display_path(signal_def['path'])
 
@@ -1678,7 +1680,7 @@ class API:
     # === UPDATE_DATALOGGING_ACQUISITION ===
     def process_update_datalogging_acquisition(self, conn_id: str, req: api_typing.C2S.UpdateDataloggingAcquisition) -> None:
         _check_request_dict(req, req, 'reference_id', str)
-       
+
         err: Optional[Exception]
         if 'name' in req:
             _check_request_dict(req, req, 'name', str)
@@ -1694,7 +1696,7 @@ class API:
         if 'axis_name' in req:
             if not isinstance(req['axis_name'], list):
                 raise InvalidRequestException(req, 'Invalid axis name list')
-            
+
             for axis_name_entry in req['axis_name']:
                 _check_request_dict(req, axis_name_entry, 'id', int)
                 _check_request_dict(req, axis_name_entry, 'name', str)
@@ -1732,7 +1734,7 @@ class API:
     # === DELETE_DATALOGGING_ACQUISITION ===
     def process_delete_datalogging_acquisition(self, conn_id: str, req: api_typing.C2S.DeleteDataloggingAcquisition) -> None:
         _check_request_dict(req, req, 'reference_id', str)
-        
+
         err: Optional[Exception] = None
         try:
             DataloggingStorage.delete(req['reference_id'])

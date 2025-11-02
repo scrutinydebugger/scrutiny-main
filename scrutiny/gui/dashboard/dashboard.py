@@ -87,6 +87,7 @@ class ScrutinyDockWidget(QtAds.CDockWidget):
 
         super().keyPressEvent(event)
 
+
 @dataclass(slots=True)
 class SplitterAndSizePair:
     splitter: QtAds.CDockSplitter
@@ -339,7 +340,6 @@ class Dashboard(QWidget):
 
 
 # region Public API
-
 
     @property
     def signals(self) -> _Signals:

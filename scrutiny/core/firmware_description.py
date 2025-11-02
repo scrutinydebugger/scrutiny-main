@@ -281,7 +281,7 @@ class FirmwareDescription:
         )
 
     @classmethod
-    def read_aliases(cls, f: IO[bytes], varmap: VarMap, suppress_errors:bool=True) -> Dict[str, Alias]:
+    def read_aliases(cls, f: IO[bytes], varmap: VarMap, suppress_errors: bool = True) -> Dict[str, Alias]:
         aliases_raw: Dict[str, Any] = json.loads(f.read().decode('utf8'))
         aliases: Dict[str, Alias] = {}
         for k in aliases_raw:

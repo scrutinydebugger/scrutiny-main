@@ -118,11 +118,12 @@ T = TypeVar('T', str, int, float, bool)
 WATCHABLE_TYPE_KEY = Literal['rpv', 'alias', 'var']
 
 
-def _check_response_dict(cmd: str, d: Any, name: str, types: Union[Type[Any], Iterable[Type[Any]]], prefix:str='') -> None:
+def _check_response_dict(cmd: str, d: Any, name: str, types: Union[Type[Any], Iterable[Type[Any]]], prefix: str = '') -> None:
     try:
         validation.assert_dict_key(d, name, types, prefix)
     except Exception as e:
         raise sdk.exceptions.BadResponseError(f"In message {cmd}: {e}")
+
 
 def _fetch_dict_val(d: Any, path: str, default: Optional[T], allow_none: bool = True) -> Any:
     if d is None:
