@@ -50,6 +50,7 @@
         "subfn",
         "testcases",
         "typehints",
+        "Validable",
         "varbit",
         "xaxis"
     ],
@@ -85,6 +86,7 @@
                 "watcahble" : "watchable",
                 "blaoting" : "bloating",
                 "blaot" : "bloat",
+                "uplaod" : "upload",
             }
         }]
 }

@@ -18,7 +18,6 @@ from PySide6.QtGui import QCloseEvent, QKeyEvent, QShowEvent, QStandardItemModel
 
 from scrutiny import sdk
 from scrutiny.sdk.client import ScrutinyClient, SFDUploadRequest, SFDDownloadRequest
-from scrutiny.core.firmware_description import FirmwareDescription
 from scrutiny.gui.core.server_manager import ServerManager
 from scrutiny.gui.core.persistent_data import gui_persistent_data
 from scrutiny.gui.themes import scrutiny_get_theme
@@ -205,6 +204,7 @@ class SFDTableView(QTableView):
 
 
 class ProgressWidget(QWidget):
+    """This widget show the transfer (upload or download) of a SFD progress state."""
 
     class _Signals(QObject):
         cancel = Signal()

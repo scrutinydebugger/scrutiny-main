@@ -6,7 +6,6 @@
 #
 #   Copyright (c) 2025 Scrutiny Debugger
 
-import abc
 from PySide6.QtWidgets import QWidget
 
 from scrutiny import sdk

@@ -37,7 +37,7 @@ class AboutDialog(QDialog):
         logo_label.setPixmap(logo_pixmap.scaledToWidth(400, Qt.TransformationMode.SmoothTransformation))
         lines = [
             "Copyright (c) 2021 - Scrutiny Debugger",
-            "Developped under MIT license",
+            "Developed under MIT license",
             "",
             "More info at :",
             "scrutinydebugger.com",

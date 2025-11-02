@@ -16,12 +16,14 @@ from scrutiny.sdk import DeviceInfo, SupportedFeatureMap, MemoryRegion, Sampling
 
 
 def _configure_property_label(label: QLabel, has_tooltip: bool) -> None:
+    """Helper to create FormLayout content. Applied on the property label"""
     if has_tooltip:
         label.setCursor(Qt.CursorShape.WhatsThisCursor)
     label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
 
 
 def _configure_value_label(label: QLabel) -> None:
+    """Helper to create FormLayout content. Applied on the value label"""
     label.setCursor(Qt.CursorShape.IBeamCursor)
     label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
 

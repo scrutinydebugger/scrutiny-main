@@ -16,6 +16,8 @@ from scrutiny.tools.typing import *
 
 
 class SFDContentDialog(QDialog):
+    """A dialog to show what's inside a SFD"""
+
     def __init__(self, parent: Optional[QWidget], sfd: sdk.SFDInfo) -> None:
         super().__init__(parent)
 

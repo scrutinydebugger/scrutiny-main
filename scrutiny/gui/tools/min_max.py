@@ -13,6 +13,8 @@ from scrutiny.tools.typing import *
 
 
 class MinMax:
+    """A little helper to keep track of a min/max range. Mainly used for graph autoscaling based on data"""
+    __slots__ = ('low', 'high')
     low: float
     high: float
 

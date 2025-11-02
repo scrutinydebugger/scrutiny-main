@@ -19,7 +19,7 @@ from scrutiny.tools.typing import *
 SERVER_STORAGE = Path(appdirs.user_data_dir(appname='server', appauthor='scrutiny'))
 
 
-def set_server_storage(val: Union[Path]) -> None:
+def set_server_storage(val: Path) -> None:
     global SERVER_STORAGE
     SERVER_STORAGE = val
 
