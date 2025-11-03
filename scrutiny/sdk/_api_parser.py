@@ -18,27 +18,28 @@ sdk = scrutiny.sdk  # Workaround for vscode linter an submodule on alias
 from scrutiny.core.basic_types import *
 from scrutiny.core.embedded_enum import EmbeddedEnum
 from scrutiny.core.firmware_description import MetadataTypedDict
+from scrutiny.core import path_tools
 from scrutiny.server.api.API import API
 from scrutiny.server.api import typing as api_typing
 
-from scrutiny.core import path_tools
+from scrutiny.tools import validation
 from scrutiny.tools.typing import *
 import typing
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class WelcomeData:
     server_time_zero_timestamp: float
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class WatchableUpdate:
     server_id: str
     value: Union[bool, int, float]
     server_time_us: float
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class WriteCompletion:
     request_token: str
     watchable: str
@@ -47,13 +48,13 @@ class WriteCompletion:
     batch_index: int
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class WriteConfirmation:
     request_token: str
     count: int
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class MemoryReadCompletion:
     request_token: str
     success: bool
@@ -63,7 +64,7 @@ class MemoryReadCompletion:
     local_monotonic_timestamp: float
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class MemoryWriteCompletion:
     request_token: str
     success: bool
@@ -72,7 +73,7 @@ class MemoryWriteCompletion:
     local_monotonic_timestamp: float
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class DataloggingCompletion:
     request_token: str
     reference_id: Optional[str]
@@ -80,19 +81,19 @@ class DataloggingCompletion:
     detail_msg: str
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class GetWatchableListResponse:
     done: bool
     data: sdk.WatchableListContentPart
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class DataloggingListChangeResponse:
     action: sdk.DataloggingListChangeType
     reference_id: Optional[str]
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class SFDDownloadChunk:
     firmware_id: str
     data: bytes
@@ -100,13 +101,13 @@ class SFDDownloadChunk:
     total_size: int
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class UploadSFDInitResponse:
     token: str
     will_overwrite: bool
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class UploadSFDDataResponse:
     completed: bool
     actual_size: int
@@ -117,39 +118,11 @@ T = TypeVar('T', str, int, float, bool)
 WATCHABLE_TYPE_KEY = Literal['rpv', 'alias', 'var']
 
 
-def _check_response_dict(cmd: str, d: Any, name: str, types: Union[Type[Any], Iterable[Type[Any]]], previous_parts: str = '') -> None:
-    if isinstance(types, type):
-        types = tuple([types])
-    else:
-        types = tuple(types)
-
-    parts = name.split('.')
-    key = parts[0]
-
-    if not key:
-        return
-
-    if previous_parts:
-        part_name = f"{previous_parts}.{key}"
-    else:
-        part_name = key
-    next_parts = parts[1:]
-
-    if not isinstance(d, dict):
-        raise sdk.exceptions.BadResponseError(f'Field {part_name} is expected to be a dictionary in message "{cmd}"')
-
-    if key not in d:
-        raise sdk.exceptions.BadResponseError(f'Missing field "{part_name}" in message "{cmd}"')
-
-    if len(next_parts) > 0:
-        _check_response_dict(cmd, d[key], '.'.join(next_parts), types, part_name)
-    else:
-        isbool = d[key].__class__ == True.__class__  # bool are ints for Python. Avoid allowing bools as valid int.
-        if not isinstance(d[key], types) or isbool and bool not in types:
-            gotten_type = d[key].__class__.__name__
-            typename = "(%s)" % ', '.join([t.__name__ for t in types])
-            raise sdk.exceptions.BadResponseError(
-                f'Field {part_name} is expected to be of type "{typename}" but found "{gotten_type}" in message "{cmd}"')
+def _check_response_dict(cmd: str, d: Any, name: str, types: Union[Type[Any], Iterable[Type[Any]]], prefix: str = '') -> None:
+    try:
+        validation.assert_dict_key(d, name, types, prefix)
+    except Exception as e:
+        raise sdk.exceptions.BadResponseError(f"In message {cmd}: {e}")
 
 
 def _fetch_dict_val(d: Any, path: str, default: Optional[T], allow_none: bool = True) -> Any:

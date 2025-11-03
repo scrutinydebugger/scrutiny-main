@@ -20,7 +20,7 @@ class Cluster:
     """
     Represent a chunk of data with a location in memory.
     """
-    __slots__ = 'start_addr', 'size', 'internal_data', 'has_data'
+    __slots__ = ('start_addr', 'size', 'internal_data', 'has_data')
 
     start_addr: int
     size: int

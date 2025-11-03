@@ -927,6 +927,9 @@
         },
         "scrutiny/gui/component_app_interface.py": {
             "docstring": "The interface to the Scrutiny app seen by the components"
+        },
+        "test/core/test_firmware_description.py": {
+            "docstring": "A test suite to test the FirmwareDescription class"
         }
     }
 }

@@ -35,6 +35,7 @@ import shutil
 import time
 
 from scrutiny import tools
+from scrutiny.tools import validation
 
 from scrutiny.core.math_expr import parse_math_expr
 from scrutiny.core.variable_factory import VariableFactory
@@ -87,6 +88,17 @@ class InvalidRequestException(Exception):
         self.req = req
 
 
+def _check_request_dict(req: api_typing.C2SMessage, d: Any, name: str, types: Union[Type[Any], Iterable[Type[Any]]], prefix: str = '') -> None:
+    try:
+        validation.assert_dict_key(d, name, types, prefix)
+    except Exception as e:
+        raise InvalidRequestException(req, str(e)) from e
+
+
+def _is_dict_with_key(d: Dict[Any, Any], k: Any) -> bool:
+    return isinstance(d, dict) and k in d
+
+
 class API:
 
     # List of commands that can be shared with the clients
@@ -107,7 +119,6 @@ class API:
             GET_SERVER_STATUS = 'get_server_status'
             GET_DEVICE_INFO = 'get_device_info'
             SET_LINK_CONFIG = "set_link_config"
-            GET_POSSIBLE_LINK_CONFIG = "get_possible_link_config"   # todo
             WRITE_WATCHABLE = "write_watchable"
             REQUEST_DATALOGGING_ACQUISITION = 'request_datalogging_acquisition'
             LIST_DATALOGGING_ACQUISITION = 'list_datalogging_acquisitions'
@@ -136,7 +147,6 @@ class API:
             DOWNLOAD_SFD_RESPONSE = 'response_download_sfd'
             UPLOAD_SFD_INIT_RESPONSE = 'response_upload_sfd_init'
             UPLOAD_SFD_DATA_RESPONSE = 'response_upload_sfd_data'
-            GET_POSSIBLE_LINK_CONFIG_RESPONSE = "response_get_possible_link_config"
             SET_LINK_CONFIG_RESPONSE = 'response_set_link_config'
             INFORM_SERVER_STATUS = 'inform_server_status'
             GET_DEVICE_INFO = 'response_get_device_info'
@@ -159,7 +169,7 @@ class API:
             DEMO_MODE_RESPONSE = 'response_demo_mode'
             ERROR_RESPONSE = 'error'
 
-    @dataclass
+    @dataclass(slots=True)
     class SfdUploadState:
         expected_next_index: int
         upload_token: str
@@ -167,7 +177,7 @@ class API:
         filepath: Path
         completed: bool
 
-    @dataclass(frozen=True)
+    @dataclass(frozen=True, slots=True)
     class Statistics:
         client_handler: AbstractClientHandler.Statistics
         invalid_request_count: int
@@ -188,7 +198,7 @@ class API:
         CONNECTED: api_typing.DeviceCommStatus = 'connected'
         CONNECTED_READY: api_typing.DeviceCommStatus = 'connected_ready'
 
-    @dataclass
+    @dataclass(slots=True)
     class DataloggingSupportedTriggerCondition:
         condition_id: api_datalogging.TriggerConditionID
         nb_operands: int
@@ -354,7 +364,6 @@ class API:
             self.Command.Client2Api.GET_SERVER_STATUS: self.process_get_server_status,
             self.Command.Client2Api.GET_DEVICE_INFO: self.process_get_device_info,
             self.Command.Client2Api.SET_LINK_CONFIG: self.process_set_link_config,
-            self.Command.Client2Api.GET_POSSIBLE_LINK_CONFIG: self.process_get_possible_link_config,
             self.Command.Client2Api.WRITE_WATCHABLE: self.process_write_value,
             self.Command.Client2Api.REQUEST_DATALOGGING_ACQUISITION: self.process_datalogging_request_acquisition,
             self.Command.Client2Api.LIST_DATALOGGING_ACQUISITION: self.process_list_datalogging_acquisition,
@@ -513,13 +522,9 @@ class API:
             if self.logger.isEnabledFor(logging.DEBUG):  # pragma: no cover
                 self.logger.debug('[Conn:%s] Processing request #%d - %s' % (conn_id, self.req_count, req))
 
-            if 'cmd' not in req:
-                raise InvalidRequestException(req, 'No command in request')
+            _check_request_dict(req, req, 'cmd', str)
 
             cmd = req['cmd']
-
-            if not isinstance(cmd, str):
-                raise InvalidRequestException(req, 'cmd is not a valid string')
 
             # Fetch the right function from a global dict and call it
             # Response are sent in each callback. Not all requests requires a response
@@ -553,8 +558,7 @@ class API:
 
     # === ECHO ====
     def process_echo(self, conn_id: str, req: api_typing.C2S.Echo) -> None:
-        if 'payload' not in req:
-            raise InvalidRequestException(req, 'Missing payload')
+        _check_request_dict(req, req, 'payload', str)
         response: api_typing.S2C.Echo = {
             'cmd': self.Command.Api2Client.ECHO_RESPONSE,
             'reqid': self.get_req_id(req),
@@ -578,15 +582,13 @@ class API:
         default_max_per_response = 1000
         max_per_response = default_max_per_response
         if 'max_per_response' in req:
-            if not isinstance(req['max_per_response'], int):
-                raise InvalidRequestException(req, 'Invalid max_per_response content')
-
-            max_per_response = req['max_per_response'] if req['max_per_response'] is not None else default_max_per_response
+            _check_request_dict(req, req, 'max_per_response', int)
+            max_per_response = req['max_per_response']
 
         name_filters: Optional[List[str]] = None
         type_to_include: List[WatchableType] = []
-        if self.is_dict_with_key(cast(Dict[str, Any], req), 'filter'):
-            if self.is_dict_with_key(cast(Dict[str, Any], req['filter']), 'type'):
+        if _is_dict_with_key(cast(Dict[str, Any], req), 'filter'):
+            if _is_dict_with_key(cast(Dict[str, Any], req['filter']), 'type'):
                 if isinstance(req['filter']['type'], list):
                     for t in req['filter']['type']:
                         if t not in self.APISTR_2_WATCHABLE_TYPE:
@@ -732,8 +734,7 @@ class API:
     def process_subscribe_watchable(self, conn_id: str, req: api_typing.C2S.SubscribeWatchable) -> None:
         # Add the connection ID to the list of watchers of given datastore entries.
         # datastore callback will write the new values in the API output queue (through the value streamer)
-        if 'watchables' not in req or not isinstance(req['watchables'], list):
-            raise InvalidRequestException(req, 'Invalid or missing watchables list')
+        _check_request_dict(req, req, 'watchables', list)
 
         # Check existence of all watchable before doing anything.
         subscribed: Dict[str, api_typing.DatastoreEntryDefinitionWithId] = {}
@@ -772,8 +773,7 @@ class API:
     #  ===  UNSUBSCRIBE_WATCHABLE ===
     def process_unsubscribe_watchable(self, conn_id: str, req: api_typing.C2S.UnsubscribeWatchable) -> None:
         # Unsubscribe client from value update of the given datastore entries
-        if 'watchables' not in req and not isinstance(req['watchables'], list):
-            raise InvalidRequestException(req, 'Invalid or missing watchables list')
+        _check_request_dict(req, req, 'watchables', list)
 
         # Check existence of all entries before doing anything
         for path in req['watchables']:
@@ -812,11 +812,7 @@ class API:
 
     #  ===  UNINSTALL_SFD ===
     def process_uninstall_sfd(self, conn_id: str, req: api_typing.C2S.UninstallSFD) -> None:
-        if 'firmware_id_list' not in req:
-            raise InvalidRequestException(req, "Missing field firmware_id_list")
-
-        if not isinstance(req['firmware_id_list'], list):
-            raise InvalidRequestException(req, "Field firmware_id_list is not the right type")
+        _check_request_dict(req, req, 'firmware_id_list', list)
 
         for firmware_id in req['firmware_id_list']:
             if not isinstance(firmware_id, str):
@@ -867,8 +863,7 @@ class API:
     #  ===  LOAD_SFD ===
     def process_load_sfd(self, conn_id: str, req: api_typing.C2S.LoadSFD) -> None:
         # Forcibly load a Scrutiny Firmware Description through API
-        if 'firmware_id' not in req and not isinstance(req['firmware_id'], str):
-            raise InvalidRequestException(req, 'Invalid firmware_id')
+        _check_request_dict(req, req, 'firmware_id', str)
 
         try:
             self.sfd_handler.request_load_sfd(req['firmware_id'])
@@ -878,8 +873,7 @@ class API:
 
     # === DOWNLOAD_SFD ===
     def process_download_sfd(self, conn_id: str, req: api_typing.C2S.DownloadSFD) -> None:
-        if 'firmware_id' not in req and not isinstance(req['firmware_id'], str):
-            raise InvalidRequestException(req, 'Invalid firmware_id')
+        _check_request_dict(req, req, 'firmware_id', str)
 
         firmware_id = req['firmware_id']
         if not SFDStorage.is_installed(firmware_id):
@@ -954,17 +948,10 @@ class API:
         reqid = self.get_req_id(req)
         if reqid is None:
             raise InvalidRequestException(req, "Missing request ID")
+        _check_request_dict(req, req, 'firmware_id', str)
+        _check_request_dict(req, req, 'total_size', int)
 
-        if 'firmware_id' not in req:
-            raise InvalidRequestException(req, "Missing firmware_id")
-
-        if not isinstance(req['firmware_id'], str):
-            raise InvalidRequestException(req, "Invalid firmware_id")
-
-        if 'total_size' not in req:
-            raise InvalidRequestException(req, "Missing total_size")
-
-        if not isinstance(req['total_size'], int) or req['total_size'] < 0:
+        if req['total_size'] < 0:
             raise InvalidRequestException(req, "Invalid total_size")
 
         if not SFDStorage.is_valid_firmware_id(req['firmware_id']):
@@ -1007,12 +994,7 @@ class API:
         reqid = self.get_req_id(req)
         if reqid is None:
             raise InvalidRequestException(req, "Missing request ID")
-
-        if 'token' not in req:
-            raise InvalidRequestException(req, "Missing token")
-
-        if not isinstance(req['token'], str):
-            raise InvalidRequestException(req, "Invalid token")
+        _check_request_dict(req, req, 'token', str)
 
         upload_token = req['token']
         try:
@@ -1036,24 +1018,11 @@ class API:
                 tools.log_exception(self.logger, e, "Failed to delete temp file")
             raise InvalidRequestException(req, error)
 
-        if 'file_chunk' not in req:
-            raise_invalid_request("Missing file_chunk")
-
-        if not isinstance(req['file_chunk'], dict):
-            raise_invalid_request("Invalid file_chunk")
-
-        file_chunk = req['file_chunk']
-        if 'data' not in file_chunk:
-            raise_invalid_request("Missing file chunk data")
-
-        if not isinstance(file_chunk['data'], str):
-            raise_invalid_request('Invalid file chunk data')
-
-        if 'chunk_index' not in file_chunk:
-            raise_invalid_request("Missing chunk_index")
-
-        if not isinstance(file_chunk['chunk_index'], int):
-            raise_invalid_request('Invalid chunk_index')
+        try:
+            _check_request_dict(req, req, 'file_chunk.data', str)
+            _check_request_dict(req, req, 'file_chunk.chunk_index', int)
+        except Exception as e:
+            raise_invalid_request(str(e))
 
         chunk_index = req['file_chunk']['chunk_index']
 
@@ -1187,11 +1156,8 @@ class API:
     #  ===  SET_LINK_CONFIG ===
     def process_set_link_config(self, conn_id: str, req: api_typing.C2S.SetLinkConfig) -> None:
         # With this request, the user can change the device connection through an API call
-        if 'link_type' not in req or not isinstance(req['link_type'], str):
-            raise InvalidRequestException(req, 'Invalid link_type')
-
-        if 'link_config' not in req or not isinstance(req['link_config'], dict):
-            raise InvalidRequestException(req, 'Invalid link_config')
+        _check_request_dict(req, req, 'link_type', str)
+        _check_request_dict(req, req, 'link_config', dict)
 
         link_config_err: Optional[Exception] = None
         try:
@@ -1212,94 +1178,6 @@ class API:
 
         self.send_server_status_to_all_clients()
 
-    #  todo
-    def process_get_possible_link_config(self, conn_id: str, req: api_typing.C2S.GetPossibleLinkConfig) -> None:
-        configs = []
-
-        udp_config = {
-            'name': 'udp',
-            'params': {
-                'host': {
-                    'description': 'UDP Hostname or IP address',
-                    'default': 'localhost',
-                    'type': 'string'
-                },
-                'port': {
-                    'description': 'UDP port',
-                    'default': 8765,
-                    'type': 'int',
-                    'range': {'min': 0, 'max': 65535}
-                }
-            }
-        }
-
-        configs.append(udp_config)
-
-        try:
-            import serial.tools.list_ports  # type: ignore
-            ports = serial.tools.list_ports.comports()
-            portname_list: List[str] = [] if ports is None else [port.device for port in ports]
-
-            serial_config = {
-                'name': 'serial',
-                'params': {
-                    'portname': {
-                        'description': 'Serial port name',
-                        'type': 'select',
-                        'text-edit': True,
-                        'values': portname_list
-                    },
-                    'baudrate': {
-                        'description': 'Speed transmission in Baud/s (bit/s)',
-                        'default': 115200,
-                        'type': 'select',
-                        'text-edit': True,
-                        'values': [
-                            1200,
-                            2400,
-                            4800,
-                            9600,
-                            14400,
-                            19200,
-                            28800,
-                            38400,
-                            57600,
-                            115200,
-                            230400
-                        ]
-                    },
-                    'stopbits': {
-                        'description': 'Number of stop bits',
-                        'type': 'select',
-                        'values': ['1', '1.5', '2']
-                    },
-                    'databits': {
-                        'description': 'Number of data bits',
-                        'default': 5,
-                        'type': 'select',
-                        'values': [5, 6, 7, 8]
-                    },
-                    'parity': {
-                        'description': 'Parity validation',
-                        'default': 'none',
-                        'type': 'select',
-                        'values': ['none', 'even', 'odd', 'mark', 'space']
-                    }
-                }
-            }
-
-            configs.append(serial_config)
-        except Exception as e:
-            self.logger.debug('Serial communication not possible.\n' + traceback.format_exc())
-
-        response: api_typing.S2C.GetPossibleLinkConfig = {
-            'cmd': self.Command.Api2Client.GET_POSSIBLE_LINK_CONFIG_RESPONSE,
-            'reqid': self.get_req_id(req),
-            'configs': configs
-        }
-
-        self.client_handler.send(ClientHandlerMessage(conn_id=conn_id, obj=response))
-
     #  ===  WRITE_WATCHABLE ===
     def process_write_value(self, conn_id: str, req: api_typing.C2S.WriteValue) -> None:
         # We first fetch the entries as it will raise an exception if the ID does not exist
@@ -1307,28 +1185,14 @@ class API:
         #
         # Important to consider that we can get a batch with multiple write to the same entry,
         # and they need to be reported correctly + written in the correct order.
-
-        if 'updates' not in req:
-            raise InvalidRequestException(req, 'Missing "updates" field')
-
-        if not isinstance(req['updates'], list):
-            raise InvalidRequestException(req, 'Invalid "updates" field')
+        _check_request_dict(req, req, 'updates', list)
 
         for update in req['updates']:
-            if 'batch_index' not in update:
-                raise InvalidRequestException(req, 'Missing "batch_index" field')
-
-            if 'watchable' not in update:
-                raise InvalidRequestException(req, 'Missing "watchable" field')
+            _check_request_dict(req, update, 'batch_index', int)
+            _check_request_dict(req, update, 'watchable', str)
 
             if 'value' not in update:
                 raise InvalidRequestException(req, 'Missing "value" field')
-
-            if not isinstance(update['watchable'], str):
-                raise InvalidRequestException(req, 'Invalid "watchable" field')
-
-            if not isinstance(update['batch_index'], int):
-                raise InvalidRequestException(req, 'Invalid "batch_index" field')
 
             value = update['value']
             if isinstance(value, str):
@@ -1374,17 +1238,9 @@ class API:
         self.client_handler.send(ClientHandlerMessage(conn_id=conn_id, obj=response))
 
     def process_read_memory(self, conn_id: str, req: api_typing.C2S.ReadMemory) -> None:
-        if 'address' not in req:
-            raise InvalidRequestException(req, 'Missing "address" field')
 
-        if 'size' not in req:
-            raise InvalidRequestException(req, 'Missing "size" field')
-
-        if not isinstance(req['address'], int):
-            raise InvalidRequestException(req, '"address" field is not an integer')
-
-        if not isinstance(req['size'], int):
-            raise InvalidRequestException(req, '"size" field is not an integer')
+        _check_request_dict(req, req, 'address', int)
+        _check_request_dict(req, req, 'size', int)
 
         if req['address'] < 0:
             raise InvalidRequestException(req, '"address" field is not valid')
@@ -1409,17 +1265,8 @@ class API:
         self.client_handler.send(ClientHandlerMessage(conn_id=conn_id, obj=response))
 
     def process_write_memory(self, conn_id: str, req: api_typing.C2S.WriteMemory) -> None:
-        if 'address' not in req:
-            raise InvalidRequestException(req, 'Missing "address" field')
-
-        if 'data' not in req:
-            raise InvalidRequestException(req, 'Missing "data" field')
-
-        if not isinstance(req['address'], int):
-            raise InvalidRequestException(req, '"address" field is not an integer')
-
-        if not isinstance(req['data'], str):
-            raise InvalidRequestException(req, '"data" field is not a string')
+        _check_request_dict(req, req, 'address', int)
+        _check_request_dict(req, req, 'data', str)
 
         try:
             data = b64decode(req['data'], validate=True)
@@ -1449,19 +1296,14 @@ class API:
         self.client_handler.send(ClientHandlerMessage(conn_id=conn_id, obj=response))
 
     def process_user_command(self, conn_id: str, req: api_typing.C2S.UserCommand) -> None:
-        if 'subfunction' not in req:
-            raise InvalidRequestException(req, "Missing subfucnction field")
-
-        if not isinstance(req['subfunction'], int) or isinstance(req['subfunction'], bool):
-            raise InvalidRequestException(req, "Invalid subfunction")
+        _check_request_dict(req, req, 'subfunction', int)
 
         if req['subfunction'] < 0 or req['subfunction'] > 0xFF:
             raise InvalidRequestException(req, "Invalid subfunction")
 
         data = bytes()
         if 'data' in req:
-            if not isinstance(req['data'], str):
-                raise InvalidRequestException(req, "Invalid data")
+            _check_request_dict(req, req, 'data', str)
 
             try:
                 data = b64decode(req['data'], validate=True)
@@ -1611,6 +1453,7 @@ class API:
         x_axis_entry: Optional[DatastoreEntry] = None
         x_axis_signal: Optional[api_datalogging.SignalDefinition] = None
         if x_axis_type == api_datalogging.XAxisType.Signal:
+
             if 'x_axis_signal' not in req or not isinstance(req['x_axis_signal'], dict):
                 raise InvalidRequestException(req, 'Missing a valid x_axis_signal required when x_axis_type=watchable')
 
@@ -1665,20 +1508,8 @@ class API:
 
         yaxis_map: Dict[int, api_datalogging.AxisDefinition] = {}
         for yaxis in req['yaxes']:
-            if not isinstance(yaxis, dict):
-                raise InvalidRequestException(req, "Invalid Y-Axis")
-
-            if 'name' not in yaxis:
-                raise InvalidRequestException(req, "Missing Y-Axis name")
-
-            if not isinstance(yaxis['name'], str):
-                raise InvalidRequestException(req, "Invalid Y-Axis name")
-
-            if 'id' not in yaxis:
-                raise InvalidRequestException(req, "Missing Y-Axis ID")
-
-            if not isinstance(yaxis['id'], int):
-                raise InvalidRequestException(req, "Invalid Y-Axis ID")
+            _check_request_dict(req, yaxis, 'name', str)
+            _check_request_dict(req, yaxis, 'id', int)
 
             if (yaxis['id'] in yaxis_map):
                 raise InvalidRequestException(req, "Duplicate Y-Axis ID")
@@ -1686,15 +1517,8 @@ class API:
             yaxis_map[yaxis['id']] = api_datalogging.AxisDefinition(name=yaxis['name'], axis_id=yaxis['id'])
 
         for signal_def in req['signals']:
-            if not isinstance(signal_def, dict):
-                raise InvalidRequestException(req, "Invalid signal definition")
-
+            _check_request_dict(req, signal_def, 'path', str)
             signal_entry: Optional[DatastoreEntry] = None
-            if 'path' not in signal_def:
-                raise InvalidRequestException(req, 'Missing signal watchable path')
-
-            if not isinstance(signal_def['path'], str):
-                raise InvalidRequestException(req, 'Invalid signal watchable path')
 
             with tools.SuppressException():
                 signal_entry = self.datastore.get_entry_by_display_path(signal_def['path'])
@@ -1797,7 +1621,9 @@ class API:
                 raise InvalidRequestException(req, 'Invalid reference ID')
             reference_id = req['reference_id']
 
-        if reference_id is None:    # Search all acquisition with given criterias
+        if reference_id is None:    # Search all acquisition with given criteria
+            _check_request_dict(req, req, 'count', int)
+
             firmware_id: Optional[str] = None
             if 'firmware_id' in req:
                 if not isinstance(req['firmware_id'], str) and req['firmware_id'] is not None:
@@ -1806,8 +1632,7 @@ class API:
 
             before_datetime: Optional[datetime] = None
             if 'before_timestamp' in req and req['before_timestamp'] is not None:
-                if not isinstance(req['before_timestamp'], (int, float)):
-                    raise InvalidRequestException(req, 'Invalid before_timestamp field')
+                _check_request_dict(req, req, 'before_timestamp', (int, float))
 
                 if req['before_timestamp'] < 0:
                     raise InvalidRequestException(req, 'Invalid before_timestamp value')
@@ -1815,12 +1640,6 @@ class API:
                     before_datetime = datetime.fromtimestamp(req['before_timestamp'])
                 except Exception:
                     raise InvalidRequestException(req, 'Invalid before_timestamp value')
-
-            if 'count' not in req:
-                raise InvalidRequestException(req, 'Missing count field')
-
-            if not isinstance(req['count'], int):
-                raise InvalidRequestException(req, 'Invalid count field')
 
             MAX_COUNT = 10000
             if req['count'] < 0 or req['count'] > MAX_COUNT:
@@ -1860,19 +1679,14 @@ class API:
 
     # === UPDATE_DATALOGGING_ACQUISITION ===
     def process_update_datalogging_acquisition(self, conn_id: str, req: api_typing.C2S.UpdateDataloggingAcquisition) -> None:
-        if 'reference_id' not in req:
-            raise InvalidRequestException(req, 'Missing acquisition reference ID')
+        _check_request_dict(req, req, 'reference_id', str)
 
-        if not isinstance(req['reference_id'], str):
-            raise InvalidRequestException(req, 'Invalid reference ID')
         err: Optional[Exception]
         if 'name' in req:
-            if not isinstance(req['name'], str):
-                raise InvalidRequestException(req, 'Invalid name')
-
+            _check_request_dict(req, req, 'name', str)
             err = None
             try:
-                DataloggingStorage.update_acquisition_name(req['reference_id'], req['name'])
+                DataloggingStorage.update_acquisition_name(req['reference_id'], cast(str, req['name']))
             except LookupError as e:
                 err = e
 
@@ -1884,14 +1698,8 @@ class API:
                 raise InvalidRequestException(req, 'Invalid axis name list')
 
             for axis_name_entry in req['axis_name']:
-                if not isinstance(axis_name_entry, dict):
-                    raise InvalidRequestException(req, 'Invalid axis name list')
-
-                if 'id' not in axis_name_entry:
-                    raise InvalidRequestException(req, 'Missing id field')
-
-                if 'name' not in axis_name_entry:
-                    raise InvalidRequestException(req, 'Missing name field')
+                _check_request_dict(req, axis_name_entry, 'id', int)
+                _check_request_dict(req, axis_name_entry, 'name', str)
 
                 err = None
                 try:
@@ -1925,11 +1733,7 @@ class API:
 
     # === DELETE_DATALOGGING_ACQUISITION ===
     def process_delete_datalogging_acquisition(self, conn_id: str, req: api_typing.C2S.DeleteDataloggingAcquisition) -> None:
-        if 'reference_id' not in req:
-            raise InvalidRequestException(req, 'Missing acquisition reference ID')
-
-        if not isinstance(req['reference_id'], str):
-            raise InvalidRequestException(req, 'Invalid reference ID')
+        _check_request_dict(req, req, 'reference_id', str)
 
         err: Optional[Exception] = None
         try:
@@ -1987,11 +1791,7 @@ class API:
 
     # === READ_DATALOGGING_ACQUISITION_CONTENT ===
     def process_read_datalogging_acquisition_content(self, conn_id: str, req: api_typing.C2S.ReadDataloggingAcquisitionContent) -> None:
-        if 'reference_id' not in req:
-            raise InvalidRequestException(req, 'Missing acquisition reference ID')
-
-        if not isinstance(req['reference_id'], str):
-            raise InvalidRequestException(req, 'Invalid reference ID')
+        _check_request_dict(req, req, 'reference_id', str)
 
         err: Optional[Exception] = None
         acquisition: api_datalogging.DataloggingAcquisition
@@ -2073,11 +1873,7 @@ class API:
 
     # === DEMO_MODE ===
     def process_demo_mode(self, conn_id: str, req: api_typing.C2S.DemoMode) -> None:
-        if 'enable' not in req:
-            raise InvalidRequestException(req, "Missing enable field")
-
-        if not isinstance(req['enable'], bool):
-            raise InvalidRequestException(req, "Invalid enable field")
+        _check_request_dict(req, req, 'enable', bool)
 
         if req['enable']:
             self.device_handler.start_demo_device()
@@ -2259,9 +2055,6 @@ class API:
                 raise InvalidRequestException(req, "Invalid request ID")
 
         return reqid
-
-    def is_dict_with_key(self, d: Dict[Any, Any], k: Any) -> bool:
-        return isinstance(d, dict) and k in d
 
     def close(self) -> None:
         self.client_handler.stop()

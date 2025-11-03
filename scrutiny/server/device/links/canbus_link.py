@@ -77,7 +77,7 @@ class BaseSubconfig:
         return cast(CANBUS_ANY_SUBCONFIG_DICT, asdict(self))
 
 
-@dataclass
+@dataclass(slots=True)
 class SocketCanSubconfig(BaseSubconfig):
     _TYPENAME = 'socketcan'
 
@@ -94,7 +94,7 @@ class SocketCanSubconfig(BaseSubconfig):
         )
 
 
-@dataclass
+@dataclass(slots=True)
 class KVaserCanSubconfig(BaseSubconfig):
     _TYPENAME = 'kvaser'
 
@@ -124,7 +124,7 @@ class KVaserCanSubconfig(BaseSubconfig):
         )
 
 
-@dataclass
+@dataclass(slots=True)
 class PCANCanSubconfig(BaseSubconfig):
     _TYPENAME = 'pcan'
 
@@ -146,7 +146,7 @@ class PCANCanSubconfig(BaseSubconfig):
         )
 
 
-@dataclass
+@dataclass(slots=True)
 class ETASCanSubconfig(BaseSubconfig):
     _TYPENAME = 'etas'
 
@@ -172,7 +172,7 @@ class ETASCanSubconfig(BaseSubconfig):
         )
 
 
-@dataclass
+@dataclass(slots=True)
 class VirtualCanSubConfig(BaseSubconfig):
     _TYPENAME = 'virtual'
 
@@ -189,7 +189,7 @@ class VirtualCanSubConfig(BaseSubconfig):
         )
 
 
-@dataclass
+@dataclass(slots=True)
 class VectorSubConfig(BaseSubconfig):
     _TYPENAME = 'vector'
 
@@ -220,7 +220,7 @@ class VectorSubConfig(BaseSubconfig):
 ANY_SUBCONFIG: TypeAlias = Union[SocketCanSubconfig, VectorSubConfig, KVaserCanSubconfig, PCANCanSubconfig, ETASCanSubconfig]
 
 
-@dataclass
+@dataclass(slots=True)
 class CanBusConfig:
     interface: SUPPORTED_INTERFACES
     txid: int

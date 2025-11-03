@@ -53,6 +53,10 @@ if TYPE_CHECKING:
 
 
 class ComponentAppInterface(AbstractComponentAppInterface):
+    """This class is a handle for the components to access the GUI application. 
+    A component should use this interface to do something else than managing itself,
+    like accessing the watchable registry or making a request to the server"""
+
     _dashboard: "Dashboard"
     server_manager: ServerManager
     watchable_registry: WatchableRegistry
@@ -67,6 +71,7 @@ class ComponentAppInterface(AbstractComponentAppInterface):
 
 
 class ScrutinyDockWidget(QtAds.CDockWidget):
+    """An extension of the QT Advanced Docking System CDockWidget with some additional default behaviors"""
 
     @tools.copy_type(QtAds.CDockWidget.__init__)
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -87,18 +92,19 @@ class ScrutinyDockWidget(QtAds.CDockWidget):
 
         super().keyPressEvent(event)
 
-@dataclass
+
+@dataclass(slots=True)
 class SplitterAndSizePair:
     splitter: QtAds.CDockSplitter
     sizes: List[int]
 
 
-@dataclass
+@dataclass(slots=True)
 class BuildSplitterRecursiveMutableData:
     splitter_sizes: List[SplitterAndSizePair]
 
 
-@dataclass
+@dataclass(slots=True)
 class BuildSplitterRecursiveImmutableData:
     name_suffix: str
     top_level: bool
@@ -111,6 +117,7 @@ def tab_context_menu(owner: QWidget,
                      pin_to: bool = True,
                      unpin: bool = True,
                      close: bool = True) -> QMenu:
+    """Creates a context menu when the user for when the user right-click a tab."""
     menu = QMenu(owner)
     dock_widget.setAsCurrentTab()
     component = cast(ScrutinyGUIBaseComponent, dock_widget.widget())
@@ -194,6 +201,8 @@ def tab_context_menu(owner: QWidget,
 
 
 class ScrutinyDockWidgetSideTab(QtAds.ads.CAutoHideTab):
+    """Extension of the QT Advanced Docking system Side tab with custom context menu"""
+
     def contextMenuEvent(self, event: QContextMenuEvent) -> None:
         event.accept()
         dock_widget = self.dockWidget()
@@ -206,6 +215,8 @@ class ScrutinyDockWidgetSideTab(QtAds.ads.CAutoHideTab):
 
 
 class ScrutinyDockAreaTitleBar(QtAds.CDockAreaTitleBar):
+    """Extension of QT Advanced docking system CDockAreaTitleBar to override some default behaviors that we don't want"""
+
     def contextMenuEvent(self, event: QContextMenuEvent) -> None:
         pass    # No menu on the title bar. Remove the default "Close Group". Not necessary. Don't bloat the UI
 
@@ -234,6 +245,9 @@ class ScrutinyDockWidgetTab(QtAds.CDockWidgetTab):
 
 
 class CustomFactory(QtAds.CDockComponentsFactory):
+    """This class instruct QTads how to create the components used in the dashboard.
+    Require additional handling because QTAds does not keep ownership of the element it creates. we need to manage the reference
+    lifetime in python"""
     _shiboken_storage: ShibokenRefKeeper
     _shiboken_prune_timer: QTimer
     # No reference of the python object is kept in the PyQtADS layer.

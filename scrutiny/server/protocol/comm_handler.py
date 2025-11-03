@@ -40,7 +40,7 @@ class CommHandler:
     This class also act as a Link Factory.
     """
 
-    @dataclass
+    @dataclass(slots=True)
     class Statistics:
         tx_datarate_byte_per_sec: float
         rx_datarate_byte_per_sec: float

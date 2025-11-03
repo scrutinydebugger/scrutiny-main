@@ -38,7 +38,7 @@ USER_MSG_ID_CONNECT_FAILED = "connect_failed"
 USER_MSG_UPDATE_OVERRUN = "listener_update_dropped"
 
 
-@dataclass
+@dataclass(slots=True)
 class ServerConfig:
     hostname: str
     port: int
@@ -135,7 +135,7 @@ class QtBufferedListener(BaseListener):
 
 
 class ClientRequestStore:
-    @dataclass
+    @dataclass(slots=True)
     class ClientRequestEntry:
         ui_callback: Callable[[Any, Optional[Exception]], None]
         threaded_func_return_value: Any
@@ -178,7 +178,7 @@ class ClientRequestStore:
 class ServerManager:
     """Runs a thread for the synchronous SDK and emit QT events when something interesting happens"""
 
-    @dataclass(frozen=True)
+    @dataclass(frozen=True, slots=True)
     class Statistics:
         listener: BaseListener.Statistics
         client: ScrutinyClient.Statistics
@@ -201,7 +201,7 @@ class ServerManager:
         SUBSCRIBE = enum.auto()
         UNSUBSCRIBE = enum.auto()
 
-    @dataclass
+    @dataclass(slots=True)
     class WatchableRegistrationStatus:
         active_state: "ServerManager.WatchableRegistrationState"
         pending_action: "ServerManager.WatchableRegistrationAction"
@@ -616,7 +616,7 @@ class ServerManager:
         self.signals.device_disconnected.emit()
 
     def _thread_clear_registry_synchronized(self, type_list: List[sdk.WatchableType]) -> None:
-        @dataclass
+        @dataclass(slots=True)
         class Context:
             had_data: bool = False
 

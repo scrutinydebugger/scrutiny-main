@@ -27,7 +27,7 @@ from typing import TextIO
 PossibleVal = Optional[Union[str, float, int, bool]]
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class CSVConfig:
     """CSV format options to be used by the CSVFileListener"""
 
@@ -45,7 +45,7 @@ class CSVConfig:
 
 class CSVLogger:
 
-    @dataclass
+    @dataclass(slots=True)
     class ColumnDescriptor:
         """Define a column in the CSV output"""
         signal_id: str

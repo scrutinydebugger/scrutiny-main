@@ -117,13 +117,13 @@ class TriggerCondition(enum.Enum):
         return cls(v)
 
 
-@dataclass
+@dataclass(slots=True)
 class _Signal:
     name: Optional[str]
     path: str
 
 
-@dataclass
+@dataclass(slots=True)
 class _SignalAxisPair(_Signal):
     name: Optional[str]
     path: str
@@ -444,7 +444,7 @@ class DataloggingRequest(PendingRequest):
         return self._request_token
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class DataloggingStorageEntry:
     """(Immutable struct) Represent an entry in datalogging storage"""
 

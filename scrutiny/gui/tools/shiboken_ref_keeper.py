@@ -18,7 +18,7 @@ from scrutiny.tools.typing import *
 
 class ShibokenRefKeeper:
     """Tool to keep a python object alive by keeping a reference to it. 
-    Can be used for some Qt or QtAds functions where a local object is created and ownership is not transfered to QT.
+    Can be used for some Qt or QtAds functions where a local object is created and ownership is not transferred to QT.
     In that case we need to keep the object alive somewhere until it is not needed anymore.
     """
 

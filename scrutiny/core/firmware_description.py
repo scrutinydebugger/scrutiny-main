@@ -52,7 +52,7 @@ class MetadataTypedDict(TypedDict, total=False):
     generation_info: Optional[GenerationInfoTypedDict]
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class SFDGenerationInfo:
     """(Immutable struct) Metadata relative to the generation of the SFD"""
 
@@ -92,7 +92,7 @@ class SFDGenerationInfo:
         }
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class SFDMetadata:
     """(Immutable struct) All the metadata associated with a Scrutiny Firmware Description"""
 
@@ -186,7 +186,7 @@ class FirmwareDescription:
 
         if os.path.isfile(os.path.join(folder, cls.ALIAS_FILE)):
             with open(os.path.join(folder, cls.ALIAS_FILE), 'rb') as f:
-                aliases = cls.read_aliases(f, sfd.varmap)
+                aliases = cls.read_aliases(f, sfd.varmap, suppress_errors=True)
                 sfd.append_aliases(aliases)
 
         return sfd
@@ -215,7 +215,7 @@ class FirmwareDescription:
             sfd = FirmwareDescription(firmwareid, varmap, metadata)
             if cls.ALIAS_FILE in zipsfd.namelist():
                 with zipsfd.open(cls.ALIAS_FILE, 'r') as f:
-                    sfd.append_aliases(cls.read_aliases(f, varmap))
+                    sfd.append_aliases(cls.read_aliases(f, varmap, suppress_errors=True))
 
             return sfd
 
@@ -281,7 +281,7 @@ class FirmwareDescription:
         )
 
     @classmethod
-    def read_aliases(cls, f: IO[bytes], varmap: VarMap) -> Dict[str, Alias]:
+    def read_aliases(cls, f: IO[bytes], varmap: VarMap, suppress_errors: bool = True) -> Dict[str, Alias]:
         aliases_raw: Dict[str, Any] = json.loads(f.read().decode('utf8'))
         aliases: Dict[str, Alias] = {}
         for k in aliases_raw:
@@ -289,7 +289,10 @@ class FirmwareDescription:
             try:
                 alias.set_target_type(cls.get_alias_target_type(alias, varmap))
             except Exception as e:
-                cls.logger.error("Cannot read alias. %s" % str(e))
+                if suppress_errors:
+                    cls.logger.error("Cannot read alias. %s" % str(e))
+                else:
+                    raise e
 
             aliases[k] = alias
 
@@ -324,13 +327,13 @@ class FirmwareDescription:
                 if alias.fullpath not in self.aliases:
                     self.aliases[alias.fullpath] = alias
                 else:
-                    logging.warning(f'Duplicate alias {alias.fullpath}. Dropping')
+                    self.logger.warning(f'Duplicate alias {alias.fullpath}. Dropping')
         elif isinstance(aliases, dict):
             for unique_path in aliases:
                 if unique_path not in self.aliases:
                     self.aliases[unique_path] = aliases[unique_path]
                 else:
-                    logging.warning(f'Duplicate alias {unique_path}. Dropping')
+                    self.logger.warning(f'Duplicate alias {unique_path}. Dropping')
         else:
             raise ValueError("Aliases must be passed as a list or a dict.")
 
@@ -387,13 +390,13 @@ class FirmwareDescription:
 
     def validate_metadata(self) -> None:
         if self.metadata.project_name is None:
-            logging.warning('No valid project name defined in %s' % self.METADATA_FILENAME)
+            self.logger.warning('No valid project name defined in %s' % self.METADATA_FILENAME)
 
         if self.metadata.version is None:
-            logging.warning('No valid version defined in %s' % self.METADATA_FILENAME)
+            self.logger.warning('No valid version defined in %s' % self.METADATA_FILENAME)
 
         if self.metadata.author is None:
-            logging.warning('No valid author defined in %s' % self.METADATA_FILENAME)
+            self.logger.warning('No valid author defined in %s' % self.METADATA_FILENAME)
 
     def get_vars_for_datastore(self) -> Generator[Tuple[str, Union[Variable, VariableFactory]], None, None]:
         """Returns all variables in this SFD with a Generator to avoid consuming memory."""

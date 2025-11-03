@@ -30,6 +30,7 @@ class ExecLoopType(Enum):
 
 
 class ExecLoop:
+    __slots__ = ('name', 'support_datalogging')
     name: str
     support_datalogging: bool
 
@@ -49,6 +50,7 @@ class ExecLoop:
 
 
 class FixedFreqLoop(ExecLoop):
+    __slots__ = ('freq', )
     freq: float
 
     def __init__(self, freq: float, name: str, support_datalogging: bool = True) -> None:
@@ -75,7 +77,7 @@ class VariableFreqLoop(ExecLoop):
 
 
 class SupportedFeatureMap(TypedDict):
-    """Dictionnary of all possible supported features by the device (libscrutiny-embedded)"""
+    """Dictionary of all possible supported features by the device (libscrutiny-embedded)"""
     memory_write: bool
     datalogging: bool
     user_command: bool
