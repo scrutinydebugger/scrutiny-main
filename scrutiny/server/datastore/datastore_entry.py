@@ -121,6 +121,17 @@ class DatastoreEntry(abc.ABC):
     An entry can also be requested to be updated on the target (write request). 
     When the value change or a write request is completed, a callback will be called.
     """
+    __slots__ = (
+        'entry_id',
+        'value_change_callback',
+        'target_update_callback',
+        'display_path',
+        'value',
+        'last_target_update_server_time_us',
+        'target_update_request_queue',
+        'last_value_update_server_time_us'
+    )
+
     entry_id: str
     value_change_callback: Dict[str, Callable[["DatastoreEntry"], Any]]
     target_update_callback: Dict[str, Callable[["DatastoreEntry"], Any]]
@@ -242,6 +253,8 @@ class DatastoreVariableEntry(DatastoreEntry):
     A datastore entry that represents  variable in memory. It is linked to a "Variable" object
     that contains an address, a type, an endianness, optional bitfield, etc.
     """
+    __slots__ = ('variable_def', 'codec')
+
     variable_def: Variable
     codec: BaseCodec    # The codec used to converts bytes to values and vice versa
 
@@ -310,6 +323,7 @@ class DatastoreAliasEntry(DatastoreEntry):
 
     It works by subscribing to them, just like the API would do.
     """
+    __slots__ = ('refentry', 'aliasdef')
 
     refentry: DatastoreEntry    # Entry pointed by the alias
     aliasdef: Alias             # The definition of the alias
@@ -394,6 +408,7 @@ class DatastoreAliasEntry(DatastoreEntry):
 
 class DatastoreRPVEntry(DatastoreEntry):
     """A datastore entry that represents a Runtime Published Value"""
+    __slots__ = ('rpv', 'codec')
 
     rpv: RuntimePublishedValue
     codec: BaseCodec
