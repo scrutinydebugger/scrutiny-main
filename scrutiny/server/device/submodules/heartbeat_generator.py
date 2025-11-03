@@ -24,16 +24,26 @@ class HeartbeatGenerator:
     Poll the device with periodic heartbeat message to know if it is still there and alive.
     """
     logger: logging.Logger
-    dispatcher: RequestDispatcher   # We put the request in here, and we know they'll go out
-    protocol: Protocol              # The actual protocol. Used to build the request payloads
-    priority: int                   # Our dispatcher priority
-    session_id: Optional[int]       # The session ID to include in the heartbeat request
-    last_heartbeat_request: Optional[float]     # Time at which that last heartbeat request has been sent.
-    last_heartbeat_timestamp: Optional[float]   # Time at which the last successful heartbeat response has been received
-    challenge: int      # The computation challenge included in the pending request.
-    interval: float     # Heartbeat interval in seconds
-    pending: bool       # True when a request is sent and we are waiting for a response
-    started: bool       # True when started. Sends heartbeat only when started, otherwise keep silent
+    dispatcher: RequestDispatcher
+    """We put the request in here, and we know they'll go out"""
+    protocol: Protocol
+    """The actual protocol. Used to build the request payloads"""
+    priority: int
+    """Our dispatcher priority"""
+    session_id: Optional[int]
+    """The session ID to include in the heartbeat request"""
+    last_heartbeat_request: Optional[float]
+    """Time at which that last heartbeat request has been sent."""
+    last_heartbeat_timestamp: Optional[float]
+    """Time at which the last successful heartbeat response has been received"""
+    challenge: int
+    """The computation challenge included in the pending request."""
+    interval: float
+    """Heartbeat interval in seconds"""
+    pending: bool
+    """True when a request is sent and we are waiting for a response"""
+    started: bool
+    """True when started. Sends heartbeat only when started, otherwise keep silent"""
 
     def __init__(self, protocol: Protocol, dispatcher: RequestDispatcher, priority: int):
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -88,14 +98,14 @@ class HeartbeatGenerator:
                     self.logger.debug('Registering a Heartbeat request')
                 self.dispatcher.register_request(
                     request=self.protocol.comm_heartbeat(session_id=self.session_id, challenge=self.challenge),
-                    success_callback=self.success_callback,
-                    failure_callback=self.failure_callback,
+                    success_callback=self._success_callback,
+                    failure_callback=self._failure_callback,
                     priority=self.priority
                 )
                 self.pending = True
                 self.last_heartbeat_request = time.monotonic()
 
-    def success_callback(self, request: Request, response: Response, params: Any = None) -> None:
+    def _success_callback(self, request: Request, response: Response, params: Any = None) -> None:
         """ Called by the dispatcher when a request is completed and succeeded"""
         if self.logger.isEnabledFor(logging.DEBUG):  # pragma: no cover
             self.logger.debug("Success callback. Request=%s. Response Code=%s, Params=%s" % (request, response.code, params))
@@ -119,15 +129,15 @@ class HeartbeatGenerator:
             else:
                 self.logger.error('Heartbeat request got Nacked. %s' % response.code)
 
-        self.completed()
+        self._completed()
 
-    def failure_callback(self, request: Request, params: Any = None) -> None:
+    def _failure_callback(self, request: Request, params: Any = None) -> None:
         """ Called by the dispatcher when a request is completed and failed to succeed"""
         if self.logger.isEnabledFor(logging.DEBUG):  # pragma: no cover
             self.logger.debug("Failure callback. Request=%s. Params=%s" % (request, params))
-        self.completed()
+        self._completed()
 
-    def completed(self) -> None:
+    def _completed(self) -> None:
         """ Common code between success and failure"""
         self.challenge = (self.challenge + 1) & 0xFFFF  # Next challenge
         self.pending = False

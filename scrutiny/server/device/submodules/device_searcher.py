@@ -26,17 +26,27 @@ class DeviceSearcher:
     Generates Discover request in loop and inform the upper layers if a device has been found
     """
     logger: logging.Logger
-    dispatcher: RequestDispatcher       # We put the request in here, and we know they'll go out
-    protocol: Protocol                  # The actual protocol. Used to build the request payloads
-    priority: int                       # Our dispatcher priority
-    pending: bool                       # True when a request is out and we are waiting for a response
-    last_request_timestamp: Optional[float]     # Time at which we sent the last discover request.
-    found_device_timestamp: float               # Time at which we found the last device.
-    started: bool       # Generates request only when started. When False, keep silent.
-    found_device: Optional[protocol_typing.Response.CommControl.Discover]   # The response data of the last found device
+    dispatcher: RequestDispatcher
+    """We put the request in here, and we know they'll go out"""
+    protocol: Protocol
+    """The actual protocol. Used to build the request payloads"""
+    priority: int
+    """Our dispatcher priority"""
+    pending: bool
+    """True when a request is out and we are waiting for a response"""
+    last_request_timestamp: Optional[float]
+    """Time at which we sent the last discover request."""
+    found_device_timestamp: float
+    """Time at which we found the last device."""
+    started: bool
+    """Generates request only when started. When False, keep silent."""
+    found_device: Optional[protocol_typing.Response.CommControl.Discover]
+    """The response data of the last found device"""
 
-    DISCOVER_INTERVAL: float = 0.5  # Sends a discover message every 0.5 sec
-    DEVICE_GONE_DELAY: float = 3    # If no device found for 3 sec, drops any device that was previously found
+    DISCOVER_INTERVAL: float = 0.5
+    """Sends a discover message every 0.5 sec"""
+    DEVICE_GONE_DELAY: float = 3
+    """If no device found for 3 sec, drops any device that was previously found"""
 
     def __init__(self, protocol: Protocol, dispatcher: RequestDispatcher, priority: int):
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -111,14 +121,14 @@ class DeviceSearcher:
                     self.logger.debug('Registering a Discover request')
                 self.dispatcher.register_request(
                     request=self.protocol.comm_discover(),
-                    success_callback=self.success_callback,
-                    failure_callback=self.failure_callback,
+                    success_callback=self._success_callback,
+                    failure_callback=self._failure_callback,
                     priority=self.priority
                 )
                 self.pending = True
                 self.last_request_timestamp = time.monotonic()
 
-    def success_callback(self, request: Request, response: Response, params: Any = None) -> None:
+    def _success_callback(self, request: Request, response: Response, params: Any = None) -> None:
         # Called by the dispatcher when a request is completed and succeeded
         if self.logger.isEnabledFor(logging.DEBUG):  # pragma: no cover
             self.logger.debug("Success callback. Request=%s. Response Code=%s, Params=%s" % (request, response.code, params))
@@ -137,14 +147,14 @@ class DeviceSearcher:
                 self.logger.error('Discover request got Nacked. %s' % response.code)
                 self.found_device = None
 
-        self.completed()
+        self._completed()
 
-    def failure_callback(self, request: Request, params: Any = None) -> None:
+    def _failure_callback(self, request: Request, params: Any = None) -> None:
         # Called by the dispatcher when a request is completed and failed to succeed
         if self.logger.isEnabledFor(logging.DEBUG):  # pragma: no cover
             self.logger.debug("Failure callback. Request=%s. Params=%s" % (request, params))
         self.found_device = None
-        self.completed()
+        self._completed()
 
-    def completed(self) -> None:
+    def _completed(self) -> None:
         self.pending = False

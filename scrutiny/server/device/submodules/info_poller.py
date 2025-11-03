@@ -40,23 +40,40 @@ class InfoPoller:
     to gather all of its internal parameters. Will fill a DeviceInformation structure"""
 
     logger: logging.Logger
-    dispatcher: RequestDispatcher       # We put the request in here, and we know they'll go out
-    protocol: Protocol                  # The actual protocol. Used to build the request payloads
-    priority: int                       # Our dispatcher priority
-    info: DeviceInfo        # Stores the data that we gather from the device
-    started: bool           # Indicate if enabled or not
-    protocol_version_callback: Optional[ProtocolVersionCallback]    # When the protocol version from the device is read, call this
-    comm_param_callback: Optional[CommParamCallback]    # When we have fetched the communication parameters, call this callback
-    fsm_state: "InfoPoller.FsmState"        # The state machine state
-    last_fsm_state: "InfoPoller.FsmState"   # Previous cycle state of the state machine
-    stop_requested: bool    # Requested to stop polling
-    request_pending: bool   # True when we are waiting for a request to complete
-    request_failed: bool    # Flag indicating that a request have failed. Will make the
-    forbidden_memory_region_count: Optional[int]    # Number of forbidden memory region to read
-    readonly_memory_region_count: Optional[int]     # Number of readonly memory region to read
-    rpv_count: Optional[int]    # Number of Runtime Published Values to reads
-    loop_count: Optional[int]    # Number of execution loop (task) in the device
-    error_message: str          # Detailed error of why it was impossible to poll al the data
+    dispatcher: RequestDispatcher
+    """We put the request in here, and we know they'll go out"""
+    protocol: Protocol
+    """The actual protocol. Used to build the request payloads"""
+    priority: int
+    """Our dispatcher priority"""
+    info: DeviceInfo
+    """Stores the data that we gather from the device"""
+    started: bool
+    """Indicate if enabled or not"""
+    protocol_version_callback: Optional[ProtocolVersionCallback]
+    """When the protocol version from the device is read, call this"""
+    comm_param_callback: Optional[CommParamCallback]
+    """When we have fetched the communication parameters, call this callback"""
+    fsm_state: "InfoPoller.FsmState"
+    """The state machine state"""
+    last_fsm_state: "InfoPoller.FsmState"
+    """Previous cycle state of the state machine"""
+    stop_requested: bool
+    """Requested to stop polling"""
+    request_pending: bool
+    """True when we are waiting for a request to complete"""
+    request_failed: bool
+    """Flag indicating that a request have failed. Will make the"""
+    forbidden_memory_region_count: Optional[int]
+    """Number of forbidden memory region to read"""
+    readonly_memory_region_count: Optional[int]
+    """Number of readonly memory region to read"""
+    rpv_count: Optional[int]
+    """Number of Runtime Published Values to reads"""
+    loop_count: Optional[int]
+    """Number of execution loop (task) in the device"""
+    error_message: str
+    """Detailed error of why it was impossible to poll al the data"""
 
     class FsmState(enum.Enum):
         """Enum representing the InfoPoller State machine possible states"""
@@ -159,8 +176,11 @@ class InfoPoller:
         elif self.fsm_state == self.FsmState.GetProtocolVersion:
             # We already know the protocol version from the discover request.  This should maybe be removed...
             if state_entry:
-                self.dispatcher.register_request(request=self.protocol.get_protocol_version(),
-                                                 success_callback=self.success_callback, failure_callback=self.failure_callback, priority=self.priority)
+                self.dispatcher.register_request(
+                    request=self.protocol.get_protocol_version(),
+                    success_callback=self._success_callback,
+                    failure_callback=self._failure_callback,
+                    priority=self.priority)
                 self.request_pending = True
 
             if self.request_failed:
@@ -180,8 +200,11 @@ class InfoPoller:
         # ======= [GetCommParams] =====
         elif self.fsm_state == self.FsmState.GetCommParams:
             if state_entry:
-                self.dispatcher.register_request(request=self.protocol.comm_get_params(),
-                                                 success_callback=self.success_callback, failure_callback=self.failure_callback, priority=self.priority)
+                self.dispatcher.register_request(
+                    request=self.protocol.comm_get_params(),
+                    success_callback=self._success_callback,
+                    failure_callback=self._failure_callback,
+                    priority=self.priority)
                 self.request_pending = True
 
             if self.request_failed:
@@ -200,8 +223,11 @@ class InfoPoller:
         # ======= [GetSupportedFeatures] =====
         elif self.fsm_state == self.FsmState.GetSupportedFeatures:
             if state_entry:
-                self.dispatcher.register_request(request=self.protocol.get_supported_features(),
-                                                 success_callback=self.success_callback, failure_callback=self.failure_callback, priority=self.priority)
+                self.dispatcher.register_request(
+                    request=self.protocol.get_supported_features(),
+                    success_callback=self._success_callback,
+                    failure_callback=self._failure_callback,
+                    priority=self.priority)
                 self.request_pending = True
 
             if self.request_failed:
@@ -214,8 +240,11 @@ class InfoPoller:
             if state_entry:
                 self.forbidden_memory_region_count = None
                 self.readonly_memory_region_count = None
-                self.dispatcher.register_request(request=self.protocol.get_special_memory_region_count(),
-                                                 success_callback=self.success_callback, failure_callback=self.failure_callback, priority=self.priority)
+                self.dispatcher.register_request(
+                    request=self.protocol.get_special_memory_region_count(),
+                    success_callback=self._success_callback,
+                    failure_callback=self._failure_callback,
+                    priority=self.priority)
                 self.request_pending = True
 
             if self.request_failed:
@@ -232,8 +261,11 @@ class InfoPoller:
                 if state_entry:
                     self.info.forbidden_memory_regions = []
                     for i in range(self.forbidden_memory_region_count):
-                        self.dispatcher.register_request(request=self.protocol.get_special_memory_region_location(cmd.GetInfo.MemoryRangeType.Forbidden, i),
-                                                         success_callback=self.success_callback, failure_callback=self.failure_callback, priority=self.priority)
+                        self.dispatcher.register_request(
+                            request=self.protocol.get_special_memory_region_location(cmd.GetInfo.MemoryRangeType.Forbidden, i),
+                            success_callback=self._success_callback,
+                            failure_callback=self._failure_callback,
+                            priority=self.priority)
 
                 if self.request_failed:
                     next_state = self.FsmState.Error
@@ -251,8 +283,11 @@ class InfoPoller:
                 if state_entry:
                     self.info.readonly_memory_regions = []
                     for i in range(self.readonly_memory_region_count):
-                        self.dispatcher.register_request(request=self.protocol.get_special_memory_region_location(cmd.GetInfo.MemoryRangeType.ReadOnly, i),
-                                                         success_callback=self.success_callback, failure_callback=self.failure_callback, priority=self.priority)
+                        self.dispatcher.register_request(
+                            request=self.protocol.get_special_memory_region_location(cmd.GetInfo.MemoryRangeType.ReadOnly, i),
+                            success_callback=self._success_callback,
+                            failure_callback=self._failure_callback,
+                            priority=self.priority)
 
                 if self.request_failed:
                     next_state = self.FsmState.Error
@@ -266,7 +301,7 @@ class InfoPoller:
             if state_entry:
                 self.rpv_count = None   # Will be set in success callback
                 self.dispatcher.register_request(request=self.protocol.get_rpv_count(),
-                                                 success_callback=self.success_callback, failure_callback=self.failure_callback, priority=self.priority)
+                                                 success_callback=self._success_callback, failure_callback=self._failure_callback, priority=self.priority)
                 self.request_pending = True
 
             if self.request_failed:
@@ -301,8 +336,8 @@ class InfoPoller:
                     request = self.protocol.get_rpv_definition(start=len(self.info.runtime_published_values), count=count)
                     self.dispatcher.register_request(
                         request=request,
-                        success_callback=self.success_callback,
-                        failure_callback=self.failure_callback,
+                        success_callback=self._success_callback,
+                        failure_callback=self._failure_callback,
                         priority=self.priority
                     )
                     self.request_pending = True
@@ -313,8 +348,11 @@ class InfoPoller:
         elif self.fsm_state == self.FsmState.GetLoopCount:
             if state_entry:
                 self.loop_count = None   # Will be set in success callback
-                self.dispatcher.register_request(request=self.protocol.get_loop_count(),
-                                                 success_callback=self.success_callback, failure_callback=self.failure_callback, priority=self.priority)
+                self.dispatcher.register_request(
+                    request=self.protocol.get_loop_count(),
+                    success_callback=self._success_callback,
+                    failure_callback=self._failure_callback,
+                    priority=self.priority)
                 self.request_pending = True
 
             if self.request_failed:
@@ -331,8 +369,11 @@ class InfoPoller:
                 if state_entry:
                     self.info.loops = []
                     for i in range(self.loop_count):
-                        self.dispatcher.register_request(request=self.protocol.get_loop_definition(i),
-                                                         success_callback=self.success_callback, failure_callback=self.failure_callback, priority=self.priority)
+                        self.dispatcher.register_request(
+                            request=self.protocol.get_loop_definition(i),
+                            success_callback=self._success_callback,
+                            failure_callback=self._failure_callback,
+                            priority=self.priority)
 
                 if self.request_failed:
                     next_state = self.FsmState.Error
@@ -350,8 +391,8 @@ class InfoPoller:
             if state_entry:
                 self.dispatcher.register_request(
                     request=self.protocol.datalogging_get_setup(),
-                    success_callback=self.success_callback,
-                    failure_callback=self.failure_callback,
+                    success_callback=self._success_callback,
+                    failure_callback=self._failure_callback,
                     priority=self.priority
                 )
 
@@ -378,7 +419,7 @@ class InfoPoller:
         self.last_fsm_state = self.fsm_state
         self.fsm_state = next_state
 
-    def success_callback(self, request: Request, response: Response, params: Any = None) -> None:
+    def _success_callback(self, request: Request, response: Response, params: Any = None) -> None:
         """Called when a request completes and succeeds"""
 
         if self.logger.isEnabledFor(logging.DEBUG):  # pragma: no cover
@@ -517,9 +558,9 @@ class InfoPoller:
                 self.fsm_state == self.FsmState.Error
                 self.error_message = "Internal error - Got response for unhandled state"
 
-        self.completed()
+        self._completed()
 
-    def failure_callback(self, request: Request, params: Any = None) -> None:
+    def _failure_callback(self, request: Request, params: Any = None) -> None:
         """Callback called by the request dispatcher when a request fails to complete"""
         if self.logger.isEnabledFor(logging.DEBUG):  # pragma: no cover
             self.logger.debug("Failure callback. Request=%s. Params=%s" % (request, params))
@@ -542,9 +583,9 @@ class InfoPoller:
 
             self.error_message = error_message_map[self.fsm_state] if self.fsm_state in error_message_map else 'Internal error - Request failure'
 
-        self.completed()
+        self._completed()
 
-    def completed(self) -> None:
+    def _completed(self) -> None:
         """Common code after success and failure of a request"""
         self.request_pending = False
         if self.stop_requested:

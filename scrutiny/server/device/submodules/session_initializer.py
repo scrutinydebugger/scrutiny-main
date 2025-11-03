@@ -28,18 +28,29 @@ class SessionInitializer:
     """
 
     logger: logging.Logger
-    dispatcher: RequestDispatcher   # We put the request in here, and we know they'll go out
-    protocol: Protocol              # The actual protocol. Used to build the request payloads
-    priority: int                   # Our dispatcher priority
-    connection_pending: bool        # Indicates that a request is out, we're waiting for a response
-    stop_requested: bool            # Indicates that the user wants to stop trying to connect.
-    started: bool   # Indicates that SessionInitializer is enabled and will actively try to connect to a device
-    last_connect_sent: Optional[float]  # timestamp of the last request sent to a device.
-    success: bool   # Indicates the we succeeded in connecting to a device
-    error: bool     # Indicates that we failed to connect to a device, because something went wrong (request timeout or bad data)
-    session_id: Optional[int]   # Session ID given by the device when a connection is accepted
+    dispatcher: RequestDispatcher
+    """We put the request in here, and we know they'll go out"""
+    protocol: Protocol
+    """The actual protocol. Used to build the request payloads"""
+    priority: int
+    """Our dispatcher priority"""
+    connection_pending: bool
+    """Indicates that a request is out, we're waiting for a response"""
+    stop_requested: bool
+    """Indicates that the user wants to stop trying to connect."""
+    started: bool
+    """Indicates that SessionInitializer is enabled and will actively try to connect to a device"""
+    last_connect_sent: Optional[float]
+    """timestamp of the last request sent to a device."""
+    success: bool
+    """Indicates the we succeeded in connecting to a device"""
+    error: bool
+    """Indicates that we failed to connect to a device, because something went wrong (request timeout or bad data)"""
+    session_id: Optional[int]
+    """Session ID given by the device when a connection is accepted"""
 
-    RECONNECT_DELAY: float = 1.0    # Retry interval if a device refuse the connection
+    RECONNECT_DELAY: float = 1.0
+    """Retry interval if a device refuse the connection"""
 
     def __init__(self, protocol: Protocol, dispatcher: RequestDispatcher, priority: int):
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -104,12 +115,12 @@ class SessionInitializer:
             if self.logger.isEnabledFor(logging.DEBUG):  # pragma: no cover
                 self.logger.debug('Registering a Connect request')
             self.dispatcher.register_request(request=self.protocol.comm_connect(),
-                                             success_callback=self.success_callback,
-                                             failure_callback=self.failure_callback,
+                                             success_callback=self._success_callback,
+                                             failure_callback=self._failure_callback,
                                              priority=self.priority)
             self.connection_pending = True
 
-    def success_callback(self, request: Request, response: Response, params: Any = None) -> None:
+    def _success_callback(self, request: Request, response: Response, params: Any = None) -> None:
         """Callback called by the request dispatcher when a request succeeds to complete"""
         if response.code == ResponseCode.OK:
             try:
@@ -122,16 +133,16 @@ class SessionInitializer:
                 self.error = True
         else:
             self.logger.warning('Connection request to the device was refused by the device with response code %s' % response.code)
-        self.completed()
+        self._completed()
 
-    def failure_callback(self, request: Request, params: Any = None) -> None:
+    def _failure_callback(self, request: Request, params: Any = None) -> None:
         """Callback called by the request dispatcher when a request fails to complete"""
         self.logger.error('The connection request to device did not complete')
         self.error = True
 
-        self.completed()
+        self._completed()
 
-    def completed(self) -> None:
+    def _completed(self) -> None:
         """Common code after success or failure callback"""
         self.connection_pending = False
         if self.stop_requested:
