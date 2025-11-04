@@ -31,7 +31,8 @@ from scrutiny.tools.thread_enforcer import enforce_thread
 from scrutiny.tools.typing import *
 
 WatcherIdType = Union[str, int]
-
+WalkIntermediateNodeCallback:TypeAlias = Callable[[Optional[Any], sdk.WatchableType, str], Any]
+WalkLeafNodeCallback:TypeAlias = Callable[[Optional[Any], sdk.WatchableType, str, sdk.WatchableConfiguration], None]
 
 class ServerRegistryBidirectionalMap:
     __slots__ = ('r2s', 's2r')
@@ -146,6 +147,8 @@ class WatchableRegistryIntermediateNode:
     watchables: Dict[str, WatchableRegistryEntryNode]
     subtree: List[str]
 
+
+AnyNode:TypeAlias = Union[WatchableRegistryIntermediateNode, WatchableRegistryEntryNode]
 
 @dataclass(init=False, slots=True)
 class Watcher:
@@ -270,7 +273,7 @@ class WatchableRegistry:
         self._watchable_count[config.watchable_type] += 1
 
     @enforce_thread(QT_THREAD_NAME)
-    def _get_node(self, watchable_type: sdk.WatchableType, path: str) -> Union[WatchableRegistryIntermediateNode, WatchableRegistryEntryNode]:
+    def _get_node(self, watchable_type: sdk.WatchableType, path: str) -> AnyNode:
         """Read a node in the tree and locks the tree while doing it."""
         parts = self.split_path(path)
         node = self._trees[watchable_type]
@@ -562,9 +565,66 @@ class WatchableRegistry:
     def watched_entries_count(self) -> int:
         """Return the total number of watchable being watched"""
         return len(self._watched_entries)
+    
+    @enforce_thread(QT_THREAD_NAME)
+    def walk(self, 
+            watchable_type:sdk.WatchableType, 
+            start_path:str,
+            intermediate_node_callback:WalkIntermediateNodeCallback,
+            leaf_node_callback:WalkLeafNodeCallback,
+            max_level: Optional[int] = None
+            ) -> None:
+        parts = self.split_path(start_path)
+        start_path = self.join_path(parts)
+        start_node = self._trees[watchable_type]
+        for part in parts:
+            if part not in start_node:
+                return None
+            start_node = start_node[part]
+        
+        if isinstance(start_node, dict):
+            self._walk_internal(
+                watchable_type=watchable_type, 
+                node=start_node,
+                user_data=None,
+                path=start_path,
+                intermediate_node_callback = intermediate_node_callback,
+                leaf_node_callback = leaf_node_callback,
+                max_level=max_level
+                )
+    
+    def _walk_internal(self, 
+                       watchable_type:sdk.WatchableType,
+                       node:Union[Dict[str, Any], WatchableRegistryEntryNode],
+                       user_data:Optional[Any], 
+                       path:str,
+                       intermediate_node_callback:WalkIntermediateNodeCallback,
+                       leaf_node_callback:WalkLeafNodeCallback,
+                       max_level: Optional[int] = None,
+                       level: int = 0) -> None:
+
+        if isinstance(node, dict):  # Equivalent to a folder
+            for name in node.keys():
+                subtree_path = f'{path}/{name}'
+                subtree_node = self._trees[watchable_type]
+                new_user_data = intermediate_node_callback(user_data, watchable_type, subtree_path)
+
+                if max_level is None or level < max_level:
+                    self._walk_internal(
+                        watchable_type=watchable_type,
+                        node=subtree_node,
+                        user_data=new_user_data,
+                        path=subtree_path,
+                        intermediate_node_callback=intermediate_node_callback,
+                        leaf_node_callback = leaf_node_callback,
+                        max_level=max_level,
+                        level=level + 1)
+                    
+        elif isinstance(node, WatchableRegistryEntryNode):
+            leaf_node_callback(user_data, watchable_type, path, node.configuration)
 
     @enforce_thread(QT_THREAD_NAME)
-    def read(self, watchable_type: sdk.WatchableType, path: str) -> Optional[Union[WatchableRegistryIntermediateNode, WatchableRegistryEntryNode]]:
+    def read(self, watchable_type: sdk.WatchableType, path: str) -> Optional[AnyNode]:
         """Read a node inside the registry.
 
         :watchable_type: The type of node to read
@@ -580,7 +640,7 @@ class WatchableRegistry:
             tools.log_exception(self._logger, e)
             return None
 
-    def read_fqn(self, fqn: str) -> Optional[Union[WatchableRegistryIntermediateNode, WatchableRegistryEntryNode]]:
+    def read_fqn(self, fqn: str) -> Optional[AnyNode]:
         """Read a node inside the registry using a fully qualified name.
 
         :param fqn: The fully qualified name created using ``make_fqn()``
