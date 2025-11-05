@@ -31,8 +31,8 @@ from scrutiny.tools.thread_enforcer import enforce_thread
 from scrutiny.tools.typing import *
 
 WatcherIdType = Union[str, int]
-WalkIntermediateNodeCallback:TypeAlias = Callable[[Optional[Any], sdk.WatchableType, str], Any]
-WalkLeafNodeCallback:TypeAlias = Callable[[Optional[Any], sdk.WatchableType, str, sdk.WatchableConfiguration], None]
+WalkIntermediateNodeCallback:TypeAlias = Callable[[Optional[Any], str], Any]
+WalkLeafNodeCallback:TypeAlias = Callable[[Optional[Any], str, sdk.WatchableConfiguration], None]
 
 class ServerRegistryBidirectionalMap:
     __slots__ = ('r2s', 's2r')
@@ -575,7 +575,10 @@ class WatchableRegistry:
             max_level: Optional[int] = None
             ) -> None:
         parts = self.split_path(start_path)
-        start_path = self.join_path(parts)
+        start_path = '/'+self.join_path(parts)
+        if start_path.endswith('/'):
+            start_path = start_path[:-1]
+            
         start_node = self._trees[watchable_type]
         for part in parts:
             if part not in start_node:
@@ -584,7 +587,6 @@ class WatchableRegistry:
         
         if isinstance(start_node, dict):
             self._walk_internal(
-                watchable_type=watchable_type, 
                 node=start_node,
                 user_data=None,
                 path=start_path,
@@ -592,10 +594,11 @@ class WatchableRegistry:
                 leaf_node_callback = leaf_node_callback,
                 max_level=max_level
                 )
+        elif isinstance(start_node, WatchableRegistryEntryNode):
+            leaf_node_callback(None, start_path, start_node.configuration)
     
     def _walk_internal(self, 
-                       watchable_type:sdk.WatchableType,
-                       node:Union[Dict[str, Any], WatchableRegistryEntryNode],
+                       node:Dict[str, Any],
                        user_data:Optional[Any], 
                        path:str,
                        intermediate_node_callback:WalkIntermediateNodeCallback,
@@ -603,15 +606,14 @@ class WatchableRegistry:
                        max_level: Optional[int] = None,
                        level: int = 0) -> None:
 
-        if isinstance(node, dict):  # Equivalent to a folder
-            for name in node.keys():
-                subtree_path = f'{path}/{name}'
-                subtree_node = self._trees[watchable_type]
-                new_user_data = intermediate_node_callback(user_data, watchable_type, subtree_path)
+        for name in node.keys():
+            subtree_path = f'{path}/{name}'
+            subtree_node = node[name]
+            if isinstance(subtree_node, dict):  # Equivalent to a folder
+                new_user_data = intermediate_node_callback(user_data, subtree_path)
 
                 if max_level is None or level < max_level:
                     self._walk_internal(
-                        watchable_type=watchable_type,
                         node=subtree_node,
                         user_data=new_user_data,
                         path=subtree_path,
@@ -620,8 +622,8 @@ class WatchableRegistry:
                         max_level=max_level,
                         level=level + 1)
                     
-        elif isinstance(node, WatchableRegistryEntryNode):
-            leaf_node_callback(user_data, watchable_type, path, node.configuration)
+            elif isinstance(subtree_node, WatchableRegistryEntryNode):
+                leaf_node_callback(user_data, subtree_path, subtree_node.configuration)
 
     @enforce_thread(QT_THREAD_NAME)
     def read(self, watchable_type: sdk.WatchableType, path: str) -> Optional[AnyNode]:

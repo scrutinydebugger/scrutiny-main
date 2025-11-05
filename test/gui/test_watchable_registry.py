@@ -19,6 +19,7 @@ from test import ScrutinyUnitTest
 from datetime import datetime
 from scrutiny.tools.typing import *
 from uuid import uuid4
+from scrutiny import tools
 
 DUMMY_DATASET_RPV = {
     '/rpv/rpv1000': sdk.WatchableConfiguration(watchable_type=sdk.WatchableType.RuntimePublishedValue, datatype=sdk.EmbeddedDataType.float32, enum=None),
@@ -811,6 +812,67 @@ class TestWatchableRegistry(ScrutinyUnitTest):
         self.assertIsNone(m.get_registry_id_or_none('aaa'))
         self.assertIsNone(m.get_registry_id_or_none('bbb'))
         self.assertIsNone(m.get_registry_id_or_none('ccc'))
+
+    def test_walk(self):
+        self.registry.write_content(
+            {
+                sdk.WatchableType.Variable : DUMMY_DATASET_VAR,
+                sdk.WatchableType.Alias : DUMMY_DATASET_ALIAS,
+                sdk.WatchableType.RuntimePublishedValue : DUMMY_DATASET_RPV,
+            }
+        )
+
+        parent_node_seen:List[Tuple[Any, str]] = []
+        leaf_node_seen:List[Tuple[Any, str, sdk.WatchableConfiguration]] = []
+        def parent_node_callback(previous_obj:Optional[Any], path:str) -> Any:
+            parent_node_seen.append((previous_obj, path))
+            return path
+
+
+        def leaf_node_callback(parent_obj:Optional[Any], path:str, wconfig:sdk.WatchableConfiguration):
+            leaf_node_seen.append((parent_obj, path, id(wconfig)))
+
+        self.registry.walk(
+            watchable_type=sdk.WatchableType.Variable,
+            start_path='/',
+            intermediate_node_callback=parent_node_callback,
+            leaf_node_callback=leaf_node_callback
+        )
+
+        # /var/xxx/var1
+        # /var/xxx/var2
+        # /var/var3
+        # /var/var4
+        self.assertEqual(len(parent_node_seen), 2)  # /var, /var/xxx
+        self.assertEqual(parent_node_seen[0], (None, '/var'))
+        self.assertEqual(parent_node_seen[1], ('/var', '/var/xxx'))
+
+        self.assertEqual(len(leaf_node_seen), 4)
+
+        id_var1 = id(DUMMY_DATASET_VAR['/var/xxx/var1'])
+        id_var2 = id(DUMMY_DATASET_VAR['/var/xxx/var2'])
+        id_var3 = id(DUMMY_DATASET_VAR['/var/var3'])
+        id_var4 = id(DUMMY_DATASET_VAR['/var/var4'])
+       
+        self.assertIn(('/var', '/var/var4', id_var4), leaf_node_seen)
+        self.assertIn(('/var', '/var/var3', id_var3), leaf_node_seen)
+        self.assertIn(('/var/xxx', '/var/xxx/var1', id_var1), leaf_node_seen)
+        self.assertIn(('/var/xxx', '/var/xxx/var2', id_var2), leaf_node_seen)
+
+        parent_node_seen.clear()
+        leaf_node_seen.clear()
+
+        self.registry.walk(
+            watchable_type=sdk.WatchableType.Variable,
+            start_path='/var/xxx/var1',
+            intermediate_node_callback=parent_node_callback,
+            leaf_node_callback=leaf_node_callback
+        )
+
+        self.assertEqual(len(parent_node_seen), 0)
+        self.assertEqual(len(leaf_node_seen), 1)
+        self.assertIn((None, '/var/xxx/var1', id_var1), leaf_node_seen)
+
 
     def tearDown(self):
         super().tearDown()
