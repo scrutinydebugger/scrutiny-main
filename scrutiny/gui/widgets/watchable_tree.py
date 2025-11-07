@@ -31,13 +31,20 @@ from scrutiny.gui.tools import watchabletype_2_icon
 from scrutiny.gui.themes import scrutiny_get_theme
 from scrutiny.gui.widgets.base_tree import BaseTreeModel, BaseTreeView
 
-
 from scrutiny.tools.typing import *
+
+_watchable_icon_cache: Dict[WatchableType, QIcon] = {}
+_watchable_icon_cache_init = False
 
 
 def get_watchable_icon(wt: WatchableType) -> QIcon:
+    global _watchable_icon_cache_init
     """Return the proper tree icon for a given watchable type (var, alias, rpv)"""
-    return scrutiny_get_theme().load_tiny_icon(watchabletype_2_icon(wt))
+    if not _watchable_icon_cache_init:
+        for wt_temp in WatchableType.all():
+            _watchable_icon_cache[wt_temp] = scrutiny_get_theme().load_tiny_icon(watchabletype_2_icon(wt))
+        _watchable_icon_cache_init = True
+    return _watchable_icon_cache[wt]
 
 
 NodeSerializableType = Literal['watchable', 'folder']
@@ -331,43 +338,57 @@ class WatchableTreeModel(BaseTreeModel):
         """
         parent.set_loaded()
         content = self._watchable_registry.read(watchable_type, path)
+        if not isinstance(content, WatchableRegistryIntermediateNode):  # Equivalent to a folder
+            return
+
         if path.endswith('/'):
             path = path[:-1]
 
-        if isinstance(content, WatchableRegistryIntermediateNode):  # Equivalent to a folder
-            for name in content.subtree:
-                subtree_path = f'{path}/{name}'
-                folder_fqn: Optional[str] = None
-                if keep_folder_fqn:
-                    folder_fqn = WatchableRegistry.FQN.make(watchable_type, subtree_path)
-                row = self.make_folder_row(
-                    name=name,
-                    fqn=folder_fqn,
-                    editable=editable
-                )
-                parent.appendRow(row)
+        folder_rows: List[Tuple[str, List[QStandardItem]]] = []
+        watchable_rows: List[List[QStandardItem]] = []
 
-                if max_level is None or level < max_level:
-                    self.fill_from_index_recursive(
-                        parent=cast(BaseWatchableRegistryTreeStandardItem, row[0]),
-                        watchable_type=watchable_type,
-                        path=subtree_path,
-                        editable=editable,
-                        max_level=max_level,
-                        keep_folder_fqn=keep_folder_fqn,
-                        level=level + 1)
+        for name in content.subtree:
+            subtree_path = f'{path}/{name}'
+            folder_fqn: Optional[str] = None
+            if keep_folder_fqn:
+                folder_fqn = WatchableRegistry.FQN.make(watchable_type, subtree_path)
+            row = self.make_folder_row(
+                name=name,
+                fqn=folder_fqn,
+                editable=editable
+            )
+            folder_rows.append((subtree_path, row))
 
-            for name, watchable_node in content.watchables.items():
-                watchable_path = f'{path}/{name}'
-                fqn = WatchableRegistry.FQN.make(watchable_type, watchable_path)
-                row = self.make_watchable_row(
-                    name=name,
-                    watchable_type=watchable_node.configuration.watchable_type,
-                    fqn=fqn,
+        for name, watchable_node in content.watchables.items():
+            watchable_path = f'{path}/{name}'
+            fqn = WatchableRegistry.FQN.make(watchable_type, watchable_path)
+            row = self.make_watchable_row(
+                name=name,
+                watchable_type=watchable_node.configuration.watchable_type,
+                fqn=fqn,
+                editable=editable,
+                extra_columns=self.get_watchable_extra_columns(fqn, watchable_node.configuration)
+            )
+            watchable_rows.append(row)
+
+        for subtree_path, folder_row in folder_rows:
+            parent.appendRow(folder_row)
+
+        for watchable_row in watchable_rows:
+            parent.appendRow(watchable_row)
+
+        watchable_rows.clear()
+
+        if max_level is None or level < max_level:
+            for subtree_path, folder_row in folder_rows:
+                self.fill_from_index_recursive(
+                    parent=cast(BaseWatchableRegistryTreeStandardItem, folder_row[0]),
+                    watchable_type=watchable_type,
+                    path=subtree_path,
                     editable=editable,
-                    extra_columns=self.get_watchable_extra_columns(fqn, watchable_node.configuration)
-                )
-                parent.appendRow(row)
+                    max_level=max_level,
+                    keep_folder_fqn=keep_folder_fqn,
+                    level=level + 1)
 
     def make_watchable_list_dragdata_if_possible(self,
                                                  items: Iterable[Optional[BaseWatchableRegistryTreeStandardItem]],

@@ -129,7 +129,15 @@ class Icons(enum.Enum):
     Copy = "copy"
 
 
+_filename_cache: Dict[Tuple[Icons, IconFormat, IconSet], Path] = {}
+
+
 def icon_filename(name: Icons, format: IconFormat, iconset: IconSet) -> Path:
+    global _filename_cache
+    cache_key = (name, format, iconset)
+    if cache_key in _filename_cache:
+        return _filename_cache[cache_key]
+
     possible_formats = {
         IconFormat.Tiny: [
             (16, 16),
@@ -157,6 +165,7 @@ def icon_filename(name: Icons, format: IconFormat, iconset: IconSet) -> Path:
     for f in possible_formats[format]:
         candidate = get(['icons', iconset.value, f"{name.value}_{f[0]}x{f[1]}.png"])
         if os.path.isfile(candidate):
+            _filename_cache[cache_key] = candidate
             return candidate
 
     raise FileNotFoundError(f"Could not find an icon candidate for {name.name}({name.value}) with format {format.name} in icon set {iconset.name}")
