@@ -387,13 +387,9 @@ class WatchComponentTreeModel(WatchableTreeModel):
         DATATYPE = 2
         ENUM = 3
 
-    class _Signals(QObject):
-        availability_changed = Signal(QModelIndex, bool, object)
-
     logger: logging.Logger
     _available_palette: QPalette
     _unavailable_palette: QPalette
-    _signals: _Signals
 
     def __init__(self,
                  parent: QWidget,
@@ -402,7 +398,6 @@ class WatchComponentTreeModel(WatchableTreeModel):
                  unavailable_palette: Optional[QPalette] = None) -> None:
         super().__init__(parent, watchable_registry)
         self.logger = logging.getLogger(self.__class__.__name__)
-        self._signals = self._Signals(self)
 
         if available_palette is not None:
             self._available_palette = available_palette
@@ -415,10 +410,6 @@ class WatchComponentTreeModel(WatchableTreeModel):
         else:
             self._unavailable_palette = QPalette()
             self._unavailable_palette.setCurrentColorGroup(QPalette.ColorGroup.Disabled)
-
-    @property
-    def signals(self) -> _Signals:
-        return self._signals
 
     def _assign_unique_watcher_id(self, item: WatchableStandardItem) -> None:
         watcher_id = global_i64_counter()
@@ -759,16 +750,10 @@ class WatchComponentTreeModel(WatchableTreeModel):
         """
         watchable_node = self._watchable_registry.get_watchable_node_fqn(watchable_item.fqn)
         watchable_config = watchable_node.configuration if watchable_node is not None else None
-        was_available = watchable_item.data(AVAILABLE_DATA_ROLE)
         if watchable_config is not None:
             self.set_available(watchable_item, watchable_config)
         else:
             self.set_unavailable(watchable_item)
-
-        is_available = watchable_item.data(AVAILABLE_DATA_ROLE)
-
-        if is_available != was_available:
-            self._signals.availability_changed.emit(watchable_item.index(), is_available, watchable_config)
 
     def set_unavailable(self, arg_item: WatchableStandardItem) -> None:
         """Make an item in the tree unavailable (grayed out)"""
