@@ -607,8 +607,7 @@ class WatchComponentTreeModel(WatchableTreeModel):
                     first_col = cast(BaseWatchableRegistryTreeStandardItem, folder_row[0])
                     self.add_row_to_parent(parent, row_index, folder_row)
                     self.fill_from_index_recursive(first_col, parsed_fqn.watchable_type, parsed_fqn.path, keep_folder_fqn=False, editable=True)
-                    for item in self.get_all_watchable_items(parent):
-                        self.update_row_state(item)
+                    # No need to call update_row_state() here as the content comes directly from varlist so it's available.
 
                 elif node['type'] == 'watchable':
                     watchable_row = self.make_watchable_row(node['text'],
