@@ -13,7 +13,7 @@ from PySide6.QtGui import QIntValidator, QDoubleValidator
 
 from scrutiny import sdk
 from scrutiny.gui.core.persistent_data import gui_persistent_data
-from scrutiny.gui.widgets.validable_line_edit import ValidableLineEdit
+from scrutiny.gui.widgets.validable_line_edit import ValidableLineEdit, FloatValidableLineEdit, IntValidableLineEdit
 from scrutiny.gui.tools.validators import NotEmptyValidator
 from scrutiny.gui.dialogs.device_config.base_config_pane import BaseConfigPane
 from scrutiny.tools.typing import *
@@ -31,22 +31,24 @@ class SerialConfigPane(BaseConfigPane):
         DATABITS = 'databits'
 
     _port_name_textbox: ValidableLineEdit
-    _baudrate_textbox: ValidableLineEdit
+    _baudrate_textbox: IntValidableLineEdit
     _stopbits_combo_box: QComboBox
     _databits_combo_box: QComboBox
     _parity_combo_box: QComboBox
-    _start_delay_textbox: ValidableLineEdit
+    _start_delay_textbox: FloatValidableLineEdit
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
 
         layout = QFormLayout(self)
-        self._port_name_textbox = ValidableLineEdit(soft_validator=NotEmptyValidator())
-        self._baudrate_textbox = ValidableLineEdit(
+        self._port_name_textbox = ValidableLineEdit(parent=self, soft_validator=NotEmptyValidator())
+        self._baudrate_textbox = IntValidableLineEdit(
+            parent=self,
             hard_validator=QIntValidator(0, 0x7FFFFFFF),
             soft_validator=NotEmptyValidator()
         )
-        self._start_delay_textbox = ValidableLineEdit(
+        self._start_delay_textbox = FloatValidableLineEdit(
+            parent=self,
             hard_validator=QDoubleValidator(0, 5, 2, self),
             soft_validator=NotEmptyValidator()
         )
@@ -85,21 +87,18 @@ class SerialConfigPane(BaseConfigPane):
 
     def get_config(self) -> Optional[sdk.SerialLinkConfig]:
         port = self._port_name_textbox.text()
-        baudrate_str = self._baudrate_textbox.text()
+        baudrate = self._baudrate_textbox.get_int_value()
         stopbits = cast(sdk.SerialLinkConfig.StopBits, self._stopbits_combo_box.currentData())
         databits = cast(sdk.SerialLinkConfig.DataBits, self._databits_combo_box.currentData())
         parity = cast(sdk.SerialLinkConfig.Parity, self._parity_combo_box.currentData())
-        try:
-            start_delay = float(self._start_delay_textbox.text())
-        except Exception:
+        start_delay = self._start_delay_textbox.get_float_value()
+        if start_delay is None:
             return None
 
         if len(port) == 0:
             return None
 
-        try:
-            baudrate = int(baudrate_str)
-        except Exception:
+        if baudrate is None:
             return None
 
         if baudrate < 0:
@@ -119,11 +118,11 @@ class SerialConfigPane(BaseConfigPane):
         assert isinstance(config, sdk.SerialLinkConfig)
 
         self._port_name_textbox.setText(config.port)
-        self._baudrate_textbox.setText(str(config.baudrate))
+        self._baudrate_textbox.set_int_value(config.baudrate)
         self._stopbits_combo_box.setCurrentIndex(self._stopbits_combo_box.findData(config.stopbits))
         self._databits_combo_box.setCurrentIndex(self._databits_combo_box.findData(config.databits))
         self._parity_combo_box.setCurrentIndex(self._parity_combo_box.findData(config.parity))
-        self._start_delay_textbox.setText(str(config.start_delay))
+        self._start_delay_textbox.set_float_value(config.start_delay)
 
     @classmethod
     def make_config_valid(cls, config: Optional[sdk.BaseLinkConfig]) -> sdk.BaseLinkConfig:

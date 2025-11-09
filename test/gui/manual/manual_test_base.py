@@ -11,7 +11,7 @@ import sys
 import os
 import logging
 from PySide6.QtWidgets import QApplication
-from PySide6.QtCore import QTimer
+from PySide6.QtCore import QTimer, QLocale
 
 project_root = os.path.realpath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
 sys.path.insert(0, project_root)
@@ -30,6 +30,10 @@ def make_manual_test_app() -> QApplication:
     os.environ['SCRUTINY_MANUAL_TEST'] = '1'
     logging.basicConfig(level=logging.DEBUG)
     register_thread(QT_THREAD_NAME)
+    loc = QLocale.c()   # Forces C-style environment. Decimal points are "."
+    # Prevent showing/interpreting commas as group separator
+    loc.setNumberOptions(QLocale.NumberOption.RejectGroupSeparator | QLocale.NumberOption.OmitGroupSeparator)
+    QLocale.setDefault(loc)
     app = QApplication([])
     CrossThreadInvoker.init()
 

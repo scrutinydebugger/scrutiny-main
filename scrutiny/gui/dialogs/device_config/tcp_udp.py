@@ -14,7 +14,7 @@ from PySide6.QtGui import QIntValidator
 
 from scrutiny import sdk
 from scrutiny.gui.core.persistent_data import gui_persistent_data
-from scrutiny.gui.widgets.validable_line_edit import ValidableLineEdit
+from scrutiny.gui.widgets.validable_line_edit import ValidableLineEdit, IntValidableLineEdit
 from scrutiny.gui.tools.validators import IpPortValidator, NotEmptyValidator
 from scrutiny.gui.dialogs.device_config.base_config_pane import BaseConfigPane
 from scrutiny.tools.typing import *
@@ -23,7 +23,7 @@ from scrutiny import tools
 
 class IPConfigPane(BaseConfigPane):
     _hostname_textbox: ValidableLineEdit
-    _port_textbox: ValidableLineEdit
+    _port_textbox: IntValidableLineEdit
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
@@ -33,8 +33,8 @@ class IPConfigPane(BaseConfigPane):
 
         hostname_label = QLabel("Hostname: ")
         port_label = QLabel("Port: ")
-        self._hostname_textbox = ValidableLineEdit(soft_validator=NotEmptyValidator())
-        self._port_textbox = ValidableLineEdit(hard_validator=QIntValidator(0, 0xFFFF), soft_validator=IpPortValidator())
+        self._hostname_textbox = ValidableLineEdit(parent=self, soft_validator=NotEmptyValidator())
+        self._port_textbox = IntValidableLineEdit(parent=self, hard_validator=QIntValidator(0, 0xFFFF), soft_validator=IpPortValidator())
 
         # Make sure the red background disappear when we type (fixing the invalid content)
         self._hostname_textbox.textChanged.connect(self._hostname_textbox.validate_expect_not_wrong_default_slot)
@@ -44,18 +44,18 @@ class IPConfigPane(BaseConfigPane):
         form_layout.addRow(port_label, self._port_textbox)
 
     def get_port(self) -> Optional[int]:
-        port_txt = self._port_textbox.text()
-        state, _, _ = IpPortValidator().validate(port_txt, 0)
-        if state == IpPortValidator.State.Acceptable:
-            return int(port_txt)    # Should not fail
-        return None
+        if not self._port_textbox.is_valid():
+            return None
+        port = self._port_textbox.get_int_value()
+        if port is None:
+            return None
+        return port
 
     def set_port(self, port: int) -> None:
-        port_txt = str(port)
-        state, _, _ = IpPortValidator().validate(port_txt, 0)
+        state, _, _ = IpPortValidator().validate(str(port), 0)
         if state != IpPortValidator.State.Acceptable:
             raise ValueError(f"Invalid port number: {port}")
-        self._port_textbox.setText(port_txt)
+        self._port_textbox.set_int_value(port)
 
     def get_hostname(self) -> str:
         return self._hostname_textbox.text()

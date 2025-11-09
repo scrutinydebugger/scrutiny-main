@@ -15,7 +15,7 @@ from PySide6.QtWidgets import QDialog, QDialogButtonBox, QLabel, QWidget, QVBoxL
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QIntValidator, QPixmap
 
-from scrutiny.gui.widgets.validable_line_edit import ValidableLineEdit
+from scrutiny.gui.widgets.validable_line_edit import ValidableLineEdit, IntValidableLineEdit
 from scrutiny.gui.widgets.feedback_label import FeedbackLabel
 from scrutiny.gui.widgets.log_viewer import LogViewer
 from scrutiny.gui.themes import scrutiny_get_theme
@@ -90,7 +90,7 @@ class LocalServerConfigurator(QWidget):
     """Port configured. Used for reloading the textbox on cancel"""
     _runner: LocalServerRunner
     """The local server runner that controls the subprocess"""
-    _txt_port: ValidableLineEdit
+    _txt_port: IntValidableLineEdit
     """The port textbox"""
     _btn_start: QPushButton
     """Start button"""
@@ -117,7 +117,8 @@ class LocalServerConfigurator(QWidget):
         top_menu_hlayout.setAlignment(Qt.AlignmentFlag.AlignLeft)
 
         self._state_label = LocalServerStateLabel(self)
-        self._txt_port = ValidableLineEdit(
+        self._txt_port = IntValidableLineEdit(
+            parent=self,
             hard_validator=QIntValidator(0, 0xFFFF),
             soft_validator=IpPortValidator()
         )
@@ -131,7 +132,7 @@ class LocalServerConfigurator(QWidget):
         port_label_txtbox_layout.addWidget(port_label)
         port_label_txtbox_layout.addWidget(self._txt_port)
 
-        self._txt_port.setText(str(self._persistent_data.get_int(self.PersistentDataKeys.LOCAL_PORT, DEFAULT_SERVER_PORT)))
+        self._txt_port.set_int_value(self._persistent_data.get_int(self.PersistentDataKeys.LOCAL_PORT, DEFAULT_SERVER_PORT))
         self._txt_port.setMaximumWidth(self._txt_port.sizeHint().width())
 
         self._feedback_label = FeedbackLabel()
@@ -213,7 +214,7 @@ class LocalServerConfigurator(QWidget):
     def get_ui_port(self) -> Optional[int]:
         """Return the port number written in the UI textbox. ``None`` if the value is not a valid port number"""
         if self._txt_port.is_valid():
-            return int(self._txt_port.text())
+            return self._txt_port.get_int_value()
         return None
 
     def is_valid(self) -> bool:
@@ -246,7 +247,7 @@ class LocalServerConfigurator(QWidget):
 
     def set_port(self, port: int) -> None:
         if port > 0 and port < 0xFFFF:
-            self._txt_port.setText(str(port))
+            self._txt_port.set_int_value(port)
             self.commit_ui_data()
 
 
@@ -264,7 +265,7 @@ class RemoteServerConfigurator(QWidget):
 
     _hostname_textbox: ValidableLineEdit
     """The textbox for editing the hostname"""
-    _port_textbox: ValidableLineEdit
+    _port_textbox: IntValidableLineEdit
     """The hostname for editing the port number"""
     _persistent_data: AppPersistentData
     """A handle to a specific storage namespace"""
@@ -272,8 +273,12 @@ class RemoteServerConfigurator(QWidget):
     def __init__(self, parent: QWidget) -> None:
         super().__init__(parent)
         self._persistent_data = gui_persistent_data.get_namespace(self.__class__.__name__)
-        self._hostname_textbox = ValidableLineEdit(soft_validator=NotEmptyValidator())
-        self._port_textbox = ValidableLineEdit(hard_validator=QIntValidator(0, 0xFFFF), soft_validator=IpPortValidator())
+        self._hostname_textbox = ValidableLineEdit(parent=self, soft_validator=NotEmptyValidator())
+        self._port_textbox = IntValidableLineEdit(
+            parent=self,
+            hard_validator=QIntValidator(0, 0xFFFF),
+            soft_validator=IpPortValidator()
+        )
 
         self._hostname_textbox.textChanged.connect(self._hostname_textbox.validate_expect_not_wrong_default_slot)
         self._port_textbox.textChanged.connect(self._port_textbox.validate_expect_not_wrong_default_slot)
@@ -301,7 +306,7 @@ class RemoteServerConfigurator(QWidget):
     def set_port(self, port: int) -> None:
         """Change the effective port number and update the port textbox too"""
         self._port = port
-        self._port_textbox.setText(str(port))
+        self._port_textbox.set_int_value(port)
 
     def set_hostname(self, hostname: str) -> None:
         """Change the effective hostname number and update the hostname textbox too"""
@@ -327,8 +332,10 @@ class RemoteServerConfigurator(QWidget):
     def commit_ui_data(self) -> None:
         """Save the data from the UI into the persistent storage to reload the same content on next startup"""
         if self._port_textbox.is_valid() and self._hostname_textbox.is_valid():
+            port = self._port_textbox.get_int_value()
+            assert port is not None  # Validator is supposed to guarantee the validity of this
             self._hostname = self._hostname_textbox.text()
-            self._port = int(self._port_textbox.text())  # Validator is supposed to guarantee the validity of this
+            self._port = port
             self._persistent_data.set(self.PersistentDataKeys.HOSTNAME, self._hostname)
             self._persistent_data.set(self.PersistentDataKeys.PORT, self._port)
 
