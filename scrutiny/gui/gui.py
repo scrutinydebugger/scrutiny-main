@@ -18,13 +18,12 @@ import ctypes
 import logging
 import enum
 
-from PySide6.QtCore import QTimer, Qt
+from PySide6.QtCore import QTimer, Qt, QLocale
 
 import scrutiny
 from scrutiny.gui.main_window import MainWindow
 from scrutiny.gui import assets
 from scrutiny.gui.core.qt import make_qt_app
-from scrutiny.gui.tools.invoker import CrossThreadInvoker
 from scrutiny.gui.tools.opengl import prepare_for_opengl
 from scrutiny.gui.themes import scrutiny_set_theme, scrutiny_get_theme
 from dataclasses import dataclass
@@ -89,6 +88,11 @@ class ScrutinyQtGUI:
 
     def run(self, args: List[str]) -> int:
         logger = logging.getLogger(self.__class__.__name__)
+
+        loc = QLocale.c()   # Forces C-style environment. Decimal points are "."
+        # Prevent showing/interpreting commas as group separator
+        loc.setNumberOptions(QLocale.NumberOption.RejectGroupSeparator | QLocale.NumberOption.OmitGroupSeparator)
+        QLocale.setDefault(loc)
 
         if sys.platform == "win32":
             # Tells windows that python process host another application. Enables the QT icon in the task bar

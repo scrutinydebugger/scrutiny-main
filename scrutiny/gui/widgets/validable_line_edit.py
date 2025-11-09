@@ -10,11 +10,12 @@
 __all__ = ['ValidableLineEdit']
 
 from PySide6.QtWidgets import QLineEdit, QWidget
-from PySide6.QtGui import QValidator
+from PySide6.QtGui import QValidator, QDoubleValidator
 
 from scrutiny.gui.themes import scrutiny_get_theme
 
 from scrutiny.tools.typing import *
+from scrutiny import tools
 
 
 class ValidableLineEdit(QLineEdit):
@@ -85,3 +86,19 @@ class ValidableLineEdit(QLineEdit):
     def is_valid(self) -> bool:
         validity_hard, validity_soft = self._get_validator_states()
         return validity_hard == QValidator.State.Acceptable and validity_soft == QValidator.State.Acceptable
+
+
+class FloatValidableLineEdit(ValidableLineEdit):
+    def __init__(self, parent: QWidget,
+                 hard_validator: Optional[QDoubleValidator] = None,
+                 soft_validator: Optional[QDoubleValidator] = None
+                 ) -> None:
+        super().__init__(parent=parent, hard_validator=hard_validator, soft_validator=soft_validator)
+
+    def set_float_value(self, val: float) -> None:
+        self.setText(str(val))
+
+    def get_float_value(self) -> Optional[float]:
+        with tools.SuppressException(ValueError):
+            return float(self.text())
+        return None
