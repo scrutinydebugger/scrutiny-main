@@ -15,7 +15,7 @@ import re
 from dataclasses import dataclass
 from PySide6.QtWidgets import QWidget, QFormLayout, QComboBox, QSpinBox, QLabel, QLineEdit, QVBoxLayout, QGroupBox, QSizePolicy
 from PySide6.QtGui import QDoubleValidator, QStandardItemModel
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QLocale
 from scrutiny.gui.widgets.validable_line_edit import ValidableLineEdit, FloatValidableLineEdit
 from scrutiny.gui.widgets.watchable_line_edit import WatchableLineEdit
 from scrutiny.gui.core.watchable_registry import WatchableRegistry
@@ -524,9 +524,10 @@ class GraphConfigWidget(QWidget):
 
         nb_operand = trigger_condition.required_operands()
         txtw_operands = [self._txtw_trigger_operand1, self._txtw_trigger_operand2, self._txtw_trigger_operand3]
-        # We don't need WatchableHandle here. need it to please static analysis because list of union can't detect overlaps with other list of union
 
-        operands: Optional[List[Union[float, str, WatchableHandle]]] = None
+        # We don't need WatchableHandle here. need it to please static analysis because list of union can't detect overlaps with other list of union
+        # The server expects float, int,  bool for literal or str for watchables.
+        operands: Optional[List[Union[float, bool, str, WatchableHandle]]] = None
         if nb_operand > 0:
             operands = []
         for i in range(nb_operand):
@@ -534,7 +535,14 @@ class GraphConfigWidget(QWidget):
             txtw_operand = txtw_operands[i]
             if txtw_operand.is_text_mode():
                 try:
-                    value = float(txtw_operand.text())
+                    value: Union[bool, float, int]
+                    txt = txtw_operand.text().strip()
+                    if txt.lower() in ('true', 'false'):    # Convenience for user
+                        value = bool(txt)   # case insensitive
+                    else:
+                        value, valid = QLocale().toDouble(txtw_operand.text())
+                        if not valid:
+                            raise ValueError("Invalid float")
                     operands.append(value)
                 except Exception:
                     output.valid = False
