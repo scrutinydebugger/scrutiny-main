@@ -553,7 +553,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
 
         with log_and_suppress_exceptions:
             validation.assert_dict_key(config, 'timeout_sec', (float, int))
-            self._graph_config_widget.get_txt_acquisition_timeout().setText(str(config['timeout_sec']))
+            self._graph_config_widget.get_txt_acquisition_timeout().set_float_value(float(config['timeout_sec']))
 
         with log_and_suppress_exceptions:
             validation.assert_dict_key(config, 'decimation', int)
@@ -574,7 +574,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
 
         with log_and_suppress_exceptions:
             validation.assert_dict_key(config, 'trigger.hold_time_ms', (int, float))
-            self._graph_config_widget.get_txt_hold_time_ms().setText(str(config['trigger']["hold_time_ms"]))
+            self._graph_config_widget.get_txt_hold_time_ms().set_float_value(float(config['trigger']["hold_time_ms"]))
 
         with log_and_suppress_exceptions:
             validation.assert_dict_key(config, 'trigger.condition', str)

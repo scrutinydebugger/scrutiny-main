@@ -17,8 +17,9 @@ import os
 import ctypes
 import logging
 import enum
+import locale
 
-from PySide6.QtCore import QTimer, Qt
+from PySide6.QtCore import QTimer, Qt, QLocale
 
 import scrutiny
 from scrutiny.gui.main_window import MainWindow
@@ -33,6 +34,8 @@ from scrutiny.tools.typing import *
 from scrutiny.tools.signals import SignalExitHandler
 
 from scrutiny.gui import DEFAULT_SERVER_PORT
+
+LOCAL_ENV_VAR = 'SCRUTINY_GUI_LOCALE'
 
 
 class SupportedTheme(enum.Enum):
@@ -89,6 +92,11 @@ class ScrutinyQtGUI:
 
     def run(self, args: List[str]) -> int:
         logger = logging.getLogger(self.__class__.__name__)
+        if LOCAL_ENV_VAR in os.environ:
+            wanted_locale = os.environ[LOCAL_ENV_VAR]
+            logger.info(f'Using locale: {LOCAL_ENV_VAR}={wanted_locale}')
+            QLocale.setDefault(QLocale(wanted_locale))
+            locale.setlocale(locale.LC_ALL, wanted_locale)
 
         if sys.platform == "win32":
             # Tells windows that python process host another application. Enables the QT icon in the task bar

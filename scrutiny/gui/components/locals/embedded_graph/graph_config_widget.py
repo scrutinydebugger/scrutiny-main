@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from PySide6.QtWidgets import QWidget, QFormLayout, QComboBox, QSpinBox, QLabel, QLineEdit, QVBoxLayout, QGroupBox, QSizePolicy
 from PySide6.QtGui import QDoubleValidator, QStandardItemModel
 from PySide6.QtCore import Qt
-from scrutiny.gui.widgets.validable_line_edit import ValidableLineEdit
+from scrutiny.gui.widgets.validable_line_edit import ValidableLineEdit, FloatValidableLineEdit
 from scrutiny.gui.widgets.watchable_line_edit import WatchableLineEdit
 from scrutiny.gui.core.watchable_registry import WatchableRegistry
 from scrutiny.sdk.datalogging import (TriggerCondition, SamplingRate, FixedFreqSamplingRate, DataloggingEncoding, XAxisType,
@@ -93,7 +93,7 @@ class GraphConfigWidget(QWidget):
     """A label that shows the effective sampling rate (sampling_rate/decimation)"""
     _spin_trigger_position: QSpinBox
     """Spingbox : Trigger position from 0 to 100"""
-    _txt_acquisition_timeout: ValidableLineEdit
+    _txt_acquisition_timeout: FloatValidableLineEdit
     """LineEdit: Acquisition timeout"""
     _cmb_trigger_condition: QComboBox
     """ComboxBox: The type of trigger condition"""
@@ -103,7 +103,7 @@ class GraphConfigWidget(QWidget):
     """Trigger operand 2"""
     _txtw_trigger_operand3: WatchableLineEdit
     """Trigger operand 3"""
-    _txt_hold_time_ms: ValidableLineEdit
+    _txt_hold_time_ms: FloatValidableLineEdit
     """The acquisition hold time (in ms)"""
     _lbl_estimated_duration: QLabel
     """Label: Estimated duration based on the signals, the x axis, buffer size and effective sampling rate"""
@@ -174,7 +174,7 @@ class GraphConfigWidget(QWidget):
         self._spin_decimation = QSpinBox(self)
         self._lbl_effective_sampling_rate = QLabel(self)
         self._spin_trigger_position = QSpinBox(self)
-        self._txt_acquisition_timeout = ValidableLineEdit(
+        self._txt_acquisition_timeout = FloatValidableLineEdit(
             hard_validator=QDoubleValidator(0, MAX_TIMEOUT_SEC, 7),
             parent=self
         )
@@ -189,7 +189,7 @@ class GraphConfigWidget(QWidget):
         self._txtw_xaxis_signal = WatchableLineEdit("", self)
         self._txtw_xaxis_signal.set_text_mode_enabled(False)    # No literal allowed, just watchables
 
-        self._txt_hold_time_ms = ValidableLineEdit(
+        self._txt_hold_time_ms = FloatValidableLineEdit(
             hard_validator=QDoubleValidator(0, MAX_HOLD_TIME_MS, 4),
             parent=self
         )
@@ -206,8 +206,8 @@ class GraphConfigWidget(QWidget):
         self._spin_trigger_position.setMaximum(100)
         self._spin_trigger_position.setValue(50)
 
-        self._txt_acquisition_timeout.setText("0")
-        self._txt_hold_time_ms.setText("0")
+        self._txt_acquisition_timeout.set_float_value(0)
+        self._txt_hold_time_ms.set_float_value(0)
 
         self._cmb_trigger_condition.addItem("Always True", TriggerCondition.AlwaysTrue)
         self._cmb_trigger_condition.addItem("Equal (=)", TriggerCondition.Equal)
@@ -391,8 +391,8 @@ class GraphConfigWidget(QWidget):
             truncated = False
 
             try:
-                timeout = float(self._txt_acquisition_timeout.text())
-                if timeout > 0:
+                timeout = self._txt_acquisition_timeout.get_float_value()
+                if timeout is not None and timeout > 0:
                     if timeout < duration:
                         truncated = True
                     duration = min(duration, timeout)
@@ -608,8 +608,7 @@ class GraphConfigWidget(QWidget):
     def get_hold_time_millisec(self) -> Optional[float]:
         if not self._txt_hold_time_ms.validate_expect_valid():
             return None
-        val = float(self._txt_hold_time_ms.text())
-        return val
+        return self._txt_hold_time_ms.get_float_value()
 
     def get_hold_time_sec(self) -> Optional[float]:
         val = self.get_hold_time_millisec()
@@ -620,7 +619,7 @@ class GraphConfigWidget(QWidget):
     def get_acquisition_timeout_sec(self) -> Optional[float]:
         if not self._txt_acquisition_timeout.validate_expect_valid():
             return None
-        val = float(self._txt_acquisition_timeout.text())
+        val = self._txt_acquisition_timeout.get_float_value()
         return val
 
     def set_axis_type(self, axis_type: XAxisType) -> None:
@@ -665,7 +664,7 @@ class GraphConfigWidget(QWidget):
     def get_trigger_position(self) -> int:
         return min(max((self._spin_trigger_position.value()), 0), 100)
 
-    def get_txt_acquisition_timeout(self) -> ValidableLineEdit:
+    def get_txt_acquisition_timeout(self) -> FloatValidableLineEdit:
         return self._txt_acquisition_timeout
 
     def get_cmb_trigger_condition(self) -> QComboBox:
@@ -689,7 +688,7 @@ class GraphConfigWidget(QWidget):
     def get_txtw_xaxis_signal(self) -> WatchableLineEdit:
         return self._txtw_xaxis_signal
 
-    def get_txt_hold_time_ms(self) -> ValidableLineEdit:
+    def get_txt_hold_time_ms(self) -> FloatValidableLineEdit:
         return self._txt_hold_time_ms
 
     def get_lbl_estimated_duration(self) -> QLabel:
