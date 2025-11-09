@@ -7,10 +7,10 @@
 #
 #   Copyright (c) 2024 Scrutiny Debugger
 
-__all__ = ['ValidableLineEdit']
+__all__ = ['ValidableLineEdit', 'FloatValidableLineEdit', 'IntValidableLineEdit']
 
 from PySide6.QtWidgets import QLineEdit, QWidget
-from PySide6.QtGui import QValidator, QDoubleValidator
+from PySide6.QtGui import QValidator, QDoubleValidator, QIntValidator
 
 from scrutiny.gui.themes import scrutiny_get_theme
 
@@ -23,9 +23,10 @@ class ValidableLineEdit(QLineEdit):
     _soft_validator: Optional[QValidator]
 
     def __init__(self,
+                 parent: QWidget,
                  hard_validator: Optional[QValidator] = None,
                  soft_validator: Optional[QValidator] = None,
-                 parent: Optional[QWidget] = None) -> None:
+                 ) -> None:
         super().__init__(parent)
 
         self._hard_validator = hard_validator
@@ -91,7 +92,7 @@ class ValidableLineEdit(QLineEdit):
 class FloatValidableLineEdit(ValidableLineEdit):
     def __init__(self, parent: QWidget,
                  hard_validator: Optional[QDoubleValidator] = None,
-                 soft_validator: Optional[QDoubleValidator] = None
+                 soft_validator: Optional[QValidator] = None
                  ) -> None:
         super().__init__(parent=parent, hard_validator=hard_validator, soft_validator=soft_validator)
 
@@ -101,4 +102,20 @@ class FloatValidableLineEdit(ValidableLineEdit):
     def get_float_value(self) -> Optional[float]:
         with tools.SuppressException(ValueError):
             return float(self.text())
+        return None
+
+
+class IntValidableLineEdit(ValidableLineEdit):
+    def __init__(self, parent: QWidget,
+                 hard_validator: Optional[QIntValidator] = None,
+                 soft_validator: Optional[QValidator] = None
+                 ) -> None:
+        super().__init__(parent=parent, hard_validator=hard_validator, soft_validator=soft_validator)
+
+    def set_int_value(self, val: int) -> None:
+        self.setText(str(val))
+
+    def get_int_value(self) -> Optional[int]:
+        with tools.SuppressException(ValueError):
+            return int(self.text())
         return None

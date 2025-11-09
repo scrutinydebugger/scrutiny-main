@@ -33,7 +33,7 @@ class RTTConfigPane(BaseConfigPane):
 
         layout = QFormLayout(self)
 
-        self._target_device_text_box = ValidableLineEdit(soft_validator=NotEmptyValidator())
+        self._target_device_text_box = ValidableLineEdit(parent=self, soft_validator=NotEmptyValidator())
         self._jlink_interface_combo_box = QComboBox()
 
         self._jlink_interface_combo_box.addItem("SWD", sdk.RTTLinkConfig.JLinkInterface.SWD)
