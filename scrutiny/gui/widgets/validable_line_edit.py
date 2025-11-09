@@ -11,12 +11,11 @@ __all__ = ['ValidableLineEdit']
 
 from PySide6.QtWidgets import QLineEdit, QWidget
 from PySide6.QtGui import QValidator, QDoubleValidator
-from PySide6.QtCore import QLocale
-import locale
 
 from scrutiny.gui.themes import scrutiny_get_theme
 
 from scrutiny.tools.typing import *
+from scrutiny import tools
 
 
 class ValidableLineEdit(QLineEdit):
@@ -97,10 +96,9 @@ class FloatValidableLineEdit(ValidableLineEdit):
         super().__init__(parent=parent, hard_validator=hard_validator, soft_validator=soft_validator)
 
     def set_float_value(self, val: float) -> None:
-        self.setText(QLocale().toString(val))
+        self.setText(str(val))
 
     def get_float_value(self) -> Optional[float]:
-        val, valid = QLocale().toDouble(self.text())
-        if not valid:
-            return None
-        return val
+        with tools.SuppressException(ValueError):
+            return float(self.text())
+        return None

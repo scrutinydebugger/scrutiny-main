@@ -15,8 +15,8 @@ import re
 from dataclasses import dataclass
 from PySide6.QtWidgets import QWidget, QFormLayout, QComboBox, QSpinBox, QLabel, QLineEdit, QVBoxLayout, QGroupBox, QSizePolicy
 from PySide6.QtGui import QDoubleValidator, QStandardItemModel
-from PySide6.QtCore import Qt, QLocale
-from scrutiny.gui.widgets.validable_line_edit import ValidableLineEdit, FloatValidableLineEdit
+from PySide6.QtCore import Qt
+from scrutiny.gui.widgets.validable_line_edit import FloatValidableLineEdit
 from scrutiny.gui.widgets.watchable_line_edit import WatchableLineEdit
 from scrutiny.gui.core.watchable_registry import WatchableRegistry
 from scrutiny.sdk.datalogging import (TriggerCondition, SamplingRate, FixedFreqSamplingRate, DataloggingEncoding, XAxisType,
@@ -92,7 +92,7 @@ class GraphConfigWidget(QWidget):
     _lbl_effective_sampling_rate: QLabel
     """A label that shows the effective sampling rate (sampling_rate/decimation)"""
     _spin_trigger_position: QSpinBox
-    """Spingbox : Trigger position from 0 to 100"""
+    """Spinbox : Trigger position from 0 to 100"""
     _txt_acquisition_timeout: FloatValidableLineEdit
     """LineEdit: Acquisition timeout"""
     _cmb_trigger_condition: QComboBox
@@ -448,7 +448,7 @@ class GraphConfigWidget(QWidget):
         self._lbl_effective_sampling_rate.setText(effective_sampling_rate_label_txt)
         self._lbl_estimated_duration.setText(estimated_duration_label_txt)
 
-        #  Trigger conditon
+        #  Trigger condition
         condition = cast(Optional[TriggerCondition], self._cmb_trigger_condition.currentData())
         if condition is None:   # Paranoid check
             nb_operand = 0
@@ -540,9 +540,7 @@ class GraphConfigWidget(QWidget):
                     if txt.lower() in ('true', 'false'):    # Convenience for user
                         value = bool(txt)   # case insensitive
                     else:
-                        value, valid = QLocale().toDouble(txtw_operand.text())
-                        if not valid:
-                            raise ValueError("Invalid float")
+                        value = float(txtw_operand.text())
                     operands.append(value)
                 except Exception:
                     output.valid = False
