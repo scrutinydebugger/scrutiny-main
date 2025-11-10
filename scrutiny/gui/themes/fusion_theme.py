@@ -35,8 +35,10 @@ class FusionTheme(ScrutinyTheme):
         stylesheets.append(assets.load_stylesheet('ads_base.qss'))
         if self.is_dark():
             stylesheets.append(assets.load_stylesheet('ads_dark.qss'))
+            stylesheets.append(assets.load_stylesheet('scrutiny_dark.qss'))
         else:
             stylesheets.append(assets.load_stylesheet('ads_light.qss'))
+            stylesheets.append(assets.load_stylesheet('scrutiny_light.qss'))
 
         super().__init__(
             palette=style.standardPalette(),

@@ -930,6 +930,9 @@
         },
         "test/core/test_firmware_description.py": {
             "docstring": "A test suite to test the FirmwareDescription class"
+        },
+        "test/gui/manual/manual_test_stylesheets.py": {
+            "docstring": "A window to visualize different custom stylesheets features"
         }
     }
 }

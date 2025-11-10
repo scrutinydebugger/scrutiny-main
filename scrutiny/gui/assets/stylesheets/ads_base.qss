@@ -50,10 +50,6 @@ ads--CDockWidgetTab[activeTab="true"] {
     border-width: 0 1px 0 0;
 }
 
-ads--CDockWidgetTab[activeTab="true"] QLabel {
-	color: palette(highlight);
-}
-
 ads--CDockWidgetTab QLabel {
 	color: palette(windowtext);
 }

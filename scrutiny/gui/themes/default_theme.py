@@ -48,6 +48,7 @@ class DefaultTheme(ScrutinyTheme):
 
     def __init__(self) -> None:
         base_stylesheet = assets.load_stylesheet('scrutiny_base.qss')
+        base_stylesheet = assets.load_stylesheet('scrutiny_light.qss')
         ads_stylesheet = assets.load_stylesheet('ads_base.qss')
         ads_stylesheet_light = assets.load_stylesheet('ads_light.qss')
         super().__init__(

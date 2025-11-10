@@ -1,0 +1,25 @@
+QLineEdit[state="error"]{
+    background-color:#904040;
+    color: #ffffff;
+}
+
+QLineEdit[state="success"]{
+    background-color:#409040;
+    color:#ffffff;
+}
+
+QLabel[state="error"]{
+    color:#ff6060;
+}
+
+QSpinBox[state="error"]{
+    background-color:#904040;
+    color: #ffffff;
+}
+QLabel[feature_enable=true] {
+    color:#40cc40;
+}
+
+QLabel[feature_enable=false] {
+    color: #ff6060;
+}
