@@ -79,3 +79,7 @@ ads--CAutoHideDockContainer #dockAreaMinimizeButton {
 ads--CAutoHideDockContainer #dockAreaCloseButton{
 	qproperty-icon: url(stylesheets:/ads/close-button-black.svg)
 }
+
+ads--CDockWidgetTab[activeTab="true"] QLabel {
+	color: palette(highlight);
+}
