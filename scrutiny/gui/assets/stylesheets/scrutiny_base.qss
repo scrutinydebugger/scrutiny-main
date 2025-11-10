@@ -1,0 +1,11 @@
+QStatusBar{
+    border-top: 1px outset grey;
+}
+
+QSplitter::handle {
+    background-color: #ccc;
+}
+
+QLineEditIconButton:hover {
+     background: grey;
+}

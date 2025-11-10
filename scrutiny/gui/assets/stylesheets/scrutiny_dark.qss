@@ -9,30 +9,17 @@ QLineEdit[state="success"]{
 }
 
 QLabel[state="error"]{
-    color:#ff0000;
+    color:#ff6060;
 }
 
 QSpinBox[state="error"]{
     background-color:#904040;
     color: #ffffff;
 }
-
-QStatusBar{
-    border-top: 1px outset grey;
-}
-
 QLabel[feature_enable=true] {
-    color:#006100;
+    color:#40cc40;
 }
 
 QLabel[feature_enable=false] {
-    color: #9c0006;
-}
-
-QSplitter::handle {
-    background-color: #ccc;
-}
-
-QLineEditIconButton:hover {
-     background: grey;
+    color: #ff6060;
 }
