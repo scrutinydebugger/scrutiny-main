@@ -531,6 +531,9 @@ class DeviceHandler:
         """Returns what type of link is used to communicate with the device (serial, UDP, CanBus, etc)"""
         return self.comm_handler.get_link_type()
 
+    def request_pending(self) -> bool:
+        return self.active_request_record is not None
+
     # Set communication state to a fresh start.
     def reset_comm(self) -> None:
         """Reset the communication with the device. Reset all state machines, clear pending requests, reset internal status"""

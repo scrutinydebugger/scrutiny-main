@@ -6,10 +6,7 @@
 #
 #   Copyright (c) 2024 Scrutiny Debugger
 
-__all__ = [
-    'RttConfig',
-    'RttLink'
-]
+__all__ = ['RttLink']
 
 import logging
 import threading

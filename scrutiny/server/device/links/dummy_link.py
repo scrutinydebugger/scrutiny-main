@@ -6,9 +6,7 @@
 #
 #   Copyright (c) 2022 Scrutiny Debugger
 
-__all__ = [
-    'DummyLink'
-]
+__all__ = ['DummyLink']
 
 from .abstract_link import AbstractLink, LinkConfig
 from scrutiny.tools.typing import *

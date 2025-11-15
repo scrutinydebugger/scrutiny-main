@@ -163,8 +163,9 @@ class ScrutinyServer:
                 if exit_handler.must_exit() or self.stop_event.is_set():
                     break
                 self.process()
-                self.rx_data_event.wait(0.01)   # sleep until we have some IO or 10ms
-                self.rx_data_event.clear()
+                if self.device_handler.request_pending():
+                    self.rx_data_event.wait(0.01)   # sleep until we have some IO (device handle or API) or 10ms
+                    self.rx_data_event.clear()
         except (KeyboardInterrupt, SystemExit):
             pass
         except Exception as e:
