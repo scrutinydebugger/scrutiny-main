@@ -6,14 +6,12 @@
 #
 #   Copyright (c) 2022 Scrutiny Debugger
 
-__all__ = [
-    'SerialConfig',
-    'SerialLink'
-]
+__all__ = ['SerialLink']
 
 import logging
 import serial   # type: ignore
 import time
+import sys
 
 from scrutiny.server.device.links.abstract_link import AbstractLink, LinkConfig
 from scrutiny.server.device.links.typing import SerialConfigDict
@@ -76,7 +74,7 @@ class SerialLink(AbstractLink):
 
     @classmethod
     def get_data_bits(cls, s: Union[str, int]) -> int:
-        """ Converts a data bist input (str or number) to a pyserial constant"""
+        """ Converts a data bits input (str or number) to a pyserial constant"""
         try:
             s = int(s)
         except Exception:
@@ -168,7 +166,8 @@ class SerialLink(AbstractLink):
             assert self.port is not None    # For mypy
             try:
                 self.port.write(data)
-                self.port.flush()
+                if sys.platform != 'win32':  # pyserial 3.5 :  Win32 implementation does nothing except sleeping
+                    self.port.flush()
             except Exception as e:
                 self.logger.debug(f"Cannot write data. {e}")
                 self.port.close()

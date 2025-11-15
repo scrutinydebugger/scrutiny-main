@@ -17,6 +17,7 @@ import logging
 from enum import Enum, auto
 from dataclasses import dataclass
 
+from scrutiny.server.device.submodules.base_device_handler_submodule import BaseDeviceHandlerSubmodule
 from scrutiny.server.protocol import *
 from scrutiny.server.device.request_dispatcher import RequestDispatcher
 import scrutiny.server.datalogging.definitions.device as device_datalogging
@@ -69,7 +70,7 @@ class _ReceivedChunk:
 DatalogSubfn = cmd.DatalogControl.Subfunction
 
 
-class DataloggingPoller:
+class DataloggingPoller(BaseDeviceHandlerSubmodule):
 
     UPDATE_STATUS_INTERVAL_IDLE = 0.5
     UPDATE_STATUS_INTERVAL_ACQUIRING = 0.2
@@ -327,6 +328,19 @@ class DataloggingPoller:
         """Tells if request_acquisition() can be called. """
         return self.started and not self.error and not self.cancel_requested and not self.stop_requested and self.device_setup is not None
 
+    def would_send_data(self) -> bool:
+        # We don't need to be accurate here.
+        # It's only an optimization to prevent the server from sleeping.
+        # Since we sent occasional message, optimizing few milliseconds is not worth it.
+
+        if not self.started or not self.enabled or self.stop_requested or self.error:
+            return False
+
+        if self.require_status_update or self.update_status_timer.is_timed_out():
+            return True
+        # Don't bother about all the other possibilities, not worth it.
+        return False
+
     def process(self) -> None:
         """To be called periodically to make the process move forward"""
         # Handle conditions that prevent the DataloggingPoller to function
@@ -504,7 +518,6 @@ class DataloggingPoller:
 
                 if self.cancel_requested:   # New request interrupts the previous one
                     if not self.request_pending[DatalogSubfn.ReadAcquisition]:
-                        self.must_send_read_data_request = False
                         next_state = _FSMState.REQUEST_RESET
 
                 elif self.device_datalogging_state == device_datalogging.DataloggerState.ERROR:

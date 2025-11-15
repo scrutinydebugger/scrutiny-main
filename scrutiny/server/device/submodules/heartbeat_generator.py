@@ -12,6 +12,7 @@ __all__ = ['HeartbeatGenerator']
 import time
 import logging
 
+from scrutiny.server.device.submodules.base_device_handler_submodule import BaseDeviceHandlerSubmodule
 from scrutiny.server.protocol import *
 import scrutiny.server.protocol.typing as protocol_typing
 from scrutiny.server.device.request_dispatcher import RequestDispatcher
@@ -19,7 +20,7 @@ from scrutiny import tools
 from scrutiny.tools.typing import *
 
 
-class HeartbeatGenerator:
+class HeartbeatGenerator(BaseDeviceHandlerSubmodule):
     """
     Poll the device with periodic heartbeat message to know if it is still there and alive.
     """
@@ -32,15 +33,15 @@ class HeartbeatGenerator:
     """Our dispatcher priority"""
     session_id: Optional[int]
     """The session ID to include in the heartbeat request"""
-    last_heartbeat_request: Optional[float]
+    last_heartbeat_request_timestamp: Optional[float]
     """Time at which that last heartbeat request has been sent."""
     last_heartbeat_timestamp: Optional[float]
     """Time at which the last successful heartbeat response has been received"""
     challenge: int
-    """The computation challenge included in the pending request."""
+    """The computation challenge included in the request_pending request."""
     interval: float
     """Heartbeat interval in seconds"""
-    pending: bool
+    request_pending: bool
     """True when a request is sent and we are waiting for a response"""
     started: bool
     """True when started. Sends heartbeat only when started, otherwise keep silent"""
@@ -50,7 +51,7 @@ class HeartbeatGenerator:
         self.dispatcher = dispatcher
         self.protocol = protocol
         self.session_id = None
-        self.last_heartbeat_request = None
+        self.last_heartbeat_request_timestamp = None
         self.last_heartbeat_timestamp = time.monotonic()
         self.challenge = 0
         self.interval = 3
@@ -76,14 +77,26 @@ class HeartbeatGenerator:
         self.started = False
 
     def fully_stopped(self) -> bool:
-        """Indicates that this submodule is stopped and has no pending state"""
+        """Indicates that this submodule is stopped and has no request_pending state"""
         return self.started == False
 
     def reset(self) -> None:
         """Put the heartbeat generator in its startup state"""
-        self.pending = False
+        self.request_pending = False
         self.started = False
         self.session_id = None
+
+    def _heartbeat_timedout(self) -> bool:
+        return self.last_heartbeat_request_timestamp is None or (time.monotonic() - self.last_heartbeat_request_timestamp > self.interval)
+
+    def would_send_data(self) -> bool:
+        if not self.started:
+            return False
+
+        if self.request_pending or self.session_id is None:
+            return False
+
+        return self._heartbeat_timedout()
 
     def process(self) -> None:
         """To be called periodically"""
@@ -92,8 +105,8 @@ class HeartbeatGenerator:
             return
 
         # If no request is being waited and we have a session ID assigned
-        if self.pending == False and self.session_id is not None:
-            if self.last_heartbeat_request is None or (time.monotonic() - self.last_heartbeat_request > self.interval):
+        if self.request_pending == False and self.session_id is not None:
+            if self._heartbeat_timedout():
                 if self.logger.isEnabledFor(logging.DEBUG):  # pragma: no cover
                     self.logger.debug('Registering a Heartbeat request')
                 self.dispatcher.register_request(
@@ -102,8 +115,8 @@ class HeartbeatGenerator:
                     failure_callback=self._failure_callback,
                     priority=self.priority
                 )
-                self.pending = True
-                self.last_heartbeat_request = time.monotonic()
+                self.request_pending = True
+                self.last_heartbeat_request_timestamp = time.monotonic()
 
     def _success_callback(self, request: Request, response: Response, params: Any = None) -> None:
         """ Called by the dispatcher when a request is completed and succeeded"""
@@ -140,4 +153,4 @@ class HeartbeatGenerator:
     def _completed(self) -> None:
         """ Common code between success and failure"""
         self.challenge = (self.challenge + 1) & 0xFFFF  # Next challenge
-        self.pending = False
+        self.request_pending = False

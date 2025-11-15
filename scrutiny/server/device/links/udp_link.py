@@ -6,10 +6,7 @@
 #
 #   Copyright (c) 2022 Scrutiny Debugger
 
-__all__ = [
-    'UdpConfig',
-    'UdpLink'
-]
+__all__ = ['UdpLink']
 
 import logging
 import socket

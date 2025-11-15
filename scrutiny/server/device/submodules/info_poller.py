@@ -18,6 +18,7 @@ import logging
 import enum
 import copy
 
+from scrutiny.server.device.submodules.base_device_handler_submodule import BaseDeviceHandlerSubmodule
 from scrutiny.core.basic_types import MemoryRegion
 from scrutiny.server.protocol import ResponseCode
 from scrutiny.server.device.device_info import *
@@ -35,7 +36,7 @@ ProtocolVersionCallback = Callable[[int, int], Any]
 CommParamCallback = Callable[[DeviceInfo], Any]
 
 
-class InfoPoller:
+class InfoPoller(BaseDeviceHandlerSubmodule):
     """Class that will successfully sends polling request to the device
     to gather all of its internal parameters. Will fill a DeviceInformation structure"""
 
@@ -154,6 +155,17 @@ class InfoPoller:
         self.loop_count = 0
         self.error_message = ""
         self.info.clear()
+
+    def would_send_data(self) -> bool:
+        if not self.started:
+            return False
+        if self.stop_requested:
+            return False
+        if self.request_pending:
+            return False
+        if self.fsm_state in (self.FsmState.Done, self.FsmState.Error):
+            return False
+        return True
 
     def process(self) -> None:
         """To be called  periodically to make the process move forward"""
