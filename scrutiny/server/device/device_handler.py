@@ -531,8 +531,23 @@ class DeviceHandler:
         """Returns what type of link is used to communicate with the device (serial, UDP, CanBus, etc)"""
         return self.comm_handler.get_link_type()
 
-    def request_pending(self) -> bool:
-        return self.active_request_record is not None
+    def would_send_data(self) -> bool:
+        if self.active_request_record is not None:  # waiting on data
+            return False
+
+        for submodule in [
+            self.device_searcher,
+            self.session_initializer,
+            self.heartbeat_generator,
+            self.memory_reader,
+            self.memory_writer,
+            self.info_poller,
+            self.datalogging_poller,
+        ]:
+            if submodule.would_send_data():
+                return True
+
+        return False
 
     # Set communication state to a fresh start.
     def reset_comm(self) -> None:
@@ -888,7 +903,7 @@ class DeviceHandler:
                     )
 
             if self.disconnect_complete:
-                next_state != self.FsmState.DISCONNECTING
+                next_state = self.FsmState.INIT
 
         else:
             raise Exception('Unknown FSM state : %s' % self.fsm_state)

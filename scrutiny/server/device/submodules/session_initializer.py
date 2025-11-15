@@ -13,6 +13,7 @@ __all__ = [
 import logging
 import time
 
+from scrutiny.server.device.submodules.base_device_handler_submodule import BaseDeviceHandlerSubmodule
 from scrutiny.server.protocol import *
 import scrutiny.server.protocol.typing as protocol_typing
 from scrutiny.server.device.request_dispatcher import RequestDispatcher
@@ -20,7 +21,7 @@ from scrutiny import tools
 from scrutiny.tools.typing import *
 
 
-class SessionInitializer:
+class SessionInitializer(BaseDeviceHandlerSubmodule):
     """
     Try to establish a connection with a device by sending Connects requests.
     If it succeeds, will make the session ID available to the Device Handler and report the success.
@@ -94,6 +95,15 @@ class SessionInitializer:
         """Returns the session ID given by the device when the Connect request was accepted. 
         None if no request was accepted yet"""
         return self.session_id
+
+    def would_send_data(self) -> bool:
+        if not self.started or self.error or self.stop_requested:
+            return False
+
+        if self.connection_pending:
+            return False
+
+        return self.last_connect_sent is None or time.monotonic() - self.last_connect_sent > self.RECONNECT_DELAY
 
     def process(self) -> None:
         """To be called periodically"""

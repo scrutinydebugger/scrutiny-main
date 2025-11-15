@@ -20,6 +20,7 @@ import enum
 import queue
 from sortedcontainers import SortedSet
 
+from scrutiny.server.device.submodules.base_device_handler_submodule import BaseDeviceHandlerSubmodule
 from scrutiny.server.protocol import *
 from scrutiny.server.timebase import server_timebase
 import scrutiny.server.protocol.commands as cmd
@@ -151,7 +152,7 @@ class ReadType(enum.Enum):
     RawMemRead = enum.auto()
 
 
-class MemoryReader:
+class MemoryReader(BaseDeviceHandlerSubmodule):
     """Class that poll the device for its memory content and update the datastore
     with new values when the content is received.
     It treats Variable and RuntimePublishedValues differently as they use a different protocol command.
@@ -316,6 +317,18 @@ class MemoryReader:
         self.max_request_payload_size = self.DEFAULT_MAX_REQUEST_PAYLOAD_SIZE
         self.max_response_payload_size = self.DEFAULT_MAX_RESPONSE_PAYLOAD_SIZE
         self.forbidden_regions = []
+
+    def would_send_data(self) -> bool:
+        if not self.started:
+            return False
+
+        if self.stop_requested:
+            return False
+
+        if self.pending_request is not None:
+            return False
+
+        return len(self.watched_var_entries_sorted_by_address) > 0 or len(self.watched_rpv_entries_sorted_by_id) > 0 or not self.raw_read_request_queue.empty()
 
     def process(self) -> None:
         """To be called periodically"""

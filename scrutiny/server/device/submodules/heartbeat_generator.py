@@ -12,6 +12,7 @@ __all__ = ['HeartbeatGenerator']
 import time
 import logging
 
+from scrutiny.server.device.submodules.base_device_handler_submodule import BaseDeviceHandlerSubmodule
 from scrutiny.server.protocol import *
 import scrutiny.server.protocol.typing as protocol_typing
 from scrutiny.server.device.request_dispatcher import RequestDispatcher
@@ -19,7 +20,7 @@ from scrutiny import tools
 from scrutiny.tools.typing import *
 
 
-class HeartbeatGenerator:
+class HeartbeatGenerator(BaseDeviceHandlerSubmodule):
     """
     Poll the device with periodic heartbeat message to know if it is still there and alive.
     """
@@ -84,6 +85,18 @@ class HeartbeatGenerator:
         self.pending = False
         self.started = False
         self.session_id = None
+
+    def would_send_data(self) -> bool:
+        if not self.started:
+            return False
+
+        if self.pending or self.session_id is None:
+            return False
+
+        if self.last_heartbeat_request is None:
+            return True
+
+        return time.monotonic() - self.last_heartbeat_request > self.interval
 
     def process(self) -> None:
         """To be called periodically"""

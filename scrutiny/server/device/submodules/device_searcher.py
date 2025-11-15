@@ -14,6 +14,7 @@ import logging
 import binascii
 import traceback
 
+from scrutiny.server.device.submodules.base_device_handler_submodule import BaseDeviceHandlerSubmodule
 from scrutiny.server.protocol import *
 import scrutiny.server.protocol.typing as protocol_typing
 from scrutiny.server.device.request_dispatcher import RequestDispatcher
@@ -21,7 +22,7 @@ from scrutiny.server.device.request_dispatcher import RequestDispatcher
 from scrutiny.tools.typing import *
 
 
-class DeviceSearcher:
+class DeviceSearcher(BaseDeviceHandlerSubmodule):
     """
     Generates Discover request in loop and inform the upper layers if a device has been found
     """
@@ -104,6 +105,11 @@ class DeviceSearcher:
         if self.found_device is not None:
             return (self.found_device['protocol_major'], self.found_device['protocol_minor'])
         return None
+
+    def would_send_data(self) -> bool:
+        if not self.started or self.pending:
+            return False
+        return self.last_request_timestamp is None or (time.monotonic() - self.last_request_timestamp > self.DISCOVER_INTERVAL)
 
     def process(self) -> None:
         """To be called periodically"""

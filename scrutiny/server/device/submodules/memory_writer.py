@@ -17,6 +17,7 @@ __all__ = [
 import logging
 import queue
 
+from scrutiny.server.device.submodules.base_device_handler_submodule import BaseDeviceHandlerSubmodule
 from scrutiny.server.timebase import server_timebase
 from scrutiny.server.protocol import *
 import scrutiny.server.protocol.commands as cmd
@@ -66,7 +67,7 @@ class RawMemoryWriteRequest:
             self.completion_callback(self, success, self.completion_server_time_us, failure_reason)
 
 
-class MemoryWriter:
+class MemoryWriter(BaseDeviceHandlerSubmodule):
     """Class that request the device for its memory content or RPV to me modified according to 
     either a datastore entry value or a raw value requested by the user
     It treats Variable and RuntimePublishedValues differently as they use a different protocol command.
@@ -220,6 +221,16 @@ class MemoryWriter:
         """Put back the memory writer to its startup state"""
         self.set_standby()
         self._clear_config()
+
+    def would_send_data(self) -> bool:
+        if not self.started:
+            return False
+        if self.stop_requested:
+            return False
+        if self.pending_request:
+            return False
+
+        return self.datastore.has_pending_target_update() or not self.raw_write_request_queue.empty()
 
     def process(self) -> None:
         """To be called periodically"""
