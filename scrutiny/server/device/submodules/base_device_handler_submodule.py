@@ -5,6 +5,7 @@ import abc
 class BaseDeviceHandlerSubmodule(abc.ABC):
     @abc.abstractmethod
     def would_send_data(self) -> bool:
+        """Returns ``True`` if a call to ``process()`` would dispatch a request to the device"""
         pass
 
     @abc.abstractmethod

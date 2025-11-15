@@ -163,6 +163,8 @@ class InfoPoller(BaseDeviceHandlerSubmodule):
             return False
         if self.request_pending:
             return False
+        if self.fsm_state in (self.FsmState.Done, self.FsmState.Error):
+            return False
         return True
 
     def process(self) -> None:

@@ -35,6 +35,7 @@ from scrutiny.server.protocol import *
 from scrutiny.server.protocol.comm_handler import CommHandler
 from scrutiny.server.protocol.commands import DummyCommand
 from scrutiny.server.device.request_dispatcher import RequestDispatcher, RequestRecord
+from scrutiny.server.device.submodules.base_device_handler_submodule import BaseDeviceHandlerSubmodule
 from scrutiny.server.device.submodules.device_searcher import DeviceSearcher
 from scrutiny.server.device.submodules.heartbeat_generator import HeartbeatGenerator
 from scrutiny.server.device.submodules.info_poller import InfoPoller
@@ -531,10 +532,12 @@ class DeviceHandler:
         """Returns what type of link is used to communicate with the device (serial, UDP, CanBus, etc)"""
         return self.comm_handler.get_link_type()
 
-    def would_send_data(self) -> bool:
+    def need_keep_alive(self) -> bool:
+        """Inform the server layer that a call to process() will make meaningful work, therefore, avoid sleeping"""
         if self.active_request_record is not None:  # waiting on data
             return False
 
+        submodule: BaseDeviceHandlerSubmodule
         for submodule in [
             self.device_searcher,
             self.session_initializer,

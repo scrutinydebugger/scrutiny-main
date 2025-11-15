@@ -106,10 +106,13 @@ class DeviceSearcher(BaseDeviceHandlerSubmodule):
             return (self.found_device['protocol_major'], self.found_device['protocol_minor'])
         return None
 
+    def _search_request_timedout(self) -> bool:
+        return self.last_request_timestamp is None or (time.monotonic() - self.last_request_timestamp > self.DISCOVER_INTERVAL)
+
     def would_send_data(self) -> bool:
         if not self.started or self.pending:
             return False
-        return self.last_request_timestamp is None or (time.monotonic() - self.last_request_timestamp > self.DISCOVER_INTERVAL)
+        return self._search_request_timedout()
 
     def process(self) -> None:
         """To be called periodically"""
@@ -122,7 +125,7 @@ class DeviceSearcher(BaseDeviceHandlerSubmodule):
             self.found_device = None
 
         if self.pending == False:
-            if self.last_request_timestamp is None or (time.monotonic() - self.last_request_timestamp > self.DISCOVER_INTERVAL):
+            if self._search_request_timedout():
                 if self.logger.isEnabledFor(logging.DEBUG):  # pragma: no cover
                     self.logger.debug('Registering a Discover request')
                 self.dispatcher.register_request(

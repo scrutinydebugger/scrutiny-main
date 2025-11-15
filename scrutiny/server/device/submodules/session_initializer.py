@@ -96,6 +96,9 @@ class SessionInitializer(BaseDeviceHandlerSubmodule):
         None if no request was accepted yet"""
         return self.session_id
 
+    def _reconnect_timedout(self) -> bool:
+        return self.last_connect_sent is None or time.monotonic() - self.last_connect_sent > self.RECONNECT_DELAY
+
     def would_send_data(self) -> bool:
         if not self.started or self.error or self.stop_requested:
             return False
@@ -103,7 +106,7 @@ class SessionInitializer(BaseDeviceHandlerSubmodule):
         if self.connection_pending:
             return False
 
-        return self.last_connect_sent is None or time.monotonic() - self.last_connect_sent > self.RECONNECT_DELAY
+        return self._reconnect_timedout()
 
     def process(self) -> None:
         """To be called periodically"""
@@ -119,16 +122,17 @@ class SessionInitializer(BaseDeviceHandlerSubmodule):
             self.reset()
             return
 
-        if not self.connection_pending and (self.last_connect_sent is None or time.monotonic() - self.last_connect_sent > self.RECONNECT_DELAY):
-            self.success = False
-            self.last_connect_sent = time.monotonic()
-            if self.logger.isEnabledFor(logging.DEBUG):  # pragma: no cover
-                self.logger.debug('Registering a Connect request')
-            self.dispatcher.register_request(request=self.protocol.comm_connect(),
-                                             success_callback=self._success_callback,
-                                             failure_callback=self._failure_callback,
-                                             priority=self.priority)
-            self.connection_pending = True
+        if not self.connection_pending:
+            if self._reconnect_timedout():
+                self.success = False
+                self.last_connect_sent = time.monotonic()
+                if self.logger.isEnabledFor(logging.DEBUG):  # pragma: no cover
+                    self.logger.debug('Registering a Connect request')
+                self.dispatcher.register_request(request=self.protocol.comm_connect(),
+                                                 success_callback=self._success_callback,
+                                                 failure_callback=self._failure_callback,
+                                                 priority=self.priority)
+                self.connection_pending = True
 
     def _success_callback(self, request: Request, response: Response, params: Any = None) -> None:
         """Callback called by the request dispatcher when a request succeeds to complete"""
