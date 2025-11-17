@@ -544,11 +544,11 @@ class ServerManager:
                     content = {
                         sdk.WatchableType.RuntimePublishedValue: data.rpv
                     }
-                    invoke_in_qt_thread_synchronized(lambda: self._registry.write_content(content), timeout=2)
+                    invoke_in_qt_thread_synchronized(lambda: self._registry.write_content(content), timeout=5)
                     self._signals.registry_changed.emit()
                 else:
                     invoke_in_qt_thread_synchronized(lambda: self._registry.clear_content_by_type(
-                        [sdk.WatchableType.RuntimePublishedValue]), timeout=2)
+                        [sdk.WatchableType.RuntimePublishedValue]), timeout=3)
                 self._thread_state.runtime_watchables_download_request = None   # Clear the request.
             else:
                 pass  # Downloading
@@ -566,11 +566,11 @@ class ServerManager:
                         sdk.WatchableType.Variable: data.var,
                         sdk.WatchableType.Alias: data.alias,
                     }
-                    invoke_in_qt_thread_synchronized(lambda: self._registry.write_content(content), timeout=2)
+                    invoke_in_qt_thread_synchronized(lambda: self._registry.write_content(content), timeout=5)
                     self._signals.registry_changed.emit()
                 else:
                     invoke_in_qt_thread_synchronized(lambda: self._registry.clear_content_by_type(
-                        [sdk.WatchableType.Alias, sdk.WatchableType.Variable]), timeout=2)
+                        [sdk.WatchableType.Alias, sdk.WatchableType.Variable]), timeout=3)
                 self._thread_state.sfd_watchables_download_request = None   # Clear the request.
             else:
                 pass    # Downloading

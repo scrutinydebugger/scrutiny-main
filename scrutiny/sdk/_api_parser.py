@@ -346,21 +346,14 @@ def parse_get_watchable_list(response: api_typing.S2C.GetWatchableList) -> GetWa
     return outdata
 
 
-AnyDetailedWatchableconfiguration: TypeAlias = Union[
-    sdk.DetailedVarWatchableConfiguration,
-    sdk.DetailedAliasWatchableConfiguration,
-    sdk.DetailedRPVWatchableConfiguration
-]
-
-
-def parse_subscribe_watchable_response(response: api_typing.S2C.SubscribeWatchable) -> Dict[str, AnyDetailedWatchableconfiguration]:
+def parse_subscribe_watchable_response(response: api_typing.S2C.SubscribeWatchable) -> Dict[str, sdk.DetailedWatchableConfiguration]:
     """Parse a response to get_watchable_list and assume the request was for a single watchable"""
     assert isinstance(response, dict)
     assert 'cmd' in response
     cmd = response['cmd']
     assert cmd == API.Command.Api2Client.SUBSCRIBE_WATCHABLE_RESPONSE
 
-    outdict: Dict[str, AnyDetailedWatchableconfiguration] = {}
+    outdict: Dict[str, sdk.DetailedWatchableConfiguration] = {}
     _check_response_dict(cmd, response, 'subscribed', dict)
     for k, v in response['subscribed'].items():
         if not isinstance(k, str):

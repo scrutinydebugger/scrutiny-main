@@ -926,18 +926,34 @@ class TestClient(ScrutinyUnitTest):
         self.assertEqual(rpv1000.display_path, '/rpv/x1000')
         self.assertEqual(rpv1000.name, 'x1000')
         self.assertEqual(rpv1000.datatype, sdk.EmbeddedDataType.float32)
+        self.assertEqual(rpv1000.rpv_details.rpvid, 0x1000)
+        with self.assertRaises(sdk.exceptions.BadTypeError):
+            temp = rpv1000.var_details
+        with self.assertRaises(sdk.exceptions.BadTypeError):
+            temp = rpv1000.alias_details
 
         self.assertEqual(var1.type, sdk.WatchableType.Variable)
         self.assertEqual(var1.display_path, '/a/b/var1')
         self.assertEqual(var1.name, 'var1')
         self.assertEqual(var1.datatype, sdk.EmbeddedDataType.uint32)
         self.assertEqual(var1.has_enum(), False)
+        self.assertEqual(var1.var_details.address, 0x1234)
+        self.assertEqual(var1.var_details.bitoffset, None)
+        self.assertEqual(var1.var_details.bitsize, None)
+
+        with self.assertRaises(sdk.exceptions.BadTypeError):
+            temp = var1.rpv_details
+        with self.assertRaises(sdk.exceptions.BadTypeError):
+            temp = var1.alias_details
 
         self.assertEqual(var2.type, sdk.WatchableType.Variable)
         self.assertEqual(var2.display_path, '/a/b/var2')
         self.assertEqual(var2.name, 'var2')
         self.assertEqual(var2.datatype, sdk.EmbeddedDataType.boolean)
         self.assertEqual(var2.has_enum(), False)
+        self.assertEqual(var2.var_details.address, 0x4568)
+        self.assertEqual(var2.var_details.bitoffset, None)
+        self.assertEqual(var2.var_details.bitsize, None)
 
         self.assertTrue(var3.has_enum())
         enum_var3 = var3.get_enum()
@@ -954,6 +970,13 @@ class TestClient(ScrutinyUnitTest):
         self.assertEqual(alias_var1.display_path, '/a/b/alias_var1')
         self.assertEqual(alias_var1.name, 'alias_var1')
         self.assertEqual(alias_var1.datatype, sdk.EmbeddedDataType.uint32)
+        self.assertEqual(alias_var1.alias_details.target, '/a/b/var1')
+        self.assertEqual(alias_var1.alias_details.target_type, WatchableType.Variable)
+
+        with self.assertRaises(sdk.exceptions.BadTypeError):
+            temp = alias_var1.rpv_details
+        with self.assertRaises(sdk.exceptions.BadTypeError):
+            temp = alias_var1.var_details
 
         self.assertEqual(alias_rpv1000.type, sdk.WatchableType.Alias)
         self.assertEqual(alias_rpv1000.display_path, '/a/b/alias_rpv1000')

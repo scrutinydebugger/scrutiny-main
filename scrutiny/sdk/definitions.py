@@ -37,6 +37,7 @@ __all__ = [
     'DetailedVarWatchableConfiguration',
     'DetailedAliasWatchableConfiguration',
     'DetailedRPVWatchableConfiguration',
+    'DetailedWatchableConfiguration',
     'VariableFactoryInterface',
     'WatchableListContentPart',
     'DataloggingEncoding',
@@ -851,6 +852,13 @@ class DetailedAliasWatchableConfiguration(WatchableConfigurationWithServerID):
 @dataclass(frozen=True, slots=True)
 class DetailedRPVWatchableConfiguration(WatchableConfigurationWithServerID):
     rpvid: int
+
+
+DetailedWatchableConfiguration: TypeAlias = Union[
+    DetailedVarWatchableConfiguration,
+    DetailedAliasWatchableConfiguration,
+    DetailedRPVWatchableConfiguration
+]
 
 
 @dataclass(frozen=True, slots=True)

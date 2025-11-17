@@ -341,3 +341,24 @@ class WatchableHandle:
     def is_dead(self) -> bool:
         status = ValueStatus(self._status)  # copy for atomicity
         return status not in (ValueStatus.Valid, ValueStatus.NeverSet)
+
+    @property
+    def var_details(self) -> DetailedVarWatchableConfiguration:
+        self._assert_configured()
+        if not isinstance(self._configuration, DetailedVarWatchableConfiguration):
+            raise sdk_exceptions.BadTypeError(f"Watchable {self._shortname} is not a variable. Type={self.type.name}")
+        return self._configuration
+
+    @property
+    def alias_details(self) -> DetailedAliasWatchableConfiguration:
+        self._assert_configured()
+        if not isinstance(self._configuration, DetailedAliasWatchableConfiguration):
+            raise sdk_exceptions.BadTypeError(f"Watchable {self._shortname} is not an alias. Type={self.type.name}")
+        return self._configuration
+
+    @property
+    def rpv_details(self) -> DetailedRPVWatchableConfiguration:
+        self._assert_configured()
+        if not isinstance(self._configuration, DetailedRPVWatchableConfiguration):
+            raise sdk_exceptions.BadTypeError(f"Watchable {self._shortname} is not a Runtime Published Value. Type={self.type.name}")
+        return self._configuration

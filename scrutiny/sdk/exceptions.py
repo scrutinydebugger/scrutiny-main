@@ -56,6 +56,11 @@ class BadEnumError(ScrutinySDKException):
     pass
 
 
+class BadTypeError(ScrutinySDKException):
+    """Raised when trying access a property on a watchable that only exist on another type of watchable"""
+    pass
+
+
 class NotAllowedError(ScrutinySDKException):
     """Raise when an operation is not allowed by the SDK"""
     pass
