@@ -89,11 +89,6 @@ class ScrutinyQtGUI:
     def run(self, args: List[str]) -> int:
         logger = logging.getLogger(self.__class__.__name__)
 
-        loc = QLocale.c()   # Forces C-style environment. Decimal points are "."
-        # Prevent showing/interpreting commas as group separator
-        loc.setNumberOptions(QLocale.NumberOption.RejectGroupSeparator | QLocale.NumberOption.OmitGroupSeparator)
-        QLocale.setDefault(loc)
-
         if sys.platform == "win32":
             # Tells windows that python process host another application. Enables the QT icon in the task bar
             # see https://stackoverflow.com/questions/1551605/how-to-set-applications-taskbar-icon-in-windows-7

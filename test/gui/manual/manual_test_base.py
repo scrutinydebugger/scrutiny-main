@@ -22,6 +22,7 @@ from scrutiny.gui.themes import scrutiny_set_theme
 from scrutiny.gui.themes.default_theme import DefaultTheme
 from scrutiny.gui.themes.fusion_theme import FusionTheme
 from scrutiny.gui.tools.invoker import CrossThreadInvoker
+from scrutiny.gui.core.qt import make_qt_app
 
 from scrutiny.tools.signals import SignalExitHandler
 
@@ -29,13 +30,7 @@ from scrutiny.tools.signals import SignalExitHandler
 def make_manual_test_app() -> QApplication:
     os.environ['SCRUTINY_MANUAL_TEST'] = '1'
     logging.basicConfig(level=logging.DEBUG)
-    register_thread(QT_THREAD_NAME)
-    loc = QLocale.c()   # Forces C-style environment. Decimal points are "."
-    # Prevent showing/interpreting commas as group separator
-    loc.setNumberOptions(QLocale.NumberOption.RejectGroupSeparator | QLocale.NumberOption.OmitGroupSeparator)
-    QLocale.setDefault(loc)
-    app = QApplication([])
-    CrossThreadInvoker.init()
+    app = make_qt_app()
 
     theme_str = os.environ.get('SCRUTINY_THEME', 'default')
     if theme_str == 'default':
