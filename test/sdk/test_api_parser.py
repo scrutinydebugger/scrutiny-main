@@ -229,7 +229,10 @@ class TestApiParser(ScrutinyUnitTest):
                     '/a/b/c': {
                         'id': 'abc',
                         'type': 'var',
-                        'dtype': 'float32'
+                        'dtype': 'float32',
+                        'address': 1234,
+                        'bitoffset': 10,
+                        'bitsize': 32
                     },
                     '/a/b/d': {
                         'id': 'abd',
@@ -242,7 +245,19 @@ class TestApiParser(ScrutinyUnitTest):
                                 'b': 2,
                                 'c': 3,
                             }
-                        }
+                        },
+                        'target': '/aaa/bbb/ccc',
+                        'target_type': 'var',
+                        'gain': 2.0,
+                        'offset': 0.5,
+                        'min': -100,
+                        'max': 100,
+                    },
+                    '/a/b/e': {
+                        'id': 'abe',
+                        'type': 'rpv',
+                        'dtype': 'uint32',
+                        'rpvid': 1234
                     }
                 }
             }
@@ -257,11 +272,16 @@ class TestApiParser(ScrutinyUnitTest):
         self.assertIsInstance(res, dict)
         self.assertIn('/a/b/c', res)
         self.assertIn('/a/b/d', res)
+        self.assertIn('/a/b/e', res)
 
         self.assertEqual(res['/a/b/c'].server_id, 'abc')
         self.assertEqual(res['/a/b/c'].datatype, EmbeddedDataType.float32)
         self.assertEqual(res['/a/b/c'].watchable_type, sdk.WatchableType.Variable)
         self.assertIsNone(res['/a/b/c'].enum)
+
+        self.assertEqual(res['/a/b/c'].address, 1234)
+        self.assertEqual(res['/a/b/c'].bitoffset, 10)
+        self.assertEqual(res['/a/b/c'].bitsize, 32)
 
         self.assertEqual(res['/a/b/d'].server_id, 'abd')
         self.assertEqual(res['/a/b/d'].datatype, EmbeddedDataType.sint8)
@@ -271,6 +291,14 @@ class TestApiParser(ScrutinyUnitTest):
         self.assertEqual(res['/a/b/d'].enum.get_value('a'), 1)
         self.assertEqual(res['/a/b/d'].enum.get_value('b'), 2)
         self.assertEqual(res['/a/b/d'].enum.get_value('c'), 3)
+
+        self.assertEqual(res['/a/b/d'].target, '/aaa/bbb/ccc')
+        self.assertEqual(res['/a/b/d'].target_type, sdk.WatchableType.Variable)
+
+        self.assertEqual(res['/a/b/e'].server_id, 'abe')
+        self.assertEqual(res['/a/b/e'].datatype, EmbeddedDataType.uint32)
+        self.assertEqual(res['/a/b/e'].watchable_type, sdk.WatchableType.RuntimePublishedValue)
+        self.assertEqual(res['/a/b/e'].rpvid, 1234)
 
         delete = Delete()
         for val in [1, True, [], None, "asd", delete]:
@@ -282,32 +310,42 @@ class TestApiParser(ScrutinyUnitTest):
                     msg['subscribed'] = val
                 parser.parse_subscribe_watchable_response(msg)
 
-        for val in [1, True, [], None, "asd", delete]:
-            with self.assertRaises(sdk.exceptions.BadResponseError, msg=f'val={val}'):
+        def check_vals(path, key, vals, expect_error):
+            for val in vals:
                 msg = base()
                 if val is delete:
-                    del msg['subscribed']['/a/b/c']['dtype']
+                    del msg['subscribed'][path][key]
                 else:
-                    msg['subscribed']['/a/b/c']['dtype'] = val
-                parser.parse_subscribe_watchable_response(msg)
+                    msg['subscribed'][path][key] = val
+                if expect_error:
+                    with self.assertRaises(sdk.exceptions.BadResponseError, msg=f'val={val}'):
+                        parser.parse_subscribe_watchable_response(msg)
+                else:
+                    parser.parse_subscribe_watchable_response(msg)
 
-        for val in [1, True, [], None, {}, delete]:
-            with self.assertRaises(sdk.exceptions.BadResponseError, msg=f'val={val}'):
-                msg = base()
-                if val is delete:
-                    del msg['subscribed']['/a/b/c']['id']
-                else:
-                    msg['subscribed']['/a/b/c']['id'] = val
-                parser.parse_subscribe_watchable_response(msg)
+        check_vals('/a/b/c', 'dtype', [1, True, [], None, "asd", delete], expect_error=True)
+        check_vals('/a/b/c', 'id', [1, True, [], None, {}, delete], expect_error=True)
+        check_vals('/a/b/c', 'type', [1, True, [], None, {}, delete], expect_error=True)
+        check_vals('/a/b/c', 'address', [1.2, True, [], None, {}, delete], expect_error=True)
+        check_vals('/a/b/c', 'bitoffset', [1.2, True, [], {}], expect_error=True)
+        check_vals('/a/b/c', 'bitoffset', [None, delete], expect_error=False)
+        check_vals('/a/b/c', 'bitsize', [1.2, True, [], {}], expect_error=True)
+        check_vals('/a/b/c', 'bitsize', [None, delete], expect_error=False)
 
-        for val in [1, True, [], None, {}, delete, "asd"]:
-            with self.assertRaises(sdk.exceptions.BadResponseError, msg=f'val={val}'):
-                msg = base()
-                if val is delete:
-                    del msg['subscribed']['/a/b/c']['type']
-                else:
-                    msg['subscribed']['/a/b/c']['type'] = val
-                parser.parse_subscribe_watchable_response(msg)
+        check_vals('/a/b/d', 'dtype', [1, True, [], None, "asd", delete], expect_error=True)
+        check_vals('/a/b/d', 'id', [1, True, [], None, {}, delete], expect_error=True)
+        check_vals('/a/b/d', 'type', [1, True, [], None, {}, delete], expect_error=True)
+        check_vals('/a/b/d', 'target', [1, True, [], None, {}, delete], expect_error=True)
+        check_vals('/a/b/d', 'target_type', ['asd', 1, True, [], None, {}, delete], expect_error=True)
+        check_vals('/a/b/d', 'gain', [None, delete, 1, 1.1], expect_error=False)
+        check_vals('/a/b/d', 'offset', [None, delete, 1, 1.1], expect_error=False)
+        check_vals('/a/b/d', 'min', [None, delete, 1, 1.1], expect_error=False)
+        check_vals('/a/b/d', 'max', [None, delete, 1, 1.1], expect_error=False)
+
+        check_vals('/a/b/e', 'dtype', [1, True, [], None, "asd", delete], expect_error=True)
+        check_vals('/a/b/e', 'id', [1, True, [], None, {}, delete], expect_error=True)
+        check_vals('/a/b/e', 'type', [1, True, [], None, {}, delete], expect_error=True)
+        check_vals('/a/b/e', 'rpvid', [1.2, True, [], None, "asd", delete], expect_error=True)
 
     def test_get_device_info(self):
         def base() -> api_typing.S2C.GetDeviceInfo:

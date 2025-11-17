@@ -994,6 +994,7 @@ class TestAPI(ScrutinyUnitTest):
             'cmd': 'subscribe_watchable',
             'watchables': [subscribed_entry.get_display_path()]
         }
+        assert isinstance(subscribed_entry, DatastoreVariableEntry)
 
         self.send_request(req, 0)
         response = self.wait_and_load_response()
@@ -1011,6 +1012,13 @@ class TestAPI(ScrutinyUnitTest):
         self.assertEqual(obj1['type'], 'var')
         self.assertEqual(obj1['dtype'], 'float32')
         self.assertNotIn('enum', obj1)  # No enum in this one
+
+        self.assertIn('address', obj1)
+        self.assertIn('bitsize', obj1)
+        self.assertIn('bitoffset', obj1)
+        self.assertEqual(obj1['address'], subscribed_entry.get_address())
+        self.assertEqual(obj1['bitsize'], subscribed_entry.get_bitsize())
+        self.assertEqual(obj1['bitoffset'], subscribed_entry.get_bitoffset())
 
         self.assertIsNone(self.wait_for_response(timeout=0.2))
 

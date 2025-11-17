@@ -346,14 +346,21 @@ def parse_get_watchable_list(response: api_typing.S2C.GetWatchableList) -> GetWa
     return outdata
 
 
-def parse_subscribe_watchable_response(response: api_typing.S2C.SubscribeWatchable) -> Dict[str, sdk.WatchableConfigurationWithServerID]:
+AnyDetailedWatchableconfiguration: TypeAlias = Union[
+    sdk.DetailedVarWatchableConfiguration,
+    sdk.DetailedAliasWatchableConfiguration,
+    sdk.DetailedRPVWatchableConfiguration
+]
+
+
+def parse_subscribe_watchable_response(response: api_typing.S2C.SubscribeWatchable) -> Dict[str, AnyDetailedWatchableconfiguration]:
     """Parse a response to get_watchable_list and assume the request was for a single watchable"""
     assert isinstance(response, dict)
     assert 'cmd' in response
     cmd = response['cmd']
     assert cmd == API.Command.Api2Client.SUBSCRIBE_WATCHABLE_RESPONSE
 
-    outdict: Dict[str, sdk.WatchableConfigurationWithServerID] = {}
+    outdict: Dict[str, AnyDetailedWatchableconfiguration] = {}
     _check_response_dict(cmd, response, 'subscribed', dict)
     for k, v in response['subscribed'].items():
         if not isinstance(k, str):
@@ -380,21 +387,84 @@ def parse_subscribe_watchable_response(response: api_typing.S2C.SubscribeWatchab
             raise sdk.exceptions.BadResponseError(f"Unknown datatype {v['dtype']}")
 
         datatype = EmbeddedDataType(API.APISTR_2_DATATYPE[v['dtype']])
-        if v['type'] == 'alias':
-            watchable_type = sdk.WatchableType.Alias
-        elif v['type'] == 'var':
-            watchable_type = sdk.WatchableType.Variable
-        elif v['type'] == 'rpv':
-            watchable_type = sdk.WatchableType.RuntimePublishedValue
-        else:
-            raise sdk.exceptions.BadResponseError(f"Unsupported watchable type {v['type']}")
 
-        outdict[k] = sdk.WatchableConfigurationWithServerID(
-            server_id=v['id'],
-            watchable_type=watchable_type,
-            datatype=datatype,
-            enum=enum
-        )
+        def read_watchable_type(v: str) -> WatchableType:
+            if v == 'alias':
+                return sdk.WatchableType.Alias
+            elif v == 'var':
+                return sdk.WatchableType.Variable
+            elif v == 'rpv':
+                return sdk.WatchableType.RuntimePublishedValue
+            else:
+                raise sdk.exceptions.BadResponseError(f"Unsupported watchable type {v}")
+
+        watchable_type = read_watchable_type(v['type'])
+        if watchable_type == WatchableType.Variable:
+            v = cast(api_typing.VarDetailedDatastoreEntryDefinition, v)
+            _check_response_dict(cmd, v, 'address', int)
+            if 'bitoffset' in v:
+                _check_response_dict(cmd, v, 'bitoffset', (int, type(None)))
+            if 'bitsize' in v:
+                _check_response_dict(cmd, v, 'bitsize', (int, type(None)))
+
+            outdict[k] = sdk.DetailedVarWatchableConfiguration(
+                server_id=v['id'],
+                watchable_type=watchable_type,
+                datatype=datatype,
+                enum=enum,
+                address=v['address'],
+                bitoffset=v.get('bitoffset', None),
+                bitsize=v.get('bitsize', None)
+            )
+
+        elif watchable_type == WatchableType.Alias:
+            v = cast(api_typing.AliasDetailedDatastoreEntryDefinition, v)
+
+            _check_response_dict(cmd, v, 'target', str)
+            _check_response_dict(cmd, v, 'target_type', str)
+
+            if 'gain' in v:
+                _check_response_dict(cmd, v, 'gain', (float, int, type(None)))
+            if 'offset' in v:
+                _check_response_dict(cmd, v, 'offset', (float, int, type(None)))
+            if 'min' in v:
+                _check_response_dict(cmd, v, 'min', (float, int, type(None)))
+            if 'max' in v:
+                _check_response_dict(cmd, v, 'max', (float, int, type(None)))
+
+            gain = _fetch_dict_val_of_type(v, 'gain', float, None, allow_none=True)
+            offset = _fetch_dict_val_of_type(v, 'offset', float, None, allow_none=True)
+            min = _fetch_dict_val_of_type(v, 'min', float, None, allow_none=True)
+            max = _fetch_dict_val_of_type(v, 'max', float, None, allow_none=True)
+
+            outdict[k] = sdk.DetailedAliasWatchableConfiguration(
+                server_id=v['id'],
+                watchable_type=watchable_type,
+                datatype=datatype,
+                enum=enum,
+
+                target=v['target'],
+                target_type=read_watchable_type(v['target_type']),
+                gain=gain,
+                offset=offset,
+                min=min,
+                max=max
+            )
+
+        elif watchable_type == WatchableType.RuntimePublishedValue:
+            v = cast(api_typing.RPVDetailedDatastoreEntryDefinition, v)
+
+            _check_response_dict(cmd, v, 'rpvid', int)
+
+            outdict[k] = sdk.DetailedRPVWatchableConfiguration(
+                server_id=v['id'],
+                watchable_type=watchable_type,
+                datatype=datatype,
+                enum=enum,
+                rpvid=v['rpvid']
+            )
+        else:
+            raise NotImplementedError("Unsupported watchable type")
 
     return outdict
 

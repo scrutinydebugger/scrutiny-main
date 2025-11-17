@@ -34,6 +34,9 @@ __all__ = [
     'UserCommandResponse',
     'WatchableConfiguration',
     'WatchableConfigurationWithServerID',
+    'DetailedVarWatchableConfiguration',
+    'DetailedAliasWatchableConfiguration',
+    'DetailedRPVWatchableConfiguration',
     'VariableFactoryInterface',
     'WatchableListContentPart',
     'DataloggingEncoding',
@@ -826,6 +829,28 @@ class WatchableConfigurationWithServerID(WatchableConfiguration):
 
     server_id: str
     """The unique ID assigned to that watchable item by the server"""
+
+
+@dataclass(frozen=True, slots=True)
+class DetailedVarWatchableConfiguration(WatchableConfigurationWithServerID):
+    address: int
+    bitoffset: Optional[int]
+    bitsize: Optional[int]
+
+
+@dataclass(frozen=True, slots=True)
+class DetailedAliasWatchableConfiguration(WatchableConfigurationWithServerID):
+    target: str
+    target_type: WatchableType
+    gain: Optional[float]
+    offset: Optional[float]
+    min: Optional[float]
+    max: Optional[float]
+
+
+@dataclass(frozen=True, slots=True)
+class DetailedRPVWatchableConfiguration(WatchableConfigurationWithServerID):
+    rpvid: int
 
 
 @dataclass(frozen=True, slots=True)

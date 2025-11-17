@@ -43,7 +43,7 @@ from scrutiny.server.timebase import server_timebase
 from scrutiny.server.datalogging.datalogging_storage import DataloggingStorage
 from scrutiny.server.datalogging.datalogging_manager import DataloggingManager
 from scrutiny.server.datastore.datastore import Datastore
-from scrutiny.server.datastore.datastore_entry import DatastoreEntry
+from scrutiny.server.datastore.datastore_entry import DatastoreEntry, DatastoreVariableEntry, DatastoreAliasEntry, DatastoreRPVEntry
 from scrutiny.server.device.device_handler import DeviceHandler, RawMemoryReadRequest, RawMemoryWriteRequest, UserCommandCallback
 from scrutiny.server.active_sfd_handler import ActiveSFDHandler
 from scrutiny.server.device.links import LinkConfig
@@ -704,9 +704,9 @@ class API:
                     'var_factory': len(batch_content[WatchableGroup.VariableFactory])
                 },
                 'content': {
-                    'var': [self.make_datastore_entry_definition(cast(DatastoreEntry, x), include_type=False) for x in batch_content[WatchableGroup.Variable]],
-                    'alias': [self.make_datastore_entry_definition(cast(DatastoreEntry, x), include_type=False) for x in batch_content[WatchableGroup.Alias]],
-                    'rpv': [self.make_datastore_entry_definition(cast(DatastoreEntry, x), include_type=False) for x in batch_content[WatchableGroup.RuntimePublishedValue]],
+                    'var': [self.make_datastore_entry_summary_definition(cast(DatastoreEntry, x), include_type=False) for x in batch_content[WatchableGroup.Variable]],
+                    'alias': [self.make_datastore_entry_summary_definition(cast(DatastoreEntry, x), include_type=False) for x in batch_content[WatchableGroup.Alias]],
+                    'rpv': [self.make_datastore_entry_summary_definition(cast(DatastoreEntry, x), include_type=False) for x in batch_content[WatchableGroup.RuntimePublishedValue]],
                     'var_factory': [self.make_variable_factory_definition(cast(VariableFactory, x), include_type=False) for x in batch_content[WatchableGroup.VariableFactory]],
                 },
                 'done': done
@@ -730,6 +730,33 @@ class API:
 
         self.client_handler.send(ClientHandlerMessage(conn_id=conn_id, obj=response))
 
+    def make_datastore_detailed_entry_definition(self, entry: DatastoreEntry) -> api_typing.DetailedDatastoreEntryDefinition:
+        """Make a detailed description of a watchable to be returned upon watch subscription"""
+
+        entry_definition = cast(api_typing.DetailedDatastoreEntryDefinition, self.make_datastore_entry_summary_definition(entry))
+        entry_definition['id'] = entry.get_id()
+
+        if isinstance(entry, DatastoreVariableEntry):
+            entry_definition = cast(api_typing.VarDetailedDatastoreEntryDefinition, entry_definition)
+            entry_definition['address'] = entry.get_address()
+            entry_definition['bitoffset'] = entry.get_bitoffset()
+            entry_definition['bitsize'] = entry.get_bitsize()
+        elif isinstance(entry, DatastoreAliasEntry):
+            entry_definition = cast(api_typing.AliasDetailedDatastoreEntryDefinition, entry_definition)
+            entry_definition['target'] = entry.aliasdef.get_target()
+            entry_definition['target_type'] = self.WATCHABLE_TYPE_2_APISTR[entry.aliasdef.get_target_type()]
+            entry_definition['gain'] = entry.aliasdef.gain
+            entry_definition['bias'] = entry.aliasdef.offset
+            entry_definition['min'] = entry.aliasdef.min
+            entry_definition['max'] = entry.aliasdef.max
+        elif isinstance(entry, DatastoreRPVEntry):
+            entry_definition = cast(api_typing.RPVDetailedDatastoreEntryDefinition, entry_definition)
+            entry_definition['rpvid'] = entry.rpv.id
+        else:
+            raise NotImplementedError("Unsupported entry type")
+
+        return entry_definition
+
     #  ===  SUBSCRIBE_WATCHABLE ===
     def process_subscribe_watchable(self, conn_id: str, req: api_typing.C2S.SubscribeWatchable) -> None:
         # Add the connection ID to the list of watchers of given datastore entries.
@@ -737,7 +764,7 @@ class API:
         _check_request_dict(req, req, 'watchables', list)
 
         # Check existence of all watchable before doing anything.
-        subscribed: Dict[str, api_typing.DatastoreEntryDefinitionWithId] = {}
+        subscribed: Dict[str, api_typing.DetailedDatastoreEntryDefinition] = {}
         for path in req['watchables']:
             entry: Optional[DatastoreEntry] = None
             try:
@@ -751,9 +778,7 @@ class API:
             if entry is None:
                 raise InvalidRequestException(req, 'Unknown watchable : %s' % str(path))
 
-            entry_definition = cast(api_typing.DatastoreEntryDefinitionWithId, self.make_datastore_entry_definition(entry))
-            entry_definition['id'] = entry.get_id()
-            subscribed[path] = entry_definition
+            subscribed[path] = self.make_datastore_detailed_entry_definition(entry)
 
         for path in req['watchables']:
             self.datastore.start_watching(
@@ -1963,13 +1988,13 @@ class API:
         for watcher_conn_id in watchers:
             self.client_handler.send(ClientHandlerMessage(conn_id=watcher_conn_id, obj=msg))
 
-    def make_datastore_entry_definition(self,
-                                        entry: DatastoreEntry,
-                                        include_type: bool = True,
-                                        include_display_path: bool = True,
-                                        include_datatype: bool = True,
-                                        include_enum: bool = True
-                                        ) -> api_typing.DatastoreEntryDefinition:
+    def make_datastore_entry_summary_definition(self,
+                                                entry: DatastoreEntry,
+                                                include_type: bool = True,
+                                                include_display_path: bool = True,
+                                                include_datatype: bool = True,
+                                                include_enum: bool = True
+                                                ) -> api_typing.DatastoreEntryDefinition:
         # Craft the data structure sent by the API to give the available watchables
         definition: api_typing.DatastoreEntryDefinition = {
 

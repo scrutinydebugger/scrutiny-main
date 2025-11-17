@@ -79,6 +79,7 @@ class VarFactoryParams(TypedDict):
 
 
 class DatastoreEntryDefinition(TypedDict, total=False):
+    """Given when listing what's avaialble"""
     path: str
     dtype: Datatype
     type: WatchableType              # Can be missing
@@ -86,7 +87,37 @@ class DatastoreEntryDefinition(TypedDict, total=False):
 
 
 class DatastoreEntryDefinitionWithId(DatastoreEntryDefinition):
+    """Base for the detailed version"""
     id: str
+
+
+class VarDetailedDatastoreEntryDefinition(DatastoreEntryDefinitionWithId):
+    """Given to the user when subscribing"""
+    address: int
+    bitoffset: Optional[int]
+    bitsize: Optional[int]
+
+
+class AliasDetailedDatastoreEntryDefinition(DatastoreEntryDefinitionWithId):
+    """Given to the user when subscribing"""
+    target: str
+    target_type: str
+    gain: Optional[float]
+    bias: Optional[float]
+    min: Optional[float]
+    max: Optional[float]
+
+
+class RPVDetailedDatastoreEntryDefinition(DatastoreEntryDefinitionWithId):
+    """Given to the user when subscribing"""
+    rpvid: int
+
+
+DetailedDatastoreEntryDefinition: TypeAlias = Union[
+    VarDetailedDatastoreEntryDefinition,
+    AliasDetailedDatastoreEntryDefinition,
+    RPVDetailedDatastoreEntryDefinition
+]
 
 
 class VariableFactoryDefinition(DatastoreEntryDefinition):
@@ -387,7 +418,7 @@ class S2C:
         done: bool
 
     class SubscribeWatchable(BaseS2CMessage):
-        subscribed: Dict[str, DatastoreEntryDefinitionWithId]
+        subscribed: Dict[str, DetailedDatastoreEntryDefinition]
 
     class UnsubscribeWatchable(BaseS2CMessage):
         unsubscribed: List[str]

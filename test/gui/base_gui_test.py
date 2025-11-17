@@ -8,6 +8,7 @@
 
 from test import ScrutinyUnitTest
 from PySide6.QtWidgets import QApplication
+from PySide6.QtCore import QLocale
 import enum
 import time
 from test import logger
@@ -44,6 +45,11 @@ class ScrutinyBaseGuiTest(ScrutinyUnitTest):
         if self.app is None:
             # Required to process event because they are emitted in a different thread, therefore the connectiontype is queued
             self.app = make_qt_app([])
+            loc = QLocale.c()   # Forces C-style environment. Decimal points are "."
+            # Prevent showing/interpreting commas as group separator
+            loc.setNumberOptions(QLocale.NumberOption.RejectGroupSeparator | QLocale.NumberOption.OmitGroupSeparator)
+            QLocale.setDefault(loc)
+
         scrutiny_set_theme(self.app, DefaultTheme())
 
     def tearDown(self):
