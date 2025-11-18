@@ -107,6 +107,7 @@ class API:
             ECHO = 'echo'
             GET_WATCHABLE_LIST = 'get_watchable_list'
             GET_WATCHABLE_COUNT = 'get_watchable_count'
+            GET_WATCHABLE_INFO = 'get_watchable_info'
             SUBSCRIBE_WATCHABLE = 'subscribe_watchable'
             UNSUBSCRIBE_WATCHABLE = 'unsubscribe_watchable'
             GET_INSTALLED_SFD = 'get_installed_sfd'
@@ -138,6 +139,7 @@ class API:
             WELCOME = 'welcome'
             GET_WATCHABLE_LIST_RESPONSE = 'response_get_watchable_list'
             GET_WATCHABLE_COUNT_RESPONSE = 'response_get_watchable_count'
+            GET_WATCHABLE_INFO_RESPONSE = 'response_get_watchable_info'
             SUBSCRIBE_WATCHABLE_RESPONSE = 'response_subscribe_watchable'
             UNSUBSCRIBE_WATCHABLE_RESPONSE = 'response_unsubscribe_watchable'
             WATCHABLE_UPDATE = 'watchable_update'
@@ -352,6 +354,7 @@ class API:
             self.Command.Client2Api.ECHO: self.process_echo,
             self.Command.Client2Api.GET_WATCHABLE_LIST: self.process_get_watchable_list,
             self.Command.Client2Api.GET_WATCHABLE_COUNT: self.process_get_watchable_count,
+            self.Command.Client2Api.GET_WATCHABLE_INFO: self.process_get_watchable_info,
             self.Command.Client2Api.SUBSCRIBE_WATCHABLE: self.process_subscribe_watchable,
             self.Command.Client2Api.UNSUBSCRIBE_WATCHABLE: self.process_unsubscribe_watchable,
             self.Command.Client2Api.GET_INSTALLED_SFD: self.process_get_installed_sfd,
@@ -730,6 +733,20 @@ class API:
 
         self.client_handler.send(ClientHandlerMessage(conn_id=conn_id, obj=response))
 
+    #  ===  GET_WATCHABLE_INFO ===
+    def process_get_watchable_info(self, conn_id: str, req: api_typing.C2S.GetWatchableInfo) -> None:
+        _check_request_dict(req, req, 'watchables', list)
+
+        # This can throw
+        outdict = self._make_datastore_detailed_definition_by_display_path(req, req['watchables'])
+        response: api_typing.S2C.GetWatchableInfo = {
+            'cmd': self.Command.Api2Client.GET_WATCHABLE_INFO_RESPONSE,
+            'reqid': self.get_req_id(req),
+            'info': outdict
+        }
+
+        self.client_handler.send(ClientHandlerMessage(conn_id=conn_id, obj=response))
+
     def make_datastore_detailed_entry_definition(self, entry: DatastoreEntry) -> api_typing.DetailedDatastoreEntryDefinition:
         """Make a detailed description of a watchable to be returned upon watch subscription"""
 
@@ -757,28 +774,29 @@ class API:
 
         return entry_definition
 
+    def _make_datastore_detailed_definition_by_display_path(self,
+                                                            req: api_typing.C2SMessage,
+                                                            watchables: List[str]
+                                                            ) -> Dict[str, api_typing.DetailedDatastoreEntryDefinition]:
+        outdict: Dict[str, api_typing.DetailedDatastoreEntryDefinition] = {}
+        for path in watchables:
+            entry: Optional[DatastoreEntry] = None
+            try:
+                entry = self.datastore.get_entry_by_display_path(path)  # Will raise an exception if not existent
+            except KeyError as e:
+                raise InvalidRequestException(req, 'Unknown watchable : %s' % str(path))
+
+            outdict[path] = self.make_datastore_detailed_entry_definition(entry)
+        return outdict
+
     #  ===  SUBSCRIBE_WATCHABLE ===
     def process_subscribe_watchable(self, conn_id: str, req: api_typing.C2S.SubscribeWatchable) -> None:
         # Add the connection ID to the list of watchers of given datastore entries.
         # datastore callback will write the new values in the API output queue (through the value streamer)
         _check_request_dict(req, req, 'watchables', list)
 
-        # Check existence of all watchable before doing anything.
-        subscribed: Dict[str, api_typing.DetailedDatastoreEntryDefinition] = {}
-        for path in req['watchables']:
-            entry: Optional[DatastoreEntry] = None
-            try:
-                entry = self.datastore.get_entry_by_display_path(path)  # Will raise an exception if not existent
-            except KeyError as e:
-                pass
-
-            if entry is None:
-                pass
-
-            if entry is None:
-                raise InvalidRequestException(req, 'Unknown watchable : %s' % str(path))
-
-            subscribed[path] = self.make_datastore_detailed_entry_definition(entry)
+        # this can throw. Check existence of all watchable before doing anything.
+        subscribed = self._make_datastore_detailed_definition_by_display_path(req, req['watchables'])
 
         for path in req['watchables']:
             self.datastore.start_watching(

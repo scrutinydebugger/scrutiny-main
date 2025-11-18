@@ -276,6 +276,9 @@ class C2S:
     class GetWatchableCount(BaseC2SMessage):
         pass
 
+    class GetWatchableInfo(BaseC2SMessage):
+        watchables: List[str]
+
     class GetWatchableList(BaseC2SMessage):
         max_per_response: int
         filter: GetWatchableList_Filter
@@ -417,6 +420,9 @@ class S2C:
         content: WatchableListContent
         done: bool
 
+    class GetWatchableInfo(BaseS2CMessage):
+        info: Dict[str, DetailedDatastoreEntryDefinition]
+
     class SubscribeWatchable(BaseS2CMessage):
         subscribed: Dict[str, DetailedDatastoreEntryDefinition]
 
@@ -519,6 +525,7 @@ C2SMessage = Union[
     C2S.GetDeviceInfo,
     C2S.GetWatchableCount,
     C2S.GetWatchableList,
+    C2S.GetWatchableInfo,
     C2S.LoadSFD,
     C2S.DownloadSFD,
     C2S.UploadSFDInit,
@@ -552,6 +559,7 @@ S2CMessage = Union[
     S2C.GetDeviceInfo,
     S2C.GetWatchableCount,
     S2C.GetWatchableList,
+    S2C.GetWatchableInfo,
     S2C.SubscribeWatchable,
     S2C.UnsubscribeWatchable,
     S2C.WatchableUpdate,
