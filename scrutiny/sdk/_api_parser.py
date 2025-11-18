@@ -346,16 +346,13 @@ def parse_get_watchable_list(response: api_typing.S2C.GetWatchableList) -> GetWa
     return outdata
 
 
-def parse_subscribe_watchable_response(response: api_typing.S2C.SubscribeWatchable) -> Dict[str, sdk.DetailedWatchableConfiguration]:
-    """Parse a response to get_watchable_list and assume the request was for a single watchable"""
-    assert isinstance(response, dict)
-    assert 'cmd' in response
-    cmd = response['cmd']
-    assert cmd == API.Command.Api2Client.SUBSCRIBE_WATCHABLE_RESPONSE
+def _read_map_of_detailed_watchable_info(
+        cmd: str,
+        themap: Dict[str, api_typing.DetailedDatastoreEntryDefinition]
+) -> Dict[str, sdk.DetailedWatchableConfiguration]:
 
     outdict: Dict[str, sdk.DetailedWatchableConfiguration] = {}
-    _check_response_dict(cmd, response, 'subscribed', dict)
-    for k, v in response['subscribed'].items():
+    for k, v in themap.items():
         if not isinstance(k, str):
             raise sdk.exceptions.BadResponseError('Gotten a subscription dict with invalid key')
 
@@ -460,6 +457,28 @@ def parse_subscribe_watchable_response(response: api_typing.S2C.SubscribeWatchab
             raise NotImplementedError("Unsupported watchable type")
 
     return outdict
+
+
+def parse_subscribe_watchable_response(response: api_typing.S2C.SubscribeWatchable) -> Dict[str, sdk.DetailedWatchableConfiguration]:
+    """Parse a response to get_watchable_list and assume the request was for a single watchable"""
+    assert isinstance(response, dict)
+    assert 'cmd' in response
+    cmd = response['cmd']
+    assert cmd == API.Command.Api2Client.SUBSCRIBE_WATCHABLE_RESPONSE
+
+    _check_response_dict(cmd, response, 'subscribed', dict)
+    return _read_map_of_detailed_watchable_info(cmd, response['subscribed'])
+
+
+def parse_get_watchable_info_response(response: api_typing.S2C.GetWatchableInfo) -> Dict[str, sdk.DetailedWatchableConfiguration]:
+    """Parse a response to get_watchable_list and assume the request was for a single watchable"""
+    assert isinstance(response, dict)
+    assert 'cmd' in response
+    cmd = response['cmd']
+    assert cmd == API.Command.Api2Client.GET_WATCHABLE_INFO_RESPONSE
+
+    _check_response_dict(cmd, response, 'info', dict)
+    return _read_map_of_detailed_watchable_info(cmd, response['info'])
 
 
 def parse_get_device_info(response: api_typing.S2C.GetDeviceInfo) -> Optional[sdk.DeviceInfo]:

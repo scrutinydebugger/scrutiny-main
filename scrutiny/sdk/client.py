@@ -1754,11 +1754,11 @@ class ScrutinyClient:
                 watchable_defs = api_parser.parse_subscribe_watchable_response(response)
                 if len(watchable_defs) != 1:
                     raise sdk.exceptions.BadResponseError(
-                        f'The server did confirm the subscription of {len(response["subscribed"])} while we requested only for 1')
+                        f'The server did confirm the subscription of {len(watchable_defs)} while we requested only for 1')
 
                 if path not in watchable_defs:
                     raise sdk.exceptions.BadResponseError(
-                        f'The server did not confirm the subscription for the right watchable. Got {list(response["subscribed"].keys())[0]}, expected {path}')
+                        f'The server did not confirm the subscription for the right watchable. Got {list(watchable_defs.keys())[0]}, expected {path}')
 
                 watchable._configure(watchable_defs[path])
                 assert watchable._configuration is not None
@@ -1846,6 +1846,65 @@ class ScrutinyClient:
         watchable._set_invalid(ValueStatus.NotWatched)
         if self._logger.isEnabledFor(logging.DEBUG):
             self._logger.debug(f"Done watching {watchable.display_path}")
+
+    def get_watchable_info(self, paths: List[str]) -> Dict[str, DetailedWatchableConfiguration]:
+        validation.assert_type(paths, 'paths', list)
+        for i in range(len(paths)):
+            validation.assert_type(paths[i], f'paths[{i}]', str)
+
+        @dataclass
+        class Container:
+            obj: Optional[Dict[str, DetailedWatchableConfiguration]]
+
+        container = Container(obj=None)
+
+        def wt_get_info_callback(state: CallbackState, response: Optional[api_typing.S2CMessage]) -> None:
+            if response is not None and state == CallbackState.OK:
+                response = cast(api_typing.S2C.GetWatchableInfo, response)
+                watchable_defs = api_parser.parse_get_watchable_info_response(response)
+                if len(watchable_defs) != len(paths):
+                    raise sdk.exceptions.BadResponseError(
+                        f'The server returned the info for {len(watchable_defs)} watchables while we requested only for {len(paths)}')
+
+                for path in paths:
+                    if path not in watchable_defs:
+                        raise sdk.exceptions.BadResponseError(f'The server did not return the information of {path}')
+
+                container.obj = watchable_defs
+
+        req = self._make_request(API.Command.Client2Api.SUBSCRIBE_WATCHABLE, {
+            'watchables': paths
+        })
+
+        future = self._send(req, wt_get_info_callback)
+        assert future is not None
+        future.wait()
+
+        if future.state != CallbackState.OK or container.obj is None:
+            raise sdk.exceptions.OperationFailure(f"Failed to get the watchable info. {future.error_str}")
+
+        return container.obj
+
+    def get_var_watchable_info(self, path: str) -> DetailedVarWatchableConfiguration:
+        d = self.get_watchable_info([path])
+        info = d[path]
+        if not isinstance(info, DetailedVarWatchableConfiguration):
+            raise sdk.exceptions.BadTypeError(f"Watchable {path} is not a variable. Got {info.watchable_type.name}")
+        return info
+
+    def get_alias_watchable_info(self, path: str) -> DetailedAliasWatchableConfiguration:
+        d = self.get_watchable_info([path])
+        info = d[path]
+        if not isinstance(info, DetailedAliasWatchableConfiguration):
+            raise sdk.exceptions.BadTypeError(f"Watchable {path} is not an alias. Got {info.watchable_type.name}")
+        return info
+
+    def get_rpv_watchable_info(self, path: str) -> DetailedRPVWatchableConfiguration:
+        d = self.get_watchable_info([path])
+        info = d[path]
+        if not isinstance(info, DetailedRPVWatchableConfiguration):
+            raise sdk.exceptions.BadTypeError(f"Watchable {path} is not a RPV. Got {info.watchable_type.name}")
+        return info
 
     def wait_new_value_for_all(self, timeout: float = 5) -> None:
         """Wait for all watched elements to be updated at least once after the call to this method
