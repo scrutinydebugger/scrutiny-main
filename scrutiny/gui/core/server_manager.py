@@ -309,7 +309,7 @@ class ServerManager:
     _loaded_sfd: Optional[sdk.SFDInfo]
     """Contains all the info about the actually loaded Scrutiny Firmware Description. ``None`` if not available"""
 
-    _partial_watchable_downloaded_data: Dict[sdk.WatchableType, Dict[str, sdk.WatchableConfiguration]]
+    _partial_watchable_downloaded_data: Dict[sdk.WatchableType, Dict[str, sdk.BriefWatchableConfiguration]]
 
     def __init__(self, watchable_registry: WatchableRegistry, client: Optional[ScrutinyClient] = None) -> None:
         super().__init__()  # Required for signals to work
@@ -634,11 +634,11 @@ class ServerManager:
         if ctx.had_data:
             self._signals.registry_changed.emit()
 
-    def _make_var_watchable_from_factories(self, var_factories: Dict[str, sdk.VariableFactoryInterface]) -> Dict[str, sdk.WatchableConfiguration]:
+    def _make_var_watchable_from_factories(self, var_factories: Dict[str, sdk.VariableFactoryInterface]) -> Dict[str, sdk.BriefWatchableConfiguration]:
         """Take the variable factories received from the server and generate all the var watchables from them.
         Might drop some of them to avoid bloating the registry with large buffers 
         """
-        outdict: Dict[str, sdk.WatchableConfiguration] = {}
+        outdict: Dict[str, sdk.BriefWatchableConfiguration] = {}
         var_factories_filt: List[sdk.VariableFactoryInterface] = []
         # Start by removing var factory that generate too many elements
         for access_path, factory in var_factories.items():
@@ -824,7 +824,7 @@ class ServerManager:
             raise NotImplementedError(f"Unsupported state: {registration_status.active_state}")
 
     @enforce_thread(QT_THREAD_NAME)
-    def _qt_registry_watch_callback(self, watcher_id: Union[str, int], server_path: str, watchable_config: sdk.WatchableConfiguration, registry_id: int) -> None:
+    def _qt_registry_watch_callback(self, watcher_id: Union[str, int], server_path: str, watchable_config: sdk.BriefWatchableConfiguration, registry_id: int) -> None:
         """Called when a gui component register a watcher on the registry"""
         # Runs from QT thread
         watcher_count = self._registry.node_watcher_count(watchable_config.watchable_type, server_path)
@@ -832,7 +832,7 @@ class ServerManager:
             self._qt_maybe_request_watch(watchable_config.watchable_type, server_path)
 
     @enforce_thread(QT_THREAD_NAME)
-    def _qt_registry_unwatch_callback(self, watcher_id: Union[str, int], server_path: str, watchable_config: sdk.WatchableConfiguration, registry_id: int) -> None:
+    def _qt_registry_unwatch_callback(self, watcher_id: Union[str, int], server_path: str, watchable_config: sdk.BriefWatchableConfiguration, registry_id: int) -> None:
         """Called when a gui component unregister a watcher on the registry"""
         # Runs from QT thread
         watcher_count = self._registry.node_watcher_count(watchable_config.watchable_type, server_path)

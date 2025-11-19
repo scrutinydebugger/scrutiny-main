@@ -19,7 +19,7 @@ from scrutiny.gui.widgets.watchable_tree import (
     NodeSerializableData
 )
 
-from scrutiny.sdk import WatchableConfiguration
+from scrutiny.sdk import BriefWatchableConfiguration
 from scrutiny.tools.typing import *
 
 
@@ -28,7 +28,7 @@ class VarListComponentTreeModel(WatchableTreeModel):
     Mainly handles drag&drop logic
     """
 
-    def get_watchable_extra_columns(self, fqn: str, watchable_config: Optional[WatchableConfiguration] = None) -> List[QStandardItem]:
+    def get_watchable_extra_columns(self, fqn: str, watchable_config: Optional[BriefWatchableConfiguration] = None) -> List[QStandardItem]:
         """Define the columns to add for a watchable (leaf) row. Called by the parent class"""
         if watchable_config is None:
             return []

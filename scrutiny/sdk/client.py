@@ -9,7 +9,7 @@
 __all__ = [
     'ScrutinyClient',
     'SFDUploadRequest',
-    'DownloadSFDRequest',
+    'SFDDownloadRequest',
     'WatchableListDownloadRequest',
     'SFDDownloadRequest',
 ]

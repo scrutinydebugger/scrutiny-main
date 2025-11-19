@@ -27,7 +27,7 @@ from scrutiny.tools.typing import *
 @dataclass(frozen=True, slots=True)
 class SingleResult:
     fqn: str
-    config: sdk.WatchableConfiguration
+    config: sdk.BriefWatchableConfiguration
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,7 +39,7 @@ class SearchCriteria:
 
 
 class SearchResultTreeModel(VarListComponentTreeModel):
-    def get_watchable_extra_columns(self, fqn: str, watchable_config: Optional[sdk.WatchableConfiguration] = None) -> List[QStandardItem]:
+    def get_watchable_extra_columns(self, fqn: str, watchable_config: Optional[sdk.BriefWatchableConfiguration] = None) -> List[QStandardItem]:
         outlist: List[QStandardItem] = [QStandardItem(WatchableRegistry.FQN.parse(fqn).path)]
 
         if watchable_config is not None:

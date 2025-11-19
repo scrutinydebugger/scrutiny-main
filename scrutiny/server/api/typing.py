@@ -78,7 +78,7 @@ class VarFactoryParams(TypedDict):
     array_nodes: Dict[str, List[int]]
 
 
-class DatastoreEntryDefinition(TypedDict, total=False):
+class DatastoreEntryBriefDefinition(TypedDict, total=False):
     """Given when listing what's avaialble"""
     path: str
     dtype: Datatype
@@ -86,19 +86,19 @@ class DatastoreEntryDefinition(TypedDict, total=False):
     enum: Optional[EnumDefinition]  # Can be missing. Default to None
 
 
-class DatastoreEntryDefinitionWithId(DatastoreEntryDefinition):
+class BaseDatastoreEntryDetailedDefinition(DatastoreEntryBriefDefinition):
     """Base for the detailed version"""
     id: str
 
 
-class VarDetailedDatastoreEntryDefinition(DatastoreEntryDefinitionWithId):
+class VarDetailedDatastoreEntryDefinition(BaseDatastoreEntryDetailedDefinition):
     """Given to the user when subscribing"""
     address: int
     bitoffset: Optional[int]
     bitsize: Optional[int]
 
 
-class AliasDetailedDatastoreEntryDefinition(DatastoreEntryDefinitionWithId):
+class AliasDetailedDatastoreEntryDefinition(BaseDatastoreEntryDetailedDefinition):
     """Given to the user when subscribing"""
     target: str
     target_type: str
@@ -108,7 +108,7 @@ class AliasDetailedDatastoreEntryDefinition(DatastoreEntryDefinitionWithId):
     max: Optional[float]
 
 
-class RPVDetailedDatastoreEntryDefinition(DatastoreEntryDefinitionWithId):
+class RPVDetailedDatastoreEntryDefinition(BaseDatastoreEntryDetailedDefinition):
     """Given to the user when subscribing"""
     rpvid: int
 
@@ -120,14 +120,14 @@ DetailedDatastoreEntryDefinition: TypeAlias = Union[
 ]
 
 
-class VariableFactoryDefinition(DatastoreEntryDefinition):
+class VariableFactoryDefinition(DatastoreEntryBriefDefinition):
     factory_params: VarFactoryParams
 
 
 class WatchableListContent(TypedDict):
-    var: List[DatastoreEntryDefinition]
-    alias: List[DatastoreEntryDefinition]
-    rpv: List[DatastoreEntryDefinition]
+    var: List[DatastoreEntryBriefDefinition]
+    alias: List[DatastoreEntryBriefDefinition]
+    rpv: List[DatastoreEntryBriefDefinition]
     var_factory: List[VariableFactoryDefinition]
 
 

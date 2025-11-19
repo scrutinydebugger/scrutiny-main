@@ -877,7 +877,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
             tools.log_exception(self.logger, e, f"Error when receiving data for the chart")
             self.stop_acquisition()
 
-    def _unwatch_callback(self, watcher_id: Union[str, int], server_path: str, watchable_config: sdk.WatchableConfiguration, registry_id: int) -> None:
+    def _unwatch_callback(self, watcher_id: Union[str, int], server_path: str, watchable_config: sdk.BriefWatchableConfiguration, registry_id: int) -> None:
         # Should we do something? User feedback if the watchable is not available anymore maybe?
         pass
 

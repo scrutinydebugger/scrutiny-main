@@ -2571,7 +2571,7 @@ class TestClient(ScrutinyUnitTest):
         self.assertEqual(len(content.rpv), 1)
         self.assertEqual(len(content.var_factory), 1)
 
-        def test_watchable_received(bucket: Dict[str, sdk.WatchableConfiguration], path: str):
+        def test_watchable_received(bucket: Dict[str, sdk.BriefWatchableConfiguration], path: str):
             entry = self.datastore.get_entry_by_display_path(path)
             self.assertEqual(bucket[path].watchable_type, entry.get_type())
             self.assertEqual(bucket[path].datatype, entry.get_data_type())
@@ -2620,7 +2620,7 @@ class TestClient(ScrutinyUnitTest):
         self.assertEqual(len(content.rpv), 1)
         self.assertEqual(len(content.var_factory), 0)   # 0 instead of 1
 
-        def test_watchable_received(bucket: Dict[str, sdk.WatchableConfiguration], path: str):
+        def test_watchable_received(bucket: Dict[str, sdk.BriefWatchableConfiguration], path: str):
             entry = self.datastore.get_entry_by_display_path(path)
             self.assertEqual(bucket[path].watchable_type, entry.get_type())
             self.assertEqual(bucket[path].datatype, entry.get_data_type())
@@ -2646,7 +2646,7 @@ class TestClient(ScrutinyUnitTest):
         self.assertEqual(len(content.rpv), 1)
         self.assertEqual(len(content.var_factory), 0)   # 0 instead of 1
 
-        def test_watchable_received(bucket: Dict[str, sdk.WatchableConfiguration], path: str):
+        def test_watchable_received(bucket: Dict[str, sdk.BriefWatchableConfiguration], path: str):
             entry = self.datastore.get_entry_by_display_path(path)
             self.assertEqual(bucket[path].watchable_type, entry.get_type())
             self.assertEqual(bucket[path].datatype, entry.get_data_type())
@@ -2737,7 +2737,7 @@ class TestClient(ScrutinyUnitTest):
                         for path, config in obj.iterate_possible_paths():
                             self.datastore.get_entry_by_display_path(path)  # Check that this entry exist
                     else:
-                        self.assertIsInstance(obj, sdk.WatchableConfiguration)
+                        self.assertIsInstance(obj, sdk.BriefWatchableConfiguration)
                         self.datastore.get_entry_by_display_path(path)  # Check that this entry exist
 
                     self.assertNotIn(path, received_path, "Received duplicate item")

@@ -231,7 +231,7 @@ def parse_get_watchable_list(response: api_typing.S2C.GetWatchableList) -> GetWa
         data=sdk.WatchableListContentPart()
     )
 
-    typekey_to_dict_ref: Dict[WATCHABLE_TYPE_KEY, Dict[str, sdk.WatchableConfiguration]] = {
+    typekey_to_dict_ref: Dict[WATCHABLE_TYPE_KEY, Dict[str, sdk.BriefWatchableConfiguration]] = {
         'rpv': outdata.data.rpv,
         'alias': outdata.data.alias,
         'var': outdata.data.var
@@ -242,7 +242,7 @@ def parse_get_watchable_list(response: api_typing.S2C.GetWatchableList) -> GetWa
         'var': sdk.WatchableType.Variable,
     }
 
-    def get_enum(element: Union[api_typing.DatastoreEntryDefinition, api_typing.VariableFactoryDefinition]) -> Optional[EmbeddedEnum]:
+    def get_enum(element: Union[api_typing.DatastoreEntryBriefDefinition, api_typing.VariableFactoryDefinition]) -> Optional[EmbeddedEnum]:
         enum: Optional[EmbeddedEnum] = None
         if 'enum' in element and element['enum'] is not None:
             _check_response_dict(cmd, element, 'enum', dict)
@@ -262,7 +262,7 @@ def parse_get_watchable_list(response: api_typing.S2C.GetWatchableList) -> GetWa
                 enum.add_value(key, val)
         return enum
 
-    def get_dtype(element: Union[api_typing.DatastoreEntryDefinition, api_typing.VariableFactoryDefinition], keyprefix: str) -> EmbeddedDataType:
+    def get_dtype(element: Union[api_typing.DatastoreEntryBriefDefinition, api_typing.VariableFactoryDefinition], keyprefix: str) -> EmbeddedDataType:
         _check_response_dict(cmd, element, 'dtype', str, keyprefix)
 
         if element['dtype'] not in API.APISTR_2_DATATYPE:
@@ -270,7 +270,7 @@ def parse_get_watchable_list(response: api_typing.S2C.GetWatchableList) -> GetWa
 
         return EmbeddedDataType(API.APISTR_2_DATATYPE[element['dtype']])
 
-    def get_path(element: Union[api_typing.DatastoreEntryDefinition, api_typing.VariableFactoryDefinition], keyprefix: str) -> str:
+    def get_path(element: Union[api_typing.DatastoreEntryBriefDefinition, api_typing.VariableFactoryDefinition], keyprefix: str) -> str:
         _check_response_dict(cmd, element, 'path', str, keyprefix)
         if len(element['path']) == 0:
             raise sdk.exceptions.BadResponseError(f"Empty path")
@@ -310,12 +310,12 @@ def parse_get_watchable_list(response: api_typing.S2C.GetWatchableList) -> GetWa
             outdict = typekey_to_dict_ref[typekey]
             for i in range(len(container)):
                 keyprefix = f'content.{typekey}[{i}]'
-                element = cast(api_typing.DatastoreEntryDefinition, container[i])
+                element = cast(api_typing.DatastoreEntryBriefDefinition, container[i])
                 path = get_path(element, keyprefix)
                 datatype = get_dtype(element, keyprefix)
                 enum = get_enum(element)
 
-                outdict[path] = sdk.WatchableConfiguration(
+                outdict[path] = sdk.BriefWatchableConfiguration(
                     watchable_type=typekey_to_watchable_type[typekey],
                     datatype=datatype,
                     enum=enum

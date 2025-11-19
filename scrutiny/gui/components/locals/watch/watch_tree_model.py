@@ -22,7 +22,7 @@ from PySide6.QtWidgets import QWidget, QMenu, QAbstractItemDelegate, QComboBox, 
 from PySide6.QtGui import (QStandardItem, QPalette, QContextMenuEvent, QDragMoveEvent, QDropEvent,
                            QDragEnterEvent, QKeyEvent, QStandardItem, QAction)
 
-from scrutiny.sdk import WatchableConfiguration, EmbeddedEnum
+from scrutiny.sdk import BriefWatchableConfiguration, EmbeddedEnum
 from scrutiny.gui.core.scrutiny_drag_data import ScrutinyDragData, WatchableListDescriptor
 from scrutiny.gui.core.watchable_registry import WatchableRegistry
 from scrutiny.gui.widgets.watchable_tree import (
@@ -427,7 +427,7 @@ class WatchComponentTreeModel(WatchableTreeModel):
     def itemFromIndex(self, index: Union[QModelIndex, QPersistentModelIndex]) -> BaseWatchableRegistryTreeStandardItem:
         return cast(BaseWatchableRegistryTreeStandardItem, super().itemFromIndex(index))
 
-    def get_watchable_extra_columns(self, fqn: str = "", watchable_config: Optional[WatchableConfiguration] = None) -> List[QStandardItem]:
+    def get_watchable_extra_columns(self, fqn: str = "", watchable_config: Optional[BriefWatchableConfiguration] = None) -> List[QStandardItem]:
         # We don't use watchable_config here even if we could.
         # We update the value/type when an item is available by calling update_row_state
         return [ValueStandardItem(), DataTypeStandardItem(), EnumNameStandardItem()]
@@ -773,7 +773,7 @@ class WatchComponentTreeModel(WatchableTreeModel):
                 elif isinstance(item, EnumNameStandardItem):
                     item.setText('')
 
-    def set_available(self, arg_item: WatchableStandardItem, watchable_config: WatchableConfiguration) -> None:
+    def set_available(self, arg_item: WatchableStandardItem, watchable_config: BriefWatchableConfiguration) -> None:
         """Make an item in the tree available (normal color)"""
         background_color = self._available_palette.color(QPalette.ColorRole.Base)
         forground_color = self._available_palette.color(QPalette.ColorRole.Text)

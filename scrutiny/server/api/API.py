@@ -707,9 +707,9 @@ class API:
                     'var_factory': len(batch_content[WatchableGroup.VariableFactory])
                 },
                 'content': {
-                    'var': [self.make_datastore_entry_summary_definition(cast(DatastoreEntry, x), include_type=False) for x in batch_content[WatchableGroup.Variable]],
-                    'alias': [self.make_datastore_entry_summary_definition(cast(DatastoreEntry, x), include_type=False) for x in batch_content[WatchableGroup.Alias]],
-                    'rpv': [self.make_datastore_entry_summary_definition(cast(DatastoreEntry, x), include_type=False) for x in batch_content[WatchableGroup.RuntimePublishedValue]],
+                    'var': [self.make_datastore_entry_brief_definition(cast(DatastoreEntry, x), include_type=False) for x in batch_content[WatchableGroup.Variable]],
+                    'alias': [self.make_datastore_entry_brief_definition(cast(DatastoreEntry, x), include_type=False) for x in batch_content[WatchableGroup.Alias]],
+                    'rpv': [self.make_datastore_entry_brief_definition(cast(DatastoreEntry, x), include_type=False) for x in batch_content[WatchableGroup.RuntimePublishedValue]],
                     'var_factory': [self.make_variable_factory_definition(cast(VariableFactory, x), include_type=False) for x in batch_content[WatchableGroup.VariableFactory]],
                 },
                 'done': done
@@ -750,7 +750,7 @@ class API:
     def make_datastore_detailed_entry_definition(self, entry: DatastoreEntry) -> api_typing.DetailedDatastoreEntryDefinition:
         """Make a detailed description of a watchable to be returned upon watch subscription"""
 
-        entry_definition = cast(api_typing.DetailedDatastoreEntryDefinition, self.make_datastore_entry_summary_definition(entry))
+        entry_definition = cast(api_typing.DetailedDatastoreEntryDefinition, self.make_datastore_entry_brief_definition(entry))
         entry_definition['id'] = entry.get_id()
 
         if isinstance(entry, DatastoreVariableEntry):
@@ -2006,15 +2006,15 @@ class API:
         for watcher_conn_id in watchers:
             self.client_handler.send(ClientHandlerMessage(conn_id=watcher_conn_id, obj=msg))
 
-    def make_datastore_entry_summary_definition(self,
-                                                entry: DatastoreEntry,
-                                                include_type: bool = True,
-                                                include_display_path: bool = True,
-                                                include_datatype: bool = True,
-                                                include_enum: bool = True
-                                                ) -> api_typing.DatastoreEntryDefinition:
+    def make_datastore_entry_brief_definition(self,
+                                              entry: DatastoreEntry,
+                                              include_type: bool = True,
+                                              include_display_path: bool = True,
+                                              include_datatype: bool = True,
+                                              include_enum: bool = True
+                                              ) -> api_typing.DatastoreEntryBriefDefinition:
         # Craft the data structure sent by the API to give the available watchables
-        definition: api_typing.DatastoreEntryDefinition = {
+        definition: api_typing.DatastoreEntryBriefDefinition = {
 
         }
 
