@@ -4,7 +4,7 @@ Accessing variables
 ===================
 
 In the SDK, Variables, Aliases, :abbr:`RPV (Runtime Published Values)` are presented to the client side through an interface called a ``watchable``, e.g. something you can watch.
-Some watchables are available only when the server has loaded the :abbr:`SFD (Scrutiny Firmware Description)` matching the device firmware (alias, var), others are available as 
+Some watchables are available only when the server has loaded the :abbr:`SFD (Scrutiny Firmware Description)` matching the device firmware (Aliases and Variable), others are available as 
 soon as a device is connected (RPV)
 
 .. list-table:: Watchable types
