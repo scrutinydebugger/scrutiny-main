@@ -57,5 +57,5 @@ assert_file(){
 }
 
 assert_scrutiny_version_format() {
-    [[ "$1" =~ ^[0-9]\.[0-9]\.[0-9]$ ]] || fatal "Version format is not valid: ${1}"
+    [[ "$1" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fatal "Version format is not valid: ${1}"
 }
