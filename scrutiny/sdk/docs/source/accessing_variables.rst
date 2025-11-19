@@ -324,7 +324,7 @@ Following is the object returned :meth:`download_watchable_list<scrutiny.sdk.cli
 
 -----
 
-.. autoclass:: scrutiny.sdk.WatchableConfiguration
+.. autoclass:: scrutiny.sdk.BriefWatchableConfiguration
     :exclude-members: __new__, __init__
     :member-order: bysource
     :members:
