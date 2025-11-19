@@ -119,20 +119,20 @@ TYPESTR_MAP_WT2S: Dict[sdk.WatchableType, str] = {v: k for k, v in TYPESTR_MAP_S
 
 
 WatcherValueUpdateCallback = Callable[[WatcherIdType, List[RegistryValueUpdate]], None]
-UnwatchCallback = Callable[[WatcherIdType, str, sdk.WatchableConfiguration, int], None]
-GlobalWatchCallback = Callable[[WatcherIdType, str, sdk.WatchableConfiguration, int], None]
-GlobalUnwatchCallback = Callable[[WatcherIdType, str, sdk.WatchableConfiguration, int], None]
+UnwatchCallback = Callable[[WatcherIdType, str, sdk.BriefWatchableConfiguration, int], None]
+GlobalWatchCallback = Callable[[WatcherIdType, str, sdk.BriefWatchableConfiguration, int], None]
+GlobalUnwatchCallback = Callable[[WatcherIdType, str, sdk.BriefWatchableConfiguration, int], None]
 
 
 @dataclass(init=False, slots=True)
 class WatchableRegistryEntryNode:
     """Leaf node in the tree that is a single watchable"""
-    configuration: sdk.WatchableConfiguration
+    configuration: sdk.BriefWatchableConfiguration
     server_path: str
     registry_id: int
     _watcher_count: int
 
-    def __init__(self, registry: "WatchableRegistry", server_path: str, config: sdk.WatchableConfiguration) -> None:
+    def __init__(self, registry: "WatchableRegistry", server_path: str, config: sdk.BriefWatchableConfiguration) -> None:
         self.server_path = server_path
         self.configuration = config
         self._watcher_count = 0
@@ -244,7 +244,7 @@ class WatchableRegistry:
         return v
 
     @enforce_thread(QT_THREAD_NAME)
-    def _add_watchable(self, path: str, config: sdk.WatchableConfiguration) -> None:
+    def _add_watchable(self, path: str, config: sdk.BriefWatchableConfiguration) -> None:
         """Adds a single watchable to the tree storage
 
         :param path: Path to add the node to
@@ -654,7 +654,7 @@ class WatchableRegistry:
         return isinstance(node, WatchableRegistryEntryNode)
 
     @enforce_thread(QT_THREAD_NAME)
-    def write_content(self, data: Dict[sdk.WatchableType, Dict[str, sdk.WatchableConfiguration]]) -> None:
+    def write_content(self, data: Dict[sdk.WatchableType, Dict[str, sdk.BriefWatchableConfiguration]]) -> None:
         """Write content of the given types.
         Triggers ``changed``.  May trigger ``filled`` if all types have data after calling this function.
 

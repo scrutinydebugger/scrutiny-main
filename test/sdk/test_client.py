@@ -668,7 +668,7 @@ class TestClient(ScrutinyUnitTest):
 
     def set_value_and_wait_update(self, watchable: WatchableHandle, val: Any, timeout=2):
         counter = watchable.update_counter
-        self.execute_in_server_thread(partial(self.set_entry_val, watchable.display_path, val))
+        self.execute_in_server_thread(partial(self.set_entry_val, watchable.server_path, val))
         watchable.wait_update(previous_counter=counter, timeout=timeout)
 
     def server_thread(self):
@@ -913,7 +913,7 @@ class TestClient(ScrutinyUnitTest):
         self.assertLessEqual(t2 - t1, timeout)
         self.assertEqual(self.client.get_latest_server_status().device_comm_state, sdk.DeviceCommState.ConnectedReady)
 
-    def test_fetch_watchable_info(self):
+    def test_watch_returns_all_info(self):
         # Make sure we can correctly read the information about a watchables
         rpv1000 = self.client.watch('/rpv/x1000')
         var1 = self.client.watch('/a/b/var1')
@@ -923,21 +923,37 @@ class TestClient(ScrutinyUnitTest):
         alias_rpv1000 = self.client.watch('/a/b/alias_rpv1000')
 
         self.assertEqual(rpv1000.type, sdk.WatchableType.RuntimePublishedValue)
-        self.assertEqual(rpv1000.display_path, '/rpv/x1000')
+        self.assertEqual(rpv1000.server_path, '/rpv/x1000')
         self.assertEqual(rpv1000.name, 'x1000')
         self.assertEqual(rpv1000.datatype, sdk.EmbeddedDataType.float32)
+        self.assertEqual(rpv1000.rpv_details.rpvid, 0x1000)
+        with self.assertRaises(sdk.exceptions.BadTypeError):
+            temp = rpv1000.var_details
+        with self.assertRaises(sdk.exceptions.BadTypeError):
+            temp = rpv1000.alias_details
 
         self.assertEqual(var1.type, sdk.WatchableType.Variable)
-        self.assertEqual(var1.display_path, '/a/b/var1')
+        self.assertEqual(var1.server_path, '/a/b/var1')
         self.assertEqual(var1.name, 'var1')
         self.assertEqual(var1.datatype, sdk.EmbeddedDataType.uint32)
         self.assertEqual(var1.has_enum(), False)
+        self.assertEqual(var1.var_details.address, 0x1234)
+        self.assertEqual(var1.var_details.bitoffset, None)
+        self.assertEqual(var1.var_details.bitsize, None)
+
+        with self.assertRaises(sdk.exceptions.BadTypeError):
+            temp = var1.rpv_details
+        with self.assertRaises(sdk.exceptions.BadTypeError):
+            temp = var1.alias_details
 
         self.assertEqual(var2.type, sdk.WatchableType.Variable)
-        self.assertEqual(var2.display_path, '/a/b/var2')
+        self.assertEqual(var2.server_path, '/a/b/var2')
         self.assertEqual(var2.name, 'var2')
         self.assertEqual(var2.datatype, sdk.EmbeddedDataType.boolean)
         self.assertEqual(var2.has_enum(), False)
+        self.assertEqual(var2.var_details.address, 0x4568)
+        self.assertEqual(var2.var_details.bitoffset, None)
+        self.assertEqual(var2.var_details.bitsize, None)
 
         self.assertTrue(var3.has_enum())
         enum_var3 = var3.get_enum()
@@ -951,12 +967,75 @@ class TestClient(ScrutinyUnitTest):
         self.assertEqual(var3.parse_enum_val('ccc'), 3)
 
         self.assertEqual(alias_var1.type, sdk.WatchableType.Alias)
-        self.assertEqual(alias_var1.display_path, '/a/b/alias_var1')
+        self.assertEqual(alias_var1.server_path, '/a/b/alias_var1')
         self.assertEqual(alias_var1.name, 'alias_var1')
         self.assertEqual(alias_var1.datatype, sdk.EmbeddedDataType.uint32)
+        self.assertEqual(alias_var1.alias_details.target, '/a/b/var1')
+        self.assertEqual(alias_var1.alias_details.target_type, WatchableType.Variable)
+
+        with self.assertRaises(sdk.exceptions.BadTypeError):
+            temp = alias_var1.rpv_details
+        with self.assertRaises(sdk.exceptions.BadTypeError):
+            temp = alias_var1.var_details
 
         self.assertEqual(alias_rpv1000.type, sdk.WatchableType.Alias)
-        self.assertEqual(alias_rpv1000.display_path, '/a/b/alias_rpv1000')
+        self.assertEqual(alias_rpv1000.server_path, '/a/b/alias_rpv1000')
+        self.assertEqual(alias_rpv1000.name, 'alias_rpv1000')
+        self.assertEqual(alias_rpv1000.datatype, sdk.EmbeddedDataType.float32)
+
+    def test_get_watchable_info(self):
+        # Make sure we can correctly read the information about a watchables
+        rpv1000 = self.client.get_rpv_watchable_info('/rpv/x1000')
+        var1 = self.client.get_var_watchable_info('/a/b/var1')
+        var_array = self.client.get_var_watchable_info('/aa/bb[1][2][3]/cc')
+        var3 = self.client.get_var_watchable_info('/a/b/var3')
+        alias_var1 = self.client.get_alias_watchable_info('/a/b/alias_var1')
+        alias_rpv1000 = self.client.get_alias_watchable_info('/a/b/alias_rpv1000')
+
+        self.assertEqual(rpv1000.watchable_type, sdk.WatchableType.RuntimePublishedValue)
+        self.assertEqual(rpv1000.server_path, '/rpv/x1000')
+        self.assertEqual(rpv1000.name, 'x1000')
+        self.assertEqual(rpv1000.datatype, sdk.EmbeddedDataType.float32)
+        self.assertEqual(rpv1000.rpvid, 0x1000)
+
+        self.assertEqual(var1.watchable_type, sdk.WatchableType.Variable)
+        self.assertEqual(var1.server_path, '/a/b/var1')
+        self.assertEqual(var1.name, 'var1')
+        self.assertEqual(var1.datatype, sdk.EmbeddedDataType.uint32)
+        self.assertEqual(var1.has_enum(), False)
+        self.assertEqual(var1.address, 0x1234)
+        self.assertEqual(var1.bitoffset, None)
+        self.assertEqual(var1.bitsize, None)
+
+        self.assertEqual(var_array.watchable_type, sdk.WatchableType.Variable)
+        self.assertEqual(var_array.server_path, '/aa/bb[1][2][3]/cc')
+        self.assertEqual(var_array.name, 'cc')
+        self.assertEqual(var_array.datatype, sdk.EmbeddedDataType.float32)
+        self.assertEqual(var_array.has_enum(), False)
+        self.assertEqual(var_array.address, 0x5555 + 100 * (1 * 3 * 4 + 2 * 4 + 3))
+        self.assertEqual(var_array.bitoffset, None)
+        self.assertEqual(var_array.bitsize, None)
+
+        self.assertTrue(var3.has_enum())
+        enum_var3 = var3.get_enum()
+        self.assertEqual(enum_var3.name, 'var3_enum')
+        self.assertEqual(len(enum_var3.vals), 3)
+        self.assertEqual(enum_var3.vals['aaa'], 1)
+        self.assertEqual(enum_var3.vals['bbb'], 2)
+        self.assertEqual(enum_var3.vals['ccc'], 3)
+        self.assertEqual(var3.parse_enum_val('aaa'), 1)
+        self.assertEqual(var3.parse_enum_val('bbb'), 2)
+        self.assertEqual(var3.parse_enum_val('ccc'), 3)
+
+        self.assertEqual(alias_var1.watchable_type, sdk.WatchableType.Alias)
+        self.assertEqual(alias_var1.server_path, '/a/b/alias_var1')
+        self.assertEqual(alias_var1.name, 'alias_var1')
+        self.assertEqual(alias_var1.datatype, sdk.EmbeddedDataType.uint32)
+        self.assertEqual(alias_var1.target, '/a/b/var1')
+        self.assertEqual(alias_var1.target_type, WatchableType.Variable)
+
+        self.assertEqual(alias_rpv1000.watchable_type, sdk.WatchableType.Alias)
+        self.assertEqual(alias_rpv1000.server_path, '/a/b/alias_rpv1000')
         self.assertEqual(alias_rpv1000.name, 'alias_rpv1000')
         self.assertEqual(alias_rpv1000.datatype, sdk.EmbeddedDataType.float32)
 
@@ -1050,9 +1129,9 @@ class TestClient(ScrutinyUnitTest):
         self.client.register_listener(listener2)
 
         def update_all(vals: Tuple[float, int, bool]):
-            self.datastore.get_entry_by_display_path(rpv1000.display_path).set_value(vals[0])
-            self.datastore.get_entry_by_display_path(var1.display_path).set_value(vals[1])
-            self.datastore.get_entry_by_display_path(var2.display_path).set_value(vals[2])
+            self.datastore.get_entry_by_display_path(rpv1000.server_path).set_value(vals[0])
+            self.datastore.get_entry_by_display_path(var1.server_path).set_value(vals[1])
+            self.datastore.get_entry_by_display_path(var2.server_path).set_value(vals[2])
 
         count = 10
         with listener1.start():
@@ -1362,12 +1441,12 @@ class TestClient(ScrutinyUnitTest):
 
     def test_unsubscribe_on_unwatch(self):
         var1 = self.client.watch('/a/b/var1')
-        self.execute_in_server_thread(partial(self.set_entry_val, var1.display_path, 0x13245678))
+        self.execute_in_server_thread(partial(self.set_entry_val, var1.server_path, 0x13245678))
         time.sleep(0.5)
         self.assertEqual(var1.value, 0x13245678)
         var1.unwatch()
         update_counter = var1.update_counter
-        self.execute_in_server_thread(partial(self.set_entry_val, var1.display_path, 0xabcd1234))
+        self.execute_in_server_thread(partial(self.set_entry_val, var1.server_path, 0xabcd1234))
         time.sleep(0.5)
         self.assertEqual(update_counter, var1.update_counter)
 
@@ -1376,7 +1455,7 @@ class TestClient(ScrutinyUnitTest):
 
     def test_no_unsubscribe_on_failed_unwatch(self):
         var1 = self.client.watch('/a/b/var1')
-        self.execute_in_server_thread(partial(self.set_entry_val, var1.display_path, 0x13245678))
+        self.execute_in_server_thread(partial(self.set_entry_val, var1.server_path, 0x13245678))
         time.sleep(0.5)
         self.assertEqual(var1.value, 0x13245678)
 
@@ -1387,19 +1466,19 @@ class TestClient(ScrutinyUnitTest):
             var1.unwatch()
         self.client._force_fail_request = False
 
-        self.execute_in_server_thread(partial(self.set_entry_val, var1.display_path, 0xabcd1234))
+        self.execute_in_server_thread(partial(self.set_entry_val, var1.server_path, 0xabcd1234))
         time.sleep(0.5)
         self.assertEqual(var1.value, 0xabcd1234)
 
     def test_handle_cannot_be_reused_after_unwatch(self):
         var1 = self.client.watch('/a/b/var1')
-        self.execute_in_server_thread(partial(self.set_entry_val, var1.display_path, 0x11111111))
+        self.execute_in_server_thread(partial(self.set_entry_val, var1.server_path, 0x11111111))
         time.sleep(0.5)
         self.assertEqual(var1.value, 0x11111111)
         var1.unwatch()
 
-        var1_2 = self.client.watch(var1.display_path)
-        self.execute_in_server_thread(partial(self.set_entry_val, var1.display_path, 0x22222222))
+        var1_2 = self.client.watch(var1.server_path)
+        self.execute_in_server_thread(partial(self.set_entry_val, var1.server_path, 0x22222222))
         time.sleep(0.5)
         self.assertEqual(var1_2.value, 0x22222222)
 
@@ -1412,7 +1491,7 @@ class TestClient(ScrutinyUnitTest):
         # But read and write of new handle is possible and working
         var1_2.value = 0x44444444
         self.assertEqual(var1_2.value, 0x44444444)
-        self.assertEqual(self.datastore.get_entry_by_display_path(var1_2.display_path).get_value(), 0x44444444)
+        self.assertEqual(self.datastore.get_entry_by_display_path(var1_2.server_path).get_value(), 0x44444444)
 
     def test_get_installed_sfds(self):
         with SFDStorage.use_temp_folder():
@@ -1732,7 +1811,7 @@ class TestClient(ScrutinyUnitTest):
         self.assertEqual(server_request.trigger_condition.operands[0].type, api_datalogging.TriggerConditionOperandType.WATCHABLE)
         self.assertIsInstance(server_request.trigger_condition.operands[0].value, datastore.DatastoreEntry)
         assert isinstance(server_request.trigger_condition.operands[0].value, datastore.DatastoreEntry)
-        self.assertEqual(server_request.trigger_condition.operands[0].value.get_display_path(), var1.display_path)
+        self.assertEqual(server_request.trigger_condition.operands[0].value.get_display_path(), var1.server_path)
         self.assertEqual(server_request.trigger_condition.operands[1].type, api_datalogging.TriggerConditionOperandType.LITERAL)
         self.assertEqual(server_request.trigger_condition.operands[1].value, 3.14159)
 
@@ -1743,12 +1822,12 @@ class TestClient(ScrutinyUnitTest):
         expected_signals = []
         expected_signals.append(api_datalogging.SignalDefinitionWithAxis(
             name='MyVar1',
-            entry=self.datastore.get_entry_by_display_path(var1.display_path),
+            entry=self.datastore.get_entry_by_display_path(var1.server_path),
             axis=api_datalogging.AxisDefinition(name='Axis 1', axis_id=0))
         )
         expected_signals.append(api_datalogging.SignalDefinitionWithAxis(
             name='MyVar2',
-            entry=self.datastore.get_entry_by_display_path(var2.display_path),
+            entry=self.datastore.get_entry_by_display_path(var2.server_path),
             axis=api_datalogging.AxisDefinition(name='Axis 1', axis_id=0))
         )
         expected_signals.append(api_datalogging.SignalDefinitionWithAxis(
@@ -2492,7 +2571,7 @@ class TestClient(ScrutinyUnitTest):
         self.assertEqual(len(content.rpv), 1)
         self.assertEqual(len(content.var_factory), 1)
 
-        def test_watchable_received(bucket: Dict[str, sdk.WatchableConfiguration], path: str):
+        def test_watchable_received(bucket: Dict[str, sdk.BriefWatchableConfiguration], path: str):
             entry = self.datastore.get_entry_by_display_path(path)
             self.assertEqual(bucket[path].watchable_type, entry.get_type())
             self.assertEqual(bucket[path].datatype, entry.get_data_type())
@@ -2541,7 +2620,7 @@ class TestClient(ScrutinyUnitTest):
         self.assertEqual(len(content.rpv), 1)
         self.assertEqual(len(content.var_factory), 0)   # 0 instead of 1
 
-        def test_watchable_received(bucket: Dict[str, sdk.WatchableConfiguration], path: str):
+        def test_watchable_received(bucket: Dict[str, sdk.BriefWatchableConfiguration], path: str):
             entry = self.datastore.get_entry_by_display_path(path)
             self.assertEqual(bucket[path].watchable_type, entry.get_type())
             self.assertEqual(bucket[path].datatype, entry.get_data_type())
@@ -2567,7 +2646,7 @@ class TestClient(ScrutinyUnitTest):
         self.assertEqual(len(content.rpv), 1)
         self.assertEqual(len(content.var_factory), 0)   # 0 instead of 1
 
-        def test_watchable_received(bucket: Dict[str, sdk.WatchableConfiguration], path: str):
+        def test_watchable_received(bucket: Dict[str, sdk.BriefWatchableConfiguration], path: str):
             entry = self.datastore.get_entry_by_display_path(path)
             self.assertEqual(bucket[path].watchable_type, entry.get_type())
             self.assertEqual(bucket[path].datatype, entry.get_data_type())
@@ -2658,7 +2737,7 @@ class TestClient(ScrutinyUnitTest):
                         for path, config in obj.iterate_possible_paths():
                             self.datastore.get_entry_by_display_path(path)  # Check that this entry exist
                     else:
-                        self.assertIsInstance(obj, sdk.WatchableConfiguration)
+                        self.assertIsInstance(obj, sdk.BriefWatchableConfiguration)
                         self.datastore.get_entry_by_display_path(path)  # Check that this entry exist
 
                     self.assertNotIn(path, received_path, "Received duplicate item")

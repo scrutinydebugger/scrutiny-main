@@ -78,25 +78,56 @@ class VarFactoryParams(TypedDict):
     array_nodes: Dict[str, List[int]]
 
 
-class DatastoreEntryDefinition(TypedDict, total=False):
+class DatastoreEntryBriefDefinition(TypedDict, total=False):
+    """Given when listing what's avaialble"""
     path: str
     dtype: Datatype
     type: WatchableType              # Can be missing
     enum: Optional[EnumDefinition]  # Can be missing. Default to None
 
 
-class DatastoreEntryDefinitionWithId(DatastoreEntryDefinition):
+class BaseDatastoreEntryDetailedDefinition(DatastoreEntryBriefDefinition):
+    """Base for the detailed version"""
     id: str
 
 
-class VariableFactoryDefinition(DatastoreEntryDefinition):
+class VarDetailedDatastoreEntryDefinition(BaseDatastoreEntryDetailedDefinition):
+    """Given to the user when subscribing"""
+    address: int
+    bitoffset: Optional[int]
+    bitsize: Optional[int]
+
+
+class AliasDetailedDatastoreEntryDefinition(BaseDatastoreEntryDetailedDefinition):
+    """Given to the user when subscribing"""
+    target: str
+    target_type: str
+    gain: Optional[float]
+    bias: Optional[float]
+    min: Optional[float]
+    max: Optional[float]
+
+
+class RPVDetailedDatastoreEntryDefinition(BaseDatastoreEntryDetailedDefinition):
+    """Given to the user when subscribing"""
+    rpvid: int
+
+
+DetailedDatastoreEntryDefinition: TypeAlias = Union[
+    VarDetailedDatastoreEntryDefinition,
+    AliasDetailedDatastoreEntryDefinition,
+    RPVDetailedDatastoreEntryDefinition
+]
+
+
+class VariableFactoryDefinition(DatastoreEntryBriefDefinition):
     factory_params: VarFactoryParams
 
 
 class WatchableListContent(TypedDict):
-    var: List[DatastoreEntryDefinition]
-    alias: List[DatastoreEntryDefinition]
-    rpv: List[DatastoreEntryDefinition]
+    var: List[DatastoreEntryBriefDefinition]
+    alias: List[DatastoreEntryBriefDefinition]
+    rpv: List[DatastoreEntryBriefDefinition]
     var_factory: List[VariableFactoryDefinition]
 
 
@@ -245,6 +276,9 @@ class C2S:
     class GetWatchableCount(BaseC2SMessage):
         pass
 
+    class GetWatchableInfo(BaseC2SMessage):
+        watchables: List[str]
+
     class GetWatchableList(BaseC2SMessage):
         max_per_response: int
         filter: GetWatchableList_Filter
@@ -386,8 +420,11 @@ class S2C:
         content: WatchableListContent
         done: bool
 
+    class GetWatchableInfo(BaseS2CMessage):
+        info: Dict[str, DetailedDatastoreEntryDefinition]
+
     class SubscribeWatchable(BaseS2CMessage):
-        subscribed: Dict[str, DatastoreEntryDefinitionWithId]
+        subscribed: Dict[str, DetailedDatastoreEntryDefinition]
 
     class UnsubscribeWatchable(BaseS2CMessage):
         unsubscribed: List[str]
@@ -488,6 +525,7 @@ C2SMessage = Union[
     C2S.GetDeviceInfo,
     C2S.GetWatchableCount,
     C2S.GetWatchableList,
+    C2S.GetWatchableInfo,
     C2S.LoadSFD,
     C2S.DownloadSFD,
     C2S.UploadSFDInit,
@@ -521,6 +559,7 @@ S2CMessage = Union[
     S2C.GetDeviceInfo,
     S2C.GetWatchableCount,
     S2C.GetWatchableList,
+    S2C.GetWatchableInfo,
     S2C.SubscribeWatchable,
     S2C.UnsubscribeWatchable,
     S2C.WatchableUpdate,

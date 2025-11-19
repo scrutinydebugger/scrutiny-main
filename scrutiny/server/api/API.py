@@ -43,7 +43,7 @@ from scrutiny.server.timebase import server_timebase
 from scrutiny.server.datalogging.datalogging_storage import DataloggingStorage
 from scrutiny.server.datalogging.datalogging_manager import DataloggingManager
 from scrutiny.server.datastore.datastore import Datastore
-from scrutiny.server.datastore.datastore_entry import DatastoreEntry
+from scrutiny.server.datastore.datastore_entry import DatastoreEntry, DatastoreVariableEntry, DatastoreAliasEntry, DatastoreRPVEntry
 from scrutiny.server.device.device_handler import DeviceHandler, RawMemoryReadRequest, RawMemoryWriteRequest, UserCommandCallback
 from scrutiny.server.active_sfd_handler import ActiveSFDHandler
 from scrutiny.server.device.links import LinkConfig
@@ -107,6 +107,7 @@ class API:
             ECHO = 'echo'
             GET_WATCHABLE_LIST = 'get_watchable_list'
             GET_WATCHABLE_COUNT = 'get_watchable_count'
+            GET_WATCHABLE_INFO = 'get_watchable_info'
             SUBSCRIBE_WATCHABLE = 'subscribe_watchable'
             UNSUBSCRIBE_WATCHABLE = 'unsubscribe_watchable'
             GET_INSTALLED_SFD = 'get_installed_sfd'
@@ -138,6 +139,7 @@ class API:
             WELCOME = 'welcome'
             GET_WATCHABLE_LIST_RESPONSE = 'response_get_watchable_list'
             GET_WATCHABLE_COUNT_RESPONSE = 'response_get_watchable_count'
+            GET_WATCHABLE_INFO_RESPONSE = 'response_get_watchable_info'
             SUBSCRIBE_WATCHABLE_RESPONSE = 'response_subscribe_watchable'
             UNSUBSCRIBE_WATCHABLE_RESPONSE = 'response_unsubscribe_watchable'
             WATCHABLE_UPDATE = 'watchable_update'
@@ -352,6 +354,7 @@ class API:
             self.Command.Client2Api.ECHO: self.process_echo,
             self.Command.Client2Api.GET_WATCHABLE_LIST: self.process_get_watchable_list,
             self.Command.Client2Api.GET_WATCHABLE_COUNT: self.process_get_watchable_count,
+            self.Command.Client2Api.GET_WATCHABLE_INFO: self.process_get_watchable_info,
             self.Command.Client2Api.SUBSCRIBE_WATCHABLE: self.process_subscribe_watchable,
             self.Command.Client2Api.UNSUBSCRIBE_WATCHABLE: self.process_unsubscribe_watchable,
             self.Command.Client2Api.GET_INSTALLED_SFD: self.process_get_installed_sfd,
@@ -704,9 +707,9 @@ class API:
                     'var_factory': len(batch_content[WatchableGroup.VariableFactory])
                 },
                 'content': {
-                    'var': [self.make_datastore_entry_definition(cast(DatastoreEntry, x), include_type=False) for x in batch_content[WatchableGroup.Variable]],
-                    'alias': [self.make_datastore_entry_definition(cast(DatastoreEntry, x), include_type=False) for x in batch_content[WatchableGroup.Alias]],
-                    'rpv': [self.make_datastore_entry_definition(cast(DatastoreEntry, x), include_type=False) for x in batch_content[WatchableGroup.RuntimePublishedValue]],
+                    'var': [self.make_datastore_entry_brief_definition(cast(DatastoreEntry, x), include_type=False) for x in batch_content[WatchableGroup.Variable]],
+                    'alias': [self.make_datastore_entry_brief_definition(cast(DatastoreEntry, x), include_type=False) for x in batch_content[WatchableGroup.Alias]],
+                    'rpv': [self.make_datastore_entry_brief_definition(cast(DatastoreEntry, x), include_type=False) for x in batch_content[WatchableGroup.RuntimePublishedValue]],
                     'var_factory': [self.make_variable_factory_definition(cast(VariableFactory, x), include_type=False) for x in batch_content[WatchableGroup.VariableFactory]],
                 },
                 'done': done
@@ -730,30 +733,70 @@ class API:
 
         self.client_handler.send(ClientHandlerMessage(conn_id=conn_id, obj=response))
 
+    #  ===  GET_WATCHABLE_INFO ===
+    def process_get_watchable_info(self, conn_id: str, req: api_typing.C2S.GetWatchableInfo) -> None:
+        _check_request_dict(req, req, 'watchables', list)
+
+        # This can throw
+        outdict = self._make_datastore_detailed_definition_by_display_path(req, req['watchables'])
+        response: api_typing.S2C.GetWatchableInfo = {
+            'cmd': self.Command.Api2Client.GET_WATCHABLE_INFO_RESPONSE,
+            'reqid': self.get_req_id(req),
+            'info': outdict
+        }
+
+        self.client_handler.send(ClientHandlerMessage(conn_id=conn_id, obj=response))
+
+    def make_datastore_detailed_entry_definition(self, entry: DatastoreEntry) -> api_typing.DetailedDatastoreEntryDefinition:
+        """Make a detailed description of a watchable to be returned upon watch subscription"""
+
+        entry_definition = cast(api_typing.DetailedDatastoreEntryDefinition, self.make_datastore_entry_brief_definition(entry))
+        entry_definition['id'] = entry.get_id()
+
+        if isinstance(entry, DatastoreVariableEntry):
+            entry_definition = cast(api_typing.VarDetailedDatastoreEntryDefinition, entry_definition)
+            entry_definition['address'] = entry.get_address()
+            entry_definition['bitoffset'] = entry.get_bitoffset()
+            entry_definition['bitsize'] = entry.get_bitsize()
+        elif isinstance(entry, DatastoreAliasEntry):
+            entry_definition = cast(api_typing.AliasDetailedDatastoreEntryDefinition, entry_definition)
+            entry_definition['target'] = entry.aliasdef.get_target()
+            entry_definition['target_type'] = self.WATCHABLE_TYPE_2_APISTR[entry.aliasdef.get_target_type()]
+            entry_definition['gain'] = entry.aliasdef.gain
+            entry_definition['bias'] = entry.aliasdef.offset
+            entry_definition['min'] = entry.aliasdef.min
+            entry_definition['max'] = entry.aliasdef.max
+        elif isinstance(entry, DatastoreRPVEntry):
+            entry_definition = cast(api_typing.RPVDetailedDatastoreEntryDefinition, entry_definition)
+            entry_definition['rpvid'] = entry.rpv.id
+        else:
+            raise NotImplementedError("Unsupported entry type")
+
+        return entry_definition
+
+    def _make_datastore_detailed_definition_by_display_path(self,
+                                                            req: api_typing.C2SMessage,
+                                                            watchables: List[str]
+                                                            ) -> Dict[str, api_typing.DetailedDatastoreEntryDefinition]:
+        outdict: Dict[str, api_typing.DetailedDatastoreEntryDefinition] = {}
+        for path in watchables:
+            entry: Optional[DatastoreEntry] = None
+            try:
+                entry = self.datastore.get_entry_by_display_path(path)  # Will raise an exception if not existent
+            except KeyError as e:
+                raise InvalidRequestException(req, 'Unknown watchable : %s' % str(path))
+
+            outdict[path] = self.make_datastore_detailed_entry_definition(entry)
+        return outdict
+
     #  ===  SUBSCRIBE_WATCHABLE ===
     def process_subscribe_watchable(self, conn_id: str, req: api_typing.C2S.SubscribeWatchable) -> None:
         # Add the connection ID to the list of watchers of given datastore entries.
         # datastore callback will write the new values in the API output queue (through the value streamer)
         _check_request_dict(req, req, 'watchables', list)
 
-        # Check existence of all watchable before doing anything.
-        subscribed: Dict[str, api_typing.DatastoreEntryDefinitionWithId] = {}
-        for path in req['watchables']:
-            entry: Optional[DatastoreEntry] = None
-            try:
-                entry = self.datastore.get_entry_by_display_path(path)  # Will raise an exception if not existent
-            except KeyError as e:
-                pass
-
-            if entry is None:
-                pass
-
-            if entry is None:
-                raise InvalidRequestException(req, 'Unknown watchable : %s' % str(path))
-
-            entry_definition = cast(api_typing.DatastoreEntryDefinitionWithId, self.make_datastore_entry_definition(entry))
-            entry_definition['id'] = entry.get_id()
-            subscribed[path] = entry_definition
+        # this can throw. Check existence of all watchable before doing anything.
+        subscribed = self._make_datastore_detailed_definition_by_display_path(req, req['watchables'])
 
         for path in req['watchables']:
             self.datastore.start_watching(
@@ -1963,15 +2006,15 @@ class API:
         for watcher_conn_id in watchers:
             self.client_handler.send(ClientHandlerMessage(conn_id=watcher_conn_id, obj=msg))
 
-    def make_datastore_entry_definition(self,
-                                        entry: DatastoreEntry,
-                                        include_type: bool = True,
-                                        include_display_path: bool = True,
-                                        include_datatype: bool = True,
-                                        include_enum: bool = True
-                                        ) -> api_typing.DatastoreEntryDefinition:
+    def make_datastore_entry_brief_definition(self,
+                                              entry: DatastoreEntry,
+                                              include_type: bool = True,
+                                              include_display_path: bool = True,
+                                              include_datatype: bool = True,
+                                              include_enum: bool = True
+                                              ) -> api_typing.DatastoreEntryBriefDefinition:
         # Craft the data structure sent by the API to give the available watchables
-        definition: api_typing.DatastoreEntryDefinition = {
+        definition: api_typing.DatastoreEntryBriefDefinition = {
 
         }
 

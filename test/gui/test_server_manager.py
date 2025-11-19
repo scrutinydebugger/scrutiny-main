@@ -22,21 +22,21 @@ SERVER_MANAGER_CONFIG = ServerConfig('127.0.0.1', 5555)
 
 
 DUMMY_DATASET_RPV = {
-    '/rpv/rpv1000': sdk.WatchableConfiguration(watchable_type=sdk.WatchableType.RuntimePublishedValue, datatype=sdk.EmbeddedDataType.float32, enum=None),
-    '/rpv/rpv1001': sdk.WatchableConfiguration(watchable_type=sdk.WatchableType.RuntimePublishedValue, datatype=sdk.EmbeddedDataType.float32, enum=None)
+    '/rpv/rpv1000': sdk.BriefWatchableConfiguration(watchable_type=sdk.WatchableType.RuntimePublishedValue, datatype=sdk.EmbeddedDataType.float32, enum=None),
+    '/rpv/rpv1001': sdk.BriefWatchableConfiguration(watchable_type=sdk.WatchableType.RuntimePublishedValue, datatype=sdk.EmbeddedDataType.float32, enum=None)
 }
 
 DUMMY_DATASET_ALIAS = {
-    '/alias/xxx/alias1': sdk.WatchableConfiguration(watchable_type=sdk.WatchableType.Alias, datatype=sdk.EmbeddedDataType.float32, enum=None),
-    '/alias/alias2': sdk.WatchableConfiguration(watchable_type=sdk.WatchableType.Alias, datatype=sdk.EmbeddedDataType.float32, enum=None),
-    '/alias/alias3': sdk.WatchableConfiguration(watchable_type=sdk.WatchableType.Alias, datatype=sdk.EmbeddedDataType.float32, enum=None)
+    '/alias/xxx/alias1': sdk.BriefWatchableConfiguration(watchable_type=sdk.WatchableType.Alias, datatype=sdk.EmbeddedDataType.float32, enum=None),
+    '/alias/alias2': sdk.BriefWatchableConfiguration(watchable_type=sdk.WatchableType.Alias, datatype=sdk.EmbeddedDataType.float32, enum=None),
+    '/alias/alias3': sdk.BriefWatchableConfiguration(watchable_type=sdk.WatchableType.Alias, datatype=sdk.EmbeddedDataType.float32, enum=None)
 }
 
 DUMMY_DATASET_VAR = {
-    '/var/xxx/var1': sdk.WatchableConfiguration(watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None),
-    '/var/xxx/var2': sdk.WatchableConfiguration(watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None),
-    '/var/var3': sdk.WatchableConfiguration(watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None),
-    '/var/var4': sdk.WatchableConfiguration(watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None)
+    '/var/xxx/var1': sdk.BriefWatchableConfiguration(watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None),
+    '/var/xxx/var2': sdk.BriefWatchableConfiguration(watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None),
+    '/var/var3': sdk.BriefWatchableConfiguration(watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None),
+    '/var/var4': sdk.BriefWatchableConfiguration(watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None)
 }
 
 DUMMY_DEVICE = sdk.DeviceInfo(
@@ -618,7 +618,7 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
 
     def test_no_request_stacking(self):
         # Make sure that we don't queue useless register/unregister/register/unregister sequence if the UI is faster than the network
-        self.registry._add_watchable('a/b/c', sdk.WatchableConfiguration(
+        self.registry._add_watchable('a/b/c', sdk.BriefWatchableConfiguration(
             datatype=sdk.EmbeddedDataType.float32,
             enum=None,
             watchable_type=sdk.WatchableType.Variable
@@ -651,8 +651,8 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
         # We are back to 0 watcher.
         # Start a new series of watch unwatch.
         ui_callback_count = self.server_manager._qt_watch_unwatch_ui_callback_call_count
-        watchable_config = sdk.WatchableConfigurationWithServerID(
-            sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None, server_id='xxx')
+        watchable_config = sdk.BaseDetailedWatchableConfiguration(
+            sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None, server_id='xxx', server_path='a/b/c')
         self.registry.watch(watcher1, sdk.WatchableType.Variable, 'a/b/c')
         self.registry.unwatch(watcher1, sdk.WatchableType.Variable, 'a/b/c')
         self.registry.watch(watcher1, sdk.WatchableType.Variable, 'a/b/c')
@@ -672,7 +672,7 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
         self.assert_no_watch_or_unwatch_request(max_wait=0.5)
 
     def test_no_stacking_with_multiple_watchers(self):
-        self.registry._add_watchable('a/b/c', sdk.WatchableConfiguration(
+        self.registry._add_watchable('a/b/c', sdk.BriefWatchableConfiguration(
             datatype=sdk.EmbeddedDataType.float32,
             enum=None,
             watchable_type=sdk.WatchableType.Variable
@@ -700,8 +700,8 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
 
         request2 = self.get_watch_request(assert_single=True)
         self.assert_no_watch_request(max_wait=0.5)
-        some_watchable_config = sdk.WatchableConfigurationWithServerID(
-            server_id='aaa', watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None)
+        some_watchable_config = sdk.BaseDetailedWatchableConfiguration(
+            server_id='aaa', watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None, server_path='a/b/c')
 
         call_count = self.server_manager._qt_watch_unwatch_ui_callback_call_count
         request2.simulate_success(some_watchable_config)
@@ -738,11 +738,12 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
         # expect a gui watcher that subscribe to the registry to receive the update
 
         varpath = '/aaa/bbb/ccc'
-        watch1_config = sdk.WatchableConfigurationWithServerID(
+        watch1_config = sdk.BaseDetailedWatchableConfiguration(
             sdk.WatchableType.Variable,
             datatype=sdk.EmbeddedDataType.float32,
             enum=None,
-            server_id='aaa')
+            server_id='aaa',
+            server_path=varpath)
 
         self.registry._add_watchable(varpath, watch1_config)
         all_updates = []
@@ -773,11 +774,12 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
 
     def test_server_id_association_maintained_properly(self):
         varpath = '/aaa/bbb/ccc'
-        watch1_config = sdk.WatchableConfigurationWithServerID(
+        watch1_config = sdk.BaseDetailedWatchableConfiguration(
             sdk.WatchableType.Variable,
             datatype=sdk.EmbeddedDataType.float32,
             enum=None,
-            server_id='aaa')
+            server_id='aaa',
+            server_path=varpath)
 
         self.registry._add_watchable(varpath, watch1_config)
 
@@ -816,21 +818,21 @@ class TestQtListener(ScrutinyBaseGuiTest):
         self.listener.start()
 
         self.watch1 = StubbedWatchableHandle(
-            display_path='/aaa/bbb/ccc',
+            server_path='/aaa/bbb/ccc',
             datatype=sdk.EmbeddedDataType.float32,
             enum=None,
             server_id='aaa',
             watchable_type=sdk.WatchableType.Variable
         )
         self.watch2 = StubbedWatchableHandle(
-            display_path='/aaa/bbb/ddd',
+            server_path='/aaa/bbb/ddd',
             datatype=sdk.EmbeddedDataType.float32,
             enum=None,
             server_id='bbb',
             watchable_type=sdk.WatchableType.Alias
         )
         self.watch3 = StubbedWatchableHandle(
-            display_path='/aaa/bbb/eee',
+            server_path='/aaa/bbb/eee',
             datatype=sdk.EmbeddedDataType.float32,
             enum=None,
             server_id='ccc',

@@ -35,6 +35,7 @@ from scrutiny.tools.timer import Timer
 from scrutiny.tools.typing import *
 
 T = TypeVar("T")
+P = ParamSpec('P')
 
 
 def get_not_none(v: Optional[T]) -> T:
@@ -367,3 +368,12 @@ def uleb128_decode(data: bytes) -> int:
         shift += 7
 
     return val
+
+
+def deprecated(msg: str = "") -> Callable[[Callable[P, T]], Callable[P, T]]:
+    def decorator(function: Callable[P, T]) -> Callable[P, T]:
+        def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+            logging.warning(f"{function.__name__} is deprecated. {msg}")
+            return function(*args, **kwargs)
+        return wrapper
+    return decorator

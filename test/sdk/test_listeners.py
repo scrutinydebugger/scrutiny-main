@@ -134,16 +134,16 @@ class TestListeners(ScrutinyUnitTest):
         self.w4 = WatchableHandle(dummy_client, '/aaa/bbb/ccc4')
         self.w5 = WatchableHandle(dummy_client, '/aaa/bbb/ccc5')
 
-        self.w1._configure(sdk.WatchableConfigurationWithServerID(watchable_type=WatchableType.Variable,
-                           datatype=EmbeddedDataType.float32, server_id='w1', enum=None))
-        self.w2._configure(sdk.WatchableConfigurationWithServerID(watchable_type=WatchableType.Variable,
-                           datatype=EmbeddedDataType.sint32, server_id='w2', enum=None))
-        self.w3._configure(sdk.WatchableConfigurationWithServerID(watchable_type=WatchableType.Alias,
-                           datatype=EmbeddedDataType.uint32, server_id='w3', enum=None))
-        self.w4._configure(sdk.WatchableConfigurationWithServerID(watchable_type=WatchableType.RuntimePublishedValue,
-                           datatype=EmbeddedDataType.float64, server_id='w4', enum=None))
-        self.w5._configure(sdk.WatchableConfigurationWithServerID(watchable_type=WatchableType.RuntimePublishedValue,
-                           datatype=EmbeddedDataType.boolean, server_id='w5', enum=None))
+        self.w1._configure(sdk.BaseDetailedWatchableConfiguration(watchable_type=WatchableType.Variable,
+                           datatype=EmbeddedDataType.float32, server_id='w1', enum=None, server_path=self.w1.server_path))
+        self.w2._configure(sdk.BaseDetailedWatchableConfiguration(watchable_type=WatchableType.Variable,
+                           datatype=EmbeddedDataType.sint32, server_id='w2', enum=None, server_path=self.w2.server_path))
+        self.w3._configure(sdk.BaseDetailedWatchableConfiguration(watchable_type=WatchableType.Alias,
+                           datatype=EmbeddedDataType.uint32, server_id='w3', enum=None, server_path=self.w3.server_path))
+        self.w4._configure(sdk.BaseDetailedWatchableConfiguration(watchable_type=WatchableType.RuntimePublishedValue,
+                           datatype=EmbeddedDataType.float64, server_id='w4', enum=None, server_path=self.w4.server_path))
+        self.w5._configure(sdk.BaseDetailedWatchableConfiguration(watchable_type=WatchableType.RuntimePublishedValue,
+                           datatype=EmbeddedDataType.boolean, server_id='w5', enum=None, server_path=self.w5.server_path))
 
     def test_listener_working_behavior(self):
         listener = WorkingTestListener()
@@ -432,10 +432,10 @@ class TestListeners(ScrutinyUnitTest):
                 self.assertEqual(headers[0], 'Datetime')
                 self.assertEqual(headers[1], 'Time [s]')
                 self.assertEqual(headers[-1], 'update flags')
-                all_watchables = sorted([self.w1, self.w2, self.w3, self.w4, self.w5], key=lambda x: x.display_path)
+                all_watchables = sorted([self.w1, self.w2, self.w3, self.w4, self.w5], key=lambda x: x.server_path)
                 index = 2
                 for watchable in all_watchables:
-                    self.assertEqual(fullpath_headers[index], watchable.display_path)
+                    self.assertEqual(fullpath_headers[index], watchable.server_path)
                     self.assertEqual(headers[index], watchable.name)
                     index += 1
 
@@ -454,23 +454,23 @@ class TestListeners(ScrutinyUnitTest):
                         self.assertEqual(row[-1], '1,1,1,1,1')
 
                     for col in range(2, len(headers) - 1):
-                        if headers[col] == self.w1.display_path:
+                        if headers[col] == self.w1.server_path:
                             self.assertEqual(row[col], i * 1.1)
-                        elif headers[col] == self.w2.display_path:
+                        elif headers[col] == self.w2.server_path:
                             self.assertEqual(row[col], -2 * i)
-                        elif headers[col] == self.w3.display_path:
+                        elif headers[col] == self.w3.server_path:
                             if i == 6:
                                 self.assertEqual(row[col], 3 * (i - 1))
                             else:
                                 self.assertEqual(row[col], 3 * i)
-                        elif headers[col] == self.w4.display_path:
+                        elif headers[col] == self.w4.server_path:
                             if i == 0:
                                 self.assertEqual(row[col], '')
                             elif i == 6:
                                 self.assertEqual(row[col], (i - 1) * 4.4123)
                             else:
                                 self.assertEqual(row[col], i * 4.4123)
-                        elif headers[col] == self.w5.display_path:
+                        elif headers[col] == self.w5.server_path:
                             self.assertEqual(row[col], 1 if i % 2 == 0 else 0)
 
     def test_csv_writer_listener_file_split(self):
@@ -525,10 +525,10 @@ class TestListeners(ScrutinyUnitTest):
                 self.assertEqual(headers[0], 'Datetime')
                 self.assertEqual(headers[1], 'Time [s]')
                 self.assertEqual(headers[-1], 'update flags')
-                all_watchables = sorted([self.w1, self.w2, self.w3, self.w4, self.w5], key=lambda x: x.display_path)
+                all_watchables = sorted([self.w1, self.w2, self.w3, self.w4, self.w5], key=lambda x: x.server_path)
                 index = 2
                 for watchable in all_watchables:
-                    self.assertEqual(fullpath_headers[index], watchable.display_path)
+                    self.assertEqual(fullpath_headers[index], watchable.server_path)
                     self.assertEqual(headers[index], watchable.name)
                     index += 1
 
@@ -540,15 +540,15 @@ class TestListeners(ScrutinyUnitTest):
                     float(row[1])  # ensure it can be parsed
 
                     for col in range(2, len(headers) - 1):
-                        if headers[col] == self.w1.display_path:
+                        if headers[col] == self.w1.server_path:
                             self.assertEqual(row[col], i * 1.1)
-                        elif headers[col] == self.w2.display_path:
+                        elif headers[col] == self.w2.server_path:
                             self.assertEqual(row[col], -2 * i)
-                        elif headers[col] == self.w3.display_path:
+                        elif headers[col] == self.w3.server_path:
                             self.assertEqual(row[col], 3 * i)
-                        elif headers[col] == self.w4.display_path:
+                        elif headers[col] == self.w4.server_path:
                             self.assertEqual(row[col], i * 4.4123)
-                        elif headers[col] == self.w5.display_path:
+                        elif headers[col] == self.w5.server_path:
                             self.assertEqual(row[col], 1 if i % 2 == 0 else 0)
 
             f1.close()

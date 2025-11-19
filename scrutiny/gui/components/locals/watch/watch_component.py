@@ -281,7 +281,7 @@ class WatchComponent(ScrutinyGUIBaseLocalComponent):
         def update_val_closure(watcher_id: Union[str, int], vals: List[RegistryValueUpdate]) -> None:
             self._update_val_callback(value_item, watcher_id, vals)
 
-        def unwatch_closure(watcher_id: Union[str, int], server_path: str, watchable_config: sdk.WatchableConfiguration, registry_id: int) -> None:
+        def unwatch_closure(watcher_id: Union[str, int], server_path: str, watchable_config: sdk.BriefWatchableConfiguration, registry_id: int) -> None:
             pass
 
         watcher_id = self._get_watcher_id(item)

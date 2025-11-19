@@ -39,24 +39,25 @@ default_server_info = sdk.ServerInfo(
 
 
 class StubbedWatchableHandle(tools.UnitTestStub):
-    display_path: str
-    configuration: sdk.WatchableConfigurationWithServerID
+    server_path: str
+    configuration: sdk.BaseDetailedWatchableConfiguration
     _invalid: bool
     _value: Union[int, str, float, bool]
 
-    def __init__(self, display_path: str,
+    def __init__(self, server_path: str,
                  watchable_type: sdk.WatchableType,
                  datatype: EmbeddedDataType,
                  enum: Optional[EmbeddedEnum],
                  server_id: str
                  ) -> None:
 
-        self.display_path = display_path
-        self.configuration = sdk.WatchableConfigurationWithServerID(
+        self.server_path = server_path
+        self.configuration = sdk.BaseDetailedWatchableConfiguration(
             watchable_type=watchable_type,
             datatype=datatype,
             enum=enum,
-            server_id=server_id
+            server_id=server_id,
+            server_path=server_path
         )
         self._invalid = False
         self._value = 0
@@ -141,7 +142,7 @@ class FakeSDKClient(tools.UnitTestStub):
 
     class FakeWatchRequest(FakeRequest):
         requested_path: str
-        received_configuration: sdk.WatchableConfigurationWithServerID
+        received_configuration: sdk.BaseDetailedWatchableConfiguration
 
         def __init__(self, path: str) -> None:
             self.requested_path = path
@@ -151,11 +152,11 @@ class FakeSDKClient(tools.UnitTestStub):
         def get_path(self) -> str:
             return self.requested_path
 
-        def simulate_success(self, configuration: sdk.WatchableConfigurationWithServerID) -> None:
+        def simulate_success(self, configuration: sdk.BaseDetailedWatchableConfiguration) -> None:
             self.received_configuration = configuration
             super().simulate_success()
 
-        def get_config(self) -> sdk.WatchableConfigurationWithServerID:
+        def get_config(self) -> sdk.BaseDetailedWatchableConfiguration:
             assert self.is_success()
             assert self.received_configuration is not None, "missing configuration"
             return self.received_configuration
@@ -255,7 +256,7 @@ class FakeSDKClient(tools.UnitTestStub):
                                 max_per_response: int = 500,
                                 name_patterns: List[str] = [],
                                 partial_reception_callback: Optional[Callable[[
-                                    Dict[sdk.WatchableType, Dict[str, sdk.WatchableConfiguration]], bool], None]] = None
+                                    Dict[sdk.WatchableType, Dict[str, sdk.BriefWatchableConfiguration]], bool], None]] = None
                                 ) -> WatchableListDownloadRequest:
         req = WatchableListDownloadRequest(self, self._req_id, new_data_callback=partial_reception_callback)
 
@@ -411,7 +412,7 @@ class FakeSDKClient(tools.UnitTestStub):
 
         wconfig = request.get_config()
         handle = StubbedWatchableHandle(
-            display_path=path,
+            server_path=path,
             datatype=wconfig.datatype,
             enum=wconfig.enum,
             server_id=wconfig.server_id,

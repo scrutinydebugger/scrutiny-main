@@ -18,8 +18,9 @@ from scrutiny.core.basic_types import *
 from scrutiny.core.embedded_enum import EmbeddedEnum
 import scrutiny.sdk.exceptions as sdk_exceptions
 from scrutiny.sdk.write_request import WriteRequest
-from scrutiny.tools import validation
+from scrutiny.tools import validation, deprecated
 from scrutiny.tools.typing import *
+from scrutiny.core import path_tools
 
 if TYPE_CHECKING:
     from scrutiny.sdk.client import ScrutinyClient
@@ -31,23 +32,33 @@ ValType = Union[int, float, bool]
 class WatchableHandle:
     """A handle to a server watchable element (Variable / Alias / RuntimePublishedValue) that gets updated by the client thread."""
 
-    _client: "ScrutinyClient"   # The client that created this handle
-    _display_path: str      # The display path
-    _shortname: str         # Name of the last element in the display path
-    _configuration: Optional[WatchableConfigurationWithServerID]
+    _client: "ScrutinyClient"
+    """The client that created this handle"""
+    _server_path: str
+    """The tree-like path known to the server"""
+    _shortname: str
+    """Name of the last element in the server path"""
+    _configuration: Optional[BaseDetailedWatchableConfiguration]
+    """Details obtained by the server after a call to watch()"""
 
-    _lock: threading.Lock   # A lock to access the value
-    _status: ValueStatus            # Status of the value. Tells if the value is valid or not and why it is invalid if not
+    _lock: threading.Lock
+    """A lock to access the value"""
+    _status: ValueStatus
+    """Status of the value. Tells if the value is valid or not and why it is invalid if not"""
 
-    _value: Optional[ValType]       # Contain the latest value gotten by the client
-    _last_value_dt: Optional[datetime]              # Datetime of the last value update by the client
-    _last_write_dt: Optional[datetime]  # Datetime of the last completed write on this element
-    _update_counter: int    # A counter that gets incremented each time the value is updated
+    _value: Optional[ValType]
+    """Contains the latest value gotten by the client"""
+    _last_value_dt: Optional[datetime]
+    """Datetime of the last value update by the client"""
+    _last_write_dt: Optional[datetime]
+    """Datetime of the last completed write on this element"""
+    _update_counter: int
+    """A counter that gets incremented each time the value is updated"""
 
-    def __init__(self, client: "ScrutinyClient", display_path: str) -> None:
+    def __init__(self, client: "ScrutinyClient", server_path: str) -> None:
         self._client = client
-        self._display_path = display_path
-        self._shortname = display_path.split('/')[-1]
+        self._server_path = server_path
+        self._shortname = path_tools.make_segments(server_path)[-1]
         self._configuration = None
         self._lock = threading.Lock()
         self._update_counter = 0
@@ -60,7 +71,7 @@ class WatchableHandle:
 
         return f'<{self.__class__.__name__} "{self._shortname}" [{self._configuration.datatype.name}] at {addr}>'
 
-    def _configure(self, config: WatchableConfigurationWithServerID) -> None:
+    def _configure(self, config: BaseDetailedWatchableConfiguration) -> None:
         with self._lock:
             self._configuration = config
             self._status = ValueStatus.NeverSet
@@ -127,7 +138,7 @@ class WatchableHandle:
         :raise NameNotFoundError: If the required path is not presently being watched
         :raise OperationFailure: If the subscription cancellation failed in any way
         """
-        self._client.unwatch(self._display_path)
+        self._client.unwatch(self._server_path)
 
     def wait_update(self, timeout: float, previous_counter: Optional[int] = None, sleep_interval: float = 0.02) -> None:
         """Wait for the value to be updated by the server
@@ -204,7 +215,7 @@ class WatchableHandle:
         """Tells if the watchable has an enum associated with it"""
         self._assert_configured()
         assert self._configuration is not None
-        return self._configuration.enum is not None
+        return self._configuration.has_enum()
 
     def get_enum(self) -> EmbeddedEnum:
         """ Returns the enum associated with this watchable
@@ -213,10 +224,7 @@ class WatchableHandle:
         """
         self._assert_configured()
         assert self._configuration is not None
-
-        self._assert_has_enum()
-        assert self._configuration.enum is not None
-        return self._configuration.enum.copy()
+        return self._configuration.get_enum()
 
     def parse_enum_val(self, val: str) -> int:
         """Converts an enum value name (string) to the underlying integer value
@@ -226,25 +234,24 @@ class WatchableHandle:
         :raises BadEnumError: If the watchable has no enum assigned or the given value is not a valid enumerator
         :raise TypeError: Given parameter not of the expected type
         """
-        validation.assert_type(val, 'val', str)
         self._assert_configured()
         assert self._configuration is not None
-
-        self._assert_has_enum()
-        assert self._configuration.enum is not None
-        if not self._configuration.enum.has_value(val):
-            raise sdk_exceptions.BadEnumError(f"Value {val} is not a valid value for enum {self._configuration.enum.name}")
-
-        return self._configuration.enum.get_value(val)
+        return self._configuration.parse_enum_val(val)
 
     @property
+    @deprecated("Replaced by server_path")
     def display_path(self) -> str:
-        """Contains the watchable full tree path"""
-        return self._display_path
+        """[DEPRECATED] Replaced by :attr:`server_path`"""
+        return self._server_path
+
+    @property
+    def server_path(self) -> str:
+        """Returns the watchable full tree path given by the server"""
+        return self._server_path
 
     @property
     def name(self) -> str:
-        """Contains the watchable name, e.g. the basename in the display_path"""
+        """Returns the watchable name, e.g. the basename in the server_path"""
         return self._shortname
 
     @property
@@ -341,3 +348,24 @@ class WatchableHandle:
     def is_dead(self) -> bool:
         status = ValueStatus(self._status)  # copy for atomicity
         return status not in (ValueStatus.Valid, ValueStatus.NeverSet)
+
+    @property
+    def var_details(self) -> DetailedVarWatchableConfiguration:
+        self._assert_configured()
+        if not isinstance(self._configuration, DetailedVarWatchableConfiguration):
+            raise sdk_exceptions.BadTypeError(f"Watchable {self._shortname} is not a variable. Type={self.type.name}")
+        return self._configuration
+
+    @property
+    def alias_details(self) -> DetailedAliasWatchableConfiguration:
+        self._assert_configured()
+        if not isinstance(self._configuration, DetailedAliasWatchableConfiguration):
+            raise sdk_exceptions.BadTypeError(f"Watchable {self._shortname} is not an alias. Type={self.type.name}")
+        return self._configuration
+
+    @property
+    def rpv_details(self) -> DetailedRPVWatchableConfiguration:
+        self._assert_configured()
+        if not isinstance(self._configuration, DetailedRPVWatchableConfiguration):
+            raise sdk_exceptions.BadTypeError(f"Watchable {self._shortname} is not a Runtime Published Value. Type={self.type.name}")
+        return self._configuration

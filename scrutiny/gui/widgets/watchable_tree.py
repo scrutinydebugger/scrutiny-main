@@ -20,7 +20,7 @@ __all__ = [
     'WatchableTreeWidget'
 ]
 
-from scrutiny.sdk import WatchableType, WatchableConfiguration
+from scrutiny.sdk import WatchableType, BriefWatchableConfiguration
 from PySide6.QtGui import QStandardItem, QIcon, QKeyEvent
 from PySide6.QtWidgets import QWidget, QApplication
 from PySide6.QtCore import Qt, QModelIndex
@@ -235,7 +235,7 @@ class WatchableTreeModel(BaseTreeModel):
         super().__init__(parent)
         self._watchable_registry = watchable_registry
 
-    def get_watchable_extra_columns(self, fqn: str, watchable_config: Optional[WatchableConfiguration] = None) -> List[QStandardItem]:
+    def get_watchable_extra_columns(self, fqn: str, watchable_config: Optional[BriefWatchableConfiguration] = None) -> List[QStandardItem]:
         return []
 
     def watchable_item_created(self, item: WatchableStandardItem) -> None:

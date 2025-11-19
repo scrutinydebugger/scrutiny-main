@@ -21,21 +21,21 @@ from scrutiny.tools.typing import *
 from uuid import uuid4
 
 DUMMY_DATASET_RPV = {
-    '/rpv/rpv1000': sdk.WatchableConfiguration(watchable_type=sdk.WatchableType.RuntimePublishedValue, datatype=sdk.EmbeddedDataType.float32, enum=None),
-    '/rpv/rpv1001': sdk.WatchableConfiguration(watchable_type=sdk.WatchableType.RuntimePublishedValue, datatype=sdk.EmbeddedDataType.float32, enum=None)
+    '/rpv/rpv1000': sdk.BriefWatchableConfiguration(watchable_type=sdk.WatchableType.RuntimePublishedValue, datatype=sdk.EmbeddedDataType.float32, enum=None),
+    '/rpv/rpv1001': sdk.BriefWatchableConfiguration(watchable_type=sdk.WatchableType.RuntimePublishedValue, datatype=sdk.EmbeddedDataType.float32, enum=None)
 }
 
 DUMMY_DATASET_ALIAS = {
-    '/alias/xxx/alias1': sdk.WatchableConfiguration(watchable_type=sdk.WatchableType.Alias, datatype=sdk.EmbeddedDataType.float32, enum=None),
-    '/alias/alias2': sdk.WatchableConfiguration(watchable_type=sdk.WatchableType.Alias, datatype=sdk.EmbeddedDataType.float32, enum=None),
-    '/alias/alias3': sdk.WatchableConfiguration(watchable_type=sdk.WatchableType.Alias, datatype=sdk.EmbeddedDataType.float32, enum=None)
+    '/alias/xxx/alias1': sdk.BriefWatchableConfiguration(watchable_type=sdk.WatchableType.Alias, datatype=sdk.EmbeddedDataType.float32, enum=None),
+    '/alias/alias2': sdk.BriefWatchableConfiguration(watchable_type=sdk.WatchableType.Alias, datatype=sdk.EmbeddedDataType.float32, enum=None),
+    '/alias/alias3': sdk.BriefWatchableConfiguration(watchable_type=sdk.WatchableType.Alias, datatype=sdk.EmbeddedDataType.float32, enum=None)
 }
 
 DUMMY_DATASET_VAR = {
-    '/var/xxx/var1': sdk.WatchableConfiguration(watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None),
-    '/var/xxx/var2': sdk.WatchableConfiguration(watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None),
-    '/var/var3': sdk.WatchableConfiguration(watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None),
-    '/var/var4': sdk.WatchableConfiguration(watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None)
+    '/var/xxx/var1': sdk.BriefWatchableConfiguration(watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None),
+    '/var/xxx/var2': sdk.BriefWatchableConfiguration(watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None),
+    '/var/var3': sdk.BriefWatchableConfiguration(watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None),
+    '/var/var4': sdk.BriefWatchableConfiguration(watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None)
 }
 
 
@@ -47,22 +47,23 @@ All_DUMMY_DATA = {
 
 
 class StubbedWatchableHandle:
-    display_path: str
-    configuration: sdk.WatchableConfigurationWithServerID
+    server_path: str
+    configuration: sdk.BaseDetailedWatchableConfiguration
 
-    def __init__(self, display_path: str,
+    def __init__(self, server_path: str,
                  watchable_type: sdk.WatchableType,
                  datatype: EmbeddedDataType,
                  enum: Optional[EmbeddedEnum],
                  server_id: str
                  ) -> None:
 
-        self.display_path = display_path
-        self.configuration = sdk.WatchableConfigurationWithServerID(
+        self.server_path = server_path
+        self.configuration = sdk.BaseDetailedWatchableConfiguration(
             watchable_type=watchable_type,
             datatype=datatype,
             enum=enum,
-            server_id=server_id
+            server_id=server_id,
+            server_path=server_path
         )
 
     @property
@@ -84,7 +85,7 @@ class TestWatchableRegistry(ScrutinyUnitTest):
         node = self.registry.read_fqn(fqn)
         assert isinstance(node, WatchableRegistryEntryNode)
         return StubbedWatchableHandle(
-            display_path=WatchableRegistry.FQN.parse(fqn).path,
+            server_path=WatchableRegistry.FQN.parse(fqn).path,
             watchable_type=node.configuration.watchable_type,
             datatype=node.configuration.datatype,
             server_id=uuid4().hex,
@@ -126,13 +127,13 @@ class TestWatchableRegistry(ScrutinyUnitTest):
         self.assertFalse(WatchableRegistry.FQN.is_equal('var:/a/b/c', 'var:/a/b/d'))
 
     def test_internal_direct_add_get(self):
-        obj1 = sdk.WatchableConfiguration(
+        obj1 = sdk.BriefWatchableConfiguration(
             watchable_type=sdk.WatchableType.Alias,
             datatype=sdk.EmbeddedDataType.float32,
             enum=None
         )
 
-        obj2 = sdk.WatchableConfiguration(
+        obj2 = sdk.BriefWatchableConfiguration(
             watchable_type=sdk.WatchableType.Variable,
             datatype=sdk.EmbeddedDataType.float32,
             enum=None
@@ -149,7 +150,7 @@ class TestWatchableRegistry(ScrutinyUnitTest):
         self.assertIs(obj2, o2.configuration)
 
     def test_root_not_writable(self):
-        obj1 = sdk.WatchableConfiguration(
+        obj1 = sdk.BriefWatchableConfiguration(
             watchable_type=sdk.WatchableType.Alias,
             datatype=sdk.EmbeddedDataType.float32,
             enum=None
@@ -170,13 +171,13 @@ class TestWatchableRegistry(ScrutinyUnitTest):
         self.assertFalse(self.registry.is_watchable_fqn('alias:Idontexist'))
 
     def test_cannot_overwrite_without_clear(self):
-        obj1 = sdk.WatchableConfiguration(
+        obj1 = sdk.BriefWatchableConfiguration(
             watchable_type=sdk.WatchableType.Variable,
             datatype=sdk.EmbeddedDataType.float32,
             enum=None
         )
 
-        obj2 = sdk.WatchableConfiguration(
+        obj2 = sdk.BriefWatchableConfiguration(
             watchable_type=sdk.WatchableType.Variable,
             datatype=sdk.EmbeddedDataType.float32,
             enum=None
@@ -187,13 +188,13 @@ class TestWatchableRegistry(ScrutinyUnitTest):
             self.registry._add_watchable('/aaa/bbb', obj2)
 
     def test_can_have_same_path_if_different_type(self):
-        obj1 = sdk.WatchableConfiguration(
+        obj1 = sdk.BriefWatchableConfiguration(
             watchable_type=sdk.WatchableType.Alias,
             datatype=sdk.EmbeddedDataType.float32,
             enum=None
         )
 
-        obj2 = sdk.WatchableConfiguration(
+        obj2 = sdk.BriefWatchableConfiguration(
             watchable_type=sdk.WatchableType.Variable,
             datatype=sdk.EmbeddedDataType.float32,
             enum=None
@@ -672,7 +673,7 @@ class TestWatchableRegistry(ScrutinyUnitTest):
             'watcher2': [],
         }
 
-        def watcher_unwatch_callback(watcher_id, fqn: str, config: sdk.WatchableConfiguration, registry_id: int):
+        def watcher_unwatch_callback(watcher_id, fqn: str, config: sdk.BriefWatchableConfiguration, registry_id: int):
             watcher_unwatch_list[watcher_id].append(fqn)
 
         self.registry.register_watcher('watcher1', lambda *x, **y: None, watcher_unwatch_callback)
@@ -681,10 +682,10 @@ class TestWatchableRegistry(ScrutinyUnitTest):
         global_watch_callback_list: List[Tuple[str, str]] = []
         global_unwatch_callback_list: List[Tuple[str, str]] = []
 
-        def watch_callback(watcher_id: str, server_path: str, watchable_config: sdk.WatchableConfiguration, registry_id: int):
+        def watch_callback(watcher_id: str, server_path: str, watchable_config: sdk.BriefWatchableConfiguration, registry_id: int):
             global_watch_callback_list.append((watcher_id, server_path))
 
-        def unwatch_callback(watcher_id: str, server_path: str, watchable_config: sdk.WatchableConfiguration, registry_id: int):
+        def unwatch_callback(watcher_id: str, server_path: str, watchable_config: sdk.BriefWatchableConfiguration, registry_id: int):
             global_unwatch_callback_list.append((watcher_id, server_path))
 
         self.registry.register_global_watch_callback(watch_callback, unwatch_callback)

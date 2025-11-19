@@ -231,7 +231,7 @@ def parse_get_watchable_list(response: api_typing.S2C.GetWatchableList) -> GetWa
         data=sdk.WatchableListContentPart()
     )
 
-    typekey_to_dict_ref: Dict[WATCHABLE_TYPE_KEY, Dict[str, sdk.WatchableConfiguration]] = {
+    typekey_to_dict_ref: Dict[WATCHABLE_TYPE_KEY, Dict[str, sdk.BriefWatchableConfiguration]] = {
         'rpv': outdata.data.rpv,
         'alias': outdata.data.alias,
         'var': outdata.data.var
@@ -242,7 +242,7 @@ def parse_get_watchable_list(response: api_typing.S2C.GetWatchableList) -> GetWa
         'var': sdk.WatchableType.Variable,
     }
 
-    def get_enum(element: Union[api_typing.DatastoreEntryDefinition, api_typing.VariableFactoryDefinition]) -> Optional[EmbeddedEnum]:
+    def get_enum(element: Union[api_typing.DatastoreEntryBriefDefinition, api_typing.VariableFactoryDefinition]) -> Optional[EmbeddedEnum]:
         enum: Optional[EmbeddedEnum] = None
         if 'enum' in element and element['enum'] is not None:
             _check_response_dict(cmd, element, 'enum', dict)
@@ -262,7 +262,7 @@ def parse_get_watchable_list(response: api_typing.S2C.GetWatchableList) -> GetWa
                 enum.add_value(key, val)
         return enum
 
-    def get_dtype(element: Union[api_typing.DatastoreEntryDefinition, api_typing.VariableFactoryDefinition], keyprefix: str) -> EmbeddedDataType:
+    def get_dtype(element: Union[api_typing.DatastoreEntryBriefDefinition, api_typing.VariableFactoryDefinition], keyprefix: str) -> EmbeddedDataType:
         _check_response_dict(cmd, element, 'dtype', str, keyprefix)
 
         if element['dtype'] not in API.APISTR_2_DATATYPE:
@@ -270,7 +270,7 @@ def parse_get_watchable_list(response: api_typing.S2C.GetWatchableList) -> GetWa
 
         return EmbeddedDataType(API.APISTR_2_DATATYPE[element['dtype']])
 
-    def get_path(element: Union[api_typing.DatastoreEntryDefinition, api_typing.VariableFactoryDefinition], keyprefix: str) -> str:
+    def get_path(element: Union[api_typing.DatastoreEntryBriefDefinition, api_typing.VariableFactoryDefinition], keyprefix: str) -> str:
         _check_response_dict(cmd, element, 'path', str, keyprefix)
         if len(element['path']) == 0:
             raise sdk.exceptions.BadResponseError(f"Empty path")
@@ -310,12 +310,12 @@ def parse_get_watchable_list(response: api_typing.S2C.GetWatchableList) -> GetWa
             outdict = typekey_to_dict_ref[typekey]
             for i in range(len(container)):
                 keyprefix = f'content.{typekey}[{i}]'
-                element = cast(api_typing.DatastoreEntryDefinition, container[i])
+                element = cast(api_typing.DatastoreEntryBriefDefinition, container[i])
                 path = get_path(element, keyprefix)
                 datatype = get_dtype(element, keyprefix)
                 enum = get_enum(element)
 
-                outdict[path] = sdk.WatchableConfiguration(
+                outdict[path] = sdk.BriefWatchableConfiguration(
                     watchable_type=typekey_to_watchable_type[typekey],
                     datatype=datatype,
                     enum=enum
@@ -346,16 +346,13 @@ def parse_get_watchable_list(response: api_typing.S2C.GetWatchableList) -> GetWa
     return outdata
 
 
-def parse_subscribe_watchable_response(response: api_typing.S2C.SubscribeWatchable) -> Dict[str, sdk.WatchableConfigurationWithServerID]:
-    """Parse a response to get_watchable_list and assume the request was for a single watchable"""
-    assert isinstance(response, dict)
-    assert 'cmd' in response
-    cmd = response['cmd']
-    assert cmd == API.Command.Api2Client.SUBSCRIBE_WATCHABLE_RESPONSE
+def _read_map_of_detailed_watchable_info(
+        cmd: str,
+        themap: Dict[str, api_typing.DetailedDatastoreEntryDefinition]
+) -> Dict[str, sdk.DetailedWatchableConfiguration]:
 
-    outdict: Dict[str, sdk.WatchableConfigurationWithServerID] = {}
-    _check_response_dict(cmd, response, 'subscribed', dict)
-    for k, v in response['subscribed'].items():
+    outdict: Dict[str, sdk.DetailedWatchableConfiguration] = {}
+    for k, v in themap.items():
         if not isinstance(k, str):
             raise sdk.exceptions.BadResponseError('Gotten a subscription dict with invalid key')
 
@@ -380,23 +377,111 @@ def parse_subscribe_watchable_response(response: api_typing.S2C.SubscribeWatchab
             raise sdk.exceptions.BadResponseError(f"Unknown datatype {v['dtype']}")
 
         datatype = EmbeddedDataType(API.APISTR_2_DATATYPE[v['dtype']])
-        if v['type'] == 'alias':
-            watchable_type = sdk.WatchableType.Alias
-        elif v['type'] == 'var':
-            watchable_type = sdk.WatchableType.Variable
-        elif v['type'] == 'rpv':
-            watchable_type = sdk.WatchableType.RuntimePublishedValue
-        else:
-            raise sdk.exceptions.BadResponseError(f"Unsupported watchable type {v['type']}")
 
-        outdict[k] = sdk.WatchableConfigurationWithServerID(
-            server_id=v['id'],
-            watchable_type=watchable_type,
-            datatype=datatype,
-            enum=enum
-        )
+        def read_watchable_type(v: str) -> WatchableType:
+            if v == 'alias':
+                return sdk.WatchableType.Alias
+            elif v == 'var':
+                return sdk.WatchableType.Variable
+            elif v == 'rpv':
+                return sdk.WatchableType.RuntimePublishedValue
+            else:
+                raise sdk.exceptions.BadResponseError(f"Unsupported watchable type {v}")
+
+        watchable_type = read_watchable_type(v['type'])
+        if watchable_type == WatchableType.Variable:
+            v = cast(api_typing.VarDetailedDatastoreEntryDefinition, v)
+            _check_response_dict(cmd, v, 'address', int)
+            if 'bitoffset' in v:
+                _check_response_dict(cmd, v, 'bitoffset', (int, type(None)))
+            if 'bitsize' in v:
+                _check_response_dict(cmd, v, 'bitsize', (int, type(None)))
+
+            outdict[k] = sdk.DetailedVarWatchableConfiguration(
+                server_path=k,
+                server_id=v['id'],
+                watchable_type=watchable_type,
+                datatype=datatype,
+                enum=enum,
+                address=v['address'],
+                bitoffset=v.get('bitoffset', None),
+                bitsize=v.get('bitsize', None)
+            )
+
+        elif watchable_type == WatchableType.Alias:
+            v = cast(api_typing.AliasDetailedDatastoreEntryDefinition, v)
+
+            _check_response_dict(cmd, v, 'target', str)
+            _check_response_dict(cmd, v, 'target_type', str)
+
+            if 'gain' in v:
+                _check_response_dict(cmd, v, 'gain', (float, int, type(None)))
+            if 'offset' in v:
+                _check_response_dict(cmd, v, 'offset', (float, int, type(None)))
+            if 'min' in v:
+                _check_response_dict(cmd, v, 'min', (float, int, type(None)))
+            if 'max' in v:
+                _check_response_dict(cmd, v, 'max', (float, int, type(None)))
+
+            gain = _fetch_dict_val_of_type(v, 'gain', float, None, allow_none=True)
+            offset = _fetch_dict_val_of_type(v, 'offset', float, None, allow_none=True)
+            min = _fetch_dict_val_of_type(v, 'min', float, None, allow_none=True)
+            max = _fetch_dict_val_of_type(v, 'max', float, None, allow_none=True)
+
+            outdict[k] = sdk.DetailedAliasWatchableConfiguration(
+                server_path=k,
+                server_id=v['id'],
+                watchable_type=watchable_type,
+                datatype=datatype,
+                enum=enum,
+
+                target=v['target'],
+                target_type=read_watchable_type(v['target_type']),
+                gain=gain,
+                offset=offset,
+                min=min,
+                max=max
+            )
+
+        elif watchable_type == WatchableType.RuntimePublishedValue:
+            v = cast(api_typing.RPVDetailedDatastoreEntryDefinition, v)
+
+            _check_response_dict(cmd, v, 'rpvid', int)
+
+            outdict[k] = sdk.DetailedRPVWatchableConfiguration(
+                server_path=k,
+                server_id=v['id'],
+                watchable_type=watchable_type,
+                datatype=datatype,
+                enum=enum,
+                rpvid=v['rpvid']
+            )
+        else:
+            raise NotImplementedError("Unsupported watchable type")
 
     return outdict
+
+
+def parse_subscribe_watchable_response(response: api_typing.S2C.SubscribeWatchable) -> Dict[str, sdk.DetailedWatchableConfiguration]:
+    """Parse a response to get_watchable_list and assume the request was for a single watchable"""
+    assert isinstance(response, dict)
+    assert 'cmd' in response
+    cmd = response['cmd']
+    assert cmd == API.Command.Api2Client.SUBSCRIBE_WATCHABLE_RESPONSE
+
+    _check_response_dict(cmd, response, 'subscribed', dict)
+    return _read_map_of_detailed_watchable_info(cmd, response['subscribed'])
+
+
+def parse_get_watchable_info_response(response: api_typing.S2C.GetWatchableInfo) -> Dict[str, sdk.DetailedWatchableConfiguration]:
+    """Parse a response to get_watchable_list and assume the request was for a single watchable"""
+    assert isinstance(response, dict)
+    assert 'cmd' in response
+    cmd = response['cmd']
+    assert cmd == API.Command.Api2Client.GET_WATCHABLE_INFO_RESPONSE
+
+    _check_response_dict(cmd, response, 'info', dict)
+    return _read_map_of_detailed_watchable_info(cmd, response['info'])
 
 
 def parse_get_device_info(response: api_typing.S2C.GetDeviceInfo) -> Optional[sdk.DeviceInfo]:

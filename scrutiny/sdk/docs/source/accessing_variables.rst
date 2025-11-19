@@ -4,7 +4,7 @@ Accessing variables
 ===================
 
 In the SDK, Variables, Aliases, :abbr:`RPV (Runtime Published Values)` are presented to the client side through an interface called a ``watchable``, e.g. something you can watch.
-Some watchables are available only when the server has loaded the :abbr:`SFD (Scrutiny Firmware Description)` matching the device firmware (alias, var), others are available as 
+Some watchables are available only when the server has loaded the :abbr:`SFD (Scrutiny Firmware Description)` matching the device firmware (Aliases and Variable), others are available as 
 soon as a device is connected (RPV)
 
 .. list-table:: Watchable types
@@ -63,7 +63,7 @@ A handle will exist if a previous call to  :meth:`watch<scrutiny.sdk.client.Scru
 .. autoclass:: scrutiny.sdk.watchable_handle.WatchableHandle
     :exclude-members: __new__, __init__
     :member-order: bysource
-    :members: display_path, name, type, datatype, value, value_bool, value_int, value_float, 
+    :members: server_path, name, type, datatype, value, value_bool, value_int, value_float, 
         value_enum, has_enum, get_enum, parse_enum_val,
         last_update_timestamp, last_write_timestamp, update_counter
 
@@ -126,6 +126,68 @@ As demonstrated in the preceding example, device access is executed in a fully s
 Consequently, a script utilizing the Scrutiny Python SDK can be perceived as a thread operating on the embedded device with a slower memory access time.
 
 -----
+
+Watchable metadata
+------------------
+
+It is possible to query the server for the watchable metadata, without actually subscribing for value updates. 
+The metadata content varies according to the watchable type.
+
+.. automethod:: scrutiny.sdk.client.ScrutinyClient.get_watchable_info
+
+-----
+
+For convenience, 3 specialization of :meth:`get_watchable_info<scrutiny.sdk.client.ScrutinyClient.get_watchable_info>` are available for the case only 
+one watchable of a given type is of interest. 
+
+
+.. automethod:: scrutiny.sdk.client.ScrutinyClient.get_var_watchable_info    
+
+-----
+
+.. automethod:: scrutiny.sdk.client.ScrutinyClient.get_alias_watchable_info    
+
+-----
+
+.. automethod:: scrutiny.sdk.client.ScrutinyClient.get_rpv_watchable_info    
+
+-----
+
+The metadata structures are as follow
+
+.. autoclass:: scrutiny.sdk.DetailedVarWatchableConfiguration
+    :exclude-members: __new__, __init__
+    :member-order: groupwise
+    :members:
+    :inherited-members:
+    
+-----
+
+.. autoclass:: scrutiny.sdk.DetailedAliasWatchableConfiguration
+    :exclude-members: __new__, __init__
+    :member-order: groupwise
+    :members:
+    :inherited-members:    
+
+-----
+
+.. autoclass:: scrutiny.sdk.DetailedRPVWatchableConfiguration
+    :exclude-members: __new__, __init__
+    :member-order: groupwise
+    :members:
+    :inherited-members:    
+
+-----
+
+Example 
+#######
+
+.. code-block:: python
+
+    my_var = client.get_var_watchable_info('/var/static/main.cpp/main()/my_var')
+    print(my_var.address)
+
+
 
 Detecting a value change
 ------------------------
@@ -262,7 +324,7 @@ Following is the object returned :meth:`download_watchable_list<scrutiny.sdk.cli
 
 -----
 
-.. autoclass:: scrutiny.sdk.WatchableConfiguration
+.. autoclass:: scrutiny.sdk.BriefWatchableConfiguration
     :exclude-members: __new__, __init__
     :member-order: bysource
     :members:

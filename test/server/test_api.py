@@ -544,7 +544,8 @@ class TestAPI(ScrutinyUnitTest):
                     'a', 'b', 'c', 'dummy'], location=0x12345678, endianness=Endianness.Little, enum=enum)
                 entry = DatastoreVariableEntry(name, variable_def=dummy_var)
             elif entry_type == WatchableType.Alias:
-                entry = DatastoreAliasEntry(Alias(name, target='none'), refentry=alias_bucket[i])
+                alias = Alias(name, target=alias_bucket[i].display_path, target_type=alias_bucket[i].get_type())
+                entry = DatastoreAliasEntry(alias, refentry=alias_bucket[i])
             else:
                 dummy_rpv = RuntimePublishedValue(id=i, datatype=EmbeddedDataType.float32)
                 entry = DatastoreRPVEntry(name, rpv=dummy_rpv)
@@ -994,6 +995,7 @@ class TestAPI(ScrutinyUnitTest):
             'cmd': 'subscribe_watchable',
             'watchables': [subscribed_entry.get_display_path()]
         }
+        assert isinstance(subscribed_entry, DatastoreVariableEntry)
 
         self.send_request(req, 0)
         response = self.wait_and_load_response()
@@ -1012,6 +1014,13 @@ class TestAPI(ScrutinyUnitTest):
         self.assertEqual(obj1['dtype'], 'float32')
         self.assertNotIn('enum', obj1)  # No enum in this one
 
+        self.assertIn('address', obj1)
+        self.assertIn('bitsize', obj1)
+        self.assertIn('bitoffset', obj1)
+        self.assertEqual(obj1['address'], subscribed_entry.get_address())
+        self.assertEqual(obj1['bitsize'], subscribed_entry.get_bitsize())
+        self.assertEqual(obj1['bitoffset'], subscribed_entry.get_bitoffset())
+
         self.assertIsNone(self.wait_for_response(timeout=0.2))
 
         self.datastore.set_value(subscribed_entry.get_id(), 1234)
@@ -1024,6 +1033,43 @@ class TestAPI(ScrutinyUnitTest):
 
         self.assertEqual(update['id'], subscribed_entry.get_id())
         self.assertEqual(update['v'], 1234)
+
+    def test_get_info_single_var(self):
+        entries = self.make_dummy_entries(10, entry_type=WatchableType.Variable, prefix='var')
+        self.datastore.add_entries(entries)
+
+        entry_of_interest = entries[2]
+        req = {
+            'cmd': 'get_watchable_info',
+            'watchables': [entry_of_interest.get_display_path()]
+        }
+        assert isinstance(entry_of_interest, DatastoreVariableEntry)
+
+        self.send_request(req, 0)
+        response = self.wait_and_load_response()
+        self.assert_no_error(response)
+
+        self.assertIn('cmd', response)
+        self.assertIn('info', response)
+        self.assertIsInstance(response['info'], dict)
+
+        self.assertEqual(response['cmd'], 'response_get_watchable_info')
+        self.assertEqual(len(response['info']), 1)
+        self.assertIn(entry_of_interest.get_display_path(), response['info'])
+        obj1 = response['info'][entry_of_interest.get_display_path()]
+        self.assertEqual(obj1['id'], entry_of_interest.get_id())
+        self.assertEqual(obj1['type'], 'var')
+        self.assertEqual(obj1['dtype'], 'float32')
+        self.assertNotIn('enum', obj1)  # No enum in this one
+
+        self.assertIn('address', obj1)
+        self.assertIn('bitsize', obj1)
+        self.assertIn('bitoffset', obj1)
+        self.assertEqual(obj1['address'], entry_of_interest.get_address())
+        self.assertEqual(obj1['bitsize'], entry_of_interest.get_bitsize())
+        self.assertEqual(obj1['bitoffset'], entry_of_interest.get_bitoffset())
+
+        # No update
 
     def test_subscribe_single_var_get_enum(self):
         subscribed_entry = self.make_dummy_entries(1, entry_type=WatchableType.Variable, prefix='var', enum_dict={'a': 1, 'b': 2, 'c': 3})[0]
@@ -1054,6 +1100,99 @@ class TestAPI(ScrutinyUnitTest):
         self.assertIn('values', obj1['enum'])
         self.assertEqual(obj1['enum']['name'], 'some_enum')
         self.assertEqual(obj1['enum']['values'], {'a': 1, 'b': 2, 'c': 3})
+
+    def test_get_info_single_var_get_enum(self):
+        entry_of_interest = self.make_dummy_entries(1, entry_type=WatchableType.Variable, prefix='var', enum_dict={'a': 1, 'b': 2, 'c': 3})[0]
+        self.datastore.add_entry(entry_of_interest)
+
+        req = {
+            'cmd': 'get_watchable_info',
+            'watchables': [entry_of_interest.get_display_path()]
+        }
+
+        self.send_request(req, 0)
+        response = self.wait_and_load_response()
+        self.assert_no_error(response)
+
+        self.assertIn('cmd', response)
+        self.assertIn('info', response)
+        self.assertIsInstance(response['info'], dict)
+
+        self.assertEqual(response['cmd'], 'response_get_watchable_info')
+        self.assertEqual(len(response['info']), 1)
+        self.assertIn(entry_of_interest.get_display_path(), response['info'])
+        obj1 = response['info'][entry_of_interest.get_display_path()]
+        self.assertEqual(obj1['id'], entry_of_interest.get_id())
+        self.assertEqual(obj1['type'], 'var')
+        self.assertEqual(obj1['dtype'], 'float32')
+        self.assertIn('enum', obj1)  # No enum in this one
+        self.assertIn('name', obj1['enum'])
+        self.assertIn('values', obj1['enum'])
+        self.assertEqual(obj1['enum']['name'], 'some_enum')
+        self.assertEqual(obj1['enum']['values'], {'a': 1, 'b': 2, 'c': 3})
+
+    def test_get_info_multiple_watchables(self):
+        var_entries = self.make_dummy_entries(10, entry_type=WatchableType.Variable, prefix='var')
+        alias_entries = self.make_dummy_entries(10, entry_type=WatchableType.Alias, prefix='alias', alias_bucket=var_entries)
+        rpv_entries = self.make_dummy_entries(10, entry_type=WatchableType.RuntimePublishedValue, prefix='rpv')
+        self.datastore.add_entries(var_entries)
+        self.datastore.add_entries(alias_entries)
+        self.datastore.add_entries(rpv_entries)
+
+        entries_of_interest = [var_entries[2], rpv_entries[5], alias_entries[4]]
+        req = {
+            'cmd': 'get_watchable_info',
+            'watchables': [e.get_display_path() for e in entries_of_interest]
+        }
+
+        self.send_request(req, 0)
+        response = self.wait_and_load_response()
+        self.assert_no_error(response)
+
+        self.assertIn('cmd', response)
+        self.assertIn('info', response)
+        self.assertIsInstance(response['info'], dict)
+
+        self.assertEqual(response['cmd'], 'response_get_watchable_info')
+        self.assertEqual(len(response['info']), len(entries_of_interest))
+        for entry in entries_of_interest:
+            self.assertIn(entry.get_display_path(), response['info'])
+
+        for entry in entries_of_interest:
+
+            obj1 = response['info'][entry.get_display_path()]
+            self.assertEqual(obj1['id'], entry.get_id())
+            self.assertEqual(API.APISTR_2_DATATYPE[obj1['dtype']], entry.get_data_type())
+
+            if isinstance(entry, DatastoreVariableEntry):
+                self.assertEqual(obj1['type'], 'var')
+                self.assertIn('address', obj1)
+                self.assertIn('bitsize', obj1)
+                self.assertIn('bitoffset', obj1)
+                self.assertEqual(obj1['address'], entry.get_address())
+                self.assertEqual(obj1['bitsize'], entry.get_bitsize())
+                self.assertEqual(obj1['bitoffset'], entry.get_bitoffset())
+
+            elif isinstance(entry, DatastoreAliasEntry):
+                self.assertEqual(obj1['type'], 'alias')
+                self.assertIn('target', obj1)
+                self.assertIn('target_type', obj1)
+                self.assertIn('gain', obj1)
+                self.assertIn('bias', obj1)
+                self.assertIn('min', obj1)
+                self.assertIn('max', obj1)
+                self.assertIsInstance(obj1['gain'], (float, type(None)))
+                self.assertIsInstance(obj1['bias'], (float, type(None)))
+                self.assertIsInstance(obj1['min'], (float, type(None)))
+                self.assertIsInstance(obj1['max'], (float, type(None)))
+
+                self.assertEqual(obj1['target'], entry.aliasdef.target)
+                self.assertEqual(API.APISTR_2_WATCHABLE_TYPE[obj1['target_type']], entry.aliasdef.target_type)
+
+            elif isinstance(entry, DatastoreRPVEntry):
+                self.assertEqual(obj1['type'], 'rpv')
+                self.assertIn('rpvid', obj1)
+                self.assertEqual(obj1['rpvid'], entry.rpv.id)
 
     def test_stop_watching_on_disconnect(self):
         entries = self.make_dummy_entries(2, entry_type=WatchableType.Variable, prefix='var')

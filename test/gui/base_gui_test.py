@@ -8,6 +8,7 @@
 
 from test import ScrutinyUnitTest
 from PySide6.QtWidgets import QApplication
+from PySide6.QtCore import QLocale
 import enum
 import time
 from test import logger
@@ -42,8 +43,9 @@ class ScrutinyBaseGuiTest(ScrutinyUnitTest):
         self.event_list: List[EventType] = []
         self.app = QApplication.instance()
         if self.app is None:
-            # Required to process event because they are emitted in a different thread, therefore the connectiontype is queued
+            # Required to process event because they are emitted in a different thread, therefore the connection type is queued
             self.app = make_qt_app([])
+
         scrutiny_set_theme(self.app, DefaultTheme())
 
     def tearDown(self):
