@@ -60,7 +60,7 @@ class CSVFileListener(BaseListener):
         )
 
     def setup(self) -> None:
-        handles = sorted(list(self.get_subscriptions()), key=lambda x: x.display_path)
+        handles = sorted(list(self.get_subscriptions()), key=lambda x: x.server_path)
         self.csv_logger.define_columns_from_handles(handles)
         self.csv_logger.start()
 

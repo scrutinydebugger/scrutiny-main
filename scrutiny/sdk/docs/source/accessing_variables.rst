@@ -63,7 +63,7 @@ A handle will exist if a previous call to  :meth:`watch<scrutiny.sdk.client.Scru
 .. autoclass:: scrutiny.sdk.watchable_handle.WatchableHandle
     :exclude-members: __new__, __init__
     :member-order: bysource
-    :members: display_path, name, type, datatype, value, value_bool, value_int, value_float, 
+    :members: server_path, name, type, datatype, value, value_bool, value_int, value_float, 
         value_enum, has_enum, get_enum, parse_enum_val,
         last_update_timestamp, last_write_timestamp, update_counter
 

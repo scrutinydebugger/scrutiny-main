@@ -222,7 +222,7 @@ class WatchableListDownloadRequest(PendingRequest):
 
         :raise InvalidValueError: If the data is not available yet (if the request did not completed successfully)
 
-        :return: A dictionary of dictionary containing the definition of each watchable entry that matched the filters. `foo[type][display_path] = <definition>`
+        :return: A dictionary of dictionary containing the definition of each watchable entry that matched the filters. `foo[type][server_path] = <definition>`
         """
         if self._new_data_callback is not None:
             raise sdk.exceptions.InvalidValueError("The watchable list is not stored when a callback is provided to process the partial responses.")
@@ -1333,8 +1333,8 @@ class ScrutinyClient:
             watchable = self._watchable_storage[server_id]
             if watchable.type in watchable_types:
                 watchable._set_invalid(new_status)
-                if watchable.display_path in self._watchable_path_to_id_map:
-                    del self._watchable_path_to_id_map[watchable.display_path]
+                if watchable.server_path in self._watchable_path_to_id_map:
+                    del self._watchable_path_to_id_map[watchable.server_path]
                 del self._watchable_storage[server_id]
 
     def _wt_clear_all_pending_requests(self, failure_reason: str) -> None:
@@ -1763,11 +1763,11 @@ class ScrutinyClient:
                 watchable._configure(watchable_defs[path])
                 assert watchable._configuration is not None
                 with self._main_lock:
-                    self._watchable_path_to_id_map[watchable.display_path] = watchable._configuration.server_id
+                    self._watchable_path_to_id_map[watchable.server_path] = watchable._configuration.server_id
                     self._watchable_storage[watchable._configuration.server_id] = watchable
 
         req = self._make_request(API.Command.Client2Api.SUBSCRIBE_WATCHABLE, {
-            'watchables': [watchable.display_path]  # Single element
+            'watchables': [watchable.server_path]  # Single element
         })
         future = self._send(req, wt_subscribe_callback)
         assert future is not None
@@ -1780,7 +1780,7 @@ class ScrutinyClient:
         assert watchable._configuration is not None  # To please mypy
 
         if self._logger.isEnabledFor(logging.DEBUG):
-            self._logger.debug(f"Now watching {watchable.display_path} (Server ID={watchable._configuration.server_id})")
+            self._logger.debug(f"Now watching {watchable.server_path} (Server ID={watchable._configuration.server_id})")
 
         return watchable
 
@@ -1796,7 +1796,7 @@ class ScrutinyClient:
         """
         validation.assert_type(watchable_ref, 'watchable_ref', (str, WatchableHandle))
         if isinstance(watchable_ref, WatchableHandle):
-            path = watchable_ref.display_path
+            path = watchable_ref.server_path
         else:
             path = watchable_ref
 
@@ -1812,7 +1812,7 @@ class ScrutinyClient:
 
         req = self._make_request(API.Command.Client2Api.UNSUBSCRIBE_WATCHABLE, {
             'watchables': [
-                watchable.display_path
+                watchable.server_path
             ]
         })
 
@@ -1823,9 +1823,9 @@ class ScrutinyClient:
                     raise sdk.exceptions.BadResponseError(
                         f'The server did cancel the subscription of {len(response["unsubscribed"])} while we requested only for 1')
 
-                if response['unsubscribed'][0] != watchable.display_path:
+                if response['unsubscribed'][0] != watchable.server_path:
                     raise sdk.exceptions.BadResponseError(
-                        f'The server did not cancel the subscription for the right watchable. Got {response["unsubscribed"][0]}, expected {watchable.display_path}')
+                        f'The server did not cancel the subscription for the right watchable. Got {response["unsubscribed"][0]}, expected {watchable.server_path}')
 
         future = self._send(req, wt_unsubscribe_callback)
         assert future is not None
@@ -1836,8 +1836,8 @@ class ScrutinyClient:
             raise sdk.exceptions.OperationFailure(f"Failed to unsubscribe to the watchable. {future.error_str}")
 
         with self._main_lock:
-            if watchable.display_path in self._watchable_path_to_id_map:
-                del self._watchable_path_to_id_map[watchable.display_path]
+            if watchable.server_path in self._watchable_path_to_id_map:
+                del self._watchable_path_to_id_map[watchable.server_path]
 
             if watchable._configuration is not None:
                 if watchable._configuration.server_id in self._watchable_storage:
@@ -1845,7 +1845,7 @@ class ScrutinyClient:
 
         watchable._set_invalid(ValueStatus.NotWatched)
         if self._logger.isEnabledFor(logging.DEBUG):
-            self._logger.debug(f"Done watching {watchable.display_path}")
+            self._logger.debug(f"Done watching {watchable.server_path}")
 
     def get_watchable_info(self, paths: List[str]) -> Dict[str, DetailedWatchableConfiguration]:
         validation.assert_type(paths, 'paths', list)
@@ -1869,10 +1869,9 @@ class ScrutinyClient:
                 for path in paths:
                     if path not in watchable_defs:
                         raise sdk.exceptions.BadResponseError(f'The server did not return the information of {path}')
-
                 container.obj = watchable_defs
 
-        req = self._make_request(API.Command.Client2Api.SUBSCRIBE_WATCHABLE, {
+        req = self._make_request(API.Command.Client2Api.GET_WATCHABLE_INFO, {
             'watchables': paths
         })
 

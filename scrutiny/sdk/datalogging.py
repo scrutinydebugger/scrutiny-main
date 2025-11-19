@@ -29,6 +29,7 @@ from dataclasses import dataclass
 from scrutiny import sdk
 from scrutiny.sdk.definitions import *
 from scrutiny.core.datalogging import *
+from scrutiny.core import path_tools
 from scrutiny.tools import validation
 from scrutiny.sdk.watchable_handle import WatchableHandle
 from scrutiny.sdk.pending_request import PendingRequest
@@ -249,7 +250,7 @@ class DataloggingConfig:
 
         signal_path: str
         if isinstance(signal, WatchableHandle):
-            signal_path = signal.display_path
+            signal_path = signal.server_path
         elif isinstance(signal, str):
             signal_path = signal
         else:
@@ -257,7 +258,7 @@ class DataloggingConfig:
 
         validation.assert_type(name, 'name', (str, type(None)))
         if name is None:
-            name = signal_path.split('/')[-1]
+            name = path_tools.make_segments(signal_path)[-1]
 
         self._signals.append(_SignalAxisPair(name=name, path=signal_path, axis_id=axis_id))
 
@@ -329,7 +330,7 @@ class DataloggingConfig:
             if isinstance(signal, str):
                 signal_out = _Signal(name=name, path=signal)
             elif isinstance(signal, WatchableHandle):
-                signal_out = _Signal(name=name, path=signal.display_path)
+                signal_out = _Signal(name=name, path=signal.server_path)
             else:
                 raise TypeError(f"Expected signal to be a valid path (string) or a watchable handle. Got {signal.__class__.__name__}")
 
@@ -350,7 +351,7 @@ class DataloggingConfig:
             if isinstance(operand, (float, int)):
                 out_list.append({"type": 'literal', "value": float(operand)})
             elif isinstance(operand, WatchableHandle):
-                out_list.append({"type": 'watchable', "value": operand.display_path})
+                out_list.append({"type": 'watchable', "value": operand.server_path})
             elif isinstance(operand, str):
                 out_list.append({"type": 'watchable', "value": operand})
             else:

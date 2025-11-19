@@ -34,6 +34,7 @@ __all__ = [
     'UserCommandResponse',
     'WatchableConfiguration',
     'WatchableConfigurationWithServerID',
+    'BaseDetailedWatchableConfiguration',
     'DetailedVarWatchableConfiguration',
     'DetailedAliasWatchableConfiguration',
     'DetailedRPVWatchableConfiguration',
@@ -53,6 +54,7 @@ import enum
 import math
 import itertools
 from dataclasses import dataclass
+from scrutiny.sdk import exceptions as sdk_exceptions
 from scrutiny.core.basic_types import MemoryRegion, EmbeddedDataType, WatchableType
 from scrutiny.core.embedded_enum import EmbeddedEnum
 from scrutiny.core import path_tools
@@ -827,20 +829,69 @@ class WatchableConfiguration:
 @dataclass(frozen=True, slots=True)
 class WatchableConfigurationWithServerID(WatchableConfiguration):
     """(Immutable struct) Represents a watchable available in the server datastore with a server_id available"""
-
     server_id: str
     """The unique ID assigned to that watchable item by the server"""
 
+@dataclass(frozen=True, slots=True)
+class BaseDetailedWatchableConfiguration(WatchableConfigurationWithServerID):
+    """(Immutable struct) Base class to be extended by: 
+    :class:`DetailedVarWatchableConfiguration<scrutiny.sdk.DetailedVarWatchableConfiguration>`,
+    :class:`DetailedAliasWatchableConfiguration<scrutiny.sdk.DetailedAliasWatchableConfiguration>`,
+    :class:`DetailedRPVWatchableConfiguration<scrutiny.sdk.DetailedRPVWatchableConfiguration>` 
+    """
+
+    server_path:str
+    """The path assigned by the server to this watchable"""
+
+    @property
+    def name(self) -> str:
+        """Returns the watchable name, e.g. the basename in the server_path"""
+        return path_tools.make_segments(self.server_path)[-1]
+    
+    def has_enum(self) -> bool:
+        """Tells if the watchable has an enum associated with it"""
+        return self.enum is not None
+
+    def get_enum(self) -> EmbeddedEnum:
+        """ Returns the enum associated with this watchable
+
+        :raises BadEnumError: If the watchable has no enum assigned
+        """
+        self._assert_has_enum()
+        assert self.enum is not None
+        return self.enum.copy()
+    
+    def _assert_has_enum(self) -> None:
+        if not self.has_enum():
+            raise sdk_exceptions.BadEnumError(f"Watchable {self.name} has no enum defined")
+    
+    def parse_enum_val(self, val: str) -> int:
+        """Converts an enum value name (string) to the underlying integer value
+
+        :param val: The enumerator name to convert
+
+        :raises BadEnumError: If the watchable has no enum assigned or the given value is not a valid enumerator
+        :raise TypeError: Given parameter not of the expected type
+        """
+        validation.assert_type(val, 'val', str)
+
+        self._assert_has_enum()
+        assert self.enum is not None
+        if not self.enum.has_value(val):
+            raise sdk_exceptions.BadEnumError(f"Value {val} is not a valid value for enum {self.enum.name}")
+
+        return self.enum.get_value(val)
+
 
 @dataclass(frozen=True, slots=True)
-class DetailedVarWatchableConfiguration(WatchableConfigurationWithServerID):
+class DetailedVarWatchableConfiguration(BaseDetailedWatchableConfiguration):
     address: int
     bitoffset: Optional[int]
     bitsize: Optional[int]
 
 
 @dataclass(frozen=True, slots=True)
-class DetailedAliasWatchableConfiguration(WatchableConfigurationWithServerID):
+class DetailedAliasWatchableConfiguration(BaseDetailedWatchableConfiguration):
     target: str
     target_type: WatchableType
     gain: Optional[float]
@@ -850,7 +901,7 @@ class DetailedAliasWatchableConfiguration(WatchableConfigurationWithServerID):
 
 
 @dataclass(frozen=True, slots=True)
-class DetailedRPVWatchableConfiguration(WatchableConfigurationWithServerID):
+class DetailedRPVWatchableConfiguration(BaseDetailedWatchableConfiguration):
     rpvid: int
 
 

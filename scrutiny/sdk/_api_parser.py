@@ -398,6 +398,7 @@ def _read_map_of_detailed_watchable_info(
                 _check_response_dict(cmd, v, 'bitsize', (int, type(None)))
 
             outdict[k] = sdk.DetailedVarWatchableConfiguration(
+                server_path=k,
                 server_id=v['id'],
                 watchable_type=watchable_type,
                 datatype=datatype,
@@ -428,6 +429,7 @@ def _read_map_of_detailed_watchable_info(
             max = _fetch_dict_val_of_type(v, 'max', float, None, allow_none=True)
 
             outdict[k] = sdk.DetailedAliasWatchableConfiguration(
+                server_path=k,
                 server_id=v['id'],
                 watchable_type=watchable_type,
                 datatype=datatype,
@@ -447,6 +449,7 @@ def _read_map_of_detailed_watchable_info(
             _check_response_dict(cmd, v, 'rpvid', int)
 
             outdict[k] = sdk.DetailedRPVWatchableConfiguration(
+                server_path=k,
                 server_id=v['id'],
                 watchable_type=watchable_type,
                 datatype=datatype,

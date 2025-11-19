@@ -207,7 +207,7 @@ class CSVLogger:
 
     def define_columns_from_handles(self, watchable_handles: Iterable[WatchableHandle]) -> None:
         """Define the CSV columns from a list of Watchable handles. Columns are in the same order as the provided sequence"""
-        descriptors = [self.ColumnDescriptor(signal_id=h.server_id, name=h.name, fullpath=h.display_path) for h in watchable_handles]
+        descriptors = [self.ColumnDescriptor(signal_id=h.server_id, name=h.name, fullpath=h.server_path) for h in watchable_handles]
         self.define_columns(descriptors)
 
     def define_columns(self, columns: Iterable[ColumnDescriptor]) -> None:

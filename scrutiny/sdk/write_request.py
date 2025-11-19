@@ -28,10 +28,10 @@ class WriteRequest(PendingRequest):
         self._watchable = watchable
 
     def _timeout_exception_msg(self, timeout: float) -> str:
-        return f"Write did not complete in {timeout} seconds. {self._watchable.display_path}"
+        return f"Write did not complete in {timeout} seconds. {self._watchable.server_path}"
 
     def _failure_exception_msg(self) -> str:
-        return f"Write of {self._watchable.display_path} failed. {self._failure_reason}"
+        return f"Write of {self._watchable.server_path} failed. {self._failure_reason}"
 
     @property
     def watchable(self) -> "WatchableHandle":
