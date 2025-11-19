@@ -829,25 +829,28 @@ class WatchableConfiguration:
 @dataclass(frozen=True, slots=True)
 class WatchableConfigurationWithServerID(WatchableConfiguration):
     """(Immutable struct) Represents a watchable available in the server datastore with a server_id available"""
+
     server_id: str
     """The unique ID assigned to that watchable item by the server"""
+
 
 @dataclass(frozen=True, slots=True)
 class BaseDetailedWatchableConfiguration(WatchableConfigurationWithServerID):
     """(Immutable struct) Base class to be extended by: 
-    :class:`DetailedVarWatchableConfiguration<scrutiny.sdk.DetailedVarWatchableConfiguration>`,
-    :class:`DetailedAliasWatchableConfiguration<scrutiny.sdk.DetailedAliasWatchableConfiguration>`,
-    :class:`DetailedRPVWatchableConfiguration<scrutiny.sdk.DetailedRPVWatchableConfiguration>` 
+        :class:`DetailedVarWatchableConfiguration<scrutiny.sdk.DetailedVarWatchableConfiguration>`,
+        :class:`DetailedAliasWatchableConfiguration<scrutiny.sdk.DetailedAliasWatchableConfiguration>`,
+        :class:`DetailedRPVWatchableConfiguration<scrutiny.sdk.DetailedRPVWatchableConfiguration>` 
     """
 
-    server_path:str
+    server_path: str
     """The path assigned by the server to this watchable"""
 
     @property
     def name(self) -> str:
-        """Returns the watchable name, e.g. the basename in the server_path"""
+        """Returns the watchable name, e.g. the basename in the server_path. 
+        If the server_path is /aaa/bbb/ccc, then this returns "ccc" """
         return path_tools.make_segments(self.server_path)[-1]
-    
+
     def has_enum(self) -> bool:
         """Tells if the watchable has an enum associated with it"""
         return self.enum is not None
@@ -860,11 +863,11 @@ class BaseDetailedWatchableConfiguration(WatchableConfigurationWithServerID):
         self._assert_has_enum()
         assert self.enum is not None
         return self.enum.copy()
-    
+
     def _assert_has_enum(self) -> None:
         if not self.has_enum():
             raise sdk_exceptions.BadEnumError(f"Watchable {self.name} has no enum defined")
-    
+
     def parse_enum_val(self, val: str) -> int:
         """Converts an enum value name (string) to the underlying integer value
 
@@ -885,24 +888,47 @@ class BaseDetailedWatchableConfiguration(WatchableConfigurationWithServerID):
 
 @dataclass(frozen=True, slots=True)
 class DetailedVarWatchableConfiguration(BaseDetailedWatchableConfiguration):
+    """Structure containing the metadata of a watchable of type :attr:`Variable<scrutiny.sdk.WatchableType.Variable>`"""
+
     address: int
+    """Absolute memory address of the variable in the firmware"""
+
     bitoffset: Optional[int]
+    """For bitfield, the startbit of the value. ``None`` if not a bitfield"""
+
     bitsize: Optional[int]
+    """For bitfield, the size in bits of the value. ``None`` if not a bitfield"""
 
 
 @dataclass(frozen=True, slots=True)
 class DetailedAliasWatchableConfiguration(BaseDetailedWatchableConfiguration):
+    """Structure containing the metadata of a watchable of type :attr:`Alias<scrutiny.sdk.WatchableType.Alias>`"""
+
     target: str
+    """The server path to the reference watchable (variable or alias)"""
+
     target_type: WatchableType
+    """The type of watchable referenced by this alias"""
+
     gain: Optional[float]
+    """An optional gain. Scale the value when read or writen. Does not apply when ``None``"""
+
     offset: Optional[float]
+    """An optional offset. Add a bias to the value when read or writen. Does not apply when ``None``"""
+
     min: Optional[float]
+    """An optional lower bound that applies only when written. Does not apply when ``None``"""
+
     max: Optional[float]
+    """An optional upper bound that applies only when written. Does not apply when ``None``"""
 
 
 @dataclass(frozen=True, slots=True)
 class DetailedRPVWatchableConfiguration(BaseDetailedWatchableConfiguration):
+    """Structure containing the metadata of a watchable of type :attr:`RuntimePublishedValue<scrutiny.sdk.WatchableType.RuntimePublishedValue>`"""
+
     rpvid: int
+    """The numerical 16bits ID of this RPV"""
 
 
 DetailedWatchableConfiguration: TypeAlias = Union[
@@ -914,7 +940,7 @@ DetailedWatchableConfiguration: TypeAlias = Union[
 
 @dataclass(frozen=True, slots=True)
 class VariableFactoryInterface:
-    """(Immutable struct) Represent a VariableFactory in the server. Can be sued to generate locally
+    """(Immutable struct) Represent a VariableFactory in the server. Can be used to generate locally
     all the variables that the server can instantiate from this factory.
     Mainly used to create every array elements from a set of dimensions
     """
@@ -933,7 +959,7 @@ class VariableFactoryInterface:
 
     def count_possible_paths(self) -> int:
         """Returns how many path his factory can generate"""
-        if not self.is_valid():
+        if not self._is_valid():
             return 0
 
         total = 1
@@ -941,8 +967,8 @@ class VariableFactoryInterface:
             total *= math.prod(dims)
         return total
 
-    def is_valid(self) -> bool:
-        """Tells if this VariableFactory as valid parameters"""
+    def _is_valid(self) -> bool:
+        """Tells if this VariableFactory has valid content. Can be used for sanity check."""
         segments = path_tools.make_segments(self.access_path)
         for path, dims in self.array_dims.items():
             array_segments = path_tools.make_segments(path)
@@ -963,7 +989,7 @@ class VariableFactoryInterface:
 
     def iterate_possible_paths(self) -> Generator[Tuple[str, WatchableConfiguration], None, None]:
         """Return all the variable display path that can be generated by this factory"""
-        if not self.is_valid():
+        if not self._is_valid():
             return
 
         segments = path_tools.make_segments(self.access_path)

@@ -37,6 +37,7 @@ from scrutiny.tools.typing import *
 T = TypeVar("T")
 P = ParamSpec('P')
 
+
 def get_not_none(v: Optional[T]) -> T:
     assert v is not None
     return v
@@ -368,7 +369,8 @@ def uleb128_decode(data: bytes) -> int:
 
     return val
 
-def deprecated(msg: str="") -> Callable[[Callable[P, T]], Callable[P, T]]:
+
+def deprecated(msg: str = "") -> Callable[[Callable[P, T]], Callable[P, T]]:
     def decorator(function: Callable[P, T]) -> Callable[P, T]:
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
             logging.warning(f"{function.__name__} is deprecated. {msg}")

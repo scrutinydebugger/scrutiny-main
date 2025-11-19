@@ -127,6 +127,68 @@ Consequently, a script utilizing the Scrutiny Python SDK can be perceived as a t
 
 -----
 
+Watchable metadata
+------------------
+
+It is possible to query the server for the watchable metadata, without actually subscribing for value updates. 
+The metadata content varies according to the watchable type.
+
+.. automethod:: scrutiny.sdk.client.ScrutinyClient.get_watchable_info
+
+-----
+
+For convenience, 3 specialization of :meth:`get_watchable_info<scrutiny.sdk.client.ScrutinyClient.get_watchable_info>` are available for the case only 
+one watchable of a given type is of interest. 
+
+
+.. automethod:: scrutiny.sdk.client.ScrutinyClient.get_var_watchable_info    
+
+-----
+
+.. automethod:: scrutiny.sdk.client.ScrutinyClient.get_alias_watchable_info    
+
+-----
+
+.. automethod:: scrutiny.sdk.client.ScrutinyClient.get_rpv_watchable_info    
+
+-----
+
+The metadata structures are as follow
+
+.. autoclass:: scrutiny.sdk.DetailedVarWatchableConfiguration
+    :exclude-members: __new__, __init__
+    :member-order: groupwise
+    :members:
+    :inherited-members:
+    
+-----
+
+.. autoclass:: scrutiny.sdk.DetailedAliasWatchableConfiguration
+    :exclude-members: __new__, __init__
+    :member-order: groupwise
+    :members:
+    :inherited-members:    
+
+-----
+
+.. autoclass:: scrutiny.sdk.DetailedRPVWatchableConfiguration
+    :exclude-members: __new__, __init__
+    :member-order: groupwise
+    :members:
+    :inherited-members:    
+
+-----
+
+Example 
+#######
+
+.. code-block:: python
+
+    my_var = client.get_var_watchable_info('/var/static/main.cpp/main()/my_var')
+    print(my_var.address)
+
+
+
 Detecting a value change
 ------------------------
 

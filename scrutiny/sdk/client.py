@@ -1848,6 +1848,18 @@ class ScrutinyClient:
             self._logger.debug(f"Done watching {watchable.server_path}")
 
     def get_watchable_info(self, paths: List[str]) -> Dict[str, DetailedWatchableConfiguration]:
+        """Request the server for details about a list of watchables. 
+        The information returned is the same as one would have gotten after a call to :meth:`watch<scrutiny.sdk.client.ScrutinyClient.watch>`, 
+        without actually subscribing to the server for updates.
+
+        :param paths:  The server path of every watchable to query
+        :return: A dictionnary mapping server path and detailed info structure
+
+        :raise ValueError: If paths is not valid
+        :raise TypeError: Given parameter not of the expected type
+        :raise OperationFailure: If the request fails in any way
+
+        """
         validation.assert_type(paths, 'paths', list)
         for i in range(len(paths)):
             validation.assert_type(paths[i], f'paths[{i}]', str)
@@ -1885,6 +1897,13 @@ class ScrutinyClient:
         return container.obj
 
     def get_var_watchable_info(self, path: str) -> DetailedVarWatchableConfiguration:
+        """ Performs a call to :meth:`get_watchable_info<scrutiny.clientScrutinyClient.get_watchable_info>` for a single watchable
+        of type ``Variable``.
+
+        :param path: Server path to the watchable
+        :raises BadTypeError: If the requested watchable is not an variable
+
+          """
         d = self.get_watchable_info([path])
         info = d[path]
         if not isinstance(info, DetailedVarWatchableConfiguration):
@@ -1892,6 +1911,13 @@ class ScrutinyClient:
         return info
 
     def get_alias_watchable_info(self, path: str) -> DetailedAliasWatchableConfiguration:
+        """ Performs a call to :meth:`get_watchable_info<scrutiny.clientScrutinyClient.get_watchable_info>` for a single watchable
+        of type ``Alias``.
+
+        :param path: Server path to the watchable
+        :raises BadTypeError: If the requested watchable is not an alias
+
+          """
         d = self.get_watchable_info([path])
         info = d[path]
         if not isinstance(info, DetailedAliasWatchableConfiguration):
@@ -1899,6 +1925,13 @@ class ScrutinyClient:
         return info
 
     def get_rpv_watchable_info(self, path: str) -> DetailedRPVWatchableConfiguration:
+        """ Performs a call to :meth:`get_watchable_info<scrutiny.clientScrutinyClient.get_watchable_info>` for a single watchable
+        of type ``RPV``.
+
+        :param path: Server path to the watchable
+        :raises BadTypeError: If the requested watchable is not a Runtime Published Value
+
+          """
         d = self.get_watchable_info([path])
         info = d[path]
         if not isinstance(info, DetailedRPVWatchableConfiguration):
@@ -2744,7 +2777,11 @@ class ScrutinyClient:
                                 partial_reception_callback: Optional[Callable[[sdk.WatchableListContentPart, bool], None]] = None
                                 ) -> WatchableListDownloadRequest:
         """
-            Request the server for the list of watchable items available in its datastore.
+            Request the server for the list of watchable items available in its datastore. 
+
+            The returned data includes the path to the watchable and the properties that are common to all types of watchable (data type and enum) 
+            More information might be downlaoded from a watchable by either calling :meth:`watch<scrutiny.sdk.client.ScrutinyClient.watch>` 
+            or :meth:`get_watchable_info<scrutiny.sdk.client.ScrutinyClient.get_watchable_info>`
 
             :param types: List of types to download. All of them if ``None``
             :param max_per_response: Maximum number of watchable per datagram sent by the server.
