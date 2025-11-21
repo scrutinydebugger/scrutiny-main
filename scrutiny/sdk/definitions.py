@@ -851,7 +851,7 @@ class BaseDetailedWatchableConfiguration(BriefWatchableConfiguration):
     def get_enum(self) -> EmbeddedEnum:
         """ Returns the enum associated with this watchable
 
-        :raises BadEnumError: If the watchable has no enum assigned
+        :raise BadEnumError: If the watchable has no enum assigned
         """
         self._assert_has_enum()
         assert self.enum is not None
@@ -866,7 +866,7 @@ class BaseDetailedWatchableConfiguration(BriefWatchableConfiguration):
 
         :param val: The enumerator name to convert
 
-        :raises BadEnumError: If the watchable has no enum assigned or the given value is not a valid enumerator
+        :raise BadEnumError: If the watchable has no enum assigned or the given value is not a valid enumerator
         :raise TypeError: Given parameter not of the expected type
         """
         validation.assert_type(val, 'val', str)
@@ -948,10 +948,10 @@ class VariableFactoryInterface:
     """An optional enumeration associated with the possible values of the item"""
 
     array_dims: Dict[str, Tuple[int, ...]]
-    """The dims of each subpath that are arrays element"""
+    """The dimensions of each subpath that are arrays element"""
 
     def count_possible_paths(self) -> int:
-        """Returns how many path his factory can generate"""
+        """Returns how many path this factory can generate"""
         if not self._is_valid():
             return 0
 

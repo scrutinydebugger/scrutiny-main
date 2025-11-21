@@ -220,7 +220,7 @@ class WatchableHandle:
     def get_enum(self) -> EmbeddedEnum:
         """ Returns the enum associated with this watchable
 
-        :raises BadEnumError: If the watchable has no enum assigned
+        :raise BadEnumError: If the watchable has no enum assigned
         """
         self._assert_configured()
         assert self._configuration is not None
@@ -231,7 +231,7 @@ class WatchableHandle:
 
         :param val: The enumerator name to convert
 
-        :raises BadEnumError: If the watchable has no enum assigned or the given value is not a valid enumerator
+        :raise BadEnumError: If the watchable has no enum assigned or the given value is not a valid enumerator
         :raise TypeError: Given parameter not of the expected type
         """
         self._assert_configured()
@@ -346,11 +346,15 @@ class WatchableHandle:
 
     @property
     def is_dead(self) -> bool:
+        """Return ``True`` if the watchable handle has lost its validity, ``False`` otherwise. 
+        If ``True``, the handle can be discarded. A new call to :meth:`watch()<scrutiny.sdk.client.ScrutinyClient.watch>` must be performed to get a new valid handle."""
         status = ValueStatus(self._status)  # copy for atomicity
         return status not in (ValueStatus.Valid, ValueStatus.NeverSet)
 
     @property
     def var_details(self) -> DetailedVarWatchableConfiguration:
+        """Returns the variable-specific metadata. Raises a :class:`BadTypeError<scrutiny.sdk.exceptions.BadTypeError>` if the 
+        :attr:`type<scrutiny.sdk.watchable_handle.WatchableHandle.type>` != :attr:`Variable<scrutiny.sdk.WatchableType.Variable>`"""
         self._assert_configured()
         if not isinstance(self._configuration, DetailedVarWatchableConfiguration):
             raise sdk_exceptions.BadTypeError(f"Watchable {self._shortname} is not a variable. Type={self.type.name}")
@@ -358,6 +362,8 @@ class WatchableHandle:
 
     @property
     def alias_details(self) -> DetailedAliasWatchableConfiguration:
+        """Returns the alias-specific metadata. Raises a :class:`BadTypeError<scrutiny.sdk.exceptions.BadTypeError>` if the 
+        :attr:`type<scrutiny.sdk.watchable_handle.WatchableHandle.type>` != :attr:`Alias<scrutiny.sdk.WatchableType.Alias>`"""
         self._assert_configured()
         if not isinstance(self._configuration, DetailedAliasWatchableConfiguration):
             raise sdk_exceptions.BadTypeError(f"Watchable {self._shortname} is not an alias. Type={self.type.name}")
@@ -365,6 +371,8 @@ class WatchableHandle:
 
     @property
     def rpv_details(self) -> DetailedRPVWatchableConfiguration:
+        """Returns the RPV-specific metadata. Raises a :class:`BadTypeError<scrutiny.sdk.exceptions.BadTypeError>` if the 
+        :attr:`type<scrutiny.sdk.watchable_handle.WatchableHandle.type>` != :attr:`RuntimePublishedValue<scrutiny.sdk.WatchableType.RuntimePublishedValue>`"""
         self._assert_configured()
         if not isinstance(self._configuration, DetailedRPVWatchableConfiguration):
             raise sdk_exceptions.BadTypeError(f"Watchable {self._shortname} is not a Runtime Published Value. Type={self.type.name}")

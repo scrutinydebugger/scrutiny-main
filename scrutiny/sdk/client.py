@@ -1897,11 +1897,11 @@ class ScrutinyClient:
         return container.obj
 
     def get_var_watchable_info(self, path: str) -> DetailedVarWatchableConfiguration:
-        """ Performs a call to :meth:`get_watchable_info<scrutiny.clientScrutinyClient.get_watchable_info>` for a single watchable
-        of type ``Variable``.
+        """ Performs a call to :meth:`get_watchable_info<scrutiny.sdk.client.ScrutinyClient.get_watchable_info>` for a single watchable
+        of type :attr:`Variable<scrutiny.sdk.WatchableType.Variable>`.
 
         :param path: Server path to the watchable
-        :raises BadTypeError: If the requested watchable is not an variable
+        :raise BadTypeError: If the requested watchable is not an variable
 
           """
         d = self.get_watchable_info([path])
@@ -1911,11 +1911,11 @@ class ScrutinyClient:
         return info
 
     def get_alias_watchable_info(self, path: str) -> DetailedAliasWatchableConfiguration:
-        """ Performs a call to :meth:`get_watchable_info<scrutiny.clientScrutinyClient.get_watchable_info>` for a single watchable
-        of type ``Alias``.
+        """ Performs a call to :meth:`get_watchable_info<scrutiny.sdk.client.ScrutinyClient.get_watchable_info>` for a single watchable
+        of type :attr:`Alias<scrutiny.sdk.WatchableType.Alias>`.
 
         :param path: Server path to the watchable
-        :raises BadTypeError: If the requested watchable is not an alias
+        :raise BadTypeError: If the requested watchable is not an alias
 
           """
         d = self.get_watchable_info([path])
@@ -1925,11 +1925,11 @@ class ScrutinyClient:
         return info
 
     def get_rpv_watchable_info(self, path: str) -> DetailedRPVWatchableConfiguration:
-        """ Performs a call to :meth:`get_watchable_info<scrutiny.clientScrutinyClient.get_watchable_info>` for a single watchable
-        of type ``RPV``.
+        """ Performs a call to :meth:`get_watchable_info<scrutiny.sdk.client.ScrutinyClient.get_watchable_info>` for a single watchable
+        of type :attr:`RPV<scrutiny.sdk.WatchableType.RuntimePublishedValue>`.
 
         :param path: Server path to the watchable
-        :raises BadTypeError: If the requested watchable is not a Runtime Published Value
+        :raise BadTypeError: If the requested watchable is not a Runtime Published Value
 
           """
         d = self.get_watchable_info([path])

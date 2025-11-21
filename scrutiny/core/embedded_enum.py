@@ -75,7 +75,7 @@ class EmbeddedEnum:
         :param name: Enumerator name
         :param value: Enumerator value
 
-        :raises IndexError: If the enumerator name is already defined in the enum with a different value
+        :raise IndexError: If the enumerator name is already defined in the enum with a different value
 
         """
         if name in self.vals and self.vals[name] != value:
@@ -92,7 +92,7 @@ class EmbeddedEnum:
 
         :param name: Enumerator name
 
-        :raises ValueError: If the given enumerator name is not part of the enumeration
+        :raise ValueError: If the given enumerator name is not part of the enumeration
         """
         if name not in self.vals:
             raise ValueError('%s is not a valid name for enum %s' % (name, self.name))
