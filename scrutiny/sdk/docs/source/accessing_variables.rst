@@ -65,7 +65,8 @@ A handle will exist if a previous call to  :meth:`watch<scrutiny.sdk.client.Scru
     :member-order: bysource
     :members: server_path, name, type, datatype, value, value_bool, value_int, value_float, 
         value_enum, has_enum, get_enum, parse_enum_val,
-        last_update_timestamp, last_write_timestamp, update_counter
+        last_update_timestamp, last_write_timestamp, update_counter,
+        var_details, alias_details, rpv_details, server_id, is_dead
 
 -----
 
