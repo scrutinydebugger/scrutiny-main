@@ -6,8 +6,9 @@
 #
 #   Copyright (c) 2025 Scrutiny Debugger
 
-__all__ = ['make_segments', 'join_segments']
+__all__ = ['make_segments', 'join_segments', 'is_subpath', 'is_rpv_path']
 
+import re
 from scrutiny.tools.typing import *
 
 
@@ -34,3 +35,7 @@ def is_subpath(subpath: str, path: str) -> bool:
         if subpath_segments[i] != path_segments[i]:
             return False
     return True
+
+def is_rpv_path(path: str) -> bool:
+    """Returns True if the given tree-like path is the path of a Runtime Published Value"""
+    return (re.match(r'^\/?rpv\/x\d+\/?$', path, re.IGNORECASE) is not None)

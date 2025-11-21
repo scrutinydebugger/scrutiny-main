@@ -21,9 +21,9 @@ from dataclasses import dataclass
 import scrutiny
 import scrutiny.core.firmware_id as firmware_id
 from scrutiny.core.varmap import VarMap
+from scrutiny.core import path_tools
 from scrutiny.core.variable import Variable
 from scrutiny.core.variable_factory import VariableFactory
-from scrutiny.server.datastore.datastore import Datastore
 from scrutiny.core.basic_types import WatchableType
 from scrutiny.core.alias import Alias
 from scrutiny.core.basic_types import *
@@ -297,13 +297,13 @@ class FirmwareDescription:
             aliases[k] = alias
 
         return aliases
-
+    
     @classmethod
     def get_alias_target_type(cls, alias: Alias, varmap: VarMap) -> WatchableType:
         """ Finds the referred entry and gives this datatype. Alias do not have a datatype by themselves """
         if varmap.has_var(alias.get_target()):
             return WatchableType.Variable
-        elif Datastore.is_rpv_path(alias.get_target()):
+        elif path_tools.is_rpv_path(alias.get_target()):
             return WatchableType.RuntimePublishedValue
         else:
             raise Exception('Alias %s is referencing %s which is not a valid Variable or Runtime Published Value' %
