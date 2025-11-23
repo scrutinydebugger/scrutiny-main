@@ -935,7 +935,7 @@
             "docstring": "A window to visualize different custom stylesheets features"
         },
         "scrutiny/server/device/submodules/base_device_handler_submodule.py": {
-            "docstring": ""
+            "docstring": "A base class for all device handler submodules"
         },
         "scripts/make_wheel_nocli.sh": {
             "docstring": "Makes a package wheel file without CLI entry points"

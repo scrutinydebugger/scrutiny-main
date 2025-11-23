@@ -1,4 +1,5 @@
 #    base_device_handler_submodule.py
+#        A base class for all device handler submodules
 #
 #   - License : MIT - See LICENSE file.
 #   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
