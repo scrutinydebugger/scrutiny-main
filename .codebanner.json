@@ -933,6 +933,18 @@
         },
         "test/gui/manual/manual_test_stylesheets.py": {
             "docstring": "A window to visualize different custom stylesheets features"
+        },
+        "scrutiny/server/device/submodules/base_device_handler_submodule.py": {
+            "docstring": ""
+        },
+        "scripts/make_wheel_nocli.sh": {
+            "docstring": "Makes a package wheel file without CLI entry points"
+        },
+        "scripts/make_wheel_filename.sh": {
+            "docstring": "Generate a filename for the wheel file. Used by other scripts"
+        },
+        "scripts/make_wheel.sh": {
+            "docstring": "Makes a package wheel file"
         }
     }
 }

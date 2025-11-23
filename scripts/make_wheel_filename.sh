@@ -1,3 +1,12 @@
+#!/bin/bash
+
+#    make_wheel_filename.sh
+#        Generate a filename for the wheel file. Used by other scripts
+#
+#   - License : MIT - See LICENSE file.
+#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#   Copyright (c) 2025 Scrutiny Debugger
 
 set -euo pipefail
 source $(dirname ${BASH_SOURCE[0]})/common.sh

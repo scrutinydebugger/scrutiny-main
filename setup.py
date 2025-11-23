@@ -15,6 +15,20 @@ import os
 os.chdir(os.path.dirname(__file__))
 
 import scrutiny
+ADD_ENTRY_POINTS=bool(int(os.environ.get('SCRUTINY_ADD_ENTRYPOINTS', 1)))
+print(f"ADD_ENTRY_POINTS={ADD_ENTRY_POINTS}")
+entry_points = {}
+
+if ADD_ENTRY_POINTS:
+    entry_points={
+        "console_scripts": [
+            f"scrutiny=scrutiny.__main__:scrutiny_cli",
+            f"scrutiny_server=scrutiny.__main__:scrutiny_server",
+            f"scrutiny_gui=scrutiny.__main__:scrutiny_gui_with_server",
+        ]
+    }
+
+    
 
 dependencies = [
     'appdirs==1.4.4',
@@ -49,9 +63,8 @@ def get_gui_assets():
                     yield os.path.join(dirpath, file)
     return list(generate())
 
-
 setup(
-    name="scrutinydebugger",    # Pypi name
+    name="scrutinydebugger",
     python_requires='>=3.10',
     description='Scrutiny Debugger Python framework',
     url='https://github.com/scrutinydebugger/scrutiny-main',
@@ -76,11 +89,5 @@ setup(
             'pip-licenses==5.0.0'
             ] 
     },
-    entry_points={
-        "console_scripts": [
-            f"scrutiny=scrutiny.__main__:scrutiny_cli",
-            f"scrutiny_server=scrutiny.__main__:scrutiny_server",
-            f"scrutiny_gui=scrutiny.__main__:scrutiny_gui_with_server",
-        ]
-    },
+    entry_points=entry_points,
 )

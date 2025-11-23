@@ -1,3 +1,13 @@
+#!/bin/bash
+
+#    make_wheel_nocli.sh
+#        Makes a package wheel file without CLI entry points
+#
+#   - License : MIT - See LICENSE file.
+#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#   Copyright (c) 2025 Scrutiny Debugger
+
 set -euo pipefail
 source $(dirname ${BASH_SOURCE[0]})/common.sh
 

@@ -1,3 +1,13 @@
+#!/bin/bash
+
+#    make_wheel.sh
+#        Makes a package wheel file
+#
+#   - License : MIT - See LICENSE file.
+#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#   Copyright (c) 2025 Scrutiny Debugger
+
 set -euo pipefail
 source $(dirname ${BASH_SOURCE[0]})/common.sh
 
