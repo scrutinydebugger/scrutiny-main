@@ -46,7 +46,6 @@ WHEEL_FILE_NOCLI="$WHEEL_FOLDER/$(scripts/make_wheel_filename.sh NOCLI)"
 assert_file "$WHEEL_FILE_NOCLI"
 info "Embedding $(basename $WHEEL_FILE_NOCLI) inside Nuitka package"
 
-exit 
 OUTPUT_FILENAME="scrutiny.bin"  # default. we manage with symlink on unix based platform
 if [ "$PLATFORM" = "win32" ]; then
     PLATFORM_ARGS+=" --windows-icon-from-ico=${ICON_PNG}"
