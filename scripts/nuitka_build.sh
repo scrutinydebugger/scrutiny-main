@@ -37,6 +37,16 @@ PRODUCT_NAME="Scrutiny Debugger"
 PLATFORM=$(python -c "import sys; print(sys.platform);")
 PLATFORM_ARGS=
 
+info "Building a Scrutiny Wheel file (No CLI entry points)"
+WHEEL_FOLDER="$OUTPUT_FOLDER/wheel"
+rm -rf "$WHEEL_FOLDER"
+mkdir -p "$WHEEL_FOLDER"
+./scripts/make_wheel_nocli.sh "$WHEEL_FOLDER"
+WHEEL_FILE_NOCLI="$WHEEL_FOLDER/$(scripts/make_wheel_filename.sh NOCLI)"
+assert_file "$WHEEL_FILE_NOCLI"
+info "Embedding $(basename $WHEEL_FILE_NOCLI) inside Nuitka package"
+
+exit 
 OUTPUT_FILENAME="scrutiny.bin"  # default. we manage with symlink on unix based platform
 if [ "$PLATFORM" = "win32" ]; then
     PLATFORM_ARGS+=" --windows-icon-from-ico=${ICON_PNG}"
@@ -55,13 +65,6 @@ LICENSE_FILE="LICENSE.out"
 ./scripts/make_license.sh ${LICENSE_FILE}
 assert_file ${LICENSE_FILE}
 
-WHEEL_FOLDER="${OUTPUT_FOLDER}/wheel"
-WHEEL_FILE="$WHEEL_FOLDER/scrutinydebugger-${SCRUTINY_VERSION}-py3-none-any.whl"
-
-rm -rf build dist *.egg-info "${WHEEL_FOLDER}"
-python -m build -w -o "${WHEEL_FOLDER}"
-[ ! -f ${WHEEL_FILE} ] && fatal "Wheel file ${WHEEL_FILE} does not exist."
-
 # Launch the compilation
 python -m nuitka                                    \
     --follow-imports                                \
@@ -77,7 +80,7 @@ python -m nuitka                                    \
     --include-package-data=scrutiny.gui.assets      \
     --include-data-file="${LICENSE_FILE}"="LICENSE" \
     --include-data-file="${ICON_PNG}"=$(basename "${ICON_PNG}")     \
-    --include-data-file="${WHEEL_FILE}"=$(basename "${WHEEL_FILE}")     \
+    --include-data-file="${WHEEL_FILE_NOCLI}"=$(basename "${WHEEL_FILE_NOCLI}")     \
     --product-name="${PRODUCT_NAME}"                \
     --product-version="${SCRUTINY_VERSION}"         \
     --copyright="${COPYRIGHT_STRING}"               \
