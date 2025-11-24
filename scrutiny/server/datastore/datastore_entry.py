@@ -17,10 +17,10 @@ __all__ = [
 ]
 
 import abc
-import re
 import queue
 
 from scrutiny.server.timebase import server_timebase
+from scrutiny.core import path_tools
 from scrutiny.core.basic_types import RuntimePublishedValue
 from scrutiny.core.basic_types import EmbeddedDataType, Endianness, WatchableType
 from scrutiny.core.embedded_enum import EmbeddedEnum
@@ -454,9 +454,9 @@ class DatastoreRPVEntry(DatastoreEntry):
         return '/rpv/x%04X' % id
 
     @classmethod
-    def is_valid_path(self, path: str) -> bool:
+    def is_valid_path(cls, path: str) -> bool:
         """Returns True if the given tree-like path is the path of a Runtime Published Value"""
-        return True if re.match(r'^\/?rpv\/x\d+\/?$', path, re.IGNORECASE) else False
+        return path_tools.is_rpv_path(path)
 
     @classmethod
     def make(cls, rpv: RuntimePublishedValue) -> 'DatastoreRPVEntry':
