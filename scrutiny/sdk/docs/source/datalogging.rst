@@ -73,6 +73,12 @@ which takes a :class:`sdk.DataloggingConfig<scrutiny.sdk.datalogging.Datalogging
 
 -----
 
+.. autoclass:: scrutiny.sdk.datalogging.DataloggingEncoding
+    :members:
+    :exclude-members: __init__, __new__
+
+-----
+
 .. autoclass:: scrutiny.sdk.datalogging.DataloggingRequest
     :members:
     :member-order: bysource

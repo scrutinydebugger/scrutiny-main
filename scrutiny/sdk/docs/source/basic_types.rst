@@ -3,7 +3,7 @@ Basic Types
 
 
 .. autoclass:: scrutiny.core.basic_types.EmbeddedDataType
-    :exclude-members: __init__, __new__
+    :exclude-members: __init__, __new__, make
     :members:
     :member-order: bysource
     :undoc-members:
@@ -19,6 +19,6 @@ Basic Types
 -----
 
 .. autoclass:: scrutiny.core.embedded_enum.EmbeddedEnum
-    :exclude-members: __init__, __new__
+    :exclude-members: __init__, __new__, get_def, copy, from_def
     :members:
     :member-order: bysource

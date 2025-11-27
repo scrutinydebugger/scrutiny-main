@@ -51,7 +51,7 @@ These methods launch an internal thread that will handle each new value updates.
 .. automethod:: scrutiny.sdk.listeners.BaseListener.stop
 
 
-:meth:`start()<scrutiny.sdk.listeners.BaseListener.start>` can be used is a ``with`` statement like so
+:meth:`start()<scrutiny.sdk.listeners.BaseListener.start>` can be used in a ``with`` statement like so
 
 .. code-block:: python
 
@@ -80,8 +80,10 @@ These methods launch an internal thread that will handle each new value updates.
 Listeners may or may not allow a user to add or remove watchables from their subscription list while the listener is active.
 This behavior is controlled by overriding :meth:`allow_subscription_changes_while_running()<scrutiny.sdk.listeners.BaseListener.allow_subscription_changes_while_running>`.
 
-Some listeners will allow it (like the :class:`TextStreamListener<scrutiny.sdk.listeners.TextStreamListener>` or the :class:`BufferedReaderListener<scrutiny.sdk.listeners.BufferedReaderListener>`) 
-, but some does not (like the :class:`CSVFileListener<scrutiny.sdk.listeners.CSVFileListener>`). When not allowed, a :class:`NotAllowedError<scrutiny.sdk.exceptions.NotAllowedError>` will
+Some listeners will allow it (like the :class:`TextStreamListener<scrutiny.sdk.listeners.text_stream_listener.TextStreamListener>` 
+or the :class:`BufferedReaderListener<scrutiny.sdk.listeners.buffered_reader_listener.BufferedReaderListener>`) 
+, but some does not (like the :class:`CSVFileListener<scrutiny.sdk.listeners.csv_file_listener.CSVFileListener>`). 
+When not allowed, a :class:`NotAllowedError<scrutiny.sdk.exceptions.NotAllowedError>` will
 be raised if one of the following method is called after :meth:`start()<scrutiny.sdk.listeners.BaseListener.start>` has been called.
 
 - :meth:`subscribe()<scrutiny.sdk.listeners.BaseListener.subscribe>`
@@ -116,11 +118,11 @@ and the :meth:`setup()<scrutiny.sdk.listeners.BaseListener.setup>` method is cal
 
 If :meth:`start()<scrutiny.sdk.listeners.BaseListener.start>` succeeds and :meth:`setup()<scrutiny.sdk.listeners.BaseListener.setup>` 
 is correctly invoked, the :meth:`teardown()<scrutiny.sdk.listeners.BaseListener.teardown>` method is guaranteed to be invoked too, 
-irrespective of whether an exception has been raised within the :meth:`setup()<scrutiny.sdk.listeners.BaseListener.setup>` 
+irrespective of whether an exception has been raised within the :meth:`setup()<scrutiny.sdk.listeners.BaseListener.setup>` methods.
 or :meth:`receive()<scrutiny.sdk.listeners.BaseListener.receive>`.
 
-The :meth:`teardown()<scrutiny.sdk.listeners.BaseListener.teardown>` is called from the listener thread if the user calls
-:meth:`stop()<scrutiny.sdk.listeners.BaseListener.stop>` or if an exception occur during setup or while listening.
+The :meth:`teardown()<scrutiny.sdk.listeners.BaseListener.teardown>` method is called from the listener thread if the user calls
+:meth:`stop()<scrutiny.sdk.listeners.BaseListener.stop>` or if an exception occurs during setup or while listening.
 
 -----
 

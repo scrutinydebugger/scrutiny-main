@@ -77,3 +77,8 @@ Events
 .. autoclass:: scrutiny.sdk.client.ScrutinyClient.Events.DataloggingListChanged
     :exclude-members: __new__, __init__
     :members:
+
+.. autoclass:: scrutiny.sdk.DataloggingListChangeType
+    :exclude-members: __new__, __init__
+    :members:
+    :member-order: bysource
