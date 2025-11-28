@@ -29,8 +29,7 @@ Basics
 ------
 
 The first step to access a watchable, is to first tell the server that we want to subscribe to update event on that watchable.
-To do so, we use the :meth:`watch<scrutiny.sdk.client.ScrutinyClient.watch>` method and specify the watchable's path. The path
-depends on the firmware and must generally be known in advance. 
+To do so, we use the :meth:`watch<scrutiny.sdk.client.ScrutinyClient.watch>` method and specify the watchable's path.
 The path is dependent on the firmware and is typically known beforehand. 
 It's also possible to query the server for a list of available watchables, a feature utilized by the GUI.
 
@@ -41,13 +40,13 @@ and won't necessitate user input for selection.
 
 .. automethod:: scrutiny.sdk.client.ScrutinyClient.watch
 
-Once an element is being watched, the server starts polling for the value of that element. 
-Each time the value is updated, the server broadcast a value update to all subscribers, in this case, our client. 
-Concurrently, a background thread is actively listening listen for these updates and accordingly 
-modifies the value that the :class:`WatchableHandle<scrutiny.sdk.watchable_handle.WatchableHandle>` refers to.
+Once an element is being watched, the server begins polling for its value. 
+Each time the value is updated, the server broadcasts a value update to all subscribers, in this case, our client. 
+Concurrently, a background thread actively listens for these updates and 
+modifies the value that the :class:`WatchableHandle<scrutiny.sdk.watchable_handle.WatchableHandle>` refers to accordingly.
 
-Calling :meth:`watch<scrutiny.sdk.client.ScrutinyClient.watch>` multiple time on the same element will always return the same handle.
-It is possible to query wether a handle already exists for a given element with 
+Calling :meth:`watch<scrutiny.sdk.client.ScrutinyClient.watch>` multiple times on the same element will always return the same handle.
+It is possible to query whether a handle already exists for a given element using 
 :meth:`try_get_existing_watch_handle<scrutiny.sdk.client.ScrutinyClient.try_get_existing_watch_handle>` and 
 :meth:`try_get_existing_watch_handle_by_server_id<scrutiny.sdk.client.ScrutinyClient.try_get_existing_watch_handle_by_server_id>`. 
 A handle will exist if a previous call to  :meth:`watch<scrutiny.sdk.client.ScrutinyClient.watch>` has been done.

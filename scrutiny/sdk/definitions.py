@@ -200,7 +200,9 @@ class DataloggingEncoding(enum.Enum):
     """(Enum) Defines the data format used to store the samples in the datalogging buffer.
     This structure is a provision for the future where new encoding methods may be implemented (supporting compression for example)
     """
+
     RAW = 1
+    """The default encoding. Stores the values as a bit copy inside the buffer in chronological order, without compression"""
 
 
 @dataclass(frozen=True, init=False)

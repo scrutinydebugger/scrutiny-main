@@ -197,7 +197,7 @@ class TestReadWrite(ScrutinyIntegrationTestWithTestSFD1):
         @dataclass
         class WriteOOBTestcase:
             entry: DatastoreEntry
-            inval: any
+            inval: Any
             outval: Optional[Encodable]
             valid: bool
             additional_checks: Optional[List[Tuple[DatastoreEntry, Encodable]]] = None

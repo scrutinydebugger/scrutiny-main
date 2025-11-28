@@ -1916,8 +1916,7 @@ class ScrutinyClient:
 
         :param path: Server path to the watchable
         :raise BadTypeError: If the requested watchable is not an alias
-
-          """
+        """
         d = self.get_watchable_info([path])
         info = d[path]
         if not isinstance(info, DetailedAliasWatchableConfiguration):
@@ -2568,10 +2567,14 @@ class ScrutinyClient:
         connect to it and inform the client about it. The `client.server.server_state.device_comm_state` will reflect this.
 
         :param link_type: Type of communication link to use. Serial, UDP, TCP, etc.
-        :param link_config:  A configuration object that matches the link type.
-            :attr:`UDP<scrutiny.sdk.DeviceLinkType.UDP>` : :class:`UDPLinkConfig<scrutiny.sdk.UDPLinkConfig>` /
-            :attr:`TCP<scrutiny.sdk.DeviceLinkType.TCP>` : :class:`TCPLinkConfig<scrutiny.sdk.TCPLinkConfig>` /
-            :attr:`Serial<scrutiny.sdk.DeviceLinkType.Serial>` : :class:`SerialLinkConfig<scrutiny.sdk.SerialLinkConfig>`
+        :param link_config: A configuration object that matches the link type.
+
+            - :attr:`NONE<scrutiny.sdk.DeviceLinkType.NONE>` : :class:`NoneLinkConfig<scrutiny.sdk.NoneLinkConfig>`
+            - :attr:`UDP<scrutiny.sdk.DeviceLinkType.UDP>` : :class:`UDPLinkConfig<scrutiny.sdk.UDPLinkConfig>`
+            - :attr:`TCP<scrutiny.sdk.DeviceLinkType.TCP>` : :class:`TCPLinkConfig<scrutiny.sdk.TCPLinkConfig>`
+            - :attr:`Serial<scrutiny.sdk.DeviceLinkType.Serial>` : :class:`SerialLinkConfig<scrutiny.sdk.SerialLinkConfig>` 
+            - :attr:`RTT<scrutiny.sdk.DeviceLinkType.RTT>` : :class:`RTTLinkConfig<scrutiny.sdk.RTTLinkConfig>`
+            - :attr:`CAN<scrutiny.sdk.DeviceLinkType.CAN>` : :class:`CANLinkConfig<scrutiny.sdk.CANLinkConfig>`
 
         :raise ValueError: Bad parameter value
         :raise TypeError: Given parameter not of the expected type

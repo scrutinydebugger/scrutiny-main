@@ -49,4 +49,17 @@ cd $EXAMPLES_ROOT/sfd_upload_download
 python3 -m mypy download_sfd.py $MYPY_OPTIONS
 python3 -m mypy upload_sfd.py $MYPY_OPTIONS
 
+# Device link
+cd $EXAMPLES_ROOT/device_link
+python3 -m mypy change_device_link.py $MYPY_OPTIONS
+
+# User Command
+cd $EXAMPLES_ROOT/user_command
+g++ -c user_command_embedded.cpp -o $tempdir/user_command_embedded.o -Istubs
+python3 -m mypy user_command.py $MYPY_OPTIONS
+
+# Datalogging
+cd $EXAMPLES_ROOT/datalogging
+python3 -m mypy datalogging.py $MYPY_OPTIONS
+
 rm -rf $tempdir

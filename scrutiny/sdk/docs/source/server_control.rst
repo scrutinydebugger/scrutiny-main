@@ -172,6 +172,16 @@ that no device is connected
 
 -----
 
+
+Examples
+########
+
+.. literalinclude:: _static/code-examples/device_link/change_device_link.py
+    :language: python
+    :encoding: utf-8
+
+-----
+
 TCP
 ###
 
@@ -198,19 +208,22 @@ Serial
     :members:
 
 .. autoclass:: scrutiny.sdk.SerialLinkConfig.StopBits
-    :exclude-members: __new__, __init__
+    :exclude-members: __new__, __init__, get_numerical, from_float, to_float
     :members:
     :undoc-members:
+    :member-order: bysource
 
 .. autoclass:: scrutiny.sdk.SerialLinkConfig.DataBits
-    :exclude-members: __new__, __init__
+    :exclude-members: __new__, __init__, from_int, to_int, get_numerical 
     :members:
     :undoc-members:
+    :member-order: bysource
 
 .. autoclass:: scrutiny.sdk.SerialLinkConfig.Parity
-    :exclude-members: __new__, __init__
+    :exclude-members: __new__, __init__, from_str, to_str, get_displayable_name
     :members: 
-    :undoc-members:   
+    :undoc-members:
+    :member-order: bysource 
     
 -----
 
@@ -282,7 +295,7 @@ None
 Demo Mode
 ---------
 
-One can enable the server demo mode with :meth:`request_demo_mode()<scrutiny.client.ScrutinyClient.request_demo_mode>`.
+One can enable the server demo mode with :meth:`request_demo_mode()<scrutiny.sdk.client.ScrutinyClient.request_demo_mode>`.
 
 When the demo mode is enabled, the server connects to an emulated device that runs in a python thread and simulate the scrutiny-embedded library. 
 This mode is meant to try Scrutiny without having to go through the process of instrumenting a firmware.

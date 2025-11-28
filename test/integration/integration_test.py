@@ -154,7 +154,7 @@ class ScrutinyIntegrationTest(ScrutinyUnitTest):
         t1 = time.monotonic()
         self.server.process()
         while not self.api_conn.from_server_available():
-            if time.monotonic() - t1 >= timeout:
+            if (time.monotonic() - t1) >= timeout:
                 break
             self.server.process()
             time.sleep(0.01)
@@ -230,7 +230,7 @@ class ScrutinyIntegrationTest(ScrutinyUnitTest):
 
         self.assertFalse(self.api_conn.from_server_available())
 
-    def process_watchable_update(self, nbr=None, timeout=None):
+    def process_watchable_update(self, nbr=None, timeout:float=1):
         response = None
         if nbr is not None:
             for i in range(nbr):
@@ -238,7 +238,7 @@ class ScrutinyIntegrationTest(ScrutinyUnitTest):
                 self.process_watchable_update_response(response)
         else:
             t1 = time.monotonic()
-            while time.monotonic() - t1 < timeout:
+            while (time.monotonic() - t1) < timeout:
                 new_timeout = max(0, timeout - (time.monotonic() - t1))
                 response = self.wait_and_load_response(API.Command.Api2Client.WATCHABLE_UPDATE, timeout=new_timeout)
                 self.process_watchable_update_response(response)
