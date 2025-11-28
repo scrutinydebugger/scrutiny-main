@@ -279,10 +279,10 @@ class WatchableHandle:
     def value(self) -> ValType:
         """The value without cast.
 
-        - When reading, return a ``int``, ``float`` or ``bool``. 
+        - When reading, returns a ``int``, ``float`` or ``bool``. 
         - When writing, accepts ``int``, ``float``, ``bool`` or a ``str``.
 
-        If a string is assigned, the value is sent as is to the server and the server will parse the string.
+        If a string is assigned, the value is sent "as is" to the server which will then try to parse it.
         The server will accepts "true", "false" or a mathematical expression supporting arithmetic operators (``+``, ``-``, ``*``, ``/``, ``^``), 
         base prefix (``0x``, ``0b``), scientific notation (1.5e-2), constants (such as pi) and common math functions. including:  ``abs``, ``exp``, ``pow``, ``sqrt``, ``mod``,
         ``ceil``, ``floor``, ``log``, ``ln``, ``log10``,
