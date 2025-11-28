@@ -21,3 +21,20 @@ The device's response will then be relayed directly back to the client.
     :exclude-members: __init__, __new__
     :members:
     :member-order: bysource
+
+-----
+
+Example
+#######
+
+**C++**
+
+.. literalinclude:: _static/code-examples/user_command/user_command_embedded.cpp
+    :language: c++
+    :encoding: utf-8
+
+**Python**
+
+.. literalinclude:: _static/code-examples/user_command/user_command.py
+    :language: python
+    :encoding: utf-8
