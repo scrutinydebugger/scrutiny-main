@@ -291,7 +291,7 @@ class TestReadWrite(ScrutinyIntegrationTestWithTestSFD1):
         reqid = 0
         for testcase in testcases:
             reqid += 1
-            print(f"[reqid={reqid}] : DDDDD")
+            print(f"[reqid={reqid}] : DDDDD", flush=True)
             req = {
                 'cmd': API.Command.Client2Api.WRITE_WATCHABLE,
                 'reqid': reqid,
@@ -301,29 +301,29 @@ class TestReadWrite(ScrutinyIntegrationTestWithTestSFD1):
             self.send_request(req)
             response = self.wait_and_load_response([API.Command.Api2Client.WRITE_WATCHABLE_RESPONSE, API.Command.Api2Client.ERROR_RESPONSE])
 
-            print(f"[reqid={reqid}] : eeeee")
+            print(f"[reqid={reqid}] : eeeee", flush=True)
             assert_msg = "reqid=%d. Testcase=%s" % (reqid, testcase)
             if not testcase.valid:
-                print(f"[reqid={reqid}] : fffff")
+                print(f"[reqid={reqid}] : fffff", flush=True)
                 self.assert_is_error(response, msg=assert_msg)
             else:
-                print(f"[reqid={reqid}] : ggggg")
+                print(f"[reqid={reqid}] : ggggg", flush=True)
                 self.assert_no_error(response, msg=assert_msg)
                 write_completion = self.wait_and_load_response([API.Command.Api2Client.INFORM_WRITE_COMPLETION])
                 self.assertEqual(write_completion['request_token'], response['request_token'])
 
-                print(f"[reqid={reqid}] : hhhhhh")
+                print(f"[reqid={reqid}] : hhhhhh", flush=True)
                 self.empty_api_rx_queue()
-                print(f"[reqid={reqid}] : iiiiiii")
+                print(f"[reqid={reqid}] : iiiiiii", flush=True)
                 self.process_watchable_update(nbr=len(all_entries) * 2)
-                print(f"[reqid={reqid}] : jjjjjj")
+                print(f"[reqid={reqid}] : jjjjjj", flush=True)
                 self.assert_value_received(testcase.entry, testcase.outval, msg=assert_msg)
-                print(f"[reqid={reqid}] : kkkkkk")
+                print(f"[reqid={reqid}] : kkkkkk", flush=True)
 
 
                 if testcase.additional_checks is not None:
                     for check in testcase.additional_checks:
-                        print(f"[reqid={reqid}] : LLLLLL")
+                        print(f"[reqid={reqid}] : LLLLLL", flush=True)
                         assert_msg = "reqid=%d. Testcase=%s (extra_check:%s=%s)" % (reqid, testcase, check[0].get_display_path(), check[1])
                         self.assert_value_received(check[0], check[1], msg=assert_msg)
 
