@@ -1157,6 +1157,7 @@ class ScrutinyClient:
                 obj = self._write_request_queue.get_nowait()
             except queue.Empty:
                 break
+            
             if isinstance(obj, FlushPoint):
                 break
             requests: List[WriteRequest] = []
@@ -2964,7 +2965,7 @@ class ScrutinyClient:
 
     def clear_event_queue(self) -> None:
         """Delete all pending events inside the event queue"""
-        while not self._event_queue.empty():
+        while True:
             try:
                 self._event_queue.get_nowait()
             except queue.Empty:
