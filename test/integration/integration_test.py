@@ -194,6 +194,7 @@ class ScrutinyIntegrationTest(ScrutinyUnitTest):
 
     def empty_api_rx_queue(self):
         self.server.process()
+        print("size=%d" % self.api_conn.server_to_client_queue.qsize(), flush=True)
         while self.api_conn.from_server_available():
             self.api_conn.read_from_server()
             self.server.process()

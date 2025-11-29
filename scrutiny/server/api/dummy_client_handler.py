@@ -187,11 +187,13 @@ class DummyClientHandler(AbstractClientHandler):
 
     def stop(self) -> None:
         self.stop_requested = True
-        self.thread.join()
+        self.thread.join(timeout=5)
 
     def send(self, msg: ClientHandlerMessage) -> None:
-        if not self.txqueue.full():
-            self.txqueue.put(msg)
+        try:
+            self.txqueue.put(msg, block=False)
+        except queue.Full:
+            self.logger.critical("Queue full")
 
     def available(self) -> bool:
         return not self.rxqueue.empty()

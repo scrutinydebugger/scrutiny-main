@@ -323,7 +323,6 @@ class TestReadWrite(ScrutinyIntegrationTestWithTestSFD1):
 
                 if testcase.additional_checks is not None:
                     for check in testcase.additional_checks:
-                        print(f"[reqid={reqid}] : LLLLLL", flush=True)
                         assert_msg = "reqid=%d. Testcase=%s (extra_check:%s=%s)" % (reqid, testcase, check[0].get_display_path(), check[1])
                         self.assert_value_received(check[0], check[1], msg=assert_msg)
 
