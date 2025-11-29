@@ -194,7 +194,7 @@ class TestReadWrite(ScrutinyIntegrationTestWithTestSFD1):
         self.assert_value_received(self.entry_u64, expected_u64_value)
 
     def test_write_oob_values(self):
-        print("XXXXXXXXXXX")
+        print("XXXXXXXXXXX", flush=True)
         @dataclass
         class WriteOOBTestcase:
             entry: DatastoreEntry
@@ -271,12 +271,12 @@ class TestReadWrite(ScrutinyIntegrationTestWithTestSFD1):
             WriteOOBTestcase(entry=self.entry_u64_bit15_35, inval=-1, outval=0, valid=True),
         ]
 
-        print("aaaaaaa")
+        print("aaaaaaa", flush=True)
 
         all_entries = list(set([tc.entry for tc in testcases]))
-        print(f"len(all_entries) = {len(all_entries)}")
+        print(f"len(all_entries) = {len(all_entries)}", flush=True)
         self.init_device_memory(all_entries)
-        print("bbbbbbbb")
+        print("bbbbbbbb", flush=True)
 
         subscribe_cmd = {
             'cmd': API.Command.Client2Api.SUBSCRIBE_WATCHABLE,
@@ -286,7 +286,7 @@ class TestReadWrite(ScrutinyIntegrationTestWithTestSFD1):
         self.send_request(subscribe_cmd)
         response = self.wait_and_load_response(cmd=API.Command.Api2Client.SUBSCRIBE_WATCHABLE_RESPONSE)
         self.assert_no_error(response)
-        print("cccccccc")
+        print("cccccccc", flush=True)
 
         reqid = 0
         for testcase in testcases:

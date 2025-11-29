@@ -64,7 +64,7 @@ class ScrutinyIntegrationTest(ScrutinyUnitTest):
         self.prestart_callback = None
 
     def setUp(self):
-        print(f"{__class__} : setup")
+        print(f"{__class__} : setup", flush=True)
         err = None
         try:
             server_config: ServerConfig = {
@@ -82,30 +82,30 @@ class ScrutinyIntegrationTest(ScrutinyUnitTest):
                 "autoload_sfd": False,
             }
 
-            print("11111111111")
+            print("11111111111", flush=True)
             self.server = ScrutinyServer(server_config)
             self.server.device_handler.expect_no_timeout = True     # Will throw an exception on comm timeout
             self.server.api.handle_unexpected_errors = False        # Will throw an exception if one is raised during request process
             self.emulated_device = UnitTestEmulatedDevice(self.server.device_handler.get_comm_link())
             self.api_conn = DummyConnection()
 
-            print("2222222222222")
+            print("2222222222222", flush=True)
             if self.prestart_callback is not None:
                 self.prestart_callback()
 
             self.server.init()  # Server
-            print("3333333333333")
+            print("3333333333333", flush=True)
             self.emulated_device.start()    # Device
-            print("444444444444")
+            print("444444444444", flush=True)
             self.api_conn.open()    # Client
-            print("55555555555")
+            print("55555555555", flush=True)
             cast(DummyClientHandler, self.server.api.get_client_handler()).set_connections([self.api_conn])
             self.wait_and_load_response(cmd=API.Command.Api2Client.WELCOME)
 
-            print("666666666666")
+            print("666666666666", flush=True)
 
             self.wait_for_device_ready(timeout=3)
-            print("77777777777")
+            print("77777777777", flush=True)
 
             self.temp_storage_handler = SFDStorage.use_temp_folder()
 
@@ -114,6 +114,8 @@ class ScrutinyIntegrationTest(ScrutinyUnitTest):
         except Exception as e:
             self.tearDown()
             err = e
+        
+        print("88888888", flush=True)
 
         if err:
             raise err
@@ -352,10 +354,11 @@ class ScrutinyIntegrationTestWithTestSFD1(ScrutinyIntegrationTest):
     sfd: FirmwareDescription
 
     def setUp(self):
-        print(f"{__class__} : setup")
+        print(f"{__class__} : setup", flush=True)
         super().setUp()
+        print("miaou", flush=True)
         self.load_test_sfd()
-        return
+        print("woof", flush=True)
 
     def load_test_sfd(self):
         SFDStorage.install(get_artifact("test_sfd_1.sfd"))
