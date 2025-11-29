@@ -64,7 +64,6 @@ class ScrutinyIntegrationTest(ScrutinyUnitTest):
         self.prestart_callback = None
 
     def setUp(self):
-        print(f"{__class__} : setup", flush=True)
         err = None
         try:
             server_config: ServerConfig = {
@@ -197,6 +196,7 @@ class ScrutinyIntegrationTest(ScrutinyUnitTest):
         print("size=%d" % self.api_conn.server_to_client_queue.qsize(), flush=True)
         while self.api_conn.from_server_available():
             self.api_conn.read_from_server()
+            print("size=%d" % self.api_conn.server_to_client_queue.qsize(), flush=True)
             self.server.process()
             self.server.process()
 
@@ -355,11 +355,8 @@ class ScrutinyIntegrationTestWithTestSFD1(ScrutinyIntegrationTest):
     sfd: FirmwareDescription
 
     def setUp(self):
-        print(f"{__class__} : setup", flush=True)
         super().setUp()
-        print("miaou", flush=True)
         self.load_test_sfd()
-        print("woof", flush=True)
 
     def load_test_sfd(self):
         SFDStorage.install(get_artifact("test_sfd_1.sfd"))

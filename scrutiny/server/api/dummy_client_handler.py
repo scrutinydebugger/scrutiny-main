@@ -46,6 +46,19 @@ class DummyConnection:
 
     def close(self) -> None:
         self.opened = False
+        while True:
+            try:
+                self.client_to_server_queue.get_nowait()
+            except queue.Empty:
+                break
+        
+        while True:
+            try:
+                self.server_to_client_queue.get_nowait()
+            except queue.Empty:
+                break
+
+        
 
     def is_open(self) -> bool:
         return self.opened

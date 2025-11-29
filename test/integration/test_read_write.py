@@ -194,7 +194,6 @@ class TestReadWrite(ScrutinyIntegrationTestWithTestSFD1):
         self.assert_value_received(self.entry_u64, expected_u64_value)
 
     def test_write_oob_values(self):
-        print("XXXXXXXXXXX", flush=True)
         @dataclass
         class WriteOOBTestcase:
             entry: DatastoreEntry
