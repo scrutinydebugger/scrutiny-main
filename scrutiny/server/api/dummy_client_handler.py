@@ -22,6 +22,7 @@ import uuid
 from scrutiny import tools
 from .abstract_client_handler import AbstractClientHandler, ClientHandlerConfig, ClientHandlerMessage
 from scrutiny.tools.typing import *
+from scrutiny import tools
 
 
 class DummyConnection:
@@ -46,6 +47,8 @@ class DummyConnection:
 
     def close(self) -> None:
         self.opened = False
+        tools.empty_queue(self.client_to_server_queue)
+        tools.empty_queue(self.server_to_client_queue)
 
     def is_open(self) -> bool:
         return self.opened
@@ -60,14 +63,12 @@ class DummyConnection:
 
     def read_from_server(self) -> Optional[str]:
         if self.opened:
-            if not self.server_to_client_queue.empty():
-                return self.server_to_client_queue.get()
+            return tools.read_queue_or_none(self.server_to_client_queue)
         return None
 
     def read_from_client(self) -> Optional[str]:
         if self.opened:
-            if not self.client_to_server_queue.empty():
-                return self.client_to_server_queue.get()
+            return tools.read_queue_or_none(self.client_to_server_queue)
         return None
 
     def from_server_available(self) -> bool:
@@ -149,8 +150,12 @@ class DummyClientHandler(AbstractClientHandler):
                             except Exception as e:
                                 self.logger.error('Received invalid msg.  %s' % str(e))
 
-                while not self.txqueue.empty():
-                    container = self.txqueue.get()
+                while True:
+                    try:
+                        container = self.txqueue.get_nowait()
+                    except queue.Empty:
+                        break
+
                     if container is not None:
                         try:
                             msg = json.dumps(container.obj)
@@ -178,14 +183,16 @@ class DummyClientHandler(AbstractClientHandler):
 
     def stop(self) -> None:
         self.stop_requested = True
-        self.thread.join()
+        self.thread.join(timeout=5)
 
     def send(self, msg: ClientHandlerMessage) -> None:
-        if not self.txqueue.full():
-            self.txqueue.put(msg)
+        try:
+            self.txqueue.put(msg, block=False)
+        except queue.Full:
+            self.logger.critical("Queue full")
 
     def available(self) -> bool:
         return not self.rxqueue.empty()
 
     def recv(self) -> Optional[ClientHandlerMessage]:
-        return self.rxqueue.get()
+        return tools.read_queue_or_none(self.rxqueue)

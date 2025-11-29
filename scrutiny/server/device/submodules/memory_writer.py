@@ -29,6 +29,7 @@ from scrutiny.core.codecs import Codecs, Encodable
 from scrutiny.core.basic_types import MemoryRegion
 
 from scrutiny.tools.typing import *
+from scrutiny import tools
 
 
 RawMemoryWriteRequestCompletionCallback = Callable[["RawMemoryWriteRequest", bool, float, str], None]
@@ -188,8 +189,11 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
         if self.active_raw_write_request is not None:
             self.active_raw_write_request.set_completed(False, "Stopping communication with device")
 
-        while not self.raw_write_request_queue.empty():
-            self.raw_write_request_queue.get().set_completed(False, "Stopping communication with device")
+        while True:
+            request = tools.read_queue_or_none(self.raw_write_request_queue)
+            if request is None:
+                break
+            request.set_completed(False, "Stopping communication with device")
 
         if self.target_update_request_being_processed is not None:
             self.target_update_request_being_processed.complete(False)
@@ -262,7 +266,10 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
             if self.raw_write_request_queue.empty():
                 break
             self.clear_active_raw_write_request()
-            self.active_raw_write_request = self.raw_write_request_queue.get()
+            try:
+                self.active_raw_write_request = self.raw_write_request_queue.get_nowait()
+            except queue.Empty:
+                break
 
             is_in_forbidden_region = False
             is_in_readonly_region = False

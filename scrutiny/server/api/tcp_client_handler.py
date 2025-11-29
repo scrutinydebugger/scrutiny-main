@@ -167,8 +167,11 @@ class TCPClientHandler(AbstractClientHandler):
             if server_thread_obj.is_alive():
                 self.logger.error("Failed to stop the server. Join timed out")
 
-        while not self.rx_queue.empty():
-            self.rx_queue.get()
+        while True:
+            try:
+                self.rx_queue.get_nowait()
+            except queue.Empty:
+                break
 
         for client_id in self.get_client_list():
             self.unregister_client(client_id)
@@ -278,8 +281,11 @@ class TCPClientHandler(AbstractClientHandler):
                             self.rx_datarate_measurement.add_data(len(data))
                             self.logger.log(DUMPDATA_LOGLEVEL, f"Received {len(data)} bytes from client ID: {client_id}")
                             stream_parser.parse(data)
-                            while not stream_parser.queue().empty():
-                                datagram = stream_parser.queue().get()
+                            while True:
+                                datagram = tools.read_queue_or_none(stream_parser.queue())
+                                if datagram is None:
+                                    break
+                                
                                 try:
                                     obj = json.loads(datagram.decode('utf8'))
                                 except json.JSONDecodeError as e:

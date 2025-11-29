@@ -307,8 +307,11 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
         if self.active_raw_read_request is not None:
             self.active_raw_read_request.set_completed(False, None, "Stopping communication with device")
 
-        while not self.raw_read_request_queue.empty():
-            self.raw_read_request_queue.get().set_completed(False, None, "Stopping communication with device")
+        while True:
+            req = tools.read_queue_or_none(self.raw_read_request_queue)
+            if req is None:
+                break
+            req.set_completed(False, None, "Stopping communication with device")
 
         self.clear_active_raw_read_request()
 
@@ -351,7 +354,7 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
                 if request is not None:
                     if self.logger.isEnabledFor(logging.DEBUG):  # pragma: no cover
                         self.logger.debug('Registering a MemoryRead request for %d datastore entries. %s' % (len(var_entries_in_request), request))
-                    self._dispatch(request)
+                    self._dispatch(request) # sets pending_request
                     self.entries_in_pending_read_var_request = var_entries_in_request
 
                 # if there's nothing to send or that we completed one round
@@ -501,7 +504,11 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
             if self.raw_read_request_queue.empty():
                 break
             self.clear_active_raw_read_request()
-            self.active_raw_read_request = self.raw_read_request_queue.get()
+            try:
+                self.active_raw_read_request = self.raw_read_request_queue.get_nowait()
+            except queue.Empty:
+                self.logger.critical(f"Reading an empty queue. Is this class ({self.__class__.__name__}) being used in a thread environment ?")
+                break
 
             is_in_forbidden_region = False
             candidate_region = MemoryRegion(start=self.active_raw_read_request.address, size=self.active_raw_read_request.size)

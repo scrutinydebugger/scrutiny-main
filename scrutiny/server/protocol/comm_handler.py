@@ -52,7 +52,7 @@ class CommHandler:
     class RxData:
         __slots__ = ('data_buffer', 'length', 'length_bytes_received')
 
-        data_buffer: bytes
+        data_buffer: bytearray
         length: Optional[int]
         length_bytes_received: int
 
@@ -62,7 +62,7 @@ class CommHandler:
         def clear(self) -> None:
             self.length = None
             self.length_bytes_received = 0
-            self.data_buffer = bytes()
+            self.data_buffer = bytearray()
 
     DEFAULT_PARAMS: "CommHandler.Params" = {
         'response_timeout': 1
@@ -324,9 +324,15 @@ class CommHandler:
             self.reset_rx()
             self.timed_out = True
 
-        if self._rx_queue.empty():
-            return
-        data = self._rx_queue.get()
+        data = bytes()
+        try:
+            while True:
+                data += self._rx_queue.get_nowait()
+        except queue.Empty:
+            pass
+        
+        if len(data) == 0:
+            return 
 
         datasize_bits = len(data) * 8
         self._throttler.consume_bandwidth(datasize_bits)
@@ -352,7 +358,7 @@ class CommHandler:
 
                 # We have enough data, try to decode the response and validate the CRC.
                 try:
-                    self._received_response = Response.from_bytes(self._rx_data.data_buffer)  # CRC validation is done here
+                    self._received_response = Response.from_bytes(bytes(self._rx_data.data_buffer))  # CRC validation is done here
 
                     # Decoding did not raised an exception, we have a valid payload!
                     if self._logger.isEnabledFor(logging.DEBUG):  # pragma: no cover

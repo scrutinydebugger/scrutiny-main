@@ -953,7 +953,9 @@ class EmulatedDevice:
         if self.thread is not None:
             self.logger.debug('Stopping thread')
             self.request_shutdown = True
-            self.thread.join()
+            self.thread.join(timeout=5)
+            if self.thread.is_alive():
+                self.logger.error("Failed to join the emulated device thread")
             self.logger.debug('Thread stopped')
             self.thread = None
 

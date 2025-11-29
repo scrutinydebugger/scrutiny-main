@@ -275,8 +275,12 @@ class FakeDeviceHandler:
                     logging.error(str(e))
                     logging.debug(traceback.format_exc())
 
-        while not self.read_memory_queue.empty():
-            request = self.read_memory_queue.get()
+        while True:
+            try:
+                request = self.read_memory_queue.get_nowait()
+            except queue.Empty:
+                break
+
             self.read_logs.append(ReadMemoryLog(request.address, request.size))
             if not self.read_allowed:
                 request.set_completed(False, None, str("Not allowed"))
@@ -289,8 +293,12 @@ class FakeDeviceHandler:
                     logging.error(str(e))
                     logging.debug(traceback.format_exc())
 
-        while not self.write_memory_queue.empty():
-            request = self.write_memory_queue.get()
+        while True:
+            try:
+                request = self.write_memory_queue.get_nowait()
+            except queue.Empty:
+                break
+
             self.write_logs.append(WriteMemoryLog(request.address, request.data, None))
             if self.ignore_write:
                 pass
@@ -573,7 +581,7 @@ class TestClient(ScrutinyUnitTest):
     def tearDown(self) -> None:
         self.client.disconnect()
         self.server_exit_requested.set()
-        self.thread.join()
+        self.thread.join(timeout=3)
 
         if self.setup_failed:
             self.fail("Failed to setup the test")
@@ -685,7 +693,7 @@ class TestClient(ScrutinyUnitTest):
                     func: Callable
                     event: threading.Event
                     delay: float
-                    func, event, delay = self.func_queue.get()
+                    func, event, delay = self.func_queue.get_nowait()
                     if delay > 0:
                         time.sleep(delay)
                     func()

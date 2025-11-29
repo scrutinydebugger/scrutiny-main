@@ -11,6 +11,7 @@ __all__ = ['DummyLink']
 from .abstract_link import AbstractLink, LinkConfig
 from scrutiny.tools.typing import *
 import queue
+import logging
 
 
 class DummyLink(AbstractLink):
@@ -22,6 +23,7 @@ class DummyLink(AbstractLink):
     from_device_data: "queue.Queue[bytes]"
     _initialized: bool
     emulate_broken: bool
+    logger:logging.Logger
 
     INSTANCES: Dict[Any, "DummyLink"] = {}
 
@@ -39,6 +41,7 @@ class DummyLink(AbstractLink):
         self._initialized = False
         self.clear_all()
         self.emulate_broken = False
+        self.logger = logging.getLogger(self.__class__.__name__)
 
     def clear_all(self) -> None:
         """Empty both transmit and receive buffer"""
@@ -59,7 +62,11 @@ class DummyLink(AbstractLink):
         """Write data into the communication channels"""
         if self.emulate_broken:
             return None
-        self.to_device_data.put(data)
+        
+        try:
+            self.to_device_data.put(data, block=False)
+        except queue.Full:
+            self.logger.critical(f"DummyLink write queue full")
 
     def read(self, timeout: Optional[float] = None) -> Optional[bytes]:
         """Reads data from the communication channel. Returns None if not available"""
@@ -68,11 +75,11 @@ class DummyLink(AbstractLink):
 
         data = bytes()
         try:
-            data = self.from_device_data.get(timeout=timeout)
-            while not self.from_device_data.empty():
+            data = self.from_device_data.get(timeout=timeout)   # Block on IO. This runs in a thread
+            while True:
                 data += self.from_device_data.get_nowait()
         except queue.Empty:
-            return data
+            pass
 
         return data
 
@@ -83,7 +90,7 @@ class DummyLink(AbstractLink):
             return data
 
         try:
-            while not self.to_device_data.empty():
+            while True:
                 data += self.to_device_data.get_nowait()
         except queue.Empty:
             return data
@@ -92,7 +99,11 @@ class DummyLink(AbstractLink):
     def emulate_device_write(self, data: bytes) -> None:
         """Write data from the device side so that the server side can read it. Meant to emulate a device action"""
         if not self.emulate_broken:
-            self.from_device_data.put(data)
+            try:
+                self.from_device_data.put(data, block=False)
+            except queue.Full:
+                self.logger.critical(f"DummyLink device write queue full")
+                
 
     def process(self) -> None:
         """To be called periodically"""

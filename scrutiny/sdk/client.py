@@ -1152,8 +1152,12 @@ class ScrutinyClient:
         # Process new requests
         n = 0
         batch_dict: Dict[int, WriteRequest] = {}
-        while not self._write_request_queue.empty():
-            obj = self._write_request_queue.get()
+        while True:
+            try:
+                obj = self._write_request_queue.get_nowait()
+            except queue.Empty:
+                break
+            
             if isinstance(obj, FlushPoint):
                 break
             requests: List[WriteRequest] = []
@@ -1456,13 +1460,15 @@ class ScrutinyClient:
 
         while not self._stream_parser.queue().empty():
             try:
-                data_str = self._stream_parser.queue().get().decode(self._encoding)
+                data_str = self._stream_parser.queue().get_nowait().decode(self._encoding)
                 if self._logger.isEnabledFor(DUMPDATA_LOGLEVEL):    # pragma: no cover
                     self._logger.log(DUMPDATA_LOGLEVEL, f"Received: {data_str}")
                 obj = json.loads(data_str)
                 if obj is not None:
                     self._datarate_measurements.rx_message_rate.add_data(1)
                     yield obj
+            except queue.Empty:
+                break
             except json.JSONDecodeError as e:
                 self._logger.error(f"Received malformed JSON from the server. {e}")
                 self._logger.debug(traceback.format_exc())
@@ -2959,7 +2965,7 @@ class ScrutinyClient:
 
     def clear_event_queue(self) -> None:
         """Delete all pending events inside the event queue"""
-        while not self._event_queue.empty():
+        while True:
             try:
                 self._event_queue.get_nowait()
             except queue.Empty:
