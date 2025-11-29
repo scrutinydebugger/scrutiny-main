@@ -336,14 +336,17 @@ class DataloggingManager:
                 if not self.acquisition_request_queue.empty():  # A request to be processed pending in the queue
                     if self.active_request is None:  # No request being processed
                         if self.device_handler.is_ready_for_datalogging_acquisition_request():
-                            self.active_request = self.acquisition_request_queue.get()
-                            # We rely on the device handler to call our callback regardless
-                            # of what will happen. Success, failure, error, external reset.
-                            self.device_handler.request_datalogging_acquisition(
-                                loop_id=self.active_request.api_request.rate_identifier,
-                                config=self.active_request.device_config,
-                                callback=self._acquisition_complete_callback
-                            )
+                            try:
+                                self.active_request = self.acquisition_request_queue.get_nowait()
+                                # We rely on the device handler to call our callback regardless
+                                # of what will happen. Success, failure, error, external reset.
+                                self.device_handler.request_datalogging_acquisition(
+                                    loop_id=self.active_request.api_request.rate_identifier,
+                                    config=self.active_request.device_config,
+                                    callback=self._acquisition_complete_callback
+                                )
+                            except queue.Empty:
+                                self.logger.critical("Reading an empty queue. Is this class being used in a thread environment?")
                         else:
                             # Cause of not ready:
                             # - not started : Device status will not be CONNECTED_READY, will exit cleanly
@@ -386,8 +389,11 @@ class DataloggingManager:
 
         # =========== SHUTDOWN_CLEAR_PENDING_REQUEST =========
         elif self.state == FsmState.SHUTDOWN_CLEAR_PENDING_REQUEST:
-            while not self.acquisition_request_queue.empty():
-                req = self.acquisition_request_queue.get()
+            while True:
+                try:
+                    req = self.acquisition_request_queue.get_nowait()
+                except queue.Empty:
+                    break
                 req.callback(False, "Device is not available", None)   # Not executed
             next_state = FsmState.INIT
         else:

@@ -307,8 +307,12 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
         if self.active_raw_read_request is not None:
             self.active_raw_read_request.set_completed(False, None, "Stopping communication with device")
 
-        while not self.raw_read_request_queue.empty():
-            self.raw_read_request_queue.get().set_completed(False, None, "Stopping communication with device")
+        while True:
+            try:
+                req = self.raw_read_request_queue.get_nowait()
+            except queue.Empty:
+                break
+            req.set_completed(False, None, "Stopping communication with device")
 
         self.clear_active_raw_read_request()
 
@@ -501,7 +505,11 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
             if self.raw_read_request_queue.empty():
                 break
             self.clear_active_raw_read_request()
-            self.active_raw_read_request = self.raw_read_request_queue.get()
+            try:
+                self.active_raw_read_request = self.raw_read_request_queue.get_nowait()
+            except queue.Empty:
+                self.logger.critical(f"Reading an empty queue. Is this class ({self.__class__.__name__}) being used in a thread environment ?")
+                break
 
             is_in_forbidden_region = False
             candidate_region = MemoryRegion(start=self.active_raw_read_request.address, size=self.active_raw_read_request.size)
