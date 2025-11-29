@@ -64,6 +64,7 @@ class ScrutinyIntegrationTest(ScrutinyUnitTest):
         self.prestart_callback = None
 
     def setUp(self):
+        print(f"{__class__} : setup")
         err = None
         try:
             server_config: ServerConfig = {
@@ -81,22 +82,30 @@ class ScrutinyIntegrationTest(ScrutinyUnitTest):
                 "autoload_sfd": False,
             }
 
+            print("11111111111")
             self.server = ScrutinyServer(server_config)
             self.server.device_handler.expect_no_timeout = True     # Will throw an exception on comm timeout
             self.server.api.handle_unexpected_errors = False        # Will throw an exception if one is raised during request process
             self.emulated_device = UnitTestEmulatedDevice(self.server.device_handler.get_comm_link())
             self.api_conn = DummyConnection()
 
+            print("2222222222222")
             if self.prestart_callback is not None:
                 self.prestart_callback()
 
             self.server.init()  # Server
+            print("3333333333333")
             self.emulated_device.start()    # Device
+            print("444444444444")
             self.api_conn.open()    # Client
+            print("55555555555")
             cast(DummyClientHandler, self.server.api.get_client_handler()).set_connections([self.api_conn])
             self.wait_and_load_response(cmd=API.Command.Api2Client.WELCOME)
 
+            print("666666666666")
+
             self.wait_for_device_ready(timeout=3)
+            print("77777777777")
 
             self.temp_storage_handler = SFDStorage.use_temp_folder()
 
@@ -343,6 +352,7 @@ class ScrutinyIntegrationTestWithTestSFD1(ScrutinyIntegrationTest):
     sfd: FirmwareDescription
 
     def setUp(self):
+        print(f"{__class__} : setup")
         super().setUp()
         self.load_test_sfd()
         return
