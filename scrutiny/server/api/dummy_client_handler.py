@@ -154,8 +154,12 @@ class DummyClientHandler(AbstractClientHandler):
                             except Exception as e:
                                 self.logger.error('Received invalid msg.  %s' % str(e))
 
-                while not self.txqueue.empty():
-                    container = self.txqueue.get()
+                while True:
+                    try:
+                        container = self.txqueue.get_nowait()
+                    except queue.Empty:
+                        break
+
                     if container is not None:
                         try:
                             msg = json.dumps(container.obj)
@@ -193,4 +197,7 @@ class DummyClientHandler(AbstractClientHandler):
         return not self.rxqueue.empty()
 
     def recv(self) -> Optional[ClientHandlerMessage]:
-        return self.rxqueue.get()
+        try:
+            return self.rxqueue.get_nowait()
+        except queue.Empty:
+            return None

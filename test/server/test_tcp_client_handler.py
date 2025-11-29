@@ -87,7 +87,7 @@ class TestTCPClientHandler(ScrutinyUnitTest):
         parser = self.handler.get_compatible_stream_parser()
         parser.parse(data)
         self.assertFalse(parser.queue().empty())
-        obj2_received = self.deserialize_dict(parser.queue().get())
+        obj2_received = self.deserialize_dict(parser.queue().get_nowait())
         self.assertEqual(obj2, obj2_received)
         self.assertTrue(parser.queue().empty())
 
@@ -143,13 +143,13 @@ class TestTCPClientHandler(ScrutinyUnitTest):
         stream3 = self.handler.get_compatible_stream_parser()
 
         stream1.parse(s1.recv(4096))
-        reply1 = self.deserialize_dict(stream1.queue().get())
+        reply1 = self.deserialize_dict(stream1.queue().get_nowait())
 
         stream2.parse(s2.recv(4096))
-        reply2 = self.deserialize_dict(stream2.queue().get())
+        reply2 = self.deserialize_dict(stream2.queue().get_nowait())
 
         stream3.parse(s3.recv(4096))
-        reply3 = self.deserialize_dict(stream3.queue().get())
+        reply3 = self.deserialize_dict(stream3.queue().get_nowait())
 
         self.assertEqual(reply1, {'reply': 1})
         self.assertEqual(reply2, {'reply': 2})

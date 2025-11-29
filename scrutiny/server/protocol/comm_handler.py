@@ -324,9 +324,10 @@ class CommHandler:
             self.reset_rx()
             self.timed_out = True
 
-        if self._rx_queue.empty():
+        try:
+            data = self._rx_queue.get_nowait()
+        except queue.Empty:
             return
-        data = self._rx_queue.get()
 
         datasize_bits = len(data) * 8
         self._throttler.consume_bandwidth(datasize_bits)

@@ -275,8 +275,12 @@ class FakeDeviceHandler:
                     logging.error(str(e))
                     logging.debug(traceback.format_exc())
 
-        while not self.read_memory_queue.empty():
-            request = self.read_memory_queue.get()
+        while True:
+            try:
+                request = self.read_memory_queue.get()
+            except queue.Empty:
+                break
+
             self.read_logs.append(ReadMemoryLog(request.address, request.size))
             if not self.read_allowed:
                 request.set_completed(False, None, str("Not allowed"))
@@ -289,8 +293,12 @@ class FakeDeviceHandler:
                     logging.error(str(e))
                     logging.debug(traceback.format_exc())
 
-        while not self.write_memory_queue.empty():
-            request = self.write_memory_queue.get()
+        while True:
+            try:
+                request = self.write_memory_queue.get()
+            except queue.Empty:
+                break
+            
             self.write_logs.append(WriteMemoryLog(request.address, request.data, None))
             if self.ignore_write:
                 pass

@@ -12,6 +12,7 @@ from tempfile import TemporaryDirectory
 import os
 import csv
 import unittest
+import queue
 
 from scrutiny.core.basic_types import *
 import scrutiny.sdk
@@ -357,8 +358,11 @@ class TestListeners(ScrutinyUnitTest):
         listener.stop()
 
         received = 0
-        while not listener.get_queue().empty():
-            listener.get_queue().get()
+        while True:
+            try:
+                listener.get_queue().get_nowait()
+            except queue.Empty:
+                break
             received += 1
         self.assertEqual(received, 2 * count)
 
@@ -379,8 +383,11 @@ class TestListeners(ScrutinyUnitTest):
         listener.stop()
 
         received = 0
-        while not listener.get_queue().empty():
-            listener.get_queue().get()
+        while True:
+            try:
+                listener.get_queue().get_nowait()
+            except queue.Empty:
+                break
             received += 1
         self.assertEqual(received, queue_max_size)
 
