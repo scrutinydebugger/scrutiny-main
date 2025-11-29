@@ -60,14 +60,19 @@ class DummyConnection:
 
     def read_from_server(self) -> Optional[str]:
         if self.opened:
-            if not self.server_to_client_queue.empty():
-                return self.server_to_client_queue.get()
+            try:
+                return self.server_to_client_queue.get_nowait()
+            except queue.Empty:
+                return None
+            
         return None
 
     def read_from_client(self) -> Optional[str]:
         if self.opened:
-            if not self.client_to_server_queue.empty():
-                return self.client_to_server_queue.get()
+            try:
+                return self.client_to_server_queue.get_nowait()
+            except queue.Empty:
+                return None
         return None
 
     def from_server_available(self) -> bool:
