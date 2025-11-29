@@ -318,6 +318,7 @@ class TestReadWrite(ScrutinyIntegrationTestWithTestSFD1):
                 print(f"[reqid={reqid}] : jjjjjj")
                 self.assert_value_received(testcase.entry, testcase.outval, msg=assert_msg)
                 print(f"[reqid={reqid}] : kkkkkk")
+                
 
                 if testcase.additional_checks is not None:
                     for check in testcase.additional_checks:
