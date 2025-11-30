@@ -185,9 +185,6 @@ class ScrutinyIntegrationTest(ScrutinyUnitTest):
         print("size=%d" % self.api_conn.server_to_client_queue.qsize(), flush=True)
         while self.api_conn.from_server_available():
             self.api_conn.read_from_server()
-            #if self.api_conn.server_to_client_queue.qsize() > x:
-            #    import ipdb; ipdb.set_trace()
-            print("size=%d" % self.api_conn.server_to_client_queue.qsize(), flush=True)
             self.server.process()
             self.server.process()
 
