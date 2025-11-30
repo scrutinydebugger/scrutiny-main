@@ -81,41 +81,29 @@ class ScrutinyIntegrationTest(ScrutinyUnitTest):
                 "autoload_sfd": False,
             }
 
-            print("11111111111", flush=True)
             self.server = ScrutinyServer(server_config)
             self.server.device_handler.expect_no_timeout = True     # Will throw an exception on comm timeout
             self.server.api.handle_unexpected_errors = False        # Will throw an exception if one is raised during request process
             self.emulated_device = UnitTestEmulatedDevice(self.server.device_handler.get_comm_link())
             self.api_conn = DummyConnection()
 
-            print("2222222222222", flush=True)
             if self.prestart_callback is not None:
                 self.prestart_callback()
 
             self.server.init()  # Server
-            print("3333333333333", flush=True)
             self.emulated_device.start()    # Device
-            print("444444444444", flush=True)
             self.api_conn.open()    # Client
-            print("55555555555", flush=True)
             cast(DummyClientHandler, self.server.api.get_client_handler()).set_connections([self.api_conn])
             self.wait_and_load_response(cmd=API.Command.Api2Client.WELCOME)
 
-            print("666666666666", flush=True)
-
             self.wait_for_device_ready(timeout=3)
-            print("77777777777", flush=True)
-
             self.temp_storage_handler = SFDStorage.use_temp_folder()
-
             self.client_entry_values = {}
 
         except Exception as e:
             self.tearDown()
             err = e
         
-        print("88888888", flush=True)
-
         if err:
             raise err
 
@@ -193,9 +181,12 @@ class ScrutinyIntegrationTest(ScrutinyUnitTest):
 
     def empty_api_rx_queue(self):
         self.server.process()
+        x = self.api_conn.server_to_client_queue.qsize()
         print("size=%d" % self.api_conn.server_to_client_queue.qsize(), flush=True)
         while self.api_conn.from_server_available():
             self.api_conn.read_from_server()
+            #if self.api_conn.server_to_client_queue.qsize() > x:
+            #    import ipdb; ipdb.set_trace()
             print("size=%d" % self.api_conn.server_to_client_queue.qsize(), flush=True)
             self.server.process()
             self.server.process()

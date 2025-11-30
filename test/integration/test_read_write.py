@@ -288,6 +288,9 @@ class TestReadWrite(ScrutinyIntegrationTestWithTestSFD1):
         print("cccccccc", flush=True)
 
         reqid = 0
+        import threading
+        for t in threading.enumerate():
+            print(f"aa {t.name}")
         for testcase in testcases:
             reqid += 1
             print(f"[reqid={reqid}] : DDDDD", flush=True)
