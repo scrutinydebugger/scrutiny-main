@@ -180,13 +180,24 @@ class ScrutinyIntegrationTest(ScrutinyUnitTest):
             raise TimeoutError("Condition have not been fulfilled within %f sec" % timeout)
 
     def empty_api_rx_queue(self):
+        a=False
+        b=False
+        c=False
         self.server.process()
-        x = self.api_conn.server_to_client_queue.qsize()
         print("size=%d" % self.api_conn.server_to_client_queue.qsize(), flush=True)
-        while self.api_conn.from_server_available():
-            self.api_conn.read_from_server()
-            self.server.process()
-            self.server.process()
+        try:
+            while self.api_conn.from_server_available():
+                a=False
+                b=False
+                c=False
+                self.api_conn.read_from_server()
+                a=True
+                self.server.process()
+                b=True
+                self.server.process()
+                c=True
+        except KeyboardInterrupt:
+            print(f"a={a}, b={b}, c={c}")
 
     def spinwait_for(self, timeout):
         t1 = time.monotonic()
