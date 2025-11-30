@@ -22,6 +22,7 @@ import uuid
 from scrutiny import tools
 from .abstract_client_handler import AbstractClientHandler, ClientHandlerConfig, ClientHandlerMessage
 from scrutiny.tools.typing import *
+from scrutiny import tools
 
 
 class DummyConnection:
@@ -46,19 +47,8 @@ class DummyConnection:
 
     def close(self) -> None:
         self.opened = False
-        while True:
-            try:
-                self.client_to_server_queue.get_nowait()
-            except queue.Empty:
-                break
-        
-        while True:
-            try:
-                self.server_to_client_queue.get_nowait()
-            except queue.Empty:
-                break
-
-        
+        tools.empty_queue(self.client_to_server_queue)
+        tools.empty_queue(self.server_to_client_queue)
 
     def is_open(self) -> bool:
         return self.opened
@@ -73,19 +63,12 @@ class DummyConnection:
 
     def read_from_server(self) -> Optional[str]:
         if self.opened:
-            try:
-                return self.server_to_client_queue.get_nowait()
-            except queue.Empty:
-                return None
-            
+            return tools.read_queue_or_none(self.server_to_client_queue)
         return None
 
     def read_from_client(self) -> Optional[str]:
         if self.opened:
-            try:
-                return self.client_to_server_queue.get_nowait()
-            except queue.Empty:
-                return None
+            return tools.read_queue_or_none(self.client_to_server_queue)
         return None
 
     def from_server_available(self) -> bool:
