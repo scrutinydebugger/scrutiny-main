@@ -151,21 +151,19 @@ class DummyClientHandler(AbstractClientHandler):
                                 self.logger.error('Received invalid msg.  %s' % str(e))
 
                 while True:
-                    try:
-                        container = self.txqueue.get_nowait()
-                    except queue.Empty:
+                    container = tools.read_queue_or_none(self.txqueue)
+                    if container is None:
                         break
 
-                    if container is not None:
-                        try:
-                            msg = json.dumps(container.obj)
-                            conn_id = container.conn_id
-                            if self.logger.isEnabledFor(logging.DEBUG):  # pragma: no cover
-                                self.logger.debug('Writing to ID %s. "%s"' % (conn_id, msg))
-                            if conn_id in self.connection_map:
-                                self.connection_map[conn_id].write_to_client(msg)
-                        except Exception as e:
-                            tools.log_exception(self.logger, e, 'Cannot send message')
+                    try:
+                        msg = json.dumps(container.obj)
+                        conn_id = container.conn_id
+                        if self.logger.isEnabledFor(logging.DEBUG):  # pragma: no cover
+                            self.logger.debug('Writing to ID %s. "%s"' % (conn_id, msg))
+                        if conn_id in self.connection_map:
+                            self.connection_map[conn_id].write_to_client(msg)
+                    except Exception as e:
+                        tools.log_exception(self.logger, e, 'Cannot send message')
 
             except Exception as e:
                 self.logger.error(str(e))

@@ -297,7 +297,7 @@ class FirmwareDescription:
             aliases[k] = alias
 
         return aliases
-    
+
     @classmethod
     def get_alias_target_type(cls, alias: Alias, varmap: VarMap) -> WatchableType:
         """ Finds the referred entry and gives this datatype. Alias do not have a datatype by themselves """

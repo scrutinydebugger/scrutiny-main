@@ -48,7 +48,7 @@ with client.connect('localhost', 8765):
             interface_config=sdk.CANLinkConfig.SocketCANConfig(channel="vcan0")
         )
     )
-    
+
     # CAN Vector example
     client.configure_device_link(
         link_type=sdk.DeviceLinkType.CAN,
@@ -62,7 +62,7 @@ with client.connect('localhost', 8765):
             interface_config=sdk.CANLinkConfig.VectorConfig(
                 channel=0,
                 bitrate=500000,
-                data_bitrate=500000 # Ignored if bitrate_switch = False
+                data_bitrate=500000  # Ignored if bitrate_switch = False
             )
         )
     )

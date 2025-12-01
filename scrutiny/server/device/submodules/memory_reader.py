@@ -354,7 +354,7 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
                 if request is not None:
                     if self.logger.isEnabledFor(logging.DEBUG):  # pragma: no cover
                         self.logger.debug('Registering a MemoryRead request for %d datastore entries. %s' % (len(var_entries_in_request), request))
-                    self._dispatch(request) # sets pending_request
+                    self._dispatch(request)  # sets pending_request
                     self.entries_in_pending_read_var_request = var_entries_in_request
 
                 # if there's nothing to send or that we completed one round

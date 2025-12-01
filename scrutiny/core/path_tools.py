@@ -36,6 +36,7 @@ def is_subpath(subpath: str, path: str) -> bool:
             return False
     return True
 
+
 def is_rpv_path(path: str) -> bool:
     """Returns True if the given tree-like path is the path of a Runtime Published Value"""
     return (re.match(r'^\/?rpv\/x\d+\/?$', path, re.IGNORECASE) is not None)

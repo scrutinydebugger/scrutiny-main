@@ -28,6 +28,7 @@ from test import ScrutinyUnitTest
 from scrutiny.tools.typing import *
 from scrutiny.sdk.watchable_handle import WatchableHandle, WatchableType
 from scrutiny.sdk.client import ScrutinyClient
+from scrutiny import tools
 
 from test import logger
 
@@ -359,9 +360,7 @@ class TestListeners(ScrutinyUnitTest):
 
         received = 0
         while True:
-            try:
-                listener.get_queue().get_nowait()
-            except queue.Empty:
+            if tools.read_queue_or_none(listener.get_queue()) is None:
                 break
             received += 1
         self.assertEqual(received, 2 * count)

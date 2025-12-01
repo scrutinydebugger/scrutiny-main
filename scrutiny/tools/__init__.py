@@ -382,15 +382,15 @@ def deprecated(msg: str = "") -> Callable[[Callable[P, T]], Callable[P, T]]:
     return decorator
 
 
-
-def empty_queue(q:queue.Queue[T]) -> None:
+def empty_queue(q: queue.Queue[T]) -> None:
     while True:
         try:
             q.get_nowait()
         except queue.Empty:
             break
 
-def read_queue_or_none(q:queue.Queue[T]) -> Optional[T]:
+
+def read_queue_or_none(q: queue.Queue[T]) -> Optional[T]:
     try:
         return q.get_nowait()
     except queue.Empty:

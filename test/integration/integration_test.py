@@ -103,7 +103,7 @@ class ScrutinyIntegrationTest(ScrutinyUnitTest):
         except Exception as e:
             self.tearDown()
             err = e
-        
+
         if err:
             raise err
 
@@ -227,7 +227,7 @@ class ScrutinyIntegrationTest(ScrutinyUnitTest):
 
         self.assertFalse(self.api_conn.from_server_available())
 
-    def process_watchable_update(self, nbr=None, timeout:float=1):
+    def process_watchable_update(self, nbr=None, timeout: float = 1):
         response = None
         if nbr is not None:
             for i in range(nbr):

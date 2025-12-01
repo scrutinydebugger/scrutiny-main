@@ -488,11 +488,10 @@ class API:
         self.client_handler.process()   # Get incoming requests
 
         while True:
-            try:
-                conn_id = self.client_handler.new_conn_queue.get_nowait()
-            except queue.Empty:
+            conn_id = tools.read_queue_or_none(self.client_handler.new_conn_queue)
+            if conn_id is None:
                 break
-            
+
             if self.is_new_connection(conn_id):
                 self.logger.debug('Opening connection %s' % conn_id)
                 self.open_connection(conn_id)

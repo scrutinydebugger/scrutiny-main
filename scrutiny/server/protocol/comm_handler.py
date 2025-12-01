@@ -1,6 +1,6 @@
 #    comm_handler.py
 #        The CommHandler task is to convert Requests and Response from or to a stream of bytes.
-#        
+#
 #        This class manage send requests, wait for response, indicates if a response timeout
 #        occurred and decodes bytes.
 #        It manages the low level part of the communication protocol with the device
@@ -330,9 +330,9 @@ class CommHandler:
                 data += self._rx_queue.get_nowait()
         except queue.Empty:
             pass
-        
+
         if len(data) == 0:
-            return 
+            return
 
         datasize_bits = len(data) * 8
         self._throttler.consume_bandwidth(datasize_bits)

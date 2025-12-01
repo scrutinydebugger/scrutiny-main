@@ -54,6 +54,7 @@ from datetime import datetime
 from pathlib import Path
 
 from scrutiny.tools.typing import *
+from scrutiny import tools
 
 
 class CallbackState(enum.Enum):
@@ -1153,11 +1154,10 @@ class ScrutinyClient:
         n = 0
         batch_dict: Dict[int, WriteRequest] = {}
         while True:
-            try:
-                obj = self._write_request_queue.get_nowait()
-            except queue.Empty:
+            obj = tools.read_queue_or_none(self._write_request_queue)
+            if obj is None:
                 break
-            
+
             if isinstance(obj, FlushPoint):
                 break
             requests: List[WriteRequest] = []

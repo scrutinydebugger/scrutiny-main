@@ -23,7 +23,7 @@ class DummyLink(AbstractLink):
     from_device_data: "queue.Queue[bytes]"
     _initialized: bool
     emulate_broken: bool
-    logger:logging.Logger
+    logger: logging.Logger
 
     INSTANCES: Dict[Any, "DummyLink"] = {}
 
@@ -62,7 +62,7 @@ class DummyLink(AbstractLink):
         """Write data into the communication channels"""
         if self.emulate_broken:
             return None
-        
+
         try:
             self.to_device_data.put(data, block=False)
         except queue.Full:
@@ -103,7 +103,6 @@ class DummyLink(AbstractLink):
                 self.from_device_data.put(data, block=False)
             except queue.Full:
                 self.logger.critical(f"DummyLink device write queue full")
-                
 
     def process(self) -> None:
         """To be called periodically"""

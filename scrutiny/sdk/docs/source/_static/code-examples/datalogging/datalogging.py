@@ -11,10 +11,10 @@ with client.connect('localhost', 8765):
     config.configure_xaxis(sdk.datalogging.XAxisType.MeasuredTime)
     axis1 = config.add_axis('Axis 1')
     axis2 = config.add_axis('Axis 2')
-    config.add_signal(var1, axis1, name="MyVar1") 
+    config.add_signal(var1, axis1, name="MyVar1")
     config.add_signal(var2, axis1, name="MyVar2")
     config.add_signal('/a/b/alias_rpv1000', axis2, name="MyAliasRPV1000")
-    
+
     request = client.start_datalog(config)
 
     timeout = 60
@@ -23,7 +23,7 @@ with client.connect('localhost', 8765):
         request.wait_for_completion(timeout)    # Wait for the trigger condition to be fulfilled
     except sdk.exceptions.TimeoutException:
         print(f'Timed out while waiting')
-    
+
     if request.completed:   # Will be False if timed out
         if request.is_success:
             acquisition = request.fetch_acquisition()
