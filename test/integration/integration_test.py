@@ -184,11 +184,8 @@ class ScrutinyIntegrationTest(ScrutinyUnitTest):
     def empty_api_rx_queue(self):
         self.server.process()
         while self.api_conn.from_server_available():
-            print("before:%d" % self.api_conn.server_to_client_queue.qsize(), flush=True)
             self.api_conn.read_from_server()
-            self.server.process()
-            self.server.process()
-            print("after:%d" % self.api_conn.server_to_client_queue.qsize(), flush=True)
+        self.server.process()
 
     def spinwait_for(self, timeout):
         t1 = time.monotonic()
