@@ -185,8 +185,7 @@ class ScrutinyIntegrationTest(ScrutinyUnitTest):
         self.server.process()
         while self.api_conn.from_server_available():
             self.api_conn.read_from_server()
-            self.server.process()
-            self.server.process()
+        self.server.process()
 
     def spinwait_for(self, timeout):
         t1 = time.monotonic()

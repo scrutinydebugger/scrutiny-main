@@ -37,8 +37,8 @@ class DummyConnection:
         else:
             self.conn_id = uuid.uuid4().hex
 
-        self.client_to_server_queue = queue.Queue()
-        self.server_to_client_queue = queue.Queue()
+        self.client_to_server_queue = queue.Queue(maxsize=50)
+        self.server_to_client_queue = queue.Queue(maxsize=50)
         self.opened = False
 
     def open(self) -> None:
