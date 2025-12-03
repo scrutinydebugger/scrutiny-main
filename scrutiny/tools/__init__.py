@@ -16,8 +16,6 @@ __all__ = [
     'MutableNullableFloat',
     'MutableNullableBool',
     'NullableMutable',
-    'empty_queue',
-    'read_queue_or_none'
 ]
 
 import tempfile
@@ -380,18 +378,3 @@ def deprecated(msg: str = "") -> Callable[[Callable[P, T]], Callable[P, T]]:
             return function(*args, **kwargs)
         return wrapper
     return decorator
-
-
-def empty_queue(q: queue.Queue[T]) -> None:
-    while True:
-        try:
-            q.get_nowait()
-        except queue.Empty:
-            break
-
-
-def read_queue_or_none(q: queue.Queue[T]) -> Optional[T]:
-    try:
-        return q.get_nowait()
-    except queue.Empty:
-        return None

@@ -19,17 +19,17 @@ import logging
 import json
 import uuid
 
-from scrutiny import tools
 from .abstract_client_handler import AbstractClientHandler, ClientHandlerConfig, ClientHandlerMessage
 from scrutiny.tools.typing import *
+from scrutiny.tools.queue import ScrutinyQueue
 from scrutiny import tools
 
 
 class DummyConnection:
 
     conn_id: str
-    client_to_server_queue: "queue.Queue[str]"
-    server_to_client_queue: "queue.Queue[str]"
+    client_to_server_queue: "ScrutinyQueue[str]"
+    server_to_client_queue: "ScrutinyQueue[str]"
     opened: bool
 
     def __init__(self, conn_id: Optional[str] = None) -> None:
@@ -38,8 +38,8 @@ class DummyConnection:
         else:
             self.conn_id = uuid.uuid4().hex
 
-        self.client_to_server_queue = queue.Queue(maxsize=50)
-        self.server_to_client_queue = queue.Queue(maxsize=50)
+        self.client_to_server_queue = ScrutinyQueue(maxsize=50)
+        self.server_to_client_queue = ScrutinyQueue(maxsize=50)
         self.opened = False
 
     def open(self) -> None:
@@ -47,8 +47,8 @@ class DummyConnection:
 
     def close(self) -> None:
         self.opened = False
-        tools.empty_queue(self.client_to_server_queue)
-        tools.empty_queue(self.server_to_client_queue)
+        self.client_to_server_queue.deplete()
+        self.server_to_client_queue.deplete()
 
     def is_open(self) -> bool:
         return self.opened
@@ -63,12 +63,12 @@ class DummyConnection:
 
     def read_from_server(self) -> Optional[str]:
         if self.opened:
-            return tools.read_queue_or_none(self.server_to_client_queue)
+            return self.server_to_client_queue.get_or_none()
         return None
 
     def read_from_client(self) -> Optional[str]:
         if self.opened:
-            return tools.read_queue_or_none(self.client_to_server_queue)
+            return self.client_to_server_queue.get_or_none()
         return None
 
     def from_server_available(self) -> bool:
@@ -86,8 +86,8 @@ class DummyConnection:
 
 class DummyClientHandler(AbstractClientHandler):
 
-    rxqueue: "queue.Queue[ClientHandlerMessage]"
-    txqueue: "queue.Queue[ClientHandlerMessage]"
+    rxqueue: "ScrutinyQueue[ClientHandlerMessage]"
+    txqueue: "ScrutinyQueue[ClientHandlerMessage]"
     config: Dict[str, str]
     logger: logging.Logger
     stop_requested: bool
@@ -101,8 +101,8 @@ class DummyClientHandler(AbstractClientHandler):
                  rx_event: Optional[threading.Event] = None
                  ) -> None:
         super().__init__(config, rx_event)
-        self.rxqueue = queue.Queue()
-        self.txqueue = queue.Queue()
+        self.rxqueue = ScrutinyQueue()
+        self.txqueue = ScrutinyQueue()
         self.config = config
         self.logger = logging.getLogger(self.__class__.__name__)
         self.stop_requested = False
@@ -116,7 +116,7 @@ class DummyClientHandler(AbstractClientHandler):
         self.connections = connections
         for conn in self.connections:
             self.connection_map[conn.get_id()] = conn
-            self.new_conn_queue.put(conn.get_id())
+            self.new_conn_queue.put_nowait(conn.get_id())
 
     def validate_config(self, config: ClientHandlerConfig) -> None:
         if not isinstance(config, dict):
@@ -151,7 +151,7 @@ class DummyClientHandler(AbstractClientHandler):
                                 self.logger.error('Received invalid msg.  %s' % str(e))
 
                 while True:
-                    container = tools.read_queue_or_none(self.txqueue)
+                    container = self.txqueue.get_or_none()
                     if container is None:
                         break
 
@@ -193,4 +193,4 @@ class DummyClientHandler(AbstractClientHandler):
         return not self.rxqueue.empty()
 
     def recv(self) -> Optional[ClientHandlerMessage]:
-        return tools.read_queue_or_none(self.rxqueue)
+        return self.rxqueue.get_or_none()

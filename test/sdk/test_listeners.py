@@ -383,9 +383,7 @@ class TestListeners(ScrutinyUnitTest):
 
         received = 0
         while True:
-            try:
-                listener.get_queue().get_nowait()
-            except queue.Empty:
+            if tools.read_queue_or_none(listener.get_queue()) is None:
                 break
             received += 1
         self.assertEqual(received, queue_max_size)

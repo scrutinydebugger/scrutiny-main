@@ -23,9 +23,10 @@ import selectors
 import time
 
 from scrutiny.server.api.abstract_client_handler import AbstractClientHandler, ClientHandlerConfig, ClientHandlerMessage
-from scrutiny.tools.stream_datagrams import StreamMaker, StreamParser
 from scrutiny.core.logging import DUMPDATA_LOGLEVEL
+from scrutiny.tools.stream_datagrams import StreamMaker, StreamParser
 from scrutiny.tools.profiling import VariableRateExponentialAverager
+from scrutiny.tools.queue import ScrutinyQueue
 from scrutiny import tools
 
 from scrutiny.tools.typing import *
@@ -65,7 +66,7 @@ class TCPClientHandler(AbstractClientHandler):
 
     id2sock_map: Dict[str, socket.socket]
     sock2id_map: Dict[socket.socket, str]
-    rx_queue: "queue.Queue[ClientHandlerMessage]"
+    rx_queue: "ScrutinyQueue[ClientHandlerMessage]"
     stream_maker: StreamMaker
 
     index_lock: threading.Lock
@@ -98,7 +99,7 @@ class TCPClientHandler(AbstractClientHandler):
             mtu=self.STREAM_MTU,
             use_hash=self.STREAM_USE_HASH
         )
-        self.rx_queue = queue.Queue()
+        self.rx_queue = ScrutinyQueue()
         self.index_lock = threading.Lock()
         self.force_silent = False
         self.rx_datarate_measurement = VariableRateExponentialAverager(time_estimation_window=0.1, tau=0.5, near_zero=1)
@@ -167,7 +168,7 @@ class TCPClientHandler(AbstractClientHandler):
             if server_thread_obj.is_alive():
                 self.logger.error("Failed to stop the server. Join timed out")
 
-        tools.empty_queue(self.rx_queue)
+        self.rx_queue.deplete()
 
         for client_id in self.get_client_list():
             self.unregister_client(client_id)
@@ -187,10 +188,7 @@ class TCPClientHandler(AbstractClientHandler):
         return not self.rx_queue.empty()
 
     def recv(self) -> Optional[ClientHandlerMessage]:
-        try:
-            return self.rx_queue.get_nowait()
-        except queue.Empty:
-            return None
+        return self.rx_queue.get_or_none()
 
     def is_connection_active(self, conn_id: str) -> bool:
         """Tells if a client connection is presently functional and alive"""
@@ -278,7 +276,7 @@ class TCPClientHandler(AbstractClientHandler):
                             self.logger.log(DUMPDATA_LOGLEVEL, f"Received {len(data)} bytes from client ID: {client_id}")
                             stream_parser.parse(data)
                             while True:
-                                datagram = tools.read_queue_or_none(stream_parser.queue())
+                                datagram = stream_parser.queue().get_or_none()
                                 if datagram is None:
                                     break
 

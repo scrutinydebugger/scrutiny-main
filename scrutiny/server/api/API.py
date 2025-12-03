@@ -488,7 +488,7 @@ class API:
         self.client_handler.process()   # Get incoming requests
 
         while True:
-            conn_id = tools.read_queue_or_none(self.client_handler.new_conn_queue)
+            conn_id = self.client_handler.new_conn_queue.get_or_none()
             if conn_id is None:
                 break
 

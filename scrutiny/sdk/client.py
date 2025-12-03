@@ -33,8 +33,9 @@ from scrutiny.server.api import API
 from scrutiny.server.api.tcp_client_handler import TCPClientHandler
 from scrutiny.tools.stream_datagrams import StreamMaker, StreamParser
 from scrutiny.tools.profiling import VariableRateExponentialAverager
-from scrutiny import tools
 from scrutiny.tools.timebase import RelativeTimebase
+from scrutiny.tools.queue import ScrutinyQueue
+from scrutiny import tools
 import selectors
 
 import os
@@ -610,7 +611,7 @@ class ScrutinyClient:
     _write_timeout: float       # Default timeout value for write request
     _request_status_timer: Timer    # Timer for periodic server status update
     _require_status_update: bool    # boolean indicating that a new server status request should be sent
-    _write_request_queue: "queue.Queue[Union[WriteRequest, FlushPoint, BatchWriteContext]]"  # Queue of write request given by the users.
+    _write_request_queue: "ScrutinyQueue[Union[WriteRequest, FlushPoint, BatchWriteContext]]"  # Queue of write request given by the users.
 
     _pending_api_batch_writes: Dict[str, PendingAPIBatchWrite]  # Dict of all the pending batch write currently in progress,
     # indexed by the request token
@@ -643,7 +644,7 @@ class ScrutinyClient:
     _active_batch_context: Optional[BatchWriteContext]  # The active write batch. All writes are appended to it if not None
 
     _listeners: List[listeners.BaseListener]   # List of registered listeners
-    _event_queue: "queue.Queue[Events._ANY_EVENTS]"  # A queue containing all the events listened for
+    _event_queue: "ScrutinyQueue[Events._ANY_EVENTS]"  # A queue containing all the events listened for
     _enabled_events: int                             # Flags indicating what events to listen for
     _datarate_measurements: DataRateMeasurements     # A measurement of the datarate with the server
     _server_timebase: RelativeTimebase          # A timebase that can convert server precise timings to unix timestamp.
@@ -700,7 +701,7 @@ class ScrutinyClient:
         self._require_status_update = False
         self._server_info = None
         self._last_server_info = None
-        self._write_request_queue = queue.Queue()
+        self._write_request_queue = ScrutinyQueue()
         self._pending_api_batch_writes = {}
         self._memory_read_completion_dict = {}
         self._memory_write_completion_dict = {}
@@ -722,7 +723,7 @@ class ScrutinyClient:
         self._stream_maker = TCPClientHandler.get_compatible_stream_maker()
         self._datarate_measurements = DataRateMeasurements()
 
-        self._event_queue = queue.Queue(maxsize=100)   # Not supposed to go much above 1 or 2
+        self._event_queue = ScrutinyQueue(maxsize=100)   # Not supposed to go much above 1 or 2
         self.listen_events(enabled_events)
         self._force_fail_request = False
         self._server_timebase = RelativeTimebase()
@@ -1154,7 +1155,7 @@ class ScrutinyClient:
         n = 0
         batch_dict: Dict[int, WriteRequest] = {}
         while True:
-            obj = tools.read_queue_or_none(self._write_request_queue)
+            obj = self._write_request_queue.get_or_none()
             if obj is None:
                 break
 
@@ -2965,11 +2966,7 @@ class ScrutinyClient:
 
     def clear_event_queue(self) -> None:
         """Delete all pending events inside the event queue"""
-        while True:
-            try:
-                self._event_queue.get_nowait()
-            except queue.Empty:
-                break
+        self._event_queue.deplete()
 
     def get_local_stats(self) -> Statistics:
         """Return internal performance metrics"""

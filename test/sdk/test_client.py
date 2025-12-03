@@ -276,9 +276,8 @@ class FakeDeviceHandler:
                     logging.debug(traceback.format_exc())
 
         while True:
-            try:
-                request = self.read_memory_queue.get_nowait()
-            except queue.Empty:
+            request = tools.read_queue_or_none(self.read_memory_queue)
+            if request is None:
                 break
 
             self.read_logs.append(ReadMemoryLog(request.address, request.size))

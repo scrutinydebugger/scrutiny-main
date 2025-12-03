@@ -11,10 +11,10 @@ __all__ = ['ClientHandlerMessage', 'AbstractClientHandler']
 from abc import abstractmethod
 from dataclasses import dataclass
 import threading
-import queue
 
 import scrutiny.server.api.typing as api_typing
 from scrutiny.tools.typing import *
+from scrutiny.tools.queue import ScrutinyQueue
 
 ClientHandlerConfig = Dict[str, str]
 
@@ -26,7 +26,7 @@ class ClientHandlerMessage:
 
 
 class AbstractClientHandler:
-    new_conn_queue: "queue.Queue[str]"
+    new_conn_queue: "ScrutinyQueue[str]"
 
     @dataclass(slots=True)
     class Statistics:
@@ -37,7 +37,7 @@ class AbstractClientHandler:
         msg_sent: int
 
     def __init__(self, config: ClientHandlerConfig, rx_event: Optional[threading.Event] = None):
-        self.new_conn_queue = queue.Queue(maxsize=1000)
+        self.new_conn_queue = ScrutinyQueue(maxsize=1000)
 
     @abstractmethod
     def send(self, msg: ClientHandlerMessage) -> None:
