@@ -1,3 +1,12 @@
+#    queue.py
+#        An extension of the native Python queue with some helpers to deal more cleanly with
+#        empty/full conditions
+#
+#   - License : MIT - See LICENSE file.
+#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#   Copyright (c) 2025 Scrutiny Debugger
+
 __all__ = ['ScrutinyQueue']
 
 
