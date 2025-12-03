@@ -1461,15 +1461,16 @@ class ScrutinyClient:
 
         while not self._stream_parser.queue().empty():
             try:
-                data_str = self._stream_parser.queue().get_nowait().decode(self._encoding)
+                data_bytes = self._stream_parser.queue().get_or_none()
+                if data_bytes is None:
+                    break
+                data_str = data_bytes.decode(self._encoding)
                 if self._logger.isEnabledFor(DUMPDATA_LOGLEVEL):    # pragma: no cover
                     self._logger.log(DUMPDATA_LOGLEVEL, f"Received: {data_str}")
                 obj = json.loads(data_str)
                 if obj is not None:
                     self._datarate_measurements.rx_message_rate.add_data(1)
                     yield obj
-            except queue.Empty:
-                break
             except json.JSONDecodeError as e:
                 self._logger.error(f"Received malformed JSON from the server. {e}")
                 self._logger.debug(traceback.format_exc())

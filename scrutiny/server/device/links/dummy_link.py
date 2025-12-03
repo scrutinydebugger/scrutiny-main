@@ -64,7 +64,7 @@ class DummyLink(AbstractLink):
             return None
 
         try:
-            self.to_device_data.put(data, block=False)
+            self.to_device_data.put_nowait(data)
         except queue.Full:
             self.logger.critical(f"DummyLink write queue full")
 

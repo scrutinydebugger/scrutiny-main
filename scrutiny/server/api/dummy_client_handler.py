@@ -185,7 +185,7 @@ class DummyClientHandler(AbstractClientHandler):
 
     def send(self, msg: ClientHandlerMessage) -> None:
         try:
-            self.txqueue.put(msg, block=False)
+            self.txqueue.put_nowait(msg)
         except queue.Full:
             self.logger.critical("Queue full")
 
