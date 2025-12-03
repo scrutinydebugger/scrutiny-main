@@ -190,7 +190,7 @@ class RttLink(AbstractLink):
         if self.operational():
             assert self.port is not None
             try:
-                self._write_queue.put(data)
+                self._write_queue.put_nowait(data)
             except queue.Full:
                 self.logger.debug("Write queue is full.")
                 self.port.close()

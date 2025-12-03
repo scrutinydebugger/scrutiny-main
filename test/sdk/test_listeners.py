@@ -360,7 +360,7 @@ class TestListeners(ScrutinyUnitTest):
 
         received = 0
         while True:
-            if tools.read_queue_or_none(listener.get_queue()) is None:
+            if listener.get_queue().get_or_none() is None:
                 break
             received += 1
         self.assertEqual(received, 2 * count)
@@ -380,13 +380,7 @@ class TestListeners(ScrutinyUnitTest):
         wait_cond(lambda: listener.update_count >= queue_max_size, 0.5, "Not all received in time")
 
         listener.stop()
-
-        received = 0
-        while True:
-            if tools.read_queue_or_none(listener.get_queue()) is None:
-                break
-            received += 1
-        self.assertEqual(received, queue_max_size)
+        self.assertEqual(listener.get_queue().qsize(), queue_max_size)
 
     def test_csv_writer_listener_no_limits(self):
 

@@ -13,11 +13,12 @@ from scrutiny.sdk.listeners import ValueUpdate
 from . import BaseListener
 
 import queue
+from scrutiny.tools.queue import ScrutinyQueue
 from scrutiny.tools.typing import *
 
 
 class BufferedReaderListener(BaseListener):
-    _queue: "queue.Queue[ValueUpdate]"
+    _queue: "ScrutinyQueue[ValueUpdate]"
 
     def __init__(self, queue_max_size: int, *args: Any, **kwargs: Any):
         """Creates a listener that makes a copy of every received :class:`ValueUpdate<scrutiny.sdk.listeners.ValueUpdate>` 
@@ -30,7 +31,7 @@ class BufferedReaderListener(BaseListener):
         :param kwargs: Passed to :class:`BaseListener<scrutiny.sdk.listeners.BaseListener>`
         """
         BaseListener.__init__(self, *args, **kwargs)
-        self._queue = queue.Queue(maxsize=queue_max_size)
+        self._queue = ScrutinyQueue(maxsize=queue_max_size)
 
     def receive(self, updates: List[ValueUpdate]) -> None:
         for update in updates:
@@ -39,7 +40,7 @@ class BufferedReaderListener(BaseListener):
             except queue.Full:
                 self._logger.warning("Queue is full. Dropping updates")
 
-    def get_queue(self) -> "queue.Queue[ValueUpdate]":
+    def get_queue(self) -> "ScrutinyQueue[ValueUpdate]":
         """Returns the queue used for storage"""
         return self._queue
 
