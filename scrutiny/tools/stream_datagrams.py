@@ -18,6 +18,7 @@ import time
 import zlib
 
 from scrutiny.tools.typing import *
+from scrutiny.tools.queue import ScrutinyQueue
 
 HASH_SIZE = 16
 HASH_FUNC = md5  # Fastest 128bits+
@@ -73,7 +74,7 @@ class StreamParser:
     _bytes_read: int
     _buffer: bytearray
     _remainder: bytearray
-    _msg_queue: "queue.Queue[bytes]"
+    _msg_queue: "ScrutinyQueue[bytes]"
     _pattern: "re.Pattern[bytes]"
     _logger: logging.Logger
     _last_chunk_timestamp: float
@@ -86,7 +87,7 @@ class StreamParser:
 
         self._payload_properties = None
         self._buffer = bytearray()
-        self._msg_queue = queue.Queue(maxsize=100)
+        self._msg_queue = ScrutinyQueue(maxsize=100)
         self._pattern = re.compile(b"<SCRUTINY size=([a-fA-F0-9]+) flags=(c?h?)>")
         self._logger = logging.getLogger(self.__class__.__name__)
         self._last_chunk_timestamp = time.perf_counter()
@@ -164,7 +165,7 @@ class StreamParser:
         except queue.Full:
             self._logger.error("Receive queue full. Dropping datagram")
 
-    def queue(self) -> "queue.Queue[bytes]":
+    def queue(self) -> "ScrutinyQueue[bytes]":
         return self._msg_queue
 
     def reset(self) -> None:

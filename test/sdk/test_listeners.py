@@ -12,6 +12,7 @@ from tempfile import TemporaryDirectory
 import os
 import csv
 import unittest
+import queue
 
 from scrutiny.core.basic_types import *
 import scrutiny.sdk
@@ -27,6 +28,7 @@ from test import ScrutinyUnitTest
 from scrutiny.tools.typing import *
 from scrutiny.sdk.watchable_handle import WatchableHandle, WatchableType
 from scrutiny.sdk.client import ScrutinyClient
+from scrutiny import tools
 
 from test import logger
 
@@ -357,8 +359,9 @@ class TestListeners(ScrutinyUnitTest):
         listener.stop()
 
         received = 0
-        while not listener.get_queue().empty():
-            listener.get_queue().get()
+        while True:
+            if listener.get_queue().get_or_none() is None:
+                break
             received += 1
         self.assertEqual(received, 2 * count)
 
@@ -377,12 +380,7 @@ class TestListeners(ScrutinyUnitTest):
         wait_cond(lambda: listener.update_count >= queue_max_size, 0.5, "Not all received in time")
 
         listener.stop()
-
-        received = 0
-        while not listener.get_queue().empty():
-            listener.get_queue().get()
-            received += 1
-        self.assertEqual(received, queue_max_size)
+        self.assertEqual(listener.get_queue().qsize(), queue_max_size)
 
     def test_csv_writer_listener_no_limits(self):
 

@@ -248,9 +248,11 @@ class StubbedDataloggingManager:
         self.callback_queue.put((callback, True, acquisition))
 
     def process(self) -> None:
-        if not self.callback_queue.empty():
-            callback, success, acquisition = self.callback_queue.get()
-            callback(success, "dummy msg", acquisition)
+        try:
+            callback, success, acquisition = self.callback_queue.get_nowait()
+        except queue.Empty:
+            return None
+        callback(success, "dummy msg", acquisition)
 
     def get_sampling_rate(self, identifier: int):
         info = self.fake_device_handler.get_device_info()
@@ -2345,7 +2347,7 @@ class TestAPI(ScrutinyUnitTest):
         self.assertIn('request_token', response)
         request_token = response['request_token']
         self.assertFalse(self.fake_device_handler.read_memory_queue.empty())
-        read_request = self.fake_device_handler.read_memory_queue.get()
+        read_request = self.fake_device_handler.read_memory_queue.get_nowait()
         self.assertTrue(self.fake_device_handler.read_memory_queue.empty())
         self.assertEqual(read_request.address, read_address)
         self.assertEqual(read_request.size, read_size)
@@ -2383,7 +2385,7 @@ class TestAPI(ScrutinyUnitTest):
         self.assertIn('request_token', response)
         request_token = response['request_token']
         self.assertFalse(self.fake_device_handler.read_memory_queue.empty())
-        read_request = self.fake_device_handler.read_memory_queue.get()
+        read_request = self.fake_device_handler.read_memory_queue.get_nowait()
         self.assertTrue(self.fake_device_handler.read_memory_queue.empty())
         self.assertEqual(read_request.address, read_address)
         self.assertEqual(read_request.size, read_size)
@@ -2455,7 +2457,7 @@ class TestAPI(ScrutinyUnitTest):
         self.assertIn('request_token', response)
         request_token = response['request_token']
         self.assertFalse(self.fake_device_handler.write_memory_queue.empty())
-        write_request = self.fake_device_handler.write_memory_queue.get()
+        write_request = self.fake_device_handler.write_memory_queue.get_nowait()
         self.assertTrue(self.fake_device_handler.write_memory_queue.empty())
         self.assertEqual(write_request.address, write_address)
         self.assertEqual(write_request.data, payload)
@@ -2490,7 +2492,7 @@ class TestAPI(ScrutinyUnitTest):
         self.assertIn('request_token', response)
         request_token = response['request_token']
         self.assertFalse(self.fake_device_handler.write_memory_queue.empty())
-        write_request = self.fake_device_handler.write_memory_queue.get()
+        write_request = self.fake_device_handler.write_memory_queue.get_nowait()
         self.assertTrue(self.fake_device_handler.write_memory_queue.empty())
         self.assertEqual(write_request.address, write_address)
         self.assertEqual(write_request.data, payload)
@@ -3115,7 +3117,7 @@ class TestAPI(ScrutinyUnitTest):
                 self.assertTrue(response['success'])
 
         self.assertFalse(self.fake_datalogging_manager.request_queue.empty())
-        ar = self.fake_datalogging_manager.request_queue.get()
+        ar = self.fake_datalogging_manager.request_queue.get_nowait()
         self.assertTrue(self.fake_datalogging_manager.request_queue.empty())
 
         if self.connections[0].from_server_available():

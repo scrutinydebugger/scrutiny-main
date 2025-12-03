@@ -50,6 +50,7 @@ from scrutiny.server.device.links.udp_link import UdpLink
 from scrutiny.server.device.links.abstract_link import AbstractLink
 import scrutiny.server.device.device_info as server_device
 
+from scrutiny.tools.queue import ScrutinyQueue
 from scrutiny import tools
 
 from test.artifacts import get_artifact
@@ -108,14 +109,14 @@ class FakeDeviceHandler:
     write_logs: List[Union[WriteMemoryLog, WriteRPVLog]]
     read_logs: List[ReadMemoryLog]
     device_state_change_callbacks: List[DeviceStateChangedCallback]
-    read_memory_queue: "queue.Queue[RawMemoryReadRequest]"
-    write_memory_queue: "queue.Queue[RawMemoryWriteRequest]"
+    read_memory_queue: "ScrutinyQueue[RawMemoryReadRequest]"
+    write_memory_queue: "ScrutinyQueue[RawMemoryWriteRequest]"
     fake_mem: MemoryContent
-    comm_configure_queue: "queue.Queue[Tuple[str, Dict]]"
+    comm_configure_queue: "ScrutinyQueue[Tuple[str, Dict]]"
     write_allowed: bool
     read_allowed: bool
     emulate_no_datalogging: bool
-    user_command_requests_queue: "queue.Queue[Tuple[int, bytes]]"
+    user_command_requests_queue: "ScrutinyQueue[Tuple[int, bytes]]"
     demo_mode: bool
 
     def __init__(self, datastore: "datastore.Datastore"):
@@ -179,13 +180,13 @@ class FakeDeviceHandler:
         self.write_allowed = True
         self.ignore_write = False
         self.read_allowed = True
-        self.read_memory_queue = queue.Queue()
-        self.write_memory_queue = queue.Queue()
-        self.comm_configure_queue = queue.Queue()
+        self.read_memory_queue = ScrutinyQueue()
+        self.write_memory_queue = ScrutinyQueue()
+        self.comm_configure_queue = ScrutinyQueue()
 
         self.fake_mem = MemoryContent()
         self.emulate_no_datalogging = False
-        self.user_command_requests_queue = queue.Queue()
+        self.user_command_requests_queue = ScrutinyQueue()
         self.demo_mode = False
 
     def force_all_write_failure(self):
@@ -275,8 +276,11 @@ class FakeDeviceHandler:
                     logging.error(str(e))
                     logging.debug(traceback.format_exc())
 
-        while not self.read_memory_queue.empty():
-            request = self.read_memory_queue.get()
+        while True:
+            request = self.read_memory_queue.get_or_none()
+            if request is None:
+                break
+
             self.read_logs.append(ReadMemoryLog(request.address, request.size))
             if not self.read_allowed:
                 request.set_completed(False, None, str("Not allowed"))
@@ -289,8 +293,11 @@ class FakeDeviceHandler:
                     logging.error(str(e))
                     logging.debug(traceback.format_exc())
 
-        while not self.write_memory_queue.empty():
-            request = self.write_memory_queue.get()
+        while True:
+            request = self.write_memory_queue.get_or_none()
+            if request is None:
+                break
+
             self.write_logs.append(WriteMemoryLog(request.address, request.data, None))
             if self.ignore_write:
                 pass
@@ -573,7 +580,7 @@ class TestClient(ScrutinyUnitTest):
     def tearDown(self) -> None:
         self.client.disconnect()
         self.server_exit_requested.set()
-        self.thread.join()
+        self.thread.join(timeout=3)
 
         if self.setup_failed:
             self.fail("Failed to setup the test")
@@ -685,7 +692,7 @@ class TestClient(ScrutinyUnitTest):
                     func: Callable
                     event: threading.Event
                     delay: float
-                    func, event, delay = self.func_queue.get()
+                    func, event, delay = self.func_queue.get_nowait()
                     if delay > 0:
                         time.sleep(delay)
                     func()

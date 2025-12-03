@@ -131,7 +131,7 @@ class RttLink(AbstractLink):
     def _write_thread_func(self) -> None:
         assert self.port is not None
         while not self._request_thread_exit:
-            data = self._write_queue.get()
+            data = self._write_queue.get()  # Blocking get to avoid using all the CPU in this thread
             if data is not None:
                 while len(data) > 0:
                     written_count = cast(int, self.port.rtt_write(0, data))
@@ -190,7 +190,7 @@ class RttLink(AbstractLink):
         if self.operational():
             assert self.port is not None
             try:
-                self._write_queue.put(data)
+                self._write_queue.put_nowait(data)
             except queue.Full:
                 self.logger.debug("Write queue is full.")
                 self.port.close()

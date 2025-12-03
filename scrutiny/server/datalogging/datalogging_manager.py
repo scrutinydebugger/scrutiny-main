@@ -27,6 +27,7 @@ from scrutiny.server.datalogging.datalogging_storage import DataloggingStorage
 from scrutiny.server.sfd_storage import SFDStorage
 from scrutiny.core.codecs import Codecs
 from scrutiny.core.datalogging import DataloggingAcquisition, DataSeries, LoggedWatchable
+from scrutiny.tools.queue import ScrutinyQueue
 from scrutiny import tools
 
 from scrutiny.tools.typing import *
@@ -58,7 +59,7 @@ class DataloggingManager:
     """Reference to the server datastore"""
     device_handler: DeviceHandler
     """Reference to the device handler"""
-    acquisition_request_queue: "queue.Queue[DeviceSideAcquisitionRequest]"
+    acquisition_request_queue: "ScrutinyQueue[DeviceSideAcquisitionRequest]"
     """The queue in which acquisition requests are put in by the API"""
     active_request: Optional[DeviceSideAcquisitionRequest]
     """The acquisition request being actively processed. None when no request is processed"""
@@ -79,7 +80,7 @@ class DataloggingManager:
         self.datastore = datastore
         self.device_handler = device_handler
         self.logger = logging.getLogger(self.__class__.__name__)
-        self.acquisition_request_queue = queue.Queue()
+        self.acquisition_request_queue = ScrutinyQueue()
         self.active_request = None
         self.state = FsmState.INIT
         self.previous_state = FsmState.INIT
@@ -113,11 +114,11 @@ class DataloggingManager:
         if self.device_handler.get_connection_status() != DeviceHandler.ConnectionStatus.CONNECTED_READY:
             raise RuntimeError("No device connected")
 
-        self.acquisition_request_queue.put(DeviceSideAcquisitionRequest(
+        self.acquisition_request_queue.put_nowait(DeviceSideAcquisitionRequest(
             api_request=request,
             device_config=config,
             entry_signal_map=entry_signal_map,
-            callback=callback), block=False)
+            callback=callback))
 
     @classmethod
     def make_xaxis_indexed(cls, nb_points: int) -> List[float]:
@@ -336,14 +337,17 @@ class DataloggingManager:
                 if not self.acquisition_request_queue.empty():  # A request to be processed pending in the queue
                     if self.active_request is None:  # No request being processed
                         if self.device_handler.is_ready_for_datalogging_acquisition_request():
-                            self.active_request = self.acquisition_request_queue.get()
-                            # We rely on the device handler to call our callback regardless
-                            # of what will happen. Success, failure, error, external reset.
-                            self.device_handler.request_datalogging_acquisition(
-                                loop_id=self.active_request.api_request.rate_identifier,
-                                config=self.active_request.device_config,
-                                callback=self._acquisition_complete_callback
-                            )
+                            try:
+                                self.active_request = self.acquisition_request_queue.get_nowait()
+                                # We rely on the device handler to call our callback regardless
+                                # of what will happen. Success, failure, error, external reset.
+                                self.device_handler.request_datalogging_acquisition(
+                                    loop_id=self.active_request.api_request.rate_identifier,
+                                    config=self.active_request.device_config,
+                                    callback=self._acquisition_complete_callback
+                                )
+                            except queue.Empty:
+                                self.logger.critical("Reading an empty queue. Is this class being used in a thread environment?")
                         else:
                             # Cause of not ready:
                             # - not started : Device status will not be CONNECTED_READY, will exit cleanly
@@ -386,8 +390,10 @@ class DataloggingManager:
 
         # =========== SHUTDOWN_CLEAR_PENDING_REQUEST =========
         elif self.state == FsmState.SHUTDOWN_CLEAR_PENDING_REQUEST:
-            while not self.acquisition_request_queue.empty():
-                req = self.acquisition_request_queue.get()
+            while True:
+                req = self.acquisition_request_queue.get_or_none()
+                if req is None:
+                    break
                 req.callback(False, "Device is not available", None)   # Not executed
             next_state = FsmState.INIT
         else:

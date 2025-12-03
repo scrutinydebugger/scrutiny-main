@@ -45,7 +45,7 @@ class TestStreamDatagrams(ScrutinyUnitTest):
         parser = StreamParser(mtu=DEFAULT_MTU)
         parser.parse(payload)
         self.assertFalse(parser.queue().empty())
-        self.assertEqual(parser.queue().get(), data)
+        self.assertEqual(parser.queue().get_nowait(), data)
 
     def test_stream_parser_simple_read_nohash(self):
         data = bytes([1, 2, 3, 4])
@@ -54,7 +54,7 @@ class TestStreamDatagrams(ScrutinyUnitTest):
         parser = StreamParser(mtu=DEFAULT_MTU)
         parser.parse(payload)
         self.assertFalse(parser.queue().empty())
-        self.assertEqual(parser.queue().get(), data)
+        self.assertEqual(parser.queue().get_nowait(), data)
 
     def test_stream_parser_simple_read_hash_compress(self):
         data = bytes([1, 2, 3, 4])
@@ -65,7 +65,7 @@ class TestStreamDatagrams(ScrutinyUnitTest):
         parser = StreamParser(mtu=DEFAULT_MTU)
         parser.parse(payload)
         self.assertFalse(parser.queue().empty())
-        self.assertEqual(parser.queue().get(), data)
+        self.assertEqual(parser.queue().get_nowait(), data)
 
     def test_stream_parser_simple_read_nohash_compress(self):
         data = bytes([1, 2, 3, 4])
@@ -76,7 +76,7 @@ class TestStreamDatagrams(ScrutinyUnitTest):
         parser = StreamParser(mtu=DEFAULT_MTU)
         parser.parse(payload)
         self.assertFalse(parser.queue().empty())
-        self.assertEqual(parser.queue().get(), data)
+        self.assertEqual(parser.queue().get_nowait(), data)
 
     def test_stream_parser_bad_size(self):
         data = bytes([1, 2, 3, 4])
@@ -107,7 +107,7 @@ class TestStreamDatagrams(ScrutinyUnitTest):
                 q = parser.queue()
                 for i in range(len(datas)):
                     self.assertFalse(q.empty(), f"i={i}")
-                    self.assertEqual(q.get(), datas[i], f"i={i}")
+                    self.assertEqual(q.get_nowait(), datas[i], f"i={i}")
                 self.assertTrue(q.empty())
 
     def test_stream_parser_multi_datagrams_byte_per_bytes(self):
@@ -131,7 +131,7 @@ class TestStreamDatagrams(ScrutinyUnitTest):
                 q = parser.queue()
                 for i in range(len(datas)):
                     self.assertFalse(q.empty(), f"i={i}")
-                    self.assertEqual(q.get(), datas[i], f"i={i}")
+                    self.assertEqual(q.get_nowait(), datas[i], f"i={i}")
                 self.assertTrue(q.empty())
 
     def test_stream_parser_timeout(self):
@@ -160,14 +160,14 @@ class TestStreamDatagrams(ScrutinyUnitTest):
             q = parser.queue()
             for i in range(1, len(datas)):  # Skip the first one
                 self.assertFalse(q.empty(), f"i={i}")
-                self.assertEqual(q.get(), datas[i], f"i={i}")
+                self.assertEqual(q.get_nowait(), datas[i], f"i={i}")
             self.assertTrue(q.empty())
 
         # reparse everything. Make sure the timeout didn'T break anything
         parser.parse(payload)
         for i in range(len(datas)):
             self.assertFalse(q.empty(), f"i={i}")
-            self.assertEqual(q.get(), datas[i], f"i={i}")
+            self.assertEqual(q.get_nowait(), datas[i], f"i={i}")
         self.assertTrue(q.empty())
 
     def test_stream_parser_mtu_overflow(self):
@@ -191,7 +191,7 @@ class TestStreamDatagrams(ScrutinyUnitTest):
             q = parser.queue()
             for i in (0, 2):  # Skip the middle one
                 self.assertFalse(q.empty(), f"i={i}")
-                self.assertEqual(q.get(), datas[i], f"i={i}")
+                self.assertEqual(q.get_nowait(), datas[i], f"i={i}")
             self.assertTrue(q.empty())
 
 

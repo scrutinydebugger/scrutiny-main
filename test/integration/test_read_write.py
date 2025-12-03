@@ -281,8 +281,8 @@ class TestReadWrite(ScrutinyIntegrationTestWithTestSFD1):
         self.send_request(subscribe_cmd)
         response = self.wait_and_load_response(cmd=API.Command.Api2Client.SUBSCRIBE_WATCHABLE_RESPONSE)
         self.assert_no_error(response)
-
         reqid = 0
+
         for testcase in testcases:
             reqid += 1
             req = {
@@ -301,6 +301,7 @@ class TestReadWrite(ScrutinyIntegrationTestWithTestSFD1):
                 self.assert_no_error(response, msg=assert_msg)
                 write_completion = self.wait_and_load_response([API.Command.Api2Client.INFORM_WRITE_COMPLETION])
                 self.assertEqual(write_completion['request_token'], response['request_token'])
+
                 self.empty_api_rx_queue()
                 self.process_watchable_update(nbr=len(all_entries) * 2)
                 self.assert_value_received(testcase.entry, testcase.outval, msg=assert_msg)

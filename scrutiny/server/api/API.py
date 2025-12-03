@@ -18,7 +18,7 @@ __all__ = [
 import os
 import enum
 import logging
-import traceback
+import queue
 import math
 from dataclasses import dataclass
 import functools
@@ -487,8 +487,11 @@ class API:
     def process(self) -> None:
         self.client_handler.process()   # Get incoming requests
 
-        while not self.client_handler.new_conn_queue.empty():
-            conn_id = self.client_handler.new_conn_queue.get()
+        while True:
+            conn_id = self.client_handler.new_conn_queue.get_or_none()
+            if conn_id is None:
+                break
+
             if self.is_new_connection(conn_id):
                 self.logger.debug('Opening connection %s' % conn_id)
                 self.open_connection(conn_id)

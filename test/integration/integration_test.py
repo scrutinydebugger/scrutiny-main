@@ -97,9 +97,7 @@ class ScrutinyIntegrationTest(ScrutinyUnitTest):
             self.wait_and_load_response(cmd=API.Command.Api2Client.WELCOME)
 
             self.wait_for_device_ready(timeout=3)
-
             self.temp_storage_handler = SFDStorage.use_temp_folder()
-
             self.client_entry_values = {}
 
         except Exception as e:
@@ -229,7 +227,7 @@ class ScrutinyIntegrationTest(ScrutinyUnitTest):
 
         self.assertFalse(self.api_conn.from_server_available())
 
-    def process_watchable_update(self, nbr=None, timeout:float=1):
+    def process_watchable_update(self, nbr=None, timeout: float = 1):
         response = None
         if nbr is not None:
             for i in range(nbr):
@@ -344,7 +342,6 @@ class ScrutinyIntegrationTestWithTestSFD1(ScrutinyIntegrationTest):
     def setUp(self):
         super().setUp()
         self.load_test_sfd()
-        return
 
     def load_test_sfd(self):
         SFDStorage.install(get_artifact("test_sfd_1.sfd"))

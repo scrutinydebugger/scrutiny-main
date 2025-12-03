@@ -945,6 +945,9 @@
         },
         "scripts/make_wheel.sh": {
             "docstring": "Makes a package wheel file"
+        },
+        "scrutiny/tools/queue.py": {
+            "docstring": "An extension of the native Python queue with some helpers to deal more cleanly with empty/full conditions"
         }
     }
 }

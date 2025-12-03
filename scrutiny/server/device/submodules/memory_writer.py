@@ -15,7 +15,6 @@ __all__ = [
 ]
 
 import logging
-import queue
 
 from scrutiny.server.device.submodules.base_device_handler_submodule import BaseDeviceHandlerSubmodule
 from scrutiny.server.timebase import server_timebase
@@ -29,6 +28,7 @@ from scrutiny.core.codecs import Codecs, Encodable
 from scrutiny.core.basic_types import MemoryRegion
 
 from scrutiny.tools.typing import *
+from scrutiny.tools.queue import ScrutinyQueue
 
 
 RawMemoryWriteRequestCompletionCallback = Callable[["RawMemoryWriteRequest", bool, float, str], None]
@@ -108,7 +108,7 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
     """Update request attached to the entry being updated. It's what's coming from the API"""
     target_update_value_written: Optional[Encodable]
     """The value requested to be written. Has a value when an UpdateTargetRequest is active. ``None`` otherwise"""
-    raw_write_request_queue: "queue.Queue[RawMemoryWriteRequest]"
+    raw_write_request_queue: "ScrutinyQueue[RawMemoryWriteRequest]"
     """An internal queue that store the raw memory write request (direct memory access not tied to the datastore)"""
     active_raw_write_request: Optional[RawMemoryWriteRequest]
     """The raw write request presently being processed"""
@@ -122,7 +122,7 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
         self.datastore = datastore
         self.request_priority = request_priority
 
-        self.raw_write_request_queue = queue.Queue()
+        self.raw_write_request_queue = ScrutinyQueue()
         self.active_raw_write_request = None
         self.target_update_request_being_processed = None
 
@@ -188,8 +188,11 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
         if self.active_raw_write_request is not None:
             self.active_raw_write_request.set_completed(False, "Stopping communication with device")
 
-        while not self.raw_write_request_queue.empty():
-            self.raw_write_request_queue.get().set_completed(False, "Stopping communication with device")
+        while True:
+            request = self.raw_write_request_queue.get_or_none()
+            if request is None:
+                break
+            request.set_completed(False, "Stopping communication with device")
 
         if self.target_update_request_being_processed is not None:
             self.target_update_request_being_processed.complete(False)
@@ -259,10 +262,11 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
         request: Optional[Request] = None
 
         while self.active_raw_write_request is None:
-            if self.raw_write_request_queue.empty():
+            raw_write_request = self.raw_write_request_queue.get_or_none()
+            if raw_write_request is None:
                 break
             self.clear_active_raw_write_request()
-            self.active_raw_write_request = self.raw_write_request_queue.get()
+            self.active_raw_write_request = raw_write_request
 
             is_in_forbidden_region = False
             is_in_readonly_region = False

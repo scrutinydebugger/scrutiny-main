@@ -30,6 +30,7 @@ from scrutiny.server.datastore.datastore import Datastore
 from scrutiny.server.datastore.datastore_entry import *
 from scrutiny.core.memory_content import MemoryContent, Cluster
 from scrutiny.core.basic_types import MemoryRegion
+from scrutiny.tools.queue import ScrutinyQueue
 from scrutiny import tools
 
 from scrutiny.tools.typing import *
@@ -200,7 +201,7 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
     """List of RPV entries in the request we're waiting for. Stored in a dict with their ID as key"""
     actual_read_type: ReadType
     """Tell wether we are doing RPV read or memory read request. We alternate from one another."""
-    raw_read_request_queue: "queue.Queue[RawMemoryReadRequest]"
+    raw_read_request_queue: "ScrutinyQueue[RawMemoryReadRequest]"
     """A queue to store read request not tied to a datastore entry (user wants a raw dump)"""
     active_raw_read_request: Optional[RawMemoryReadRequest]
     """Store the read request that is presently being processed and waiting for a response"""
@@ -218,7 +219,7 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
         self.datastore.add_watch_callback(self._the_watch_callback)
         self.datastore.add_unwatch_callback(self._the_unwatch_callback)
         self.active_raw_read_request = None
-        self.raw_read_request_queue = queue.Queue()
+        self.raw_read_request_queue = ScrutinyQueue()
 
         self.reset()
 
@@ -247,7 +248,7 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
             size=size,
             callback=callback
         )
-        self.raw_read_request_queue.put(request)
+        self.raw_read_request_queue.put_nowait(request)
         return request
 
     def _the_watch_callback(self, entry_id: str) -> None:
@@ -307,8 +308,11 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
         if self.active_raw_read_request is not None:
             self.active_raw_read_request.set_completed(False, None, "Stopping communication with device")
 
-        while not self.raw_read_request_queue.empty():
-            self.raw_read_request_queue.get().set_completed(False, None, "Stopping communication with device")
+        while True:
+            req = self.raw_read_request_queue.get_or_none()
+            if req is None:
+                break
+            req.set_completed(False, None, "Stopping communication with device")
 
         self.clear_active_raw_read_request()
 
@@ -351,7 +355,7 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
                 if request is not None:
                     if self.logger.isEnabledFor(logging.DEBUG):  # pragma: no cover
                         self.logger.debug('Registering a MemoryRead request for %d datastore entries. %s' % (len(var_entries_in_request), request))
-                    self._dispatch(request)
+                    self._dispatch(request)  # sets pending_request
                     self.entries_in_pending_read_var_request = var_entries_in_request
 
                 # if there's nothing to send or that we completed one round
@@ -498,10 +502,11 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
 
     def _make_next_raw_mem_read_request(self) -> Tuple[Optional[Request], bool]:
         while self.active_raw_read_request is None:
-            if self.raw_read_request_queue.empty():
+            request = self.raw_read_request_queue.get_or_none()
+            if request is None:
                 break
             self.clear_active_raw_read_request()
-            self.active_raw_read_request = self.raw_read_request_queue.get()
+            self.active_raw_read_request = request
 
             is_in_forbidden_region = False
             candidate_region = MemoryRegion(start=self.active_raw_read_request.address, size=self.active_raw_read_request.size)
