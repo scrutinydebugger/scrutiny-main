@@ -331,6 +331,7 @@ class ElfDwarfVarExtractor:
 
     STATIC = 'static'
     GLOBAL = 'global'
+    PTR_TYPENAME='ptr'
     MAX_CU_DISPLAY_NAME_LENGTH = 64
     DW_OP_ADDR = 3
     DW_OP_plus_uconst = 0x23
@@ -1365,8 +1366,21 @@ class ElfDwarfVarExtractor:
             elif type_desc.type == TypeOfVar.Array:
                 self.die_process_array(type_desc.type_die)
                 self.register_array_var(die, type_desc, location)
+            elif type_desc.type == TypeOfVar.Pointer:
+                self.varmap.register_base_type(self.PTR_TYPENAME, EmbeddedDataType.pointer)
+                varpath = self.make_varpath(die)
+                path_segments = varpath.get_segments_name()
+
+                self.maybe_register_variable(
+                    path_segments=path_segments,
+                    location=location,
+                    original_type_name=self.PTR_TYPENAME,
+                    enum=None
+                )
+
+                pass
             # Base type
-            elif type_desc.type in (TypeOfVar.BaseType, TypeOfVar.EnumOnly):
+            elif type_desc.type in (TypeOfVar.BaseType, TypeOfVar.EnumOnly,):
                 varpath = self.make_varpath(die)
                 path_segments = varpath.get_segments_name()
 

@@ -89,6 +89,7 @@ class DataTypeType(Enum):
     _boolean = (3 << 4)
     _cfloat = (4 << 4)
     _struct = (5 << 4)
+    _pointer = (6 << 4)
     _NA = 0xF
 
 
@@ -140,6 +141,8 @@ class EmbeddedDataType(Enum):
     boolean = DataTypeType._boolean.value | DataTypeSize._8.value
 
     struct = DataTypeType._struct.value | DataTypeSize._NA.value
+    pointer = DataTypeType._pointer.value | DataTypeSize._NA.value
+
     NA = DataTypeType._NA.value | DataTypeSize._NA.value
 
     def get_size_bit(self) -> int:
