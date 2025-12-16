@@ -16,6 +16,7 @@ import sys
 from test import logger
 from test import ScrutinyUnitTest
 from scrutiny.core.bintools.elf_dwarf_var_extractor import ElfDwarfVarExtractor
+from scrutiny.core.basic_types import *
 
 from scrutiny.tools.typing import *
 
@@ -554,8 +555,19 @@ int main(int argc, char* argv[])
             for dwarf_version in [2, 3, 4]:
                 with self.subTest(f"{compiler}-dwarf{dwarf_version}"):
                     varmap = self._make_varmap(code, dwarf_version=dwarf_version, compiler=compiler, cppfilt='c++filt')
-                    v = '/global/gu32_ptr'
-                    self.assertTrue(varmap.has_var(v))
+                    vpath = '/global/gu32_ptr'
+                    self.assertTrue(varmap.has_var(vpath))
+                    v = varmap.get_var(vpath)
+                    self.assertEqual(v.get_type(), EmbeddedDataType.pointer)
+                    self.assertTrue(v.has_absolute_address())
+                    self.assertFalse(v.has_pointed_address())
+                    
+                    vpath = '/global/*gu32_ptr'
+                    self.assertTrue(varmap.has_var(vpath))
+                    v = varmap.get_var(vpath)
+                    self.assertEqual(v.get_type(), EmbeddedDataType.uint32)
+                    self.assertTrue(v.has_pointed_address())
+                    self.assertFalse(v.has_absolute_address())
 
 
 if __name__ == '__main__':

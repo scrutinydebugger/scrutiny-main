@@ -23,7 +23,7 @@ class TestFirmwareDescription(ScrutinyUnitTest):
 
         varmap.add_variable(
             path_segments=['a', 'b', 'c'],
-            location=VariableLocation(0x1000),
+            location=AbsoluteLocation(0x1000),
             original_type_name='float'
         )
 

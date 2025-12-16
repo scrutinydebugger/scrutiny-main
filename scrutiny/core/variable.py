@@ -6,14 +6,12 @@
 #
 #   Copyright (c) 2022 Scrutiny Debugger
 
-__all__ = [
-    'VariableLocation',
-    'Variable'
-]
+__all__ = ['Variable']
 
 import struct
 from scrutiny.core.basic_types import Endianness, EmbeddedDataType
 from scrutiny.core.embedded_enum import EmbeddedEnum
+from scrutiny.core.variable_location import AbsoluteLocation, PathPointedLocation
 from scrutiny.core.codecs import Codecs, Encodable, UIntCodec
 from scrutiny.core import path_tools
 from scrutiny.tools.typing import *
@@ -34,64 +32,6 @@ for offset in range(64):
             v |= (1 << i)
         BITFIELD_MASK_MAP[offset][bitsize] = v
 
-
-class VariableLocation:
-    """Represent an address in memory. """
-
-    def __init__(self, address: int):
-        if not isinstance(address, int):
-            raise ValueError('Address must be a valid integer')
-
-        self.address = address
-
-    def is_null(self) -> bool:
-        """Return true if address is null"""
-        return self.address == 0
-
-    def get_address(self) -> int:
-        """Return the address in a numerical format"""
-        return self.address
-
-    def add_offset(self, offset: int) -> None:
-        """Modify the address by the given offset"""
-        self.address += offset
-
-    @classmethod
-    def check_endianness(cls, endianness: Endianness) -> None:
-        """Tells if given endianness is valid"""
-        if endianness not in [Endianness.Little, Endianness.Big]:
-            raise ValueError('Invalid endianness "%s" ' % endianness)
-
-    @classmethod
-    def from_bytes(cls, data: Union[bytes, List[int], bytearray], endianness: Endianness) -> "VariableLocation":
-        """Reads the address encoded in binary with the given endianness"""
-        if isinstance(data, list) or isinstance(data, bytearray):
-            data = bytes(data)
-        if not isinstance(data, bytes):
-            raise ValueError('Data must be bytes, not %s' % (data.__class__.__name__))
-
-        if len(data) < 1:
-            raise ValueError('Empty data')
-
-        cls.check_endianness(endianness)
-        byteorder_map: Dict[Endianness, Literal['little', 'big']] = {
-            Endianness.Little: 'little',
-            Endianness.Big: 'big'
-        }
-        address = int.from_bytes(data, byteorder=byteorder_map[endianness], signed=False)
-        return cls(address)
-
-    def copy(self) -> 'VariableLocation':
-        """Return a copy of this VariableLocation object"""
-        return VariableLocation(self.get_address())
-
-    def __str__(self) -> str:
-        return str(self.get_address())
-
-    def __repr__(self) -> str:
-        return '<%s - 0x%08X>' % (self.__class__.__name__, self.get_address())
-
-
 class Variable:
     """
     One of the most basic type of data (with RPV and Alias).
@@ -101,7 +41,7 @@ class Variable:
 
     vartype: EmbeddedDataType
     path_segments: List[str]
-    location: VariableLocation
+    location: Union[AbsoluteLocation, PathPointedLocation]
     endianness: Endianness
     bitsize: Optional[int]
     bitfield: bool
@@ -111,7 +51,7 @@ class Variable:
     def __init__(self,
                  vartype: EmbeddedDataType,
                  path_segments: List[str],
-                 location: Union[int, VariableLocation],
+                 location: Union[int, AbsoluteLocation, PathPointedLocation],
                  endianness: Endianness,
                  bitsize: Optional[int] = None,
                  bitoffset: Optional[int] = None,
@@ -120,10 +60,14 @@ class Variable:
 
         self.vartype = vartype
         self.path_segments = path_segments
-        if isinstance(location, VariableLocation):
+        if isinstance(location, PathPointedLocation):
+            self.location = location
+        elif isinstance(location, AbsoluteLocation):
             self.location = location.copy()
+        elif isinstance(location, (int, float)):
+            self.location = AbsoluteLocation(int(location))
         else:
-            self.location = VariableLocation(location)
+            raise TypeError("Bad location type")
         self.endianness = endianness
 
         var_size_bits = self.vartype.get_size_bit()
@@ -201,9 +145,23 @@ class Variable:
         """Returns the data type of the variable"""
         return self.vartype
 
+    def has_absolute_address(self) -> bool:
+        return isinstance(self.location, AbsoluteLocation)
+
+    def has_pointed_address(self) -> bool:
+        return isinstance(self.location, PathPointedLocation)
+
     def get_address(self) -> int:
         """Get the variable address"""
-        return self.location.get_address()
+        if isinstance(self.location, AbsoluteLocation):
+            return self.location.get_address()
+        raise ValueError("No address available")
+
+    def get_pointer(self) -> PathPointedLocation:
+        """Get the variable pointer location"""
+        if isinstance(self.location, PathPointedLocation):
+            return self.location.copy()
+        raise ValueError("No pointer available")
 
     def has_enum(self) -> bool:
         """True if an enum is attached to that variable"""

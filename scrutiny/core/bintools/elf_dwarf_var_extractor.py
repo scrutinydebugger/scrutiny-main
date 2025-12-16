@@ -18,7 +18,7 @@ from sortedcontainers import SortedSet
 import os
 import logging
 import inspect
-from copy import copy, deepcopy
+from copy import deepcopy
 from enum import Enum, auto
 from dataclasses import dataclass
 from inspect import currentframe
@@ -27,9 +27,9 @@ from fnmatch import fnmatch
 from scrutiny.core.bintools.demangler import GccDemangler
 from scrutiny.core.varmap import VarMap
 from scrutiny.core.basic_types import *
-from scrutiny.core.variable import *
-from scrutiny.core.struct import *
-from scrutiny.core.array import *
+from scrutiny.core.variable_location import AbsoluteLocation, PathPointedLocation
+from scrutiny.core.struct import Struct
+from scrutiny.core.array import TypedArray, Array
 from scrutiny.core import path_tools
 from scrutiny.core.embedded_enum import *
 from scrutiny.exceptions import EnvionmentNotSetUpException
@@ -758,20 +758,14 @@ class ElfDwarfVarExtractor:
 
         return Endianness.Little  # Little is the most common, default on this
 
-    def _allowed_by_filters(self, path_segments: List[str], location: VariableLocation) -> bool:
+    def _allowed_by_filters(self, fullname:str) -> bool:
         """Tells if we can register a variable to the varmap and log the reason for not allowing if applicable."""
-        fullname = path_tools.join_segments(path_segments)
-
         allow = True
         for ignore_pattern in self._path_ignore_patterns:
             if fnmatch(fullname, ignore_pattern):
                 self.logger.debug(f"{fullname} matches ignore pattern {ignore_pattern}. Skipping")
                 allow = False
                 break
-
-        if location.is_null():
-            self.logger.warning(f"Ignoring {fullname} because it is located at address 0")
-            allow = False
 
         return allow
 
@@ -1179,7 +1173,7 @@ class ElfDwarfVarExtractor:
 
     # We have an instance of a struct. Use the location and go down the structure recursively
     # using the members offsets to find the final address that we will apply to the output var
-    def register_struct_var(self, die: DIE, type_desc: TypeDescriptor, location: VariableLocation) -> None:
+    def register_struct_var(self, die: DIE, type_desc: TypeDescriptor, location: AbsoluteLocation) -> None:
         """Register an instance of a struct at a given location"""
         if location.is_null():
             self.logger.warning(f"Skipping structure at location NULL address. {die}")
@@ -1196,7 +1190,7 @@ class ElfDwarfVarExtractor:
     def register_member_as_var_recursive(self,
                                          path_segments: List[str],
                                          member: Struct.Member,
-                                         base_location: VariableLocation,
+                                         base_location: AbsoluteLocation,
                                          offset: int,
                                          array_segments: ArraySegments) -> None:
         if member.member_type == Struct.Member.MemberType.SubStruct:
@@ -1254,7 +1248,7 @@ class ElfDwarfVarExtractor:
                 enum=member.embedded_enum
             )
 
-    def register_array_var(self, die: DIE, type_desc: TypeDescriptor, location: VariableLocation) -> None:
+    def register_array_var(self, die: DIE, type_desc: TypeDescriptor, location: AbsoluteLocation) -> None:
         if location.is_null():
             name = self.get_name(die, default="<no-name>")
             self.logger.warning(f"Line {get_linenumber()}: Skipping array {name} at location NULL address.")
@@ -1289,7 +1283,7 @@ class ElfDwarfVarExtractor:
 
     def maybe_register_variable(self,
                                 path_segments: List[str],
-                                location: VariableLocation,
+                                location: Union[AbsoluteLocation, PathPointedLocation],
                                 original_type_name: str,
                                 bitsize: Optional[int] = None,
                                 bitoffset: Optional[int] = None,
@@ -1303,7 +1297,13 @@ class ElfDwarfVarExtractor:
             :param original_type_name: The name of the underlying type. Must be a name coming from the binary. Will resolve to an EmbeddedDataType
             :param enum: Optional enum to associate with the type
         """
-        if self._allowed_by_filters(path_segments, location):
+        fullname = path_tools.join_segments(path_segments)
+        if isinstance(location, AbsoluteLocation):
+            if location.is_null():
+                self.logger.warning(f"Ignoring {fullname} because it is located at address 0")
+                return 
+            
+        if self._allowed_by_filters(fullname):
             self.varmap.add_variable(
                 path_segments=path_segments,
                 location=location,
@@ -1311,10 +1311,10 @@ class ElfDwarfVarExtractor:
                 bitsize=bitsize,
                 bitoffset=bitoffset,
                 enum=enum,
-                array_segments=array_segments
+                array_segments=array_segments,
             )
 
-    def get_location(self, die: DIE) -> Optional[VariableLocation]:
+    def get_location(self, die: DIE) -> Optional[AbsoluteLocation]:
         """Try to extract the location from a die. Returns ``None`` if not available"""
         if Attrs.DW_AT_location in die.attributes:
             dieloc = (die.attributes[Attrs.DW_AT_location].value)
@@ -1332,14 +1332,16 @@ class ElfDwarfVarExtractor:
                 self.logger.warning(f'die location is too small: {dieloc}')
                 return None
 
-            return VariableLocation.from_bytes(dieloc[1:], self._context.endianess)
+            return AbsoluteLocation.from_bytes(dieloc[1:], self._context.endianess)
         return None
 
     def die_process_variable(self,
                              die: DIE,
-                             location: Optional[VariableLocation] = None
+                             location: Optional[AbsoluteLocation] = None
                              ) -> None:
         """Process a variable die and insert a variable in the varmap object if it has an absolute address"""
+        
+        # Avoid fetching a location if already set (DW_AT_specification & DW_AT_abstract_origin)
         if location is None:
             location = self.get_location(die)
 
@@ -1378,7 +1380,25 @@ class ElfDwarfVarExtractor:
                     enum=None
                 )
 
-                pass
+
+                pointed_typedesc = self.get_type_of_var(type_desc.type_die)
+                
+                pointer_path_segments = path_segments.copy()
+                pointer_path_segments[-1] = f'*{pointer_path_segments[-1]}'
+                if pointed_typedesc.type == TypeOfVar.BaseType: 
+                    ptr_location = PathPointedLocation(
+                        pointer_offset=0,
+                        pointer_path=path_tools.join_segments(path_segments)
+                    )
+                    self.die_process_base_type(pointed_typedesc.type_die)
+                    typename = self.get_typename_from_die(pointed_typedesc.type_die)
+                    self.maybe_register_variable(
+                        path_segments=pointer_path_segments,
+                        location=ptr_location,
+                        original_type_name=typename,
+                        enum=None
+                    )
+
             # Base type
             elif type_desc.type in (TypeOfVar.BaseType, TypeOfVar.EnumOnly,):
                 varpath = self.make_varpath(die)

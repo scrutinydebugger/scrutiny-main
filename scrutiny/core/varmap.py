@@ -14,7 +14,8 @@ import json
 import logging
 from pathlib import Path
 
-from scrutiny.core.variable import Variable, VariableLocation
+from scrutiny.core.variable import Variable
+from scrutiny.core.variable_location import AbsoluteLocation, PathPointedLocation
 from scrutiny.core.variable_factory import VariableFactory
 from scrutiny.core.array import Array, UntypedArray
 from scrutiny.core.basic_types import EmbeddedDataType, Endianness
@@ -35,6 +36,11 @@ class ArrayDef(TypedDict):
     byte_size: int
 
 
+class PointerInfo(TypedDict):
+    path:str
+    offset:int
+
+
 class VariableEntry(TypedDict, total=False):
     type_id: str  # integer as string because of json format that can't have a dict key as int
     addr: int
@@ -42,6 +48,7 @@ class VariableEntry(TypedDict, total=False):
     bitsize: int
     enum: int
     array_segments: Dict[str, ArrayDef]
+    pointer:PointerInfo
 
 
 VariableDict: TypeAlias = Dict[str, VariableEntry]
@@ -159,8 +166,25 @@ class VarMap:
         typename = self._content.typemap[type_id]['type']
         return EmbeddedDataType[typename]  # Enums support square brackets
 
-    def _get_addr(self, vardef: VariableEntry) -> int:
+    @classmethod
+    def _has_addr(cls, vardef: VariableEntry) -> int:
+        return 'addr' in vardef
+    
+    @classmethod
+    def _has_pointed_location(cls, vardef: VariableEntry) -> int:
+        return 'pointer' in vardef
+
+    @classmethod
+    def _get_addr(cls, vardef: VariableEntry) -> int:
         return vardef['addr']   # addr is a required field
+    
+    @classmethod
+    def _get_pointer_path(cls, vardef:VariableEntry) -> str:
+        return vardef['pointer']['path']
+    
+    @classmethod
+    def _get_pointer_offset(cls, vardef:VariableEntry) -> int:
+        return vardef['pointer']['offset']
 
     def _get_var_def(self, fullname: str) -> VariableEntry:
         if not self.has_var(fullname):
@@ -206,7 +230,7 @@ class VarMap:
 
     def add_variable(self,
                      path_segments: List[str],
-                     location: VariableLocation,
+                     location: Union[AbsoluteLocation, PathPointedLocation],
                      original_type_name: str,
                      bitsize: Optional[int] = None,
                      bitoffset: Optional[int] = None,
@@ -221,16 +245,27 @@ class VarMap:
         if not self.is_known_type(original_type_name):
             raise ValueError(f'Cannot add variable of type {original_type_name}. Type has not been registered yet')
 
-        if location.is_null():
-            raise ValueError('Cannot add variable at address 0')
-
         if fullname in self._content.variables:
             self._logger.warning(f'Duplicate entry {fullname}')
+        
 
         entry: VariableEntry = {
             'type_id': self._get_type_id(original_type_name),
-            'addr': location.get_address()
         }
+        if isinstance(location, AbsoluteLocation):
+            if location.is_null():
+                raise ValueError('Cannot add variable at address 0')
+
+            entry['addr'] = location.get_address()
+        
+        elif isinstance(location, PathPointedLocation):
+            entry['pointer'] = {
+                'path' : location.pointer_path,
+                'offset' : location.pointer_offset
+            }
+        
+        else:
+            raise TypeError("Invalid location type")
 
         if bitoffset is not None:
             entry['bitoffset'] = bitoffset
@@ -367,12 +402,21 @@ class VarMap:
                 )
 
         byte_offset = parsed_path.compute_address_offset(array_segments)
-        new_address = self._get_addr(vardef) + byte_offset
+        location:Union[PathPointedLocation, AbsoluteLocation]
+        if self._has_addr(vardef):
+            location = AbsoluteLocation(self._get_addr(vardef) + byte_offset)
+        elif self._has_pointed_location(vardef):
+            location = PathPointedLocation(
+                pointer_path = self._get_pointer_path(vardef),
+                pointer_offset = self._get_pointer_offset(vardef) + byte_offset
+            )
+        else:
+            raise ValueError(f"Invalid variable location for {raw_path}")
 
         return Variable(
             vartype=self._get_type(vardef),
             path_segments=parsed_path.get_segments(),
-            location=new_address,
+            location=location,
             endianness=self.get_endianness(),
             bitsize=self._get_bitsize(vardef),
             bitoffset=self._get_bitoffset(vardef),

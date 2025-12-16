@@ -9,7 +9,7 @@
 
 import binascii
 from scrutiny.core.firmware_description import FirmwareDescription, SFDMetadata, SFDGenerationInfo
-from scrutiny.core.variable import VariableLocation
+from scrutiny.core.variable_location import AbsoluteLocation
 from scrutiny.core.alias import Alias
 from scrutiny.core.basic_types import EmbeddedDataType
 from scrutiny.core.varmap import VarMap
@@ -35,12 +35,12 @@ class DemoDeviceSFD(FirmwareDescription):
         varmap.register_base_type("uint32", EmbeddedDataType.uint32)
         varmap.register_base_type("bool", EmbeddedDataType.boolean)
 
-        varmap.add_variable(['static', 'main.cpp', "counter"], VariableLocation(0x1000), "float")
-        varmap.add_variable(['static', 'main.cpp', "counter_enable"], VariableLocation(0x1004), "bool")
+        varmap.add_variable(['static', 'main.cpp', "counter"], AbsoluteLocation(0x1000), "float")
+        varmap.add_variable(['static', 'main.cpp', "counter_enable"], AbsoluteLocation(0x1004), "bool")
 
-        varmap.add_variable(['global', 'device', "uptime"], VariableLocation(0x1008), "uint32")
-        varmap.add_variable(['global', 'sinewave_generator', "output"], VariableLocation(0x100c), "float")
-        varmap.add_variable(['global', 'sinewave_generator', "frequency"], VariableLocation(0x1010), "float")
+        varmap.add_variable(['global', 'device', "uptime"], AbsoluteLocation(0x1008), "uint32")
+        varmap.add_variable(['global', 'sinewave_generator', "output"], AbsoluteLocation(0x100c), "float")
+        varmap.add_variable(['global', 'sinewave_generator', "frequency"], AbsoluteLocation(0x1010), "float")
 
         aliases = [
             Alias("/Up Time", target='/global/device/uptime'),
