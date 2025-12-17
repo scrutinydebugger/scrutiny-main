@@ -6,13 +6,15 @@ from dataclasses import dataclass
 from scrutiny.core.basic_types import Endianness
 from scrutiny.tools.typing import *
 
+
 @dataclass(slots=True, frozen=True)
 class PathPointedLocation:
-    pointer_path:str
-    pointer_offset:int
+    pointer_path: str
+    pointer_offset: int
 
     def copy(self) -> "PathPointedLocation":
         return copy(self)
+
 
 class AbsoluteLocation:
     """Represent an address in memory. """
@@ -54,7 +56,7 @@ class AbsoluteLocation:
         }
         if endianness not in byteorder_map:
             raise ValueError(f'Invalid endianness "{endianness}" ')
-        
+
         address = int.from_bytes(data, byteorder=byteorder_map[endianness], signed=False)
         return cls(address)
 

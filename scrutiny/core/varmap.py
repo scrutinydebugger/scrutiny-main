@@ -37,8 +37,8 @@ class ArrayDef(TypedDict):
 
 
 class PointerInfo(TypedDict):
-    path:str
-    offset:int
+    path: str
+    offset: int
 
 
 class VariableEntry(TypedDict, total=False):
@@ -48,7 +48,7 @@ class VariableEntry(TypedDict, total=False):
     bitsize: int
     enum: int
     array_segments: Dict[str, ArrayDef]
-    pointer:PointerInfo
+    pointer: PointerInfo
 
 
 VariableDict: TypeAlias = Dict[str, VariableEntry]
@@ -169,7 +169,7 @@ class VarMap:
     @classmethod
     def _has_addr(cls, vardef: VariableEntry) -> int:
         return 'addr' in vardef
-    
+
     @classmethod
     def _has_pointed_location(cls, vardef: VariableEntry) -> int:
         return 'pointer' in vardef
@@ -177,13 +177,13 @@ class VarMap:
     @classmethod
     def _get_addr(cls, vardef: VariableEntry) -> int:
         return vardef['addr']   # addr is a required field
-    
+
     @classmethod
-    def _get_pointer_path(cls, vardef:VariableEntry) -> str:
+    def _get_pointer_path(cls, vardef: VariableEntry) -> str:
         return vardef['pointer']['path']
-    
+
     @classmethod
-    def _get_pointer_offset(cls, vardef:VariableEntry) -> int:
+    def _get_pointer_offset(cls, vardef: VariableEntry) -> int:
         return vardef['pointer']['offset']
 
     def _get_var_def(self, fullname: str) -> VariableEntry:
@@ -247,7 +247,6 @@ class VarMap:
 
         if fullname in self._content.variables:
             self._logger.warning(f'Duplicate entry {fullname}')
-        
 
         entry: VariableEntry = {
             'type_id': self._get_type_id(original_type_name),
@@ -257,13 +256,13 @@ class VarMap:
                 raise ValueError('Cannot add variable at address 0')
 
             entry['addr'] = location.get_address()
-        
+
         elif isinstance(location, PathPointedLocation):
             entry['pointer'] = {
-                'path' : location.pointer_path,
-                'offset' : location.pointer_offset
+                'path': location.pointer_path,
+                'offset': location.pointer_offset
             }
-        
+
         else:
             raise TypeError("Invalid location type")
 
@@ -402,13 +401,13 @@ class VarMap:
                 )
 
         byte_offset = parsed_path.compute_address_offset(array_segments)
-        location:Union[PathPointedLocation, AbsoluteLocation]
+        location: Union[PathPointedLocation, AbsoluteLocation]
         if self._has_addr(vardef):
             location = AbsoluteLocation(self._get_addr(vardef) + byte_offset)
         elif self._has_pointed_location(vardef):
             location = PathPointedLocation(
-                pointer_path = self._get_pointer_path(vardef),
-                pointer_offset = self._get_pointer_offset(vardef) + byte_offset
+                pointer_path=self._get_pointer_path(vardef),
+                pointer_offset=self._get_pointer_offset(vardef) + byte_offset
             )
         else:
             raise ValueError(f"Invalid variable location for {raw_path}")

@@ -79,6 +79,7 @@ class Tags:
     DW_TAG_inheritance = 'DW_TAG_inheritance'
     DW_TAG_typedef = 'DW_TAG_typedef'
     DW_TAG_subrange_type = 'DW_TAG_subrange_type'
+    DW_TAG_subroutine_type = 'DW_TAG_subroutine_type'
 
 
 class DwarfEncoding(Enum):
@@ -110,6 +111,7 @@ class TypeOfVar(Enum):
     Pointer = auto()
     Array = auto()
     EnumOnly = auto()  # Clang dwarf v2
+    Subroutine = auto()  # Clang dwarf v2
 
 
 class TypeDescriptor:
@@ -331,7 +333,7 @@ class ElfDwarfVarExtractor:
 
     STATIC = 'static'
     GLOBAL = 'global'
-    PTR_TYPENAME='ptr'
+    PTR_TYPENAME = 'ptr'
     MAX_CU_DISPLAY_NAME_LENGTH = 64
     DW_OP_ADDR = 3
     DW_OP_plus_uconst = 0x23
@@ -758,7 +760,7 @@ class ElfDwarfVarExtractor:
 
         return Endianness.Little  # Little is the most common, default on this
 
-    def _allowed_by_filters(self, fullname:str) -> bool:
+    def _allowed_by_filters(self, fullname: str) -> bool:
         """Tells if we can register a variable to the varmap and log the reason for not allowing if applicable."""
         allow = True
         for ignore_pattern in self._path_ignore_patterns:
@@ -896,6 +898,8 @@ class ElfDwarfVarExtractor:
                 return TypeDescriptor(TypeOfVar.Pointer, enum, nextdie)
             elif nextdie.tag == Tags.DW_TAG_union_type:
                 return TypeDescriptor(TypeOfVar.Union, enum, nextdie)
+            elif nextdie.tag == Tags.DW_TAG_subroutine_type:
+                return TypeDescriptor(TypeOfVar.Subroutine, enum, nextdie)
             elif nextdie.tag == Tags.DW_TAG_enumeration_type:
                 enum = nextdie  # Will resolve on next iteration (if a type is available)
                 if Attrs.DW_AT_type not in nextdie.attributes:  # Clang dwarfv2 may not have type, but has a byte size
@@ -1301,8 +1305,8 @@ class ElfDwarfVarExtractor:
         if isinstance(location, AbsoluteLocation):
             if location.is_null():
                 self.logger.warning(f"Ignoring {fullname} because it is located at address 0")
-                return 
-            
+                return
+
         if self._allowed_by_filters(fullname):
             self.varmap.add_variable(
                 path_segments=path_segments,
@@ -1340,7 +1344,9 @@ class ElfDwarfVarExtractor:
                              location: Optional[AbsoluteLocation] = None
                              ) -> None:
         """Process a variable die and insert a variable in the varmap object if it has an absolute address"""
-        
+
+        if self.get_name(die) == 'twi_onSlaveTransmit':
+            pass
         # Avoid fetching a location if already set (DW_AT_specification & DW_AT_abstract_origin)
         if location is None:
             location = self.get_location(die)
@@ -1380,12 +1386,11 @@ class ElfDwarfVarExtractor:
                     enum=None
                 )
 
-
                 pointed_typedesc = self.get_type_of_var(type_desc.type_die)
-                
+
                 pointer_path_segments = path_segments.copy()
                 pointer_path_segments[-1] = f'*{pointer_path_segments[-1]}'
-                if pointed_typedesc.type == TypeOfVar.BaseType: 
+                if pointed_typedesc.type == TypeOfVar.BaseType:
                     ptr_location = PathPointedLocation(
                         pointer_offset=0,
                         pointer_path=path_tools.join_segments(path_segments)
@@ -1398,9 +1403,12 @@ class ElfDwarfVarExtractor:
                         original_type_name=typename,
                         enum=None
                     )
+                else:
+                    self.logger.warning(
+                        f"Line {get_linenumber()}: Found a pointer to type die {self._make_name_for_log(pointed_typedesc.type_die)} (type={pointed_typedesc.type.name}). Not supported yet")
 
             # Base type
-            elif type_desc.type in (TypeOfVar.BaseType, TypeOfVar.EnumOnly,):
+            elif type_desc.type in (TypeOfVar.BaseType, TypeOfVar.EnumOnly):
                 varpath = self.make_varpath(die)
                 path_segments = varpath.get_segments_name()
 
@@ -1420,6 +1428,8 @@ class ElfDwarfVarExtractor:
                     original_type_name=typename,
                     enum=self.get_enum_from_type_descriptor(type_desc)
                 )
+            elif type_desc.type == TypeOfVar.Subroutine:
+                self.logger.debug(f"Line {get_linenumber()}: Found a variable with a type {type_desc.type.name}. Unsupported")
             else:
                 self.logger.warning(
                     f"Line {get_linenumber()}: Found a variable with a type die {self._make_name_for_log(type_desc.type_die)} (type={type_desc.type.name}). Not supported yet")

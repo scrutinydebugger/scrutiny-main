@@ -72,7 +72,7 @@ def has_elf_toolchain(compiler, cppfilt) -> bool:
     cppfilt_check_p = subprocess.Popen(["which", cppfilt], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     compiler_check_p.communicate()
     cppfilt_check_p.communicate()
-    
+
     if compiler_check_p.returncode != 0:
         return False
 
@@ -105,9 +105,9 @@ class TestElf2VarMapFromBuilds(ScrutinyUnitTest):
                 if f.read(4) != b'\x7fELF':
                     raise unittest.SkipTest("Toolchain does not produce an elf.")
 
-            #p = subprocess.Popen(['objdump', '-g', '--dwarf=info', outbin], stdout=subprocess.PIPE)
-            #stdout, stderr = p.communicate()
-            #print(stdout.decode('utf8'))
+            # p = subprocess.Popen(['objdump', '-g', '--dwarf=info', outbin], stdout=subprocess.PIPE)
+            # stdout, stderr = p.communicate()
+            # print(stdout.decode('utf8'))
             extractor = ElfDwarfVarExtractor(outbin, cppfilt=cppfilt)
             return extractor.get_varmap()
 
@@ -561,7 +561,7 @@ int main(int argc, char* argv[])
                     self.assertEqual(v.get_type(), EmbeddedDataType.pointer)
                     self.assertTrue(v.has_absolute_address())
                     self.assertFalse(v.has_pointed_address())
-                    
+
                     vpath = '/global/*gu32_ptr'
                     self.assertTrue(varmap.has_var(vpath))
                     v = varmap.get_var(vpath)

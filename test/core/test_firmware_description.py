@@ -10,6 +10,7 @@ from test import ScrutinyUnitTest
 from scrutiny.core.varmap import VarMap
 from scrutiny.core.alias import Alias
 from scrutiny.core.variable import *
+from scrutiny.core.variable_location import AbsoluteLocation
 from scrutiny.core.basic_types import EmbeddedDataType
 from scrutiny.core.firmware_description import FirmwareDescription
 from io import BytesIO

@@ -32,6 +32,7 @@ for offset in range(64):
             v |= (1 << i)
         BITFIELD_MASK_MAP[offset][bitsize] = v
 
+
 class Variable:
     """
     One of the most basic type of data (with RPV and Alias).
