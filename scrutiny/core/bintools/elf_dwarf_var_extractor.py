@@ -721,10 +721,10 @@ class ElfDwarfVarExtractor:
                 # Process the Compile Unit
                 self._context.cu_compiler = self._identify_compiler(cu)
                 self._context.address_size = cu.header.address_size
-                if cu.header['version'] not in (2, 3, 4):
+                if cu.header.version not in (2, 3, 4):
                     if not bad_support_warning_written:
                         bad_support_warning_written = True
-                        self.logger.warning(f"DWARF format version {cu.header['version']} is not well supported, output may be incomplete")
+                        self.logger.warning(f"DWARF format version {cu.header.version} is not well supported, output may be incomplete")
                 self.build_typedef_map_recursive(die)
                 self.extract_var_recursive(die)  # Recursion start point
 
