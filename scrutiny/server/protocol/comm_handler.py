@@ -178,16 +178,20 @@ class CommHandler:
     def set_link(self, link_type: str, link_config: LinkConfig) -> None:
         """Set the device Link object from a type and a configuration."""
         self._logger.debug('Configuring new device link of type %s with config : %s' % (link_type, str(link_config)))
-
-        self.close()
+        self._link_type = link_type
         if link_type == 'none':
+            link_class = None
+        else:
+            link_class = self._get_link_class(link_type)
+        self._set_link_class(link_class, link_config)
+
+    def _set_link_class(self, link_class: Optional[Type[AbstractLink]], link_config: LinkConfig) -> None:
+        self.close()
+
+        if link_class is None:
             self._link = None
-            self._link_type = "none"
             return
 
-        self._link_type = link_type
-
-        link_class = self._get_link_class(link_type)
         self._link = link_class.make(link_config)
         self._last_open_error = None
 
@@ -218,7 +222,7 @@ class CommHandler:
             from scrutiny.server.device.links.dummy_link import DummyLink
             link_class = DummyLink
         else:
-            raise ValueError('Unknown link type %s' % link_type)
+            raise ValueError(f'Unknown link type {link_type}')
 
         return link_class
 
@@ -257,14 +261,15 @@ class CommHandler:
             self._last_open_error = None
             self._logger.debug("Communication with device opened")
         except Exception as e:
+            self._opened = False
             err = str(e)
-            full_error = f"Cannot initialize device. {err}"
+            full_error = f'Cannot initialize device through "{self.get_link_type()}". {err}'
             if self._last_open_error != err:
                 self._logger.error(full_error)
             elif self._logger.isEnabledFor(logging.DEBUG):  # pragma: no cover
                 self._logger.debug(full_error)
             self._last_open_error = err
-            self._opened = False
+            self.close()
 
     def is_open(self) -> bool:
         """Return True if the communication channel is open with the device"""

@@ -13,8 +13,50 @@ from scrutiny.server.protocol.comm_handler import CommHandler
 from scrutiny.server.protocol import Request, Response
 from scrutiny.server.protocol.commands import DummyCommand
 from scrutiny.server.device.links.dummy_link import DummyLink
+from scrutiny.server.device.links import AbstractLink, LinkConfig
 from test import ScrutinyUnitTest
 import threading
+
+from scrutiny.tools.typing import *
+
+
+class LinkThatFailsToInit(AbstractLink):
+
+    @classmethod
+    def make(cls, config: LinkConfig) -> "AbstractLink":
+        return cls(config)
+
+    def __init__(self, config: LinkConfig):
+        self._destroyed = False
+
+    def initialize(self) -> None:
+        self._destroyed = False
+        raise Exception("I failed!")
+
+    def initialized(self) -> bool:
+        return False
+
+    def destroy(self) -> None:
+        self._destroyed = True
+
+    def write(self, data: bytes) -> None:
+        pass
+
+    def read(self, timeout: Optional[float] = None) -> Optional[bytes]:
+        return None
+
+    def process(self) -> None:
+        pass
+
+    def operational(self) -> bool:
+        return False
+
+    @staticmethod
+    def validate_config(config: LinkConfig) -> None:
+        pass
+
+    def get_config(self) -> LinkConfig:
+        return {}
 
 
 class TestCommHandler(ScrutinyUnitTest):
@@ -183,6 +225,14 @@ class TestCommHandler(ScrutinyUnitTest):
         self.assertTrue(self.comm_handler.response_available())
         response1_ = self.comm_handler.get_response()
         self.compare_responses(response1_, response1)
+
+    def test_reset_link_if_failed(self):
+        self.comm_handler._set_link_class(LinkThatFailsToInit, {})
+        self.comm_handler.open()
+        link = self.comm_handler.get_link()
+        self.assertIsInstance(link, LinkThatFailsToInit)
+        assert isinstance(link, LinkThatFailsToInit)
+        self.assertTrue(link._destroyed)
 
 
 if __name__ == '__main__':
