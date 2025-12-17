@@ -27,7 +27,7 @@ class LinkThatFailsToInit(AbstractLink):
         return cls(config)
 
     def __init__(self, config: LinkConfig):
-        self._destroyed=False
+        self._destroyed = False
 
     def initialize(self) -> None:
         self._destroyed = False
@@ -57,7 +57,6 @@ class LinkThatFailsToInit(AbstractLink):
 
     def get_config(self) -> LinkConfig:
         return {}
-
 
 
 class TestCommHandler(ScrutinyUnitTest):
@@ -227,7 +226,6 @@ class TestCommHandler(ScrutinyUnitTest):
         response1_ = self.comm_handler.get_response()
         self.compare_responses(response1_, response1)
 
-
     def test_reset_link_if_failed(self):
         self.comm_handler._set_link_class(LinkThatFailsToInit, {})
         self.comm_handler.open()
@@ -235,6 +233,7 @@ class TestCommHandler(ScrutinyUnitTest):
         self.assertIsInstance(link, LinkThatFailsToInit)
         assert isinstance(link, LinkThatFailsToInit)
         self.assertTrue(link._destroyed)
+
 
 if __name__ == '__main__':
     import unittest

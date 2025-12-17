@@ -185,8 +185,7 @@ class CommHandler:
             link_class = self._get_link_class(link_type)
         self._set_link_class(link_class, link_config)
 
-    
-    def _set_link_class(self, link_class:Optional[Type[AbstractLink]], link_config: LinkConfig) -> None:
+    def _set_link_class(self, link_class: Optional[Type[AbstractLink]], link_config: LinkConfig) -> None:
         self.close()
 
         if link_class is None:
@@ -195,7 +194,6 @@ class CommHandler:
 
         self._link = link_class.make(link_config)
         self._last_open_error = None
-
 
     def validate_link_config(self, link_type: str, link_config: LinkConfig) -> None:
         """Raises an exception if the given configuration is wrong for the given link type"""
@@ -271,7 +269,7 @@ class CommHandler:
             elif self._logger.isEnabledFor(logging.DEBUG):  # pragma: no cover
                 self._logger.debug(full_error)
             self._last_open_error = err
-            self.close()            
+            self.close()
 
     def is_open(self) -> bool:
         """Return True if the communication channel is open with the device"""
