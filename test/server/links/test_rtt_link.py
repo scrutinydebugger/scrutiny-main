@@ -74,6 +74,12 @@ class FakeRTTPort:
         self._target_connected = True
 
 
+class FakeRTTPortThatFails(FakeRTTPort):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        raise ValueError("I failed!")
+
+
 def get_link_port(link: rtt_link.RttLink) -> FakeRTTPort:
     return link.port    # Glue code between internal property and unit test
 
@@ -151,6 +157,27 @@ class TestRTTLink(ScrutinyUnitTest):
         port._target_connected = True
         port._connected = False
         self.assertFalse(link.operational())
+
+    def test_handle_error(self):
+        rtt_link._set_jlink_class(FakeRTTPortThatFails)
+        config = {
+            'target_device': "CORTEX-M0",
+            'jlink_interface': "SWD"
+        }
+        link = rtt_link.RttLink(config)
+        failed = False
+        try:
+            link.initialize()
+        except Exception:
+            failed = True
+
+        self.assertTrue(failed)
+        link.destroy()
+
+        rtt_link._set_jlink_class(FakeRTTPort)
+        link.initialize()   # Should be able to start
+
+        link.destroy()
 
     def tearDown(self) -> None:
         rtt_link._set_jlink_class(self._old_port_func)
