@@ -19,6 +19,7 @@ from scrutiny.server.protocol import Protocol, Request, Response
 import scrutiny.server.protocol.typing as protocol_typing
 from scrutiny.server.protocol.commands import *
 from scrutiny.core.variable import *
+from scrutiny.core.variable_location import PathPointedLocation
 from scrutiny.core.variable_factory import VariableFactory
 from scrutiny.core.array import UntypedArray
 from scrutiny.core.basic_types import *
@@ -63,6 +64,12 @@ def make_dummy_var_entries(address, n, vartype=EmbeddedDataType.float32):
         entry = DatastoreVariableEntry('path_%d' % i, variable_def=dummy_var)
         yield entry
 
+def make_dummy_pointed_var_entries(pointers, vartype=EmbeddedDataType.float32):
+    for i in range(len(pointers)):
+        dummy_var = Variable(vartype=vartype, path_segments=['a', 'b', 'c', 'dummy'],
+                             location=PathPointedLocation(pointers[i].get_display_path(), i*4), endianness=Endianness.Little)
+        entry = DatastorePointedVariableEntry('path_%d' % i, variable_def=dummy_var, pointer_entry=pointers[i])
+        yield entry
 
 def make_dummy_rpv_entries(start_id, n, vartype=EmbeddedDataType.float32) -> Generator[DatastoreRPVEntry, None, None]:
     for i in range(n):
@@ -140,7 +147,7 @@ class TestMemoryReaderBasicReadOperation(ScrutinyUnitTest):
                     block_data = struct.pack('<' + 'f' * expected_block.nfloat, *values)    # Make memory dump
                     block_list.append((expected_block.address, block_data))
 
-                response = protocol.respond_read_memory_blocks(block_list);
+                response = protocol.respond_read_memory_blocks(block_list)
                 req_record.complete(success=True, response=response)
                 # By completing the request. Success callback should be called making the datastore reader update the datastore
 
@@ -349,6 +356,39 @@ class TestMemoryReaderBasicReadOperation(ScrutinyUnitTest):
                 self.assertLessEqual(response.data_size(), max_response_payload_size)    # That's the main test
                 record.complete(success=True, response=response)
 
+    def test_read_pointer(self):
+        nfloat1 = 10
+        nfloat2 = 20
+        npointers = 5
+        address1 = 0x1000
+        address2 = 0x2000
+        address3 = 0x3000
+        ds = Datastore()
+        entries1 = list(make_dummy_var_entries(address=address1, n=nfloat1, vartype=EmbeddedDataType.float32))
+        entries2 = list(make_dummy_var_entries(address=address2, n=nfloat2, vartype=EmbeddedDataType.float32))
+        pointers3 = list(make_dummy_var_entries(address=address3, n=npointers, vartype=EmbeddedDataType.ptr32))
+        entries3 = list(make_dummy_pointed_var_entries(pointers=pointers3, vartype=EmbeddedDataType.float32))
+        all_entries_no_pointers = entries1 + entries2 + entries3
+        ds.add_entries(all_entries_no_pointers)
+        ds.add_entries(pointers3)
+        dispatcher = RequestDispatcher()
+        protocol = Protocol(1, 0)
+        reader = MemoryReader(protocol, dispatcher=dispatcher, datastore=ds, request_priority=0)
+        reader.set_max_request_payload_size(protocol.read_memory_request_size_per_block() * 2)  # 2 block per request
+        reader.set_max_response_payload_size(1024)  # Non-limiting here
+        reader.start()
+
+        for entry in all_entries_no_pointers:
+            ds.start_watching(entry, 'unittest')
+
+        # The expected sequence of block will be : 1,2 - 3,1 - 2,3 - 1,2 - etc
+        expected_blocks_sequence = [
+            [BlockToRead(address1, nfloat1, entries1), BlockToRead(address2, nfloat2, entries2)],
+            [BlockToRead(address3, nfloat3, entries3), BlockToRead(address1, nfloat1, entries1)],
+            [BlockToRead(address2, nfloat2, entries2), BlockToRead(address3, nfloat3, entries3)]
+        ]
+
+        self.generic_test_read_block_sequence(expected_blocks_sequence, reader, dispatcher, protocol, niter=5)
 
 class TestMemoryReaderComplexReadOperation(ScrutinyUnitTest):
     """
