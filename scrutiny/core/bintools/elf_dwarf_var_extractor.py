@@ -291,6 +291,7 @@ class Context:
     arch: Architecture
     endianess: Endianness
     cu_compiler: Compiler
+    address_size: Optional[int]
 
 
 class ElfDwarfVarExtractor:
@@ -371,7 +372,8 @@ class ElfDwarfVarExtractor:
         self._context = Context(    # Default
             arch=Architecture.UNKNOWN,
             endianess=Endianness.Little,
-            cu_compiler=Compiler.UNKNOWN
+            cu_compiler=Compiler.UNKNOWN,
+            address_size=None
         )
 
         self.initial_stack_depth = len(inspect.stack())
@@ -718,6 +720,7 @@ class ElfDwarfVarExtractor:
 
                 # Process the Compile Unit
                 self._context.cu_compiler = self._identify_compiler(cu)
+                self._context.address_size = cu.header.address_size
                 if cu.header['version'] not in (2, 3, 4):
                     if not bad_support_warning_written:
                         bad_support_warning_written = True
@@ -798,11 +801,22 @@ class ElfDwarfVarExtractor:
                 self._parse_errors.register_error(e)
                 tools.log_exception(self.logger, e, f"Failed to extract var under {child}.")
 
-    def get_typename_from_die(self, die: DIE) -> str:
+    def get_pointer_name_from_die(self, die: DIE) -> str:
         if die.tag == Tags.DW_TAG_pointer_type:
-            bytesize = self.get_size_from_type_die(die)
+            bytesize = self.get_size_from_pointer_die(die)
             return self._make_ptr_typename(bytesize)
+        raise ElfParsingError(f"Cannot extract pointer name from die {die}")
 
+    def get_size_from_pointer_die(self, die: DIE) -> int:
+        if die.tag == Tags.DW_TAG_pointer_type:
+            if self._context.address_size is not None:
+                return self._context.address_size
+        if Attrs.DW_AT_byte_size not in die.attributes:
+            raise ElfParsingError(f'Cannot find the pointer size on die {die}')
+        val = cast(int, die.attributes[Attrs.DW_AT_byte_size].value)
+        return val
+
+    def get_typename_from_die(self, die: DIE) -> str:
         if die.tag == Tags.DW_TAG_base_type:
             return cast(bytes, die.attributes[Attrs.DW_AT_name].value).decode('ascii')
         raise ElfParsingError(f"Cannot extract type name from die {die}")
@@ -835,7 +849,7 @@ class ElfDwarfVarExtractor:
     def die_process_ptr_type(self, die: DIE) -> None:
         self._log_debug_process_die(die)
         if die not in self.die2vartype_map:
-            bytesize = self.get_size_from_type_die(die)
+            address_size = self.get_size_from_pointer_die(die)
             typemap = {
                 1: EmbeddedDataType.ptr8,
                 2: EmbeddedDataType.ptr16,
@@ -844,9 +858,9 @@ class ElfDwarfVarExtractor:
                 16: EmbeddedDataType.ptr128,
                 32: EmbeddedDataType.ptr256,
             }
-            if bytesize not in typemap:
-                raise ElfParsingError(f"Pointer with unsupported byte size {bytesize}")
-            self.varmap.register_base_type(self._make_ptr_typename(bytesize), typemap[bytesize])
+            if address_size not in typemap:
+                raise ElfParsingError(f"Pointer with unsupported byte size {address_size}")
+            self.varmap.register_base_type(self._make_ptr_typename(address_size), typemap[address_size])
 
     def read_enum_die_name(self, die: DIE) -> str:
         """Reads the name of the enum die"""
@@ -1398,7 +1412,7 @@ class ElfDwarfVarExtractor:
                 self.register_array_var(die, type_desc, location)
             elif type_desc.type == TypeOfVar.Pointer:
                 self.die_process_ptr_type(type_desc.type_die)
-                typename = self.get_typename_from_die(type_desc.type_die)   # Supports pointers
+                typename = self.get_pointer_name_from_die(type_desc.type_die)   # Supports pointers
                 varpath = self.make_varpath(die)
                 path_segments = varpath.get_segments_name()
 

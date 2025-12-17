@@ -183,6 +183,11 @@ class EmbeddedDataType(Enum):
             return True
         return False
 
+    def is_pointer(self) -> bool:
+        """Tells if the type is a pointer type (independent of the size)"""
+        type_type = self.value & 0xF0
+        return type_type == DataTypeType._pointer.value
+
     @classmethod
     def make(cls, datatype_type: DataTypeType, size: Union[int, DataTypeSize]) -> "EmbeddedDataType":
         if isinstance(size, int):

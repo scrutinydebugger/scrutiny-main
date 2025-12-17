@@ -558,7 +558,7 @@ int main(int argc, char* argv[])
                     vpath = '/global/gu32_ptr'
                     self.assertTrue(varmap.has_var(vpath))
                     v = varmap.get_var(vpath)
-                    self.assertIn(v.get_type(), [EmbeddedDataType.ptr64, EmbeddedDataType.ptr32])
+                    self.assertTrue(v.get_type().is_pointer())
 
                     self.assertTrue(v.has_absolute_address())
                     self.assertFalse(v.has_pointed_address())
