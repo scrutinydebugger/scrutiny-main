@@ -11,6 +11,7 @@ __all__ = [
     'DatastoreVariableEntry',
     'DatastoreAliasEntry',
     'DatastoreRPVEntry',
+    'DatastorePointedVariableEntry',
     'UpdateTargetRequestCallback',
     'UpdateTargetRequest',
     'UserValueChangeCallback'
@@ -21,10 +22,10 @@ import queue
 
 from scrutiny.server.timebase import server_timebase
 from scrutiny.core import path_tools
-from scrutiny.core.basic_types import RuntimePublishedValue
-from scrutiny.core.basic_types import EmbeddedDataType, Endianness, WatchableType
+from scrutiny.core.basic_types import EmbeddedDataType, Endianness, WatchableType, RuntimePublishedValue
 from scrutiny.core.embedded_enum import EmbeddedEnum
 from scrutiny.core.variable import Variable
+from scrutiny.core.variable_location import AbsoluteLocation, PathPointedLocation
 from scrutiny.core.codecs import *
 from scrutiny.core.alias import Alias
 from scrutiny.tools.global_counters import global_i64_counter
@@ -313,6 +314,22 @@ class DatastoreVariableEntry(DatastoreEntry):
     def decode(self, data: bytes) -> Encodable:
         """Decode a stream of bytes into a Python value"""
         return self.variable_def.decode(data)
+
+
+class DatastorePointedVariableEntry(DatastoreVariableEntry):
+    __slots__ = ('pointer_entry', )
+
+    pointer_entry: DatastoreVariableEntry
+
+    def __init__(self, display_path: str, variable_def: Variable, pointer_entry: DatastoreVariableEntry) -> None:
+        super().__init__(display_path, variable_def)
+        self.pointer_entry = pointer_entry
+
+    def get_pointer_entry(self) -> DatastoreVariableEntry:
+        return self.pointer_entry
+
+    def get_pointer_offset(self) -> int:
+        return self.variable_def.get_pointer().pointer_offset
 
 
 class DatastoreAliasEntry(DatastoreEntry):

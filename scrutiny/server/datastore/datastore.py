@@ -111,6 +111,10 @@ class Datastore:
             if resolved_entry.get_id() not in self._entries[resolved_entry.get_type()]:
                 raise KeyError('Alias ID %s (%s) refer to entry ID %s (%s) that is not in the datastore' %
                                (entry.get_id(), entry.get_display_path(), resolved_entry.get_id(), resolved_entry.get_display_path()))
+        elif isinstance(entry, DatastorePointedVariableEntry):
+            pointer_entry = entry.get_pointer_entry()
+            if pointer_entry.get_id() not in self._entries[WatchableType.Variable]:
+                self.add_entry(pointer_entry)
 
         self._entries[entry.get_type()][entry.get_id()] = entry
         self._displaypath2idmap[entry.get_type()][entry.get_display_path()] = entry.get_id()
@@ -208,9 +212,17 @@ class Datastore:
             alias_value_change_callback = functools.partial(self._alias_value_change_callback, watching_entry=entry)
             self.start_watching(
                 entry_or_entryid=entry.resolve(),
-                watcher=self._make_owner_from_alias_entry(entry),
+                watcher=self._make_owner_from_entry(entry),
                 value_change_callback=alias_value_change_callback
             )
+        elif isinstance(entry, DatastorePointedVariableEntry):
+            if entry.variable_def.has_pointed_address():
+                pointer_value_change_callback = functools.partial(self._pointer_value_change_callback, watching_entry=entry)
+                self.start_watching(
+                    entry_or_entryid=entry.get_pointer_entry(),
+                    watcher=self._make_owner_from_entry(entry),
+                    value_change_callback=pointer_value_change_callback
+                )
 
         return entry
 
@@ -243,6 +255,10 @@ class Datastore:
 
         return len(self._watcher_map[entry.get_type()][entry_id]) > 0
 
+    def stop_watching_by_display_path(self, display_path: str, watcher: str) -> None:
+        entry = self.get_entry_by_display_path(display_path)    # Invoke the factory if needed
+        return self.stop_watching(entry, watcher)
+
     def stop_watching(self, entry_or_entryid: Union[DatastoreEntry, str], watcher: str) -> None:
         """Indicates that a watcher does not want to watch an entry anymore.
         Mainly removes the callback for that watcher for that given entry. 
@@ -261,10 +277,12 @@ class Datastore:
             if len(self._watcher_map[entry.get_type()][entry_id]) == 0:
                 del self._watcher_map[entry.get_type()][entry_id]
 
+                # Special handling for Aliases and pointers.
+                # If nobody watches this alias/pointer, then we can remove the internal subscription to the referenced entry
                 if isinstance(entry, DatastoreAliasEntry):
-                    # Special handling for Aliases.
-                    # If nobody watches this alias, then we can remove the internal subscription to the referenced entry
-                    self.stop_watching(entry.resolve(), self._make_owner_from_alias_entry(entry))
+                    self.stop_watching(entry.resolve(), self._make_owner_from_entry(entry))
+                elif isinstance(entry, DatastorePointedVariableEntry):
+                    self.stop_watching(entry.get_pointer_entry(), self._make_owner_from_entry(entry))
 
         entry.unregister_value_change_callback(watcher)
 
@@ -387,14 +405,17 @@ class Datastore:
         else:
             return entry_or_entryid
 
-    def _make_owner_from_alias_entry(self, entry: DatastoreAliasEntry) -> str:
-        """ When somebody subscribes to an alias, the datastore starts watching the pointed entry
-        This method creates a watcher name based on the alias ID"""
-        return 'alias_' + entry.get_id()
+    def _make_owner_from_entry(self, entry: DatastoreEntry) -> str:
+        """ When somebody subscribes to an alias or pointed variable, the datastore starts watching the referenced entry
+        This method creates a watcher name based on the watcher ID"""
+        return 'entry_' + entry.get_id()
 
     def _alias_value_change_callback(self, owner: str, entry: DatastoreEntry, watching_entry: DatastoreAliasEntry) -> None:
         """ This callback is the one given when the datastore starts watching an entry because somebody wants to watch an alias."""
         watching_entry.set_value_internal(entry.get_value())
+
+    def _pointer_value_change_callback(self, owner: str, entry: DatastoreEntry, watching_entry: DatastoreVariableEntry) -> None:
+        pass
 
     def _alias_target_update_callback(self, alias_request: UpdateTargetRequest, success: bool, entry: DatastoreEntry, timestamp: float) -> None:
         """Callback used by an alias to grab the result of the target update and apply it to its own"""

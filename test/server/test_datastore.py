@@ -495,18 +495,47 @@ class TestDataStore(ScrutinyUnitTest):
         with self.assertRaises(Exception):
             ds.get_entry_by_display_path('/aaa/bbb[1][0]/ccc/ddd[2][3]')
 
-    def test_variable_with_pointer_location(self):
+    def test_variable_with_pointer_watch(self):
         ds = Datastore()
         pointer = Variable(EmbeddedDataType.ptr32, ['aaa', 'bbb', 'pointer'], location=AbsoluteLocation(0x1000), endianness=Endianness.Little)
-        pointee = Variable(EmbeddedDataType.uint32, ['aaa', 'bbb', 'pointee'],
-                           location=PathPointedLocation('/aaa/bbb/pointer', 0), endianness=Endianness.Little)
+        pointee1 = Variable(EmbeddedDataType.uint32, ['aaa', 'bbb', 'pointee1'],
+                            location=PathPointedLocation('/aaa/bbb/pointer', 0), endianness=Endianness.Little)
+        pointee2 = Variable(EmbeddedDataType.uint32, ['aaa', 'bbb', 'pointee2'],
+                            location=PathPointedLocation('/aaa/bbb/pointer', 0), endianness=Endianness.Little)
         pointer_entry = DatastoreVariableEntry(pointer.get_fullname(), pointer)
-        pointee_entry = DatastoreVariableEntry(pointee.get_fullname(), pointee)
-        ds.add_entries([pointer_entry, pointee_entry])
+        pointee1_entry = DatastorePointedVariableEntry(pointee1.get_fullname(), pointee1, pointer_entry)
+        pointee2_entry = DatastorePointedVariableEntry(pointee2.get_fullname(), pointee2, pointer_entry)
+        ds.add_entries([pointer_entry, pointee1_entry, pointee2_entry])
 
-        ds.start_watching_by_display_path('/aaa/bbb/pointee', 'test')
-        self.assertTrue(ds.has_watchers(pointee_entry))
-        self.assertTrue(ds.has_watchers(pointer_entry))
+        ds.start_watching_by_display_path('/aaa/bbb/pointee1', 'test')
+        self.assertTrue(ds.has_watchers(pointee1_entry))
+        self.assertFalse(ds.has_watchers(pointee2_entry))
+        self.assertEqual(len(ds.get_watchers(pointer_entry)), 1)
+
+        ds.start_watching_by_display_path('/aaa/bbb/pointee2', 'test')
+        self.assertTrue(ds.has_watchers(pointee1_entry))
+        self.assertTrue(ds.has_watchers(pointee2_entry))
+        self.assertEqual(len(ds.get_watchers(pointer_entry)), 2)
+
+        ds.start_watching_by_display_path('/aaa/bbb/pointer', 'test')
+        self.assertTrue(ds.has_watchers(pointee1_entry))
+        self.assertTrue(ds.has_watchers(pointee2_entry))
+        self.assertEqual(len(ds.get_watchers(pointer_entry)), 3)
+
+        ds.stop_watching_by_display_path('/aaa/bbb/pointer', 'test')
+        self.assertTrue(ds.has_watchers(pointee1_entry))
+        self.assertTrue(ds.has_watchers(pointee2_entry))
+        self.assertEqual(len(ds.get_watchers(pointer_entry)), 2)
+
+        ds.stop_watching_by_display_path('/aaa/bbb/pointee2', 'test')
+        self.assertTrue(ds.has_watchers(pointee1_entry))
+        self.assertFalse(ds.has_watchers(pointee2_entry))
+        self.assertEqual(len(ds.get_watchers(pointer_entry)), 1)
+
+        ds.stop_watching_by_display_path('/aaa/bbb/pointee1', 'test')
+        self.assertFalse(ds.has_watchers(pointee1_entry))
+        self.assertFalse(ds.has_watchers(pointee2_entry))
+        self.assertEqual(len(ds.get_watchers(pointer_entry)), 0)
 
 
 if __name__ == '__main__':
