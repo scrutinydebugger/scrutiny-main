@@ -357,10 +357,16 @@ class VarMap:
         for fullname in self._content.variables:
             parsed_path = ScrutinyPath.from_string(fullname)
             vardef = self._get_var_def(fullname)
+
+            if self._has_addr(vardef):
+                location = AbsoluteLocation(self._get_addr(vardef))
+            else:
+                continue  # todo: pointer
+
             v = Variable(
                 vartype=self._get_type(vardef),
                 path_segments=parsed_path.get_segments(),
-                location=self._get_addr(vardef),
+                location=location,
                 endianness=self.get_endianness(),
                 bitsize=self._get_bitsize(vardef),
                 bitoffset=self._get_bitoffset(vardef),

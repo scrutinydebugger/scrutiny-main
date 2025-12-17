@@ -138,11 +138,15 @@ class EmbeddedDataType(Enum):
     cfloat128 = DataTypeType._cfloat.value | DataTypeSize._128.value
     cfloat256 = DataTypeType._cfloat.value | DataTypeSize._256.value
 
+    ptr8 = DataTypeType._pointer.value | DataTypeSize._8.value
+    ptr16 = DataTypeType._pointer.value | DataTypeSize._16.value
+    ptr32 = DataTypeType._pointer.value | DataTypeSize._32.value
+    ptr64 = DataTypeType._pointer.value | DataTypeSize._64.value
+    ptr128 = DataTypeType._pointer.value | DataTypeSize._128.value
+    ptr256 = DataTypeType._pointer.value | DataTypeSize._256.value
+
     boolean = DataTypeType._boolean.value | DataTypeSize._8.value
-
     struct = DataTypeType._struct.value | DataTypeSize._NA.value
-    pointer = DataTypeType._pointer.value | DataTypeSize._NA.value
-
     NA = DataTypeType._NA.value | DataTypeSize._NA.value
 
     def get_size_bit(self) -> int:

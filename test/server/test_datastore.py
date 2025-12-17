@@ -10,6 +10,7 @@ from scrutiny.server.datastore.datastore import Datastore
 from scrutiny.server.datastore.datastore_entry import *
 from scrutiny.core.alias import Alias
 from scrutiny.core.variable import Variable
+from scrutiny.core.variable_location import AbsoluteLocation, PathPointedLocation
 from scrutiny.core.variable_factory import VariableFactory
 from scrutiny.core.array import UntypedArray
 from scrutiny.core.embedded_enum import EmbeddedEnum
@@ -493,6 +494,19 @@ class TestDataStore(ScrutinyUnitTest):
 
         with self.assertRaises(Exception):
             ds.get_entry_by_display_path('/aaa/bbb[1][0]/ccc/ddd[2][3]')
+
+    def test_variable_with_pointer_location(self):
+        ds = Datastore()
+        pointer = Variable(EmbeddedDataType.ptr32, ['aaa', 'bbb', 'pointer'], location=AbsoluteLocation(0x1000), endianness=Endianness.Little)
+        pointee = Variable(EmbeddedDataType.uint32, ['aaa', 'bbb', 'pointee'],
+                           location=PathPointedLocation('/aaa/bbb/pointer', 0), endianness=Endianness.Little)
+        pointer_entry = DatastoreVariableEntry(pointer.get_fullname(), pointer)
+        pointee_entry = DatastoreVariableEntry(pointee.get_fullname(), pointee)
+        ds.add_entries([pointer_entry, pointee_entry])
+
+        ds.start_watching_by_display_path('/aaa/bbb/pointee', 'test')
+        self.assertTrue(ds.has_watchers(pointee_entry))
+        self.assertTrue(ds.has_watchers(pointer_entry))
 
 
 if __name__ == '__main__':

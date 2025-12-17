@@ -333,7 +333,6 @@ class ElfDwarfVarExtractor:
 
     STATIC = 'static'
     GLOBAL = 'global'
-    PTR_TYPENAME = 'ptr'
     MAX_CU_DISPLAY_NAME_LENGTH = 64
     DW_OP_ADDR = 3
     DW_OP_plus_uconst = 0x23
@@ -800,7 +799,13 @@ class ElfDwarfVarExtractor:
                 tools.log_exception(self.logger, e, f"Failed to extract var under {child}.")
 
     def get_typename_from_die(self, die: DIE) -> str:
-        return cast(bytes, die.attributes[Attrs.DW_AT_name].value).decode('ascii')
+        if die.tag == Tags.DW_TAG_pointer_type:
+            bytesize = self.get_size_from_type_die(die)
+            return self._make_ptr_typename(bytesize)
+
+        if die.tag == Tags.DW_TAG_base_type:
+            return cast(bytes, die.attributes[Attrs.DW_AT_name].value).decode('ascii')
+        raise ElfParsingError(f"Cannot extract type name from die {die}")
 
     def get_size_from_type_die(self, die: DIE) -> int:
         if Attrs.DW_AT_byte_size not in die.attributes:
@@ -823,6 +828,25 @@ class ElfDwarfVarExtractor:
             self.varmap.register_base_type(name, basetype)
 
             self.die2vartype_map[die] = basetype
+
+    def _make_ptr_typename(self, bytesize: int) -> str:
+        return f'ptr{bytesize*8}'
+
+    def die_process_ptr_type(self, die: DIE) -> None:
+        self._log_debug_process_die(die)
+        if die not in self.die2vartype_map:
+            bytesize = self.get_size_from_type_die(die)
+            typemap = {
+                1: EmbeddedDataType.ptr8,
+                2: EmbeddedDataType.ptr16,
+                4: EmbeddedDataType.ptr32,
+                8: EmbeddedDataType.ptr64,
+                16: EmbeddedDataType.ptr128,
+                32: EmbeddedDataType.ptr256,
+            }
+            if bytesize not in typemap:
+                raise ElfParsingError(f"Pointer with unsupported byte size {bytesize}")
+            self.varmap.register_base_type(self._make_ptr_typename(bytesize), typemap[bytesize])
 
     def read_enum_die_name(self, die: DIE) -> str:
         """Reads the name of the enum die"""
@@ -1345,8 +1369,6 @@ class ElfDwarfVarExtractor:
                              ) -> None:
         """Process a variable die and insert a variable in the varmap object if it has an absolute address"""
 
-        if self.get_name(die) == 'twi_onSlaveTransmit':
-            pass
         # Avoid fetching a location if already set (DW_AT_specification & DW_AT_abstract_origin)
         if location is None:
             location = self.get_location(die)
@@ -1375,28 +1397,29 @@ class ElfDwarfVarExtractor:
                 self.die_process_array(type_desc.type_die)
                 self.register_array_var(die, type_desc, location)
             elif type_desc.type == TypeOfVar.Pointer:
-                self.varmap.register_base_type(self.PTR_TYPENAME, EmbeddedDataType.pointer)
+                self.die_process_ptr_type(type_desc.type_die)
+                typename = self.get_typename_from_die(type_desc.type_die)   # Supports pointers
                 varpath = self.make_varpath(die)
                 path_segments = varpath.get_segments_name()
 
-                self.maybe_register_variable(
+                self.maybe_register_variable(   # Register the pointer
                     path_segments=path_segments,
                     location=location,
-                    original_type_name=self.PTR_TYPENAME,
+                    original_type_name=typename,
                     enum=None
                 )
 
-                pointed_typedesc = self.get_type_of_var(type_desc.type_die)
-
+                # Try dereferencing the pointer
+                pointee_typedesc = self.get_type_of_var(type_desc.type_die)
                 pointer_path_segments = path_segments.copy()
-                pointer_path_segments[-1] = f'*{pointer_path_segments[-1]}'
-                if pointed_typedesc.type == TypeOfVar.BaseType:
+                pointer_path_segments[-1] = f'*{pointer_path_segments[-1]}'  # /aaa/bbb/*ccc : ccc is dereferenced
+                if pointee_typedesc.type == TypeOfVar.BaseType:
                     ptr_location = PathPointedLocation(
                         pointer_offset=0,
                         pointer_path=path_tools.join_segments(path_segments)
                     )
-                    self.die_process_base_type(pointed_typedesc.type_die)
-                    typename = self.get_typename_from_die(pointed_typedesc.type_die)
+                    self.die_process_base_type(pointee_typedesc.type_die)
+                    typename = self.get_typename_from_die(pointee_typedesc.type_die)
                     self.maybe_register_variable(
                         path_segments=pointer_path_segments,
                         location=ptr_location,
@@ -1405,7 +1428,7 @@ class ElfDwarfVarExtractor:
                     )
                 else:
                     self.logger.warning(
-                        f"Line {get_linenumber()}: Found a pointer to type die {self._make_name_for_log(pointed_typedesc.type_die)} (type={pointed_typedesc.type.name}). Not supported yet")
+                        f"Line {get_linenumber()}: Found a pointer to type die {self._make_name_for_log(pointee_typedesc.type_die)} (type={pointee_typedesc.type.name}). Not supported yet")
 
             # Base type
             elif type_desc.type in (TypeOfVar.BaseType, TypeOfVar.EnumOnly):
