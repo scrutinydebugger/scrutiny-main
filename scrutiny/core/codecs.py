@@ -23,7 +23,7 @@ import math
 from scrutiny.core.basic_types import Endianness, EmbeddedDataType
 from scrutiny.tools.typing import *
 
-Encodable = Union[int, float, bool]
+Encodable: TypeAlias = Union[int, float, bool]
 
 
 class BaseCodec(ABC):

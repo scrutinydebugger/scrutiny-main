@@ -101,7 +101,8 @@ class Datastore:
         entry_id = entry.get_id()
         for watchable_type in WatchableType.all():
             if entry_id in self._entries[watchable_type]:
-                raise ValueError('Duplicate datastore entry')
+                if self._entries[watchable_type][entry_id] is not entry:
+                    raise ValueError(f'Duplicate datastore entry with ID {entry_id} ({entry.display_path})')
 
         if self.get_entries_count() >= self.MAX_ENTRY:
             raise RuntimeError('Datastore cannot have more than %d entries' % self.MAX_ENTRY)

@@ -331,6 +331,12 @@ class DatastorePointedVariableEntry(DatastoreVariableEntry):
     def get_pointer_offset(self) -> int:
         return self.variable_def.get_pointer().pointer_offset
 
+    def get_address(self) -> int:
+        base = self.pointer_entry.value
+        if not isinstance(base, int):
+            raise ValueError("Pointer address is not an integer")
+        return base + self.get_pointer_offset()
+
 
 class DatastoreAliasEntry(DatastoreEntry):
     """

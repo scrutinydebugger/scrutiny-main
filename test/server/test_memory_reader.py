@@ -57,19 +57,21 @@ def generate_random_value(datatype: EmbeddedDataType) -> Encodable:
     return codec.decode(bytestr)
 
 
-def make_dummy_var_entries(address, n, vartype=EmbeddedDataType.float32):
+def make_dummy_var_entries(address, n, vartype=EmbeddedDataType.float32, subpath=[]):
     for i in range(n):
-        dummy_var = Variable(vartype=vartype, path_segments=['a', 'b', 'c', 'dummy'],
+        dummy_var = Variable(vartype=vartype, path_segments=subpath + ['dummy_var_%d' % i],
                              location=address + i * vartype.get_size_bit() // 8, endianness=Endianness.Little)
-        entry = DatastoreVariableEntry('path_%d' % i, variable_def=dummy_var)
+        entry = DatastoreVariableEntry(dummy_var.get_fullname(), variable_def=dummy_var)
         yield entry
 
-def make_dummy_pointed_var_entries(pointers, vartype=EmbeddedDataType.float32):
+
+def make_dummy_pointed_var_entries(pointers, vartype=EmbeddedDataType.float32, subpath=[]):
     for i in range(len(pointers)):
-        dummy_var = Variable(vartype=vartype, path_segments=['a', 'b', 'c', 'dummy'],
-                             location=PathPointedLocation(pointers[i].get_display_path(), i*4), endianness=Endianness.Little)
-        entry = DatastorePointedVariableEntry('path_%d' % i, variable_def=dummy_var, pointer_entry=pointers[i])
+        dummy_var = Variable(vartype=vartype, path_segments=subpath + ['dummy_pointed_var_%d' % i],
+                             location=PathPointedLocation(pointers[i].get_display_path(), i * 4), endianness=Endianness.Little)
+        entry = DatastorePointedVariableEntry(dummy_var.get_fullname(), variable_def=dummy_var, pointer_entry=pointers[i])
         yield entry
+
 
 def make_dummy_rpv_entries(start_id, n, vartype=EmbeddedDataType.float32) -> Generator[DatastoreRPVEntry, None, None]:
     for i in range(n):
@@ -364,31 +366,88 @@ class TestMemoryReaderBasicReadOperation(ScrutinyUnitTest):
         address2 = 0x2000
         address3 = 0x3000
         ds = Datastore()
-        entries1 = list(make_dummy_var_entries(address=address1, n=nfloat1, vartype=EmbeddedDataType.float32))
-        entries2 = list(make_dummy_var_entries(address=address2, n=nfloat2, vartype=EmbeddedDataType.float32))
-        pointers3 = list(make_dummy_var_entries(address=address3, n=npointers, vartype=EmbeddedDataType.ptr32))
-        entries3 = list(make_dummy_pointed_var_entries(pointers=pointers3, vartype=EmbeddedDataType.float32))
+        entries1 = list(make_dummy_var_entries(address=address1, n=nfloat1, vartype=EmbeddedDataType.float32, subpath=['entries1']))
+        entries2 = list(make_dummy_var_entries(address=address2, n=nfloat2, vartype=EmbeddedDataType.float32, subpath=['entries2']))
+        pointers3 = list(make_dummy_var_entries(address=address3, n=npointers, vartype=EmbeddedDataType.ptr64, subpath=['pointers3']))
+        entries3 = list(make_dummy_pointed_var_entries(pointers=pointers3, vartype=EmbeddedDataType.float32, subpath=['entries3']))
         all_entries_no_pointers = entries1 + entries2 + entries3
         ds.add_entries(all_entries_no_pointers)
-        ds.add_entries(pointers3)
+        ds.add_entries(pointers3)   # Not necessary. Just to be formal
+
+        pointers3[0].set_value(0x4000)
+        pointers3[1].set_value(0x5000)
+        pointers3[2].set_value(0x6000)
+        pointers3[3].set_value(0x7000)
+        pointers3[4].set_value(0x8000)
+
         dispatcher = RequestDispatcher()
         protocol = Protocol(1, 0)
         reader = MemoryReader(protocol, dispatcher=dispatcher, datastore=ds, request_priority=0)
-        reader.set_max_request_payload_size(protocol.read_memory_request_size_per_block() * 2)  # 2 block per request
+        reader.set_max_request_payload_size(1024)  # Non-limiting here
         reader.set_max_response_payload_size(1024)  # Non-limiting here
         reader.start()
 
         for entry in all_entries_no_pointers:
             ds.start_watching(entry, 'unittest')
 
-        # The expected sequence of block will be : 1,2 - 3,1 - 2,3 - 1,2 - etc
-        expected_blocks_sequence = [
-            [BlockToRead(address1, nfloat1, entries1), BlockToRead(address2, nfloat2, entries2)],
-            [BlockToRead(address3, nfloat3, entries3), BlockToRead(address1, nfloat1, entries1)],
-            [BlockToRead(address2, nfloat2, entries2), BlockToRead(address3, nfloat3, entries3)]
-        ]
+        reader.process()
+        dispatcher.process()
+        req_record = dispatcher.pop_next()
+        self.assertIsNotNone(req_record)
+        request_data = cast(protocol_typing.Request.MemoryControl.Read, protocol.parse_request(req_record.request))
+        self.assertEqual(len(request_data['blocks_to_read']), 3)
+        self.assertEqual(request_data['blocks_to_read'][0]['address'], address1)
+        self.assertEqual(request_data['blocks_to_read'][0]['length'], nfloat1 * 4)
+        self.assertEqual(request_data['blocks_to_read'][1]['address'], address2)
+        self.assertEqual(request_data['blocks_to_read'][1]['length'], nfloat2 * 4)
+        self.assertEqual(request_data['blocks_to_read'][2]['address'], address3)
+        self.assertEqual(request_data['blocks_to_read'][2]['length'], npointers * 8)  # Using ptr64
 
-        self.generic_test_read_block_sequence(expected_blocks_sequence, reader, dispatcher, protocol, niter=5)
+        response = protocol.respond_read_memory_blocks([
+            (address1, b'\x00' * (nfloat1 * 4)),
+            (address2, b'\x00' * (nfloat2 * 4)),
+            (address3, struct.pack('<QQQQQ', 0x4000, 0x5000, 0x6000, 0x7000, 0x8000))
+        ])
+        req_record.complete(True, response)
+        self.assertEqual(pointers3[0].value, 0x4000)
+        self.assertEqual(pointers3[1].value, 0x5000)
+        self.assertEqual(pointers3[2].value, 0x6000)
+        self.assertEqual(pointers3[3].value, 0x7000)
+        self.assertEqual(pointers3[4].value, 0x8000)
+
+        reader.process()
+        dispatcher.process()
+        req_record = dispatcher.pop_next()
+        self.assertIsNotNone(req_record)
+
+        request_data = cast(protocol_typing.Request.MemoryControl.Read, protocol.parse_request(req_record.request))
+        self.assertEqual(len(request_data['blocks_to_read']), npointers)
+        self.assertEqual(request_data['blocks_to_read'][0]['address'], 0x4000 + 0)
+        self.assertEqual(request_data['blocks_to_read'][0]['length'], 4)
+        self.assertEqual(request_data['blocks_to_read'][1]['address'], 0x5000 + 4)
+        self.assertEqual(request_data['blocks_to_read'][1]['length'], 4)
+        self.assertEqual(request_data['blocks_to_read'][2]['address'], 0x6000 + 8)
+        self.assertEqual(request_data['blocks_to_read'][2]['length'], 4)
+        self.assertEqual(request_data['blocks_to_read'][3]['address'], 0x7000 + 12)
+        self.assertEqual(request_data['blocks_to_read'][3]['length'], 4)
+        self.assertEqual(request_data['blocks_to_read'][4]['address'], 0x8000 + 16)
+        self.assertEqual(request_data['blocks_to_read'][4]['length'], 4)
+
+        v = [d2f(random.random()) for i in range(5)]
+
+        response = protocol.respond_read_memory_blocks([
+            (0x4000 + 0, struct.pack('<f', v[0])),
+            (0x5000 + 4, struct.pack('<f', v[1])),
+            (0x6000 + 8, struct.pack('<f', v[2])),
+            (0x7000 + 12, struct.pack('<f', v[3])),
+            (0x8000 + 16, struct.pack('<f', v[4]))
+        ])
+
+        req_record.complete(True, response)
+
+        for i in range(5):
+            self.assertEqual(entries3[i].value, v[i])
+
 
 class TestMemoryReaderComplexReadOperation(ScrutinyUnitTest):
     """

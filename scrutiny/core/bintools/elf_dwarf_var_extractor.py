@@ -844,7 +844,7 @@ class ElfDwarfVarExtractor:
             self.die2vartype_map[die] = basetype
 
     def _make_ptr_typename(self, bytesize: int) -> str:
-        return f'ptr{bytesize*8}'
+        return f'ptr{bytesize * 8}'
 
     def die_process_ptr_type(self, die: DIE) -> None:
         self._log_debug_process_die(die)
