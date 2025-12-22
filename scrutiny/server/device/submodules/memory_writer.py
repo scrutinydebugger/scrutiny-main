@@ -318,9 +318,9 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
                 allowed = True
                 if isinstance(update_request.entry, DatastoreVariableEntry):
                     allowed = self.memory_write_allowed
-                    if isinstance(update_request.entry, DatastorePointedVariableEntry):
+                    if isinstance(update_request.entry, DatastorePointedVariableEntry): # subclass
                         if update_request.entry.pointer_entry.get_value() == 0:
-                            allowed = False
+                            allowed = False # Do not write null pointers
                     address = update_request.entry.get_address()
                     # We don't check for bitfield size because the device will access the whole word anyway
                     size = update_request.entry.get_data_type().get_size_byte()
@@ -345,9 +345,11 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
                     self.entry_being_updated = update_request.entry
                     break
                 else:
-                    # Fails right away
+                    # Fails right away and try to get another request
                     update_request.complete(False)
 
+        # A datastore entry has been elected for write.
+        # Make an actual device request from it
         if self.entry_being_updated is not None and self.target_update_request_being_processed is not None:
             value_to_write = self.target_update_request_being_processed.get_value()
             if value_to_write is None:
@@ -365,7 +367,7 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
                         self.target_update_value_written = value_to_write
                         encoded_value, write_mask = self.entry_being_updated.encode(value_to_write)
                         request = self.protocol.write_single_memory_block(
-                            address=self.entry_being_updated.get_address(),
+                            address=self.entry_being_updated.get_address(), # Works with absolute and pointed address
                             data=encoded_value,
                             write_mask=write_mask
                         )
