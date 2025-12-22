@@ -464,13 +464,15 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
         memory_to_read = MemoryContent(retain_data=False)  # We'll use that for agglomeration
         while len(entries_in_request) + skipped_entries_count < total_size:
             # .entry because we use a wrapper for SortedSet
+            must_skip = False
             if vartype == VarType.AbsoluteAddress:
                 candidate_entry = self.watched_var_entries_sorted_by_address[self.var_read_cursor].entry
             elif vartype == VarType.PointedAddress:
                 candidate_entry = self.watched_pointed_var_entries[self.pointed_var_read_cursor].entry
+                if candidate_entry.pointer_entry.get_value() == 0:
+                    must_skip = True  # We refuse to read anything from a pointer to null
             else:
                 raise NotImplementedError("Unsupported variable type")
-            must_skip = False
 
             # Check for forbidden region. They disallow read and write
             is_in_forbidden_region = False

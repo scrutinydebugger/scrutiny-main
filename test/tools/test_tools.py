@@ -231,31 +231,40 @@ class TestRelativeTimebase(ScrutinyUnitTest):
             self.assertGreater(tb.get_nano(), 1e9)
             self.assertLess(tb.get_nano(), 2e9)
 
+
 class TestSortedSet(ScrutinyUnitTest):
     def test_sorted_set(self):
         class TestContainer:
             v: int
+
             def __init__(self, v: int) -> None:
                 self.v = v
+
             def __hash__(self) -> int:
                 return self.v.__hash__()  # For hash uniqueness
+
             def __eq__(self, other: object) -> bool:
                 if isinstance(other, self.__class__):
                     return self.v == other.v
                 return False
+
             def __ne__(self, other: object) -> bool:
                 if isinstance(other, self.__class__):
                     return self.v != other.v
                 return False
+
             def __lt__(self, other: "TestContainer") -> bool:
                 return self.v < other.v
+
             def __le__(self, other: "TestContainer") -> bool:
                 return self.v <= other.v
+
             def __gt__(self, other: "TestContainer") -> bool:
                 return self.v > other.v
+
             def __ge__(self, other: "TestContainer") -> bool:
                 return self.v >= other.v
-                
+
         s = SortedSet()
 
         obj1 = TestContainer(1)
@@ -266,12 +275,12 @@ class TestSortedSet(ScrutinyUnitTest):
         s.add(obj3)
         s.add(obj2)
 
-        self.assertEqual([x.v for x in s], [1,2,3])
+        self.assertEqual([x.v for x in s], [1, 2, 3])
 
         obj1.v = 100
 
         s = SortedSet(s)    # re-sort
-        self.assertEqual([x.v for x in s], [2,3,100])
+        self.assertEqual([x.v for x in s], [2, 3, 100])
 
         obj2_2 = TestContainer(2)
         s.add(obj2_2)
