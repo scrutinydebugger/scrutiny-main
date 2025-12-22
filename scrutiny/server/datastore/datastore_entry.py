@@ -25,7 +25,6 @@ from scrutiny.core import path_tools
 from scrutiny.core.basic_types import EmbeddedDataType, Endianness, WatchableType, RuntimePublishedValue
 from scrutiny.core.embedded_enum import EmbeddedEnum
 from scrutiny.core.variable import Variable
-from scrutiny.core.variable_location import AbsoluteLocation, PathPointedLocation
 from scrutiny.core.codecs import *
 from scrutiny.core.alias import Alias
 from scrutiny.tools.global_counters import global_i64_counter

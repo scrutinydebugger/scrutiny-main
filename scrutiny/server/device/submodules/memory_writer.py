@@ -318,9 +318,9 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
                 allowed = True
                 if isinstance(update_request.entry, DatastoreVariableEntry):
                     allowed = self.memory_write_allowed
-                    if isinstance(update_request.entry, DatastorePointedVariableEntry): # subclass
+                    if isinstance(update_request.entry, DatastorePointedVariableEntry):  # subclass
                         if update_request.entry.pointer_entry.get_value() == 0:
-                            allowed = False # Do not write null pointers
+                            allowed = False  # Do not write null pointers
                     address = update_request.entry.get_address()
                     # We don't check for bitfield size because the device will access the whole word anyway
                     size = update_request.entry.get_data_type().get_size_byte()
@@ -367,7 +367,7 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
                         self.target_update_value_written = value_to_write
                         encoded_value, write_mask = self.entry_being_updated.encode(value_to_write)
                         request = self.protocol.write_single_memory_block(
-                            address=self.entry_being_updated.get_address(), # Works with absolute and pointed address
+                            address=self.entry_being_updated.get_address(),  # Works with absolute and pointed address
                             data=encoded_value,
                             write_mask=write_mask
                         )
