@@ -474,16 +474,17 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
             else:
                 raise NotImplementedError("Unsupported variable type")
 
-            # Check for forbidden region. They disallow read and write
-            is_in_forbidden_region = False
-            candidate_region = MemoryRegion(start=candidate_entry.get_address(), size=candidate_entry.get_size())
-            for forbidden_region in self.forbidden_regions:
-                if candidate_region.touches(forbidden_region):
-                    is_in_forbidden_region = True
-                    break
+            if not must_skip:
+                # Check for forbidden region. They disallow read and write
+                is_in_forbidden_region = False
+                candidate_region = MemoryRegion(start=candidate_entry.get_address(), size=candidate_entry.get_size())
+                for forbidden_region in self.forbidden_regions:
+                    if candidate_region.touches(forbidden_region):
+                        is_in_forbidden_region = True
+                        break
 
-            if is_in_forbidden_region:
-                must_skip = True
+                if is_in_forbidden_region:
+                    must_skip = True
 
             # Check if must skip
             if must_skip:
@@ -555,7 +556,7 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
             entries_in_request = candidate_list
             self.rpv_read_cursor += 1
             if self.rpv_read_cursor >= len(self.watched_rpv_entries_sorted_by_id):
-                cursor_wrapped = True   # Indicates that we finished one round of round-robin for RPV entries. Times to check Variables
+                cursor_wrapped = True   # Indicates that we finished one round of round-robin for RPV entries. Times to check the next category
                 self.rpv_read_cursor = 0
 
         ids = [x.get_rpv().id for x in entries_in_request]
@@ -644,7 +645,7 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
                 except Exception as e:
                     tools.log_exception(self.logger, e, 'Response for ReadMemory read request is malformed and must be discarded.')
             else:
-                self.logger.warning('Response for ReadMemory has been refused with response code %s.' % response.code)
+                self.logger.warning(f'Response for ReadMemory has been refused with response code {response.code}.')
 
         elif self.active_raw_read_request is not None:
             if response.code != ResponseCode.OK:

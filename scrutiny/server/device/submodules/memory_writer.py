@@ -23,7 +23,8 @@ import scrutiny.server.protocol.commands as cmd
 import scrutiny.server.protocol.typing as protocol_typing
 from scrutiny.server.device.request_dispatcher import RequestDispatcher
 from scrutiny.server.datastore.datastore import Datastore
-from scrutiny.server.datastore.datastore_entry import DatastoreEntry, DatastoreRPVEntry, DatastoreVariableEntry, UpdateTargetRequest
+from scrutiny.server.datastore.datastore_entry import (
+    DatastoreEntry, DatastoreRPVEntry, DatastoreVariableEntry, UpdateTargetRequest, DatastorePointedVariableEntry)
 from scrutiny.core.codecs import Codecs, Encodable
 from scrutiny.core.basic_types import MemoryRegion
 
@@ -308,7 +309,7 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
         request: Optional[Request] = None
 
         if self.entry_being_updated is None:
-            while True:
+            while True:  # Continue until we get a request that we can fulfill.
                 update_request = self.datastore.pop_target_update_request()
 
                 if update_request is None:
@@ -316,8 +317,10 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
                 # Make sure we have the right to write to that memory region. Fails right away if we don't
                 allowed = True
                 if isinstance(update_request.entry, DatastoreVariableEntry):
-                    assert update_request.entry.__class__ != DatastoreEntry  # for mypy
                     allowed = self.memory_write_allowed
+                    if isinstance(update_request.entry, DatastorePointedVariableEntry):
+                        if update_request.entry.pointer_entry.get_value() == 0:
+                            allowed = False
                     address = update_request.entry.get_address()
                     # We don't check for bitfield size because the device will access the whole word anyway
                     size = update_request.entry.get_data_type().get_size_byte()
