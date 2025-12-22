@@ -948,6 +948,12 @@
         },
         "scrutiny/tools/queue.py": {
             "docstring": "An extension of the native Python queue with some helpers to deal more cleanly with empty/full conditions"
+        },
+        "scrutiny/core/pointer.py": {
+            "docstring": "Represent a pointer"
+        },
+        "scrutiny/core/variable_location.py": {
+            "docstring": "Contains the 2 types of variable location possible for a variable"
         }
     }
 }
