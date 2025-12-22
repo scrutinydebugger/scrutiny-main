@@ -9,6 +9,7 @@
 from scrutiny.tools import Throttler, SuppressException
 from scrutiny.tools.thread_enforcer import enforce_thread, register_thread, thread_func
 from scrutiny.tools.timebase import RelativeTimebase
+from sortedcontainers import SortedSet
 import time
 import math
 from test import logger
@@ -229,6 +230,52 @@ class TestRelativeTimebase(ScrutinyUnitTest):
             self.assertLess(tb.get_micro(), 2e6)
             self.assertGreater(tb.get_nano(), 1e9)
             self.assertLess(tb.get_nano(), 2e9)
+
+class TestSortedSet(ScrutinyUnitTest):
+    def test_sorted_set(self):
+        class TestContainer:
+            v: int
+            def __init__(self, v: int) -> None:
+                self.v = v
+            def __hash__(self) -> int:
+                return self.v.__hash__()  # For hash uniqueness
+            def __eq__(self, other: object) -> bool:
+                if isinstance(other, self.__class__):
+                    return self.v == other.v
+                return False
+            def __ne__(self, other: object) -> bool:
+                if isinstance(other, self.__class__):
+                    return self.v != other.v
+                return False
+            def __lt__(self, other: "TestContainer") -> bool:
+                return self.v < other.v
+            def __le__(self, other: "TestContainer") -> bool:
+                return self.v <= other.v
+            def __gt__(self, other: "TestContainer") -> bool:
+                return self.v > other.v
+            def __ge__(self, other: "TestContainer") -> bool:
+                return self.v >= other.v
+                
+        s = SortedSet()
+
+        obj1 = TestContainer(1)
+        obj2 = TestContainer(2)
+        obj3 = TestContainer(3)
+
+        s.add(obj1)
+        s.add(obj3)
+        s.add(obj2)
+
+        self.assertEqual([x.v for x in s], [1,2,3])
+
+        obj1.v = 100
+
+        s = SortedSet(s)    # re-sort
+        self.assertEqual([x.v for x in s], [2,3,100])
+
+        obj2_2 = TestContainer(2)
+        s.add(obj2_2)
+        self.assertEqual(len(s), 3)
 
 
 if __name__ == '__main__':

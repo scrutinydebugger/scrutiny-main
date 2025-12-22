@@ -373,6 +373,7 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
 
             # We want to read everything in a round robin scheme. But we need to read memory and RPV as much without discrimination
             # So we need to do   ReadMem1, ReadMem2, ReadMem3, ReadRPV1, ReadRPV2  **WRAP**  ReadMem1, ReadMem2, etc
+            # Also, pointed var needs to be read after vars with addresses (they include pointers)
 
             if self.actual_read_type == ReadType.Variable:
                 request, var_entries_in_request, wrapped_to_beginning = self._make_next_var_entries_request(VarType.AbsoluteAddress)
@@ -384,7 +385,7 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
 
                 # if there's nothing to send or that we completed one round
                 if wrapped_to_beginning or self.pending_request is None:
-                    # Resort because base address may have changed
+                    # Re-sort because base address may have changed
                     self.watched_pointed_var_entries = SortedSet(self.watched_pointed_var_entries)
                     self.actual_read_type = ReadType.PointedVariable
 
