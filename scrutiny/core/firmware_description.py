@@ -32,6 +32,13 @@ from scrutiny.tools.typing import *
 from scrutiny.tools import validation
 
 
+@dataclass(slots=True)
+class VarmapElement:
+    path: str
+    var_or_factory: Union[Variable, VariableFactory]
+    pointer_var: Optional[Tuple[str, Variable]]
+
+
 class GenerationInfoTypedDict(TypedDict, total=False):
     """
     Metadata about the environment of the file creator
@@ -398,9 +405,29 @@ class FirmwareDescription:
         if self.metadata.author is None:
             self.logger.warning('No valid author defined in %s' % self.METADATA_FILENAME)
 
-    def get_vars_for_datastore(self) -> Generator[Tuple[str, Union[Variable, VariableFactory]], None, None]:
+    def get_vars_for_datastore(self) -> Generator[VarmapElement, None, None]:
         """Returns all variables in this SFD with a Generator to avoid consuming memory."""
-        yield from self.varmap.iterate_vars()
+        # We start by returning the absolute addressable variables first.
+        # This allow the consumer to know about pointers before receiving pointed engtries
+        for path, var_or_factory in self.varmap.iterate_vars([VarMap.LocationType.ABSOLUTE]):
+            yield VarmapElement(
+                path=path,
+                var_or_factory=var_or_factory,
+                pointer_var=None
+            )
+
+        # Now that absolute address variables are given (including pointers)
+        # we can give the pointed variables
+        for path, var_or_factory in self.varmap.iterate_vars([VarMap.LocationType.POINTED]):
+            if isinstance(var_or_factory, VariableFactory):
+                raise NotImplementedError("Pointed variable factory not supported (yet)")
+            ptr = var_or_factory.get_pointer()
+
+            yield VarmapElement(
+                path=path,
+                var_or_factory=var_or_factory,
+                pointer_var=(ptr.pointer_path, self.varmap.get_var(ptr.pointer_path))
+            )
 
     def get_aliases_for_datastore(self, entry_type: Optional[WatchableType] = None) -> Generator[Tuple[str, Alias], None, None]:
         """Returns all alias in this SFD with a Generator to avoid consuming memory."""

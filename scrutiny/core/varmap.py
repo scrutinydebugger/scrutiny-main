@@ -11,6 +11,7 @@
 __all__ = ['VarMap']
 
 import json
+import enum
 import logging
 from pathlib import Path
 
@@ -55,6 +56,9 @@ VariableDict: TypeAlias = Dict[str, VariableEntry]
 
 
 class VarMap:
+    class LocationType(enum.Enum):
+        ABSOLUTE = enum.auto()
+        POINTED = enum.auto()
 
     class SerializableContentDict(TypedDict):
         endianness: str
@@ -185,6 +189,10 @@ class VarMap:
     @classmethod
     def _get_pointer_offset(cls, vardef: VariableEntry) -> int:
         return vardef['pointer']['offset']
+
+    @classmethod
+    def _has_array_segments(cls, vardef: VariableEntry) -> bool:
+        return 'array_segments' in vardef
 
     def _get_var_def(self, fullname: str) -> VariableEntry:
         if not self.has_var(fullname):
@@ -353,15 +361,32 @@ class VarMap:
 
         return outlist
 
-    def iterate_vars(self) -> Generator[Tuple[str, Union[Variable, VariableFactory]], None, None]:
-        for fullname in self._content.variables:
+    def iterate_vars(self, wanted_location_type: Sequence[LocationType]) -> Generator[Tuple[str, Union[Variable, VariableFactory]], None, None]:
+        for fullname, vardef in self._content.variables.items():
             parsed_path = ScrutinyPath.from_string(fullname)
-            vardef = self._get_var_def(fullname)
 
             if self._has_addr(vardef):
-                location = AbsoluteLocation(self._get_addr(vardef))
+                location_type = self.LocationType.ABSOLUTE
+            elif self._has_pointed_location(vardef):
+                location_type = self.LocationType.POINTED
             else:
-                continue  # todo: pointer
+                self._logger.warning(f'Unknown location type for {fullname}')
+                continue
+
+            if location_type not in wanted_location_type:
+                continue
+
+            location: Union[AbsoluteLocation, PathPointedLocation]
+            if location_type == self.LocationType.ABSOLUTE:
+                location = AbsoluteLocation(self._get_addr(vardef))
+
+            elif location_type == self.LocationType.POINTED:
+                location = PathPointedLocation(
+                    pointer_path=self._get_pointer_path(vardef),
+                    pointer_offset=self._get_pointer_offset(vardef)
+                )
+            else:
+                raise NotImplementedError("Unsupported location type")
 
             v = Variable(
                 vartype=self._get_type(vardef),
@@ -375,6 +400,7 @@ class VarMap:
 
             array_segments = vardef.get('array_segments', None)
             if array_segments is not None:
+                array_segments = self._get_array_segments(vardef)
                 factory = VariableFactory(
                     base_var=v,
                     access_name=fullname

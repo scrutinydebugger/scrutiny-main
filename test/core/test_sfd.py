@@ -32,9 +32,9 @@ class TestSFD(ScrutinyUnitTest):
 
         vars = list(sfd.get_vars_for_datastore())
         var_as_dict: Dict[str, Variable] = {}
-        for pair in vars:
-            display_path = pair[0]
-            var = pair[1]
+        for element in vars:
+            display_path = element.path
+            var = element.var_or_factory
             assert display_path not in var_as_dict
             var_as_dict[display_path] = var
 

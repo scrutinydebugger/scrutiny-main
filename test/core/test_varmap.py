@@ -94,7 +94,7 @@ class TestVarmap(ScrutinyUnitTest):
             with self.assertRaises(Exception):
                 list(candidate.get_enum_by_name('asd'))
 
-            all_vars = list(candidate.iterate_vars())
+            all_vars = list(candidate.iterate_vars([VarMap.LocationType.ABSOLUTE, VarMap.LocationType.POINTED]))
             self.assertEqual(len(all_vars), 3)
 
     def test_add_stuff_after_reload(self):
