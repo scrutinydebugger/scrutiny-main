@@ -19,6 +19,7 @@ from binascii import unhexlify
 import functools
 import math
 from scrutiny.tools.typing import *
+from test import logger
 
 from test.integration.integration_test import ScrutinyIntegrationTestWithTestSFD1
 
@@ -58,7 +59,7 @@ class TestReadWrite(ScrutinyIntegrationTestWithTestSFD1):
         self.wait_and_load_response(API.Command.Api2Client.WATCHABLE_UPDATE)  # Make sure to avoid race conditions
         self.process_watchable_update(nbr=2)
         self.assert_value_received(self.entry_s32, 130)
-
+    
     def test_write_read(self):
         all_entries: List[DatastoreEntry] = [self.entry_float32, self.entry_alias_float32, self.entry_rpv1000, self.entry_alias_rpv1000]
         self.init_device_memory(all_entries)
@@ -145,6 +146,51 @@ class TestReadWrite(ScrutinyIntegrationTestWithTestSFD1):
         self.process_watchable_update(nbr=len(all_entries) * 2)
         self.assert_value_received(self.entry_rpv1000, (-100 - 1) / 2)
         self.assert_value_received(self.entry_alias_rpv1000, -100)
+
+    def test_write_read_ptr(self):
+        all_entries_no_ptr: List[DatastoreEntry] = [ 
+            self.entry_ptr1_32bits,
+            self.entry_ptr1_pointee_offset0_fp32, 
+            self.entry_ptr1_pointee_offset4_u16, 
+            self.entry_float32, 
+            self.entry_u16]
+        self.init_device_memory(all_entries_no_ptr)
+
+        subscribe_cmd = {
+            'cmd': API.Command.Client2Api.SUBSCRIBE_WATCHABLE,
+            # One of each type
+            'watchables': [entry.get_display_path() for entry in all_entries_no_ptr]
+        }
+        logger.debug("Subscribing")
+        self.send_request(subscribe_cmd)
+        response = self.wait_and_load_response()
+        self.assert_no_error(response)
+
+        # Write ptr
+        write_req = {
+            'cmd': API.Command.Client2Api.WRITE_WATCHABLE,
+            'updates': [dict(watchable=self.entry_ptr1_32bits.get_id(), value=self.entry_float32.get_address(), batch_index=0)]
+        }
+
+        logger.debug("Writing pointer")
+        self.send_request(write_req)
+        self.assert_no_error(self.wait_and_load_response(cmd=API.Command.Api2Client.WRITE_WATCHABLE_RESPONSE))
+        self.assert_no_error(self.wait_and_load_response(cmd=API.Command.Api2Client.INFORM_WRITE_COMPLETION))
+
+        # Write float32 through pointee
+        write_req = {
+            'cmd': API.Command.Client2Api.WRITE_WATCHABLE,
+            'updates': [dict(watchable=self.entry_ptr1_pointee_offset0_fp32.get_id(), value=d2f(3.1415926), batch_index=0)]
+        }
+
+        logger.debug("Writing fp32 through pointer")
+        self.send_request(write_req)
+        self.assert_no_error(self.wait_and_load_response(cmd=API.Command.Api2Client.WRITE_WATCHABLE_RESPONSE))
+        self.assert_no_error(self.wait_and_load_response(cmd=API.Command.Api2Client.INFORM_WRITE_COMPLETION))
+
+        logger.debug("Reading memory to validate write")
+        data_fp32 = self.emulated_device.read_memory(self.entry_float32.get_address(), 4)
+        self.assertEqual(struct.unpack('<f', data_fp32), d2f(3.1415926))
 
     def test_write_read_bitfields(self):
         all_entries: List[DatastoreEntry] = [self.entry_alias_uint64_15_35, self.entry_u64, self.entry_u64_bit15_35]

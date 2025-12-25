@@ -37,7 +37,7 @@ Datatype = Literal[
     'uint8', 'uint16', 'uint32', 'uint64', 'uint128', 'uint256',
     'float8', 'float16', 'float32', 'float64', 'float128', 'float256',
     'cfloat8', 'cfloat16', 'cfloat32', 'cfloat64', 'cfloat128', 'cfloat256',
-    'boolean'
+    'boolean', 'ptr8', 'ptr16', 'ptr32', 'ptr64', 'ptr128', 'ptr256'
 ]
 CANInterfaceType = Literal['socketcan', 'vector']
 

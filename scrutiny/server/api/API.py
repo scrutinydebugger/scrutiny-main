@@ -237,7 +237,13 @@ class API:
         EmbeddedDataType.cfloat64: 'cfloat64',
         EmbeddedDataType.cfloat128: 'cfloat128',
         EmbeddedDataType.cfloat256: 'cfloat256',
-        EmbeddedDataType.boolean: 'boolean'
+        EmbeddedDataType.boolean: 'boolean',
+        EmbeddedDataType.ptr8: 'ptr8',
+        EmbeddedDataType.ptr16: 'ptr16',
+        EmbeddedDataType.ptr32: 'ptr32',
+        EmbeddedDataType.ptr64: 'ptr64',
+        EmbeddedDataType.ptr128: 'ptr128',
+        EmbeddedDataType.ptr256: 'ptr256'
     }
 
     APISTR_2_DATATYPE: Dict[api_typing.Datatype, EmbeddedDataType] = {v: k for k, v in DATATYPE_2_APISTR.items()}
