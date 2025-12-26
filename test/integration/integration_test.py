@@ -328,8 +328,8 @@ class ScrutinyIntegrationTestWithTestSFD1(ScrutinyIntegrationTest):
     entry_s64: DatastoreVariableEntry
     entry_u64: DatastoreVariableEntry
     entry_ptr32: DatastoreVariableEntry
-    entry_ptr1_pointee_offset0_fp32:DatastorePointedVariableEntry
-    entry_ptr1_pointee_offset4_u16:DatastorePointedVariableEntry
+    entry_ptr1_pointee_offset0_fp32: DatastorePointedVariableEntry
+    entry_ptr1_pointee_offset4_u16: DatastorePointedVariableEntry
 
     entry_u64_bit15_35: DatastoreVariableEntry
 
@@ -389,12 +389,14 @@ class ScrutinyIntegrationTestWithTestSFD1(ScrutinyIntegrationTest):
 
         self.entry_ptr1_32bits = cast(DatastoreVariableEntry, self.server.datastore.get_entry_by_display_path('/path1/path2/ptr1'))
         self.assert_datastore_variable_entry(self.entry_ptr1_32bits, 2000, EmbeddedDataType.ptr32)
-        
-        self.entry_ptr1_pointee_offset0_fp32 = cast(DatastorePointedVariableEntry, self.server.datastore.get_entry_by_display_path('/path1/path2/fp32_pointed_by_ptr1_offset0'))
+
+        self.entry_ptr1_pointee_offset0_fp32 = cast(DatastorePointedVariableEntry,
+                                                    self.server.datastore.get_entry_by_display_path('/path1/path2/fp32_pointed_by_ptr1_offset0'))
         self.assertIsInstance(self.entry_ptr1_pointee_offset0_fp32, DatastorePointedVariableEntry)
         self.assertIs(self.entry_ptr1_pointee_offset0_fp32.pointer_entry, self.entry_ptr1_32bits)
-        
-        self.entry_ptr1_pointee_offset4_u16 = cast(DatastorePointedVariableEntry, self.server.datastore.get_entry_by_display_path('/path1/path2/u16_pointed_by_ptr1_offset4'))
+
+        self.entry_ptr1_pointee_offset4_u16 = cast(DatastorePointedVariableEntry,
+                                                   self.server.datastore.get_entry_by_display_path('/path1/path2/u16_pointed_by_ptr1_offset4'))
         self.assertIsInstance(self.entry_ptr1_pointee_offset4_u16, DatastorePointedVariableEntry)
         self.assertIs(self.entry_ptr1_pointee_offset4_u16.pointer_entry, self.entry_ptr1_32bits)
 
