@@ -212,7 +212,7 @@ class TestReadWrite(ScrutinyIntegrationTestWithTestSFD1):
         self.assert_no_error(self.wait_and_load_response(cmd=API.Command.Api2Client.WRITE_WATCHABLE_RESPONSE))
         self.assert_no_error(self.wait_and_load_response(cmd=API.Command.Api2Client.INFORM_WRITE_COMPLETION))
 
-        data_u16 = self.emulated_device.read_memory(self.entry_u16.get_address(), 2)
+        data_u16 = self.emulated_device.read_memory(self.entry_u16.get_address(), 2)    # 16 bits
         self.assertEqual(struct.unpack('<H', data_u16)[0], 0x1234)
         self.process_watchable_update(len(entries_to_subscribe) * 2)
         self.assert_value_received(self.entry_u16, 0x1234)
