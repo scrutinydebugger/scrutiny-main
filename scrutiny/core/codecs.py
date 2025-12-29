@@ -147,7 +147,7 @@ class Codecs:
             val = int(val)
         signed = vartype.is_signed()
 
-        if vartype.is_integer():
+        if vartype.is_integer() or vartype.is_pointer():
             data_size = vartype.get_size_bit()
             if bitsize is not None:
                 data_size = min(data_size, bitsize)
