@@ -16,6 +16,7 @@ import sys
 from test import logger
 from test import ScrutinyUnitTest
 from scrutiny.core.bintools.elf_dwarf_var_extractor import ElfDwarfVarExtractor
+from scrutiny.core.basic_types import *
 
 from scrutiny.tools.typing import *
 
@@ -104,6 +105,9 @@ class TestElf2VarMapFromBuilds(ScrutinyUnitTest):
                 if f.read(4) != b'\x7fELF':
                     raise unittest.SkipTest("Toolchain does not produce an elf.")
 
+            # p = subprocess.Popen(['objdump', '-g', '--dwarf=info', outbin], stdout=subprocess.PIPE)
+            # stdout, stderr = p.communicate()
+            # print(stdout.decode('utf8'))
             extractor = ElfDwarfVarExtractor(outbin, cppfilt=cppfilt)
             return extractor.get_varmap()
 
@@ -530,6 +534,41 @@ int main(int argc, char* argv[])
                     self.assertEqual(array_segments[v].element_byte_size, 4)
 
     # endregion
+
+    @unittest.skipIf(
+        not has_elf_toolchain(compiler='g++', cppfilt='c++filt')
+        or not has_elf_toolchain(compiler='clang++', cppfilt='c++filt'),
+        "No toolchain available")
+    def test_extract_pointers(self):
+        code = """
+#include <cstdint>
+
+volatile uint32_t gu32;
+volatile uint32_t *gu32_ptr = &gu32;
+int main(int argc, char* argv[])
+{
+    return 0;
+}
+"""
+
+        for compiler in ['g++', 'clang++']:
+            for dwarf_version in [2, 3, 4]:
+                with self.subTest(f"{compiler}-dwarf{dwarf_version}"):
+                    varmap = self._make_varmap(code, dwarf_version=dwarf_version, compiler=compiler, cppfilt='c++filt')
+                    vpath = '/global/gu32_ptr'
+                    self.assertTrue(varmap.has_var(vpath))
+                    v = varmap.get_var(vpath)
+                    self.assertTrue(v.get_type().is_pointer())
+
+                    self.assertTrue(v.has_absolute_address())
+                    self.assertFalse(v.has_pointed_address())
+
+                    vpath = '/global/*gu32_ptr'
+                    self.assertTrue(varmap.has_var(vpath))
+                    v = varmap.get_var(vpath)
+                    self.assertEqual(v.get_type(), EmbeddedDataType.uint32)
+                    self.assertTrue(v.has_pointed_address())
+                    self.assertFalse(v.has_absolute_address())
 
 
 if __name__ == '__main__':

@@ -89,6 +89,7 @@ class DataTypeType(Enum):
     _boolean = (3 << 4)
     _cfloat = (4 << 4)
     _struct = (5 << 4)
+    _pointer = (6 << 4)
     _NA = 0xF
 
 
@@ -137,8 +138,14 @@ class EmbeddedDataType(Enum):
     cfloat128 = DataTypeType._cfloat.value | DataTypeSize._128.value
     cfloat256 = DataTypeType._cfloat.value | DataTypeSize._256.value
 
-    boolean = DataTypeType._boolean.value | DataTypeSize._8.value
+    ptr8 = DataTypeType._pointer.value | DataTypeSize._8.value
+    ptr16 = DataTypeType._pointer.value | DataTypeSize._16.value
+    ptr32 = DataTypeType._pointer.value | DataTypeSize._32.value
+    ptr64 = DataTypeType._pointer.value | DataTypeSize._64.value
+    ptr128 = DataTypeType._pointer.value | DataTypeSize._128.value
+    ptr256 = DataTypeType._pointer.value | DataTypeSize._256.value
 
+    boolean = DataTypeType._boolean.value | DataTypeSize._8.value
     struct = DataTypeType._struct.value | DataTypeSize._NA.value
     NA = DataTypeType._NA.value | DataTypeSize._NA.value
 
@@ -175,6 +182,11 @@ class EmbeddedDataType(Enum):
         if type_type in (DataTypeType._sint.value, DataTypeType._float.value, DataTypeType._cfloat.value):
             return True
         return False
+
+    def is_pointer(self) -> bool:
+        """Tells if the type is a pointer type (independent of the size)"""
+        type_type = self.value & 0xF0
+        return type_type == DataTypeType._pointer.value
 
     @classmethod
     def make(cls, datatype_type: DataTypeType, size: Union[int, DataTypeSize]) -> "EmbeddedDataType":

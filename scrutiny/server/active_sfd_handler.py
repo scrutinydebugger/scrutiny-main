@@ -21,7 +21,7 @@ from scrutiny.core.variable import Variable
 from scrutiny.core.variable_factory import VariableFactory
 from scrutiny.server.device.device_handler import DeviceHandler
 from scrutiny.server.datastore.datastore import Datastore
-from scrutiny.server.datastore.datastore_entry import DatastoreAliasEntry, DatastoreVariableEntry
+from scrutiny.server.datastore.datastore_entry import DatastoreAliasEntry, DatastoreVariableEntry, DatastorePointedVariableEntry
 from scrutiny import tools
 
 from scrutiny.tools.typing import *
@@ -137,15 +137,20 @@ class ActiveSFDHandler:
             self.sfd = SFDStorage.get(firmware_id)
 
             # populate datastore
-            for fullname, vardef in self.sfd.get_vars_for_datastore():
+            for element in self.sfd.get_vars_for_datastore():
+                # Garantee that absolute addresses comes before pointed addresses
                 try:
-                    if isinstance(vardef, Variable):
-                        entry_var = DatastoreVariableEntry(display_path=fullname, variable_def=vardef)
-                        self.datastore.add_entry(entry_var)
-                    elif isinstance(vardef, VariableFactory):
-                        self.datastore.register_var_factory(vardef)
+                    if isinstance(element.var_or_factory, Variable):
+                        self._add_var_to_datastore(
+                            display_path=element.path,
+                            var=element.var_or_factory,
+                            pointer_info=element.pointer_var
+                        )
+
+                    elif isinstance(element.var_or_factory, VariableFactory):
+                        self.datastore.register_var_factory(element.var_or_factory)
                 except Exception as e:
-                    tools.log_exception(self.logger, e, f"Cannot add entry {fullname}", str_level=logging.WARNING)
+                    tools.log_exception(self.logger, e, f"Cannot add entry {element.path}", str_level=logging.WARNING)
 
             for fullname, alias in self.sfd.get_aliases_for_datastore():
                 try:
@@ -164,6 +169,31 @@ class ActiveSFDHandler:
         else:
             if verbose:
                 self.logger.warning('No SFD file installed for device with firmware ID %s' % firmware_id)
+
+    def _add_var_to_datastore(self,
+                              display_path: str,
+                              var: Variable,
+                              pointer_info: Optional[Tuple[str, Variable]],
+                              ) -> None:
+        """Add a variable reads from the varmap into the datastore. Handle absolute locations and pointer location"""
+        if var.has_absolute_address():
+            entry_var = DatastoreVariableEntry(display_path=display_path, variable_def=var)
+        elif var.has_pointed_address():
+            assert pointer_info is not None
+            pointer_display_path, pointer_var = pointer_info
+            # The pointer entry is expected to be in the datastore already
+            pointer_entry = self.datastore.get_entry_by_display_path(pointer_display_path)
+            if not isinstance(pointer_entry, DatastoreVariableEntry):
+                raise ValueError(f"Variable {display_path} pointed by something that is not a variable ({pointer_var.__class__.__name__})")
+
+            entry_var = DatastorePointedVariableEntry(
+                display_path=display_path,
+                variable_def=var,
+                pointer_entry=pointer_entry)
+        else:
+            raise NotImplementedError(f"Gotten a variable ({display_path}) with an unsupported type of addressing")
+
+        self.datastore.add_entry(entry_var)
 
     def get_loaded_sfd(self) -> Optional[FirmwareDescription]:
         """Returns the loaded Firmware Description. None is returned if none is loaded"""

@@ -23,7 +23,7 @@ import math
 from scrutiny.core.basic_types import Endianness, EmbeddedDataType
 from scrutiny.tools.typing import *
 
-Encodable = Union[int, float, bool]
+Encodable: TypeAlias = Union[int, float, bool]
 
 
 class BaseCodec(ABC):
@@ -123,14 +123,16 @@ class Codecs:
     def get(vartype: EmbeddedDataType, endianness: Endianness) -> BaseCodec:
         datasize = vartype.get_size_byte()
 
-        if vartype in [EmbeddedDataType.sint8, EmbeddedDataType.sint16, EmbeddedDataType.sint32, EmbeddedDataType.sint64]:
+        if vartype in (EmbeddedDataType.sint8, EmbeddedDataType.sint16, EmbeddedDataType.sint32, EmbeddedDataType.sint64):
             return SIntCodec(datasize, endianness=endianness)
-        elif vartype in [EmbeddedDataType.uint8, EmbeddedDataType.uint16, EmbeddedDataType.uint32, EmbeddedDataType.uint64]:
+        elif vartype in (EmbeddedDataType.uint8, EmbeddedDataType.uint16, EmbeddedDataType.uint32, EmbeddedDataType.uint64):
             return UIntCodec(datasize, endianness=endianness)
-        elif vartype in [EmbeddedDataType.float64, EmbeddedDataType.float32]:
+        elif vartype in (EmbeddedDataType.float64, EmbeddedDataType.float32):
             return FloatCodec(datasize, endianness=endianness)
-        elif vartype in [EmbeddedDataType.boolean]:
+        elif vartype in (EmbeddedDataType.boolean,):
             return BoolCodec()
+        elif vartype in (EmbeddedDataType.ptr32, EmbeddedDataType.ptr8, EmbeddedDataType.ptr16, EmbeddedDataType.ptr64):
+            return UIntCodec(datasize, endianness=endianness)
 
         raise NotImplementedError("No codec defined for variable type %s" % vartype)
 
@@ -145,7 +147,7 @@ class Codecs:
             val = int(val)
         signed = vartype.is_signed()
 
-        if vartype.is_integer():
+        if vartype.is_integer() or vartype.is_pointer():
             data_size = vartype.get_size_bit()
             if bitsize is not None:
                 data_size = min(data_size, bitsize)

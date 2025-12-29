@@ -10,6 +10,10 @@ from scrutiny.server.device.device_handler import DeviceHandler
 from scrutiny.server.active_sfd_handler import ActiveSFDHandler
 from scrutiny.server.datastore.datastore import Datastore
 from scrutiny.server.sfd_storage import SFDStorage
+from scrutiny.core.varmap import VarMap
+from scrutiny.core.firmware_description import FirmwareDescription, SFDMetadata, SFDGenerationInfo
+from scrutiny.core.basic_types import *
+from scrutiny.core.variable_location import AbsoluteLocation, PathPointedLocation
 from scrutiny.core.basic_types import WatchableType
 from scrutiny.core.demo_device_sfd import DEMO_DEVICE_FIRMWAREID_STR
 from test.artifacts import get_artifact
@@ -31,7 +35,7 @@ class StubbedDeviceHandler:
         return self.device_id
 
 
-class TestActiveSFDHandler(ScrutinyUnitTest):
+class TestActiveSFDHandlerFromFile(ScrutinyUnitTest):
 
     def setUp(self):
         SFDStorage.use_temp_folder()
@@ -113,6 +117,51 @@ class TestActiveSFDHandler(ScrutinyUnitTest):
         self.assertIsNotNone(self.sfd_handler.get_loaded_sfd())
         self.sfd_handler.process()
         self.assertIsNotNone(self.sfd_handler.get_loaded_sfd())
+
+
+class TestActiveSFDHandler(ScrutinyUnitTest):
+    def test_load_pointers_properly(self):
+        datastore = Datastore()
+        sfd_handler = ActiveSFDHandler(
+            device_handler=StubbedDeviceHandler(device_id=None),
+            datastore=datastore,
+            autoload=False)
+
+        varmap = VarMap()
+        varmap.register_base_type('float', EmbeddedDataType.float32)
+        varmap.register_base_type('int16_t', EmbeddedDataType.sint16)
+        varmap.register_base_type('ptr64', EmbeddedDataType.ptr64)
+        varmap.add_variable(
+            path_segments=['a', 'b', 'pointee1'],
+            location=PathPointedLocation(pointer_path='/a/b/pointer', pointer_offset=0),
+            original_type_name='float'
+        )
+        varmap.add_variable(
+            path_segments=['a', 'b', 'pointer'],
+            location=AbsoluteLocation(0x1000),
+            original_type_name='ptr64'
+        )
+        varmap.add_variable(
+            path_segments=['a', 'b', 'pointee2'],
+            location=PathPointedLocation(pointer_path='/a/b/pointer', pointer_offset=4),
+            original_type_name='int16_t'
+        )
+
+        sfd = FirmwareDescription(
+            firmwareid=bytes([0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3]),
+            metadata=SFDMetadata("unittest", "unittest", "v0", SFDGenerationInfo(None, None, None, None)),
+            varmap=varmap
+        )
+
+        with SFDStorage.use_temp_folder():
+            SFDStorage.install_sfd(sfd)
+            self.assertIsNone(sfd_handler.get_loaded_sfd())
+            self.assertEqual(datastore.get_entries_count(), 0)
+
+            sfd_handler.request_load_sfd(sfd.get_firmware_id_ascii())
+            sfd_handler.process()
+            self.assertIsNotNone(sfd_handler.get_loaded_sfd())
+            self.assertEqual(datastore.get_entries_count(), 3)
 
 
 if __name__ == '__main__':

@@ -19,6 +19,7 @@ from scrutiny.server.protocol import Protocol, Request, Response
 import scrutiny.server.protocol.typing as protocol_typing
 from scrutiny.server.protocol.commands import *
 from scrutiny.core.variable import *
+from scrutiny.core.variable_location import PathPointedLocation
 from scrutiny.core.variable_factory import VariableFactory
 from scrutiny.core.array import UntypedArray
 from scrutiny.core.basic_types import *
@@ -56,11 +57,19 @@ def generate_random_value(datatype: EmbeddedDataType) -> Encodable:
     return codec.decode(bytestr)
 
 
-def make_dummy_var_entries(address, n, vartype=EmbeddedDataType.float32):
+def make_dummy_var_entries(address, n, vartype=EmbeddedDataType.float32, subpath=[]):
     for i in range(n):
-        dummy_var = Variable(vartype=vartype, path_segments=['a', 'b', 'c', 'dummy'],
+        dummy_var = Variable(vartype=vartype, path_segments=subpath + ['dummy_var_%d' % i],
                              location=address + i * vartype.get_size_bit() // 8, endianness=Endianness.Little)
-        entry = DatastoreVariableEntry('path_%d' % i, variable_def=dummy_var)
+        entry = DatastoreVariableEntry(dummy_var.get_fullname(), variable_def=dummy_var)
+        yield entry
+
+
+def make_dummy_pointed_var_entries(pointers, vartype=EmbeddedDataType.float32, subpath=[]):
+    for i in range(len(pointers)):
+        dummy_var = Variable(vartype=vartype, path_segments=subpath + ['dummy_pointed_var_%d' % i],
+                             location=PathPointedLocation(pointers[i].get_display_path(), i * 4), endianness=Endianness.Little)
+        entry = DatastorePointedVariableEntry(dummy_var.get_fullname(), variable_def=dummy_var, pointer_entry=pointers[i])
         yield entry
 
 
@@ -140,7 +149,7 @@ class TestMemoryReaderBasicReadOperation(ScrutinyUnitTest):
                     block_data = struct.pack('<' + 'f' * expected_block.nfloat, *values)    # Make memory dump
                     block_list.append((expected_block.address, block_data))
 
-                response = protocol.respond_read_memory_blocks(block_list);
+                response = protocol.respond_read_memory_blocks(block_list)
                 req_record.complete(success=True, response=response)
                 # By completing the request. Success callback should be called making the datastore reader update the datastore
 
@@ -348,6 +357,133 @@ class TestMemoryReaderBasicReadOperation(ScrutinyUnitTest):
                 response = protocol.respond_read_memory_blocks(response_block)
                 self.assertLessEqual(response.data_size(), max_response_payload_size)    # That's the main test
                 record.complete(success=True, response=response)
+
+    def test_read_pointer(self):
+        nfloat1 = 10
+        nfloat2 = 20
+        npointers = 5
+        address1 = 0x1000
+        address2 = 0x2000
+        address3 = 0x3000
+        ds = Datastore()
+        entries1 = list(make_dummy_var_entries(address=address1, n=nfloat1, vartype=EmbeddedDataType.float32, subpath=['entries1']))
+        entries2 = list(make_dummy_var_entries(address=address2, n=nfloat2, vartype=EmbeddedDataType.float32, subpath=['entries2']))
+        pointers3 = list(make_dummy_var_entries(address=address3, n=npointers, vartype=EmbeddedDataType.ptr64, subpath=['pointers3']))
+        entries3 = list(make_dummy_pointed_var_entries(pointers=pointers3, vartype=EmbeddedDataType.float32, subpath=['entries3']))
+        all_entries_no_pointers = entries1 + entries2 + entries3
+        ds.add_entries(all_entries_no_pointers)
+        ds.add_entries(pointers3)   # Not necessary. Just to be formal
+
+        dispatcher = RequestDispatcher()
+        protocol = Protocol(1, 0)
+        reader = MemoryReader(protocol, dispatcher=dispatcher, datastore=ds, request_priority=0)
+        reader.set_max_request_payload_size(1024)  # Non-limiting here
+        reader.set_max_response_payload_size(1024)  # Non-limiting here
+        reader.start()
+
+        for entry in all_entries_no_pointers:
+            # Pointer should be watched automatically.
+            # Handled by the datastore. We rely on this, this is also tested in the datastore test suite
+            ds.start_watching(entry, 'unittest')
+
+        reader.process()
+        dispatcher.process()
+        req_record = dispatcher.pop_next()
+        self.assertIsNotNone(req_record)
+        request_data = cast(protocol_typing.Request.MemoryControl.Read, protocol.parse_request(req_record.request))
+        self.assertEqual(len(request_data['blocks_to_read']), 3)
+        self.assertEqual(request_data['blocks_to_read'][0]['address'], address1)
+        self.assertEqual(request_data['blocks_to_read'][0]['length'], nfloat1 * 4)
+        self.assertEqual(request_data['blocks_to_read'][1]['address'], address2)
+        self.assertEqual(request_data['blocks_to_read'][1]['length'], nfloat2 * 4)
+        self.assertEqual(request_data['blocks_to_read'][2]['address'], address3)
+        self.assertEqual(request_data['blocks_to_read'][2]['length'], npointers * 8)  # Using ptr64
+
+        pointer_addresses = [0x4000, 0x5000, 0x6000, 0x7000, 0x8000]
+        self.assertEqual(npointers, len(pointer_addresses))
+
+        response = protocol.respond_read_memory_blocks([
+            (address1, b'\x00' * (nfloat1 * 4)),
+            (address2, b'\x00' * (nfloat2 * 4)),
+            (address3, struct.pack('<QQQQQ', *pointer_addresses))   # Q because we use ptr64
+        ])
+        req_record.complete(True, response)
+        # Make sure the pointer entries were updated by the reader
+        for i in range(len(pointer_addresses)):
+            self.assertEqual(pointers3[i].value, pointer_addresses[i])
+
+        reader.process()    # Expect that the reader will go read the pointed variables next.
+        dispatcher.process()
+        req_record = dispatcher.pop_next()
+        self.assertIsNotNone(req_record)
+
+        request_data = cast(protocol_typing.Request.MemoryControl.Read, protocol.parse_request(req_record.request))
+        self.assertEqual(len(request_data['blocks_to_read']), npointers)
+        for i in range(npointers):
+            # We add + 4*i because the make_dummy_pointed.. functions offset each entries by the size of the element.
+            # So, if we create 3 elements of 8 bytes, they will have offset : 0, 8, 16
+            # In this case we have 5 elements of 4 bytes (float)
+            self.assertEqual(request_data['blocks_to_read'][i]['address'], pointer_addresses[i] + 4 * i)
+            self.assertEqual(request_data['blocks_to_read'][i]['length'], 4)
+
+        v = [d2f(random.random()) for i in range(5)]    # Random values for the pointed vars
+
+        response = protocol.respond_read_memory_blocks([
+            (pointer_addresses[0] + 0, struct.pack('<f', v[0])),
+            (pointer_addresses[1] + 4, struct.pack('<f', v[1])),
+            (pointer_addresses[2] + 8, struct.pack('<f', v[2])),
+            (pointer_addresses[3] + 12, struct.pack('<f', v[3])),
+            (pointer_addresses[4] + 16, struct.pack('<f', v[4]))
+        ])
+
+        req_record.complete(True, response)
+
+        # The pointed vars should be updated now
+        for i in range(5):
+            self.assertEqual(entries3[i].value, v[i])
+
+    def test_dont_read_null_pointer(self):
+        ds = Datastore()
+        pointer = next(make_dummy_var_entries(address=0x1000, n=1, vartype=EmbeddedDataType.ptr64, subpath=['ptr']))
+        entries = list(make_dummy_pointed_var_entries(pointers=[pointer, pointer], vartype=EmbeddedDataType.sint16, subpath=['val']))
+
+        ds.add_entries(entries)  # pointers are automatically added
+
+        dispatcher = RequestDispatcher()
+        protocol = Protocol(1, 0)
+        reader = MemoryReader(protocol, dispatcher=dispatcher, datastore=ds, request_priority=0)
+        reader.set_max_request_payload_size(1024)  # Non-limiting here
+        reader.set_max_response_payload_size(1024)  # Non-limiting here
+        reader.start()
+
+        for entry in entries:
+            ds.start_watching(entry, 'unittest')
+
+        reader.process()        # Should emit a first request for the pointer
+        dispatcher.process()    # Should dispatch the emitted request
+        req_record = dispatcher.pop_next()
+        self.assertIsNotNone(req_record)
+
+        request_data = cast(protocol_typing.Request.MemoryControl.Read, protocol.parse_request(req_record.request))
+        self.assertEqual(len(request_data['blocks_to_read']), 1)
+        self.assertEqual(request_data['blocks_to_read'][0]['address'], 0x1000)
+        self.assertEqual(request_data['blocks_to_read'][0]['length'], 8)    # ptr64
+
+        response = protocol.respond_read_memory_blocks([
+            (0x1000, struct.pack('<Q', 0))  # Set the pointer to null
+        ])
+        req_record.complete(True, response)
+
+        reader.process()
+        dispatcher.process()
+
+        req_record = dispatcher.pop_next()
+        self.assertIsNotNone(req_record)
+
+        request_data = cast(protocol_typing.Request.MemoryControl.Read, protocol.parse_request(req_record.request))
+        self.assertEqual(len(request_data['blocks_to_read']), 1)
+        self.assertEqual(request_data['blocks_to_read'][0]['address'], 0x1000)
+        self.assertEqual(request_data['blocks_to_read'][0]['length'], 8)    # ptr64
 
 
 class TestMemoryReaderComplexReadOperation(ScrutinyUnitTest):

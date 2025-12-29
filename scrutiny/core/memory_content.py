@@ -48,7 +48,7 @@ class Cluster:
             raise IndexError('Offset cannot be negative %d' % offset)
 
         if offset + size > self.size:
-            raise IndexError('Index out of range 0x%x to 0x%x' % (offset, offset + size))
+            raise IndexError('Index out of range 0x%x to 0x%x' % (offset, offset + size - 1))
 
         data_out: bytes
         if self.has_data:
@@ -209,7 +209,10 @@ class MemoryContent:
         addr_start = self.sorted_keys[x - 1]
         offset = addr - addr_start
 
-        return self.clusters[addr_start].read(offset, length)
+        try:
+            return self.clusters[addr_start].read(offset, length)
+        except IndexError as e:
+            raise IndexError(f"Invalid reading range : 0x{addr_start+offset:x} to 0x{addr_start+offset+length-1:x}") from e
 
     def write(self, addr: int, data: Union[bytearray, bytes]) -> None:
         cluster = Cluster(start_addr=addr, size=len(data), data=data, has_data=self.retain_data)

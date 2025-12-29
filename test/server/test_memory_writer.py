@@ -15,6 +15,7 @@ from scrutiny.server.device.submodules.memory_writer import MemoryWriter
 from scrutiny.server.device.request_dispatcher import RequestDispatcher
 from scrutiny.server.protocol import Protocol, Response
 from scrutiny.server.timebase import server_timebase
+from scrutiny.core.variable_location import PathPointedLocation
 
 from scrutiny.server.protocol.commands import *
 import scrutiny.server.protocol.typing as protocol_typing
@@ -34,6 +35,14 @@ def make_dummy_var_entries(address, n, vartype=EmbeddedDataType.float32) -> Gene
         dummy_var = Variable(vartype=vartype, path_segments=['a', 'b', 'c', 'dummy'],
                              location=address + i * vartype.get_size_bit() // 8, endianness=Endianness.Little)
         entry = DatastoreVariableEntry('path_%d' % i, variable_def=dummy_var)
+        yield entry
+
+
+def make_dummy_pointed_var_entries(pointers, vartype=EmbeddedDataType.float32, subpath=[]):
+    for i in range(len(pointers)):
+        dummy_var = Variable(vartype=vartype, path_segments=subpath + ['dummy_pointed_var_%d' % i],
+                             location=PathPointedLocation(pointers[i].get_display_path(), i * 4), endianness=Endianness.Little)
+        entry = DatastorePointedVariableEntry(dummy_var.get_fullname(), variable_def=dummy_var, pointer_entry=pointers[i])
         yield entry
 
 
@@ -102,6 +111,111 @@ class TestMemoryWriterBasicReadOperation(ScrutinyUnitTest):
 
         self.assertTrue(update_request.is_complete())
         self.assertTrue(update_request.is_success())
+
+    def test_simple_pointed_var_write(self):
+        npointers = 1
+        pointer_address = 0x1000
+        pointee_address = 0x2000
+        val_to_write = 3.1415926
+        ds = Datastore()
+        pointers = list(make_dummy_var_entries(address=pointer_address, n=npointers, vartype=EmbeddedDataType.ptr32))
+        entries = list(make_dummy_pointed_var_entries(pointers=pointers, vartype=EmbeddedDataType.float64))
+        ds.add_entries(entries)  # Will autoadd the pointer
+        dispatcher = RequestDispatcher()
+
+        protocol = Protocol(1, 0)
+        protocol.set_address_size_bits(32)
+        writer = MemoryWriter(protocol, dispatcher=dispatcher, datastore=ds, request_priority=0)
+        writer.set_max_request_payload_size(1024)  # big enough for all of them
+        writer.set_max_response_payload_size(1024)  # big enough for all of them
+        writer.start()
+
+        pointers[0].set_value(pointee_address)
+        entry_to_write = entries[0]
+        writer.process()
+        dispatcher.process()
+        self.assertIsNone(dispatcher.pop_next())
+        entry_to_write.set_value(0)
+        update_request = ds.update_target_value(entry_to_write, val_to_write, no_callback)
+        self.assertTrue(ds.has_pending_target_update())
+        writer.process()
+        dispatcher.process()
+
+        record = dispatcher.pop_next()
+        self.assertIsNotNone(record)
+
+        self.assertEqual(record.request.command, MemoryControl)
+        self.assertEqual(MemoryControl.Subfunction(record.request.subfn), MemoryControl.Subfunction.Write)
+
+        request_data = cast(protocol_typing.Request.MemoryControl.Write, protocol.parse_request(record.request))
+
+        self.assertEqual(len(request_data['blocks_to_write']), 1)
+        self.assertEqual(request_data['blocks_to_write'][0]['address'], pointee_address)
+        self.assertEqual(request_data['blocks_to_write'][0]['data'], struct.pack('<d', val_to_write))
+
+        block_in_response = []
+        for block in request_data['blocks_to_write']:
+            block_in_response.append((block['address'], len(block['data'])))
+
+        response = protocol.respond_write_memory_blocks(block_in_response)
+
+        record.complete(success=True, response=response)
+        self.assertFalse(ds.has_pending_target_update())
+
+        self.assertTrue(update_request.is_complete())
+        self.assertTrue(update_request.is_success())
+
+    def test_do_not_write_null_pointers(self):
+        npointers = 1
+        pointer_address = 0x1000
+        pointee_address = 0x2000
+        ds = Datastore()
+        pointers = list(make_dummy_var_entries(address=pointer_address, n=npointers, vartype=EmbeddedDataType.ptr32))
+        entries = list(make_dummy_pointed_var_entries(pointers=pointers, vartype=EmbeddedDataType.float64))
+        ds.add_entries(entries)  # Will autoadd the pointer
+        dispatcher = RequestDispatcher()
+
+        protocol = Protocol(1, 0)
+        protocol.set_address_size_bits(32)
+        writer = MemoryWriter(protocol, dispatcher=dispatcher, datastore=ds, request_priority=0)
+        writer.set_max_request_payload_size(1024)  # big enough for all of them
+        writer.set_max_response_payload_size(1024)  # big enough for all of them
+        writer.start()
+
+        pointers[0].set_value(0)    # Null pointer.
+        entry_to_write = entries[0]
+        entry_to_write.set_value(0)
+        writer.process()
+        dispatcher.process()
+        self.assertIsNone(dispatcher.pop_next())
+
+        @dataclass
+        class CallbackData:
+            called: bool = False
+            success: bool = False
+            entry: Optional[DatastoreEntry] = None
+            timestamp: float = 0
+
+        cbdata = CallbackData()
+
+        def update_callback(success, entry, timestamp):
+            cbdata.called = True
+            cbdata.success = success
+            cbdata.entry = entry
+            cbdata.timestamp = timestamp
+
+        update_request = ds.update_target_value(entry_to_write, 1234, update_callback)
+        self.assertTrue(ds.has_pending_target_update())
+        self.assertFalse(update_request.is_complete())
+        writer.process()        # Will deny the update.
+        dispatcher.process()    # Make sure we get the request if we fail to deny
+        self.assertTrue(update_request.is_complete())
+        self.assertTrue(update_request.is_failed())
+        self.assertIsNone(dispatcher.pop_next())  # Nothing went out
+
+        self.assertEqual(cbdata.called, True)
+        self.assertEqual(cbdata.success, False)
+        self.assertIs(cbdata.entry, entry_to_write)
 
     def test_var_write_impossible_value(self):
         nfloat = 1

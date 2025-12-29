@@ -14,7 +14,7 @@ import json
 from test import ScrutinyUnitTest
 from scrutiny.core.varmap import VarMap
 from scrutiny.core.basic_types import Endianness, EmbeddedDataType
-from scrutiny.core.variable import VariableLocation
+from scrutiny.core.variable import AbsoluteLocation, PathPointedLocation
 from scrutiny.core.array import UntypedArray
 from scrutiny.core.embedded_enum import EmbeddedEnum
 
@@ -32,15 +32,15 @@ class TestVarmap(ScrutinyUnitTest):
             varmap.register_base_type('uint32_t', EmbeddedDataType.uint64)  # name collision and different type. not allowed
         varmap.register_base_type('int32_t', EmbeddedDataType.sint32)
 
-        varmap.add_variable(['aaa', 'bbb', 'ccc'], VariableLocation(0x1234), original_type_name='float')
-        varmap.add_variable(['aaa', 'bbb', 'ddd', 'eee'], VariableLocation(0x5555), original_type_name='uint32_t', bitsize=4, bitoffset=6)
-        varmap.add_variable(['aaa', 'bbb', 'ddd', 'fff'], VariableLocation(0x8000), original_type_name='int32_t',
+        varmap.add_variable(['aaa', 'bbb', 'ccc'], AbsoluteLocation(0x1234), original_type_name='float')
+        varmap.add_variable(['aaa', 'bbb', 'ddd', 'eee'], AbsoluteLocation(0x5555), original_type_name='uint32_t', bitsize=4, bitoffset=6)
+        varmap.add_variable(['aaa', 'bbb', 'ddd', 'fff'], AbsoluteLocation(0x8000), original_type_name='int32_t',
                             bitsize=4, bitoffset=6, enum=EmbeddedEnum("my_enum", {'aaa': 100, 'bbb': 200}))
 
         with self.assertRaises(Exception):
-            varmap.add_variable(['a'], VariableLocation(0), original_type_name='uint32_t')
+            varmap.add_variable(['a'], AbsoluteLocation(0), original_type_name='uint32_t')
         with self.assertRaises(Exception):
-            varmap.add_variable(['b'], VariableLocation(1110), original_type_name='asdasd')
+            varmap.add_variable(['b'], AbsoluteLocation(1110), original_type_name='asdasd')
 
         self.assertTrue(varmap.has_var('/aaa/bbb/ccc'))
         self.assertTrue(varmap.has_var('/aaa/bbb/ddd/eee'))
@@ -94,7 +94,7 @@ class TestVarmap(ScrutinyUnitTest):
             with self.assertRaises(Exception):
                 list(candidate.get_enum_by_name('asd'))
 
-            all_vars = list(candidate.iterate_vars())
+            all_vars = list(candidate.iterate_vars([VarMap.LocationType.ABSOLUTE, VarMap.LocationType.POINTED]))
             self.assertEqual(len(all_vars), 3)
 
     def test_add_stuff_after_reload(self):
@@ -103,15 +103,15 @@ class TestVarmap(ScrutinyUnitTest):
         varmap.register_base_type('float', EmbeddedDataType.float32)
         varmap.register_base_type('uint32_t', EmbeddedDataType.uint32)
 
-        varmap.add_variable(['aaa', 'bbb', 'ccc'], VariableLocation(0x1234), original_type_name='float')
-        varmap.add_variable(['aaa', 'bbb', 'ddd', 'eee'], VariableLocation(0x5555), original_type_name='uint32_t', bitsize=4, bitoffset=6)
-        varmap.add_variable(['aaa', 'bbb', 'ddd', 'fff'], VariableLocation(0x8000), original_type_name='uint32_t',
+        varmap.add_variable(['aaa', 'bbb', 'ccc'], AbsoluteLocation(0x1234), original_type_name='float')
+        varmap.add_variable(['aaa', 'bbb', 'ddd', 'eee'], AbsoluteLocation(0x5555), original_type_name='uint32_t', bitsize=4, bitoffset=6)
+        varmap.add_variable(['aaa', 'bbb', 'ddd', 'fff'], AbsoluteLocation(0x8000), original_type_name='uint32_t',
                             bitsize=4, bitoffset=6, enum=EmbeddedEnum("my_enum", {'aaa': 100, 'bbb': 200}))
 
         varmap2 = VarMap.from_json(varmap.get_json())
 
         varmap2.register_base_type('int32_t', EmbeddedDataType.sint32)
-        varmap2.add_variable(['aaa', 'bbb', 'ddd', 'xxx'], VariableLocation(0x8004), original_type_name='int32_t',
+        varmap2.add_variable(['aaa', 'bbb', 'ddd', 'xxx'], AbsoluteLocation(0x8004), original_type_name='int32_t',
                              bitsize=4, bitoffset=6, enum=EmbeddedEnum("my_enum2", {'aaa2': 100, 'bbb2': 200}))
 
         xxx = varmap2.get_var('/aaa/bbb/ddd/xxx')
@@ -187,9 +187,26 @@ class TestVarmap(ScrutinyUnitTest):
         varmap.set_endianness(Endianness.Big)
         self.assertEqual(varmap.get_endianness(), Endianness.Big)
         varmap.register_base_type('float', EmbeddedDataType.float32)
-        varmap.add_variable(['aaa', 'bbb', 'ccc', 'ddd'], VariableLocation(0x1234), original_type_name='float', array_segments={
+        varmap.add_variable(['aaa', 'bbb', 'ccc', 'ddd'], AbsoluteLocation(0x1234), original_type_name='float', array_segments={
             '/aaa/bbb': UntypedArray((3, 3), 4),
             '/aaa/bbb/ccc/ddd': UntypedArray((5, 6, 7), 4)
         })
 
         varmap.get_var('/aaa/bbb[1][2]/ccc/ddd[2][3][4]')
+
+    def test_get_var_with_pointer_location(self):
+        varmap = VarMap()
+        varmap.register_base_type('ptr', EmbeddedDataType.ptr64)
+        varmap.register_base_type('uint32_t', EmbeddedDataType.uint32)
+        varmap.add_variable(['aaa', 'bbb', 'pointer'], original_type_name='ptr', location=AbsoluteLocation(0x1000))
+        varmap.add_variable(['aaa', 'bbb', 'pointee'], original_type_name='uint32_t', location=PathPointedLocation('/aaa/bbb/pointer', 0))
+        v = varmap.get_var('/aaa/bbb/pointer')
+        self.assertEqual(v.get_type(), EmbeddedDataType.ptr64)
+        self.assertTrue(v.has_absolute_address())
+
+        v = varmap.get_var('/aaa/bbb/pointee')
+        self.assertEqual(v.get_type(), EmbeddedDataType.uint32)
+        self.assertFalse(v.has_absolute_address())
+        ptr = v.get_pointer()
+        self.assertEqual(ptr.pointer_path, '/aaa/bbb/pointer')
+        self.assertEqual(ptr.pointer_offset, 0)
