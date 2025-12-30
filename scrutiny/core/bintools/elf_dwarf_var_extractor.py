@@ -1409,6 +1409,8 @@ class ElfDwarfVarExtractor:
                 self.register_struct_var(die, type_desc, location)
             elif type_desc.type == TypeOfVar.Array:
                 self.die_process_array(type_desc.type_die)
+                if self.get_name(die) == "file5_structb_array":
+                    pass
                 self.register_array_var(die, type_desc, location)
             elif type_desc.type == TypeOfVar.Pointer:
                 self.die_process_ptr_type(type_desc.type_die)
@@ -1500,9 +1502,10 @@ class ElfDwarfVarExtractor:
             parts = self.post_process_splitted_demangled_name(parts)
             for i in range(len(parts) - 1, -1, -1):   # Need to prepend in reverse order to keep the order correct.
                 if array is not None and i == len(parts) - 1:
-                    varpath.prepend_segment(parts[i], array)
+                    varpath.prepend_segment(name=parts[i], array=array)
+                    varpath.prepend_segment(name=parts[i])   # Add a level to group the array elements togethers /aaa/bbb/ccc/ccc[0]
                 else:
-                    varpath.prepend_segment(parts[i])
+                    varpath.prepend_segment(name=parts[i])
             return varpath
 
         # Try to get the name of the die and use it as a level of the path

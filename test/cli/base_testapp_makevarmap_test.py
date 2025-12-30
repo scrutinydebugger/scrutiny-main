@@ -301,3 +301,40 @@ class BaseTestAppMakeVarmapTest(BaseVarmapTest):
         self.assert_var('/global/file4classA3_array/file4classA3_array[1][1]/the_union/u8/u8[1]', EmbeddedDataType.uint8, value_at_loc=0x77)
         self.assert_var('/global/file4classA3_array/file4classA3_array[1][1]/the_union/u8/u8[2]', EmbeddedDataType.uint8, value_at_loc=0x66)
         self.assert_var('/global/file4classA3_array/file4classA3_array[1][1]/the_union/u8/u8[3]', EmbeddedDataType.uint8, value_at_loc=0x55)
+
+    def test_file5(self):
+        self.assert_var('/global/File5NamespaceA/file5i64', EmbeddedDataType.sint64, value_at_loc=-0x123456789abcdef)
+        self.assert_var('/global/File5NamespaceA/file5i32', EmbeddedDataType.sint32, value_at_loc=-0x77553311)
+        self.assert_var('/global/File5NamespaceA/file5i16', EmbeddedDataType.sint16, value_at_loc=-0x2A3C)
+        self.assert_var('/global/File5NamespaceA/file5i8', EmbeddedDataType.sint8, value_at_loc=-0x35)
+
+        self.assert_var('/global/File5NamespaceA/file5u64', EmbeddedDataType.uint64, value_at_loc=0x98765432123456)
+        self.assert_var('/global/File5NamespaceA/file5u32', EmbeddedDataType.uint32, value_at_loc=0xaabbccdd)
+        self.assert_var('/global/File5NamespaceA/file5u16', EmbeddedDataType.uint16, value_at_loc=0xFDCE)
+        self.assert_var('/global/File5NamespaceA/file5u8', EmbeddedDataType.uint8, value_at_loc=0xBD)
+        
+        self.assert_var('/global/File5NamespaceA/file5_structA/i32', EmbeddedDataType.sint32, value_at_loc=31415926)
+        #self.assert_var('/global/File5NamespaceA/file5_structA/structA_ptr', EmbeddedDataType.ptr64)
+        self.assert_var('/global/File5NamespaceA/file5_structA/u16_array/u16_array[0]', EmbeddedDataType.uint16, value_at_loc=0x121)
+        self.assert_var('/global/File5NamespaceA/file5_structA/u16_array/u16_array[1]', EmbeddedDataType.uint16, value_at_loc=0x122)
+        self.assert_var('/global/File5NamespaceA/file5_structA/u16_array/u16_array[2]', EmbeddedDataType.uint16, value_at_loc=0x123)
+        self.assert_var('/global/File5NamespaceA/file5_structA/u16_array/u16_array[3]', EmbeddedDataType.uint16, value_at_loc=0x124)
+        self.assert_var('/global/File5NamespaceA/file5_structA/u16_array/u16_array[4]', EmbeddedDataType.uint16, value_at_loc=0x125)
+        
+        self.assert_var('/global/File5NamespaceA/file5_structB/u32', EmbeddedDataType.uint32, value_at_loc=0x97461346)
+        #self.assert_var('/global/File5NamespaceA/file5_structB/structA_ptr', EmbeddedDataType.ptr64)
+        
+        self.assert_var('/global/File5NamespaceA/file5_structb_array/file5_structb_array[0]/u32', EmbeddedDataType.uint32, value_at_loc=0x1195735)
+        #self.assert_var('/global/File5NamespaceA/file5_structb_array/file5_structb_array[0]/structA_ptr', EmbeddedDataType.ptr64)
+        self.assert_var('/global/File5NamespaceA/file5_structb_array/file5_structb_array[1]/u32', EmbeddedDataType.uint32, value_at_loc=0x1284629)
+        #self.assert_var('/global/File5NamespaceA/file5_structb_array/file5_structb_array[1]/structA_ptr', EmbeddedDataType.ptr64)
+           
+        self.assert_var('/global/File5NamespaceB/file5i64_ptr', EmbeddedDataType.ptr64)
+        self.assert_var('/global/File5NamespaceB/file5i32_ptr', EmbeddedDataType.ptr64)
+        self.assert_var('/global/File5NamespaceB/file5i16_ptr', EmbeddedDataType.ptr64)
+        self.assert_var('/global/File5NamespaceB/file5i8_ptr', EmbeddedDataType.ptr64)
+        
+        self.assert_var('/global/File5NamespaceB/file5u64_ptr', EmbeddedDataType.ptr64)
+        self.assert_var('/global/File5NamespaceB/file5u32_ptr', EmbeddedDataType.ptr64)
+        self.assert_var('/global/File5NamespaceB/file5u16_ptr', EmbeddedDataType.ptr64)
+        self.assert_var('/global/File5NamespaceB/file5u8_ptr', EmbeddedDataType.ptr64)

@@ -1,5 +1,5 @@
 #    codecs.py
-#        Contains classes capable to encode/decode data exchanged with embedded side
+#        Contains classes capable of encoding/decoding data exchanged with embedded side
 #
 #   - License : MIT - See LICENSE file.
 #   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
@@ -40,6 +40,8 @@ class BaseCodec(ABC):
 
 
 class SIntCodec(BaseCodec):
+    """A codec for signed integer (8/16/32/64 bits)"""
+    
     str_map = {
         1: 'b',
         2: 'h',
@@ -50,7 +52,7 @@ class SIntCodec(BaseCodec):
     def __init__(self, size: int, endianness: Endianness) -> None:
         super().__init__()
         if size not in self.str_map:
-            raise NotImplementedError('Does not support signed int of %d bytes' % size)
+            raise NotImplementedError(f'Does not support signed int of {size} bytes')
         endianness_char = '<' if endianness == Endianness.Little else '>'
         self.packstr = endianness_char + self.str_map[size]
 
@@ -62,6 +64,8 @@ class SIntCodec(BaseCodec):
 
 
 class UIntCodec(BaseCodec):
+    """A codec for unsigned integer (8/16/32/64 bits)"""
+
     str_map = {
         1: 'B',
         2: 'H',
@@ -72,7 +76,7 @@ class UIntCodec(BaseCodec):
     def __init__(self, size: int, endianness: Endianness) -> None:
         super().__init__()
         if size not in self.str_map:
-            raise NotImplementedError('Does not support unsigned int of %d bytes' % size)
+            raise NotImplementedError(f'Does not support unsigned int of {size} bytes')
         endianness_char = '<' if endianness == Endianness.Little else '>'
         self.packstr = endianness_char + self.str_map[size]
 
@@ -84,6 +88,8 @@ class UIntCodec(BaseCodec):
 
 
 class FloatCodec(BaseCodec):
+    """A codec for float (32/64 bits)"""
+
     str_map = {
         4: 'f',
         8: 'd'
@@ -92,7 +98,7 @@ class FloatCodec(BaseCodec):
     def __init__(self, size: int, endianness: Endianness) -> None:
         super().__init__()
         if size not in self.str_map:
-            raise NotImplementedError('Does not support float of %d bytes' % size)
+            raise NotImplementedError(f'Does not support float of {size} bytes')
         endianness_char = '<' if endianness == Endianness.Little else '>'
         self.packstr = endianness_char + self.str_map[size]
 
@@ -104,6 +110,7 @@ class FloatCodec(BaseCodec):
 
 
 class BoolCodec(BaseCodec):
+    """A codec for boolean values"""
     def __init__(self) -> None:
         super().__init__()
 
@@ -117,7 +124,7 @@ class BoolCodec(BaseCodec):
 
 class Codecs:
     """
-    Common interface to get the correct code for a given embedded datatype
+    Common interface to get the correct codec for a given embedded datatype
     """
     @staticmethod
     def get(vartype: EmbeddedDataType, endianness: Endianness) -> BaseCodec:
@@ -134,10 +141,12 @@ class Codecs:
         elif vartype in (EmbeddedDataType.ptr32, EmbeddedDataType.ptr8, EmbeddedDataType.ptr16, EmbeddedDataType.ptr64):
             return UIntCodec(datasize, endianness=endianness)
 
-        raise NotImplementedError("No codec defined for variable type %s" % vartype)
+        raise NotImplementedError(f"No codec defined for variable type {vartype.name}")
 
     @staticmethod
     def make_value_valid(vartype: EmbeddedDataType, val: Encodable, bitsize: Optional[int] = None) -> Encodable:
+        """Clamp a value between the boundaries defined by the embedded data type. Python values are unbound."""
+
         if not math.isfinite(val):
             raise ValueError("Does not support non-finite values")
         if vartype == EmbeddedDataType.boolean:
@@ -152,7 +161,7 @@ class Codecs:
             if bitsize is not None:
                 data_size = min(data_size, bitsize)
             if data_size <= 0 or data_size > 256:
-                ValueError("Does not support this data size: %d bits" % data_size)
+                ValueError(f"Does not support this data size: {data_size} bits")
 
             val = int(val)
             if signed:
