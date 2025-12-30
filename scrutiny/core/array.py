@@ -18,7 +18,9 @@ import math
 import abc
 from scrutiny.core.basic_types import EmbeddedDataType
 from scrutiny.tools.typing import *
-from scrutiny.core.struct import Struct
+
+if TYPE_CHECKING:
+    from scrutiny.core.struct import Struct
 
 
 class Array(abc.ABC):
@@ -97,6 +99,8 @@ class TypedArray(Array):
 
     def get_element_byte_size(self) -> int:
         """Return the size of a single element in bytes"""
+        from scrutiny.core.struct import Struct
+
         if isinstance(self.datatype, EmbeddedDataType):
             return self.datatype.get_size_byte()
         if isinstance(self.datatype, Struct):

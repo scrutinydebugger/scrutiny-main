@@ -9,12 +9,14 @@
 __all__ = ['Struct']
 
 import enum
+from dataclasses import dataclass
 from scrutiny.core.embedded_enum import EmbeddedEnum
 from copy import deepcopy
 from scrutiny.tools.typing import *
 
 if TYPE_CHECKING:
     from scrutiny.core.array import TypedArray
+    from scrutiny.core.pointer import Pointer
 
 
 class Struct:
@@ -23,6 +25,7 @@ class Struct:
             BaseType = enum.auto()
             SubStruct = enum.auto()
             SubArray = enum.auto()
+            Pointer = enum.auto()
 
         name: str
         member_type: MemberType
@@ -32,6 +35,7 @@ class Struct:
         bitsize: Optional[int]
         substruct: Optional['Struct']
         subarray: Optional["TypedArray"]
+        pointer: Optional["Pointer"]
         embedded_enum: Optional[EmbeddedEnum]
         is_unnamed: bool
 
@@ -43,25 +47,52 @@ class Struct:
                      bitsize: Optional[int] = None,
                      substruct: Optional['Struct'] = None,
                      subarray: Optional["TypedArray"] = None,
+                     pointer: Optional["Pointer"] = None,
                      embedded_enum: Optional[EmbeddedEnum] = None,
                      is_unnamed: bool = False
                      ):
+            # Avoid circular import on load
+            from scrutiny.core.array import TypedArray
+            from scrutiny.core.pointer import Pointer
 
-            if member_type == self.MemberType.BaseType:
-                if substruct is not None or subarray is not None:
-                    raise ValueError("Cannot specify a substruct or a subarray for base type member")
+            @dataclass
+            class RequiredSubData:
+                substruct: bool
+                subarray: bool
+                pointer: bool
 
-            if member_type == self.MemberType.SubStruct:
-                if substruct is None or subarray is not None:
-                    raise ValueError("Substruct member must specify a substruct only")
+            required_subdata_map: Dict[Struct.Member.MemberType, RequiredSubData] = {
+                self.MemberType.BaseType: RequiredSubData(substruct=False, subarray=False, pointer=False),
+                self.MemberType.SubStruct: RequiredSubData(substruct=True, subarray=False, pointer=False),
+                self.MemberType.SubArray: RequiredSubData(substruct=False, subarray=True, pointer=False),
+                self.MemberType.Pointer: RequiredSubData(substruct=False, subarray=False, pointer=True),
+            }
 
-            if member_type == self.MemberType.SubArray:
-                if substruct is not None or subarray is None:
-                    raise ValueError("SubArray member must specify a subarray only")
+            if member_type not in required_subdata_map:
+                raise ValueError("Unsupported member type")
 
-            if member_type == self.MemberType.BaseType:
-                if original_type_name is None:
-                    raise ValueError('A typename must be given for base type member')
+            required_subdata = required_subdata_map[member_type]
+
+            if required_subdata.substruct:
+                if substruct is None:
+                    raise ValueError(f"Missing substruct for member of type {member_type.name}")
+            else:
+                if substruct is not None:
+                    raise ValueError(f"Cannot specify a substruct for member of type {member_type.name}")
+
+            if required_subdata.subarray:
+                if subarray is None:
+                    raise ValueError(f"Missing subarray for member of type {member_type.name}")
+            else:
+                if subarray is not None:
+                    raise ValueError(f"Cannot specify a subarray for member of type {member_type.name}")
+
+            if required_subdata.pointer:
+                if pointer is None:
+                    raise ValueError(f"Missing pointer for member of type {member_type.name}")
+            else:
+                if pointer is not None:
+                    raise ValueError(f"Cannot specify a pointer for member of type {member_type.name}")
 
             if bitoffset is not None:
                 if not isinstance(bitoffset, int):
@@ -85,6 +116,14 @@ class Struct:
                 if not isinstance(substruct, Struct):
                     raise ValueError(f'substruct must be Struct instance. Got {substruct.__class__.__name__}')
 
+            if subarray is not None:
+                if not isinstance(subarray, TypedArray):
+                    raise ValueError(f'subarray must be TypedArray instance. Got {subarray.__class__.__name__}')
+
+            if pointer is not None:
+                if not isinstance(pointer, Pointer):
+                    raise ValueError(f'pointer must be Pointer instance. Got {pointer.__class__.__name__}')
+
             if is_unnamed:
                 if member_type != self.MemberType.SubStruct:
                     raise ValueError("Only substruct members can be unnamed")
@@ -97,6 +136,7 @@ class Struct:
             self.bitsize = bitsize
             self.substruct = substruct
             self.subarray = subarray
+            self.pointer = pointer
             self.embedded_enum = embedded_enum
             self.is_unnamed = is_unnamed
 
@@ -110,6 +150,11 @@ class Struct:
             if self.subarray is None or self.member_type != self.MemberType.SubArray:
                 raise ValueError("Member is not a subarray")
             return self.subarray
+
+        def get_pointer(self) -> "Pointer":
+            if self.pointer is None or self.member_type != self.MemberType.Pointer:
+                raise ValueError("Member is not a pointer")
+            return self.pointer
 
     name: str
     is_anonymous: bool

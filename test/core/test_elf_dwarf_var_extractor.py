@@ -99,7 +99,7 @@ class TestElf2VarMapFromBuilds(ScrutinyUnitTest):
             logger.debug(stderr.decode('utf8'))
 
             if p.returncode != 0:
-                raise RuntimeError("Failed to compile code")
+                raise RuntimeError("Failed to compile code.")
 
             with open(outbin, 'rb') as f:
                 if f.read(4) != b'\x7fELF':
@@ -545,6 +545,21 @@ int main(int argc, char* argv[])
 
 volatile uint32_t gu32;
 volatile uint32_t *gu32_ptr = &gu32;
+
+struct A
+{
+    volatile uint32_t* gu32_ptr;
+};
+
+struct B
+{
+    volatile A* gStructAPtr;
+};
+
+volatile A gStructA = {&gu32}; 
+volatile B gStructB = {&gStructA};
+volatile A* gStructAptr = &gStructA;
+
 int main(int argc, char* argv[])
 {
     return 0;
@@ -569,6 +584,23 @@ int main(int argc, char* argv[])
                     self.assertEqual(v.get_type(), EmbeddedDataType.uint32)
                     self.assertTrue(v.has_pointed_address())
                     self.assertFalse(v.has_absolute_address())
+
+                    vpath = '/global/gStructA/gu32_ptr'
+                    self.assertTrue(varmap.has_var(vpath))
+                    v = varmap.get_var(vpath)
+                    self.assertTrue(v.get_type().is_pointer())
+
+                    vpath = '/global/gStructA/*gu32_ptr'
+                    self.assertTrue(varmap.has_var(vpath))
+                    v = varmap.get_var(vpath)
+                    self.assertEqual(v.get_type(), EmbeddedDataType.uint32)
+                    self.assertTrue(v.has_pointed_address())
+                    self.assertFalse(v.has_absolute_address())
+
+                    vpath = '/global/gStructAptr'
+                    self.assertTrue(varmap.has_var(vpath))
+                    v = varmap.get_var(vpath)
+                    self.assertTrue(v.get_type().is_pointer())
 
 
 if __name__ == '__main__':

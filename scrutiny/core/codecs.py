@@ -41,7 +41,7 @@ class BaseCodec(ABC):
 
 class SIntCodec(BaseCodec):
     """A codec for signed integer (8/16/32/64 bits)"""
-    
+
     str_map = {
         1: 'b',
         2: 'h',
@@ -111,6 +111,7 @@ class FloatCodec(BaseCodec):
 
 class BoolCodec(BaseCodec):
     """A codec for boolean values"""
+
     def __init__(self) -> None:
         super().__init__()
 

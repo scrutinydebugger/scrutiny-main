@@ -14,8 +14,13 @@ from dataclasses import dataclass
 from scrutiny.core.variable_location import AbsoluteLocation
 from scrutiny.core.basic_types import EmbeddedDataType
 
+from scrutiny.tools.typing import *
+
+if TYPE_CHECKING:
+    from scrutiny.core.struct import Struct
+
 
 @dataclass(slots=True, frozen=True)
 class Pointer:
     location: AbsoluteLocation
-    pointed_type: EmbeddedDataType
+    pointed_type: Union[EmbeddedDataType, "Struct"]
