@@ -22,5 +22,4 @@ if TYPE_CHECKING:
 
 @dataclass(slots=True, frozen=True)
 class Pointer:
-    location: AbsoluteLocation
     pointed_type: Union[EmbeddedDataType, "Struct"]

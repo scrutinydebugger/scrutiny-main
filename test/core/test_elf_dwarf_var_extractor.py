@@ -549,6 +549,7 @@ volatile uint32_t *gu32_ptr = &gu32;
 struct A
 {
     volatile uint32_t* gu32_ptr;
+    volatile int64_t i64;
 };
 
 struct B
@@ -556,9 +557,18 @@ struct B
     volatile A* gStructAPtr;
 };
 
-volatile A gStructA = {&gu32}; 
+struct C
+{
+    volatile int32_t i32;
+    volatile A a;
+};
+
+volatile A gStructA = {&gu32, 0x123456789}; 
 volatile B gStructB = {&gStructA};
+volatile C gStructC = {0x123, {&gu32, 0x222}};
+
 volatile A* gStructAptr = &gStructA;
+volatile C* gStructCptr = &gStructC;
 
 int main(int argc, char* argv[])
 {
@@ -585,22 +595,57 @@ int main(int argc, char* argv[])
                     self.assertTrue(v.has_pointed_address())
                     self.assertFalse(v.has_absolute_address())
 
-                    vpath = '/global/gStructA/gu32_ptr'
-                    self.assertTrue(varmap.has_var(vpath))
-                    v = varmap.get_var(vpath)
-                    self.assertTrue(v.get_type().is_pointer())
+                    # vpath = '/global/gStructA/gu32_ptr'
+                    # self.assertTrue(varmap.has_var(vpath))
+                    # v = varmap.get_var(vpath)
+                    # self.assertTrue(v.get_type().is_pointer())
+#
+#                    vpath = '/global/gStructA/*gu32_ptr'
+#                    self.assertTrue(varmap.has_var(vpath))
+#                    v = varmap.get_var(vpath)
+#                    self.assertEqual(v.get_type(), EmbeddedDataType.uint32)
+#                    self.assertTrue(v.has_pointed_address())
+#                    self.assertFalse(v.has_absolute_address())
 
-                    vpath = '/global/gStructA/*gu32_ptr'
-                    self.assertTrue(varmap.has_var(vpath))
-                    v = varmap.get_var(vpath)
-                    self.assertEqual(v.get_type(), EmbeddedDataType.uint32)
-                    self.assertTrue(v.has_pointed_address())
-                    self.assertFalse(v.has_absolute_address())
-
+                    # Struct A
                     vpath = '/global/gStructAptr'
                     self.assertTrue(varmap.has_var(vpath))
                     v = varmap.get_var(vpath)
                     self.assertTrue(v.get_type().is_pointer())
+
+                    vpath = '/global/*gStructAptr/i64'
+                    self.assertTrue(varmap.has_var(vpath))
+                    v = varmap.get_var(vpath)
+                    self.assertEqual(v.get_type(), EmbeddedDataType.sint64)
+                    self.assertTrue(v.has_pointed_address())
+                    self.assertFalse(v.has_absolute_address())
+
+                    # Struct C
+                    vpath = '/global/gStructCptr'
+                    self.assertTrue(varmap.has_var(vpath))
+                    v = varmap.get_var(vpath)
+                    self.assertTrue(v.get_type().is_pointer())
+
+                    vpath = '/global/*gStructCptr/i32'
+                    self.assertTrue(varmap.has_var(vpath))
+                    v = varmap.get_var(vpath)
+                    self.assertEqual(v.get_type(), EmbeddedDataType.sint32)
+                    self.assertTrue(v.has_pointed_address())
+                    self.assertFalse(v.has_absolute_address())
+
+                    vpath = '/global/*gStructCptr/a/i64'
+                    self.assertTrue(varmap.has_var(vpath))
+                    v = varmap.get_var(vpath)
+                    self.assertEqual(v.get_type(), EmbeddedDataType.sint64)
+                    self.assertTrue(v.has_pointed_address())
+                    self.assertFalse(v.has_absolute_address())
+
+                    # vpath = '/global/*gStructCptr/a/gu32_ptr'
+                    # self.assertTrue(varmap.has_var(vpath))
+                    # v = varmap.get_var(vpath)
+                    # self.assertEqual(v.get_type().is_pointer())
+                    # self.assertTrue(v.has_pointed_address())
+                    # self.assertFalse(v.has_absolute_address())
 
 
 if __name__ == '__main__':

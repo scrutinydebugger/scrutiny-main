@@ -30,6 +30,7 @@ from scrutiny.core.basic_types import *
 from scrutiny.core.variable_location import AbsoluteLocation, PathPointedLocation
 from scrutiny.core.struct import Struct
 from scrutiny.core.array import TypedArray, Array
+from scrutiny.core.pointer import Pointer
 from scrutiny.core import path_tools
 from scrutiny.core.embedded_enum import *
 from scrutiny.exceptions import EnvionmentNotSetUpException
@@ -1071,6 +1072,22 @@ class ElfDwarfVarExtractor:
             element_type_name=element_type_name
         )
 
+    def get_pointer_def(self, die: DIE) -> Optional[Pointer]:
+        self._log_debug_process_die(die)
+        if die.tag != Tags.DW_TAG_pointer_type:
+            raise ValueError('DIE must be an array')
+        return None
+
+        type_desc = self.get_type_of_var(die)
+        pointee_typedesc = self.get_type_of_var(type_desc.type_die)
+
+        if pointee_typedesc.type == TypeOfVar.BaseType:
+            self.die_process_base_type(pointee_typedesc.type_die)
+            typename = self.get_typename_from_die(pointee_typedesc.type_die)
+            return Pointer(EmbeddedDataType.boolean)
+
+        return None
+
     def has_member_byte_offset(self, die: DIE) -> bool:
         """Tells if an offset relative to the structure base is available on this member die"""
         return Attrs.DW_AT_data_member_location in die.attributes
@@ -1146,6 +1163,10 @@ class ElfDwarfVarExtractor:
             subarray = self.get_array_def(type_desc.type_die)
             if subarray is None:    # Not available. Incomplete, no dimensions available
                 return None
+        elif type_desc.type == TypeOfVar.Pointer:
+            pointer = self.get_pointer_def(type_desc.type_die)
+            if pointer is None:
+                return None
         else:
             self.logger.warning(
                 f"Line {get_linenumber()}: Found a member with a type die {self._make_name_for_log(type_desc.type_die)} (type={type_desc.type.name}). Not supported yet")
@@ -1215,13 +1236,15 @@ class ElfDwarfVarExtractor:
 
     # We have an instance of a struct. Use the location and go down the structure recursively
     # using the members offsets to find the final address that we will apply to the output var
-    def register_struct_var(self, die: DIE, type_desc: TypeDescriptor, location: AbsoluteLocation) -> None:
+    def register_struct_var(self, die: DIE, type_desc: TypeDescriptor, location: Union[AbsoluteLocation, PathPointedLocation]) -> None:
         """Register an instance of a struct at a given location"""
-        if location.is_null():
+        if isinstance(location, AbsoluteLocation) and location.is_null():
             self.logger.warning(f"Skipping structure at location NULL address. {die}")
             return
         array_segments = ArraySegments()
         path_segments = self.make_varpath(die)  # Leftmost part.
+        if isinstance(location, PathPointedLocation):
+            path_segments.segments[-1].name = '*' + path_segments.segments[-1].name
         struct = self.struct_die_map[type_desc.type_die]
         startpoint = Struct.Member(struct.name, member_type=Struct.Member.MemberType.SubStruct, bitoffset=None, bitsize=None, substruct=struct)
 
@@ -1232,7 +1255,7 @@ class ElfDwarfVarExtractor:
     def register_member_as_var_recursive(self,
                                          path_segments: List[str],
                                          member: Struct.Member,
-                                         base_location: AbsoluteLocation,
+                                         base_location: Union[AbsoluteLocation, PathPointedLocation],
                                          offset: int,
                                          array_segments: ArraySegments) -> None:
         if member.member_type == Struct.Member.MemberType.SubStruct:
@@ -1274,6 +1297,8 @@ class ElfDwarfVarExtractor:
             else:
                 raise ElfParsingError(f"Array of {array.datatype.__class__.__name__} are not expected")
 
+        elif member.member_type == Struct.Member.MemberType.Pointer:
+            pass     # TODO
         else:
             location = base_location.copy()
             assert member.byte_offset is not None
@@ -1409,8 +1434,6 @@ class ElfDwarfVarExtractor:
                 self.register_struct_var(die, type_desc, location)
             elif type_desc.type == TypeOfVar.Array:
                 self.die_process_array(type_desc.type_die)
-                if self.get_name(die) == "file5_structb_array":
-                    pass
                 self.register_array_var(die, type_desc, location)
             elif type_desc.type == TypeOfVar.Pointer:
                 self.die_process_ptr_type(type_desc.type_die)
@@ -1429,11 +1452,11 @@ class ElfDwarfVarExtractor:
                 pointee_typedesc = self.get_type_of_var(type_desc.type_die)
                 pointer_path_segments = path_segments.copy()
                 pointer_path_segments[-1] = f'*{pointer_path_segments[-1]}'  # /aaa/bbb/*ccc : ccc is dereferenced
+                ptr_location = PathPointedLocation(
+                    pointer_offset=0,
+                    pointer_path=path_tools.join_segments(path_segments)
+                )
                 if pointee_typedesc.type == TypeOfVar.BaseType:
-                    ptr_location = PathPointedLocation(
-                        pointer_offset=0,
-                        pointer_path=path_tools.join_segments(path_segments)
-                    )
                     self.die_process_base_type(pointee_typedesc.type_die)
                     typename = self.get_typename_from_die(pointee_typedesc.type_die)
                     self.maybe_register_variable(
@@ -1442,6 +1465,9 @@ class ElfDwarfVarExtractor:
                         original_type_name=typename,
                         enum=None
                     )
+                elif pointee_typedesc.type in (TypeOfVar.Class, TypeOfVar.Struct, TypeOfVar.Union):
+                    self.die_process_struct_class_union(pointee_typedesc.type_die)
+                    self.register_struct_var(die, pointee_typedesc, ptr_location)
                 else:
                     self.logger.warning(
                         f"Line {get_linenumber()}: Found a pointer to type die {self._make_name_for_log(pointee_typedesc.type_die)} (type={pointee_typedesc.type.name}). Not supported yet")
@@ -1468,7 +1494,7 @@ class ElfDwarfVarExtractor:
                     enum=self.get_enum_from_type_descriptor(type_desc)
                 )
             elif type_desc.type == TypeOfVar.Subroutine:
-                self.logger.debug(f"Line {get_linenumber()}: Found a variable with a type {type_desc.type.name}. Unsupported")
+                self.logger.debug(f"Line {get_linenumber()}: Found a variable with a type {type_desc.type.name}. Ignored")
             else:
                 self.logger.warning(
                     f"Line {get_linenumber()}: Found a variable with a type die {self._make_name_for_log(type_desc.type_die)} (type={type_desc.type.name}). Not supported yet")
