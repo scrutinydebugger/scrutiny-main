@@ -595,11 +595,11 @@ int main(int argc, char* argv[])
                     self.assertTrue(v.has_pointed_address())
                     self.assertFalse(v.has_absolute_address())
 
-                    # vpath = '/global/gStructA/gu32_ptr'
-                    # self.assertTrue(varmap.has_var(vpath))
-                    # v = varmap.get_var(vpath)
-                    # self.assertTrue(v.get_type().is_pointer())
-#
+                    vpath = '/global/gStructA/gu32_ptr'
+                    self.assertTrue(varmap.has_var(vpath))
+                    v = varmap.get_var(vpath)
+                    self.assertTrue(v.get_type().is_pointer())
+
 #                    vpath = '/global/gStructA/*gu32_ptr'
 #                    self.assertTrue(varmap.has_var(vpath))
 #                    v = varmap.get_var(vpath)
@@ -640,12 +640,12 @@ int main(int argc, char* argv[])
                     self.assertTrue(v.has_pointed_address())
                     self.assertFalse(v.has_absolute_address())
 
-                    # vpath = '/global/*gStructCptr/a/gu32_ptr'
-                    # self.assertTrue(varmap.has_var(vpath))
-                    # v = varmap.get_var(vpath)
-                    # self.assertEqual(v.get_type().is_pointer())
-                    # self.assertTrue(v.has_pointed_address())
-                    # self.assertFalse(v.has_absolute_address())
+                    vpath = '/global/*gStructCptr/a/gu32_ptr'
+                    self.assertTrue(varmap.has_var(vpath))
+                    v = varmap.get_var(vpath)
+                    self.assertTrue(v.get_type().is_pointer())
+                    self.assertTrue(v.has_pointed_address())
+                    self.assertFalse(v.has_absolute_address())
 
 
 if __name__ == '__main__':

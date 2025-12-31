@@ -1075,16 +1075,16 @@ class ElfDwarfVarExtractor:
     def get_pointer_def(self, die: DIE) -> Optional[Pointer]:
         self._log_debug_process_die(die)
         if die.tag != Tags.DW_TAG_pointer_type:
-            raise ValueError('DIE must be an array')
-        return None
+            raise ValueError('DIE must be a pointer')
 
-        type_desc = self.get_type_of_var(die)
-        pointee_typedesc = self.get_type_of_var(type_desc.type_die)
+        ptr_size = self.get_size_from_pointer_die(die)
+        pointee_typedesc = self.get_type_of_var(die)
 
         if pointee_typedesc.type == TypeOfVar.BaseType:
             self.die_process_base_type(pointee_typedesc.type_die)
-            typename = self.get_typename_from_die(pointee_typedesc.type_die)
-            return Pointer(EmbeddedDataType.boolean)
+            embedded_type = self.varmap.get_vartype_from_base_type(
+                self.get_typename_from_die(pointee_typedesc.type_die))   # Read back type from varmap
+            return Pointer(size=ptr_size, pointed_type=embedded_type)
 
         return None
 
@@ -1165,6 +1165,7 @@ class ElfDwarfVarExtractor:
                 return None
         elif type_desc.type == TypeOfVar.Pointer:
             pointer = self.get_pointer_def(type_desc.type_die)
+            typename = self.get_pointer_name_from_die(type_desc.type_die)
             if pointer is None:
                 return None
         else:
@@ -1298,7 +1299,22 @@ class ElfDwarfVarExtractor:
                 raise ElfParsingError(f"Array of {array.datatype.__class__.__name__} are not expected")
 
         elif member.member_type == Struct.Member.MemberType.Pointer:
-            pass     # TODO
+            location = base_location.copy()
+            assert member.byte_offset is not None
+            location.add_offset(member.byte_offset)
+
+            self.maybe_register_variable(
+                path_segments=path_segments,
+                original_type_name=self._make_ptr_typename(member.get_pointer().get_size()),
+                location=location,
+                bitoffset=member.bitoffset,
+                bitsize=member.bitsize,
+                array_segments=array_segments.to_varmap_format(),
+                enum=member.embedded_enum
+            )
+
+            if isinstance(location, AbsoluteLocation):
+                pass     # TODO : Dereference
         else:
             location = base_location.copy()
             assert member.byte_offset is not None

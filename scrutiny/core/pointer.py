@@ -20,6 +20,10 @@ if TYPE_CHECKING:
     from scrutiny.core.struct import Struct
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True)
 class Pointer:
+    size: int
     pointed_type: Union[EmbeddedDataType, "Struct"]
+
+    def get_size(self) -> int:
+        return self.size
