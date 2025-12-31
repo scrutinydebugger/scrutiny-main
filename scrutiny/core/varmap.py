@@ -248,7 +248,7 @@ class VarMap:
         fullname = path_tools.join_segments(path_segments)
 
         if self._logger.isEnabledFor(logging.DEBUG):  # pragma: no cover
-            self._logger.debug(f"Adding {fullname}")
+            self._logger.debug(f"Adding {fullname} ({original_type_name})")
 
         if not self.is_known_type(original_type_name):
             raise ValueError(f'Cannot add variable of type {original_type_name}. Type has not been registered yet')

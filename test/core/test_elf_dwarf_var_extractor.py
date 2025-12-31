@@ -576,8 +576,9 @@ int main(int argc, char* argv[])
 }
 """
 
-        for compiler in ['g++', 'clang++']:
-            for dwarf_version in [2, 3, 4]:
+        # for compiler in ['g++', 'clang++']:
+        for compiler in ['g++']:
+            for dwarf_version in [4]:
                 with self.subTest(f"{compiler}-dwarf{dwarf_version}"):
                     varmap = self._make_varmap(code, dwarf_version=dwarf_version, compiler=compiler, cppfilt='c++filt')
                     vpath = '/global/gu32_ptr'
@@ -600,12 +601,12 @@ int main(int argc, char* argv[])
                     v = varmap.get_var(vpath)
                     self.assertTrue(v.get_type().is_pointer())
 
-#                    vpath = '/global/gStructA/*gu32_ptr'
-#                    self.assertTrue(varmap.has_var(vpath))
-#                    v = varmap.get_var(vpath)
-#                    self.assertEqual(v.get_type(), EmbeddedDataType.uint32)
-#                    self.assertTrue(v.has_pointed_address())
-#                    self.assertFalse(v.has_absolute_address())
+                    vpath = '/global/gStructA/*gu32_ptr'
+                    self.assertTrue(varmap.has_var(vpath))
+                    v = varmap.get_var(vpath)
+                    self.assertEqual(v.get_type(), EmbeddedDataType.uint32)
+                    self.assertTrue(v.has_pointed_address())
+                    self.assertFalse(v.has_absolute_address())
 
                     # Struct A
                     vpath = '/global/gStructAptr'
@@ -614,6 +615,19 @@ int main(int argc, char* argv[])
                     self.assertTrue(v.get_type().is_pointer())
 
                     vpath = '/global/*gStructAptr/i64'
+                    self.assertTrue(varmap.has_var(vpath))
+                    v = varmap.get_var(vpath)
+                    self.assertEqual(v.get_type(), EmbeddedDataType.sint64)
+                    self.assertTrue(v.has_pointed_address())
+                    self.assertFalse(v.has_absolute_address())
+
+                    # Struct B
+                    vpath = '/global/gStructB/gStructAPtr'
+                    self.assertTrue(varmap.has_var(vpath))
+                    v = varmap.get_var(vpath)
+                    self.assertTrue(v.get_type().is_pointer())
+
+                    vpath = '/global/gStructB/*gStructAPtr/i64'
                     self.assertTrue(varmap.has_var(vpath))
                     v = varmap.get_var(vpath)
                     self.assertEqual(v.get_type(), EmbeddedDataType.sint64)

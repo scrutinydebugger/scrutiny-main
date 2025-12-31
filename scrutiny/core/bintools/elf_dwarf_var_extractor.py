@@ -1082,9 +1082,13 @@ class ElfDwarfVarExtractor:
 
         if pointee_typedesc.type == TypeOfVar.BaseType:
             self.die_process_base_type(pointee_typedesc.type_die)
-            embedded_type = self.varmap.get_vartype_from_base_type(
-                self.get_typename_from_die(pointee_typedesc.type_die))   # Read back type from varmap
-            return Pointer(size=ptr_size, pointed_type=embedded_type)
+            pointed_typename = self.get_typename_from_die(pointee_typedesc.type_die)
+            embedded_type = self.varmap.get_vartype_from_base_type(pointed_typename)   # Read back type from varmap
+            return Pointer(size=ptr_size, pointed_type=embedded_type, pointed_typename=pointed_typename)
+        elif pointee_typedesc.type in (TypeOfVar.Class, TypeOfVar.Struct, TypeOfVar.Union):
+            self.die_process_struct_class_union(pointee_typedesc.type_die)
+            struct = self.get_composite_type_def(pointee_typedesc.type_die)
+            return Pointer(size=ptr_size, pointed_type=struct, pointed_typename=None)
 
         return None
 
@@ -1144,6 +1148,7 @@ class ElfDwarfVarExtractor:
         substruct: Optional[Struct] = None
         subarray: Optional[TypedArray] = None
         typename: Optional[str] = None
+        pointer: Optional[Pointer] = None
         if type_desc.type in (TypeOfVar.Struct, TypeOfVar.Class, TypeOfVar.Union):
             substruct = self.get_composite_type_def(type_desc.type_die)  # recursion
         elif type_desc.type in (TypeOfVar.BaseType, TypeOfVar.EnumOnly):
@@ -1218,6 +1223,8 @@ class ElfDwarfVarExtractor:
             member_type = Struct.Member.MemberType.SubStruct
         if subarray is not None:
             member_type = Struct.Member.MemberType.SubArray
+        if pointer is not None:
+            member_type = Struct.Member.MemberType.Pointer
 
         return Struct.Member(
             name=name,
@@ -1228,6 +1235,7 @@ class ElfDwarfVarExtractor:
             bitsize=bitsize,
             substruct=substruct,
             subarray=subarray,
+            pointer=pointer,
             embedded_enum=embedded_enum,
             is_unnamed=True if (len(name) == 0) else False
         )
@@ -1302,10 +1310,11 @@ class ElfDwarfVarExtractor:
             location = base_location.copy()
             assert member.byte_offset is not None
             location.add_offset(member.byte_offset)
+            ptr = member.get_pointer()
 
             self.maybe_register_variable(
                 path_segments=path_segments,
-                original_type_name=self._make_ptr_typename(member.get_pointer().get_size()),
+                original_type_name=self._make_ptr_typename(ptr.get_size()),
                 location=location,
                 bitoffset=member.bitoffset,
                 bitsize=member.bitsize,
@@ -1313,8 +1322,40 @@ class ElfDwarfVarExtractor:
                 enum=member.embedded_enum
             )
 
-            if isinstance(location, AbsoluteLocation):
-                pass     # TODO : Dereference
+            # Dereference the pointer
+            if isinstance(location, AbsoluteLocation):  # Only dereference one level. By design
+                pointer_path_segments = path_segments.copy()
+                pointer_path_segments[-1] = f'*{pointer_path_segments[-1]}'  # /aaa/bbb/*ccc : ccc is dereferenced
+
+                pointed_location = PathPointedLocation(
+                    pointer_offset=0,
+                    pointer_path=path_tools.join_segments(path_segments)
+                )
+
+                if isinstance(ptr.pointed_type, EmbeddedDataType):
+                    assert ptr.pointed_typename is not None
+                    self.maybe_register_variable(
+                        path_segments=pointer_path_segments,
+                        location=pointed_location,
+                        original_type_name=ptr.pointed_typename,
+                        enum=None
+                    )
+                elif isinstance(ptr.pointed_type, Struct):
+                    # mimic the behavior of register_struct_var, without looking for a var die.
+                    pointed_startpoint = Struct.Member(
+                        name=ptr.pointed_type.name,
+                        member_type=Struct.Member.MemberType.SubStruct,
+                        bitoffset=None,
+                        bitsize=None,
+                        substruct=ptr.pointed_type
+                    )
+                    self.register_member_as_var_recursive(
+                        path_segments=pointer_path_segments,
+                        member=pointed_startpoint,
+                        base_location=pointed_location,
+                        offset=0,
+                        array_segments=ArraySegments()  # TODO
+                    )
         else:
             location = base_location.copy()
             assert member.byte_offset is not None
@@ -1380,6 +1421,8 @@ class ElfDwarfVarExtractor:
             :param original_type_name: The name of the underlying type. Must be a name coming from the binary. Will resolve to an EmbeddedDataType
             :param enum: Optional enum to associate with the type
         """
+        if path_segments == ['global', 'gStructB', 'gStructAPtr']:
+            pass
         fullname = path_tools.join_segments(path_segments)
         if isinstance(location, AbsoluteLocation):
             if location.is_null():

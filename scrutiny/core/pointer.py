@@ -24,6 +24,7 @@ if TYPE_CHECKING:
 class Pointer:
     size: int
     pointed_type: Union[EmbeddedDataType, "Struct"]
+    pointed_typename: Optional[str]
 
     def get_size(self) -> int:
         return self.size
