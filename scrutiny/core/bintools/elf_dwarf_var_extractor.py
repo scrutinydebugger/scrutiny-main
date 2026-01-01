@@ -113,19 +113,33 @@ class TypeOfVar(Enum):
     Array = auto()
     EnumOnly = auto()  # Clang dwarf v2
     Subroutine = auto()  # Clang dwarf v2
+    Void = auto()
 
 
+@dataclass(slots=True)
+class PointeeTypeDescriptor:
+    type: TypeOfVar
+    enum_die: Optional[DIE]
+    type_die: Optional[DIE]
+
+    def to_typedesc(self) -> "TypeDescriptor":
+        if self.type_die is None:
+            raise ValueError("Missing type_die to make a full type descriptor")
+
+        return TypeDescriptor(
+            type=self.type,
+            enum_die=self.enum_die,
+            type_die=self.type_die,
+            pointee=None
+        )
+
+
+@dataclass(slots=True)
 class TypeDescriptor:
-    __slots__ = ('type', 'enum_die', 'type_die')
-
     type: TypeOfVar
     enum_die: Optional[DIE]
     type_die: DIE
-
-    def __init__(self, type: TypeOfVar, enum_die: Optional[DIE], type_die: DIE) -> None:
-        self.type = type
-        self.enum_die = enum_die
-        self.type_die = type_die
+    pointee: Optional[PointeeTypeDescriptor]
 
 
 class VarPathSegment:
@@ -918,32 +932,48 @@ class ElfDwarfVarExtractor:
 
             self.enum_die_map[die] = enum
 
-    def get_type_of_var(self, die: DIE) -> TypeDescriptor:
+    def get_pointee_type_of_var(self, ptr_die: DIE) -> PointeeTypeDescriptor:
+        if Attrs.DW_AT_type not in ptr_die.attributes:
+            pointee = PointeeTypeDescriptor(TypeOfVar.Void, None, None)
+        else:
+            pointee_typedesc = self.get_type_of_var(ptr_die, read_pointee=False)
+            pointee = PointeeTypeDescriptor(
+                type=pointee_typedesc.type,
+                type_die=pointee_typedesc.type_die,
+                enum_die=pointee_typedesc.enum_die
+            )
+        return pointee
+
+    def get_type_of_var(self, die: DIE, read_pointee: bool = True) -> TypeDescriptor:
         """Go up the hiearchy to find the die that represent the type of the variable. """
         self._log_debug_process_die(die)
         prevdie = die
         enum: Optional[DIE] = None
+
         while True:
             nextdie = prevdie.get_DIE_from_attribute(Attrs.DW_AT_type)
             if nextdie.tag == Tags.DW_TAG_structure_type:
-                return TypeDescriptor(TypeOfVar.Struct, enum, nextdie)
+                return TypeDescriptor(TypeOfVar.Struct, enum, nextdie, None)
             elif nextdie.tag == Tags.DW_TAG_class_type:
-                return TypeDescriptor(TypeOfVar.Class, enum, nextdie)
+                return TypeDescriptor(TypeOfVar.Class, enum, nextdie, None)
             elif nextdie.tag == Tags.DW_TAG_array_type:
-                return TypeDescriptor(TypeOfVar.Array, enum, nextdie)
+                return TypeDescriptor(TypeOfVar.Array, enum, nextdie, None)
             elif nextdie.tag == Tags.DW_TAG_base_type:
-                return TypeDescriptor(TypeOfVar.BaseType, enum, nextdie)
+                return TypeDescriptor(TypeOfVar.BaseType, enum, nextdie, None)
             elif nextdie.tag == Tags.DW_TAG_pointer_type:
-                return TypeDescriptor(TypeOfVar.Pointer, enum, nextdie)
+                pointee = None
+                if read_pointee:
+                    pointee = self.get_pointee_type_of_var(nextdie)
+                return TypeDescriptor(TypeOfVar.Pointer, enum, nextdie, pointee)
             elif nextdie.tag == Tags.DW_TAG_union_type:
-                return TypeDescriptor(TypeOfVar.Union, enum, nextdie)
+                return TypeDescriptor(TypeOfVar.Union, enum, nextdie, None)
             elif nextdie.tag == Tags.DW_TAG_subroutine_type:
-                return TypeDescriptor(TypeOfVar.Subroutine, enum, nextdie)
+                return TypeDescriptor(TypeOfVar.Subroutine, enum, nextdie, None)
             elif nextdie.tag == Tags.DW_TAG_enumeration_type:
                 enum = nextdie  # Will resolve on next iteration (if a type is available)
                 if Attrs.DW_AT_type not in nextdie.attributes:  # Clang dwarfv2 may not have type, but has a byte size
                     if Attrs.DW_AT_byte_size in nextdie.attributes:
-                        return TypeDescriptor(TypeOfVar.EnumOnly, enum, type_die=enum)
+                        return TypeDescriptor(TypeOfVar.EnumOnly, enum, type_die=enum, pointee=None)
                     else:
                         raise ElfParsingError(f"Cannot find the enum underlying type {enum}")
 
@@ -1077,9 +1107,14 @@ class ElfDwarfVarExtractor:
         if die.tag != Tags.DW_TAG_pointer_type:
             raise ValueError('DIE must be a pointer')
 
+        self.die_process_ptr_type(die)
         ptr_size = self.get_size_from_pointer_die(die)
-        pointee_typedesc = self.get_type_of_var(die)
+        pointee_typedesc = self.get_pointee_type_of_var(die)
 
+        if pointee_typedesc.type == TypeOfVar.Void:
+            return Pointer(size=ptr_size, pointed_type=EmbeddedDataType.NA, pointed_typename=None)
+
+        assert pointee_typedesc.type_die is not None
         if pointee_typedesc.type == TypeOfVar.BaseType:
             self.die_process_base_type(pointee_typedesc.type_die)
             pointed_typename = self.get_typename_from_die(pointee_typedesc.type_die)
@@ -1508,7 +1543,10 @@ class ElfDwarfVarExtractor:
                 )
 
                 # Try dereferencing the pointer
-                pointee_typedesc = self.get_type_of_var(type_desc.type_die)
+                if type_desc.pointee is None or type_desc.pointee.type == TypeOfVar.Void:
+                    return
+                pointee_typedesc = type_desc.pointee.to_typedesc()
+
                 pointer_path_segments = path_segments.copy()
                 pointer_path_segments[-1] = f'*{pointer_path_segments[-1]}'  # /aaa/bbb/*ccc : ccc is dereferenced
                 ptr_location = PathPointedLocation(

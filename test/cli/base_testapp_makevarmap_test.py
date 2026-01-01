@@ -335,7 +335,8 @@ class BaseTestAppMakeVarmapTest(BaseVarmapTest):
         self.assert_var('/global/File5NamespaceA/file5u8', EmbeddedDataType.uint8, value_at_loc=0xBD)
 
         self.assert_var('/global/File5NamespaceA/file5_structA/i32', EmbeddedDataType.sint32, value_at_loc=31415926)
-        self.assert_var('/global/File5NamespaceA/file5_structA/structA_ptr', EmbeddedDataType.ptr64, value_at_loc=StructAAddresses.base)
+        self.assert_var('/global/File5NamespaceA/file5_structA/i32_ptr', EmbeddedDataType.ptr64,
+                        value_at_loc=self.varmap.get_var('/global/File5NamespaceA/file5i32').get_address())
         self.assert_var('/global/File5NamespaceA/file5_structA/u16_array/u16_array[0]', EmbeddedDataType.uint16, value_at_loc=0x121)
         self.assert_var('/global/File5NamespaceA/file5_structA/u16_array/u16_array[1]', EmbeddedDataType.uint16, value_at_loc=0x122)
         self.assert_var('/global/File5NamespaceA/file5_structA/u16_array/u16_array[2]', EmbeddedDataType.uint16, value_at_loc=0x123)
