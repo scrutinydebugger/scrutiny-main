@@ -81,6 +81,7 @@ class Tags:
     DW_TAG_typedef = 'DW_TAG_typedef'
     DW_TAG_subrange_type = 'DW_TAG_subrange_type'
     DW_TAG_subroutine_type = 'DW_TAG_subroutine_type'
+    DW_TAG_unspecified_type = 'DW_TAG_unspecified_type'
 
 
 class DwarfEncoding(Enum):
@@ -975,6 +976,8 @@ class ElfDwarfVarExtractor:
                 return TypeDescriptor(TypeOfVar.Union, enum, nextdie, None)
             elif nextdie.tag == Tags.DW_TAG_subroutine_type:
                 return TypeDescriptor(TypeOfVar.Subroutine, enum, nextdie, None)
+            elif nextdie.tag == Tags.DW_TAG_unspecified_type:   # Can happen with pointer to void. Tasking uses this
+                return TypeDescriptor(TypeOfVar.Void, enum, nextdie, None) 
             elif nextdie.tag == Tags.DW_TAG_enumeration_type:
                 enum = nextdie  # Will resolve on next iteration (if a type is available)
                 if Attrs.DW_AT_type not in nextdie.attributes:  # Clang dwarfv2 may not have type, but has a byte size
@@ -1190,7 +1193,7 @@ class ElfDwarfVarExtractor:
         if name is None:
             name = ''
 
-        type_desc = self.get_type_of_var(die)
+        type_desc = self.get_type_of_var(die, dereferenced_dies)
         embedded_enum: Optional[EmbeddedEnum] = None
         substruct: Optional[Struct] = None
         subarray: Optional[TypedArray] = None
