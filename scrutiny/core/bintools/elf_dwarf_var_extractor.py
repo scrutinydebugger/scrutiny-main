@@ -949,12 +949,12 @@ class ElfDwarfVarExtractor:
                 )
         return pointee
 
-    def get_type_of_var(self, die: DIE, dereferenced_dies:Optional[Set[DIE]]=None) -> TypeDescriptor:
+    def get_type_of_var(self, die: DIE, dereferenced_dies: Optional[Set[DIE]] = None) -> TypeDescriptor:
         """Go up the hiearchy to find the die that represent the type of the variable. """
         self._log_debug_process_die(die)
         prevdie = die
         enum: Optional[DIE] = None
-        
+
         while True:
             nextdie = prevdie.get_DIE_from_attribute(Attrs.DW_AT_type)
             if nextdie.tag == Tags.DW_TAG_structure_type:
@@ -973,7 +973,7 @@ class ElfDwarfVarExtractor:
             elif nextdie.tag == Tags.DW_TAG_subroutine_type:
                 return TypeDescriptor(TypeOfVar.Subroutine, enum, nextdie, None)
             elif nextdie.tag == Tags.DW_TAG_unspecified_type:   # Can happen with pointer to void. Tasking uses this
-                return TypeDescriptor(TypeOfVar.Void, enum, nextdie, None) 
+                return TypeDescriptor(TypeOfVar.Void, enum, nextdie, None)
             elif nextdie.tag == Tags.DW_TAG_enumeration_type:
                 enum = nextdie  # Will resolve on next iteration (if a type is available)
                 if Attrs.DW_AT_type not in nextdie.attributes:  # Clang dwarfv2 may not have type, but has a byte size
@@ -1012,8 +1012,6 @@ class ElfDwarfVarExtractor:
         self._log_debug_process_die(die)
         if die.tag not in (Tags.DW_TAG_structure_type, Tags.DW_TAG_class_type, Tags.DW_TAG_union_type):
             raise ValueError('DIE must be a structure, class or union type')
-
-        dereferenced_dies.add(die)  # Prevent pointers to dereference this struct/class/union now
 
         byte_size: Optional[int] = None
 
@@ -1125,6 +1123,8 @@ class ElfDwarfVarExtractor:
             return Pointer(size=ptr_size, pointed_type=EmbeddedDataType.NA, pointed_typename=None)
 
         assert pointee_typedesc.type_die is not None
+        dereferenced_dies.add(pointee_typedesc.type_die)  # Prevent dereferencing infinite recursion
+
         if pointee_typedesc.type == TypeOfVar.BaseType:
             self.die_process_base_type(pointee_typedesc.type_die)
             pointed_typename = self.get_typename_from_die(pointee_typedesc.type_die)
@@ -1185,7 +1185,6 @@ class ElfDwarfVarExtractor:
         self._log_debug_process_die(die)
 
         name = self.get_name(die)
-        self.logger.debug(f"name={name}")
         if name is None:
             name = ''
 
@@ -1196,7 +1195,7 @@ class ElfDwarfVarExtractor:
         typename: Optional[str] = None
         pointer: Optional[Pointer] = None
         if type_desc.type in (TypeOfVar.Struct, TypeOfVar.Class, TypeOfVar.Union):
-            # We recreate the definition instead of using a cached version. 
+            # We recreate the definition instead of using a cached version.
             # Dereferencing state might produce different results
             substruct = self.create_composite_type_def(type_desc.type_die, dereferenced_dies)  # recursion
         elif type_desc.type in (TypeOfVar.BaseType, TypeOfVar.EnumOnly):
