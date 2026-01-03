@@ -933,12 +933,12 @@ class ElfDwarfVarExtractor:
 
             self.enum_die_map[die] = enum
 
-    def get_pointee_type_of_var(self, ptr_die: DIE, dereferenced_dies: Set[DIE]) -> PointeeTypeDescriptor:
+    def get_pointee_type_of_var(self, ptr_die: DIE, dereferenced_dies: Optional[Set[DIE]]) -> PointeeTypeDescriptor:
         if Attrs.DW_AT_type not in ptr_die.attributes:
             pointee = PointeeTypeDescriptor(TypeOfVar.Void, None, None)
         else:
             pointee_typedesc = self.get_type_of_var(ptr_die, dereferenced_dies)
-            if pointee_typedesc.type_die in dereferenced_dies:
+            if dereferenced_dies is not None and pointee_typedesc.type_die in dereferenced_dies:
                 # Break recursion, In case we have a struct with a pointer to itself, or similar
                 pointee = PointeeTypeDescriptor(TypeOfVar.Void, None, None)
             else:
@@ -966,10 +966,6 @@ class ElfDwarfVarExtractor:
             elif nextdie.tag == Tags.DW_TAG_base_type:
                 return TypeDescriptor(TypeOfVar.BaseType, enum, nextdie, None)
             elif nextdie.tag == Tags.DW_TAG_pointer_type:
-                # De fault behavior. If the user doesn't specify a list of dereferenced die, 
-                # We create an empty set that will prevent no dereferencing.
-                if dereferenced_dies is None:
-                    dereferenced_dies = set()
                 pointee = self.get_pointee_type_of_var(nextdie, dereferenced_dies)
                 return TypeDescriptor(TypeOfVar.Pointer, enum, nextdie, pointee)
             elif nextdie.tag == Tags.DW_TAG_union_type:
