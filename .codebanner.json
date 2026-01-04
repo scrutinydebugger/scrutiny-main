@@ -269,7 +269,7 @@
             "docstring": "Make some checks on Scrutiny basic types used project wide"
         },
         "scrutiny/core/codecs.py": {
-            "docstring": "Contains classes capable to encode/decode data exchanged with embedded side"
+            "docstring": "Contains classes capable of encoding/decoding data exchanged with embedded side"
         },
         "scrutiny/core/basic_types.py": {
             "docstring": "Contains the basic types used project-wides"
