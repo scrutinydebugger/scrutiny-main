@@ -14,25 +14,35 @@ from scrutiny.core.basic_types import Endianness
 from scrutiny.tools.typing import *
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True)
 class PathPointedLocation:
     pointer_path: str
     pointer_offset: int
 
+    def __post_init__(self) -> None:
+        if not isinstance(self.pointer_path, str):
+            raise TypeError('Address pointer_path be a valid integer')
+        if not isinstance(self.pointer_offset, int):
+            raise TypeError('pointer_offset must be a valid integer')
+
     def copy(self) -> "PathPointedLocation":
         return copy(self)
 
+    def add_offset(self, val: int) -> None:
+        self.pointer_offset += val
 
+    def get_offset(self) -> int:
+        return self.pointer_offset
+
+
+@dataclass(slots=True)
 class AbsoluteLocation:
     """Represent an address in memory. """
+    address: int
 
-    __slots__ = ['address']
-
-    def __init__(self, address: int):
-        if not isinstance(address, int):
-            raise ValueError('Address must be a valid integer')
-
-        self.address = address
+    def __post_init__(self) -> None:
+        if not isinstance(self.address, int):
+            raise TypeError('Address must be a valid integer')
 
     def is_null(self) -> bool:
         """Return true if address is null"""

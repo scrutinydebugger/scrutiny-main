@@ -12,6 +12,7 @@ from scrutiny.core.basic_types import *
 from scrutiny.core.variable import *
 from scrutiny.tools.typing import *
 from test.cli.base_varmap_test import BaseVarmapTest, KnownEnumTypedDict
+from scrutiny.core.variable_location import PathPointedLocation
 
 KNOWN_ENUMS: KnownEnumTypedDict = {
     'EnumA': {
@@ -301,3 +302,131 @@ class BaseTestAppMakeVarmapTest(BaseVarmapTest):
         self.assert_var('/global/file4classA3_array/file4classA3_array[1][1]/the_union/u8/u8[1]', EmbeddedDataType.uint8, value_at_loc=0x77)
         self.assert_var('/global/file4classA3_array/file4classA3_array[1][1]/the_union/u8/u8[2]', EmbeddedDataType.uint8, value_at_loc=0x66)
         self.assert_var('/global/file4classA3_array/file4classA3_array[1][1]/the_union/u8/u8[3]', EmbeddedDataType.uint8, value_at_loc=0x55)
+
+    def test_file5(self):
+        class StructAOffsets:
+            i32 = 0
+            i32_ptr = i32 + 4
+            u16_array = i32_ptr + 8
+
+        class StructAAddresses:
+            base = self.varmap.get_var('/global/File5NamespaceA/file5_structA/i32').get_address()
+            i32 = base + StructAOffsets.i32
+            i32_ptr = base + StructAOffsets.i32_ptr
+            u16_array = base + StructAOffsets.u16_array
+
+        class StructBOffsets:
+            u32 = 0
+            structA_ptr = u32 + 4
+
+        class StructBAddresses:
+            base = self.varmap.get_var('/global/File5NamespaceA/file5_structB/u32').get_address()
+            u32 = base + StructBOffsets.u32
+            structA_ptr = base + StructBOffsets.structA_ptr
+
+        self.assert_var('/global/File5NamespaceA/file5i64', EmbeddedDataType.sint64, value_at_loc=-0x123456789abcdef)
+        self.assert_var('/global/File5NamespaceA/file5i32', EmbeddedDataType.sint32, value_at_loc=-0x77553311)
+        self.assert_var('/global/File5NamespaceA/file5i16', EmbeddedDataType.sint16, value_at_loc=-0x2A3C)
+        self.assert_var('/global/File5NamespaceA/file5i8', EmbeddedDataType.sint8, value_at_loc=-0x35)
+
+        self.assert_var('/global/File5NamespaceA/file5u64', EmbeddedDataType.uint64, value_at_loc=0x98765432123456)
+        self.assert_var('/global/File5NamespaceA/file5u32', EmbeddedDataType.uint32, value_at_loc=0xaabbccdd)
+        self.assert_var('/global/File5NamespaceA/file5u16', EmbeddedDataType.uint16, value_at_loc=0xFDCE)
+        self.assert_var('/global/File5NamespaceA/file5u8', EmbeddedDataType.uint8, value_at_loc=0xBD)
+
+        self.assert_var('/global/File5NamespaceA/file5_structA/i32', EmbeddedDataType.sint32, value_at_loc=31415926)
+        self.assert_var('/global/File5NamespaceA/file5_structA/i32_ptr', EmbeddedDataType.ptr64,
+                        value_at_loc=self.varmap.get_var('/global/File5NamespaceA/file5i32').get_address())
+        self.assert_var('/global/File5NamespaceA/file5_structA/u16_array/u16_array[0]', EmbeddedDataType.uint16, value_at_loc=0x121)
+        self.assert_var('/global/File5NamespaceA/file5_structA/u16_array/u16_array[1]', EmbeddedDataType.uint16, value_at_loc=0x122)
+        self.assert_var('/global/File5NamespaceA/file5_structA/u16_array/u16_array[2]', EmbeddedDataType.uint16, value_at_loc=0x123)
+        self.assert_var('/global/File5NamespaceA/file5_structA/u16_array/u16_array[3]', EmbeddedDataType.uint16, value_at_loc=0x124)
+        self.assert_var('/global/File5NamespaceA/file5_structA/u16_array/u16_array[4]', EmbeddedDataType.uint16, value_at_loc=0x125)
+
+        self.assert_var('/global/File5NamespaceA/file5_structB/u32', EmbeddedDataType.uint32, value_at_loc=0x97461346)
+        self.assert_var('/global/File5NamespaceA/file5_structB/structA_ptr', EmbeddedDataType.ptr64, value_at_loc=StructAAddresses.base)
+
+        self.assert_var('/global/File5NamespaceA/file5_structb_array/file5_structb_array[0]/u32', EmbeddedDataType.uint32, value_at_loc=0x1195735)
+        self.assert_var('/global/File5NamespaceA/file5_structb_array/file5_structb_array[1]/u32', EmbeddedDataType.uint32, value_at_loc=0x1284629)
+
+        # Test addresses
+        self.assert_var('/global/File5NamespaceB/file5i64_ptr', EmbeddedDataType.ptr64,
+                        value_at_loc=self.varmap.get_var('/global/File5NamespaceA/file5i64').get_address())
+        self.assert_var('/global/File5NamespaceB/file5i32_ptr', EmbeddedDataType.ptr64,
+                        value_at_loc=self.varmap.get_var('/global/File5NamespaceA/file5i32').get_address())
+        self.assert_var('/global/File5NamespaceB/file5i16_ptr', EmbeddedDataType.ptr64,
+                        value_at_loc=self.varmap.get_var('/global/File5NamespaceA/file5i16').get_address())
+        self.assert_var('/global/File5NamespaceB/file5i8_ptr', EmbeddedDataType.ptr64,
+                        value_at_loc=self.varmap.get_var('/global/File5NamespaceA/file5i8').get_address())
+
+        self.assert_var('/global/File5NamespaceB/file5u64_ptr', EmbeddedDataType.ptr64,
+                        value_at_loc=self.varmap.get_var('/global/File5NamespaceA/file5u64').get_address())
+        self.assert_var('/global/File5NamespaceB/file5u32_ptr', EmbeddedDataType.ptr64,
+                        value_at_loc=self.varmap.get_var('/global/File5NamespaceA/file5u32').get_address())
+        self.assert_var('/global/File5NamespaceB/file5u16_ptr', EmbeddedDataType.ptr64,
+                        value_at_loc=self.varmap.get_var('/global/File5NamespaceA/file5u16').get_address())
+        self.assert_var('/global/File5NamespaceB/file5u8_ptr', EmbeddedDataType.ptr64,
+                        value_at_loc=self.varmap.get_var('/global/File5NamespaceA/file5u8').get_address())
+
+        self.assert_var('/global/File5NamespaceB/file5_structA_ptr', EmbeddedDataType.ptr64, value_at_loc=StructAAddresses.base)
+        self.assert_var('/global/File5NamespaceB/file5_structB_ptr', EmbeddedDataType.ptr64, value_at_loc=StructBAddresses.base)
+
+        self.assert_var(
+            '/global/File5NamespaceA/file5_structb_array/file5_structb_array[0]/structA_ptr',
+            EmbeddedDataType.ptr64,
+            value_at_loc=StructAAddresses.base
+        )
+        self.assert_var(
+            '/global/File5NamespaceA/file5_structb_array/file5_structb_array[1]/structA_ptr',
+            EmbeddedDataType.ptr64,
+            value_at_loc=StructAAddresses.base
+        )
+
+        # == Test dereferencing ==
+        # base types
+        self.assert_var('/global/File5NamespaceB/*file5i64_ptr', EmbeddedDataType.sint64,
+                        addr=PathPointedLocation('/global/File5NamespaceB/file5i64_ptr', 0))
+        self.assert_var('/global/File5NamespaceB/*file5i32_ptr', EmbeddedDataType.sint32,
+                        addr=PathPointedLocation('/global/File5NamespaceB/file5i32_ptr', 0))
+        self.assert_var('/global/File5NamespaceB/*file5i16_ptr', EmbeddedDataType.sint16,
+                        addr=PathPointedLocation('/global/File5NamespaceB/file5i16_ptr', 0))
+        self.assert_var('/global/File5NamespaceB/*file5i8_ptr', EmbeddedDataType.sint8,
+                        addr=PathPointedLocation('/global/File5NamespaceB/file5i8_ptr', 0))
+
+        self.assert_var('/global/File5NamespaceB/*file5u64_ptr', EmbeddedDataType.uint64,
+                        addr=PathPointedLocation('/global/File5NamespaceB/file5u64_ptr', 0))
+        self.assert_var('/global/File5NamespaceB/*file5u32_ptr', EmbeddedDataType.uint32,
+                        addr=PathPointedLocation('/global/File5NamespaceB/file5u32_ptr', 0))
+        self.assert_var('/global/File5NamespaceB/*file5u16_ptr', EmbeddedDataType.uint16,
+                        addr=PathPointedLocation('/global/File5NamespaceB/file5u16_ptr', 0))
+        self.assert_var('/global/File5NamespaceB/*file5u8_ptr', EmbeddedDataType.uint8,
+                        addr=PathPointedLocation('/global/File5NamespaceB/file5u8_ptr', 0))
+
+        # Struct A
+        struct_a_ptr_path = '/global/File5NamespaceB/file5_structA_ptr'
+
+        self.assert_var(
+            '/global/File5NamespaceB/*file5_structA_ptr/i32',
+            EmbeddedDataType.sint32,
+            addr=PathPointedLocation(struct_a_ptr_path, StructAOffsets.i32)
+        )
+
+        self.assert_var(
+            '/global/File5NamespaceB/*file5_structA_ptr/i32_ptr',
+            EmbeddedDataType.ptr64,
+            addr=PathPointedLocation(struct_a_ptr_path, StructAOffsets.i32_ptr)
+        )
+
+        # Struct B
+        struct_b_ptr_path = '/global/File5NamespaceB/file5_structB_ptr'
+
+        self.assert_var(
+            '/global/File5NamespaceB/*file5_structB_ptr/u32',
+            EmbeddedDataType.uint32,
+            addr=PathPointedLocation(struct_b_ptr_path, StructBOffsets.u32)
+        )
+        self.assert_var(
+            '/global/File5NamespaceB/*file5_structB_ptr/structA_ptr',
+            EmbeddedDataType.ptr64,
+            addr=PathPointedLocation(struct_b_ptr_path, StructBOffsets.structA_ptr)
+        )

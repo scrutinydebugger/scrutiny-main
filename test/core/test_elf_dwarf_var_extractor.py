@@ -99,7 +99,7 @@ class TestElf2VarMapFromBuilds(ScrutinyUnitTest):
             logger.debug(stderr.decode('utf8'))
 
             if p.returncode != 0:
-                raise RuntimeError("Failed to compile code")
+                raise RuntimeError("Failed to compile code.")
 
             with open(outbin, 'rb') as f:
                 if f.read(4) != b'\x7fELF':
@@ -545,6 +545,39 @@ int main(int argc, char* argv[])
 
 volatile uint32_t gu32;
 volatile uint32_t *gu32_ptr = &gu32;
+
+struct A
+{
+    volatile uint32_t* gu32_ptr;
+    volatile int64_t i64;
+};
+
+struct B
+{
+    volatile A* gStructAPtr;
+};
+
+struct C
+{
+    volatile int32_t i32;
+    volatile A a;
+};
+
+struct D
+{
+    int32_t i32;
+    volatile D* d_ptr;
+};
+
+volatile A gStructA = {&gu32, 0x123456789}; 
+volatile B gStructB = {&gStructA};
+volatile C gStructC = {0x123, {&gu32, 0x222}};
+volatile D gStructD1 = {0x11223344, nullptr};
+volatile D gStructD2 = {0x55667788, &gStructD1};
+
+volatile A* gStructAptr = &gStructA;
+volatile C* gStructCptr = &gStructC;
+
 int main(int argc, char* argv[])
 {
     return 0;
@@ -555,6 +588,7 @@ int main(int argc, char* argv[])
             for dwarf_version in [2, 3, 4]:
                 with self.subTest(f"{compiler}-dwarf{dwarf_version}"):
                     varmap = self._make_varmap(code, dwarf_version=dwarf_version, compiler=compiler, cppfilt='c++filt')
+
                     vpath = '/global/gu32_ptr'
                     self.assertTrue(varmap.has_var(vpath))
                     v = varmap.get_var(vpath)
@@ -569,6 +603,120 @@ int main(int argc, char* argv[])
                     self.assertEqual(v.get_type(), EmbeddedDataType.uint32)
                     self.assertTrue(v.has_pointed_address())
                     self.assertFalse(v.has_absolute_address())
+
+                    vpath = '/global/gStructA/gu32_ptr'
+                    self.assertTrue(varmap.has_var(vpath))
+                    v = varmap.get_var(vpath)
+                    self.assertTrue(v.get_type().is_pointer())
+
+                    vpath = '/global/gStructA/*gu32_ptr'
+                    self.assertTrue(varmap.has_var(vpath))
+                    v = varmap.get_var(vpath)
+                    self.assertEqual(v.get_type(), EmbeddedDataType.uint32)
+                    self.assertTrue(v.has_pointed_address())
+                    self.assertFalse(v.has_absolute_address())
+
+                    # Struct A
+                    vpath = '/global/gStructAptr'
+                    self.assertTrue(varmap.has_var(vpath))
+                    v = varmap.get_var(vpath)
+                    self.assertTrue(v.get_type().is_pointer())
+
+                    vpath = '/global/*gStructAptr/i64'
+                    self.assertTrue(varmap.has_var(vpath))
+                    v = varmap.get_var(vpath)
+                    self.assertEqual(v.get_type(), EmbeddedDataType.sint64)
+                    self.assertTrue(v.has_pointed_address())
+                    self.assertFalse(v.has_absolute_address())
+
+                    # Struct B
+                    vpath = '/global/gStructB/gStructAPtr'
+                    self.assertTrue(varmap.has_var(vpath))
+                    v = varmap.get_var(vpath)
+                    self.assertTrue(v.get_type().is_pointer())
+
+                    vpath = '/global/gStructB/*gStructAPtr/i64'
+                    self.assertTrue(varmap.has_var(vpath))
+                    v = varmap.get_var(vpath)
+                    self.assertEqual(v.get_type(), EmbeddedDataType.sint64)
+                    self.assertTrue(v.has_pointed_address())
+                    self.assertFalse(v.has_absolute_address())
+
+                    # Struct C
+                    vpath = '/global/gStructCptr'
+                    self.assertTrue(varmap.has_var(vpath))
+                    v = varmap.get_var(vpath)
+                    self.assertTrue(v.get_type().is_pointer())
+
+                    vpath = '/global/*gStructCptr/i32'
+                    self.assertTrue(varmap.has_var(vpath))
+                    v = varmap.get_var(vpath)
+                    self.assertEqual(v.get_type(), EmbeddedDataType.sint32)
+                    self.assertTrue(v.has_pointed_address())
+                    self.assertFalse(v.has_absolute_address())
+
+                    vpath = '/global/*gStructCptr/a/i64'
+                    self.assertTrue(varmap.has_var(vpath))
+                    v = varmap.get_var(vpath)
+                    self.assertEqual(v.get_type(), EmbeddedDataType.sint64)
+                    self.assertTrue(v.has_pointed_address())
+                    self.assertFalse(v.has_absolute_address())
+
+                    vpath = '/global/*gStructCptr/a/gu32_ptr'
+                    self.assertTrue(varmap.has_var(vpath))
+                    v = varmap.get_var(vpath)
+                    self.assertTrue(v.get_type().is_pointer())
+                    self.assertTrue(v.has_pointed_address())
+                    self.assertFalse(v.has_absolute_address())
+
+                    # StructD
+                    vpath = '/global/gStructD1/i32'
+                    self.assertTrue(varmap.has_var(vpath))
+                    v = varmap.get_var(vpath)
+                    self.assertEqual(v.get_type(), EmbeddedDataType.sint32)
+
+                    vpath = '/global/gStructD1/d_ptr'
+                    self.assertTrue(varmap.has_var(vpath))
+                    v = varmap.get_var(vpath)
+                    self.assertTrue(v.get_type().is_pointer())
+
+                    vpath = '/global/gStructD2/i32'
+                    self.assertTrue(varmap.has_var(vpath))
+                    v = varmap.get_var(vpath)
+                    self.assertEqual(v.get_type(), EmbeddedDataType.sint32)
+
+                    vpath = '/global/gStructD2/d_ptr'
+                    self.assertTrue(varmap.has_var(vpath))
+                    v = varmap.get_var(vpath)
+                    self.assertTrue(v.get_type().is_pointer())
+
+                    # Check for struct D dereferencing
+
+                    vpath = '/global/gStructD1/*d_ptr/i32'
+                    self.assertTrue(varmap.has_var(vpath))
+                    v = varmap.get_var(vpath)
+                    self.assertEqual(v.get_type(), EmbeddedDataType.sint32)
+
+                    vpath = '/global/gStructD1/*d_ptr/d_ptr'
+                    self.assertTrue(varmap.has_var(vpath))
+                    v = varmap.get_var(vpath)
+                    self.assertTrue(v.get_type().is_pointer())
+
+                    vpath = '/global/gStructD2/*d_ptr/i32'
+                    self.assertTrue(varmap.has_var(vpath))
+                    v = varmap.get_var(vpath)
+                    self.assertEqual(v.get_type(), EmbeddedDataType.sint32)
+
+                    vpath = '/global/gStructD2/*d_ptr/d_ptr'
+                    self.assertTrue(varmap.has_var(vpath))
+                    v = varmap.get_var(vpath)
+                    self.assertTrue(v.get_type().is_pointer())
+
+                    # Check no nested dereferencing
+                    self.assertFalse(varmap.has_var('/global/gStructD1/*d_ptr/*d_ptr/i32'))
+                    self.assertFalse(varmap.has_var('/global/gStructD1/*d_ptr/*d_ptr/d_ptr'))
+                    self.assertFalse(varmap.has_var('/global/gStructD2/*d_ptr/*d_ptr/i32'))
+                    self.assertFalse(varmap.has_var('/global/gStructD2/*d_ptr/*d_ptr/d_ptr'))
 
 
 if __name__ == '__main__':

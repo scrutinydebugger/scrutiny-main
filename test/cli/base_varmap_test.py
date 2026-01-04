@@ -15,6 +15,7 @@ from scrutiny.core.bintools.elf_dwarf_var_extractor import ElfDwarfVarExtractor
 from scrutiny.core.memory_content import MemoryContent
 
 
+from scrutiny.core.variable_location import *
 from scrutiny.core.basic_types import *
 from scrutiny.core.variable import *
 from scrutiny.core.embedded_enum import *
@@ -68,12 +69,12 @@ class BaseVarmapTest:
     def assert_var(self,
                    fullname,
                    thetype: Optional[EmbeddedDataType] = None,
-                   addr=None,
+                   addr: Optional[Union[int, PathPointedLocation, AbsoluteLocation]] = None,
                    bitsize=None,
                    bitoffset=None,
                    value_at_loc=None,
                    float_tol: Optional[float] = None,
-                   enum: Optional[str] = None):
+                   enum: Optional[str] = None,):
         v = self.load_var(fullname)
         if thetype is not None:
             self.assertEqual(thetype, v.get_type())
@@ -87,7 +88,17 @@ class BaseVarmapTest:
             self.assertEqual(v.bitoffset, bitoffset)
 
         if addr is not None:
-            self.assertEqual(addr, v.get_address())
+            if isinstance(addr, AbsoluteLocation):
+                addr = addr.get_address()
+
+            if isinstance(addr, int):
+                self.assertTrue(v.has_absolute_address())
+                self.assertEqual(addr, v.get_address())
+            elif isinstance(addr, PathPointedLocation):
+                self.assertTrue(v.has_pointed_address())
+                self.assertEqual(addr, v.get_pointer())
+            else:
+                raise NotImplementedError("Unsupported address type")
 
         if enum is not None:
             self.assertIn(enum, self.known_enums)
