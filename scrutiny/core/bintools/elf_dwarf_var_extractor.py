@@ -358,7 +358,7 @@ class ElfDwarfVarExtractor:
     die2vartype_map: Dict[DIE, EmbeddedDataType]
     cu_name_map: Dict[CompileUnit, str]
     enum_die_map: Dict[DIE, EmbeddedEnum]
-    struct_die_map: Dict[DIE, Struct]
+    struct_die_cache_map: Dict[Tuple[DIE, bool], Struct]
     array_die_map: Dict[DIE, TypedArray]
     cppfilt: Optional[str]
     logger: logging.Logger
@@ -379,7 +379,7 @@ class ElfDwarfVarExtractor:
         self._anonymous_type_typedef_map = {}
         self.cu_name_map = {}   # maps a CompileUnit object to it's unique display name
         self.enum_die_map = {}
-        self.struct_die_map = {}
+        self.struct_die_cache_map = {}
         self.array_die_map = {}
         self.cppfilt = cppfilt
         self._ignore_cu_patterns = ignore_cu_patterns
@@ -933,23 +933,19 @@ class ElfDwarfVarExtractor:
 
             self.enum_die_map[die] = enum
 
-    def get_pointee_type_of_var(self, ptr_die: DIE, dereferenced_dies: Optional[Set[DIE]]) -> PointeeTypeDescriptor:
+    def get_pointee_type_of_var(self, ptr_die: DIE) -> PointeeTypeDescriptor:
         if Attrs.DW_AT_type not in ptr_die.attributes:
             pointee = PointeeTypeDescriptor(TypeOfVar.Void, None, None)
         else:
-            pointee_typedesc = self.get_type_of_var(ptr_die, dereferenced_dies)
-            if dereferenced_dies is not None and pointee_typedesc.type_die in dereferenced_dies:
-                # Break recursion, In case we have a struct with a pointer to itself, or similar
-                pointee = PointeeTypeDescriptor(TypeOfVar.Void, None, None)
-            else:
-                pointee = PointeeTypeDescriptor(
-                    type=pointee_typedesc.type,
-                    type_die=pointee_typedesc.type_die,
-                    enum_die=pointee_typedesc.enum_die
-                )
+            pointee_typedesc = self.get_type_of_var(ptr_die)
+            pointee = PointeeTypeDescriptor(
+                type=pointee_typedesc.type,
+                type_die=pointee_typedesc.type_die,
+                enum_die=pointee_typedesc.enum_die
+            )
         return pointee
 
-    def get_type_of_var(self, die: DIE, dereferenced_dies: Optional[Set[DIE]] = None) -> TypeDescriptor:
+    def get_type_of_var(self, die: DIE) -> TypeDescriptor:
         """Go up the hiearchy to find the die that represent the type of the variable. """
         self._log_debug_process_die(die)
         prevdie = die
@@ -966,7 +962,7 @@ class ElfDwarfVarExtractor:
             elif nextdie.tag == Tags.DW_TAG_base_type:
                 return TypeDescriptor(TypeOfVar.BaseType, enum, nextdie, None)
             elif nextdie.tag == Tags.DW_TAG_pointer_type:
-                pointee = self.get_pointee_type_of_var(nextdie, dereferenced_dies)
+                pointee = self.get_pointee_type_of_var(nextdie)
                 return TypeDescriptor(TypeOfVar.Pointer, enum, nextdie, pointee)
             elif nextdie.tag == Tags.DW_TAG_union_type:
                 return TypeDescriptor(TypeOfVar.Union, enum, nextdie, None)
@@ -984,32 +980,23 @@ class ElfDwarfVarExtractor:
 
             prevdie = nextdie
 
-    # When we encounter a struct die, we make a definition that we keep global,
-    # this definition includes all submember with their respective offset.
-    # each time we will encounter a instance of this struct, we will generate a variable for each sub member
-
-    def die_process_struct_class_union(self, die: DIE, dereferenced_dies: Optional[Set[DIE]] = None) -> None:
-        self._log_debug_process_die(die)
-
-        if dereferenced_dies is None:
-            dereferenced_dies = set()
-
-        if die not in self.struct_die_map:
-            # Go down the hierarchy to get the whole struct def in a recursive way
-            self.struct_die_map[die] = self.create_composite_type_def(die, dereferenced_dies)
-
     def die_process_array(self, die: DIE) -> None:
         self._log_debug_process_die(die)
 
         if die not in self.array_die_map:
-            array = self.get_array_def(die)
+            array = self.get_array_def(die, allow_dereferencing=False)
             if array is not None:
                 self.array_die_map[die] = array
 
-    def create_composite_type_def(self, die: DIE, dereferenced_dies: Set[DIE]) -> Struct:
+    def get_composite_type_def(self, die: DIE, allow_dereferencing: bool) -> Struct:
         """Get the definition of a struct/class/union type"""
 
         self._log_debug_process_die(die)
+
+        cache_key = (die, allow_dereferencing)
+        if cache_key in self.struct_die_cache_map:
+            return self.struct_die_cache_map[cache_key]
+
         if die.tag not in (Tags.DW_TAG_structure_type, Tags.DW_TAG_class_type, Tags.DW_TAG_union_type):
             raise ValueError('DIE must be a structure, class or union type')
 
@@ -1022,7 +1009,7 @@ class ElfDwarfVarExtractor:
         is_in_union = die.tag == Tags.DW_TAG_union_type
         for child in die.iter_children():
             if child.tag == Tags.DW_TAG_member:
-                member = self.get_member_from_die(child, is_in_union, dereferenced_dies)
+                member = self.get_member_from_die(child, is_in_union, allow_dereferencing)
                 if member is not None:
                     struct.add_member(member)
             elif child.tag == Tags.DW_TAG_inheritance:
@@ -1033,13 +1020,13 @@ class ElfDwarfVarExtractor:
                 if typedie.tag not in [Tags.DW_TAG_structure_type, Tags.DW_TAG_class_type]:   # Add union here?
                     self.logger.warning(f"Line {get_linenumber()}: Inheritance to a type die {self._make_name_for_log(typedie)}. Not supported yet")
                     continue
-                self.die_process_struct_class_union(typedie)
-                parent_struct = self.struct_die_map[typedie]
+                parent_struct = self.get_composite_type_def(typedie, allow_dereferencing)
                 struct.inherit(parent_struct, offset=offset)
 
+        self.struct_die_cache_map[cache_key] = struct
         return struct
 
-    def get_array_def(self, die: DIE) -> Optional[TypedArray]:
+    def get_array_def(self, die: DIE, allow_dereferencing: bool) -> Optional[TypedArray]:
         self._log_debug_process_die(die)
         if die.tag != Tags.DW_TAG_array_type:
             raise ValueError('DIE must be an array')
@@ -1077,8 +1064,7 @@ class ElfDwarfVarExtractor:
 
         array_element_type: Union[Struct, EmbeddedDataType]
         if element_type.type in (TypeOfVar.Class, TypeOfVar.Struct, TypeOfVar.Union):
-            self.die_process_struct_class_union(element_type.type_die)
-            struct = self.struct_die_map[element_type.type_die]
+            struct = self.get_composite_type_def(element_type.type_die, allow_dereferencing)
             if struct.byte_size is None:
                 raise ElfParsingError(f"Array of elements of unknown size: {die}")
             array_element_type = struct
@@ -1093,7 +1079,7 @@ class ElfDwarfVarExtractor:
             element_type_name = self.process_enum_only_type(element_type.enum_die)
             array_element_type = self.varmap.get_vartype_from_base_type(element_type_name)
         elif element_type.type == TypeOfVar.Array:
-            subarray = self.get_array_def(element_type.type_die)
+            subarray = self.get_array_def(element_type.type_die, allow_dereferencing)
             if subarray is None:
                 return None
             dims.extend(subarray.dims)
@@ -1110,20 +1096,20 @@ class ElfDwarfVarExtractor:
             element_type_name=element_type_name
         )
 
-    def get_pointer_def(self, die: DIE, dereferenced_dies: Set[DIE]) -> Optional[Pointer]:
+    def get_pointer_def(self, die: DIE, allow_dereferencing: bool) -> Optional[Pointer]:
         self._log_debug_process_die(die)
         if die.tag != Tags.DW_TAG_pointer_type:
             raise ValueError('DIE must be a pointer')
 
         self.die_process_ptr_type(die)
         ptr_size = self.get_size_from_pointer_die(die)
-        pointee_typedesc = self.get_pointee_type_of_var(die, dereferenced_dies)
-
+        if not allow_dereferencing:
+            return Pointer(size=ptr_size, pointed_type=EmbeddedDataType.NA, pointed_typename=None)
+        pointee_typedesc = self.get_pointee_type_of_var(die)
         if pointee_typedesc.type == TypeOfVar.Void:
             return Pointer(size=ptr_size, pointed_type=EmbeddedDataType.NA, pointed_typename=None)
 
         assert pointee_typedesc.type_die is not None
-        dereferenced_dies.add(pointee_typedesc.type_die)  # Prevent dereferencing infinite recursion
 
         if pointee_typedesc.type == TypeOfVar.BaseType:
             self.die_process_base_type(pointee_typedesc.type_die)
@@ -1131,8 +1117,7 @@ class ElfDwarfVarExtractor:
             embedded_type = self.varmap.get_vartype_from_base_type(pointed_typename)   # Read back type from varmap
             return Pointer(size=ptr_size, pointed_type=embedded_type, pointed_typename=pointed_typename)
         elif pointee_typedesc.type in (TypeOfVar.Class, TypeOfVar.Struct, TypeOfVar.Union):
-            self.die_process_struct_class_union(pointee_typedesc.type_die, dereferenced_dies)
-            struct = self.struct_die_map[pointee_typedesc.type_die]
+            struct = self.get_composite_type_def(pointee_typedesc.type_die, False)
             return Pointer(size=ptr_size, pointed_type=struct, pointed_typename=None)
 
         return None
@@ -1181,14 +1166,14 @@ class ElfDwarfVarExtractor:
 
     # Read a member die and generate a Struct.Member that we will later on use to register a variable.
     # The struct.Member object contains everything we need to map a
-    def get_member_from_die(self, die: DIE, is_in_union: bool, dereferenced_dies: Set[DIE]) -> Optional[Struct.Member]:
+    def get_member_from_die(self, die: DIE, is_in_union: bool, allow_dereferencing: bool) -> Optional[Struct.Member]:
         self._log_debug_process_die(die)
 
         name = self.get_name(die)
         if name is None:
             name = ''
 
-        type_desc = self.get_type_of_var(die, dereferenced_dies)
+        type_desc = self.get_type_of_var(die)
         embedded_enum: Optional[EmbeddedEnum] = None
         substruct: Optional[Struct] = None
         subarray: Optional[TypedArray] = None
@@ -1197,7 +1182,7 @@ class ElfDwarfVarExtractor:
         if type_desc.type in (TypeOfVar.Struct, TypeOfVar.Class, TypeOfVar.Union):
             # We recreate the definition instead of using a cached version.
             # Dereferencing state might produce different results
-            substruct = self.create_composite_type_def(type_desc.type_die, dereferenced_dies)  # recursion
+            substruct = self.get_composite_type_def(type_desc.type_die, allow_dereferencing)  # recursion
         elif type_desc.type in (TypeOfVar.BaseType, TypeOfVar.EnumOnly):
             if type_desc.enum_die is not None:
                 self.die_process_enum(type_desc.enum_die)
@@ -1212,14 +1197,14 @@ class ElfDwarfVarExtractor:
             else:
                 raise ElfParsingError("Impossible to process base type")
         elif type_desc.type == TypeOfVar.Array:
-            subarray = self.get_array_def(type_desc.type_die)
+            subarray = self.get_array_def(type_desc.type_die, allow_dereferencing)
             if subarray is None:    # Not available. Incomplete, no dimensions available
                 return None
         elif type_desc.type == TypeOfVar.Pointer:
-            pointer = self.get_pointer_def(type_desc.type_die, dereferenced_dies)
-            typename = self.get_pointer_name_from_die(type_desc.type_die)
+            pointer = self.get_pointer_def(type_desc.type_die, allow_dereferencing)
             if pointer is None:
                 return None
+            typename = self.get_pointer_name_from_die(type_desc.type_die)
         else:
             self.logger.warning(
                 f"Line {get_linenumber()}: Found a member with a type die {self._make_name_for_log(type_desc.type_die)} (type={type_desc.type.name}). Not supported yet")
@@ -1292,7 +1277,7 @@ class ElfDwarfVarExtractor:
 
     # We have an instance of a struct. Use the location and go down the structure recursively
     # using the members offsets to find the final address that we will apply to the output var
-    def register_struct_var(self, die: DIE, type_desc: TypeDescriptor, location: Union[AbsoluteLocation, PathPointedLocation]) -> None:
+    def register_struct_var(self, die: DIE, struct: Struct, type_desc: TypeDescriptor, location: Union[AbsoluteLocation, PathPointedLocation]) -> None:
         """Register an instance of a struct at a given location"""
         if isinstance(location, AbsoluteLocation) and location.is_null():
             self.logger.warning(f"Skipping structure at location NULL address. {die}")
@@ -1301,7 +1286,6 @@ class ElfDwarfVarExtractor:
         path_segments = self.make_varpath(die)  # Leftmost part.
         if isinstance(location, PathPointedLocation):
             path_segments.segments[-1].name = '*' + path_segments.segments[-1].name
-        struct = self.struct_die_map[type_desc.type_die]
         startpoint = Struct.Member(struct.name, member_type=Struct.Member.MemberType.SubStruct, bitoffset=None, bitsize=None, substruct=struct)
 
         # Start the recursion that will create all the sub elements
@@ -1540,8 +1524,8 @@ class ElfDwarfVarExtractor:
 
             # Composite type
             if type_desc.type in (TypeOfVar.Struct, TypeOfVar.Class, TypeOfVar.Union):
-                self.die_process_struct_class_union(type_desc.type_die)
-                self.register_struct_var(die, type_desc, location)
+                struct = self.get_composite_type_def(type_desc.type_die, allow_dereferencing=True)
+                self.register_struct_var(die, struct, type_desc, location)
             elif type_desc.type == TypeOfVar.Array:
                 self.die_process_array(type_desc.type_die)
                 self.register_array_var(die, type_desc, location)
@@ -1569,18 +1553,17 @@ class ElfDwarfVarExtractor:
                     pointer_offset=0,
                     pointer_path=path_tools.join_segments(path_segments)
                 )
-                if pointee_typedesc.type == TypeOfVar.BaseType:
-                    self.die_process_base_type(pointee_typedesc.type_die)
-                    typename = self.get_typename_from_die(pointee_typedesc.type_die)
+                if pointee_typedesc.type in (TypeOfVar.BaseType, TypeOfVar.EnumOnly):
+                    typename = self._process_and_get_basetype_or_enumonly_typename(pointee_typedesc)
                     self.maybe_register_variable(
                         path_segments=pointer_path_segments,
                         location=ptr_location,
                         original_type_name=typename,
-                        enum=None
+                        enum=self.get_enum_from_type_descriptor(pointee_typedesc)
                     )
                 elif pointee_typedesc.type in (TypeOfVar.Class, TypeOfVar.Struct, TypeOfVar.Union):
-                    self.die_process_struct_class_union(pointee_typedesc.type_die)
-                    self.register_struct_var(die, pointee_typedesc, ptr_location)
+                    struct = self.get_composite_type_def(pointee_typedesc.type_die, allow_dereferencing=False)
+                    self.register_struct_var(die, struct, pointee_typedesc, ptr_location)
                 else:
                     self.logger.warning(
                         f"Line {get_linenumber()}: Found a pointer to type die {self._make_name_for_log(pointee_typedesc.type_die)} (type={pointee_typedesc.type.name}). Not supported yet")
@@ -1589,17 +1572,7 @@ class ElfDwarfVarExtractor:
             elif type_desc.type in (TypeOfVar.BaseType, TypeOfVar.EnumOnly):
                 varpath = self.make_varpath(die)
                 path_segments = varpath.get_segments_name()
-
-                if type_desc.type == TypeOfVar.BaseType:   # Most common case
-                    self.die_process_base_type(type_desc.type_die)    # Just in case it is unknown yet
-                    typename = self.get_typename_from_die(type_desc.type_die)
-                elif type_desc.type == TypeOfVar.EnumOnly:    # clang dwarf v2 may do that for enums
-                    assert type_desc.enum_die is type_desc.type_die
-                    assert type_desc.enum_die is not None
-                    typename = self.process_enum_only_type(type_desc.enum_die)
-                else:
-                    raise ElfParsingError("Impossible to process base type")
-
+                typename = self._process_and_get_basetype_or_enumonly_typename(type_desc)
                 self.maybe_register_variable(
                     path_segments=path_segments,
                     location=location,
@@ -1611,6 +1584,18 @@ class ElfDwarfVarExtractor:
             else:
                 self.logger.warning(
                     f"Line {get_linenumber()}: Found a variable with a type die {self._make_name_for_log(type_desc.type_die)} (type={type_desc.type.name}). Not supported yet")
+
+    def _process_and_get_basetype_or_enumonly_typename(self, type_desc: TypeDescriptor) -> str:
+        if type_desc.type == TypeOfVar.BaseType:   # Most common case
+            self.die_process_base_type(type_desc.type_die)    # Just in case it is unknown yet
+            typename = self.get_typename_from_die(type_desc.type_die)
+        elif type_desc.type == TypeOfVar.EnumOnly:    # clang dwarf v2 may do that for enums
+            assert type_desc.enum_die is type_desc.type_die
+            assert type_desc.enum_die is not None
+            typename = self.process_enum_only_type(type_desc.enum_die)
+        else:
+            raise ElfParsingError("Impossible to process base type")
+        return typename
 
     def die_process_typedef(self, typedef_die: DIE) -> None:
         if Attrs.DW_AT_type in typedef_die.attributes:

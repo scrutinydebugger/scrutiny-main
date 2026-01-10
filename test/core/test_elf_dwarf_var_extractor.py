@@ -569,6 +569,13 @@ struct D
     volatile D* d_ptr;
 };
 
+enum class EnumA
+{
+    AAA=100,
+    BBB=200,
+    CCC=300
+};
+
 volatile A gStructA = {&gu32, 0x123456789}; 
 volatile B gStructB = {&gStructA};
 volatile C gStructC = {0x123, {&gu32, 0x222}};
@@ -577,6 +584,9 @@ volatile D gStructD2 = {0x55667788, &gStructD1};
 
 volatile A* gStructAptr = &gStructA;
 volatile C* gStructCptr = &gStructC;
+
+volatile EnumA gEnumA { EnumA::BBB };
+volatile EnumA* gEnumA_ptr{ &gEnumA };
 
 int main(int argc, char* argv[])
 {
@@ -717,6 +727,30 @@ int main(int argc, char* argv[])
                     self.assertFalse(varmap.has_var('/global/gStructD1/*d_ptr/*d_ptr/d_ptr'))
                     self.assertFalse(varmap.has_var('/global/gStructD2/*d_ptr/*d_ptr/i32'))
                     self.assertFalse(varmap.has_var('/global/gStructD2/*d_ptr/*d_ptr/d_ptr'))
+
+                    # Enums
+                    vpath = '/global/gEnumA'
+                    self.assertTrue(varmap.has_var(vpath))
+                    v = varmap.get_var(vpath)
+                    self.assertTrue(v.has_enum())
+                    enumA = v.get_enum()
+                    self.assertEqual(enumA.get_value('AAA'), 100)
+                    self.assertEqual(enumA.get_value('BBB'), 200)
+                    self.assertEqual(enumA.get_value('CCC'), 300)
+
+                    vpath = '/global/gEnumA_ptr'
+                    self.assertTrue(varmap.has_var(vpath))
+                    v = varmap.get_var(vpath)
+                    self.assertTrue(v.get_type().is_pointer())
+
+                    vpath = '/global/*gEnumA_ptr'
+                    self.assertTrue(varmap.has_var(vpath))
+                    v = varmap.get_var(vpath)
+                    self.assertTrue(v.has_enum())
+                    enumA = v.get_enum()
+                    self.assertEqual(enumA.get_value('AAA'), 100)
+                    self.assertEqual(enumA.get_value('BBB'), 200)
+                    self.assertEqual(enumA.get_value('CCC'), 300)
 
 
 if __name__ == '__main__':
