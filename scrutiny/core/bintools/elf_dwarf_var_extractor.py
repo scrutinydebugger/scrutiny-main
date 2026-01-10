@@ -1519,9 +1519,6 @@ class ElfDwarfVarExtractor:
             if type_desc.enum_die is not None:
                 self.die_process_enum(type_desc.enum_die)
 
-            if self.get_name(die) == 'impure_data':
-                pass
-
             # Composite type
             if type_desc.type in (TypeOfVar.Struct, TypeOfVar.Class, TypeOfVar.Union):
                 struct = self.get_composite_type_def(type_desc.type_die, allow_dereferencing=True)
@@ -1554,6 +1551,7 @@ class ElfDwarfVarExtractor:
                     pointer_path=path_tools.join_segments(path_segments)
                 )
                 if pointee_typedesc.type in (TypeOfVar.BaseType, TypeOfVar.EnumOnly):
+                    # EnumOnly is for clang and dwarf v2.
                     typename = self._process_and_get_basetype_or_enumonly_typename(pointee_typedesc)
                     self.maybe_register_variable(
                         path_segments=pointer_path_segments,
