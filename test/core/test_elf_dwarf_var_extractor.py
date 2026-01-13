@@ -583,6 +583,19 @@ struct E
     volatile EnumA* enumA_ptr;
 };
 
+// Test circular pointer
+struct G;
+struct F
+{
+    int32_t i32;
+    struct G* g;
+};
+struct G
+{
+    uint32_t u32;
+    struct F* f;
+};
+
 volatile A gStructA = {&gu32, 0x123456789}; 
 volatile B gStructB = {&gStructA};
 volatile C gStructC = {0x123, {&gu32, 0x222}};
@@ -597,6 +610,9 @@ volatile EnumA* gEnumA_ptr{ &gEnumA };
 
 volatile E gStructE { EnumA::CCC, &gEnumA };
 volatile E *gStructEptr { &gStructE };
+
+volatile F gStructF;
+volatile G gStructG;
 
 int main(int argc, char* argv[])
 {
@@ -807,6 +823,54 @@ int main(int argc, char* argv[])
 
                     vpath = '/global/*gStructEptr/*enumA_ptr'   # Double dereferencing not supposed to happen
                     self.assertFalse(varmap.has_var(vpath))
+
+                    # Test circular pointers  F&G
+                    vpath = '/global/gStructF/i32'
+                    self.assertTrue(varmap.has_var(vpath))
+                    v = varmap.get_var(vpath)
+                    self.assertEqual(v.get_type(), EmbeddedDataType.sint32)
+
+                    vpath = '/global/gStructF/g'
+                    self.assertTrue(varmap.has_var(vpath))
+                    v = varmap.get_var(vpath)
+                    self.assertTrue(v.get_type().is_pointer())
+
+                    vpath = '/global/gStructG/u32'
+                    self.assertTrue(varmap.has_var(vpath))
+                    v = varmap.get_var(vpath)
+                    self.assertEqual(v.get_type(), EmbeddedDataType.uint32)
+
+                    vpath = '/global/gStructG/f'
+                    self.assertTrue(varmap.has_var(vpath))
+                    v = varmap.get_var(vpath)
+                    self.assertTrue(v.get_type().is_pointer())
+
+                    # F&G dereferencing
+                    vpath = '/global/gStructF/*g/u32'
+                    self.assertTrue(varmap.has_var(vpath))
+                    v = varmap.get_var(vpath)
+                    self.assertEqual(v.get_type(), EmbeddedDataType.uint32)
+
+                    vpath = '/global/gStructF/*g/f'
+                    self.assertTrue(varmap.has_var(vpath))
+                    v = varmap.get_var(vpath)
+                    self.assertTrue(v.get_type().is_pointer())
+
+                    vpath = '/global/gStructF/*g/*f/i32'
+                    self.assertFalse(varmap.has_var(vpath))  # Double dereferencing not allowed
+
+                    vpath = '/global/gStructG/*f/i32'
+                    self.assertTrue(varmap.has_var(vpath))
+                    v = varmap.get_var(vpath)
+                    self.assertEqual(v.get_type(), EmbeddedDataType.sint32)
+
+                    vpath = '/global/gStructG/*f/g'
+                    self.assertTrue(varmap.has_var(vpath))
+                    v = varmap.get_var(vpath)
+                    self.assertTrue(v.get_type().is_pointer())
+
+                    vpath = '/global/gStructF/*f/*g/u32'
+                    self.assertFalse(varmap.has_var(vpath))  # Double dereferencing not allowed
 
 
 if __name__ == '__main__':
