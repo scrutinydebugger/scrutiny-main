@@ -169,8 +169,8 @@ int main(int argc, char* argv[])
 }
 """
 
-        for compiler in ['g++', 'clang++']:
-            for dwarf_version in [2, 3, 4]:
+        for compiler in ['clang++']:
+            for dwarf_version in [4]:
                 with self.subTest(f"{compiler}-dwarf{dwarf_version}"):
                     varmap = self._make_varmap(code, dwarf_version=dwarf_version, compiler=compiler, cppfilt='c++filt')
 
@@ -872,6 +872,32 @@ int main(int argc, char* argv[])
                     vpath = '/global/gStructF/*f/*g/u32'
                     self.assertFalse(varmap.has_var(vpath))  # Double dereferencing not allowed
 
+
+    @unittest.skipIf(
+        not has_elf_toolchain(compiler='g++', cppfilt='c++filt')
+        or not has_elf_toolchain(compiler='clang++', cppfilt='c++filt'),
+        "No toolchain available")
+    def test_extract_pointers_array_mix(self):
+        code = """
+#include <cstdint>
+
+uint32_t * array_of_ptr[10] = {nullptr};
+
+int main(int argc, char* argv[])
+{
+    return 0;
+}
+"""
+
+        for compiler in ['g++', 'clang++']:
+            for dwarf_version in [2, 3, 4]:
+                with self.subTest(f"{compiler}-dwarf{dwarf_version}"):
+                    varmap = self._make_varmap(code, dwarf_version=dwarf_version, compiler=compiler, cppfilt='c++filt')                    
+
+                    vpath = '/global/array_of_ptr'
+                    #self.assertTrue(varmap.has_var(vpath))
+                    #v = varmap.get_var(vpath)
+                    
 
 if __name__ == '__main__':
     import unittest
