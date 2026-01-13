@@ -105,9 +105,10 @@ class TestElf2VarMapFromBuilds(ScrutinyUnitTest):
                 if f.read(4) != b'\x7fELF':
                     raise unittest.SkipTest("Toolchain does not produce an elf.")
 
-            # p = subprocess.Popen(['objdump', '-g', '--dwarf=info', outbin], stdout=subprocess.PIPE)
-            # stdout, stderr = p.communicate()
-            # print(stdout.decode('utf8'))
+            if False:   # For debugging the test
+                p = subprocess.Popen(['objdump', '-g', '--dwarf=info', outbin], stdout=subprocess.PIPE)
+                stdout, stderr = p.communicate()
+                print(stdout.decode('utf8'))
             extractor = ElfDwarfVarExtractor(outbin, cppfilt=cppfilt)
             return extractor.get_varmap()
 
@@ -576,6 +577,12 @@ enum class EnumA
     CCC=300
 };
 
+struct E
+{
+    volatile EnumA enumA;
+    volatile EnumA* enumA_ptr;
+};
+
 volatile A gStructA = {&gu32, 0x123456789}; 
 volatile B gStructB = {&gStructA};
 volatile C gStructC = {0x123, {&gu32, 0x222}};
@@ -587,6 +594,9 @@ volatile C* gStructCptr = &gStructC;
 
 volatile EnumA gEnumA { EnumA::BBB };
 volatile EnumA* gEnumA_ptr{ &gEnumA };
+
+volatile E gStructE { EnumA::CCC, &gEnumA };
+volatile E *gStructEptr { &gStructE };
 
 int main(int argc, char* argv[])
 {
@@ -751,6 +761,52 @@ int main(int argc, char* argv[])
                     self.assertEqual(enumA.get_value('AAA'), 100)
                     self.assertEqual(enumA.get_value('BBB'), 200)
                     self.assertEqual(enumA.get_value('CCC'), 300)
+
+                    # Struct E
+                    vpath = '/global/gStructE/enumA'
+                    self.assertTrue(varmap.has_var(vpath))
+                    v = varmap.get_var(vpath)
+                    self.assertTrue(v.has_enum())
+                    enumA = v.get_enum()
+                    self.assertEqual(enumA.get_value('AAA'), 100)
+                    self.assertEqual(enumA.get_value('BBB'), 200)
+                    self.assertEqual(enumA.get_value('CCC'), 300)
+
+                    vpath = '/global/gStructE/enumA_ptr'
+                    self.assertTrue(varmap.has_var(vpath))
+                    v = varmap.get_var(vpath)
+                    self.assertTrue(v.get_type().is_pointer())
+
+                    vpath = '/global/gStructE/*enumA_ptr'
+                    self.assertTrue(varmap.has_var(vpath))
+                    v = varmap.get_var(vpath)
+                    self.assertTrue(v.has_enum())
+                    enumA = v.get_enum()
+                    self.assertEqual(enumA.get_value('AAA'), 100)
+                    self.assertEqual(enumA.get_value('BBB'), 200)
+                    self.assertEqual(enumA.get_value('CCC'), 300)
+
+                    vpath = '/global/gStructEptr'
+                    self.assertTrue(varmap.has_var(vpath))
+                    v = varmap.get_var(vpath)
+                    self.assertTrue(v.get_type().is_pointer())
+
+                    vpath = '/global/*gStructEptr/enumA'
+                    self.assertTrue(varmap.has_var(vpath))
+                    v = varmap.get_var(vpath)
+                    self.assertTrue(v.has_enum())
+                    enumA = v.get_enum()
+                    self.assertEqual(enumA.get_value('AAA'), 100)
+                    self.assertEqual(enumA.get_value('BBB'), 200)
+                    self.assertEqual(enumA.get_value('CCC'), 300)
+
+                    vpath = '/global/*gStructEptr/enumA_ptr'
+                    self.assertTrue(varmap.has_var(vpath))
+                    v = varmap.get_var(vpath)
+                    self.assertTrue(v.get_type().is_pointer())
+
+                    vpath = '/global/*gStructEptr/*enumA_ptr'   # Double dereferencing not supposed to happen
+                    self.assertFalse(varmap.has_var(vpath))
 
 
 if __name__ == '__main__':

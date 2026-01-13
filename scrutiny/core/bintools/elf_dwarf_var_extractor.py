@@ -117,6 +117,78 @@ class TypeOfVar(Enum):
     Void = auto()
 
 
+ENCODING_2_DTYPE_MAP: Dict[DwarfEncoding, Dict[int, EmbeddedDataType]] = {
+    DwarfEncoding.DW_ATE_address: {
+        1: EmbeddedDataType.ptr8,
+        2: EmbeddedDataType.ptr16,
+        4: EmbeddedDataType.ptr32,
+        8: EmbeddedDataType.ptr64,
+        16: EmbeddedDataType.ptr128,
+        32: EmbeddedDataType.ptr256
+    },
+    DwarfEncoding.DW_ATE_boolean: {
+        1: EmbeddedDataType.boolean,
+        2: EmbeddedDataType.uint16,
+        4: EmbeddedDataType.uint32,
+        8: EmbeddedDataType.uint64
+    },
+    DwarfEncoding.DW_ATE_complex_float: {
+        1: EmbeddedDataType.cfloat8,
+        2: EmbeddedDataType.cfloat16,
+        4: EmbeddedDataType.cfloat32,
+        8: EmbeddedDataType.cfloat64,
+        16: EmbeddedDataType.cfloat128,
+        32: EmbeddedDataType.cfloat256
+    },
+    DwarfEncoding.DW_ATE_float: {
+        1: EmbeddedDataType.float8,
+        2: EmbeddedDataType.float16,
+        4: EmbeddedDataType.float32,
+        8: EmbeddedDataType.float64,
+        16: EmbeddedDataType.float128,
+        32: EmbeddedDataType.float256
+
+    },
+    DwarfEncoding.DW_ATE_signed: {
+        1: EmbeddedDataType.sint8,
+        2: EmbeddedDataType.sint16,
+        4: EmbeddedDataType.sint32,
+        8: EmbeddedDataType.sint64,
+        16: EmbeddedDataType.sint128,
+        32: EmbeddedDataType.sint256
+    },
+    DwarfEncoding.DW_ATE_signed_char: {
+        1: EmbeddedDataType.sint8,
+        2: EmbeddedDataType.sint16,
+        4: EmbeddedDataType.sint32,
+        8: EmbeddedDataType.sint64,
+        16: EmbeddedDataType.sint128,
+        32: EmbeddedDataType.sint256
+    },
+    DwarfEncoding.DW_ATE_unsigned: {
+        1: EmbeddedDataType.uint8,
+        2: EmbeddedDataType.uint16,
+        4: EmbeddedDataType.uint32,
+        8: EmbeddedDataType.uint64,
+        16: EmbeddedDataType.uint128,
+        32: EmbeddedDataType.uint256
+    },
+    DwarfEncoding.DW_ATE_unsigned_char: {
+        1: EmbeddedDataType.uint8,
+        2: EmbeddedDataType.uint16,
+        4: EmbeddedDataType.uint32,
+        8: EmbeddedDataType.uint64,
+        16: EmbeddedDataType.uint128,
+        32: EmbeddedDataType.uint256
+    },
+    DwarfEncoding.DW_ATE_UTF: {
+        1: EmbeddedDataType.sint8,
+        2: EmbeddedDataType.sint16,
+        4: EmbeddedDataType.sint32,
+    }
+}
+
+
 @dataclass(slots=True)
 class PointeeTypeDescriptor:
     type: TypeOfVar
@@ -620,80 +692,13 @@ class ElfDwarfVarExtractor:
             return False
 
     def get_core_base_type(self, encoding: DwarfEncoding, bytesize: int) -> EmbeddedDataType:
+        if encoding not in ENCODING_2_DTYPE_MAP:
+            raise ValueError(f'Unknown encoding {encoding}')
 
-        encoding_map: Dict[DwarfEncoding, Dict[int, EmbeddedDataType]] = {
-            DwarfEncoding.DW_ATE_address: {
-                # todo
-            },
-            DwarfEncoding.DW_ATE_boolean: {
-                1: EmbeddedDataType.boolean,
-                2: EmbeddedDataType.uint16,
-                4: EmbeddedDataType.uint32,
-                8: EmbeddedDataType.uint64
-            },
-            DwarfEncoding.DW_ATE_complex_float: {
-                1: EmbeddedDataType.cfloat8,
-                2: EmbeddedDataType.cfloat16,
-                4: EmbeddedDataType.cfloat32,
-                8: EmbeddedDataType.cfloat64,
-                16: EmbeddedDataType.cfloat128,
-                32: EmbeddedDataType.cfloat256
-            },
-            DwarfEncoding.DW_ATE_float: {
-                1: EmbeddedDataType.float8,
-                2: EmbeddedDataType.float16,
-                4: EmbeddedDataType.float32,
-                8: EmbeddedDataType.float64,
-                16: EmbeddedDataType.float128,
-                32: EmbeddedDataType.float256
+        if bytesize not in ENCODING_2_DTYPE_MAP[encoding]:
+            raise ValueError(f'Encoding {encoding} with {bytesize} bytes')
 
-            },
-            DwarfEncoding.DW_ATE_signed: {
-                1: EmbeddedDataType.sint8,
-                2: EmbeddedDataType.sint16,
-                4: EmbeddedDataType.sint32,
-                8: EmbeddedDataType.sint64,
-                16: EmbeddedDataType.sint128,
-                32: EmbeddedDataType.sint256
-            },
-            DwarfEncoding.DW_ATE_signed_char: {
-                1: EmbeddedDataType.sint8,
-                2: EmbeddedDataType.sint16,
-                4: EmbeddedDataType.sint32,
-                8: EmbeddedDataType.sint64,
-                16: EmbeddedDataType.sint128,
-                32: EmbeddedDataType.sint256
-            },
-            DwarfEncoding.DW_ATE_unsigned: {
-                1: EmbeddedDataType.uint8,
-                2: EmbeddedDataType.uint16,
-                4: EmbeddedDataType.uint32,
-                8: EmbeddedDataType.uint64,
-                16: EmbeddedDataType.uint128,
-                32: EmbeddedDataType.uint256
-            },
-            DwarfEncoding.DW_ATE_unsigned_char: {
-                1: EmbeddedDataType.uint8,
-                2: EmbeddedDataType.uint16,
-                4: EmbeddedDataType.uint32,
-                8: EmbeddedDataType.uint64,
-                16: EmbeddedDataType.uint128,
-                32: EmbeddedDataType.uint256
-            },
-            DwarfEncoding.DW_ATE_UTF: {
-                1: EmbeddedDataType.sint8,
-                2: EmbeddedDataType.sint16,
-                4: EmbeddedDataType.sint32,
-            }
-        }
-
-        if encoding not in encoding_map:
-            raise ValueError('Unknown encoding %s' % encoding)
-
-        if bytesize not in encoding_map[encoding]:
-            raise ValueError('Encoding %s with %d bytes' % (encoding, bytesize))
-
-        return encoding_map[encoding][bytesize]
+        return ENCODING_2_DTYPE_MAP[encoding][bytesize]
 
     def _load_from_elf_file(self, filename: str) -> None:
         with open(filename, 'rb') as f:
@@ -1096,7 +1101,7 @@ class ElfDwarfVarExtractor:
             element_type_name=element_type_name
         )
 
-    def get_pointer_def(self, die: DIE, allow_dereferencing: bool) -> Optional[Pointer]:
+    def get_pointer_def(self, die: DIE, allow_dereferencing: bool) -> Pointer:
         self._log_debug_process_die(die)
         if die.tag != Tags.DW_TAG_pointer_type:
             raise ValueError('DIE must be a pointer')
@@ -1104,23 +1109,27 @@ class ElfDwarfVarExtractor:
         self.die_process_ptr_type(die)
         ptr_size = self.get_size_from_pointer_die(die)
         if not allow_dereferencing:
-            return Pointer(size=ptr_size, pointed_type=EmbeddedDataType.NA, pointed_typename=None)
+            return Pointer(size=ptr_size, pointed_type=EmbeddedDataType.NA, pointed_typename=None, enum=None)
         pointee_typedesc = self.get_pointee_type_of_var(die)
         if pointee_typedesc.type == TypeOfVar.Void:
-            return Pointer(size=ptr_size, pointed_type=EmbeddedDataType.NA, pointed_typename=None)
+            return Pointer(size=ptr_size, pointed_type=EmbeddedDataType.NA, pointed_typename=None, enum=None)
 
         assert pointee_typedesc.type_die is not None
 
-        if pointee_typedesc.type == TypeOfVar.BaseType:
-            self.die_process_base_type(pointee_typedesc.type_die)
-            pointed_typename = self.get_typename_from_die(pointee_typedesc.type_die)
+        if pointee_typedesc.type in (TypeOfVar.BaseType, TypeOfVar.EnumOnly):
+            pointed_typename = self._process_and_get_basetype_or_enumonly_typename(pointee_typedesc.to_typedesc())
+            embedded_enum: Optional[EmbeddedEnum] = None
+            if pointee_typedesc.enum_die is not None:
+                self.die_process_enum(pointee_typedesc.enum_die)
+                embedded_enum = self.enum_die_map[pointee_typedesc.enum_die]
             embedded_type = self.varmap.get_vartype_from_base_type(pointed_typename)   # Read back type from varmap
-            return Pointer(size=ptr_size, pointed_type=embedded_type, pointed_typename=pointed_typename)
+            return Pointer(size=ptr_size, pointed_type=embedded_type, pointed_typename=pointed_typename, enum=embedded_enum)
         elif pointee_typedesc.type in (TypeOfVar.Class, TypeOfVar.Struct, TypeOfVar.Union):
             struct = self.get_composite_type_def(pointee_typedesc.type_die, False)
-            return Pointer(size=ptr_size, pointed_type=struct, pointed_typename=None)
+            return Pointer(size=ptr_size, pointed_type=struct, pointed_typename=None, enum=None)
 
-        return None
+        self.logger.warning(f"Pointer to a unsupported pointee. Cannot dereference. Pointee: {pointee_typedesc.type.name}")
+        return Pointer(size=ptr_size, pointed_type=EmbeddedDataType.NA, pointed_typename=None, enum=None)
 
     def has_member_byte_offset(self, die: DIE) -> bool:
         """Tells if an offset relative to the structure base is available on this member die"""
@@ -1205,6 +1214,8 @@ class ElfDwarfVarExtractor:
             if pointer is None:
                 return None
             typename = self.get_pointer_name_from_die(type_desc.type_die)
+            embedded_enum = pointer.enum
+
         else:
             self.logger.warning(
                 f"Line {get_linenumber()}: Found a member with a type die {self._make_name_for_log(type_desc.type_die)} (type={type_desc.type.name}). Not supported yet")
@@ -1349,8 +1360,7 @@ class ElfDwarfVarExtractor:
                 location=location,
                 bitoffset=member.bitoffset,
                 bitsize=member.bitsize,
-                array_segments=array_segments.to_varmap_format(),
-                enum=member.embedded_enum
+                array_segments=array_segments.to_varmap_format()
             )
 
             # Dereference the pointer
@@ -1370,7 +1380,7 @@ class ElfDwarfVarExtractor:
                             path_segments=pointer_path_segments,
                             location=pointed_location,
                             original_type_name=ptr.pointed_typename,
-                            enum=None
+                            enum=member.embedded_enum
                         )
                 elif isinstance(ptr.pointed_type, Struct):
                     # mimic the behavior of register_struct_var, without looking for a var die.
@@ -1513,6 +1523,9 @@ class ElfDwarfVarExtractor:
             self.die_process_variable(vardie, location=location)  # Recursion
             return
 
+        if self.get_name(die) == 'gStructE':
+            pass
+
         if location is not None:
             type_desc = self.get_type_of_var(die)
 
@@ -1528,15 +1541,13 @@ class ElfDwarfVarExtractor:
                 self.register_array_var(die, type_desc, location)
             elif type_desc.type == TypeOfVar.Pointer:
                 self.die_process_ptr_type(type_desc.type_die)
-                typename = self.get_pointer_name_from_die(type_desc.type_die)   # Supports pointers
                 varpath = self.make_varpath(die)
                 path_segments = varpath.get_segments_name()
 
                 self.maybe_register_variable(   # Register the pointer
                     path_segments=path_segments,
                     location=location,
-                    original_type_name=typename,
-                    enum=None
+                    original_type_name=self.get_pointer_name_from_die(type_desc.type_die)
                 )
 
                 # Try dereferencing the pointer
