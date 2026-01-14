@@ -1073,7 +1073,7 @@ class ElfDwarfVarExtractor:
         elif element_type.type in (TypeOfVar.BaseType, TypeOfVar.EnumOnly):
             element_type_name = self._process_and_get_basetype_or_enumonly_typename(element_type)
             array_element_type = self.varmap.get_vartype_from_base_type(element_type_name)
-            
+
         elif element_type.type == TypeOfVar.Array:
             subarray = self.get_array_def(element_type.type_die, allow_dereferencing)
             if subarray is None:
@@ -1082,8 +1082,9 @@ class ElfDwarfVarExtractor:
             element_type_name = subarray.element_type_name
             array_element_type = subarray.datatype
         elif element_type.type == TypeOfVar.Pointer:
-            pointer = self.get_pointer_def(element_type.type_die, allow_dereferencing)
-            return None
+            array_element_type = self.get_pointer_def(element_type.type_die, allow_dereferencing)
+            element_type_name = self.get_pointer_name_from_die(element_type.type_die)
+            # return None
         else:
             # This can happen
             self.logger.warning(f"Line {get_linenumber()}: Array of element of type {element_type.type.name} not supported. Skipping")
@@ -1411,7 +1412,7 @@ class ElfDwarfVarExtractor:
                 enum=member.embedded_enum
             )
 
-    def register_array_var(self, die: DIE, array:TypedArray, type_desc: TypeDescriptor, location: AbsoluteLocation) -> None:
+    def register_array_var(self, die: DIE, array: TypedArray, type_desc: TypeDescriptor, location: AbsoluteLocation) -> None:
         if location.is_null():
             name = self.get_name(die, default="<no-name>")
             self.logger.warning(f"Line {get_linenumber()}: Skipping array {name} at location NULL address.")
@@ -1437,6 +1438,14 @@ class ElfDwarfVarExtractor:
 
             # Start the recursion that will create all the sub elements
             self.register_member_as_var_recursive(path_segments.get_segments_name(), startpoint, location, offset=0, array_segments=array_segments)
+        elif isinstance(array.datatype, Pointer):
+            self.maybe_register_variable(
+                path_segments=path_segments_name,
+                location=location,
+                original_type_name=array.element_type_name,
+                enum=None,
+                array_segments=array_segments.to_varmap_format()
+            )
         else:
             raise ElfParsingError(f"Array of {array.datatype.__class__.__name__} are not expected")
 

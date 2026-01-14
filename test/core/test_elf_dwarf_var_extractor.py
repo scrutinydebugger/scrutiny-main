@@ -169,8 +169,8 @@ int main(int argc, char* argv[])
 }
 """
 
-        for compiler in ['clang++']:
-            for dwarf_version in [4]:
+        for compiler in ['g++', 'clang++']:
+            for dwarf_version in [2, 3, 4]:
                 with self.subTest(f"{compiler}-dwarf{dwarf_version}"):
                     varmap = self._make_varmap(code, dwarf_version=dwarf_version, compiler=compiler, cppfilt='c++filt')
 
@@ -872,7 +872,6 @@ int main(int argc, char* argv[])
                     vpath = '/global/gStructF/*f/*g/u32'
                     self.assertFalse(varmap.has_var(vpath))  # Double dereferencing not allowed
 
-
     @unittest.skipIf(
         not has_elf_toolchain(compiler='g++', cppfilt='c++filt')
         or not has_elf_toolchain(compiler='clang++', cppfilt='c++filt'),
@@ -892,12 +891,18 @@ int main(int argc, char* argv[])
         for compiler in ['g++', 'clang++']:
             for dwarf_version in [2, 3, 4]:
                 with self.subTest(f"{compiler}-dwarf{dwarf_version}"):
-                    varmap = self._make_varmap(code, dwarf_version=dwarf_version, compiler=compiler, cppfilt='c++filt')                    
+                    varmap = self._make_varmap(code, dwarf_version=dwarf_version, compiler=compiler, cppfilt='c++filt')
 
-                    vpath = '/global/array_of_ptr'
-                    #self.assertTrue(varmap.has_var(vpath))
-                    #v = varmap.get_var(vpath)
-                    
+                    vpath = '/global/array_of_ptr/array_of_ptr'
+                    self.assertTrue(varmap.has_var(vpath))
+                    self.assertTrue(varmap.has_array_segments(vpath))
+                    array_segments = varmap.get_array_segments(vpath)
+                    self.assertEqual(len(array_segments), 1)
+                    p1 = "/global/array_of_ptr/array_of_ptr"
+                    self.assertIn(p1, array_segments)
+                    self.assertEqual(array_segments[p1].dims, (10, ))
+                    self.assertEqual(array_segments[p1].element_byte_size, 8)
+
 
 if __name__ == '__main__':
     import unittest

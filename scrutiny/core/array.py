@@ -17,6 +17,7 @@ __all__ = [
 import math
 import abc
 from scrutiny.core.basic_types import EmbeddedDataType
+from scrutiny.core.pointer import Pointer
 from scrutiny.tools.typing import *
 
 if TYPE_CHECKING:
@@ -107,6 +108,8 @@ class TypedArray(Array):
             if self.datatype.byte_size is not None:
                 return self.datatype.byte_size
             raise RuntimeError(f"No element size available for struct {self.datatype.name}")
+        if isinstance(self.datatype, Pointer):
+            return self.datatype.get_size()
         raise RuntimeError(f"Unsupported datatype {self.datatype.__class__.__name__}")
 
     def to_untyped_array(self) -> UntypedArray:
