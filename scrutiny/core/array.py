@@ -88,13 +88,14 @@ class UntypedArray(Array):
         return self.element_byte_size
 
 
+TypedArrayType:TypeAlias = Union["Struct", EmbeddedDataType, Pointer]
 class TypedArray(Array):
     """Represent an N dimensions embedded array"""
     __slots__ = ('datatype', )
 
-    datatype: Union["Struct", EmbeddedDataType]
+    datatype: TypedArrayType
 
-    def __init__(self, dims: Tuple[int, ...], datatype: Union["Struct", EmbeddedDataType], element_type_name: str = "") -> None:
+    def __init__(self, dims: Tuple[int, ...], datatype: TypedArrayType, element_type_name: str = "") -> None:
         super().__init__(dims, element_type_name)
         self.datatype = datatype
 

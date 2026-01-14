@@ -1062,7 +1062,7 @@ class ElfDwarfVarExtractor:
         if element_type.enum_die is not None:
             self.die_process_enum(element_type.enum_die)
 
-        array_element_type: Union[Struct, EmbeddedDataType]
+        array_element_type: Union[Struct, EmbeddedDataType, Pointer]
         if element_type.type in (TypeOfVar.Class, TypeOfVar.Struct, TypeOfVar.Union):
             struct = self.get_composite_type_def(element_type.type_die, allow_dereferencing)
             if struct.byte_size is None:
