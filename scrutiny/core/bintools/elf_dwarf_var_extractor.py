@@ -239,6 +239,20 @@ class ArraySegments:
             raise KeyError(f"Duplicate array definition for {path}")
         self._storage[path] = array
 
+    def rename_path(self, old: List[str], new: List[str]) -> None:
+        old_path = path_tools.join_segments(old)
+        new_path = path_tools.join_segments(new)
+
+        if old_path not in self._storage:
+            raise KeyError(f"Cannot rename missing array definition for {old_path}.")
+
+        if new_path in self._storage:
+            raise KeyError(f"Duplicate array definition for {new_path}")
+
+        v = self._storage[old_path]
+        del self._storage[old_path]
+        self._storage[new_path] = v
+
     def to_varmap_format(self) -> Dict[str, Array]:
         return cast(Dict[str, Array], self._storage)
 
@@ -1455,6 +1469,29 @@ class ElfDwarfVarExtractor:
                 enum=None,
                 array_segments=array_segments.to_varmap_format()
             )
+
+            if isinstance(location, AbsoluteLocation):  # Dereference
+                pointer_path_segments = path_segments_name.copy()
+                pointer_path_segments[-1] = f'*{pointer_path_segments[-1]}'  # /aaa/bbb/*ccc : ccc is dereferenced
+                pointer_array_segments = array_segments.deep_copy()
+                pointer_array_segments.rename_path(path_segments_name, pointer_path_segments)
+
+                pointed_location = PathPointedLocation(
+                    pointer_offset=0,
+                    pointer_path=path_tools.join_segments(path_segments_name)
+                )
+
+                if isinstance(array.datatype.pointed_type, EmbeddedDataType):
+                    if array.datatype.pointed_type != EmbeddedDataType.NA:  # Void pointer
+                        assert array.datatype.pointed_typename is not None
+                        self.maybe_register_variable(
+                            path_segments=pointer_path_segments,
+                            location=pointed_location,
+                            original_type_name=array.datatype.pointed_typename,
+                            enum=array.datatype.enum,
+                            array_segments=pointer_array_segments.to_varmap_format()
+                        )
+
         else:
             raise ElfParsingError(f"Array of {array.datatype.__class__.__name__} are not expected")
 

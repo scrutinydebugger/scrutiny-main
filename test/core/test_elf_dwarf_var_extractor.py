@@ -880,7 +880,13 @@ int main(int argc, char* argv[])
         code = """
 #include <cstdint>
 
+struct A
+{
+ int32_t i32;
+};
+
 uint32_t * array_of_ptr[10] = {nullptr};
+A* array_of_a[5];
 
 int main(int argc, char* argv[])
 {
@@ -895,10 +901,24 @@ int main(int argc, char* argv[])
 
                     vpath = '/global/array_of_ptr/array_of_ptr'
                     self.assertTrue(varmap.has_var(vpath))
+                    v = varmap.get_var(f"{vpath}[0]")
+                    self.assertTrue(v.get_type().is_pointer())
                     self.assertTrue(varmap.has_array_segments(vpath))
                     array_segments = varmap.get_array_segments(vpath)
                     self.assertEqual(len(array_segments), 1)
                     p1 = "/global/array_of_ptr/array_of_ptr"
+                    self.assertIn(p1, array_segments)
+                    self.assertEqual(array_segments[p1].dims, (10, ))
+                    self.assertEqual(array_segments[p1].element_byte_size, 8)
+
+                    vpath = '/global/array_of_ptr/*array_of_ptr'
+                    self.assertTrue(varmap.has_var(vpath))
+                    v = varmap.get_var(f"{vpath}[0]")
+                    self.assertTrue(v.get_type(), EmbeddedDataType.uint32)
+                    self.assertTrue(varmap.has_array_segments(vpath))
+                    array_segments = varmap.get_array_segments(vpath)
+                    self.assertEqual(len(array_segments), 1)
+                    p1 = "/global/array_of_ptr/*array_of_ptr"
                     self.assertIn(p1, array_segments)
                     self.assertEqual(array_segments[p1].dims, (10, ))
                     self.assertEqual(array_segments[p1].element_byte_size, 8)

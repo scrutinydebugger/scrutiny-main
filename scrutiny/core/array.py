@@ -88,7 +88,9 @@ class UntypedArray(Array):
         return self.element_byte_size
 
 
-TypedArrayType:TypeAlias = Union["Struct", EmbeddedDataType, Pointer]
+TypedArrayType: TypeAlias = Union["Struct", EmbeddedDataType, Pointer]
+
+
 class TypedArray(Array):
     """Represent an N dimensions embedded array"""
     __slots__ = ('datatype', )
