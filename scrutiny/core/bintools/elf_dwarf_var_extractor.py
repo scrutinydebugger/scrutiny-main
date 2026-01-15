@@ -1343,6 +1343,15 @@ class ElfDwarfVarExtractor:
                 member = Struct.Member(substruct.name, member_type=Struct.Member.MemberType.SubStruct,
                                        bitoffset=None, bitsize=None, substruct=substruct)
                 self.register_member_as_var_recursive(path_segments, member, base_location, offset, new_array_segments)
+            elif isinstance(array.datatype, Pointer):
+                self.maybe_register_variable(
+                    path_segments=path_segments,
+                    original_type_name=array.element_type_name,
+                    location=base_location,
+                    array_segments=new_array_segments.to_varmap_format()
+                )
+
+                # TODO : dereference
             else:
                 raise ElfParsingError(f"Array of {array.datatype.__class__.__name__} are not expected")
 
