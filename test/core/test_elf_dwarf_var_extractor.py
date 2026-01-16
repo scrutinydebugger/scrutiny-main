@@ -12,6 +12,11 @@ import subprocess
 import tempfile
 import os
 import sys
+from elftools.elf.elffile import ELFFile
+from scrutiny.core.memory_content import MemoryContent
+from scrutiny.core.varmap import VarMap
+from scrutiny.core.codecs import Codecs
+from scrutiny.core.variable import Variable
 
 from test import logger
 from test import ScrutinyUnitTest
@@ -82,9 +87,66 @@ def has_elf_toolchain(compiler, cppfilt) -> bool:
     return True
 
 
+memdump_declare = """
+#include <algorithm>
+#include <cstdlib>
+#include <string>
+#include <iostream>
+#include <iomanip>
+
+void memdump(uintptr_t startAddr, uint32_t length)
+{
+    uintptr_t addr = startAddr;
+    while (addr < startAddr + length)
+    {
+        uint8_t *ptr = reinterpret_cast<uint8_t *>(addr);
+        std::cout << "0x" << std::hex << std::setw(16) << std::setfill('0') << addr << ":\t";
+        uintptr_t nToPrint = startAddr + length - addr;
+        if (nToPrint > 16)
+        {
+            nToPrint = 16;
+        }
+        for (unsigned int i = 0; i < nToPrint; i++)
+        {
+            std::cout << std::hex << std::setw(2) << std::setfill('0') << static_cast<uint32_t>(ptr[i]);
+        }
+        std::cout << std::endl;
+        addr += nToPrint;
+    }
+}
+"""
+
+memdump_invocation = """
+int region_index = 0;
+for (int i=0; i<(argc-1)/2;i++)
+{
+    int base1 = 10;
+    int base2 = 10;
+    std::string start_address(argv[region_index + 1]);
+    if (start_address.length() > 2 && start_address.find("0x") == 0)
+    {
+        start_address = start_address.substr(2);
+        base1 = 16;
+    }
+    std::string length(argv[region_index + 1 + 1]);
+    if (length.length() > 2 && length.find("0x") == 0)
+    {
+        length = length.substr(2);
+        base2 = 16;
+    }
+    memdump(
+        static_cast<uintptr_t>(strtoll(start_address.c_str(), NULL, base1)), 
+        static_cast<uint32_t>(strtol(length.c_str(), NULL, base2))
+        );
+    region_index+=2;
+}
+
+"""
+
+
 class TestElf2VarMapFromBuilds(ScrutinyUnitTest):
 
-    def _make_varmap(self, code: str, dwarf_version=4, compiler="g++", cppfilt='c++filt'):
+    def _make_varmap_and_memdump(self, code: str, dwarf_version=4, compiler="g++", cppfilt='c++filt') -> Tuple[VarMap, MemoryContent]:
         with tempfile.TemporaryDirectory() as d:
             main_cpp = os.path.join(d, 'main.cpp')
             outbin = os.path.join(d, 'out.bin')
@@ -95,22 +157,64 @@ class TestElf2VarMapFromBuilds(ScrutinyUnitTest):
                                  '-o', outbin], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             stdout, stderr = p.communicate()
 
-            logger.debug(stdout.decode('utf8'))
-            logger.debug(stderr.decode('utf8'))
+            stdout_txt = stdout.decode('utf8')
+            stderr_txt = stderr.decode('utf8')
+            if stdout_txt:
+                logger.debug(stdout_txt)
+            if stderr_txt:
+                logger.debug(stderr_txt)
 
             if p.returncode != 0:
                 raise RuntimeError("Failed to compile code.")
-
+            # Code is compiled. Make sure we produced an elf
             with open(outbin, 'rb') as f:
                 if f.read(4) != b'\x7fELF':
                     raise unittest.SkipTest("Toolchain does not produce an elf.")
+
+            # We ahve a valid elf that we should be able to run locally.
+            # let's find the location of the interesting sections
+            outbin_exec_args = []
+            with open(outbin, 'rb') as f:
+                ef = ELFFile(f)
+
+                for section_name in ['.text', '.data', '.bss', '.rodata']:
+                    section = ef.get_section_by_name(section_name)
+                    if section is not None:
+                        outbin_exec_args.append(str(section.header['sh_addr']))
+                        outbin_exec_args.append(str(section.header['sh_size']))
+
+            # Run the test binary and ask it to dump it's memory to stdout.
+            with tempfile.TemporaryDirectory() as d:
+                stdout_file = os.path.join(d, "stdout.txt")
+                with open(stdout_file, 'wb') as stdout:
+                    p = subprocess.Popen([outbin] + outbin_exec_args, stdout=stdout, stderr=subprocess.PIPE)
+                    p.communicate()
+                    if p.returncode != 0:
+                        raise RuntimeError("Failed to run code.")
+                # Load the memdump for value testing
+                memdump = MemoryContent(stdout_file)
 
             if False:   # For debugging the test
                 p = subprocess.Popen(['objdump', '-g', '--dwarf=info', outbin], stdout=subprocess.PIPE)
                 stdout, stderr = p.communicate()
                 print(stdout.decode('utf8'))
             extractor = ElfDwarfVarExtractor(outbin, cppfilt=cppfilt)
-            return extractor.get_varmap()
+            return (extractor.get_varmap(), memdump)
+
+    def get_value_at_path(self, path: str, varmap: VarMap, memdump: MemoryContent):
+        var = varmap.get_var(path)
+        if var.has_absolute_address():
+            addr = var.get_address()
+        elif var.has_pointed_address():
+            ptr_val = cast(int, self.get_value_at_path(var.get_pointer().pointer_path, varmap, memdump))
+            ptr_val += var.get_pointer().pointer_offset
+            addr = ptr_val
+        else:
+            raise NotImplementedError("Unsupported address type")
+        return Codecs.get(var.get_type(), Endianness.Little).decode(memdump.read(addr, var.get_type().get_size_byte()))
+
+    def assert_value_at_path(self, path: str, varmap: VarMap, memdump: MemoryContent, value: Any, msg: Optional[str] = ""):
+        self.assertEqual(self.get_value_at_path(path, varmap, memdump), value, msg)
 
     @unittest.skipIf(
         not has_elf_toolchain(compiler='g++', cppfilt='c++filt')
@@ -119,6 +223,7 @@ class TestElf2VarMapFromBuilds(ScrutinyUnitTest):
     def test_extract_arrays(self):
         code = """
 #include <cstdint>
+%s
 #pragma pack(push, 1)
 enum class EnumA : int32_t
 {
@@ -165,14 +270,21 @@ int main(int argc, char* argv[])
     static volatile B my_static_array_of_B[6];
     static volatile C my_static_array_of_C[7];
     static volatile int32_t my_static_int32_array[15][10];
+
+    my_global_int32_array[2][3] = 0x12345678;
+    my_global_A.x = EnumA::BBB;
+    my_global_A.y[1][2] = -0x2233;
+
+    %s
+
     return 0;
 }
-"""
+""" % (memdump_declare, memdump_invocation)
 
         for compiler in ['g++', 'clang++']:
             for dwarf_version in [2, 3, 4]:
                 with self.subTest(f"{compiler}-dwarf{dwarf_version}"):
-                    varmap = self._make_varmap(code, dwarf_version=dwarf_version, compiler=compiler, cppfilt='c++filt')
+                    varmap, memdump = self._make_varmap_and_memdump(code, dwarf_version=dwarf_version, compiler=compiler, cppfilt='c++filt')
 
                     enum_list = varmap.get_enum_by_name('EnumA')
                     self.assertEqual(len(enum_list), 1)
@@ -190,6 +302,7 @@ int main(int argc, char* argv[])
                     self.assertIn(v, array_segments)
                     self.assertEqual(array_segments[v].dims, (10, 20))
                     self.assertEqual(array_segments[v].element_byte_size, 4)
+                    self.assert_value_at_path('/global/my_global_int32_array/my_global_int32_array[2][3]', varmap, memdump, 0x12345678)
 
                     # === my_static_int32_array ===
                     v = '/static/main.cpp/main/my_static_int32_array/my_static_int32_array'
@@ -219,6 +332,7 @@ int main(int argc, char* argv[])
                     self.assertTrue(varmap.has_var(v))
                     self.assertEqual(varmap.get_enum(v), enumA)
                     self.assertFalse(varmap.has_array_segments(v))
+                    self.assert_value_at_path(v, varmap, memdump, enumA.get_value('BBB'))
 
                     v = '/global/my_global_A/y/y'
                     self.assertTrue(varmap.has_var(v))
@@ -228,6 +342,7 @@ int main(int argc, char* argv[])
                     self.assertIn(v, array_segments)
                     self.assertEqual(array_segments[v].dims, (2, 3))
                     self.assertEqual(array_segments[v].element_byte_size, 2)
+                    self.assert_value_at_path('/global/my_global_A/y/y[1][2]', varmap, memdump, -0x2233)
 
                     # === my_static_A ===
                     v = '/static/main.cpp/main/my_static_A/x'
@@ -543,7 +658,7 @@ int main(int argc, char* argv[])
     def test_extract_pointers(self):
         code = """
 #include <cstdint>
-
+%s
 volatile uint32_t gu32;
 volatile uint32_t *gu32_ptr = &gu32;
 
@@ -616,14 +731,15 @@ volatile G gStructG;
 
 int main(int argc, char* argv[])
 {
+%s
     return 0;
 }
-"""
+""" % (memdump_declare, memdump_invocation)
 
         for compiler in ['g++', 'clang++']:
             for dwarf_version in [2, 3, 4]:
                 with self.subTest(f"{compiler}-dwarf{dwarf_version}"):
-                    varmap = self._make_varmap(code, dwarf_version=dwarf_version, compiler=compiler, cppfilt='c++filt')
+                    varmap, memdump = self._make_varmap_and_memdump(code, dwarf_version=dwarf_version, compiler=compiler, cppfilt='c++filt')
 
                     vpath = '/global/gu32_ptr'
                     self.assertTrue(varmap.has_var(vpath))
@@ -879,7 +995,7 @@ int main(int argc, char* argv[])
     def test_extract_pointers_array_mix(self):
         code = """
 #include <cstdint>
-
+%s
 struct A
 {
  int32_t i32;
@@ -890,14 +1006,18 @@ A* array_of_a[5];
 
 int main(int argc, char* argv[])
 {
+    static uint32_t some_u32 = 0x11223344;
+    array_of_ptr[5] = &some_u32;
+
+    %s
     return 0;
 }
-"""
+""" % (memdump_declare, memdump_invocation)
 
         for compiler in ['g++', 'clang++']:
             for dwarf_version in [2, 3, 4]:
                 with self.subTest(f"{compiler}-dwarf{dwarf_version}"):
-                    varmap = self._make_varmap(code, dwarf_version=dwarf_version, compiler=compiler, cppfilt='c++filt')
+                    varmap, memdump = self._make_varmap_and_memdump(code, dwarf_version=dwarf_version, compiler=compiler, cppfilt='c++filt')
 
                     vpath = '/global/array_of_ptr/array_of_ptr'
                     self.assertTrue(varmap.has_var(vpath))
@@ -922,6 +1042,8 @@ int main(int argc, char* argv[])
                     self.assertIn(p1, array_segments)
                     self.assertEqual(array_segments[p1].dims, (10, ))
                     self.assertEqual(array_segments[p1].element_byte_size, 8)
+
+                    # self.assert_value_at_path("/global/array_of_ptr/*array_of_ptr[5]", varmap, memdump, 0x11223344)
 
 
 if __name__ == '__main__':
