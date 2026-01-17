@@ -159,7 +159,7 @@ class VarMap:
 
     def _get_type_id(self, binary_type_name: str) -> str:
         if binary_type_name not in self._typename2typeid_map:
-            raise ValueError(f'Type name {binary_type_name} does not exist in the Variable Description File')
+            raise ValueError(f'Type name {binary_type_name} does not exist in the Variable Map')
 
         return self._typename2typeid_map[binary_type_name]   # Type is an integer as string
 
@@ -196,7 +196,7 @@ class VarMap:
 
     def _get_var_def(self, fullname: str) -> VariableEntry:
         if not self.has_var(fullname):
-            raise ValueError(f'{fullname} not in Variable Description File')
+            raise ValueError(f'{fullname} not in Variable Map')
         return self._content.variables[fullname]
 
     def _get_bitsize(self, vardef: VariableEntry) -> Optional[int]:
