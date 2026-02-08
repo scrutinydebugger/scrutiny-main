@@ -127,7 +127,7 @@ class LocalServerRunner:
         self._emulate_no_cli = val
 
     @enforce_thread(QT_THREAD_NAME)
-    def start(self, port: int) -> None:
+    def start(self, port: int, loglevel: Optional[int] = logging.INFO) -> None:
         """Start the local server. Does nothing if not fully stopped.
         Moves the state from STOPPED to STARTING
         """
@@ -150,7 +150,7 @@ class LocalServerRunner:
 
         self._started_port = port
         self._set_state(self.State.STARTING)
-        self._owner_thread = threading.Thread(target=self._thread_func, daemon=True, args=[port])
+        self._owner_thread = threading.Thread(target=self._thread_func, daemon=True, args=[port, loglevel])
 
         self._stop_event.clear()
         self._owner_thread.start()
@@ -169,18 +169,29 @@ class LocalServerRunner:
 
         self._set_state(self.State.STOPPING)
 
-    def _thread_func(self, port: int) -> None:
+    def _thread_func(self, port: int, loglevel: int = logging.INFO) -> None:
         """The thread function that monitor the subprocess"""
         # Copy the environment for the subprocess
         assert self._cli_cmd is not None
 
         try:
+            loglevel_str = 'info'   # Default
+            loglevel_map = {
+                logging.CRITICAL: 'critical',
+                logging.ERROR: 'error',
+                logging.WARNING: 'warning',
+                logging.INFO: 'info',
+                logging.DEBUG: 'debug',
+            }
+            if loglevel in loglevel_map:
+                loglevel_str = loglevel_map[loglevel]
+
             flags = 0
             if sys.platform == 'win32':
                 flags |= subprocess.CREATE_NEW_PROCESS_GROUP    # Important for windows. Ctrl+Break will hit the parent process otherwise
             process: Optional[subprocess.Popen[bytes]] = None
             try:
-                process_args = self._cli_cmd + ['server', '--port', str(port)]
+                process_args = self._cli_cmd + ['server', '--port', str(port), '--loglevel', loglevel_str]
                 self._logger.debug(f"Process: {process_args}")
                 process = subprocess.Popen(
                     process_args,

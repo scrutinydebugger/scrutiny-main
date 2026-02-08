@@ -44,3 +44,10 @@ class LogViewer(QPlainTextEdit):
 
     def sizeHint(self) -> QSize:
         return QSize(600, 300)
+
+    def get_lines(self) -> List[str]:
+        return self._log_lines
+
+    def clear(self) -> None:
+        self._log_lines.clear()
+        super().clear()
