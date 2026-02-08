@@ -10,8 +10,9 @@
 __all__ = ['ServerConfigDialog']
 
 import enum
+import logging
 
-from PySide6.QtWidgets import QDialog, QDialogButtonBox, QLabel, QWidget, QVBoxLayout, QPushButton, QHBoxLayout, QGroupBox, QFormLayout, QRadioButton
+from PySide6.QtWidgets import QDialog, QDialogButtonBox, QLabel, QWidget, QVBoxLayout, QPushButton, QHBoxLayout, QGroupBox, QFormLayout, QRadioButton, QComboBox
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QIntValidator, QPixmap
 
@@ -26,6 +27,8 @@ from scrutiny.gui.core.server_manager import ServerConfig
 from scrutiny.gui.core.local_server_runner import LocalServerRunner
 from scrutiny.gui.core.persistent_data import gui_persistent_data, AppPersistentData
 from scrutiny.gui import assets
+from scrutiny.gui.tools import prompt
+from scrutiny import tools
 
 from scrutiny.tools.typing import *
 
@@ -92,10 +95,16 @@ class LocalServerConfigurator(QWidget):
     """The local server runner that controls the subprocess"""
     _txt_port: IntValidableLineEdit
     """The port textbox"""
+    _cmb_loglevel: QComboBox
+    """Dropdown to select to log level"""
     _btn_start: QPushButton
     """Start button"""
     _btn_stop: QPushButton
     """Stop button"""
+    _btn_clear_logs: QPushButton
+    """Button to clear the log viewer"""
+    _btn_save_logs: QPushButton
+    """Button to save the log viewer content to a file"""
     _state_label: LocalServerStateLabel
     """The label that says Running/Stopped/Stopping/Starting with a colored icon"""
     _feedback_label: FeedbackLabel
@@ -103,10 +112,14 @@ class LocalServerConfigurator(QWidget):
     _log_viewer: LogViewer
     """The log viewer box"""
     _persistent_data: AppPersistentData
+    """Handle to the app persistent data"""
+    _logger: logging.Logger
+    """A logger object"""
 
     def __init__(self, parent: QWidget, runner: LocalServerRunner) -> None:
         super().__init__(parent)
         self.setWindowTitle("Local Server")
+        self._logger = logging.getLogger(self.__class__.__name__)
         self._runner = runner
         self._log_line_count = 0
         self._persistent_data = gui_persistent_data.get_namespace(self.__class__.__name__)
@@ -123,14 +136,14 @@ class LocalServerConfigurator(QWidget):
             soft_validator=IpPortValidator()
         )
 
-        port_label_txtbox = QWidget()
-        port_label_txtbox_layout = QHBoxLayout(port_label_txtbox)
-        port_label_txtbox_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        port_label_txtbox_layout.setContentsMargins(0, 0, 0, 0)
-        port_label = QLabel("Port: ")
-        port_label.setMaximumWidth(port_label.sizeHint().width())
-        port_label_txtbox_layout.addWidget(port_label)
-        port_label_txtbox_layout.addWidget(self._txt_port)
+        self._cmb_loglevel = QComboBox(self, editable=False)
+        self._cmb_loglevel.addItem('Critical', logging.CRITICAL)
+        self._cmb_loglevel.addItem('Error', logging.ERROR)
+        self._cmb_loglevel.addItem('Warning', logging.WARNING)
+        self._cmb_loglevel.addItem('Info', logging.INFO)
+        self._cmb_loglevel.addItem('Debug', logging.DEBUG)
+        self._cmb_loglevel.setCurrentIndex(self._cmb_loglevel.findData(logging.INFO))
+        self._cmb_loglevel.setMaximumSize(self._cmb_loglevel.sizeHint())
 
         self._txt_port.set_int_value(self._persistent_data.get_int(self.PersistentDataKeys.LOCAL_PORT, DEFAULT_SERVER_PORT))
         self._txt_port.setMaximumWidth(self._txt_port.sizeHint().width())
@@ -140,20 +153,39 @@ class LocalServerConfigurator(QWidget):
 
         self._btn_start = QPushButton("Start")
         self._btn_stop = QPushButton("Stop")
+        self._btn_clear_logs = QPushButton("Clear logs")
+        self._btn_save_logs = QPushButton("Save logs")
         self._log_viewer = LogViewer(self, 100)
 
-        top_menu_hlayout.addWidget(port_label_txtbox)
+        left_options_container = QWidget()
+        left_options_container_formlayout = QFormLayout(left_options_container)
+        left_options_container_formlayout.addRow("Port", self._txt_port)
+        left_options_container_formlayout.addRow("Log Level", self._cmb_loglevel)
+        left_options_container_formlayout.setContentsMargins(0, 0, 0, 0)
+        left_options_container_formlayout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+
+        top_menu_hlayout.addWidget(left_options_container)
         top_menu_hlayout.addWidget(self._state_label)
         top_menu_hlayout.addWidget(self._btn_start)
         top_menu_hlayout.addWidget(self._btn_stop)
 
+        clear_btn_container = QWidget()
+        clear_hlayout = QHBoxLayout(clear_btn_container)
+        clear_hlayout.addWidget(self._btn_save_logs)
+        clear_hlayout.addWidget(self._btn_clear_logs)
+        clear_hlayout.setAlignment(Qt.AlignmentFlag.AlignRight)
+
         main_vlayout.addWidget(top_menu)
         main_vlayout.addWidget(self._feedback_label)
         main_vlayout.addWidget(self._log_viewer)
+        main_vlayout.addWidget(clear_btn_container)
 
-        self.setTabOrder(port_label_txtbox, self._btn_start)
+        self.setTabOrder(self._txt_port, self._cmb_loglevel)
+        self.setTabOrder(self._cmb_loglevel, self._btn_start)
         self.setTabOrder(self._btn_start, self._btn_stop)
         self.setTabOrder(self._btn_stop, self._log_viewer)
+        self.setTabOrder(self._log_viewer, self._btn_save_logs)
+        self.setTabOrder(self._btn_save_logs, self._btn_clear_logs)
 
         self._runner.signals.state_changed.connect(self.update_state)
         self._runner.signals.abnormal_termination.connect(self._abnormal_termination_slot)
@@ -161,6 +193,8 @@ class LocalServerConfigurator(QWidget):
         self._runner.signals.stderr.connect(self._log_viewer.add_line)
         self._btn_start.pressed.connect(self._try_start)
         self._btn_stop.pressed.connect(self._try_stop)
+        self._btn_clear_logs.pressed.connect(self._clear_logs)
+        self._btn_save_logs.pressed.connect(self._save_logs)
 
         self.update_state(LocalServerRunner.State.STOPPED)
 
@@ -183,11 +217,28 @@ class LocalServerConfigurator(QWidget):
         if port is None:
             return
         self._log_viewer.add_line('---------')
-        self._runner.start(port)
+        self._runner.start(port, self._cmb_loglevel.currentData())
 
     def _try_stop(self) -> None:
         """Stops the runner"""
         self._runner.stop()
+
+    def _clear_logs(self) -> None:
+        self._log_viewer.clear()
+
+    def _save_logs(self) -> None:
+        filepath = prompt.get_save_filepath_from_last_save_dir(self, '.log', 'Save server logs')
+        if filepath is None:
+            return
+
+        try:
+            with open(filepath, 'w') as f:
+                lines = [line + '\n' for line in self._log_viewer.get_lines()]
+                f.writelines(lines)
+                prompt.success_msgbox(self, "Logs saved", f"Logs saved to {filepath.absolute()}")
+        except Exception as e:
+            tools.log_exception(self._logger, e, "Cannot save logs")
+            prompt.exception_msgbox(self, e, "Failed to save logs", f"Cannot save logs to file {filepath.absolute()}")
 
     def _abnormal_termination_slot(self) -> None:
         """The running thread emits a signal if the subprocess exits without a request for it."""

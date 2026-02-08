@@ -30,7 +30,7 @@ from scrutiny.tools.signals import SignalExitHandler
 def make_manual_test_app() -> QApplication:
     os.environ['SCRUTINY_MANUAL_TEST'] = '1'
     logging.basicConfig(level=logging.DEBUG)
-    app = make_qt_app()
+    app = make_qt_app([])
 
     theme_str = os.environ.get('SCRUTINY_THEME', 'default')
     if theme_str == 'default':
