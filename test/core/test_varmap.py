@@ -14,7 +14,7 @@ import json
 from test import ScrutinyUnitTest
 from scrutiny.core.varmap import VarMap
 from scrutiny.core.basic_types import Endianness, EmbeddedDataType
-from scrutiny.core.variable import AbsoluteLocation, PathPointedLocation
+from scrutiny.core.variable_location import AbsoluteLocation, UnresolvedPathPointedLocation
 from scrutiny.core.array import UntypedArray
 from scrutiny.core.embedded_enum import EmbeddedEnum
 
@@ -199,7 +199,8 @@ class TestVarmap(ScrutinyUnitTest):
         varmap.register_base_type('ptr', EmbeddedDataType.ptr64)
         varmap.register_base_type('uint32_t', EmbeddedDataType.uint32)
         varmap.add_variable(['aaa', 'bbb', 'pointer'], original_type_name='ptr', location=AbsoluteLocation(0x1000))
-        varmap.add_variable(['aaa', 'bbb', 'pointee'], original_type_name='uint32_t', location=PathPointedLocation('/aaa/bbb/pointer', 0))
+        varmap.add_variable(['aaa', 'bbb', 'pointee'], original_type_name='uint32_t',
+                            location=UnresolvedPathPointedLocation('/aaa/bbb/pointer', 0, {}))
         v = varmap.get_var('/aaa/bbb/pointer')
         self.assertEqual(v.get_type(), EmbeddedDataType.ptr64)
         self.assertTrue(v.has_absolute_address())

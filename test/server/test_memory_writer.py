@@ -15,7 +15,7 @@ from scrutiny.server.device.submodules.memory_writer import MemoryWriter
 from scrutiny.server.device.request_dispatcher import RequestDispatcher
 from scrutiny.server.protocol import Protocol, Response
 from scrutiny.server.timebase import server_timebase
-from scrutiny.core.variable_location import PathPointedLocation
+from scrutiny.core.variable_location import ResolvedPathPointedLocation
 
 from scrutiny.server.protocol.commands import *
 import scrutiny.server.protocol.typing as protocol_typing
@@ -41,7 +41,7 @@ def make_dummy_var_entries(address, n, vartype=EmbeddedDataType.float32) -> Gene
 def make_dummy_pointed_var_entries(pointers, vartype=EmbeddedDataType.float32, subpath=[]):
     for i in range(len(pointers)):
         dummy_var = Variable(vartype=vartype, path_segments=subpath + ['dummy_pointed_var_%d' % i],
-                             location=PathPointedLocation(pointers[i].get_display_path(), i * 4), endianness=Endianness.Little)
+                             location=ResolvedPathPointedLocation(pointers[i].get_display_path(), i * 4), endianness=Endianness.Little)
         entry = DatastorePointedVariableEntry(dummy_var.get_fullname(), variable_def=dummy_var, pointer_entry=pointers[i])
         yield entry
 

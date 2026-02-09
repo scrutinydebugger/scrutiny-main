@@ -18,6 +18,7 @@ from scrutiny.core.memory_content import MemoryContent
 from scrutiny.core.variable_location import *
 from scrutiny.core.basic_types import *
 from scrutiny.core.variable import *
+from scrutiny.core.variable_location import *
 from scrutiny.core.embedded_enum import *
 from scrutiny.tools.typing import *
 
@@ -69,7 +70,7 @@ class BaseVarmapTest:
     def assert_var(self,
                    fullname,
                    thetype: Optional[EmbeddedDataType] = None,
-                   addr: Optional[Union[int, PathPointedLocation, AbsoluteLocation]] = None,
+                   addr: Optional[Union[int, ResolvedPathPointedLocation, AbsoluteLocation]] = None,
                    bitsize=None,
                    bitoffset=None,
                    value_at_loc=None,
@@ -94,7 +95,7 @@ class BaseVarmapTest:
             if isinstance(addr, int):
                 self.assertTrue(v.has_absolute_address())
                 self.assertEqual(addr, v.get_address())
-            elif isinstance(addr, PathPointedLocation):
+            elif isinstance(addr, ResolvedPathPointedLocation):
                 self.assertTrue(v.has_pointed_address())
                 self.assertEqual(addr, v.get_pointer())
             else:

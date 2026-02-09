@@ -16,7 +16,7 @@ import logging
 from pathlib import Path
 
 from scrutiny.core.variable import Variable
-from scrutiny.core.variable_location import AbsoluteLocation, PathPointedLocation
+from scrutiny.core.variable_location import AbsoluteLocation, ResolvedPathPointedLocation, UnresolvedPathPointedLocation
 from scrutiny.core.variable_factory import VariableFactory
 from scrutiny.core.array import Array, UntypedArray
 from scrutiny.core.basic_types import EmbeddedDataType, Endianness
@@ -37,9 +37,10 @@ class ArrayDef(TypedDict):
     byte_size: int
 
 
-class PointerInfo(TypedDict):
+class PointerInfo(TypedDict, total=False):
     path: str
     offset: int
+    array_segments: Dict[str, ArrayDef]
 
 
 class VariableEntry(TypedDict, total=False):
@@ -191,6 +192,16 @@ class VarMap:
         return vardef['pointer']['offset']
 
     @classmethod
+    def _has_pointer_array_segments(cls, vardef: VariableEntry) -> int:
+        if 'pointer' not in vardef:
+            return False
+        return 'array_segments' in vardef['pointer']
+
+    @classmethod
+    def _get_pointer_array_segments(cls, vardef: VariableEntry) -> Dict[str, ArrayDef]:
+        return vardef['pointer']['array_segments']
+
+    @classmethod
     def _has_array_segments(cls, vardef: VariableEntry) -> bool:
         return 'array_segments' in vardef
 
@@ -238,7 +249,7 @@ class VarMap:
 
     def add_variable(self,
                      path_segments: List[str],
-                     location: Union[AbsoluteLocation, PathPointedLocation],
+                     location: Union[AbsoluteLocation, UnresolvedPathPointedLocation, ResolvedPathPointedLocation],
                      original_type_name: str,
                      bitsize: Optional[int] = None,
                      bitoffset: Optional[int] = None,
@@ -266,11 +277,20 @@ class VarMap:
 
             entry['addr'] = location.get_address()
 
-        elif isinstance(location, PathPointedLocation):
+        elif isinstance(location, (UnresolvedPathPointedLocation, ResolvedPathPointedLocation)):
             entry['pointer'] = {
                 'path': location.pointer_path,
                 'offset': location.pointer_offset
             }
+
+            if isinstance(location, UnresolvedPathPointedLocation):
+                if len(location.array_segments) > 0:
+                    entry['pointer']['array_segments'] = cast(Dict[str, ArrayDef], {})
+                    for path, array in location.array_segments.items():
+                        entry['pointer']['array_segments'][path] = {
+                            'byte_size': array.get_element_byte_size(),
+                            'dims': list(array.dims)
+                        }
 
         else:
             raise TypeError("Invalid location type")
@@ -377,12 +397,12 @@ class VarMap:
             if location_type not in wanted_location_type:
                 continue
 
-            location: Union[AbsoluteLocation, PathPointedLocation]
+            location: Union[AbsoluteLocation, ResolvedPathPointedLocation]
             if location_type == self.LocationType.ABSOLUTE:
                 location = AbsoluteLocation(self._get_addr(vardef))
 
             elif location_type == self.LocationType.POINTED:
-                location = PathPointedLocation(
+                location = ResolvedPathPointedLocation(
                     pointer_path=self._get_pointer_path(vardef),
                     pointer_offset=self._get_pointer_offset(vardef)
                 )
@@ -400,18 +420,31 @@ class VarMap:
             )
 
             array_segments = vardef.get('array_segments', None)
-            if array_segments is not None:
+            pointer_array_segments: Optional[Dict[str, ArrayDef]] = None
+            if self._has_pointer_array_segments(vardef):
+                pointer_array_segments = self._get_pointer_array_segments(vardef)
+
+            if array_segments is not None or pointer_array_segments is not None:
                 array_segments = self._get_array_segments(vardef)
                 factory = VariableFactory(
                     base_var=v,
                     access_name=fullname
                 )
-                for path, array_def in array_segments.items():
-                    arr = UntypedArray(
-                        dims=tuple(array_def['dims']),
-                        element_byte_size=array_def['byte_size']
-                    )
-                    factory.add_array_node(path, arr)
+                if array_segments is not None:
+                    for path, array_def in array_segments.items():
+                        arr = UntypedArray(
+                            dims=tuple(array_def['dims']),
+                            element_byte_size=array_def['byte_size']
+                        )
+                        factory.add_array_node(path, arr)
+
+                if pointer_array_segments is not None:
+                    for path, array_def in pointer_array_segments.items():
+                        arr = UntypedArray(
+                            dims=tuple(array_def['dims']),
+                            element_byte_size=array_def['byte_size']
+                        )
+                        factory.add_array_node(path, arr)
                 yield (fullname, factory)
             else:
                 yield (fullname, v)
@@ -420,25 +453,35 @@ class VarMap:
         pass
 
     def get_var(self, path: str) -> Variable:
+        """"""
         parsed_path = ScrutinyPath.from_string(path)
         raw_path = parsed_path.to_raw_str()
         vardef = self._get_var_def(raw_path)
 
-        array_segments: Dict[str, Array] = {}
-        if 'array_segments' in vardef:
-            for segment_path, array_def in vardef['array_segments'].items():
+        var_array_segments: Dict[str, Array] = {}
+        pointer_array_segments: Dict[str, Array] = {}
+
+        def fill_array_segments_from_vardef_content(array_segments: Dict[str, Array], array_def_dict: Dict[str, ArrayDef]) -> None:
+            for segment_path, array_def in array_def_dict.items():
                 array_segments[segment_path] = UntypedArray(
                     dims=tuple(array_def['dims']),
                     element_byte_size=array_def['byte_size'],
                     element_type_name=''
                 )
 
-        byte_offset = parsed_path.compute_address_offset(array_segments)
-        location: Union[PathPointedLocation, AbsoluteLocation]
+        if self._has_array_segments(vardef):
+            fill_array_segments_from_vardef_content(var_array_segments, self._get_array_segments(vardef))
+
+        if self._has_pointer_array_segments(vardef):
+            raise NotImplementedError("Not implemented yet")
+            fill_array_segments_from_vardef_content(pointer_array_segments, self._get_pointer_array_segments(vardef))
+
+        byte_offset = parsed_path.compute_address_offset(var_array_segments)
+        location: Union[ResolvedPathPointedLocation, AbsoluteLocation]
         if self._has_addr(vardef):
             location = AbsoluteLocation(self._get_addr(vardef) + byte_offset)
         elif self._has_pointed_location(vardef):
-            location = PathPointedLocation(
+            location = ResolvedPathPointedLocation(
                 pointer_path=self._get_pointer_path(vardef),
                 pointer_offset=self._get_pointer_offset(vardef) + byte_offset
             )

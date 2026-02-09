@@ -12,7 +12,7 @@ from scrutiny.core.basic_types import *
 from scrutiny.core.variable import *
 from scrutiny.tools.typing import *
 from test.cli.base_varmap_test import BaseVarmapTest, KnownEnumTypedDict
-from scrutiny.core.variable_location import PathPointedLocation
+from scrutiny.core.variable_location import ResolvedPathPointedLocation
 
 KNOWN_ENUMS: KnownEnumTypedDict = {
     'EnumA': {
@@ -385,22 +385,22 @@ class BaseTestAppMakeVarmapTest(BaseVarmapTest):
         # == Test dereferencing ==
         # base types
         self.assert_var('/global/File5NamespaceB/*file5i64_ptr', EmbeddedDataType.sint64,
-                        addr=PathPointedLocation('/global/File5NamespaceB/file5i64_ptr', 0))
+                        addr=ResolvedPathPointedLocation('/global/File5NamespaceB/file5i64_ptr', 0))
         self.assert_var('/global/File5NamespaceB/*file5i32_ptr', EmbeddedDataType.sint32,
-                        addr=PathPointedLocation('/global/File5NamespaceB/file5i32_ptr', 0))
+                        addr=ResolvedPathPointedLocation('/global/File5NamespaceB/file5i32_ptr', 0))
         self.assert_var('/global/File5NamespaceB/*file5i16_ptr', EmbeddedDataType.sint16,
-                        addr=PathPointedLocation('/global/File5NamespaceB/file5i16_ptr', 0))
+                        addr=ResolvedPathPointedLocation('/global/File5NamespaceB/file5i16_ptr', 0))
         self.assert_var('/global/File5NamespaceB/*file5i8_ptr', EmbeddedDataType.sint8,
-                        addr=PathPointedLocation('/global/File5NamespaceB/file5i8_ptr', 0))
+                        addr=ResolvedPathPointedLocation('/global/File5NamespaceB/file5i8_ptr', 0))
 
         self.assert_var('/global/File5NamespaceB/*file5u64_ptr', EmbeddedDataType.uint64,
-                        addr=PathPointedLocation('/global/File5NamespaceB/file5u64_ptr', 0))
+                        addr=ResolvedPathPointedLocation('/global/File5NamespaceB/file5u64_ptr', 0))
         self.assert_var('/global/File5NamespaceB/*file5u32_ptr', EmbeddedDataType.uint32,
-                        addr=PathPointedLocation('/global/File5NamespaceB/file5u32_ptr', 0))
+                        addr=ResolvedPathPointedLocation('/global/File5NamespaceB/file5u32_ptr', 0))
         self.assert_var('/global/File5NamespaceB/*file5u16_ptr', EmbeddedDataType.uint16,
-                        addr=PathPointedLocation('/global/File5NamespaceB/file5u16_ptr', 0))
+                        addr=ResolvedPathPointedLocation('/global/File5NamespaceB/file5u16_ptr', 0))
         self.assert_var('/global/File5NamespaceB/*file5u8_ptr', EmbeddedDataType.uint8,
-                        addr=PathPointedLocation('/global/File5NamespaceB/file5u8_ptr', 0))
+                        addr=ResolvedPathPointedLocation('/global/File5NamespaceB/file5u8_ptr', 0))
 
         # Struct A
         struct_a_ptr_path = '/global/File5NamespaceB/file5_structA_ptr'
@@ -408,13 +408,13 @@ class BaseTestAppMakeVarmapTest(BaseVarmapTest):
         self.assert_var(
             '/global/File5NamespaceB/*file5_structA_ptr/i32',
             EmbeddedDataType.sint32,
-            addr=PathPointedLocation(struct_a_ptr_path, StructAOffsets.i32)
+            addr=ResolvedPathPointedLocation(struct_a_ptr_path, StructAOffsets.i32)
         )
 
         self.assert_var(
             '/global/File5NamespaceB/*file5_structA_ptr/i32_ptr',
             EmbeddedDataType.ptr64,
-            addr=PathPointedLocation(struct_a_ptr_path, StructAOffsets.i32_ptr)
+            addr=ResolvedPathPointedLocation(struct_a_ptr_path, StructAOffsets.i32_ptr)
         )
 
         # Struct B
@@ -423,10 +423,10 @@ class BaseTestAppMakeVarmapTest(BaseVarmapTest):
         self.assert_var(
             '/global/File5NamespaceB/*file5_structB_ptr/u32',
             EmbeddedDataType.uint32,
-            addr=PathPointedLocation(struct_b_ptr_path, StructBOffsets.u32)
+            addr=ResolvedPathPointedLocation(struct_b_ptr_path, StructBOffsets.u32)
         )
         self.assert_var(
             '/global/File5NamespaceB/*file5_structB_ptr/structA_ptr',
             EmbeddedDataType.ptr64,
-            addr=PathPointedLocation(struct_b_ptr_path, StructBOffsets.structA_ptr)
+            addr=ResolvedPathPointedLocation(struct_b_ptr_path, StructBOffsets.structA_ptr)
         )

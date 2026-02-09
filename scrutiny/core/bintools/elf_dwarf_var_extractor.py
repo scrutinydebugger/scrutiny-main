@@ -27,7 +27,7 @@ from fnmatch import fnmatch
 from scrutiny.core.bintools.demangler import GccDemangler
 from scrutiny.core.varmap import VarMap
 from scrutiny.core.basic_types import *
-from scrutiny.core.variable_location import AbsoluteLocation, PathPointedLocation
+from scrutiny.core.variable_location import AbsoluteLocation, UnresolvedPathPointedLocation
 from scrutiny.core.struct import Struct
 from scrutiny.core.array import TypedArray, Array
 from scrutiny.core.pointer import Pointer
@@ -1300,14 +1300,14 @@ class ElfDwarfVarExtractor:
 
     # We have an instance of a struct. Use the location and go down the structure recursively
     # using the members offsets to find the final address that we will apply to the output var
-    def register_struct_var(self, die: DIE, struct: Struct, type_desc: TypeDescriptor, location: Union[AbsoluteLocation, PathPointedLocation]) -> None:
+    def register_struct_var(self, die: DIE, struct: Struct, type_desc: TypeDescriptor, location: Union[AbsoluteLocation, UnresolvedPathPointedLocation]) -> None:
         """Register an instance of a struct at a given location"""
         if isinstance(location, AbsoluteLocation) and location.is_null():
             self.logger.warning(f"Skipping structure at location NULL address. {die}")
             return
         array_segments = ArraySegments()
         path_segments = self.make_varpath(die)  # Leftmost part.
-        if isinstance(location, PathPointedLocation):
+        if isinstance(location, UnresolvedPathPointedLocation):
             path_segments.segments[-1].name = '*' + path_segments.segments[-1].name
         startpoint = Struct.Member(struct.name, member_type=Struct.Member.MemberType.SubStruct, bitoffset=None, bitsize=None, substruct=struct)
 
@@ -1318,7 +1318,7 @@ class ElfDwarfVarExtractor:
     def register_member_as_var_recursive(self,
                                          path_segments: List[str],
                                          member: Struct.Member,
-                                         base_location: Union[AbsoluteLocation, PathPointedLocation],
+                                         base_location: Union[AbsoluteLocation, UnresolvedPathPointedLocation],
                                          offset: int,
                                          array_segments: ArraySegments) -> None:
         if member.member_type == Struct.Member.MemberType.SubStruct:
@@ -1389,9 +1389,10 @@ class ElfDwarfVarExtractor:
                 pointer_path_segments = path_segments.copy()
                 pointer_path_segments[-1] = f'*{pointer_path_segments[-1]}'  # /aaa/bbb/*ccc : ccc is dereferenced
 
-                pointed_location = PathPointedLocation(
+                pointed_location = UnresolvedPathPointedLocation(
                     pointer_offset=0,
-                    pointer_path=path_tools.join_segments(path_segments)
+                    pointer_path=path_tools.join_segments(path_segments),
+                    array_segments={}
                 )
 
                 if isinstance(ptr.pointed_type, EmbeddedDataType):
@@ -1476,9 +1477,10 @@ class ElfDwarfVarExtractor:
                 pointer_array_segments = array_segments.deep_copy()
                 pointer_array_segments.rename_path(path_segments_name, pointer_path_segments)
 
-                pointed_location = PathPointedLocation(
+                pointed_location = UnresolvedPathPointedLocation(
                     pointer_offset=0,
-                    pointer_path=path_tools.join_segments(path_segments_name)
+                    pointer_path=path_tools.join_segments(path_segments_name),
+                    array_segments={}
                 )
 
                 if isinstance(array.datatype.pointed_type, EmbeddedDataType):
@@ -1497,7 +1499,7 @@ class ElfDwarfVarExtractor:
 
     def maybe_register_variable(self,
                                 path_segments: List[str],
-                                location: Union[AbsoluteLocation, PathPointedLocation],
+                                location: Union[AbsoluteLocation, UnresolvedPathPointedLocation],
                                 original_type_name: str,
                                 bitsize: Optional[int] = None,
                                 bitoffset: Optional[int] = None,
@@ -1603,9 +1605,10 @@ class ElfDwarfVarExtractor:
 
                 pointer_path_segments = path_segments.copy()
                 pointer_path_segments[-1] = f'*{pointer_path_segments[-1]}'  # /aaa/bbb/*ccc : ccc is dereferenced
-                ptr_location = PathPointedLocation(
+                ptr_location = UnresolvedPathPointedLocation(
                     pointer_offset=0,
-                    pointer_path=path_tools.join_segments(path_segments)
+                    pointer_path=path_tools.join_segments(path_segments),
+                    array_segments={}
                 )
                 if pointee_typedesc.type in (TypeOfVar.BaseType, TypeOfVar.EnumOnly):
                     # EnumOnly is for clang and dwarf v2.

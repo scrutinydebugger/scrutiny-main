@@ -11,7 +11,7 @@ __all__ = ['Variable']
 import struct
 from scrutiny.core.basic_types import Endianness, EmbeddedDataType
 from scrutiny.core.embedded_enum import EmbeddedEnum
-from scrutiny.core.variable_location import AbsoluteLocation, PathPointedLocation
+from scrutiny.core.variable_location import AbsoluteLocation, ResolvedPathPointedLocation
 from scrutiny.core.codecs import Codecs, Encodable, UIntCodec
 from scrutiny.core import path_tools
 from scrutiny.tools.typing import *
@@ -42,7 +42,7 @@ class Variable:
 
     vartype: EmbeddedDataType
     path_segments: List[str]
-    location: Union[AbsoluteLocation, PathPointedLocation]
+    location: Union[AbsoluteLocation, ResolvedPathPointedLocation]
     endianness: Endianness
     bitsize: Optional[int]
     bitfield: bool
@@ -52,7 +52,7 @@ class Variable:
     def __init__(self,
                  vartype: EmbeddedDataType,
                  path_segments: List[str],
-                 location: Union[int, AbsoluteLocation, PathPointedLocation],
+                 location: Union[int, AbsoluteLocation, ResolvedPathPointedLocation],
                  endianness: Endianness,
                  bitsize: Optional[int] = None,
                  bitoffset: Optional[int] = None,
@@ -61,7 +61,7 @@ class Variable:
 
         self.vartype = vartype
         self.path_segments = path_segments
-        if isinstance(location, PathPointedLocation):
+        if isinstance(location, ResolvedPathPointedLocation):
             self.location = location
         elif isinstance(location, AbsoluteLocation):
             self.location = location.copy()
@@ -150,7 +150,7 @@ class Variable:
         return isinstance(self.location, AbsoluteLocation)
 
     def has_pointed_address(self) -> bool:
-        return isinstance(self.location, PathPointedLocation)
+        return isinstance(self.location, ResolvedPathPointedLocation)
 
     def get_address(self) -> int:
         """Get the variable address"""
@@ -158,9 +158,9 @@ class Variable:
             return self.location.get_address()
         raise ValueError("No address available")
 
-    def get_pointer(self) -> PathPointedLocation:
+    def get_pointer(self) -> ResolvedPathPointedLocation:
         """Get the variable pointer location"""
-        if isinstance(self.location, PathPointedLocation):
+        if isinstance(self.location, ResolvedPathPointedLocation):
             return self.location.copy()
         raise ValueError("No pointer available")
 
