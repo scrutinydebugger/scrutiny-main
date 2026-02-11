@@ -1251,7 +1251,7 @@ int main(int argc, char* argv[])
                     self.assertEqual(pointer.pointer_path, '/global/array_of_ptr/array_of_ptr[0]')
                     self.assertEqual(pointer.pointer_offset, 0)
 
-                    # self.assert_value_at_path("/global/array_of_ptr/*array_of_ptr[5]", varmap, memdump, 0x11223344)
+                    self.assert_value_at_path("/global/array_of_ptr/*array_of_ptr[5]", varmap, memdump, 0x11223344)
 
                     vpath = '/global/array_of_b/array_of_b/u32'
                     self.assertTrue(varmap.has_var(vpath))
@@ -1273,11 +1273,28 @@ int main(int argc, char* argv[])
                     self.assertEqual(array_segments[p1].dims, (5, ))
                     self.assert_value_at_path(
                         "/global/array_of_b/array_of_b[3]/u32_ptr",
-                        varmap, memdump, varmap.get_var('/global/gu32').get_address())
+                        varmap, memdump, varmap.get_var('/global/gu32').get_address()
+                    )
 
-                    # self.assert_value_at_path(
-                    #    "/global/array_of_b/array_of_b[3]/*u32_ptr",
-                    #    varmap, memdump, self.get_value_at_path('/global/gu32', varmap, memdump))
+                    vpath = '/global/array_of_b/array_of_b/*u32_ptr'
+                    self.assertTrue(varmap.has_var(vpath))
+                    self.assertFalse(varmap.has_array_segments(vpath))
+                    self.assertTrue(varmap.has_pointer_array_segments(vpath))
+
+                    array_segments = varmap.get_pointer_array_segments(vpath)
+                    self.assertEqual(len(array_segments), 1)
+                    p1 = "/global/array_of_b/array_of_b"
+                    self.assertIn(p1, array_segments)
+                    self.assertEqual(array_segments[p1].dims, (5, ))
+                    v = varmap.get_var('/global/array_of_b/array_of_b[3]/*u32_ptr')
+                    self.assertTrue(v.has_pointed_address())
+                    self.assertFalse(v.has_absolute_address())
+                    self.assertEqual(v.get_pointer().pointer_path, '/global/array_of_b/array_of_b[3]/u32_ptr')
+                    self.assertEqual(v.get_pointer().pointer_offset, 0)
+                    self.assert_value_at_path(
+                        "/global/array_of_b/array_of_b[3]/*u32_ptr",
+                        varmap, memdump, self.get_value_at_path('/global/gu32', varmap, memdump)
+                    )
 
                     vpath = '/global/gStructC/i32'
                     self.assert_value_at_path(vpath, varmap, memdump, 0x534751)
@@ -1302,6 +1319,7 @@ int main(int argc, char* argv[])
                     vpath = '/global/*gStructCptr/u16_array/u16_array'
                     self.assertTrue(varmap.has_var(vpath))
                     self.assertTrue(varmap.has_array_segments(vpath))
+                    self.assertFalse(varmap.has_pointer_array_segments(vpath))
                     array_segments = varmap.get_array_segments(vpath)
                     self.assertEqual(len(array_segments), 1)
                     p1 = "/global/*gStructCptr/u16_array/u16_array"

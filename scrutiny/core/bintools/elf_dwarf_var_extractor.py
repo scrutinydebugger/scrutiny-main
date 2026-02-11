@@ -1395,7 +1395,7 @@ class ElfDwarfVarExtractor:
                 pointed_location = UnresolvedPathPointedLocation(
                     pointer_offset=0,
                     pointer_path=path_tools.join_segments(path_segments),
-                    array_segments={}
+                    array_segments=array_segments.to_varmap_format()
                 )
 
                 if isinstance(ptr.pointed_type, EmbeddedDataType):
@@ -1521,8 +1521,6 @@ class ElfDwarfVarExtractor:
             :param original_type_name: The name of the underlying type. Must be a name coming from the binary. Will resolve to an EmbeddedDataType
             :param enum: Optional enum to associate with the type
         """
-        if path_segments == ['global', 'gStructB', 'gStructAPtr']:
-            pass
         fullname = path_tools.join_segments(path_segments)
         if isinstance(location, AbsoluteLocation):
             if location.is_null():
