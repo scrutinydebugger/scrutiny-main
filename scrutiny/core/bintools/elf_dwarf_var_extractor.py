@@ -254,7 +254,7 @@ class ArraySegments:
         self._storage[new_path] = v
 
     def to_varmap_format(self) -> Dict[str, Array]:
-        return cast(Dict[str, Array], self._storage)
+        return cast(Dict[str, Array], deepcopy(self._storage))
 
     def shallow_copy(self) -> "ArraySegments":
         o = ArraySegments()
@@ -265,6 +265,9 @@ class ArraySegments:
         o = ArraySegments()
         o._storage = deepcopy(self._storage)
         return o
+
+    def clear(self) -> None:
+        self._storage.clear()
 
 
 class VarPath:
@@ -1463,6 +1466,7 @@ class ElfDwarfVarExtractor:
             # Start the recursion that will create all the sub elements
             self.register_member_as_var_recursive(path_segments.get_segments_name(), startpoint, location, offset=0, array_segments=array_segments)
         elif isinstance(array.datatype, Pointer):
+            # First regsiter the pointer variable.
             self.maybe_register_variable(
                 path_segments=path_segments_name,
                 location=location,
@@ -1471,17 +1475,17 @@ class ElfDwarfVarExtractor:
                 array_segments=array_segments.to_varmap_format()
             )
 
-            if isinstance(location, AbsoluteLocation):  # Dereference
-                pointer_path_segments = path_segments_name.copy()
-                pointer_path_segments[-1] = f'*{pointer_path_segments[-1]}'  # /aaa/bbb/*ccc : ccc is dereferenced
-                pointer_array_segments = array_segments.deep_copy()
-                pointer_array_segments.rename_path(path_segments_name, pointer_path_segments)
-
+            # Then try to dereference
+            if isinstance(location, AbsoluteLocation):
                 pointed_location = UnresolvedPathPointedLocation(
                     pointer_offset=0,
                     pointer_path=path_tools.join_segments(path_segments_name),
-                    array_segments={}
+                    array_segments=array_segments.to_varmap_format()
                 )
+
+                array_segments.clear()  # We start a new array segments struct for the dereferenced elements
+                pointer_path_segments = path_segments_name.copy()
+                pointer_path_segments[-1] = f'*{pointer_path_segments[-1]}'  # /aaa/bbb/*ccc : ccc is dereferenced
 
                 if isinstance(array.datatype.pointed_type, EmbeddedDataType):
                     if array.datatype.pointed_type != EmbeddedDataType.NA:  # Void pointer
@@ -1491,8 +1495,12 @@ class ElfDwarfVarExtractor:
                             location=pointed_location,
                             original_type_name=array.datatype.pointed_typename,
                             enum=array.datatype.enum,
-                            array_segments=pointer_array_segments.to_varmap_format()
+                            array_segments=array_segments.to_varmap_format()
                         )
+                else:
+                    # Structs will fill array_segments
+                    # pointer_array_segments will stay untouched
+                    pass
 
         else:
             raise ElfParsingError(f"Array of {array.datatype.__class__.__name__} are not expected")

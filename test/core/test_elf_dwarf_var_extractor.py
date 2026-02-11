@@ -201,12 +201,14 @@ class TestElf2VarMapFromBuilds(ScrutinyUnitTest):
             extractor = ElfDwarfVarExtractor(outbin, cppfilt=cppfilt)
             return (extractor.get_varmap(), memdump)
 
-    def get_value_at_path(self, path: str, varmap: VarMap, memdump: MemoryContent):
+    def get_value_at_path(self, path: str, varmap: VarMap, memdump: MemoryContent, allow_pointer: bool = True):
         var = varmap.get_var(path)
         if var.has_absolute_address():
             addr = var.get_address()
         elif var.has_pointed_address():
-            ptr_val = cast(int, self.get_value_at_path(var.get_pointer().pointer_path, varmap, memdump))
+            if not allow_pointer:
+                raise RuntimeError(f"Double dereferencing of {path}")
+            ptr_val = cast(int, self.get_value_at_path(var.get_pointer().pointer_path, varmap, memdump, allow_pointer=False))
             ptr_val += var.get_pointer().pointer_offset
             addr = ptr_val
         else:
@@ -1234,13 +1236,20 @@ int main(int argc, char* argv[])
                     self.assertTrue(varmap.has_var(vpath))
                     v = varmap.get_var(f"{vpath}[0]")
                     self.assertTrue(v.get_type(), EmbeddedDataType.uint32)
-                    self.assertTrue(varmap.has_array_segments(vpath))
-                    array_segments = varmap.get_array_segments(vpath)
+                    self.assertFalse(varmap.has_array_segments(vpath))
+                    self.assertTrue(varmap.has_pointer_array_segments(vpath))
+                    # varmap storage first
+                    array_segments = varmap.get_pointer_array_segments(vpath)
                     self.assertEqual(len(array_segments), 1)
-                    p1 = "/global/array_of_ptr/*array_of_ptr"
+                    p1 = "/global/array_of_ptr/array_of_ptr"
                     self.assertIn(p1, array_segments)
                     self.assertEqual(array_segments[p1].dims, (10, ))
                     self.assertEqual(array_segments[p1].element_byte_size, 8)
+                    # public api check
+                    self.assertTrue(v.has_pointed_address())
+                    pointer = v.get_pointer()
+                    self.assertEqual(pointer.pointer_path, '/global/array_of_ptr/array_of_ptr[0]')
+                    self.assertEqual(pointer.pointer_offset, 0)
 
                     # self.assert_value_at_path("/global/array_of_ptr/*array_of_ptr[5]", varmap, memdump, 0x11223344)
 

@@ -192,10 +192,10 @@ class VarMap:
         return vardef['pointer']['offset']
 
     @classmethod
-    def _has_pointer_array_segments(cls, vardef: VariableEntry) -> int:
+    def _has_pointer_array_segments(cls, vardef: VariableEntry) -> bool:
         if 'pointer' not in vardef:
             return False
-        return 'array_segments' in vardef['pointer']
+        return 'array_segments' in vardef['pointer'] and len(vardef['pointer']['array_segments']) > 0
 
     @classmethod
     def _get_pointer_array_segments(cls, vardef: VariableEntry) -> Dict[str, ArrayDef]:
@@ -204,6 +204,17 @@ class VarMap:
     @classmethod
     def _has_array_segments(cls, vardef: VariableEntry) -> bool:
         return 'array_segments' in vardef
+
+    @classmethod
+    def _array_segments_to_untyped_array(cls, array_segments: Dict[str, ArrayDef]) -> Dict[str, UntypedArray]:
+        dout: Dict[str, UntypedArray] = {}
+        for path, array_def in array_segments.items():
+            dout[path] = UntypedArray(
+                dims=tuple(array_def['dims']),
+                element_type_name='',
+                element_byte_size=array_def['byte_size']
+            )
+        return dout
 
     def _get_var_def(self, fullname: str) -> VariableEntry:
         if not self.has_var(fullname):
@@ -353,19 +364,25 @@ class VarMap:
         vardef = self._get_var_def(fullname)
         return len(vardef.get('array_segments', {})) > 0
 
+    def has_pointer_array_segments(self, fullname: str) -> bool:
+        vardef = self._get_var_def(fullname)
+        return self._has_pointer_array_segments(vardef)
+
+    def get_pointer_array_segments(self, fullname: str) -> Dict[str, UntypedArray]:
+        vardef = self._get_var_def(fullname)
+        if not self._has_pointer_array_segments(vardef):
+            raise ValueError(f"No pointer array segments available for {fullname}")
+        return self._array_segments_to_untyped_array(self._get_pointer_array_segments(vardef))
+
     def has_enum(self, fullname: str) -> bool:
         return self.get_enum(fullname) is not None
 
     def get_array_segments(self, fullname: str) -> Dict[str, UntypedArray]:
         vardef = self._get_var_def(fullname)
-        dout: Dict[str, UntypedArray] = {}
-        for path, array_def in self._get_array_segments(vardef).items():
-            dout[path] = UntypedArray(
-                dims=tuple(array_def['dims']),
-                element_type_name='',
-                element_byte_size=array_def['byte_size']
-            )
-        return dout
+
+        if not self._has_array_segments(vardef):
+            raise ValueError(f"No array segments available for {fullname}")
+        return self._array_segments_to_untyped_array(self._get_array_segments(vardef))
 
     def get_enum(self, fullname: str) -> Optional[EmbeddedEnum]:
         vardef = self._get_var_def(fullname)
@@ -473,18 +490,34 @@ class VarMap:
             fill_array_segments_from_vardef_content(var_array_segments, self._get_array_segments(vardef))
 
         if self._has_pointer_array_segments(vardef):
-            raise NotImplementedError("Not implemented yet")
+
             fill_array_segments_from_vardef_content(pointer_array_segments, self._get_pointer_array_segments(vardef))
 
-        byte_offset = parsed_path.compute_address_offset(var_array_segments)
         location: Union[ResolvedPathPointedLocation, AbsoluteLocation]
         if self._has_addr(vardef):
+            byte_offset = parsed_path.compute_address_offset(var_array_segments)
             location = AbsoluteLocation(self._get_addr(vardef) + byte_offset)
         elif self._has_pointed_location(vardef):
-            location = ResolvedPathPointedLocation(
-                pointer_path=self._get_pointer_path(vardef),
-                pointer_offset=self._get_pointer_offset(vardef) + byte_offset
-            )
+            unresolved_path = self._get_pointer_path(vardef)
+            nb_pointer_segments = len(path_tools.make_segments(unresolved_path))
+            byte_offset = parsed_path.compute_address_offset(var_array_segments, ignore_leading_segments=nb_pointer_segments)
+
+            if self._has_pointer_array_segments(vardef):
+                resolved_pointer_path = self._resolve_pointer_path(unresolved_path, parsed_path, pointer_array_segments)
+                if resolved_pointer_path is None:
+                    raise ValueError("Cannot resolve pointer path from ")
+
+                location = ResolvedPathPointedLocation(
+                    pointer_path=resolved_pointer_path.to_str(),
+                    pointer_offset=self._get_pointer_offset(vardef) + byte_offset  # Add the array offset to the dereferencing offset
+                )
+
+            else:   # Simple case - Optimisation to skip parsing
+                location = ResolvedPathPointedLocation(
+                    pointer_path=unresolved_path,
+                    pointer_offset=self._get_pointer_offset(vardef) + byte_offset  # Add the array offset to the dereferencing offset
+                )
+
         else:
             raise ValueError(f"Invalid variable location for {raw_path}")
 
@@ -497,3 +530,20 @@ class VarMap:
             bitoffset=self._get_bitoffset(vardef),
             enum=self._get_enum(vardef)
         )
+
+    def _resolve_pointer_path(self, unresolved_path: str, input_path: ScrutinyPath, pointer_array_segments: Mapping[str, Array]) -> Optional[ScrutinyPath]:
+        unresolved_segments = path_tools.make_segments(unresolved_path)
+        resolved_segments = input_path.get_segments()
+
+        if len(resolved_segments) < len(unresolved_segments):
+            return None
+
+        resolved_segments = resolved_segments[0:len(unresolved_segments)]
+        if resolved_segments[-1].startswith('*'):
+            resolved_segments[-1] = resolved_segments[-1][1:]
+
+        resolved_path = path_tools.join_segments(resolved_segments)
+        resolved_path_parsed = ScrutinyPath.from_string(resolved_path)
+        resolved_path_parsed.compute_address_offset(pointer_array_segments)   # We use this just for validation
+
+        return resolved_path_parsed

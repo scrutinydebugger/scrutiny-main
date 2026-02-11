@@ -152,7 +152,7 @@ class Datastore:
                 if entry_id in self._entries[watchable_type]:
                     return self._entries[watchable_type][entry_id]
 
-        if parsed_path.has_encoded_information():
+        if parsed_path.has_array_information():
             factory_path = parsed_path.to_raw_str()
             if factory_path in self._var_factories:
                 factory = self._var_factories[factory_path]
