@@ -191,11 +191,15 @@ ENCODING_2_DTYPE_MAP: Dict[DwarfEncoding, Dict[int, EmbeddedDataType]] = {
 
 @dataclass(slots=True)
 class PointeeTypeDescriptor:
+    """Describe the type pointed by a pointer. Same as TypeDescriptor, 
+    but the type_die is optional since we can have a pointer to void"""
     type: TypeOfVar
     enum_die: Optional[DIE]
     type_die: Optional[DIE]
 
     def to_typedesc(self) -> "TypeDescriptor":
+        """Convert to a TypeDescriptor. Only possible if there is a typedie associated with the pointee.
+        We can't get convert if we point to void"""
         if self.type_die is None:
             raise ValueError("Missing type_die to make a full type descriptor")
 
@@ -209,10 +213,15 @@ class PointeeTypeDescriptor:
 
 @dataclass(slots=True)
 class TypeDescriptor:
+    """A class that contains multiple information about the type of a variable"""
     type: TypeOfVar
+    """Type of variable. BaseType, Struct, Union, Pointer etc."""
     enum_die: Optional[DIE]
+    """The enum associated with the type. Applies only for BaseType"""
     type_die: DIE
+    """The DIE that define this type"""
     pointee: Optional[PointeeTypeDescriptor]
+    """Pointee type when type=Pointer"""
 
 
 class VarPathSegment:
@@ -308,7 +317,7 @@ class Compiler(Enum):
 
 
 def get_linenumber() -> int:
-    """Return the line number of the caller"""
+    """Return the line number of the caller. For debugging purpose"""
     cf = currentframe()
     if cf is None:
         return -1
@@ -402,6 +411,8 @@ class Context:
 class ElfDwarfVarExtractor:
 
     class ParseErrors:
+        """A class that represent a parsing error.
+        We keep track of all the error we find so that we can fail unit tests without stopping the aprsing"""
         __slots__ = ('_exceptions', )
 
         _exceptions: List[Exception]
@@ -538,6 +549,8 @@ class ElfDwarfVarExtractor:
 
     @classmethod
     def make_unique_display_name(cls, fullpath_list: List[str]) -> Dict[str, str]:
+        """Build a unique name for a CompileUnit. Do some extensive effort to keep a meaningful name, as short as possible
+        and avoid collisions if 2 files has the same name."""
         cuname_set = SortedSet([CuName(x) for x in sorted(fullpath_list)])
         outmap: Dict[str, str] = {}
 
@@ -576,9 +589,11 @@ class ElfDwarfVarExtractor:
         return outmap
 
     def get_cu_name(self, die: DIE) -> str:
+        """Return the name of the CompileUnit in which this DIE is part of"""
         return self.cu_name_map[die.cu]
 
     def get_enum_from_type_descriptor(self, type_desc: TypeDescriptor) -> Optional[EmbeddedEnum]:
+        """Reads the enum of a type descriptor. If this is an array, return the enum of the subtype"""
         if type_desc.type == TypeOfVar.Array:
             type_desc = self.get_type_of_var(type_desc.type_die)
 
@@ -593,6 +608,13 @@ class ElfDwarfVarExtractor:
                  nolog: bool = False,
                  raise_if_none: bool = False,
                  no_tag_default: bool = False) -> Optional[str]:
+        """Return the name of a DIE.
+
+        :param default: A default name if none is available
+        :param nolog: Don't log the call for debug purpose
+        :param raise_if_none: Raise an error if no name is avaialble and no default name is possible
+        :param no_tag_default: If no default name is provided, do not use the default names per tag defined in DEFAULTS_NAMES
+        """
 
         if not nolog:
             self._log_debug_process_die(die)
@@ -617,14 +639,17 @@ class ElfDwarfVarExtractor:
         return None
 
     def get_name_no_none(self, die: DIE, default: Optional[str] = None, nolog: bool = False) -> str:
+        """Read the name of a DIE and throw an exception if no name is available."""
         name = self.get_name(die, default, nolog, raise_if_none=True)
         assert name is not None
         return name
 
     def has_linkage_name(self, die: DIE) -> bool:
+        """Tells if a DIE has a linkage name"""
         return self.get_mangled_linkage_name(die) is not None
 
     def get_mangled_linkage_name(self, die: DIE) -> Optional[str]:
+        """Return the mangled linkage name of a DIE if one is available. ``None`` if not available."""
         mangled_encoded: Optional[str] = None
 
         if Attrs.DW_AT_linkage_name in die.attributes:
@@ -654,6 +679,7 @@ class ElfDwarfVarExtractor:
         return None
 
     def get_demangled_linkage_name(self, die: DIE) -> Optional[str]:
+        """Get the demangled linkage name of a DIE. Invoke the demangler"""
         self._log_debug_process_die(die)
         mangled_name = self.get_mangled_linkage_name(die)
         if mangled_name is None:
@@ -663,6 +689,9 @@ class ElfDwarfVarExtractor:
 
     @classmethod
     def split_demangled_name(cls, name: str) -> List[str]:
+        """Transform a C++ nesting name to a path like structure
+        namespace1::class2<T>::enum3::HELLO --> namespace1/class2<T>/enum3/HELLO
+        """
         paranthesis_level = 0
         ducky_bracket_level = 0
 
@@ -696,6 +725,7 @@ class ElfDwarfVarExtractor:
         return outname.split(';')
 
     def post_process_splitted_demangled_name(self, parts: List[str]) -> List[str]:
+        """To be called on the result of ``split_demangled_name`` to apply some context specific transformation"""
         if self._context.cu_compiler == Compiler.Tasking:
             # Tasking do something like that : /static/file1.cpp/_INTERNAL_9_file1_cpp_49335e60/NamespaceInFile1/NamespaceInFile1Nested1/file1StaticNestedVar1
             return [x for x in parts if not x.startswith('_INTERNAL_')]
@@ -709,6 +739,7 @@ class ElfDwarfVarExtractor:
             return False
 
     def get_core_base_type(self, encoding: DwarfEncoding, bytesize: int) -> EmbeddedDataType:
+        """Convert a DWARF encoding into a Scrutiny EmbeddedDataType"""
         if encoding not in ENCODING_2_DTYPE_MAP:
             raise ValueError(f'Unknown encoding {encoding}')
 
