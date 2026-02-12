@@ -16,7 +16,7 @@ from elftools.elf.elffile import ELFFile
 from scrutiny.core.memory_content import MemoryContent
 from scrutiny.core.varmap import VarMap
 from scrutiny.core.codecs import Codecs
-from scrutiny.core.variable import Variable
+from scrutiny.core.embedded_enum import EmbeddedEnum
 
 from test import logger
 from test import ScrutinyUnitTest
@@ -1172,6 +1172,14 @@ int main(int argc, char* argv[])
         code = """
 #include <cstdint>
 %s
+
+enum EnumU32 : uint32_t
+{
+    XXX = 123,
+    YYY = 456,
+    ZZZ = 789
+};
+
 struct A
 {
  int32_t i32;
@@ -1187,19 +1195,35 @@ struct C
 {
     int32_t i32;
     uint16_t u16_array[5][10];
+    EnumU32 u32_enum;
+};
+
+struct D
+{
+    C* c_ptr;
+    C* c_ptr_array[2][5];
+    C c_array[5];
+    uint32_t* u32_ptr_array[3][2]; 
+    EnumU32* u32_enum_ptr_array[4][5]; 
 };
 
 uint32_t gu32;
+EnumU32 gu32_enum;
 uint32_t * array_of_ptr[10];
 A* array_of_a_ptr[5];
 B array_of_b[5];
 
 C gStructC;
+C gStructC2;
 C* gStructCptr;
+
+D gStructD;
+D* gStructDptr;
 
 int main(int argc, char* argv[])
 {
     gu32 = 0x12345678;
+    gu32_enum = EnumU32::YYY;
     static uint32_t some_u32 = 0x11223344;
     array_of_ptr[5] = &some_u32;
 
@@ -1208,12 +1232,31 @@ int main(int argc, char* argv[])
 
     gStructC.i32 = 0x534751;
     gStructC.u16_array[2][3] = 0xb0a7;
+    gStructC.u32_enum = EnumU32::ZZZ;
+    gStructC2.i32 = 0x66474;
+    gStructC2.u16_array[1][2] = 0x4821;
+    gStructC2.u32_enum = EnumU32::XXX;
 
     gStructCptr = &gStructC;
+
+    gStructD.c_ptr = &gStructC;
+    gStructD.c_ptr_array[1][3] = &gStructC2;
+    gStructD.c_array[2].i32 = 0x34672;
+    gStructD.c_array[2].u16_array[1][0] = 0x8421;
+    gStructD.u32_ptr_array[2][1] = &gu32;
+    gStructD.u32_enum_ptr_array[2][3] = &gu32_enum;
+
+    gStructDptr = &gStructD;
     %s
     return 0;
 }
 """ % (memdump_declare, memdump_invocation)
+
+        def assert_is_enumU32(enum: EmbeddedEnum):
+            self.assertTrue(enum.get_name(), 'EnumU32')
+            self.assertTrue(enum.get_value('XXX'), 123)
+            self.assertTrue(enum.get_value('YYY'), 456)
+            self.assertTrue(enum.get_value('ZZZ'), 789)
 
         for compiler in ['g++', 'clang++']:
             for dwarf_version in [2, 3, 4]:
@@ -1316,6 +1359,13 @@ int main(int argc, char* argv[])
                     vpath = '/global/*gStructCptr/i32'
                     self.assert_value_at_path(vpath, varmap, memdump, 0x534751)
 
+                    vpath = '/global/*gStructCptr/u32_enum'
+                    v = varmap.get_var(vpath)
+                    self.assertTrue(v.has_enum())
+                    enum = v.get_enum()
+                    assert_is_enumU32(enum)
+                    self.assert_value_at_path(v.get_fullname(), varmap, memdump, enum.get_value('ZZZ'))
+
                     vpath = '/global/*gStructCptr/u16_array/u16_array'
                     self.assertTrue(varmap.has_var(vpath))
                     self.assertTrue(varmap.has_array_segments(vpath))
@@ -1326,6 +1376,156 @@ int main(int argc, char* argv[])
                     self.assertIn(p1, array_segments)
                     self.assertEqual(array_segments[p1].dims, (5, 10))
                     self.assert_value_at_path('/global/*gStructCptr/u16_array/u16_array[2][3]', varmap, memdump, 0xb0a7)
+
+                    # Struct D
+                    # c_ptr
+                    # c_ptr_array
+                    # c_array
+                    vpath = '/global/gStructD/c_ptr'
+                    self.assertTrue(varmap.has_var(vpath))
+                    self.assertFalse(varmap.has_array_segments(vpath))
+                    self.assertFalse(varmap.has_pointer_array_segments(vpath))
+                    v = varmap.get_var(vpath)
+                    self.assertTrue(v.get_type().is_pointer())
+                    self.assert_value_at_path(vpath, varmap, memdump, varmap.get_var('/global/gStructC/i32').get_address())
+
+                    vpath = '/global/gStructD/*c_ptr/i32'
+                    self.assertTrue(varmap.has_var(vpath))
+                    self.assertFalse(varmap.has_array_segments(vpath))
+                    self.assertFalse(varmap.has_pointer_array_segments(vpath))
+                    v = varmap.get_var(vpath)
+                    self.assertEqual(v.get_type(), EmbeddedDataType.sint32)
+                    self.assert_value_at_path(vpath, varmap, memdump, 0x534751)
+
+                    vpath = '/global/gStructD/*c_ptr/u32_enum'
+                    self.assertTrue(varmap.has_var(vpath))
+                    self.assertFalse(varmap.has_array_segments(vpath))
+                    self.assertFalse(varmap.has_pointer_array_segments(vpath))
+                    v = varmap.get_var(vpath)
+                    self.assertEqual(v.get_type(), EmbeddedDataType.uint32)
+                    self.assertTrue(v.has_enum())
+                    enum = v.get_enum()
+                    assert_is_enumU32(enum)
+                    self.assert_value_at_path(vpath, varmap, memdump, enum.get_value('ZZZ'))
+
+                    vpath = '/global/gStructD/*c_ptr/u16_array/u16_array'
+                    self.assertTrue(varmap.has_var(vpath))
+                    self.assertTrue(varmap.has_array_segments(vpath))
+                    self.assertFalse(varmap.has_pointer_array_segments(vpath))
+                    v = varmap.get_var(f"{vpath}[2][3]")
+                    self.assertTrue(v.has_pointed_address())
+                    array_segments = varmap.get_array_segments(vpath)
+                    self.assertEqual(len(array_segments), 1)
+                    p1 = '/global/gStructD/*c_ptr/u16_array/u16_array'
+                    self.assertIn(p1, array_segments)
+                    self.assertEqual(array_segments[p1].dims, (5, 10))
+                    self.assertEqual(v.get_pointer().pointer_path, '/global/gStructD/c_ptr')
+                    self.assertEqual(v.get_type(), EmbeddedDataType.uint16)
+                    self.assert_value_at_path(v.get_fullname(), varmap, memdump, 0xb0a7)
+
+                    vpath = '/global/gStructD/u32_ptr_array/u32_ptr_array'
+                    self.assertTrue(varmap.has_var(vpath))
+                    self.assertTrue(varmap.has_array_segments(vpath))
+                    self.assertFalse(varmap.has_pointer_array_segments(vpath))
+                    v = varmap.get_var(f"{vpath}[2][1]")
+                    self.assertTrue(v.get_type().is_pointer())
+                    self.assert_value_at_path(v.get_fullname(), varmap, memdump, varmap.get_var('/global/gu32').get_address())
+
+                    vpath = '/global/gStructD/u32_ptr_array/*u32_ptr_array'
+                    self.assertTrue(varmap.has_var(vpath))
+                    self.assertFalse(varmap.has_array_segments(vpath))
+                    self.assertTrue(varmap.has_pointer_array_segments(vpath))
+                    pointer_array_segments = varmap.get_pointer_array_segments(vpath)
+                    self.assertEqual(len(pointer_array_segments), 1)
+                    p1 = "/global/gStructD/u32_ptr_array/u32_ptr_array"
+                    self.assertIn(p1, pointer_array_segments)
+                    self.assertEqual(pointer_array_segments[p1].dims, (3, 2))
+                    v = varmap.get_var('/global/gStructD/u32_ptr_array/*u32_ptr_array[2][1]')
+                    self.assertEqual(v.get_pointer().pointer_offset, 0)
+                    self.assertEqual(v.get_pointer().pointer_path, '/global/gStructD/u32_ptr_array/u32_ptr_array[2][1]')
+                    self.assert_value_at_path(
+                        v.get_fullname(), varmap, memdump,
+                        self.get_value_at_path('/global/gu32', varmap, memdump)
+                    )
+
+                    vpath = '/global/gStructD/u32_enum_ptr_array/*u32_enum_ptr_array'
+                    self.assertTrue(varmap.has_var(vpath))
+                    self.assertFalse(varmap.has_array_segments(vpath))
+                    self.assertTrue(varmap.has_pointer_array_segments(vpath))
+                    pointer_array_segments = varmap.get_pointer_array_segments(vpath)
+                    self.assertEqual(len(pointer_array_segments), 1)
+                    p1 = "/global/gStructD/u32_enum_ptr_array/u32_enum_ptr_array"
+                    self.assertIn(p1, pointer_array_segments)
+                    self.assertEqual(pointer_array_segments[p1].dims, (4, 5))
+                    v = varmap.get_var('/global/gStructD/u32_enum_ptr_array/*u32_enum_ptr_array[2][3]')
+                    self.assertEqual(v.get_pointer().pointer_offset, 0)
+                    self.assertEqual(v.get_pointer().pointer_path, '/global/gStructD/u32_enum_ptr_array/u32_enum_ptr_array[2][3]')
+                    self.assertTrue(v.has_enum())
+                    enum = v.get_enum()
+                    assert_is_enumU32(enum)
+                    self.assert_value_at_path('/global/gu32_enum', varmap, memdump, enum.get_value('YYY'))
+
+                    self.assert_value_at_path(
+                        v.get_fullname(), varmap, memdump,
+                        self.get_value_at_path('/global/gu32_enum', varmap, memdump)
+                    )
+
+                    vpath = '/global/gStructD/c_ptr_array/c_ptr_array'
+                    self.assertTrue(varmap.has_var(vpath))
+                    self.assertTrue(varmap.has_array_segments(vpath))
+                    self.assertFalse(varmap.has_pointer_array_segments(vpath))
+                    v = varmap.get_var(f"{vpath}[1][3]")
+                    self.assertTrue(v.get_type().is_pointer())
+                    self.assert_value_at_path(v.get_fullname(), varmap, memdump, varmap.get_var('/global/gStructC2/i32').get_address())
+
+                    vpath = '/global/gStructD/c_ptr_array/*c_ptr_array/i32'
+                    self.assertTrue(varmap.has_var(vpath))
+                    self.assertFalse(varmap.has_array_segments(vpath))
+                    self.assertTrue(varmap.has_pointer_array_segments(vpath))
+                    pointer_array_segments = varmap.get_pointer_array_segments(vpath)
+                    self.assertEqual(len(pointer_array_segments), 1)
+                    p1 = "/global/gStructD/c_ptr_array/c_ptr_array"
+                    self.assertIn(p1, pointer_array_segments)
+                    self.assertEqual(pointer_array_segments[p1].dims, (2, 5))
+                    v = varmap.get_var(f"/global/gStructD/c_ptr_array/*c_ptr_array[1][3]/i32")
+                    self.assertEqual(v.get_type(), EmbeddedDataType.sint32)
+                    self.assert_value_at_path(v.get_fullname(), varmap, memdump, 0x66474)
+
+                    vpath = '/global/gStructD/c_ptr_array/*c_ptr_array/u32_enum'
+                    self.assertTrue(varmap.has_var(vpath))
+                    self.assertFalse(varmap.has_array_segments(vpath))
+                    self.assertTrue(varmap.has_pointer_array_segments(vpath))
+                    pointer_array_segments = varmap.get_pointer_array_segments(vpath)
+                    self.assertEqual(len(pointer_array_segments), 1)
+                    p1 = "/global/gStructD/c_ptr_array/c_ptr_array"
+                    self.assertIn(p1, pointer_array_segments)
+                    self.assertEqual(pointer_array_segments[p1].dims, (2, 5))
+                    v = varmap.get_var(f"/global/gStructD/c_ptr_array/*c_ptr_array[1][3]/u32_enum")
+                    self.assertEqual(v.get_type(), EmbeddedDataType.uint32)
+                    self.assertTrue(v.has_enum())
+                    enum = v.get_enum()
+                    assert_is_enumU32(enum)
+                    self.assert_value_at_path(v.get_fullname(), varmap, memdump, enum.get_value('XXX'))
+
+                    vpath = '/global/gStructD/c_ptr_array/*c_ptr_array/u16_array/u16_array'
+                    self.assertTrue(varmap.has_var(vpath))
+                    self.assertTrue(varmap.has_array_segments(vpath))
+                    self.assertTrue(varmap.has_pointer_array_segments(vpath))
+                    array_segments = varmap.get_array_segments(vpath)
+                    pointer_array_segments = varmap.get_pointer_array_segments(vpath)
+                    self.assertEqual(len(array_segments), 1)
+                    self.assertEqual(len(pointer_array_segments), 1)
+                    p1 = "/global/gStructD/c_ptr_array/c_ptr_array"
+                    self.assertIn(p1, pointer_array_segments)
+                    self.assertEqual(pointer_array_segments[p1].dims, (2, 5))
+                    self.assertEqual(len(array_segments), 1)
+                    p1 = "/global/gStructD/c_ptr_array/*c_ptr_array/u16_array/u16_array"
+                    self.assertIn(p1, array_segments)
+                    self.assertEqual(array_segments[p1].dims, (5, 10))
+                    v = varmap.get_var(f"/global/gStructD/c_ptr_array/*c_ptr_array[1][3]/u16_array/u16_array[1][2]")
+                    self.assertEqual(v.get_type(), EmbeddedDataType.uint16)
+                    self.assertFalse(v.has_enum())
+                    self.assert_value_at_path(v.get_fullname(), varmap, memdump, 0x4821)
 
 
 if __name__ == '__main__':

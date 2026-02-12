@@ -1361,6 +1361,7 @@ class ElfDwarfVarExtractor:
                                        bitoffset=None, bitsize=None, substruct=substruct)
                 self.register_member_as_var_recursive(path_segments, member, base_location, offset, new_array_segments)
             elif isinstance(array.datatype, Pointer):
+                ptr = array.datatype
                 self.maybe_register_variable(
                     path_segments=path_segments,
                     original_type_name=array.element_type_name,
@@ -1368,7 +1369,43 @@ class ElfDwarfVarExtractor:
                     array_segments=new_array_segments.to_varmap_format()
                 )
 
-                # TODO : dereference
+                if isinstance(base_location, AbsoluteLocation):  # Only dereference one level. By design
+                    dereferenced_array_segments = path_segments.copy()
+                    dereferenced_array_segments[-1] = f'*{dereferenced_array_segments[-1]}'  # /aaa/bbb/*ccc : ccc is dereferenced
+
+                    pointed_location = UnresolvedPathPointedLocation(
+                        pointer_offset=0,
+                        pointer_path=path_tools.join_segments(path_segments),
+                        array_segments=new_array_segments.to_varmap_format()
+                    )
+
+                    if isinstance(ptr.pointed_type, EmbeddedDataType):
+                        if ptr.pointed_type != EmbeddedDataType.NA:  # Void pointer
+                            assert ptr.pointed_typename is not None
+                            self.maybe_register_variable(
+                                path_segments=dereferenced_array_segments,
+                                location=pointed_location,
+                                original_type_name=ptr.pointed_typename,
+                                enum=ptr.enum
+                            )
+
+                    elif isinstance(ptr.pointed_type, Struct):
+                        # mimic the behavior of register_struct_var, without looking for a var die.
+                        pointed_startpoint = Struct.Member(
+                            name=ptr.pointed_type.name,
+                            member_type=Struct.Member.MemberType.SubStruct,
+                            bitoffset=None,
+                            bitsize=None,
+                            substruct=ptr.pointed_type
+                        )
+                        self.register_member_as_var_recursive(
+                            path_segments=dereferenced_array_segments,
+                            member=pointed_startpoint,
+                            base_location=pointed_location,
+                            offset=0,
+                            array_segments=ArraySegments()  # Fresh start, only pointer part has array so far
+                        )
+
             else:
                 raise ElfParsingError(f"Array of {array.datatype.__class__.__name__} are not expected")
 
@@ -1389,8 +1426,8 @@ class ElfDwarfVarExtractor:
 
             # Dereference the pointer
             if isinstance(location, AbsoluteLocation):  # Only dereference one level. By design
-                pointer_path_segments = path_segments.copy()
-                pointer_path_segments[-1] = f'*{pointer_path_segments[-1]}'  # /aaa/bbb/*ccc : ccc is dereferenced
+                dereferenced_array_segments = path_segments.copy()
+                dereferenced_array_segments[-1] = f'*{dereferenced_array_segments[-1]}'  # /aaa/bbb/*ccc : ccc is dereferenced
 
                 pointed_location = UnresolvedPathPointedLocation(
                     pointer_offset=0,
@@ -1402,7 +1439,7 @@ class ElfDwarfVarExtractor:
                     if ptr.pointed_type != EmbeddedDataType.NA:  # Void pointer
                         assert ptr.pointed_typename is not None
                         self.maybe_register_variable(
-                            path_segments=pointer_path_segments,
+                            path_segments=dereferenced_array_segments,
                             location=pointed_location,
                             original_type_name=ptr.pointed_typename,
                             enum=member.embedded_enum
@@ -1417,11 +1454,11 @@ class ElfDwarfVarExtractor:
                         substruct=ptr.pointed_type
                     )
                     self.register_member_as_var_recursive(
-                        path_segments=pointer_path_segments,
+                        path_segments=dereferenced_array_segments,
                         member=pointed_startpoint,
                         base_location=pointed_location,
                         offset=0,
-                        array_segments=ArraySegments()  # TODO
+                        array_segments=ArraySegments()  # Fresh start, only pointer part has array so far
                     )
         else:
             location = base_location.copy()
