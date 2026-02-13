@@ -488,6 +488,7 @@ class TestDataloggingIntegration(ScrutinyIntegrationTestWithTestSFD1):
                         logger.debug(f"Received : {state} - {completion}")
                         if acquisition_complete_received and state == 'standby':
                             timedout = False
+                            break
 
                     if response['cmd'] == API.Command.Api2Client.INFORM_DATALOGGING_ACQUISITION_COMPLETE:
                         acquisition_complete_received = True
