@@ -214,7 +214,7 @@ class TestElf2VarMapFromBuilds(ScrutinyUnitTest):
             addr = ptr_val
         else:
             raise NotImplementedError("Unsupported address type")
-        return Codecs.get(var.get_type(), Endianness.Little).decode(memdump.read(addr, var.get_type().get_size_byte()))
+        return var.decode(memdump.read(addr, var.get_type().get_size_byte()))
 
     def assert_value_at_path(self, path: str, varmap: VarMap, memdump: MemoryContent, value: Any, msg: Optional[str] = ""):
         self.assertEqual(self.get_value_at_path(path, varmap, memdump), value, msg)
@@ -1613,7 +1613,7 @@ int main(int argc, char* argv[])
             for dwarf_version in [2, 3, 4]:
                 with self.subTest(f"{compiler}-dwarf{dwarf_version}"):
                     varmap, memdump = self._make_varmap_and_memdump(code, dwarf_version=dwarf_version, compiler=compiler, cppfilt='c++filt')
-                    
+
                     unresolved_vpath = '/static/main.cpp/NamespaceB/NamespaceC/static_g_instance/f_array/f_array/e_array/e_array/*d_ptr/anon_member/c_array/c_array/b_array/b_array/a/union1/bitfield/a3'
                     resolved_vpath = '/static/main.cpp/NamespaceB/NamespaceC/static_g_instance/f_array/f_array[1][0]/e_array/e_array[2][1][3]/*d_ptr/anon_member/c_array/c_array[2]/b_array/b_array[3][5]/a/union1/bitfield/a3'
                     self.assertTrue(varmap.has_var(unresolved_vpath))
@@ -1628,21 +1628,23 @@ int main(int argc, char* argv[])
                     self.assertIn(p1, array_segments)
                     self.assertEqual(array_segments[p1].dims, (4,))
                     p2 = '/static/main.cpp/NamespaceB/NamespaceC/static_g_instance/f_array/f_array/e_array/e_array/*d_ptr/anon_member/c_array/c_array/b_array/b_array'
-                    self.assertEqual(array_segments[p2].dims, (5,8))
+                    self.assertEqual(array_segments[p2].dims, (5, 8))
                     self.assertIn(p2, array_segments)
 
                     self.assertEqual(len(pointer_array_segments), 2)
                     p1 = '/static/main.cpp/NamespaceB/NamespaceC/static_g_instance/f_array/f_array'
                     self.assertIn(p1, pointer_array_segments)
-                    self.assertEqual(pointer_array_segments[p1].dims, (2,3))
+                    self.assertEqual(pointer_array_segments[p1].dims, (2, 3))
                     p2 = '/static/main.cpp/NamespaceB/NamespaceC/static_g_instance/f_array/f_array/e_array/e_array'
                     self.assertIn(p2, pointer_array_segments)
-                    self.assertEqual(pointer_array_segments[p2].dims, (3,2,4))
+                    self.assertEqual(pointer_array_segments[p2].dims, (3, 2, 4))
 
                     v = varmap.get_var(resolved_vpath)
                     self.assertIsInstance(v.get_pointer(), ResolvedPathPointedLocation)
-                    self.assertEqual(v.get_pointer().pointer_path, '/static/main.cpp/NamespaceB/NamespaceC/static_g_instance/f_array/f_array[1][0]/e_array/e_array[2][1][3]/d_ptr')
-                    #self.assert_value_at_path(v.get_fullname(), varmap, memdump, 23)
+                    self.assertEqual(v.get_pointer().pointer_path,
+                                     '/static/main.cpp/NamespaceB/NamespaceC/static_g_instance/f_array/f_array[1][0]/e_array/e_array[2][1][3]/d_ptr')
+                    self.assert_value_at_path(v.get_fullname(), varmap, memdump, 23)
+
 
 if __name__ == '__main__':
     import unittest
