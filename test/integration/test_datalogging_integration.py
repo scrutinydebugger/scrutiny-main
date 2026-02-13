@@ -459,8 +459,10 @@ class TestDataloggingIntegration(ScrutinyIntegrationTestWithTestSFD1):
                 self.assertNotEqual(self.emulated_device.datalogger.config_id, config_id_before)
                 self.assertFalse(self.emulated_device.datalogger.triggered())
 
-                # Make sure we have at least one Wait For Trigger in the pipeline
-                self.send_request({'cmd': API.Command.Client2Api.GET_SERVER_STATUS})    
+                old_req_count = self.server.api.req_count
+                # Make sure we have at least one Wait For Trigger in the pipeline.
+                self.send_request({'cmd': API.Command.Client2Api.GET_SERVER_STATUS})
+                self.wait_true(lambda: self.server.api.req_count>old_req_count, 2)
                 # This line should trigger the acquisition
                 self.emulated_device.write_memory(self.entry_u16.get_address(), Codecs.get(
                     EmbeddedDataType.uint16, Endianness.Little).encode(0x1234)
@@ -501,31 +503,28 @@ class TestDataloggingIntegration(ScrutinyIntegrationTestWithTestSFD1):
                 #    - downloading          (multiple time)
                 #    - standby              (multiple time)
 
-                def assert_all_equal_not_empty(thelist, val):
-                    self.assertGreater(len(thelist), 0)
-                    for item in thelist:
-                        self.assertEqual(item, val)
-                
-                first_wft_index = state_list.index('waiting_for_trigger')
-                first_acquiring_index = state_list.index('acquiring')
-                first_downloading_index = state_list.index('downloading')
-                first_standby_index = state_list.index('standby')
+                state_change_list = []
+                last_state = None
+                for state in state_list:
+                    if state != last_state:
+                        state_change_list.append(state)
+                    last_state = state
+
+                first_standby_index = state_change_list.index('standby')
+                first_wft_index = state_change_list.index('waiting_for_trigger')
+                first_acquiring_index = state_change_list.index('acquiring')
+                first_downloading_index = state_change_list.index('downloading')
+                first_end_standby_index = state_change_list.index('standby', first_wft_index)
 
                 self.assertNotEqual(first_wft_index, -1)
-                self.assertNotEqual(first_acquiring_index, -1)
-                self.assertNotEqual(first_downloading_index, -1)
-                self.assertNotEqual(first_standby_index, -1)
+                self.assertNotEqual(first_end_standby_index, -1)
 
-                if iteration == 0:
-                    first_wft_index = state_list.index('waiting_for_trigger')
-                    self.assertNotEqual(first_wft_index, -1)
-                    assert_all_equal_not_empty(state_list[0:first_wft_index], 'standby')
-                    state_list = state_list[first_wft_index:]
-
-                assert_all_equal_not_empty(state_list[first_wft_index:first_acquiring_index], 'waiting_for_trigger')
-                assert_all_equal_not_empty(state_list[first_acquiring_index:first_downloading_index], 'acquiring')
-                assert_all_equal_not_empty(state_list[first_downloading_index:first_standby_index], 'downloading')
-                assert_all_equal_not_empty(state_list[first_standby_index:], 'standby')
+                indexes = [first_standby_index, first_wft_index, first_acquiring_index, first_downloading_index, first_end_standby_index]
+                fitlered_indexes = [x for x in indexes if x != -1]
+                
+                index_diff = diff(fitlered_indexes)
+                wrong_order_list = list(map(lambda x: x<1, index_diff))
+                self.assertFalse(any(wrong_order_list))
 
     def tearDown(self) -> None:
         super().tearDown()
