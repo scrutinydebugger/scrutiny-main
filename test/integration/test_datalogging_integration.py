@@ -397,7 +397,6 @@ class TestDataloggingIntegration(ScrutinyIntegrationTestWithTestSFD1):
     def test_datalogging_state_all_sent_in_right_order(self):
         with DataloggingStorage.use_temp_storage():
             self.wait_for_datalogging_ready()
-            print("OK!", flush=True)
             for iteration in range(3):
                 logger.debug(f"Starting iteration={iteration}")
                 # Request acquisition
@@ -459,14 +458,15 @@ class TestDataloggingIntegration(ScrutinyIntegrationTestWithTestSFD1):
                 self.wait_true(config_id_changed, timeout=2)
                 self.assertNotEqual(self.emulated_device.datalogger.config_id, config_id_before)
                 self.assertFalse(self.emulated_device.datalogger.triggered())
+
+                # Make sure we have at least one Wait For Trigger in the pipeline
+                self.send_request({'cmd': API.Command.Client2Api.GET_SERVER_STATUS})    
                 # This line should trigger the acquisition
                 self.emulated_device.write_memory(self.entry_u16.get_address(), Codecs.get(
                     EmbeddedDataType.uint16, Endianness.Little).encode(0x1234)
                 )
                 self.wait_for(req['trigger_hold_time'])  # Leave some time for the device thread to catch the change.
-
                 self.wait_true(self.emulated_device.datalogger.triggered, timeout=1)
-                self.assertTrue(self.emulated_device.datalogger.triggered())
 
                 state_list: List[str] = []
                 last_completion = None
@@ -505,13 +505,7 @@ class TestDataloggingIntegration(ScrutinyIntegrationTestWithTestSFD1):
                     self.assertGreater(len(thelist), 0)
                     for item in thelist:
                         self.assertEqual(item, val)
-
-                if iteration == 0:
-                    first_wft_index = state_list.index('waiting_for_trigger')
-                    self.assertNotEqual(first_wft_index, -1)
-                    assert_all_equal_not_empty(state_list[0:first_wft_index], 'standby')
-                    state_list = state_list[first_wft_index:]
-
+                
                 first_wft_index = state_list.index('waiting_for_trigger')
                 first_acquiring_index = state_list.index('acquiring')
                 first_downloading_index = state_list.index('downloading')
@@ -521,6 +515,12 @@ class TestDataloggingIntegration(ScrutinyIntegrationTestWithTestSFD1):
                 self.assertNotEqual(first_acquiring_index, -1)
                 self.assertNotEqual(first_downloading_index, -1)
                 self.assertNotEqual(first_standby_index, -1)
+
+                if iteration == 0:
+                    first_wft_index = state_list.index('waiting_for_trigger')
+                    self.assertNotEqual(first_wft_index, -1)
+                    assert_all_equal_not_empty(state_list[0:first_wft_index], 'standby')
+                    state_list = state_list[first_wft_index:]
 
                 assert_all_equal_not_empty(state_list[first_wft_index:first_acquiring_index], 'waiting_for_trigger')
                 assert_all_equal_not_empty(state_list[first_acquiring_index:first_downloading_index], 'acquiring')
