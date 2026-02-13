@@ -17,6 +17,7 @@ from scrutiny.core.memory_content import MemoryContent
 from scrutiny.core.varmap import VarMap
 from scrutiny.core.codecs import Codecs
 from scrutiny.core.embedded_enum import EmbeddedEnum
+from scrutiny.core.variable_location import ResolvedPathPointedLocation
 
 from test import logger
 from test import ScrutinyUnitTest
@@ -1378,9 +1379,6 @@ int main(int argc, char* argv[])
                     self.assert_value_at_path('/global/*gStructCptr/u16_array/u16_array[2][3]', varmap, memdump, 0xb0a7)
 
                     # Struct D
-                    # c_ptr
-                    # c_ptr_array
-                    # c_array
                     vpath = '/global/gStructD/c_ptr'
                     self.assertTrue(varmap.has_var(vpath))
                     self.assertFalse(varmap.has_array_segments(vpath))
@@ -1527,6 +1525,124 @@ int main(int argc, char* argv[])
                     self.assertFalse(v.has_enum())
                     self.assert_value_at_path(v.get_fullname(), varmap, memdump, 0x4821)
 
+    @unittest.skipIf(
+        not has_elf_toolchain(compiler='g++', cppfilt='c++filt')
+        or not has_elf_toolchain(compiler='clang++', cppfilt='c++filt'),
+        "No toolchain available")
+    def test_extract_pointers_array_mix_complex(self):
+        code = """
+#include <cstdint>
+%s
+
+namespace NamespaceA{
+    class A {
+        public:
+        int16_t x;
+
+        union {
+            struct {
+                uint32_t a1: 5;
+                uint32_t a2: 9;
+                uint32_t a3: 7;
+                uint32_t a4: 3;
+            } bitfield;
+        }  union1;
+    };
+
+    struct B {
+    
+        int64_t _pad;
+        A a;
+    };
+
+    struct C {
+        int32_t _pad;
+        B b_array[5][8];
+    };
+
+    struct D {
+        int32_t _pad;
+        struct {
+            int16_t pad;
+            C c_array[4];
+        } anon_member;
+        
+        int32_t _pad2;
+    };
+
+    struct E {
+        char _pad[20];
+        D* d_ptr;
+    };
+
+    class F {
+        public:
+        int64_t _pad;
+        E e_array[3][2][4];
+    };
+
+    struct G {
+        int8_t _pad;
+        F f_array[2][3];
+    };
+}
+
+
+namespace NamespaceB
+{
+    namespace NamespaceC {
+        static NamespaceA::G static_g_instance;
+    }
+}
+
+namespace NamespaceD
+{
+    NamespaceA::D global_d_instance;
+}
+
+
+int main(int argc, char* argv[])
+{
+    NamespaceD::global_d_instance.anon_member.c_array[2].b_array[3][5].a.union1.bitfield.a3 = 23;
+    NamespaceB::NamespaceC::static_g_instance.f_array[1][0].e_array[2][1][3].d_ptr = &NamespaceD::global_d_instance;
+    %s
+    return 0;
+}
+""" % (memdump_declare, memdump_invocation)
+        for compiler in ['g++', 'clang++']:
+            for dwarf_version in [2, 3, 4]:
+                with self.subTest(f"{compiler}-dwarf{dwarf_version}"):
+                    varmap, memdump = self._make_varmap_and_memdump(code, dwarf_version=dwarf_version, compiler=compiler, cppfilt='c++filt')
+                    
+                    unresolved_vpath = '/static/main.cpp/NamespaceB/NamespaceC/static_g_instance/f_array/f_array/e_array/e_array/*d_ptr/anon_member/c_array/c_array/b_array/b_array/a/union1/bitfield/a3'
+                    resolved_vpath = '/static/main.cpp/NamespaceB/NamespaceC/static_g_instance/f_array/f_array[1][0]/e_array/e_array[2][1][3]/*d_ptr/anon_member/c_array/c_array[2]/b_array/b_array[3][5]/a/union1/bitfield/a3'
+                    self.assertTrue(varmap.has_var(unresolved_vpath))
+
+                    self.assertTrue(varmap.has_array_segments(unresolved_vpath))
+                    self.assertTrue(varmap.has_pointer_array_segments(unresolved_vpath))
+                    array_segments = varmap.get_array_segments(unresolved_vpath)
+                    pointer_array_segments = varmap.get_pointer_array_segments(unresolved_vpath)
+
+                    self.assertEqual(len(array_segments), 2)
+                    p1 = '/static/main.cpp/NamespaceB/NamespaceC/static_g_instance/f_array/f_array/e_array/e_array/*d_ptr/anon_member/c_array/c_array'
+                    self.assertIn(p1, array_segments)
+                    self.assertEqual(array_segments[p1].dims, (4,))
+                    p2 = '/static/main.cpp/NamespaceB/NamespaceC/static_g_instance/f_array/f_array/e_array/e_array/*d_ptr/anon_member/c_array/c_array/b_array/b_array'
+                    self.assertEqual(array_segments[p2].dims, (5,8))
+                    self.assertIn(p2, array_segments)
+
+                    self.assertEqual(len(pointer_array_segments), 2)
+                    p1 = '/static/main.cpp/NamespaceB/NamespaceC/static_g_instance/f_array/f_array'
+                    self.assertIn(p1, pointer_array_segments)
+                    self.assertEqual(pointer_array_segments[p1].dims, (2,3))
+                    p2 = '/static/main.cpp/NamespaceB/NamespaceC/static_g_instance/f_array/f_array/e_array/e_array'
+                    self.assertIn(p2, pointer_array_segments)
+                    self.assertEqual(pointer_array_segments[p2].dims, (3,2,4))
+
+                    v = varmap.get_var(resolved_vpath)
+                    self.assertIsInstance(v.get_pointer(), ResolvedPathPointedLocation)
+                    self.assertEqual(v.get_pointer().pointer_path, '/static/main.cpp/NamespaceB/NamespaceC/static_g_instance/f_array/f_array[1][0]/e_array/e_array[2][1][3]/d_ptr')
+                    #self.assert_value_at_path(v.get_fullname(), varmap, memdump, 23)
 
 if __name__ == '__main__':
     import unittest
