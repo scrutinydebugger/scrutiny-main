@@ -397,6 +397,7 @@ class TestDataloggingIntegration(ScrutinyIntegrationTestWithTestSFD1):
     def test_datalogging_state_all_sent_in_right_order(self):
         with DataloggingStorage.use_temp_storage():
             self.wait_for_datalogging_ready()
+            print("OK!", flush=True)
             for iteration in range(3):
                 logger.debug(f"Starting iteration={iteration}")
                 # Request acquisition
@@ -471,7 +472,9 @@ class TestDataloggingIntegration(ScrutinyIntegrationTestWithTestSFD1):
                 last_completion = None
                 acquisition_complete_received = False
                 t1 = time.monotonic()
-                while time.monotonic() - t1 < 5:
+                TIMEOUT = 5
+                timedout = True
+                while time.monotonic() - t1 < TIMEOUT:
                     response = self.wait_and_load_response([API.Command.Api2Client.INFORM_SERVER_STATUS,
                                                            API.Command.Api2Client.INFORM_DATALOGGING_ACQUISITION_COMPLETE])
                     self.assert_no_error(response)
@@ -484,10 +487,12 @@ class TestDataloggingIntegration(ScrutinyIntegrationTestWithTestSFD1):
                         state_list.append(state)
                         logger.debug(f"Received : {state} - {completion}")
                         if acquisition_complete_received and state == 'standby':
-                            break
+                            timedout = False
 
                     if response['cmd'] == API.Command.Api2Client.INFORM_DATALOGGING_ACQUISITION_COMPLETE:
                         acquisition_complete_received = True
+                
+                self.assertFalse(timedout, "Timed out")
                 # We expect :
                 #    - standby              (iteration 0 only)
                 #    - waiting_for_trigger  (multiple time)
