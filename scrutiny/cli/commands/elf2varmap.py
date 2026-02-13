@@ -51,7 +51,7 @@ class Elf2VarMap(BaseCommand):
             varmap = extractor.get_varmap()
 
             if args.output is None:
-                print(varmap.get_json())
+                print(varmap.get_json(indent=None))
             else:
                 if os.path.isdir(args.output):
                     output_file = os.path.join(args.output, 'varmap.json')

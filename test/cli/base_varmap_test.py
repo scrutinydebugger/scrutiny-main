@@ -115,7 +115,15 @@ class BaseVarmapTest:
         if value_at_loc is not None:
             if self.memdump is None:
                 raise ValueError("No memdump available")
-            data = self.memdump.read(v.get_address(), v.get_size())
+
+            if v.has_absolute_address():
+                data = self.memdump.read(v.get_address(), v.get_size())
+            elif v.has_pointed_address():
+                ptr = v.get_pointer()
+                ptr_var = self.load_var(ptr.pointer_path)
+                ptr_data = self.memdump.read(ptr_var.get_address(), ptr_var.get_size())
+                address = ptr_var.decode(ptr_data)
+                data = self.memdump.read(address + ptr.pointer_offset, v.get_size())
             val = v.decode(data)
             if float_tol is not None:
                 self.assertAlmostEqual(val, value_at_loc, delta=float_tol)

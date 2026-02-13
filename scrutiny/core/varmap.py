@@ -255,7 +255,7 @@ class VarMap:
         with open(filename, 'wb') as f:
             f.write(self.get_json(indent).encode('utf8'))
 
-    def get_json(self, indent: int = 4) -> str:
+    def get_json(self, indent: Optional[Union[int, str]] = 4) -> str:
         return json.dumps(self._content.to_dict(), indent=indent)
 
     def add_variable(self,
