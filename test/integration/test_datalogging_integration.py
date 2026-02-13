@@ -497,11 +497,11 @@ class TestDataloggingIntegration(ScrutinyIntegrationTestWithTestSFD1):
                 
                 self.assertFalse(timedout, "Timed out")
                 # We expect :
-                #    - standby              (iteration 0 only)
-                #    - waiting_for_trigger  (multiple time)
-                #    - acquiring            (multiple time)
-                #    - downloading          (multiple time)
-                #    - standby              (multiple time)
+                #    - standby              (0 or multiple time)
+                #    - waiting_for_trigger  (1 or multiple time)
+                #    - acquiring            (0 or multiple time)
+                #    - downloading          (0 or multiple time)
+                #    - standby              (1 or multiple time)
 
                 state_change_list = []
                 last_state = None
