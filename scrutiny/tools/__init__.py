@@ -16,6 +16,7 @@ __all__ = [
     'MutableNullableFloat',
     'MutableNullableBool',
     'NullableMutable',
+    'is_documented_by'
 ]
 
 import tempfile
@@ -378,3 +379,10 @@ def deprecated(msg: str = "") -> Callable[[Callable[P, T]], Callable[P, T]]:
             return function(*args, **kwargs)
         return wrapper
     return decorator
+
+
+def is_documented_by(original: Callable[[Any], Any]) -> Callable[[Any], Any]:
+    def wrapper(target: Callable[[Any], Any]) -> Callable[[Any], Any]:
+        target.__doc__ = original.__doc__
+        return target
+    return wrapper

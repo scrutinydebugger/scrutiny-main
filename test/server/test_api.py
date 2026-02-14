@@ -49,6 +49,7 @@ from scrutiny.server.datalogging.datalogging_manager import DataloggingStateChan
 from datetime import datetime
 import scrutiny.server.api.typing as api_typing
 from scrutiny.tools.typing import *
+from scrutiny.core import path_tools
 
 
 # todo
@@ -504,15 +505,17 @@ class TestAPI(ScrutinyUnitTest):
         for i in range(n):
             name = '%s_%d' % (prefix, i)
 
-            dummy_var = Variable(
+            layout = VariableLayout(
                 vartype=EmbeddedDataType.float32,
-                path_segments=segments + [name],
-                location=0x12345678,
                 endianness=Endianness.Little,
                 enum=enum
             )
 
-            factory = VariableFactory(access_name=dummy_var.get_fullname(), base_var=dummy_var)
+            factory = VariableFactory(
+                access_name=path_tools.join_segments(segments + [name]),
+                base_location=0x12345678,
+                layout=layout,
+            )
             if arraynodes is not None:
                 for path, arr in arraynodes.items():
                     factory.add_array_node(path, arr)

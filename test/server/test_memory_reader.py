@@ -19,7 +19,7 @@ from scrutiny.server.protocol import Protocol, Request, Response
 import scrutiny.server.protocol.typing as protocol_typing
 from scrutiny.server.protocol.commands import *
 from scrutiny.core.variable import *
-from scrutiny.core.variable_location import PathPointedLocation
+from scrutiny.core.variable_location import ResolvedPathPointedLocation
 from scrutiny.core.variable_factory import VariableFactory
 from scrutiny.core.array import UntypedArray
 from scrutiny.core.basic_types import *
@@ -68,7 +68,7 @@ def make_dummy_var_entries(address, n, vartype=EmbeddedDataType.float32, subpath
 def make_dummy_pointed_var_entries(pointers, vartype=EmbeddedDataType.float32, subpath=[]):
     for i in range(len(pointers)):
         dummy_var = Variable(vartype=vartype, path_segments=subpath + ['dummy_pointed_var_%d' % i],
-                             location=PathPointedLocation(pointers[i].get_display_path(), i * 4), endianness=Endianness.Little)
+                             location=ResolvedPathPointedLocation(pointers[i].get_display_path(), i * 4), endianness=Endianness.Little)
         entry = DatastorePointedVariableEntry(dummy_var.get_fullname(), variable_def=dummy_var, pointer_entry=pointers[i])
         yield entry
 
@@ -168,12 +168,13 @@ class TestMemoryReaderBasicReadOperation(ScrutinyUnitTest):
         address = 0x1000
         ds = Datastore()
         entries = list(make_dummy_var_entries(address=address, n=nfloat, vartype=EmbeddedDataType.float32))
-        factory = VariableFactory('/some/var/factory', Variable(
-            vartype=EmbeddedDataType.float32,
-            location=0x100000,
-            path_segments='/some/var/factory',
-            endianness=Endianness.Little
-        ))
+        factory = VariableFactory(
+            access_name='/some/var/factory',
+            base_location=0x100000,
+            layout=VariableLayout(
+                vartype=EmbeddedDataType.float32,
+                endianness=Endianness.Little
+            ))
         factory.add_array_node('/some/var/factory', UntypedArray((10,), 4))
 
         ds.add_entries(entries)

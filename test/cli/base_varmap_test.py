@@ -18,6 +18,7 @@ from scrutiny.core.memory_content import MemoryContent
 from scrutiny.core.variable_location import *
 from scrutiny.core.basic_types import *
 from scrutiny.core.variable import *
+from scrutiny.core.variable_location import *
 from scrutiny.core.embedded_enum import *
 from scrutiny.tools.typing import *
 
@@ -69,7 +70,7 @@ class BaseVarmapTest:
     def assert_var(self,
                    fullname,
                    thetype: Optional[EmbeddedDataType] = None,
-                   addr: Optional[Union[int, PathPointedLocation, AbsoluteLocation]] = None,
+                   addr: Optional[Union[int, ResolvedPathPointedLocation, AbsoluteLocation]] = None,
                    bitsize=None,
                    bitoffset=None,
                    value_at_loc=None,
@@ -94,7 +95,7 @@ class BaseVarmapTest:
             if isinstance(addr, int):
                 self.assertTrue(v.has_absolute_address())
                 self.assertEqual(addr, v.get_address())
-            elif isinstance(addr, PathPointedLocation):
+            elif isinstance(addr, ResolvedPathPointedLocation):
                 self.assertTrue(v.has_pointed_address())
                 self.assertEqual(addr, v.get_pointer())
             else:
@@ -114,7 +115,15 @@ class BaseVarmapTest:
         if value_at_loc is not None:
             if self.memdump is None:
                 raise ValueError("No memdump available")
-            data = self.memdump.read(v.get_address(), v.get_size())
+
+            if v.has_absolute_address():
+                data = self.memdump.read(v.get_address(), v.get_size())
+            elif v.has_pointed_address():
+                ptr = v.get_pointer()
+                ptr_var = self.load_var(ptr.pointer_path)
+                ptr_data = self.memdump.read(ptr_var.get_address(), ptr_var.get_size())
+                address = ptr_var.decode(ptr_data)
+                data = self.memdump.read(address + ptr.pointer_offset, v.get_size())
             val = v.decode(data)
             if float_tol is not None:
                 self.assertAlmostEqual(val, value_at_loc, delta=float_tol)

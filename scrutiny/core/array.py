@@ -17,6 +17,7 @@ __all__ = [
 import math
 import abc
 from scrutiny.core.basic_types import EmbeddedDataType
+from scrutiny.core.pointer import Pointer
 from scrutiny.tools.typing import *
 
 if TYPE_CHECKING:
@@ -62,7 +63,7 @@ class Array(abc.ABC):
         index = 0
         for i in range(nbdim):
             if pos[i] >= self.dims[i] or pos[i] < 0:
-                raise ValueError("Index out of bound")
+                raise ValueError(f"Index out of bound. {pos[i]} not within 0-{self.dims[i]-1}")
             index += pos[i] * self._multipliers[i]
 
         return index
@@ -87,13 +88,16 @@ class UntypedArray(Array):
         return self.element_byte_size
 
 
+TypedArrayType: TypeAlias = Union["Struct", EmbeddedDataType, Pointer]
+
+
 class TypedArray(Array):
     """Represent an N dimensions embedded array"""
     __slots__ = ('datatype', )
 
-    datatype: Union["Struct", EmbeddedDataType]
+    datatype: TypedArrayType
 
-    def __init__(self, dims: Tuple[int, ...], datatype: Union["Struct", EmbeddedDataType], element_type_name: str = "") -> None:
+    def __init__(self, dims: Tuple[int, ...], datatype: TypedArrayType, element_type_name: str = "") -> None:
         super().__init__(dims, element_type_name)
         self.datatype = datatype
 
@@ -107,6 +111,8 @@ class TypedArray(Array):
             if self.datatype.byte_size is not None:
                 return self.datatype.byte_size
             raise RuntimeError(f"No element size available for struct {self.datatype.name}")
+        if isinstance(self.datatype, Pointer):
+            return self.datatype.get_size()
         raise RuntimeError(f"Unsupported datatype {self.datatype.__class__.__name__}")
 
     def to_untyped_array(self) -> UntypedArray:

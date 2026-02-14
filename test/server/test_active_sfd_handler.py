@@ -13,7 +13,7 @@ from scrutiny.server.sfd_storage import SFDStorage
 from scrutiny.core.varmap import VarMap
 from scrutiny.core.firmware_description import FirmwareDescription, SFDMetadata, SFDGenerationInfo
 from scrutiny.core.basic_types import *
-from scrutiny.core.variable_location import AbsoluteLocation, PathPointedLocation
+from scrutiny.core.variable_location import AbsoluteLocation, ResolvedPathPointedLocation
 from scrutiny.core.basic_types import WatchableType
 from scrutiny.core.demo_device_sfd import DEMO_DEVICE_FIRMWAREID_STR
 from test.artifacts import get_artifact
@@ -133,7 +133,7 @@ class TestActiveSFDHandler(ScrutinyUnitTest):
         varmap.register_base_type('ptr64', EmbeddedDataType.ptr64)
         varmap.add_variable(
             path_segments=['a', 'b', 'pointee1'],
-            location=PathPointedLocation(pointer_path='/a/b/pointer', pointer_offset=0),
+            location=ResolvedPathPointedLocation(pointer_path='/a/b/pointer', pointer_offset=0),
             original_type_name='float'
         )
         varmap.add_variable(
@@ -143,7 +143,7 @@ class TestActiveSFDHandler(ScrutinyUnitTest):
         )
         varmap.add_variable(
             path_segments=['a', 'b', 'pointee2'],
-            location=PathPointedLocation(pointer_path='/a/b/pointer', pointer_offset=4),
+            location=ResolvedPathPointedLocation(pointer_path='/a/b/pointer', pointer_offset=4),
             original_type_name='int16_t'
         )
 
