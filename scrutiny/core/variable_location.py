@@ -15,26 +15,6 @@ from scrutiny.core.array import Array
 from scrutiny.tools.typing import *
 
 
-@dataclass(slots=True)
-class ResolvedPathPointedLocation:
-    """Represent a location of a pointed element with array indices resolved.
-    Example : /aaa/bbb[2][1][0]/ccc"""
-    pointer_path: str
-    pointer_offset: int
-
-    def __post_init__(self) -> None:
-        if not isinstance(self.pointer_path, str):
-            raise TypeError('Address pointer_path be a valid string')
-        if not isinstance(self.pointer_offset, int):
-            raise TypeError('pointer_offset must be a valid integer')
-
-    def copy(self) -> "ResolvedPathPointedLocation":
-        return copy(self)
-
-    def get_offset(self) -> int:
-        return self.pointer_offset
-
-
 @dataclass(slots=True, init=False)
 class UnresolvedPathPointedLocation:
     """Represent a location of a pointed element without resolving the array indices
@@ -66,6 +46,33 @@ class UnresolvedPathPointedLocation:
 
     def get_offset(self) -> int:
         return self.pointer_offset
+
+
+@dataclass(slots=True)
+class ResolvedPathPointedLocation:
+    """Represent a location of a pointed element with array indices resolved.
+    Example : /aaa/bbb[2][1][0]/ccc"""
+    pointer_path: str
+    pointer_offset: int
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.pointer_path, str):
+            raise TypeError('Address pointer_path be a valid string')
+        if not isinstance(self.pointer_offset, int):
+            raise TypeError('pointer_offset must be a valid integer')
+
+    def copy(self) -> "ResolvedPathPointedLocation":
+        return copy(self)
+
+    def get_offset(self) -> int:
+        return self.pointer_offset
+
+    def make_unresolved(self) -> "UnresolvedPathPointedLocation":
+        return UnresolvedPathPointedLocation(
+            pointer_offset=self.pointer_offset,
+            pointer_path=self.pointer_path,
+            array_segments=None
+        )
 
 
 @dataclass(slots=True)

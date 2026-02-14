@@ -12,6 +12,7 @@ import os
 from scrutiny.core.basic_types import *
 from scrutiny.core.datalogging import *
 from scrutiny.core.variable import Variable as core_Variable
+from scrutiny.core.variable import VariableLayout as core_VariableLayout
 from scrutiny.core.variable_factory import VariableFactory
 from scrutiny.core.array import UntypedArray
 from scrutiny.core.alias import Alias as core_Alias
@@ -633,7 +634,11 @@ class TestClient(ScrutinyUnitTest):
             refentry=rpv1000
         )
 
-        factory_abc = VariableFactory('/aa/bb/cc', core_Variable(EmbeddedDataType.float32, ['aa', 'bb', 'cc'], 0x5555, Endianness.Little))
+        factory_abc = VariableFactory(
+            '/aa/bb/cc',
+            base_location=0x5555,
+            layout=core_VariableLayout(vartype=EmbeddedDataType.float32, endianness=Endianness.Little)
+        )
         factory_abc.add_array_node('/aa/bb', UntypedArray((2, 3, 4), 100))
 
         self.datastore.add_entry(rpv1000)
@@ -2588,8 +2593,8 @@ class TestClient(ScrutinyUnitTest):
             factory = self.datastore.get_var_factory_by_access_path(path)
             self.assertEqual(factory.get_access_name(), path)
             received_factory = content.var_factory[path]
-            self.assertEqual(received_factory.datatype, factory.get_base_variable().get_type())
-            self.assertEqual(received_factory.enum, factory.get_base_variable().get_enum())
+            self.assertEqual(received_factory.datatype, factory.get_variable_layout().get_type())
+            self.assertEqual(received_factory.enum, factory.get_variable_layout().get_enum())
             self.assertEqual(len(received_factory.array_dims), len(factory.get_array_nodes()))
             for subpath, array in factory.get_array_nodes().items():
                 self.assertIn(subpath, received_factory.array_dims)

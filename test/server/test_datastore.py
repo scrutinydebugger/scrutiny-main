@@ -9,7 +9,7 @@
 from scrutiny.server.datastore.datastore import Datastore
 from scrutiny.server.datastore.datastore_entry import *
 from scrutiny.core.alias import Alias
-from scrutiny.core.variable import Variable
+from scrutiny.core.variable import Variable, VariableLayout
 from scrutiny.core.variable_location import AbsoluteLocation, ResolvedPathPointedLocation
 from scrutiny.core.variable_factory import VariableFactory
 from scrutiny.core.array import UntypedArray
@@ -452,9 +452,8 @@ class TestDataStore(ScrutinyUnitTest):
     def test_entry_template_lifetime(self):
         ds = Datastore()
         factory = VariableFactory(
-            base_var=Variable(
-                path_segments=[],
-                location=1000,
+            base_location=1000,
+            layout=VariableLayout(
                 vartype=EmbeddedDataType.float32,
                 endianness=Endianness.Little,
                 bitoffset=None,

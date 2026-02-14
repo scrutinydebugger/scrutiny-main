@@ -10,22 +10,22 @@ from test import ScrutinyUnitTest
 from scrutiny.core.array import UntypedArray
 from scrutiny.core.variable_factory import VariableFactory
 from scrutiny.core.scrutiny_path import ScrutinyPath
-from scrutiny.core.variable import Variable
+from scrutiny.core.variable import Variable, VariableLayout
 from scrutiny.core.basic_types import *
+from scrutiny.core.variable_location import UnresolvedPathPointedLocation, AbsoluteLocation
 
 
 class TestVariableFactory(ScrutinyUnitTest):
     def test_factory_instantiation(self):
         factory = VariableFactory(
-            base_var=Variable(
-                path_segments=[],
-                location=1000,
+            layout=VariableLayout(
                 vartype=EmbeddedDataType.float32,
                 endianness=Endianness.Little,
                 bitoffset=None,
                 bitsize=None,
                 enum=None
             ),
+            base_location=AbsoluteLocation(1000),
             access_name="/aaa/bbb/ccc/ddd",
         )
 
@@ -39,9 +39,8 @@ class TestVariableFactory(ScrutinyUnitTest):
 
     def test_instantiate_out_of_bounds(self):
         factory = VariableFactory(
-            base_var=Variable(
-                path_segments=[],
-                location=1000,
+            base_location=AbsoluteLocation(1000),
+            layout=VariableLayout(
                 vartype=EmbeddedDataType.float32,
                 endianness=Endianness.Little,
                 bitoffset=None,
@@ -71,3 +70,28 @@ class TestVariableFactory(ScrutinyUnitTest):
         ]:
             with self.assertRaises(Exception):
                 factory.instantiate(v)
+
+    def test_instantiate_array_of_pointers_of_arrays_coool(self):
+
+        location = UnresolvedPathPointedLocation(
+            '/aaa/bbb/ccc/ddd',
+            123,
+            array_segments={
+                '/aaa/bbb': UntypedArray((2, 3), 4),
+                '/aaa/bbb/ccc': UntypedArray((3, 4), 32)
+            })
+
+        factory = VariableFactory(
+            base_location=location,
+            layout=VariableLayout(
+                vartype=EmbeddedDataType.float32,
+                endianness=Endianness.Little,
+                bitoffset=None,
+                bitsize=None,
+                enum=None
+            ),
+            access_name="/aaa/bbb/ccc/*ddd/xxx/yyy/zzz",
+        )
+
+        factory.add_array_node('/aaa/bbb/ccc/*ddd/xxx/', UntypedArray((4, 5), 100))
+        factory.add_array_node('/aaa/bbb/ccc/*ddd/xxx/yyy', UntypedArray((6, 7), 4))

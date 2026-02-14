@@ -15,7 +15,7 @@ import enum
 import logging
 from pathlib import Path
 
-from scrutiny.core.variable import Variable
+from scrutiny.core.variable import Variable, VariableLayout
 from scrutiny.core.variable_location import AbsoluteLocation, ResolvedPathPointedLocation, UnresolvedPathPointedLocation
 from scrutiny.core.variable_factory import VariableFactory
 from scrutiny.core.array import Array, UntypedArray
@@ -414,38 +414,47 @@ class VarMap:
             if location_type not in wanted_location_type:
                 continue
 
-            location: Union[AbsoluteLocation, ResolvedPathPointedLocation]
+            array_segments = vardef.get('array_segments', None)
+            pointer_array_segments: Optional[Dict[str, ArrayDef]] = None
+            if self._has_pointer_array_segments(vardef):
+                pointer_array_segments = self._get_pointer_array_segments(vardef)
+
+            location: Union[AbsoluteLocation, UnresolvedPathPointedLocation, ResolvedPathPointedLocation]
             if location_type == self.LocationType.ABSOLUTE:
                 location = AbsoluteLocation(self._get_addr(vardef))
 
             elif location_type == self.LocationType.POINTED:
-                location = ResolvedPathPointedLocation(
-                    pointer_path=self._get_pointer_path(vardef),
-                    pointer_offset=self._get_pointer_offset(vardef)
-                )
+                pointer_path = self._get_pointer_path(vardef)
+                pointer_offset = self._get_pointer_offset(vardef)
+                if pointer_array_segments is not None:
+                    location = UnresolvedPathPointedLocation(
+                        pointer_path=pointer_path,
+                        pointer_offset=pointer_offset,
+                        array_segments=None     # TODO
+                    )
+                else:
+                    location = ResolvedPathPointedLocation(
+                        pointer_path=pointer_path,
+                        pointer_offset=pointer_offset,
+                    )
+
             else:
                 raise NotImplementedError("Unsupported location type")
 
-            v = Variable(
+            varlayout = VariableLayout(
                 vartype=self._get_type(vardef),
-                path_segments=parsed_path.get_segments(),
-                location=location,
                 endianness=self.get_endianness(),
                 bitsize=self._get_bitsize(vardef),
                 bitoffset=self._get_bitoffset(vardef),
                 enum=self._get_enum(vardef)
             )
 
-            array_segments = vardef.get('array_segments', None)
-            pointer_array_segments: Optional[Dict[str, ArrayDef]] = None
-            if self._has_pointer_array_segments(vardef):
-                pointer_array_segments = self._get_pointer_array_segments(vardef)
-
             if array_segments is not None or pointer_array_segments is not None:
                 array_segments = self._get_array_segments(vardef)
                 factory = VariableFactory(
-                    base_var=v,
-                    access_name=fullname
+                    layout=varlayout,
+                    access_name=fullname,
+                    base_location=location
                 )
                 if array_segments is not None:
                     for path, array_def in array_segments.items():
@@ -464,6 +473,12 @@ class VarMap:
                         factory.add_array_node(path, arr)
                 yield (fullname, factory)
             else:
+                assert not isinstance(location, UnresolvedPathPointedLocation)
+                v = Variable.from_layout(
+                    path_segments=parsed_path.get_segments(),
+                    location=location,
+                    layout=varlayout
+                )
                 yield (fullname, v)
 
     def validate(self) -> None:

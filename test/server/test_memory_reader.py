@@ -168,12 +168,13 @@ class TestMemoryReaderBasicReadOperation(ScrutinyUnitTest):
         address = 0x1000
         ds = Datastore()
         entries = list(make_dummy_var_entries(address=address, n=nfloat, vartype=EmbeddedDataType.float32))
-        factory = VariableFactory('/some/var/factory', Variable(
-            vartype=EmbeddedDataType.float32,
-            location=0x100000,
-            path_segments='/some/var/factory',
-            endianness=Endianness.Little
-        ))
+        factory = VariableFactory(
+            access_name='/some/var/factory',
+            base_location=0x100000,
+            layout=VariableLayout(
+                vartype=EmbeddedDataType.float32,
+                endianness=Endianness.Little
+            ))
         factory.add_array_node('/some/var/factory', UntypedArray((10,), 4))
 
         ds.add_entries(entries)
