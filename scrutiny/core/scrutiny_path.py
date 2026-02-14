@@ -156,3 +156,21 @@ class ScrutinyPath:
                 raise ValueError(f'The array identifiers does not match the variable definition. {e}')
 
         return byte_offset
+
+    @staticmethod
+    def resolve_pointer_path(unresolved_path: str, input_path: "ScrutinyPath", pointer_array_segments: Mapping[str, Array]) -> Optional["ScrutinyPath"]:
+        unresolved_segments = path_tools.make_segments(unresolved_path)
+        resolved_segments = input_path.get_segments()
+
+        if len(resolved_segments) < len(unresolved_segments):
+            return None
+
+        resolved_segments = resolved_segments[0:len(unresolved_segments)]
+        if resolved_segments[-1].startswith('*'):
+            resolved_segments[-1] = resolved_segments[-1][1:]
+
+        resolved_path = path_tools.join_segments(resolved_segments)
+        resolved_path_parsed = ScrutinyPath.from_string(resolved_path)
+        resolved_path_parsed.compute_address_offset(pointer_array_segments)   # We use this just for validation
+
+        return resolved_path_parsed

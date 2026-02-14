@@ -427,10 +427,17 @@ class VarMap:
                 pointer_path = self._get_pointer_path(vardef)
                 pointer_offset = self._get_pointer_offset(vardef)
                 if pointer_array_segments is not None:
+                    ptr_array_segments: Dict[str, Array] = {}
+                    for path, array_def in pointer_array_segments.items():
+                        ptr_array_segments[path] = UntypedArray(
+                            dims=tuple(array_def['dims']),
+                            element_byte_size=array_def['byte_size']
+                        )
+
                     location = UnresolvedPathPointedLocation(
                         pointer_path=pointer_path,
                         pointer_offset=pointer_offset,
-                        array_segments=None     # TODO
+                        array_segments=ptr_array_segments
                     )
                 else:
                     location = ResolvedPathPointedLocation(
@@ -458,14 +465,6 @@ class VarMap:
                 )
                 if array_segments is not None:
                     for path, array_def in array_segments.items():
-                        arr = UntypedArray(
-                            dims=tuple(array_def['dims']),
-                            element_byte_size=array_def['byte_size']
-                        )
-                        factory.add_array_node(path, arr)
-
-                if pointer_array_segments is not None:
-                    for path, array_def in pointer_array_segments.items():
                         arr = UntypedArray(
                             dims=tuple(array_def['dims']),
                             element_byte_size=array_def['byte_size']
@@ -505,7 +504,6 @@ class VarMap:
             fill_array_segments_from_vardef_content(var_array_segments, self._get_array_segments(vardef))
 
         if self._has_pointer_array_segments(vardef):
-
             fill_array_segments_from_vardef_content(pointer_array_segments, self._get_pointer_array_segments(vardef))
 
         location: Union[ResolvedPathPointedLocation, AbsoluteLocation]
@@ -518,7 +516,7 @@ class VarMap:
             byte_offset = parsed_path.compute_address_offset(var_array_segments, ignore_leading_segments=nb_pointer_segments)
 
             if self._has_pointer_array_segments(vardef):
-                resolved_pointer_path = self._resolve_pointer_path(unresolved_path, parsed_path, pointer_array_segments)
+                resolved_pointer_path = ScrutinyPath.resolve_pointer_path(unresolved_path, parsed_path, pointer_array_segments)
                 if resolved_pointer_path is None:
                     raise ValueError("Cannot resolve pointer path from ")
 
@@ -545,20 +543,3 @@ class VarMap:
             bitoffset=self._get_bitoffset(vardef),
             enum=self._get_enum(vardef)
         )
-
-    def _resolve_pointer_path(self, unresolved_path: str, input_path: ScrutinyPath, pointer_array_segments: Mapping[str, Array]) -> Optional[ScrutinyPath]:
-        unresolved_segments = path_tools.make_segments(unresolved_path)
-        resolved_segments = input_path.get_segments()
-
-        if len(resolved_segments) < len(unresolved_segments):
-            return None
-
-        resolved_segments = resolved_segments[0:len(unresolved_segments)]
-        if resolved_segments[-1].startswith('*'):
-            resolved_segments[-1] = resolved_segments[-1][1:]
-
-        resolved_path = path_tools.join_segments(resolved_segments)
-        resolved_path_parsed = ScrutinyPath.from_string(resolved_path)
-        resolved_path_parsed.compute_address_offset(pointer_array_segments)   # We use this just for validation
-
-        return resolved_path_parsed

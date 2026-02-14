@@ -24,8 +24,7 @@ class VariableFactory:
     _layout: VariableLayout
     _access_name: str
     _array_nodes: Dict[str, UntypedArray]
-    _ptr_array_nodes: Dict[str, UntypedArray]
-    _base_location: Union[AbsoluteLocation, UnresolvedPathPointedLocation, ResolvedPathPointedLocation]
+    _base_location: Union[AbsoluteLocation, UnresolvedPathPointedLocation]
 
     def __init__(self,
                  access_name: str,
@@ -40,7 +39,9 @@ class VariableFactory:
             base_location = AbsoluteLocation(base_location)
         self._base_location = base_location
         self._array_nodes = {}
-        self._ptr_array_nodes = {}
+
+    def get_base_location(self) -> Union[AbsoluteLocation, UnresolvedPathPointedLocation]:
+        return self._base_location
 
     def get_array_nodes(self) -> Dict[str, UntypedArray]:
         return self._array_nodes
@@ -60,30 +61,26 @@ class VariableFactory:
             raise ValueError(f"Cannot add an array node at {path} for access name {self._access_name}")
         self._array_nodes[path] = array
 
-    def add_pointer_array_node(self, path: str, array: UntypedArray) -> None:
-        """Add the definition of the arrays nodes in the pointer part of the path (first part)"""
-        if not isinstance(self._base_location, UnresolvedPathPointedLocation):
-            raise ValueError("Cannot add a pointer array node on a variable that is not using a pointed address")
-
-        if path in self._ptr_array_nodes:
-            raise KeyError(f"Duplicate pointer array node at {path}")
-
-        if not path_tools.is_subpath(subpath=path, path=self._access_name):
-            raise ValueError(f"Cannot add a pointer array node at {path} for access name {self._access_name}")
-        self._ptr_array_nodes[path] = array
-
     def instantiate(self, path: Union[ScrutinyPath, str]) -> Variable:
         if isinstance(path, str):
             path = ScrutinyPath.from_string(path)
-        byte_offset = path.compute_address_offset(self._array_nodes)
-        # pointer_byte_offset = path.compute_address_offset(self._ptr_array_nodes)
 
-        location: Union[int, AbsoluteLocation, UnresolvedPathPointedLocation]
+        location: Union[int, AbsoluteLocation, ResolvedPathPointedLocation]
         if isinstance(self._base_location, AbsoluteLocation):
+            byte_offset = path.compute_address_offset(self._array_nodes)
             location = self._base_location.get_address() + byte_offset
         elif isinstance(self._base_location, UnresolvedPathPointedLocation):
-            # TODO
-            raise NotImplementedError("Instantiating array of pointers not done yet.")
+            unresolved_path = self._base_location.pointer_path
+            nb_pointer_segments = len(path_tools.make_segments(unresolved_path))
+            byte_offset = path.compute_address_offset(self._array_nodes, ignore_leading_segments=nb_pointer_segments)
+
+            resolved_pointer_path = ScrutinyPath.resolve_pointer_path(unresolved_path, path, self._base_location.array_segments)
+            if resolved_pointer_path is None:
+                raise ValueError("Cannot instantiate variable from factory. Pointer path not resolvable from given path")
+            location = ResolvedPathPointedLocation(
+                pointer_path=resolved_pointer_path.to_str(),
+                pointer_offset=self._base_location.pointer_offset + byte_offset  # Add the array offset to the dereferencing offset
+            )
         else:
             raise NotImplementedError("Unsupported type of base var location for instantiation")
 
