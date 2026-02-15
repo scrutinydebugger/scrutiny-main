@@ -183,9 +183,9 @@ class TestActiveSFDHandlerFromTestApp(ScrutinyUnitTest):
             sfdfile = get_artifact('testapp_20260214.sfd')
             sfd = SFDStorage.install(sfdfile)
             sfd_handler.request_load_sfd(sfd.get_firmware_id_ascii())
-        sfd_handler.process()   # Will trigger the load
-        self.assertIsNotNone(sfd_handler.get_loaded_sfd())
-        self.assertEqual(sfd_handler.get_loaded_sfd().get_firmware_id_ascii(), sfd.get_firmware_id_ascii())
+            sfd_handler.process()   # Will trigger the load
+            self.assertIsNotNone(sfd_handler.get_loaded_sfd())
+            self.assertEqual(sfd_handler.get_loaded_sfd().get_firmware_id_ascii(), sfd.get_firmware_id_ascii())
 
 
 if __name__ == '__main__':
