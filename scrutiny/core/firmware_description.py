@@ -23,6 +23,7 @@ import scrutiny.core.firmware_id as firmware_id
 from scrutiny.core.varmap import VarMap
 from scrutiny.core import path_tools
 from scrutiny.core.variable import Variable
+from scrutiny.core.variable_location import UnresolvedPathPointedLocation, ResolvedPathPointedLocation, AbsoluteLocation
 from scrutiny.core.variable_factory import VariableFactory
 from scrutiny.core.basic_types import WatchableType
 from scrutiny.core.alias import Alias
@@ -36,7 +37,7 @@ from scrutiny.tools import validation
 class VarmapElement:
     path: str
     var_or_factory: Union[Variable, VariableFactory]
-    pointer_var: Optional[Tuple[str, Variable]]
+    pointer_path_and_var: Optional[Tuple[str, Variable]]
 
 
 class GenerationInfoTypedDict(TypedDict, total=False):
@@ -413,21 +414,27 @@ class FirmwareDescription:
             yield VarmapElement(
                 path=path,
                 var_or_factory=var_or_factory,
-                pointer_var=None
+                pointer_path_and_var=None
             )
 
         # Now that absolute address variables are given (including pointers)
         # we can give the pointed variables
         for path, var_or_factory in self.varmap.iterate_vars([VarMap.LocationType.POINTED]):
-            if isinstance(var_or_factory, VariableFactory):
-                raise NotImplementedError("Pointed variable factory not supported (yet)")
-            ptr = var_or_factory.get_pointer()
-
-            yield VarmapElement(
-                path=path,
-                var_or_factory=var_or_factory,
-                pointer_var=(ptr.pointer_path, self.varmap.get_var(ptr.pointer_path))
-            )
+            if isinstance(var_or_factory, Variable):
+                assert not isinstance(var_or_factory.location, AbsoluteLocation)
+                ptr_path = var_or_factory.location.pointer_path
+                yield VarmapElement(
+                    path=path,
+                    var_or_factory=var_or_factory,
+                    pointer_path_and_var=(ptr_path, self.varmap.get_var(ptr_path)
+                                          )
+                )
+            else:
+                yield VarmapElement(
+                    path=path,
+                    var_or_factory=var_or_factory,
+                    pointer_path_and_var=None
+                )
 
     def get_aliases_for_datastore(self, entry_type: Optional[WatchableType] = None) -> Generator[Tuple[str, Alias], None, None]:
         """Returns all alias in this SFD with a Generator to avoid consuming memory."""

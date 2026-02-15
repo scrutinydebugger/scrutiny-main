@@ -9,8 +9,8 @@
 from scrutiny.server.datastore.datastore import Datastore
 from scrutiny.server.datastore.datastore_entry import *
 from scrutiny.core.alias import Alias
-from scrutiny.core.variable import Variable
-from scrutiny.core.variable_location import AbsoluteLocation, PathPointedLocation
+from scrutiny.core.variable import Variable, VariableLayout
+from scrutiny.core.variable_location import AbsoluteLocation, ResolvedPathPointedLocation
 from scrutiny.core.variable_factory import VariableFactory
 from scrutiny.core.array import UntypedArray
 from scrutiny.core.embedded_enum import EmbeddedEnum
@@ -452,9 +452,8 @@ class TestDataStore(ScrutinyUnitTest):
     def test_entry_template_lifetime(self):
         ds = Datastore()
         factory = VariableFactory(
-            base_var=Variable(
-                path_segments=[],
-                location=1000,
+            base_location=1000,
+            layout=VariableLayout(
                 vartype=EmbeddedDataType.float32,
                 endianness=Endianness.Little,
                 bitoffset=None,
@@ -499,9 +498,9 @@ class TestDataStore(ScrutinyUnitTest):
         ds = Datastore()
         pointer = Variable(EmbeddedDataType.ptr32, ['aaa', 'bbb', 'pointer'], location=AbsoluteLocation(0x1000), endianness=Endianness.Little)
         pointee1 = Variable(EmbeddedDataType.uint32, ['aaa', 'bbb', 'pointee1'],
-                            location=PathPointedLocation('/aaa/bbb/pointer', 0), endianness=Endianness.Little)
+                            location=ResolvedPathPointedLocation('/aaa/bbb/pointer', 0), endianness=Endianness.Little)
         pointee2 = Variable(EmbeddedDataType.uint32, ['aaa', 'bbb', 'pointee2'],
-                            location=PathPointedLocation('/aaa/bbb/pointer', 0), endianness=Endianness.Little)
+                            location=ResolvedPathPointedLocation('/aaa/bbb/pointer', 0), endianness=Endianness.Little)
         pointer_entry = DatastoreVariableEntry(pointer.get_fullname(), pointer)
         pointee1_entry = DatastorePointedVariableEntry(pointee1.get_fullname(), pointee1, pointer_entry)
         pointee2_entry = DatastorePointedVariableEntry(pointee2.get_fullname(), pointee2, pointer_entry)

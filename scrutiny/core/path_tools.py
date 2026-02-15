@@ -6,7 +6,7 @@
 #
 #   Copyright (c) 2025 Scrutiny Debugger
 
-__all__ = ['make_segments', 'join_segments', 'is_subpath', 'is_rpv_path']
+__all__ = ['make_segments', 'join_segments', 'is_subpath', 'is_rpv_path', 'count_segments']
 
 import re
 from scrutiny.tools.typing import *
@@ -16,6 +16,10 @@ def make_segments(path: str) -> List[str]:
     """Splits a path string into an list of string segments"""
     pieces = path.split('/')
     return [segment for segment in pieces if segment]
+
+
+def count_segments(path: str) -> int:
+    return len(make_segments(path))
 
 
 def join_segments(segments: List[str]) -> str:

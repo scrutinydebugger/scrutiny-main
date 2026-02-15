@@ -11,8 +11,8 @@ __all__ = ['Pointer']
 
 from dataclasses import dataclass
 
-from scrutiny.core.variable_location import AbsoluteLocation
 from scrutiny.core.basic_types import EmbeddedDataType
+from scrutiny.core.embedded_enum import EmbeddedEnum
 
 from scrutiny.tools.typing import *
 
@@ -25,6 +25,7 @@ class Pointer:
     size: int
     pointed_type: Union[EmbeddedDataType, "Struct"]
     pointed_typename: Optional[str]
+    enum: Optional[EmbeddedEnum]
 
     def get_size(self) -> int:
         return self.size

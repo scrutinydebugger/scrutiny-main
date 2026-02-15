@@ -16,6 +16,7 @@ from scrutiny.core.basic_types import WatchableType
 from scrutiny.core.scrutiny_path import ScrutinyPath
 from scrutiny.server.datastore.datastore_entry import *
 from scrutiny.core.variable_factory import VariableFactory
+from scrutiny.core.variable import Variable
 from scrutiny import tools
 
 from scrutiny.tools.typing import *
@@ -134,6 +135,27 @@ class Datastore:
             if entry_id in self._entries[watchable_type]:
                 del self._entries[watchable_type][entry_id]
 
+    def create_entry_from_var(self,
+                              display_path: str,
+                              var: Variable,
+                              pointer_display_path: Optional[str]) -> DatastoreVariableEntry:
+        if var.has_absolute_address():
+            entry = DatastoreVariableEntry(display_path=display_path, variable_def=var)
+        elif var.has_pointed_address():
+            assert pointer_display_path is not None
+            # The pointer entry is expected to be in the datastore already
+            pointer_entry = self.get_entry_by_display_path(pointer_display_path)
+            if not isinstance(pointer_entry, DatastoreVariableEntry):
+                raise ValueError(f"Variable {display_path} pointed by something that is not a variable at {pointer_display_path}")
+
+            entry = DatastorePointedVariableEntry(
+                display_path=display_path,
+                variable_def=var,
+                pointer_entry=pointer_entry)
+        else:
+            raise NotImplementedError(f"Gotten a variable ({display_path}) with an unsupported type of addressing")
+        return entry
+
     def get_entry(self, entry_id: str) -> DatastoreEntry:
         """ Fetch a datastore entry by its ID"""
         for watchable_type in WatchableType.all():
@@ -152,11 +174,20 @@ class Datastore:
                 if entry_id in self._entries[watchable_type]:
                     return self._entries[watchable_type][entry_id]
 
-        if parsed_path.has_encoded_information():
+        if parsed_path.has_array_information():
             factory_path = parsed_path.to_raw_str()
             if factory_path in self._var_factories:
                 factory = self._var_factories[factory_path]
-                new_entry = DatastoreVariableEntry(parsed_path.to_str(), factory.instantiate(parsed_path))
+                var = factory.instantiate(parsed_path)
+
+                pointer_display_path: Optional[str] = None
+                if var.has_pointed_address():
+                    pointer_display_path = var.get_pointer().pointer_path
+                new_entry = self.create_entry_from_var(
+                    display_path=display_path,
+                    var=var,
+                    pointer_display_path=pointer_display_path
+                )
                 self._display_path_to_templated_entries_map[display_path] = new_entry
                 self.add_entry(new_entry)
                 return new_entry

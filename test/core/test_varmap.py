@@ -13,8 +13,9 @@ import json
 
 from test import ScrutinyUnitTest
 from scrutiny.core.varmap import VarMap
+from scrutiny.core.variable_factory import VariableFactory
 from scrutiny.core.basic_types import Endianness, EmbeddedDataType
-from scrutiny.core.variable import AbsoluteLocation, PathPointedLocation
+from scrutiny.core.variable_location import AbsoluteLocation, UnresolvedPathPointedLocation
 from scrutiny.core.array import UntypedArray
 from scrutiny.core.embedded_enum import EmbeddedEnum
 
@@ -199,7 +200,8 @@ class TestVarmap(ScrutinyUnitTest):
         varmap.register_base_type('ptr', EmbeddedDataType.ptr64)
         varmap.register_base_type('uint32_t', EmbeddedDataType.uint32)
         varmap.add_variable(['aaa', 'bbb', 'pointer'], original_type_name='ptr', location=AbsoluteLocation(0x1000))
-        varmap.add_variable(['aaa', 'bbb', 'pointee'], original_type_name='uint32_t', location=PathPointedLocation('/aaa/bbb/pointer', 0))
+        varmap.add_variable(['aaa', 'bbb', 'pointee'], original_type_name='uint32_t',
+                            location=UnresolvedPathPointedLocation('/aaa/bbb/pointer', 0, {}))
         v = varmap.get_var('/aaa/bbb/pointer')
         self.assertEqual(v.get_type(), EmbeddedDataType.ptr64)
         self.assertTrue(v.has_absolute_address())
@@ -210,3 +212,85 @@ class TestVarmap(ScrutinyUnitTest):
         ptr = v.get_pointer()
         self.assertEqual(ptr.pointer_path, '/aaa/bbb/pointer')
         self.assertEqual(ptr.pointer_offset, 0)
+
+    def test_get_var_with_array_pointer_location(self):
+        varmap = VarMap()
+        ptr_type = EmbeddedDataType.ptr64
+        varmap.register_base_type('ptr', ptr_type)
+        varmap.register_base_type('uint32_t', EmbeddedDataType.uint32)
+        pointer_array_segments = {
+            '/aaa/bbb/ccc': UntypedArray((2, 3), ptr_type.get_size_byte()),
+            '/aaa/bbb': UntypedArray((5, 4), 2 * 3 * ptr_type.get_size_byte()),
+        }
+        varmap.add_variable(
+            ['aaa', 'bbb', 'ccc', 'pointer'],
+            original_type_name='ptr',
+            location=AbsoluteLocation(0x1000),
+            array_segments=pointer_array_segments
+        )
+
+        varmap.add_variable(
+            ['aaa', 'bbb', 'ccc', '*pointer', 'AAA', 'BBB', 'CCC', 'TheVar'],
+            original_type_name='uint32_t',
+            location=UnresolvedPathPointedLocation('/aaa/bbb/ccc/pointer', 123, pointer_array_segments),
+            array_segments={
+                '/aaa/bbb/ccc/*pointer/AAA/BBB/CCC': UntypedArray((4, 5), 32),
+                '/aaa/bbb/ccc/*pointer/AAA/BBB': UntypedArray((10, 20), 4 * 5 * 32),
+            }
+        )
+
+        v = varmap.get_var('/aaa/bbb[2][3]/ccc[1][2]/*pointer/AAA/BBB[5][7]/CCC[3][1]/TheVar')
+        self.assertEqual(v.get_type(), EmbeddedDataType.uint32)
+        self.assertTrue(v.has_pointed_address())
+
+        s = ptr_type.get_size_byte()
+        ptr_v = varmap.get_var(v.get_pointer().pointer_path)
+        self.assertEqual(ptr_v.get_address(), 0x1000 + s * (2 + 1 * 3 + 3 * 2 * 3 + 2 * 4 * 2 * 3))
+        self.assertEqual(ptr_v.get_fullname(), "/aaa/bbb[2][3]/ccc[1][2]/pointer")
+
+        self.assertEqual(v.get_pointer().pointer_offset, (1 + 3 * 5 + 7 * 4 * 5 + 5 * 20 * 4 * 5) * 32 + 123)
+
+    def test_make_factory_with_pointed_location(self):
+        varmap = VarMap()
+        ptr_type = EmbeddedDataType.ptr64
+        varmap.register_base_type('ptr', ptr_type)
+        varmap.register_base_type('uint32_t', EmbeddedDataType.uint32)
+        pointer_array_segments = {
+            '/aaa/bbb/ccc': UntypedArray((2, 3), ptr_type.get_size_byte()),
+            '/aaa/bbb': UntypedArray((5, 4), 2 * 3 * ptr_type.get_size_byte()),
+        }
+        varmap.add_variable(
+            ['aaa', 'bbb', 'ccc', 'pointer'],
+            original_type_name='ptr',
+            location=AbsoluteLocation(0x1000),
+            array_segments=pointer_array_segments
+        )
+
+        varmap.add_variable(
+            ['aaa', 'bbb', 'ccc', '*pointer', 'AAA', 'BBB', 'CCC', 'TheVar'],
+            original_type_name='uint32_t',
+            location=UnresolvedPathPointedLocation('/aaa/bbb/ccc/pointer', 123, pointer_array_segments),
+            array_segments={
+                '/aaa/bbb/ccc/*pointer/AAA/BBB/CCC': UntypedArray((4, 5), 32),
+                '/aaa/bbb/ccc/*pointer/AAA/BBB': UntypedArray((10, 20), 4 * 5 * 32),
+            }
+        )
+
+        all_vars = list(varmap.iterate_vars([VarMap.LocationType.ABSOLUTE]))
+        self.assertEqual(len(all_vars), 1)
+        all_vars = list(varmap.iterate_vars([VarMap.LocationType.POINTED]))
+        self.assertEqual(len(all_vars), 1)
+        path, factory = all_vars[0]
+        self.assertEqual(path, '/aaa/bbb/ccc/*pointer/AAA/BBB/CCC/TheVar')
+        self.assertIsInstance(factory, VariableFactory)
+
+        location = factory.get_base_location()
+        self.assertIsInstance(location, UnresolvedPathPointedLocation)
+        assert isinstance(location, UnresolvedPathPointedLocation)
+        self.assertEqual(location.pointer_path, '/aaa/bbb/ccc/pointer')
+        self.assertEqual(location.pointer_offset, 123)
+        self.assertEqual(len(location.array_segments), len(pointer_array_segments))
+        for key, arr in pointer_array_segments.items():
+            self.assertIn(key, location.array_segments)
+            self.assertEqual(location.array_segments[key].dims, arr.dims)
+            self.assertEqual(location.array_segments[key].get_element_byte_size(), arr.get_element_byte_size())

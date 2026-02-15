@@ -764,7 +764,7 @@ class API:
 
         if isinstance(entry, DatastoreVariableEntry):
             entry_definition = cast(api_typing.VarDetailedDatastoreEntryDefinition, entry_definition)
-            entry_definition['address'] = entry.get_address()
+            entry_definition['address'] = entry.get_address()   # Works for both variable and pointed variable
             entry_definition['bitoffset'] = entry.get_bitoffset()
             entry_definition['bitsize'] = entry.get_bitsize()
         elif isinstance(entry, DatastoreAliasEntry):
@@ -2061,10 +2061,10 @@ class API:
             }
         }
 
-        var = factory.get_base_variable()
+        varlayout = factory.get_variable_layout()
 
         if include_datatype:
-            definition['dtype'] = self.get_datatype_name(var.get_type())
+            definition['dtype'] = self.get_datatype_name(varlayout.get_type())
 
         if include_display_path:
             definition['path'] = factory.get_access_name()
@@ -2072,8 +2072,8 @@ class API:
         if include_type:
             definition['type'] = self.get_watchable_type_name(WatchableType.Variable)
 
-        if include_enum and var.has_enum():
-            enum = var.get_enum()
+        if include_enum and varlayout.has_enum():
+            enum = varlayout.get_enum()
             assert enum is not None
             enum_def = enum.get_def()
             definition['enum'] = {  # Cherry pick items to avoid sending too much to client
@@ -2082,6 +2082,9 @@ class API:
             }
 
         for path, array in factory.get_array_nodes().items():
+            definition['factory_params']['array_nodes'][path] = list(array.dims)
+
+        for path, array in factory.get_pointer_array_nodes().items():
             definition['factory_params']['array_nodes'][path] = list(array.dims)
 
         return definition

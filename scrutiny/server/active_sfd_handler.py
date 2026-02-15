@@ -138,14 +138,19 @@ class ActiveSFDHandler:
 
             # populate datastore
             for element in self.sfd.get_vars_for_datastore():
-                # Garantee that absolute addresses comes before pointed addresses
+                # Garanteed that absolute addresses comes before pointed addresses by get_vars_for_datastore.
+                # This is important as we cannot add a datastore entry that points to a missing entry
                 try:
                     if isinstance(element.var_or_factory, Variable):
-                        self._add_var_to_datastore(
+                        pointer_path: Optional[str] = None
+                        if element.pointer_path_and_var is not None:
+                            pointer_path = element.pointer_path_and_var[0]
+                        entry = self.datastore.create_entry_from_var(
                             display_path=element.path,
                             var=element.var_or_factory,
-                            pointer_info=element.pointer_var
+                            pointer_display_path=pointer_path
                         )
+                        self.datastore.add_entry(entry)
 
                     elif isinstance(element.var_or_factory, VariableFactory):
                         self.datastore.register_var_factory(element.var_or_factory)
@@ -169,31 +174,6 @@ class ActiveSFDHandler:
         else:
             if verbose:
                 self.logger.warning('No SFD file installed for device with firmware ID %s' % firmware_id)
-
-    def _add_var_to_datastore(self,
-                              display_path: str,
-                              var: Variable,
-                              pointer_info: Optional[Tuple[str, Variable]],
-                              ) -> None:
-        """Add a variable reads from the varmap into the datastore. Handle absolute locations and pointer location"""
-        if var.has_absolute_address():
-            entry_var = DatastoreVariableEntry(display_path=display_path, variable_def=var)
-        elif var.has_pointed_address():
-            assert pointer_info is not None
-            pointer_display_path, pointer_var = pointer_info
-            # The pointer entry is expected to be in the datastore already
-            pointer_entry = self.datastore.get_entry_by_display_path(pointer_display_path)
-            if not isinstance(pointer_entry, DatastoreVariableEntry):
-                raise ValueError(f"Variable {display_path} pointed by something that is not a variable ({pointer_var.__class__.__name__})")
-
-            entry_var = DatastorePointedVariableEntry(
-                display_path=display_path,
-                variable_def=var,
-                pointer_entry=pointer_entry)
-        else:
-            raise NotImplementedError(f"Gotten a variable ({display_path}) with an unsupported type of addressing")
-
-        self.datastore.add_entry(entry_var)
 
     def get_loaded_sfd(self) -> Optional[FirmwareDescription]:
         """Returns the loaded Firmware Description. None is returned if none is loaded"""
