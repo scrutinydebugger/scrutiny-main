@@ -9,6 +9,7 @@
 from scrutiny.server.device.device_handler import DeviceHandler
 from scrutiny.server.active_sfd_handler import ActiveSFDHandler
 from scrutiny.server.datastore.datastore import Datastore
+from scrutiny.server.datastore.datastore_entry import DatastoreAliasEntry, DatastoreRPVEntry
 from scrutiny.server.sfd_storage import SFDStorage
 from scrutiny.core.varmap import VarMap
 from scrutiny.core.firmware_description import FirmwareDescription, SFDMetadata, SFDGenerationInfo
@@ -162,6 +163,29 @@ class TestActiveSFDHandler(ScrutinyUnitTest):
             sfd_handler.process()
             self.assertIsNotNone(sfd_handler.get_loaded_sfd())
             self.assertEqual(datastore.get_entries_count(), 3)
+
+
+class TestActiveSFDHandlerFromTestApp(ScrutinyUnitTest):
+    def test_load_testapp_sfd(self):
+        datastore = Datastore()
+        datastore.add_entries([  # There are aliases to those in the test .sfd
+            DatastoreRPVEntry('/rpv/x5000', RuntimePublishedValue(0x5000, EmbeddedDataType.boolean)),
+            DatastoreRPVEntry('/rpv/x5001', RuntimePublishedValue(0x5001, EmbeddedDataType.uint16)),
+        ])
+
+        sfd_handler = ActiveSFDHandler(
+            device_handler=StubbedDeviceHandler(device_id=None),
+            datastore=datastore,
+            autoload=False  # For manual control
+        )
+
+        with SFDStorage.use_temp_folder():
+            sfdfile = get_artifact('testapp_20260214.sfd')
+            sfd = SFDStorage.install(sfdfile)
+            sfd_handler.request_load_sfd(sfd.get_firmware_id_ascii())
+        sfd_handler.process()   # Will trigger the load
+        self.assertIsNotNone(sfd_handler.get_loaded_sfd())
+        self.assertEqual(sfd_handler.get_loaded_sfd().get_firmware_id_ascii(), sfd.get_firmware_id_ascii())
 
 
 if __name__ == '__main__':

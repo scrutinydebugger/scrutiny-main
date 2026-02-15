@@ -11,7 +11,7 @@ __all__ = ['VariableFactory']
 
 from scrutiny.core import path_tools
 from scrutiny.core.variable import Variable
-from scrutiny.core.array import UntypedArray
+from scrutiny.core.array import UntypedArray, Array
 from scrutiny.core.scrutiny_path import ScrutinyPath
 from scrutiny.core.variable_location import AbsoluteLocation, UnresolvedPathPointedLocation, ResolvedPathPointedLocation
 from scrutiny.core.variable import Variable, VariableLayout
@@ -43,8 +43,14 @@ class VariableFactory:
     def get_base_location(self) -> Union[AbsoluteLocation, UnresolvedPathPointedLocation]:
         return self._base_location
 
-    def get_array_nodes(self) -> Dict[str, UntypedArray]:
+    def get_array_nodes(self) -> Mapping[str, Array]:
         return self._array_nodes
+
+    def get_pointer_array_nodes(self) -> Mapping[str, Array]:
+        if isinstance(self._base_location, AbsoluteLocation):
+            return {}
+
+        return self._base_location.array_segments
 
     def get_variable_layout(self) -> VariableLayout:
         return self._layout
@@ -60,6 +66,17 @@ class VariableFactory:
         if not path_tools.is_subpath(subpath=path, path=self._access_name):
             raise ValueError(f"Cannot add an array node at {path} for access name {self._access_name}")
         self._array_nodes[path] = array
+
+    def has_absolute_address(self) -> bool:
+        return isinstance(self._base_location, AbsoluteLocation)
+
+    def has_pointed_address(self) -> bool:
+        return isinstance(self._base_location, UnresolvedPathPointedLocation)
+
+    def has_array_in_pointed_address(self) -> bool:
+        if not isinstance(self._base_location, UnresolvedPathPointedLocation):
+            return False
+        return len(self._base_location.array_segments) > 0
 
     def instantiate(self, path: Union[ScrutinyPath, str]) -> Variable:
         if isinstance(path, str):

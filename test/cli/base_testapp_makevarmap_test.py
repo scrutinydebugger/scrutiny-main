@@ -459,6 +459,90 @@ class BaseTestAppMakeVarmapTest(BaseVarmapTest):
             value_at_loc=0x125
         )
 
+        struct_a_ptr_path = '/global/File5NamespaceA/file5_structb_array/file5_structb_array[0]/structA_ptr'
+        self.assert_var(
+            '/global/File5NamespaceA/file5_structb_array/file5_structb_array[0]/*structA_ptr/i32',
+            EmbeddedDataType.sint32,
+            value_at_loc=31415926
+        )
+
+        self.assert_var(
+            '/global/File5NamespaceA/file5_structb_array/file5_structb_array[0]/*structA_ptr/i32_ptr',
+            EmbeddedDataType.ptr64,
+            addr=ResolvedPathPointedLocation(struct_a_ptr_path, StructAOffsets.i32_ptr),
+            value_at_loc=self.varmap.get_var('/global/File5NamespaceA/file5i32').get_address()
+        )
+
+        self.assert_var(
+            '/global/File5NamespaceA/file5_structb_array/file5_structb_array[0]/*structA_ptr/u16_array/u16_array[1]',
+            EmbeddedDataType.uint16,
+            addr=ResolvedPathPointedLocation(struct_a_ptr_path, StructAOffsets.u16_array + 2),
+            value_at_loc=0x122
+        )
+        self.assert_var(
+            '/global/File5NamespaceA/file5_structb_array/file5_structb_array[0]/*structA_ptr/u16_array/u16_array[2]',
+            EmbeddedDataType.uint16,
+            addr=ResolvedPathPointedLocation(struct_a_ptr_path, StructAOffsets.u16_array + 4),
+            value_at_loc=0x123
+        )
+        self.assert_var(
+            '/global/File5NamespaceA/file5_structb_array/file5_structb_array[0]/*structA_ptr/u16_array/u16_array[3]',
+            EmbeddedDataType.uint16,
+            addr=ResolvedPathPointedLocation(struct_a_ptr_path, StructAOffsets.u16_array + 6),
+            value_at_loc=0x124
+        )
+        self.assert_var(
+            '/global/File5NamespaceA/file5_structb_array/file5_structb_array[0]/*structA_ptr/u16_array/u16_array[4]',
+            EmbeddedDataType.uint16,
+            addr=ResolvedPathPointedLocation(struct_a_ptr_path, StructAOffsets.u16_array + 8),
+            value_at_loc=0x125
+        )
+
+        struct_a_ptr_path = '/global/File5NamespaceA/file5_structb_array/file5_structb_array[1]/structA_ptr'
+        self.assert_var(
+            '/global/File5NamespaceA/file5_structb_array/file5_structb_array[0]/*structA_ptr/i32',
+            EmbeddedDataType.sint32,
+            value_at_loc=31415926
+        )
+
+        self.assert_var(
+            '/global/File5NamespaceA/file5_structb_array/file5_structb_array[1]/*structA_ptr/i32_ptr',
+            EmbeddedDataType.ptr64,
+            addr=ResolvedPathPointedLocation(struct_a_ptr_path, StructAOffsets.i32_ptr),
+            value_at_loc=self.varmap.get_var('/global/File5NamespaceA/file5i32').get_address()
+        )
+
+        self.assert_var(
+            '/global/File5NamespaceA/file5_structb_array/file5_structb_array[1]/*structA_ptr/i32',
+            EmbeddedDataType.sint32,
+            value_at_loc=31415926
+        )
+
+        self.assert_var(
+            '/global/File5NamespaceA/file5_structb_array/file5_structb_array[1]/*structA_ptr/u16_array/u16_array[1]',
+            EmbeddedDataType.uint16,
+            addr=ResolvedPathPointedLocation(struct_a_ptr_path, StructAOffsets.u16_array + 2),
+            value_at_loc=0x122
+        )
+        self.assert_var(
+            '/global/File5NamespaceA/file5_structb_array/file5_structb_array[1]/*structA_ptr/u16_array/u16_array[2]',
+            EmbeddedDataType.uint16,
+            addr=ResolvedPathPointedLocation(struct_a_ptr_path, StructAOffsets.u16_array + 4),
+            value_at_loc=0x123
+        )
+        self.assert_var(
+            '/global/File5NamespaceA/file5_structb_array/file5_structb_array[1]/*structA_ptr/u16_array/u16_array[3]',
+            EmbeddedDataType.uint16,
+            addr=ResolvedPathPointedLocation(struct_a_ptr_path, StructAOffsets.u16_array + 6),
+            value_at_loc=0x124
+        )
+        self.assert_var(
+            '/global/File5NamespaceA/file5_structb_array/file5_structb_array[1]/*structA_ptr/u16_array/u16_array[4]',
+            EmbeddedDataType.uint16,
+            addr=ResolvedPathPointedLocation(struct_a_ptr_path, StructAOffsets.u16_array + 8),
+            value_at_loc=0x125
+        )
+
         # Struct B
         struct_b_ptr_path = '/global/File5NamespaceB/file5_structB_ptr'
 

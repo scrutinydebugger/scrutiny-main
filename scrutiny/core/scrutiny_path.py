@@ -141,7 +141,7 @@ class ScrutinyPath:
         path2pos = self.get_path_to_array_pos_dict(skip_first_segments=ignore_leading_segments)
 
         if len(path2pos) != len(array_segments_dict):
-            raise ValueError("Cannot compute array offset. Array nodes count does not match.")
+            raise ValueError(f"Cannot compute array offset. Array nodes count does not match for path: {self.to_str()}.")
 
         path_by_length = sorted(list(array_segments_dict.keys()), key=lambda x: len(x))
         byte_offset = 0
