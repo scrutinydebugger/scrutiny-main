@@ -138,7 +138,8 @@ class ActiveSFDHandler:
 
             # populate datastore
             for element in self.sfd.get_vars_for_datastore():
-                # Garantee that absolute addresses comes before pointed addresses
+                # Garanteed that absolute addresses comes before pointed addresses by get_vars_for_datastore.
+                # This is important as we cannot add a datastore entry that points to a missing entry
                 try:
                     if isinstance(element.var_or_factory, Variable):
                         pointer_path: Optional[str] = None
