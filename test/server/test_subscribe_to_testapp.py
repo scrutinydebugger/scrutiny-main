@@ -25,6 +25,11 @@ class TestSubscribetoTestApp(ScrutinyUnitTest):
                 'api': {
                     'client_interface_type': 'dummy',
                     'client_interface_config': {}
+                },
+                'device': {
+                    'link_type': 'none',
+                    'link_config': {
+                    }
                 }
             }
             self.server = ScrutinyServer(config)
