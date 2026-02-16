@@ -122,6 +122,7 @@ class Datastore:
         self._displaypath2idmap[entry.get_type()][entry.get_display_path()] = entry.get_id()
 
     def remove_entry(self, entry_or_entryid: Union[DatastoreEntry, str]) -> None:
+        """Remove an entry from the datastore"""
         for watcher in self.get_watchers(entry_or_entryid):
             self.stop_watching(entry_or_entryid, watcher)
 
@@ -139,6 +140,16 @@ class Datastore:
                               display_path: str,
                               var: Variable,
                               pointer_display_path: Optional[str]) -> DatastoreVariableEntry:
+        """Create a DatastoreVariableEntry from a variable definition. If the variable has a pointed location,
+        will retorun a DatastorePointedVariableEntry instead, which is an extension of the former.
+
+        Centralize the logic to fill the datastore.
+
+        :param display_path: Path to assign to this enw entry
+        :param var: The Variable object for which we want to create an entry
+        :param pointer_display_path: The path to the datastore entry that contains the pointer value.
+
+        """
         if var.has_absolute_address():
             entry = DatastoreVariableEntry(display_path=display_path, variable_def=var)
         elif var.has_pointed_address():

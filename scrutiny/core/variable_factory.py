@@ -19,12 +19,17 @@ from scrutiny.tools.typing import *
 
 
 class VariableFactory:
-    __slots__ = ['_layout', '_access_name', '_base_location', '_array_nodes', '_ptr_array_nodes']
+    """Class able to instantiate Variables following a pattern. Mostly used for instantiating array elements from an array definition."""
+    __slots__ = ['_layout', '_access_name', '_base_location', '_array_nodes']
 
     _layout: VariableLayout
+    """The memory layout to apply to each variable created"""
     _access_name: str
-    _array_nodes: Dict[str, UntypedArray]
+    """The path used to access this factory. All encoded information is striped from this path. e.g. array indices"""
     _base_location: Union[AbsoluteLocation, UnresolvedPathPointedLocation]
+    """A location used to generate a new location when instantiating variables"""
+    _array_nodes: Dict[str, UntypedArray]
+    """A dict mapping path to array defintions"""
 
     def __init__(self,
                  access_name: str,
@@ -33,7 +38,8 @@ class VariableFactory:
                  ) -> None:
         self._access_name = access_name
         self._layout = layout
-        if isinstance(base_location, ResolvedPathPointedLocation):
+        if isinstance(base_location, ResolvedPathPointedLocation):  # Convenience for the varmap
+            # An unresolved path is the same as a resolved path, but it contains array information to instantiate.
             base_location = base_location.make_unresolved()
         if isinstance(base_location, int):
             base_location = AbsoluteLocation(base_location)
@@ -44,18 +50,22 @@ class VariableFactory:
         return self._base_location
 
     def get_array_nodes(self) -> Mapping[str, Array]:
+        """Returns the array node of the dereferenced part of the path (after the pointer, if any)."""
         return self._array_nodes
 
     def get_pointer_array_nodes(self) -> Mapping[str, Array]:
+        """Returns the array node of the pointer part of the path."""
         if isinstance(self._base_location, AbsoluteLocation):
             return {}
 
         return self._base_location.array_segments
 
     def get_variable_layout(self) -> VariableLayout:
+        """Return the layout applied to each variable instantiated"""
         return self._layout
 
     def get_access_name(self) -> str:
+        """The path without encoded information"""
         return self._access_name
 
     def add_array_node(self, path: str, array: UntypedArray) -> None:
@@ -68,17 +78,21 @@ class VariableFactory:
         self._array_nodes[path] = array
 
     def has_absolute_address(self) -> bool:
+        """Return ``True`` if the variable instantiated will have an absolute address in memory. ``False`` if pointed"""
         return isinstance(self._base_location, AbsoluteLocation)
 
     def has_pointed_address(self) -> bool:
+        """Return ``True`` if the variable instantiated will have a pointed address. ``False`` if absolute"""
         return isinstance(self._base_location, UnresolvedPathPointedLocation)
 
     def has_array_in_pointed_address(self) -> bool:
+        """Return ``True`` if the location is pointed and there are array segments in the pointer part of the path"""
         if not isinstance(self._base_location, UnresolvedPathPointedLocation):
             return False
         return len(self._base_location.array_segments) > 0
 
     def instantiate(self, path: Union[ScrutinyPath, str]) -> Variable:
+        """Instantiate a Variable from a path that matches this factory"""
         if isinstance(path, str):
             path = ScrutinyPath.from_string(path)
 
