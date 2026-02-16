@@ -2,10 +2,10 @@
 #        Simple tool to get the memory ranges of the .elf sections that contains the variables.
 #        Used to generate Memdumps for unit testing
 #
-#   - License : MIT - See LICENSE file.
-#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
 #
-#   Copyright (c) 2022 Scrutiny Debugger
+#    Copyright (c) 2022 Scrutiny Debugger
 
 import sys
 from elftools.elf.elffile import ELFFile

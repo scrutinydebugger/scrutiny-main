@@ -1,10 +1,10 @@
 #    typing.py
 #        Mypy typing information for the Scrutiny protocol
 #
-#   - License : MIT - See LICENSE file.
-#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
 #
-#   Copyright (c) 2022 Scrutiny Debugger
+#    Copyright (c) 2022 Scrutiny Debugger
 
 import scrutiny.server.protocol.commands as cmd
 from scrutiny.core.codecs import Encodable

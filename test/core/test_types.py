@@ -1,10 +1,10 @@
 #    test_types.py
 #        Make some checks on Scrutiny basic types used project wide
 #
-#   - License : MIT - See LICENSE file.
-#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
 #
-#   Copyright (c) 2022 Scrutiny Debugger
+#    Copyright (c) 2022 Scrutiny Debugger
 
 from scrutiny.core.basic_types import *
 from scrutiny.core.codecs import *

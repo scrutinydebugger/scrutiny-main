@@ -1,10 +1,10 @@
 #    test_watchable_registry.py
 #        A test suite for the WatchableRegistry object
 #
-#   - License : MIT - See LICENSE file.
-#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
 #
-#   Copyright (c) 2024 Scrutiny Debugger
+#    Copyright (c) 2024 Scrutiny Debugger
 
 from scrutiny import sdk
 from scrutiny.core.basic_types import EmbeddedDataType

@@ -1,10 +1,10 @@
 #    embedded_graph_component.py
 #        A component to configure, trigger, view and browse embedded datalogging.
 #
-#   - License : MIT - See LICENSE file.
-#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
 #
-#   Copyright (c) 2024 Scrutiny Debugger
+#    Copyright (c) 2024 Scrutiny Debugger
 
 from dataclasses import dataclass
 from pathlib import Path

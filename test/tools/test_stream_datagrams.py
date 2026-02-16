@@ -1,10 +1,10 @@
 #    test_stream_datagrams.py
 #        Test the tools that transmit datagrams over a stream.
 #
-#   - License : MIT - See LICENSE file.
-#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
 #
-#   Copyright (c) 2024 Scrutiny Debugger
+#    Copyright (c) 2024 Scrutiny Debugger
 
 from scrutiny.tools.stream_datagrams import StreamMaker, StreamParser, COMPRESSION_LEVEL
 from test import logger

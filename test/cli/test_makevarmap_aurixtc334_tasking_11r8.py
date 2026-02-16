@@ -1,10 +1,10 @@
 #    test_makevarmap_aurixtc334_tasking_11r8.py
 #        A test suite testing Tasking compiler V1.1r8 on a Aurix TC334
 #
-#   - License : MIT - See LICENSE file.
-#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
 #
-#   Copyright (c) 2022 Scrutiny Debugger
+#    Copyright (c) 2022 Scrutiny Debugger
 
 import unittest
 

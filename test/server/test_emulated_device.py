@@ -1,10 +1,10 @@
 #    test_emulated_device.py
 #        Some testcases to make sure the emulated device runs correctly
 #
-#   - License : MIT - See LICENSE file.
-#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
 #
-#   Copyright (c) 2022 Scrutiny Debugger
+#    Copyright (c) 2022 Scrutiny Debugger
 
 from scrutiny.server.device.emulated_device import EmulatedDevice, DataloggerEmulator
 import scrutiny.server.datalogging.definitions.device as device_datalogging

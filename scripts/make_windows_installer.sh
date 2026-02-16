@@ -3,10 +3,10 @@
 #    make_windows_installer.sh
 #        Makes a Windows installer with InnoSetup from the Nuitka compiler output
 #
-#   - License : MIT - See LICENSE file.
-#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
 #
-#   Copyright (c) 2025 Scrutiny Debugger
+#    Copyright (c) 2025 Scrutiny Debugger
 
 set -euo pipefail
 source $(dirname ${BASH_SOURCE[0]})/common.sh

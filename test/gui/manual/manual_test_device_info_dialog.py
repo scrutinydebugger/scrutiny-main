@@ -1,10 +1,10 @@
 #    manual_test_device_info_dialog.py
 #        Create an environment to manually test the DeviceInfoDialog window
 #
-#   - License : MIT - See LICENSE file.
-#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
 #
-#   Copyright (c) 2024 Scrutiny Debugger
+#    Copyright (c) 2024 Scrutiny Debugger
 
 if __name__ != '__main__':
     raise RuntimeError("This script is expected to run from the command line")

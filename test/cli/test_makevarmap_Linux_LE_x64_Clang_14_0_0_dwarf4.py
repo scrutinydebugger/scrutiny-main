@@ -1,10 +1,10 @@
 #    test_makevarmap_Linux_LE_x64_Clang_14_0_0_dwarf4.py
 #        Test suite for symbol extraction. clang dwarf V4
 #
-#   - License : MIT - See LICENSE file.
-#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
 #
-#   Copyright (c) 2024 Scrutiny Debugger
+#    Copyright (c) 2024 Scrutiny Debugger
 
 import unittest
 from test.artifacts import get_artifact

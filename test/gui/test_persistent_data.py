@@ -1,10 +1,10 @@
 #    test_persistent_data.py
 #        A test suite that tests the GUI persistent data mechanisms
 #
-#   - License : MIT - See LICENSE file.
-#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
 #
-#   Copyright (c) 2025 Scrutiny Debugger
+#    Copyright (c) 2025 Scrutiny Debugger
 
 from test.gui.base_gui_test import ScrutinyBaseGuiTest
 from scrutiny.gui.core.persistent_data import AppPersistentDataManager, AppPersistentDataManager

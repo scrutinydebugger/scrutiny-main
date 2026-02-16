@@ -2,10 +2,10 @@
 #        Make sure that dummy links transfer data and that global channels works (to simulate
 #        switching of channels)
 #
-#   - License : MIT - See LICENSE file.
-#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
 #
-#   Copyright (c) 2022 Scrutiny Debugger
+#    Copyright (c) 2022 Scrutiny Debugger
 
 from scrutiny.server.device.links.dummy_link import *
 from test import ScrutinyUnitTest

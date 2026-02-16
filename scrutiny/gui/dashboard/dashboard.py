@@ -2,10 +2,10 @@
 #        The Scrutiny Dashboard. Main feature allowing to display Components.
 #        Uses Qt Advanced Docking System. Supports save/reload
 #
-#   - License : MIT - See LICENSE file.
-#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
 #
-#   Copyright (c) 2025 Scrutiny Debugger
+#    Copyright (c) 2025 Scrutiny Debugger
 
 __all__ = ['Dashboard']
 

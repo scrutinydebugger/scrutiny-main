@@ -2,10 +2,10 @@
 #        A test suite for the WatchableLineEdit widget. A textbox that can receive watchables
 #        through drag&drop
 #
-#   - License : MIT - See LICENSE file.
-#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
 #
-#   Copyright (c) 2025 Scrutiny Debugger
+#    Copyright (c) 2025 Scrutiny Debugger
 
 if __name__ != '__main__':
     raise RuntimeError("This script is expected to run from the command line")

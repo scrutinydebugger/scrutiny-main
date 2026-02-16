@@ -2,10 +2,10 @@
 #        Test the Scrutiny Protocol.
 #         Validate encoding and decoding of each command.
 #
-#   - License : MIT - See LICENSE file.
-#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
 #
-#   Copyright (c) 2022 Scrutiny Debugger
+#    Copyright (c) 2022 Scrutiny Debugger
 
 import struct
 from scrutiny.server.protocol import Protocol, Request, Response

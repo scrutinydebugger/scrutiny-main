@@ -2,10 +2,10 @@
 #        Object that handles the communication with the server and inform the rest of the
 #         GUI about what's happening on the other side of the socket. Based on the SDK ScrutinyClient
 #
-#   - License : MIT - See LICENSE file.
-#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
 #
-#   Copyright (c) 2024 Scrutiny Debugger
+#    Copyright (c) 2024 Scrutiny Debugger
 
 __all__ = ['ServerManager', 'ServerConfig', 'ValueUpdate']
 

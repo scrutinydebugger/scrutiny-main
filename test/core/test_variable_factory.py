@@ -1,10 +1,10 @@
 #    test_variable_factory.py
 #        A test suite for the VariableFactory
 #
-#   - License : MIT - See LICENSE file.
-#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
 #
-#   Copyright (c) 2025 Scrutiny Debugger
+#    Copyright (c) 2025 Scrutiny Debugger
 
 from test import ScrutinyUnitTest
 from scrutiny.core.array import UntypedArray

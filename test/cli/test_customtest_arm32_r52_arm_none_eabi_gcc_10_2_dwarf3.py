@@ -1,10 +1,10 @@
 #    test_customtest_arm32_r52_arm_none_eabi_gcc_10_2_dwarf3.py
 #        A test suite testing arm-none-eabi-gcc on a ARM Cortex R52. Dwarf 3 format
 #
-#   - License : MIT - See LICENSE file.
-#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
 #
-#   Copyright (c) 2025 Scrutiny Debugger
+#    Copyright (c) 2025 Scrutiny Debugger
 
 import unittest
 from test.artifacts import get_artifact

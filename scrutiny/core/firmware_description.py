@@ -3,10 +3,10 @@
 #        A .sfd is a file that holds all the data related to a firmware and is identified
 #        by a unique ID.
 #
-#   - License : MIT - See LICENSE file.
-#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
 #
-#   Copyright (c) 2022 Scrutiny Debugger
+#    Copyright (c) 2022 Scrutiny Debugger
 
 __all__ = ['SFDGenerationInfo', 'SFDMetadata', 'FirmwareDescription', 'GenerationInfoTypedDict', 'MetadataTypedDict']
 

@@ -2,10 +2,10 @@
 #        A widget that let a user configure a datalogging configuration (except the list of
 #        signals). Meant to be used  in the EmbeddedGraph component
 #
-#   - License : MIT - See LICENSE file.
-#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
 #
-#   Copyright (c) 2025 Scrutiny Debugger
+#    Copyright (c) 2025 Scrutiny Debugger
 
 __all__ = ['GraphConfigWidget', 'GetSignalDatatypeFn', 'ValidationResult']
 

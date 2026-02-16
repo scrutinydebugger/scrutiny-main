@@ -1,10 +1,10 @@
 #    variable_location.py
 #        Contains the 2 types of variable location possible for a variable
 #
-#   - License : MIT - See LICENSE file.
-#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
 #
-#   Copyright (c) 2025 Scrutiny Debugger
+#    Copyright (c) 2025 Scrutiny Debugger
 
 __all__ = ['AbsoluteLocation', 'ResolvedPathPointedLocation', 'UnresolvedPathPointedLocation']
 

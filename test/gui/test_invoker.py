@@ -1,10 +1,10 @@
 #    test_invoker.py
 #        A test suite to test the cross thread invocation helpers
 #
-#   - License : MIT - See LICENSE file.
-#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
 #
-#   Copyright (c) 2024 Scrutiny Debugger
+#    Copyright (c) 2024 Scrutiny Debugger
 
 import threading
 from test.gui.base_gui_test import ScrutinyBaseGuiTest

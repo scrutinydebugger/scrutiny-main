@@ -2,10 +2,10 @@
 #        Extension of the emulated device used for the demo mode. Runs a fake device with
 #        some artificial variables and RPV for the purpose of showcasing the UI
 #
-#   - License : MIT - See LICENSE file.
-#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
 #
-#   Copyright (c) 2025 Scrutiny Debugger
+#    Copyright (c) 2025 Scrutiny Debugger
 
 import random
 import time

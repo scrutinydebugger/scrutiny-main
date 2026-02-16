@@ -1,10 +1,10 @@
 #    test_math_expr.py
 #        Test suite for the math parser
 #
-#   - License : MIT - See LICENSE file.
-#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
 #
-#   Copyright (c) 2025 Scrutiny Debugger
+#    Copyright (c) 2025 Scrutiny Debugger
 
 from test import ScrutinyUnitTest
 from scrutiny.core.math_expr import parse_math_expr, ParsingError
