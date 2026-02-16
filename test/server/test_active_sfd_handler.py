@@ -179,6 +179,7 @@ class TestActiveSFDHandlerFromTestApp(ScrutinyUnitTest):
             autoload=False  # For manual control
         )
 
+        # Make sure we can load it. It's a file with lots of complex cases
         with SFDStorage.use_temp_folder():
             sfdfile = get_artifact('testapp_20260214.sfd')
             sfd = SFDStorage.install(sfdfile)

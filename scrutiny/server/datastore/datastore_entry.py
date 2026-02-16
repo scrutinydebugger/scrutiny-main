@@ -316,6 +316,7 @@ class DatastoreVariableEntry(DatastoreEntry):
 
 
 class DatastorePointedVariableEntry(DatastoreVariableEntry):
+    """Extension of the DatastoreVariableEntry for variable that have a location coming from a pointer entry"""
     __slots__ = ('pointer_entry', )
 
     pointer_entry: DatastoreVariableEntry
@@ -325,12 +326,15 @@ class DatastorePointedVariableEntry(DatastoreVariableEntry):
         self.pointer_entry = pointer_entry
 
     def get_pointer_entry(self) -> DatastoreVariableEntry:
+        """Return the datastore entry that refer tothe pointer variable"""
         return self.pointer_entry
 
     def get_pointer_offset(self) -> int:
+        """Return the offset to the pointer that must be accessed to read this variable"""
         return self.variable_def.get_pointer().pointer_offset
 
     def get_address(self) -> int:
+        """Return the variable address. Perform the pointer dereferencing from the pointer value already inside the datastore"""
         base = self.pointer_entry.value
         if not isinstance(base, int):
             raise ValueError("Pointer address is not an integer")

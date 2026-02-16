@@ -39,13 +39,21 @@ for offset in range(64):
 
 @dataclass(init=False, slots=True)
 class VariableLayout:
+    """Contain the information necessary to decode or encode a variable in memory. 
+    Does not contain it's location, just its bit format"""
 
     vartype: EmbeddedDataType
+    """Type of variable"""
     endianness: Endianness
+    """Endianness. Little or Big"""
     bitsize: Optional[int]
+    """Size of the bitfield. ``None`` if not a bitfield"""
     bitfield: bool
+    """Tells if this variable uses a bitfield. """
     bitoffset: Optional[int]
+    """Offset, in bits, of the bitfield. ``None`` if not a bitfield"""
     enum: Optional[EmbeddedEnum]
+    """An enum to interpret the value. ``None`` If no enum"""
 
     def __init__(self,
                  vartype: EmbeddedDataType,
@@ -173,8 +181,11 @@ class Variable:
     It supports bitfields and variable endianness.
     """
     path_segments: List[str]
+    """Lits of all the path segments"""
     location: Union[AbsoluteLocation, ResolvedPathPointedLocation]
+    """Location of the variable in memory"""
     layout: VariableLayout
+    """The memory layout, or how to interpret the bits"""
 
     def __init__(self,
                  vartype: EmbeddedDataType,
@@ -210,6 +221,7 @@ class Variable:
                     location: Union[int, AbsoluteLocation, ResolvedPathPointedLocation],
                     layout: VariableLayout
                     ) -> "Variable":
+        """Instantiate a Variable object from a path, location and a Layout """
 
         return Variable(
             path_segments=path_segments,
@@ -291,29 +303,36 @@ class Variable:
 
     @property
     def vartype(self) -> EmbeddedDataType:
+        """Type of variable"""
         return self.layout.vartype
 
     @property
     def endianness(self) -> Endianness:
+        """Endianness. Little or Big"""
         return self.layout.endianness
 
     @property
     def bitsize(self) -> Optional[int]:
+        """Size of the bitfield. ``None`` if not a bitfield"""
         return self.layout.bitsize
 
     @property
-    def bitoffset(self) -> Optional[int]:
-        return self.layout.bitoffset
-
-    @property
-    def bitfield(self) -> Optional[int]:
+    def bitfield(self) -> bool:
+        """Tells if this variable uses a bitfield. """
         return self.layout.bitfield
 
     @property
+    def bitoffset(self) -> Optional[int]:
+        """Offset, in bits, of the bitfield. ``None`` if not a bitfield"""
+        return self.layout.bitoffset
+
+    @property
     def enum(self) -> Optional[EmbeddedEnum]:
+        """An enum to interpret the value. ``None`` If no enum"""
         return self.layout.enum
 
     def get_layout_copy(self) -> VariableLayout:
+        """Return a copy of the variable layout"""
         return self.layout.copy()
 
     def __repr__(self) -> str:
