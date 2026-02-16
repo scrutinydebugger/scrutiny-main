@@ -29,7 +29,7 @@ class TestSubscribetoTestApp(ScrutinyUnitTest):
     def setUp(self) -> None:
         super().setUp()
         self.api_conn = None
-        self.server=None
+        self.server = None
         try:
             config: ServerConfig = {
                 'autoload_sfd': False,
@@ -54,7 +54,7 @@ class TestSubscribetoTestApp(ScrutinyUnitTest):
         except Exception:
             self.tearDown()
             raise
-        
+
     def tearDown(self) -> None:
         if self.server is not None:
             self.server.close_all()
@@ -62,6 +62,7 @@ class TestSubscribetoTestApp(ScrutinyUnitTest):
             self.api_conn.close()
 
         super().tearDown()
+
     def wait_for_response(self, timeout=0.4):
         t1 = time.monotonic()
         self.server.process()
