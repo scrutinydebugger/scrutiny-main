@@ -2,10 +2,10 @@
 #        Command that return some information about datalogging such as storage location,
 #        size, number of acquisitions
 #
-#   - License : MIT - See LICENSE file.
-#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
 #
-#   Copyright (c) 2023 Scrutiny Debugger
+#    Copyright (c) 2023 Scrutiny Debugger
 
 __all__ = ['DatalogInfo']
 

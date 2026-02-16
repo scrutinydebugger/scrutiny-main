@@ -1,10 +1,10 @@
 #    get_info.py
 #        Scrutiny protocol command to read some specific configuration in the device
 #
-#   - License : MIT - See LICENSE file.
-#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
 #
-#   Copyright (c) 2022 Scrutiny Debugger
+#    Copyright (c) 2022 Scrutiny Debugger
 
 __all__ = ['GetInfo']
 

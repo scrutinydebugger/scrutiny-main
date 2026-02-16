@@ -1,10 +1,10 @@
 #    PySide6QtAds.pyi
 #        A stub file for the PySide6-QtAds module.
 #
-#   - License : MIT - See LICENSE file.
-#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
 #
-#   Copyright (c) 2025 Scrutiny Debugger
+#    Copyright (c) 2025 Scrutiny Debugger
 
 from enum import Enum
 from typing import List, ClassVar, Optional, Dict, overload, Sequence, TypeAlias

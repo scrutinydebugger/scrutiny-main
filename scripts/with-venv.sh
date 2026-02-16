@@ -3,10 +3,10 @@
 #    with-venv.sh
 #        Run a command inside the virtual environment
 #
-#   - License : MIT - See LICENSE file.
-#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
 #
-#   Copyright (c) 2022 Scrutiny Debugger
+#    Copyright (c) 2022 Scrutiny Debugger
 
 set -euo pipefail
 source $(dirname ${BASH_SOURCE[0]})/common.sh

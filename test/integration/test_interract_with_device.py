@@ -1,10 +1,10 @@
 #    test_interract_with_device.py
 #        Make sure we can do some API calls related to the device that are not read/writes.
 #
-#   - License : MIT - See LICENSE file.
-#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
 #
-#   Copyright (c) 2023 Scrutiny Debugger
+#    Copyright (c) 2023 Scrutiny Debugger
 
 import functools
 import time

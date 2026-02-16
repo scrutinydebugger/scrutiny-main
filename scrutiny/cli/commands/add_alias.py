@@ -2,10 +2,10 @@
 #        Defines the add-alias command used to embed an alias file into an SFD file in the
 #        making
 #
-#   - License : MIT - See LICENSE file.
-#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
 #
-#   Copyright (c) 2022 Scrutiny Debugger
+#    Copyright (c) 2022 Scrutiny Debugger
 
 __all__ = ['AddAlias']
 

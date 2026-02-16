@@ -1,10 +1,10 @@
 #    test_sfd.py
 #        Run some test on the Firmware Description class meant to identify a firmware
 #
-#   - License : MIT - See LICENSE file.
-#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
 #
-#   Copyright (c) 2022 Scrutiny Debugger
+#    Copyright (c) 2022 Scrutiny Debugger
 
 from scrutiny.core.firmware_description import FirmwareDescription
 from scrutiny.core.alias import Alias

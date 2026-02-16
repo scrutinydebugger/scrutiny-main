@@ -2,10 +2,10 @@
 #        A single entry point that initialize all the Scrutiny QT tools that the GUI relies
 #        on
 #
-#   - License : MIT - See LICENSE file.
-#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
 #
-#   Copyright (c) 2025 Scrutiny Debugger
+#    Copyright (c) 2025 Scrutiny Debugger
 
 __all__ = ['make_qt_app']
 

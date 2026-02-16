@@ -1,10 +1,10 @@
 #    continuous_graph_component.py
 #        A component that makes a real time graphs of the values streamed by the server
 #
-#   - License : MIT - See LICENSE file.
-#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
 #
-#   Copyright (c) 2025 Scrutiny Debugger
+#    Copyright (c) 2025 Scrutiny Debugger
 
 __all__ = ['ContinuousGraphComponent']
 

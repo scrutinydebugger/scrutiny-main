@@ -1,10 +1,10 @@
 #    test_embedded_graph.py
 #        A test suite for the embedded graph component
 #
-#   - License : MIT - See LICENSE file.
-#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
 #
-#   Copyright (c) 2025 Scrutiny Debugger
+#    Copyright (c) 2025 Scrutiny Debugger
 
 from PySide6.QtGui import QStandardItemModel
 from test.gui.base_gui_test import ScrutinyBaseGuiTest

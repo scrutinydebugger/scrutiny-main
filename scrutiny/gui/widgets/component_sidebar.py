@@ -1,10 +1,10 @@
 #    component_sidebar.py
 #        The sidebar with the dashboard component that can be added
 #
-#   - License : MIT - See LICENSE file.
-#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
 #
-#   Copyright (c) 2024 Scrutiny Debugger
+#    Copyright (c) 2024 Scrutiny Debugger
 
 __all__ = ['ComponentSidebar']
 

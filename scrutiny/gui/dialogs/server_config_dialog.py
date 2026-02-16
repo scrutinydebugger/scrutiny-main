@@ -2,10 +2,10 @@
 #        A dialog to edit the connection parameter of the server and optionally start a local
 #        server
 #
-#   - License : MIT - See LICENSE file.
-#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
 #
-#   Copyright (c) 2024 Scrutiny Debugger
+#    Copyright (c) 2024 Scrutiny Debugger
 
 __all__ = ['ServerConfigDialog']
 

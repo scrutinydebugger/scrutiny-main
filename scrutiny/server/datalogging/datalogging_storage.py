@@ -2,10 +2,10 @@
 #        A storage interface to save and fetch datalogging acquisition from the disk to keep
 #        an history of them
 #
-#   - License : MIT - See LICENSE file.
-#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
 #
-#   Copyright (c) 2023 Scrutiny Debugger
+#    Copyright (c) 2023 Scrutiny Debugger
 
 __all__ = [
     'BadVersionError',

@@ -2,10 +2,10 @@
 #        Internal script called by make_license.sh to print licenses of each given dependencies
 #        in a given format
 #
-#   - License : MIT - See LICENSE file.
-#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
 #
-#   Copyright (c) 2025 Scrutiny Debugger
+#    Copyright (c) 2025 Scrutiny Debugger
 
 import sys
 import json

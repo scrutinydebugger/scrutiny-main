@@ -3,10 +3,10 @@
 #        with a device through a given communication link (Serial, UDP, etc)
 #        Allow the clients to interact with the device
 #
-#   - License : MIT - See LICENSE file.
-#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
 #
-#   Copyright (c) 2022 Scrutiny Debugger
+#    Copyright (c) 2022 Scrutiny Debugger
 
 __all__ = ['ScrutinyServer', 'ServerConfig', 'DEFAULT_CONFIG']
 

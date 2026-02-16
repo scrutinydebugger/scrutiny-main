@@ -1,10 +1,10 @@
 #    fake_server_manager.py
 #        A stubbed Server MAnager for unit test purpose
 #
-#   - License : MIT - See LICENSE file.
-#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
 #
-#   Copyright (c) 2024 Scrutiny Debugger
+#    Copyright (c) 2024 Scrutiny Debugger
 
 import logging
 from PySide6.QtCore import Signal, QObject

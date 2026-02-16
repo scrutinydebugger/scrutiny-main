@@ -1,10 +1,10 @@
 #    test_datalogging.py
 #        Test the datalogging features from the core module (shared across modules)
 #
-#   - License : MIT - See LICENSE file.
-#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
 #
-#   Copyright (c) 2023 Scrutiny Debugger
+#    Copyright (c) 2023 Scrutiny Debugger
 
 from scrutiny.core.datalogging import *
 from scrutiny.core.basic_types import WatchableType

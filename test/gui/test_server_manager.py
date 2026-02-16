@@ -1,10 +1,10 @@
 #    test_server_manager.py
 #        Test suite for the ServerManager
 #
-#   - License : MIT - See LICENSE file.
-#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
 #
-#   Copyright (c) 2024 Scrutiny Debugger
+#    Copyright (c) 2024 Scrutiny Debugger
 
 from scrutiny import sdk
 from scrutiny.gui.core.server_manager import ServerManager, ServerConfig, QtBufferedListener

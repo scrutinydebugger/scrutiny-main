@@ -2,10 +2,10 @@
 #        Test the MemoryContent class functionalities. Make sure it correctly writes and read
 #        and also agglomerate contiguous clusters
 #
-#   - License : MIT - See LICENSE file.
-#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
 #
-#   Copyright (c) 2022 Scrutiny Debugger
+#    Copyright (c) 2022 Scrutiny Debugger
 
 from scrutiny.core.memory_content import MemoryContent, Cluster
 import tempfile

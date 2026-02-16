@@ -1,3 +1,12 @@
+#    test_subscribe_to_testapp.py
+#        A test suite that request the server to load the SFD of testapp project then tries
+#        to subscribe to every single variable possible, including the array. Make sure the
+#        pointer/array logic is solid
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
 
 import json
 import time

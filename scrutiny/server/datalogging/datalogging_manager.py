@@ -1,10 +1,10 @@
 #    datalogging_manager.py
 #        The main server components that manages the datalogging feature at high level
 #
-#   - License : MIT - See LICENSE file.
-#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
 #
-#   Copyright (c) 2023 Scrutiny Debugger
+#    Copyright (c) 2023 Scrutiny Debugger
 
 __all__ = ['DataloggingManager']
 

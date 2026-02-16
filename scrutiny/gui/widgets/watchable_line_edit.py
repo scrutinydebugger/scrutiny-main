@@ -1,10 +1,10 @@
 #    watchable_line_edit.py
 #        A textbox that can be manually edited or filled with a watchable element by drag&drop
 #
-#   - License : MIT - See LICENSE file.
-#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
 #
-#   Copyright (c) 2025 Scrutiny Debugger
+#    Copyright (c) 2025 Scrutiny Debugger
 
 __all__ = ['WatchableLineEdit']
 

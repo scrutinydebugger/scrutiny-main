@@ -2,10 +2,10 @@
 #        Contains the definitions related to the datalogging feature on the device side. Shared
 #        between the DataloggingManager and the DeviceHandler
 #
-#   - License : MIT - See LICENSE file.
-#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
 #
-#   Copyright (c) 2023 Scrutiny Debugger
+#    Copyright (c) 2023 Scrutiny Debugger
 
 from enum import Enum
 from abc import ABC, abstractmethod

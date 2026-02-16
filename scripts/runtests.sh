@@ -3,10 +3,10 @@
 #    runtests.sh
 #        Run all scrutiny tests. To be run by CI
 #
-#   - License : MIT - See LICENSE file.
-#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
 #
-#   Copyright (c) 2022 Scrutiny Debugger
+#    Copyright (c) 2022 Scrutiny Debugger
 
 set -euo pipefail
 source $(dirname ${BASH_SOURCE[0]})/common.sh

@@ -2,10 +2,10 @@
 #        Provide a tool to manipulate non contiguous chunks of bytes with their addresses.
 #        Represent a partial memory snapshot
 #
-#   - License : MIT - See LICENSE file.
-#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
 #
-#   Copyright (c) 2022 Scrutiny Debugger
+#    Copyright (c) 2022 Scrutiny Debugger
 
 __all__ = ['MemoryContent', 'Cluster']
 

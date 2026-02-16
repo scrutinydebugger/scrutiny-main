@@ -2,10 +2,10 @@
 #        Test for the protocol Request and Response class.
 #        Ensure that byte encoding/decoding works properly
 #
-#   - License : MIT - See LICENSE file.
-#   - Project :  Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
 #
-#   Copyright (c) 2022 Scrutiny Debugger
+#    Copyright (c) 2022 Scrutiny Debugger
 
 from scrutiny.server.protocol import Request, Response
 from test import ScrutinyUnitTest
