@@ -40,6 +40,7 @@ from scrutiny.core.logging import DUMPDATA_LOGLEVEL
 from scrutiny.tools.typing import *
 
 
+# region Constant definitions
 class Attrs:
     DW_AT_declaration = 'DW_AT_declaration'
     DW_AT_comp_dir = 'DW_AT_comp_dir'
@@ -200,7 +201,9 @@ class Compiler(Enum):
     GCC = auto()
     Tasking = auto()
 
+# endregion
 
+#region Helper classes
 @dataclass(slots=True)
 class PointeeTypeDescriptor:
     """Describe the type pointed by a pointer. Same as TypeDescriptor, 
@@ -222,7 +225,6 @@ class PointeeTypeDescriptor:
             pointee=None
         )
 
-
 @dataclass(slots=True)
 class TypeDescriptor:
     """A class that contains multiple information about the type of a variable"""
@@ -235,7 +237,6 @@ class TypeDescriptor:
     pointee: Optional[PointeeTypeDescriptor]
     """Pointee type when type=Pointer"""
 
-
 @dataclass(slots=True)
 class VarPathSegment:
     """When building a path, represent a segment added to the path. Keeps track of the array of that path node for later"""
@@ -243,7 +244,6 @@ class VarPathSegment:
     """The name of the path segment"""
     array: Optional[TypedArray] = None
     """The array associated with that segment, if applicable"""
-
 
 @dataclass(slots=True, init=False)
 class ArraySegments:
@@ -299,7 +299,6 @@ class ArraySegments:
         """Clear the storage"""
         self._storage.clear()
 
-
 class VarPath:
     """Represent a path of a variable. This class exists to edit efficiently the path with meaningful methods.
     To be used while constructing the path"""
@@ -328,24 +327,6 @@ class VarPath:
                 segment_str = [x.name for x in self.segments[:i + 1]]
                 out.add(segment_str, array)
         return out
-
-
-def get_linenumber() -> int:
-    """Return the line number of the caller. For debugging purpose"""
-    cf = currentframe()
-    if cf is None:
-        return -1
-    if cf.f_back is None:
-        return -1
-    if cf.f_back.f_lineno is None:
-        return -1
-
-    return int(cf.f_back.f_lineno)
-
-
-class ElfParsingError(Exception):
-    pass
-
 
 class CuName:
     """
@@ -418,7 +399,6 @@ class CuName:
                 return
             i += 1
 
-
 @dataclass(slots=True)
 class Context:
     """The context object that contains the parsing parameters. Those are globals when parsing"""
@@ -430,6 +410,9 @@ class Context:
     """The compiler of the actual CompileUnit """
     address_size: Optional[int]
     """The size of a pointer. Sometime available at the CU level, sometime on the var itself. Act as a fallback when not specified on a var"""
+
+class ElfParsingError(Exception):
+    pass
 
 class ParseErrors:
     """A class that represent a parsing error.
@@ -462,6 +445,21 @@ class ParseErrors:
     def get_first_exc(self, exclude: List[Type[Exception]] = []) -> Optional[Exception]:
         gen = self.iter_exc(exclude)
         return next(gen, None)
+
+
+#endregion
+
+def get_linenumber() -> int:
+    """Return the line number of the caller. For debugging purpose"""
+    cf = currentframe()
+    if cf is None:
+        return -1
+    if cf.f_back is None:
+        return -1
+    if cf.f_back.f_lineno is None:
+        return -1
+
+    return int(cf.f_back.f_lineno)
 
 class ElfDwarfVarExtractor:
     """Tool that can parse a .elf file, parse the debug symbols and generate a VarMap object that is the base of Scrutiny
@@ -536,58 +534,7 @@ class ElfDwarfVarExtractor:
 
         self._scan_elf_file(filename)
 
-    def _make_name_for_log(self, die: Optional[DIE]) -> str:
-        """For debug logging. Name used to identify a DIE """
-        if die is None:
-            return "<None>"
-        name = self.get_name(die, default='', nolog=True)
-
-        return f'{die.tag} <{die.offset:x}> "{name}"'
-
-    def _log_debug_process_die(self, die: DIE) -> None:
-        """When printing the full debug information, print that a function has been called with its stack depth represneted as indentation"""
-        if self._logger.isEnabledFor(DUMPDATA_LOGLEVEL):  # pragma: no cover
-            stack_depth = len(inspect.stack()) - self.initial_stack_depth - 1
-            stack_depth = max(stack_depth, 1)
-            funcname = inspect.stack()[1][3]
-            pad = '|  ' * (stack_depth - 1) + '|--'
-            self._logger.debug(f"{pad}{funcname}({self._make_name_for_log(die)})")
-
-    def get_errors(self) -> ParseErrors:
-        """Returns all the errors registered during the aprsing"""
-        return self._parse_errors
-
-    def get_varmap(self) -> VarMap:
-        """Returns the varmap constructed by the parsing"""
-        return self._varmap
-
-    def make_cu_name_map(self, dwarfinfo: DWARFInfo) -> None:
-        """ Builds a dictionary that maps a CompileUnit object to a unique displayable name """
-
-        fullpath_cu_map: Dict[str, List[CompileUnit]] = {}
-        cu: CompileUnit
-        for cu in dwarfinfo.iter_CUs():
-            topdie: DIE = cu.get_top_DIE()
-            if topdie.tag != Tags.DW_TAG_compile_unit:
-                raise ElfParsingError('Top die should be a compile unit')
-
-            comp_dir = None
-            name = self.get_name_no_none(topdie, default='unnamed_cu')
-            if Attrs.DW_AT_comp_dir in topdie.attributes:
-                comp_dir = topdie.attributes[Attrs.DW_AT_comp_dir].value.decode('utf8')
-                fullpath = os.path.normpath(os.path.join(comp_dir, name))
-            else:
-                fullpath = os.path.abspath(name)
-
-            if fullpath not in fullpath_cu_map:
-                fullpath_cu_map[fullpath] = []
-            fullpath_cu_map[fullpath].append(cu)
-
-        fullpath_to_displayname_map = self.make_unique_display_name(list(fullpath_cu_map.keys()))
-
-        for fullpath, cu_list in fullpath_cu_map.items():
-            for cu in cu_list:
-                self._cu_name_map[cu] = fullpath_to_displayname_map[fullpath]
+    # region Public
 
     @classmethod
     def make_unique_display_name(cls, fullpath_list: List[str]) -> Dict[str, str]:
@@ -630,105 +577,7 @@ class ElfDwarfVarExtractor:
 
         return outmap
 
-    def get_cu_name(self, die: DIE) -> str:
-        """Return the name of the CompileUnit in which this DIE is part of"""
-        return self._cu_name_map[die.cu]
-
-    def get_enum_from_type_descriptor(self, type_desc: TypeDescriptor) -> Optional[EmbeddedEnum]:
-        """Reads the enum of a type descriptor. If this is an array, return the enum of the subtype"""
-        if type_desc.type == TypeOfVar.Array:
-            type_desc = self._get_type_of_var(type_desc.type_die)
-
-        if type_desc.enum_die is not None:
-            if type_desc.enum_die in self._enum_die_map:
-                return self._enum_die_map[type_desc.enum_die]
-        return None
-
-    def get_name(self,
-                 die: DIE,
-                 default: Optional[str] = None,
-                 nolog: bool = False,
-                 raise_if_none: bool = False,
-                 no_tag_default: bool = False) -> Optional[str]:
-        """Return the name of a DIE.
-
-        :param default: A default name if none is available
-        :param nolog: Don't log the call for debug purpose
-        :param raise_if_none: Raise an error if no name is avaialble and no default name is possible
-        :param no_tag_default: If no default name is provided, do not use the default names per tag defined in DEFAULTS_NAMES
-        """
-
-        if not nolog:
-            self._log_debug_process_die(die)
-        if Attrs.DW_AT_name in die.attributes:
-            return cast(str, die.attributes[Attrs.DW_AT_name].value.decode('ascii'))
-
-        if default is not None:
-            return default
-
-        # Check if we have a DIE already identified as an anonymous class/struct/union/enum. Use the typedef if there is one
-        if die in self._anonymous_type_typedef_map:
-            typedef_die = self._anonymous_type_typedef_map[die]
-            name = self.get_name(typedef_die, default=default, nolog=nolog, raise_if_none=raise_if_none)
-            if name is not None:
-                return name
-
-        if die.tag in self.DEFAULTS_NAMES and no_tag_default is False:
-            return self.DEFAULTS_NAMES[die.tag]
-
-        if raise_if_none:
-            raise ElfParsingError(f"No name available on die {die}")
-        return None
-
-    def get_name_no_none(self, die: DIE, default: Optional[str] = None, nolog: bool = False) -> str:
-        """Read the name of a DIE and throw an exception if no name is available."""
-        name = self.get_name(die, default, nolog, raise_if_none=True)
-        assert name is not None
-        return name
-
-    def has_linkage_name(self, die: DIE) -> bool:
-        """Tells if a DIE has a linkage name"""
-        return self.get_mangled_linkage_name(die) is not None
-
-    def get_mangled_linkage_name(self, die: DIE) -> Optional[str]:
-        """Return the mangled linkage name of a DIE if one is available. ``None`` if not available."""
-        mangled_encoded: Optional[str] = None
-
-        if Attrs.DW_AT_linkage_name in die.attributes:
-            mangled_encoded = die.attributes[Attrs.DW_AT_linkage_name].value
-
-        if self._context.cu_compiler == Compiler.TI_C28_CGT:
-            if Attrs.DW_AT_MIPS_fde in die.attributes:
-                mangled_encoded = die.attributes[Attrs.DW_AT_MIPS_fde].value
-        else:
-            if Attrs.DW_AT_MIPS_linkage_name in die.attributes:
-                mangled_encoded = die.attributes[Attrs.DW_AT_MIPS_linkage_name].value
-
-        # Tasking compiler encode the mangled name in DW_AT_Name  (-_-)
-        if mangled_encoded is None:
-            if self._context.cu_compiler == Compiler.Tasking:
-                if Attrs.DW_AT_name in die.attributes:
-                    name = cast(bytes, die.attributes[Attrs.DW_AT_name].value).decode('ascii')
-                    if name.startswith('_Z'):   # Speed optimization to avoid invoking the demangler for everything
-                        return name
-
-        if isinstance(mangled_encoded, bytes):
-            return mangled_encoded.decode('ascii')
-
-        if isinstance(mangled_encoded, str):
-            return mangled_encoded
-
-        return None
-
-    def get_demangled_linkage_name(self, die: DIE) -> Optional[str]:
-        """Get the demangled linkage name of a DIE. Invoke the demangler"""
-        self._log_debug_process_die(die)
-        mangled_name = self.get_mangled_linkage_name(die)
-        if mangled_name is None:
-            return None
-
-        return self.demangler.demangle(mangled_name)
-
+    
     @classmethod
     def split_demangled_name(cls, name: str) -> List[str]:
         """Transform a C++ nesting name to a path like structure
@@ -766,21 +615,8 @@ class ElfDwarfVarExtractor:
         outname += name[bracket_exit_pos:].replace('::', ';')
         return outname.split(';')
 
-    def post_process_splitted_demangled_name(self, parts: List[str]) -> List[str]:
-        """To be called on the result of ``split_demangled_name`` to apply some context specific transformation"""
-        if self._context.cu_compiler == Compiler.Tasking:
-            # Tasking do something like that : /static/file1.cpp/_INTERNAL_9_file1_cpp_49335e60/NamespaceInFile1/NamespaceInFile1Nested1/file1StaticNestedVar1
-            return [x for x in parts if not x.startswith('_INTERNAL_')]
-        return parts
-
-    def is_external(self, die: DIE) -> bool:
-        """Tells if the die is accessible from outside the compile unit. If it is, it's global, otherwise it's static."""
-        try:
-            return bool(die.attributes[Attrs.DW_AT_external].value)
-        except Exception:
-            return False
-
-    def get_core_base_type(self, encoding: DwarfEncoding, bytesize: int) -> EmbeddedDataType:
+    @classmethod
+    def get_core_base_type(cls, encoding: DwarfEncoding, bytesize: int) -> EmbeddedDataType:
         """Convert a DWARF encoding into a Scrutiny EmbeddedDataType"""
         if encoding not in ENCODING_2_DTYPE_MAP:
             raise ValueError(f'Unknown encoding {encoding}')
@@ -789,6 +625,175 @@ class ElfDwarfVarExtractor:
             raise ValueError(f'Encoding {encoding} with {bytesize} bytes')
 
         return ENCODING_2_DTYPE_MAP[encoding][bytesize]
+    
+    def get_errors(self) -> ParseErrors:
+        """Returns all the errors registered during the aprsing"""
+        return self._parse_errors
+
+    def get_varmap(self) -> VarMap:
+        """Returns the varmap constructed by the parsing"""
+        return self._varmap
+
+    # endregion
+
+    # region Prvate
+    def _make_name_for_log(self, die: Optional[DIE]) -> str:
+        """For debug logging. Name used to identify a DIE """
+        if die is None:
+            return "<None>"
+        name = self._get_die_name(die, default='', nolog=True)
+
+        return f'{die.tag} <{die.offset:x}> "{name}"'
+
+    def _log_debug_process_die(self, die: DIE) -> None:
+        """When printing the full debug information, print that a function has been called with its stack depth represneted as indentation"""
+        if self._logger.isEnabledFor(DUMPDATA_LOGLEVEL):  # pragma: no cover
+            stack_depth = len(inspect.stack()) - self.initial_stack_depth - 1
+            stack_depth = max(stack_depth, 1)
+            funcname = inspect.stack()[1][3]
+            pad = '|  ' * (stack_depth - 1) + '|--'
+            self._logger.debug(f"{pad}{funcname}({self._make_name_for_log(die)})")
+
+    def _make_cu_name_map(self, dwarfinfo: DWARFInfo) -> None:
+        """ Builds a dictionary that maps a CompileUnit object to a unique displayable name """
+
+        fullpath_cu_map: Dict[str, List[CompileUnit]] = {}
+        cu: CompileUnit
+        for cu in dwarfinfo.iter_CUs():
+            topdie: DIE = cu.get_top_DIE()
+            if topdie.tag != Tags.DW_TAG_compile_unit:
+                raise ElfParsingError('Top die should be a compile unit')
+
+            comp_dir = None
+            name = self._get_die_name_no_none(topdie, default='unnamed_cu')
+            if Attrs.DW_AT_comp_dir in topdie.attributes:
+                comp_dir = topdie.attributes[Attrs.DW_AT_comp_dir].value.decode('utf8')
+                fullpath = os.path.normpath(os.path.join(comp_dir, name))
+            else:
+                fullpath = os.path.abspath(name)
+
+            if fullpath not in fullpath_cu_map:
+                fullpath_cu_map[fullpath] = []
+            fullpath_cu_map[fullpath].append(cu)
+
+        fullpath_to_displayname_map = self.make_unique_display_name(list(fullpath_cu_map.keys()))
+
+        for fullpath, cu_list in fullpath_cu_map.items():
+            for cu in cu_list:
+                self._cu_name_map[cu] = fullpath_to_displayname_map[fullpath]
+
+    def _get_cu_name(self, die: DIE) -> str:
+        """Return the name of the CompileUnit in which this DIE is part of"""
+        return self._cu_name_map[die.cu]
+
+    def _get_enum_from_type_descriptor(self, type_desc: TypeDescriptor) -> Optional[EmbeddedEnum]:
+        """Reads the enum of a type descriptor. If this is an array, return the enum of the subtype"""
+        if type_desc.type == TypeOfVar.Array:
+            type_desc = self._get_type_of_var(type_desc.type_die)
+
+        if type_desc.enum_die is not None:
+            if type_desc.enum_die in self._enum_die_map:
+                return self._enum_die_map[type_desc.enum_die]
+        return None
+
+    def _get_die_name(self,
+                 die: DIE,
+                 default: Optional[str] = None,
+                 nolog: bool = False,
+                 raise_if_none: bool = False,
+                 no_tag_default: bool = False) -> Optional[str]:
+        """Return the name of a DIE.
+
+        :param default: A default name if none is available
+        :param nolog: Don't log the call for debug purpose
+        :param raise_if_none: Raise an error if no name is avaialble and no default name is possible
+        :param no_tag_default: If no default name is provided, do not use the default names per tag defined in DEFAULTS_NAMES
+        """
+
+        if not nolog:
+            self._log_debug_process_die(die)
+        if Attrs.DW_AT_name in die.attributes:
+            return cast(str, die.attributes[Attrs.DW_AT_name].value.decode('ascii'))
+
+        if default is not None:
+            return default
+
+        # Check if we have a DIE already identified as an anonymous class/struct/union/enum. Use the typedef if there is one
+        if die in self._anonymous_type_typedef_map:
+            typedef_die = self._anonymous_type_typedef_map[die]
+            name = self._get_die_name(typedef_die, default=default, nolog=nolog, raise_if_none=raise_if_none)
+            if name is not None:
+                return name
+
+        if die.tag in self.DEFAULTS_NAMES and no_tag_default is False:
+            return self.DEFAULTS_NAMES[die.tag]
+
+        if raise_if_none:
+            raise ElfParsingError(f"No name available on die {die}")
+        return None
+
+    def _get_die_name_no_none(self, die: DIE, default: Optional[str] = None, nolog: bool = False) -> str:
+        """Read the name of a DIE and throw an exception if no name is available."""
+        name = self._get_die_name(die, default, nolog, raise_if_none=True)
+        assert name is not None
+        return name
+
+    def _has_linkage_name(self, die: DIE) -> bool:
+        """Tells if a DIE has a linkage name"""
+        return self._get_mangled_linkage_name(die) is not None
+
+    def _get_mangled_linkage_name(self, die: DIE) -> Optional[str]:
+        """Return the mangled linkage name of a DIE if one is available. ``None`` if not available."""
+        mangled_encoded: Optional[str] = None
+
+        if Attrs.DW_AT_linkage_name in die.attributes:
+            mangled_encoded = die.attributes[Attrs.DW_AT_linkage_name].value
+
+        if self._context.cu_compiler == Compiler.TI_C28_CGT:
+            if Attrs.DW_AT_MIPS_fde in die.attributes:
+                mangled_encoded = die.attributes[Attrs.DW_AT_MIPS_fde].value
+        else:
+            if Attrs.DW_AT_MIPS_linkage_name in die.attributes:
+                mangled_encoded = die.attributes[Attrs.DW_AT_MIPS_linkage_name].value
+
+        # Tasking compiler encode the mangled name in DW_AT_Name  (-_-)
+        if mangled_encoded is None:
+            if self._context.cu_compiler == Compiler.Tasking:
+                if Attrs.DW_AT_name in die.attributes:
+                    name = cast(bytes, die.attributes[Attrs.DW_AT_name].value).decode('ascii')
+                    if name.startswith('_Z'):   # Speed optimization to avoid invoking the demangler for everything
+                        return name
+
+        if isinstance(mangled_encoded, bytes):
+            return mangled_encoded.decode('ascii')
+
+        if isinstance(mangled_encoded, str):
+            return mangled_encoded
+
+        return None
+
+    def _get_demangled_linkage_name(self, die: DIE) -> Optional[str]:
+        """Get the demangled linkage name of a DIE. Invoke the demangler"""
+        self._log_debug_process_die(die)
+        mangled_name = self._get_mangled_linkage_name(die)
+        if mangled_name is None:
+            return None
+
+        return self.demangler.demangle(mangled_name)
+
+    def _post_process_splitted_demangled_name(self, parts: List[str]) -> List[str]:
+        """To be called on the result of ``split_demangled_name`` to apply some context specific transformation"""
+        if self._context.cu_compiler == Compiler.Tasking:
+            # Tasking do something like that : /static/file1.cpp/_INTERNAL_9_file1_cpp_49335e60/NamespaceInFile1/NamespaceInFile1Nested1/file1StaticNestedVar1
+            return [x for x in parts if not x.startswith('_INTERNAL_')]
+        return parts
+
+    def _is_external(self, die: DIE) -> bool:
+        """Tells if the die is accessible from outside the compile unit. If it is, it's global, otherwise it's static."""
+        try:
+            return bool(die.attributes[Attrs.DW_AT_external].value)
+        except Exception:
+            return False
 
     def _scan_elf_file(self, filename: str) -> None:
         """Reads an ELF file and builds the varmap. Main entry point for scanning"""
@@ -805,7 +810,7 @@ class ElfDwarfVarExtractor:
             self._context.endianess = self._identify_endianness(self._context.arch)
             self._varmap.set_endianness(self._context.endianess)
 
-            self.make_cu_name_map(self.dwarfinfo)
+            self._make_cu_name_map(self.dwarfinfo)
             self.demangler = GccDemangler(self._cppfilt)  # todo : adapt according to compile unit producer
 
             if not self.demangler.can_run():
@@ -818,7 +823,7 @@ class ElfDwarfVarExtractor:
                 die = cu.get_top_DIE()
 
                 # Check if we need to skip the Compile Unit
-                cu_raw_name = cast(str, self.get_name(die, ''))
+                cu_raw_name = cast(str, self._get_die_name(die, ''))
                 if cu_raw_name != '':
                     cu_basename = os.path.basename(cu_raw_name)
                     must_skip = False
@@ -990,7 +995,7 @@ class ElfDwarfVarExtractor:
     def _read_enum_die_name(self, die: DIE) -> str:
         """Reads the name of the enum die"""
         mangled_name: Optional[str] = None
-        name = self.get_name(die, no_tag_default=True)
+        name = self._get_die_name(die, no_tag_default=True)
 
         if name is not None:
             if self._context.cu_compiler in [Compiler.TI_C28_CGT, Compiler.Tasking]:
@@ -1005,11 +1010,11 @@ class ElfDwarfVarExtractor:
         if mangled_name is not None:
             demangled_name = self.demangler.demangle(mangled_name)
             parts = self.split_demangled_name(demangled_name)
-            self.post_process_splitted_demangled_name(parts)
+            self._post_process_splitted_demangled_name(parts)
             name = parts[-1]
 
         if name is None:
-            name = self.get_name_no_none(die)
+            name = self._get_die_name_no_none(die)
 
         return name
 
@@ -1025,13 +1030,13 @@ class ElfDwarfVarExtractor:
                 if child.tag != Tags.DW_TAG_enumerator:
                     continue
 
-                enumerator_name = self.get_name_no_none(child)
+                enumerator_name = self._get_die_name_no_none(child)
                 if self._context.cu_compiler in [Compiler.TI_C28_CGT, Compiler.Tasking]:
                     # cl2000 embeds the full mangled path in the DW_AT_NAME attribute,
                     # ex :_ZN13FileNamespace14File3TestClass3BBBE = FileNamespace::File3TestClass::BBB
                     demangled_name = self.demangler.demangle(enumerator_name)
                     parts = self.split_demangled_name(demangled_name)
-                    parts = self.post_process_splitted_demangled_name(parts)
+                    parts = self._post_process_splitted_demangled_name(parts)
                     enumerator_name = parts[-1]
 
                 if Attrs.DW_AT_const_value in child.attributes:
@@ -1106,7 +1111,7 @@ class ElfDwarfVarExtractor:
         if Attrs.DW_AT_byte_size in die.attributes:  # Can be absent on class with no size (no members, just methods)
             byte_size = int(die.attributes[Attrs.DW_AT_byte_size].value)
 
-        struct = Struct(self.get_name_no_none(die), byte_size=byte_size)
+        struct = Struct(self._get_die_name_no_none(die), byte_size=byte_size)
         is_in_union = die.tag == Tags.DW_TAG_union_type
         for child in die.iter_children():
             if child.tag == Tags.DW_TAG_member:
@@ -1172,7 +1177,7 @@ class ElfDwarfVarExtractor:
             if struct.byte_size is None:
                 raise ElfParsingError(f"Array of elements of unknown size: {die}")
             array_element_type = struct
-            element_type_name = self.get_name_no_none(element_type.type_die)
+            element_type_name = self._get_die_name_no_none(element_type.type_die)
 
         elif element_type.type in (TypeOfVar.BaseType, TypeOfVar.EnumOnly):
             element_type_name = self._process_and_get_basetype_or_enumonly_typename(element_type)
@@ -1280,7 +1285,7 @@ class ElfDwarfVarExtractor:
     def _get_member_from_die(self, die: DIE, is_in_union: bool, allow_dereferencing: bool) -> Optional[Struct.Member]:
         self._log_debug_process_die(die)
 
-        name = self.get_name(die)
+        name = self._get_die_name(die)
         if name is None:
             name = ''
 
@@ -1565,7 +1570,7 @@ class ElfDwarfVarExtractor:
 
     def _register_array_var(self, die: DIE, array: TypedArray, type_desc: TypeDescriptor, location: AbsoluteLocation) -> None:
         if location.is_null():
-            name = self.get_name(die, default="<no-name>")
+            name = self._get_die_name(die, default="<no-name>")
             self._logger.warning(f"Line {get_linenumber()}: Skipping array {name} at location NULL address.")
             self._logger.debug(f"{die}")
             return
@@ -1579,7 +1584,7 @@ class ElfDwarfVarExtractor:
                 path_segments=path_segments_name,
                 location=location,
                 original_type_name=array.element_type_name,
-                enum=self.get_enum_from_type_descriptor(type_desc),
+                enum=self._get_enum_from_type_descriptor(type_desc),
                 array_segments=array_segments.to_varmap_format()
             )
         elif isinstance(array.datatype, Struct):
@@ -1747,7 +1752,7 @@ class ElfDwarfVarExtractor:
                         path_segments=pointer_path_segments,
                         location=ptr_location,
                         original_type_name=typename,
-                        enum=self.get_enum_from_type_descriptor(pointee_typedesc)
+                        enum=self._get_enum_from_type_descriptor(pointee_typedesc)
                     )
                 elif pointee_typedesc.type in (TypeOfVar.Class, TypeOfVar.Struct, TypeOfVar.Union):
                     struct = self._get_composite_type_def(pointee_typedesc.type_die, allow_dereferencing=False)
@@ -1765,7 +1770,7 @@ class ElfDwarfVarExtractor:
                     path_segments=path_segments,
                     location=location,
                     original_type_name=typename,
-                    enum=self.get_enum_from_type_descriptor(type_desc)
+                    enum=self._get_enum_from_type_descriptor(type_desc)
                 )
             elif type_desc.type == TypeOfVar.Subroutine:
                 self._logger.debug(f"Line {get_linenumber()}: Found a variable with a type {type_desc.type.name}. Ignored")
@@ -1790,7 +1795,7 @@ class ElfDwarfVarExtractor:
             type_die = typedef_die.get_DIE_from_attribute(Attrs.DW_AT_type)
             # Any type that can be declared as anonymous
             if type_die.tag in (Tags.DW_TAG_class_type, Tags.DW_TAG_structure_type, Tags.DW_TAG_union_type, Tags.DW_TAG_enumeration_type):
-                is_anonymous = self.get_name(type_die, no_tag_default=True) is None
+                is_anonymous = self._get_die_name(type_die, no_tag_default=True) is None
                 if is_anonymous:
                     self._anonymous_type_typedef_map[type_die] = typedef_die
 
@@ -1810,10 +1815,10 @@ class ElfDwarfVarExtractor:
                 array = self._get_array_def(var_typedesc.type_die, allow_dereferencing=True)
 
         # Check if we have a linkage name. Those are complete and no further scan is required if available.
-        name = self.get_demangled_linkage_name(die)
+        name = self._get_demangled_linkage_name(die)
         if name is not None:
             parts = self.split_demangled_name(name)
-            parts = self.post_process_splitted_demangled_name(parts)
+            parts = self._post_process_splitted_demangled_name(parts)
             for i in range(len(parts) - 1, -1, -1):   # Need to prepend in reverse order to keep the order correct.
                 if array is not None and i == len(parts) - 1:
                     varpath.prepend_segment(name=parts[i], array=array)
@@ -1823,11 +1828,11 @@ class ElfDwarfVarExtractor:
             return varpath
 
         # Try to get the name of the die and use it as a level of the path
-        name = self.get_name(die)
+        name = self._get_die_name(die)
         if name is None:
             if Attrs.DW_AT_specification in die.attributes:
                 spec_die = die.get_DIE_from_attribute(Attrs.DW_AT_specification)
-                name = self.get_name(spec_die)
+                name = self._get_die_name(spec_die)
 
         # There is a name available, we add it to the path and keep going
         if name is not None:
@@ -1845,10 +1850,12 @@ class ElfDwarfVarExtractor:
         """Generate the display path for a die, either from the hierarchy or the linkage name"""
         varpath = self._make_varpath_recursive(die)  # Stops at the compile unit (without including it)
 
-        if self.is_external(die):
+        if self._is_external(die):
             varpath.prepend_segment(self.GLOBAL)
         else:
-            varpath.prepend_segment(self.get_cu_name(die))
+            varpath.prepend_segment(self._get_cu_name(die))
             varpath.prepend_segment(self.STATIC)
 
         return varpath
+
+    #endregion
