@@ -397,7 +397,6 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
                     self._dispatch(request)  # sets pending_request
                     self.entries_in_pending_read_var_request = var_entries_in_request
 
-                wrapped_to_beginning = True
                 if wrapped_to_beginning or self.pending_request is None:
                     self.actual_read_type = ReadType.RuntimePublishedValues
 
