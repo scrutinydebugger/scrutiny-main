@@ -490,7 +490,7 @@ class DataloggingManager:
             entry2signal_map[entry_to_log] = signal_index   # Remember what signal comes from what datastore entry
             entry2signal_map[signal.entry] = signal_index   # Remember what signal comes from what datastore entry
 
-        # Purposely add time at the end. It wi
+        # Purposely add time at the end.
         if request.x_axis_type == api_datalogging.XAxisType.MeasuredTime:
             config.add_signal(device_datalogging.TimeLoggableSignal())
 
