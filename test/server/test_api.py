@@ -1247,6 +1247,7 @@ class TestAPI(ScrutinyUnitTest):
 
         self.send_request(unsubscribe_cmd, 0)
         response = self.wait_and_load_response(0)
+        self.assertEqual(response['cmd'], 'response_unsubscribe_watchable')
         self.assert_no_error(response)
 
         self.datastore.set_value(subscribed_entry.get_id(), 1111)

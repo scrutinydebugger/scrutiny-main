@@ -18,7 +18,6 @@ __all__ = [
 import os
 import enum
 import logging
-import queue
 import math
 from dataclasses import dataclass
 import functools
@@ -839,7 +838,7 @@ class API:
             self.datastore.stop_watching(entry, watcher=conn_id)
 
         response: api_typing.S2C.UnsubscribeWatchable = {
-            'cmd': self.Command.Api2Client.SUBSCRIBE_WATCHABLE_RESPONSE,
+            'cmd': self.Command.Api2Client.UNSUBSCRIBE_WATCHABLE_RESPONSE,
             'reqid': self.get_req_id(req),
             'unsubscribed': req['watchables']
         }
@@ -951,7 +950,6 @@ class API:
 
         if chunk_size <= 0:
             raise ValueError("Internal Error. Bad chunk size")
-        chunk_size = 100
 
         if filesize == 0:
             raise InvalidRequestException(req, "SFD file is invalid")
@@ -959,8 +957,6 @@ class API:
         req_id = self.get_req_id(req)
 
         max_chunk_count = getattr(self, '_UNITTEST_DOWNLOAD_SFD_MAX_CHUNK_COUNT', 0)
-
-        tmp = tempfile.TemporaryFile()
 
         def send_task() -> None:
             try:
@@ -1448,7 +1444,7 @@ class API:
         field: FieldType
         for field in required_fileds:
             if field not in req:
-                raise InvalidRequestException(req, "Missing field %s in request" % field)
+                raise InvalidRequestException(req, f"Missing field {field} in request")
 
             expected_type = required_fileds[field]
             if expected_type is float and isinstance(req[field], int):
@@ -1457,7 +1453,7 @@ class API:
             if expected_type is int and isinstance(req[field], float):
                 assert isinstance(req[field], float)
                 if int(req[field]) - req[field] != 0:   # type:ignore
-                    raise InvalidRequestException(req, 'Field %s must be an integer' % field)
+                    raise InvalidRequestException(req, f'Field {field} must be an integer')
                 req[field] = int(req[field])    # type:ignore
 
             if not isinstance(req[field], expected_type):
@@ -1475,22 +1471,22 @@ class API:
             raise InvalidRequestException(req, 'timeout must be a positive value or zero')
 
         if req['timeout'] > self.DATALOGGING_MAX_TIMEOUT:
-            raise InvalidRequestException(req, 'timeout must be smaller than %ds' % int(self.DATALOGGING_MAX_TIMEOUT))
+            raise InvalidRequestException(req, f'timeout must be smaller than {int(self.DATALOGGING_MAX_TIMEOUT)}s')
 
         if req['trigger_hold_time'] < 0:
             raise InvalidRequestException(req, 'trigger_hold_time must be a positive value or zero')
 
         if req['trigger_hold_time'] > self.DATALOGGING_MAX_HOLD_TIME:
-            raise InvalidRequestException(req, 'trigger_hold_time must be a smaller than %ds' % int(self.DATALOGGING_MAX_HOLD_TIME))
+            raise InvalidRequestException(req, f'trigger_hold_time must be a smaller than {int(self.DATALOGGING_MAX_HOLD_TIME)}s')
 
         if req['probe_location'] < 0 or req['probe_location'] > 1:
             raise InvalidRequestException(req, 'probe_location must be a value between 0 and 1')
 
         if req['condition'] not in self.datalogging_supported_conditions.keys():
-            raise InvalidRequestException(req, 'Unknown trigger condition %s')
+            raise InvalidRequestException(req, f'Unknown trigger condition {req['condition']}')
 
         if len(req['operands']) != self.datalogging_supported_conditions[req['condition']].nb_operands:
-            raise InvalidRequestException(req, 'Bad number of condition operands for condition %s' % req['condition'])
+            raise InvalidRequestException(req, f'Bad number of condition operands for condition {req['condition']}')
 
         axis_type_map = {
             "index": api_datalogging.XAxisType.Indexed,
@@ -1902,7 +1898,7 @@ class API:
         self.client_handler.send(ClientHandlerMessage(conn_id=conn_id, obj=response))
 
     # === GET_SERVER_STATS ===
-    def process_server_stats(self, conn_id: str, req: api_typing.C2S.ReadDataloggingAcquisitionContent) -> None:
+    def process_server_stats(self, conn_id: str, req: api_typing.C2S.GetServerStats) -> None:
         stats = self.server.get_stats()
         response: api_typing.S2C.GetServerStats = {
             'cmd': API.Command.Api2Client.GET_SERVER_STATS,
