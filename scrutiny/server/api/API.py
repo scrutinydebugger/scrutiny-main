@@ -1483,10 +1483,10 @@ class API:
             raise InvalidRequestException(req, 'probe_location must be a value between 0 and 1')
 
         if req['condition'] not in self.datalogging_supported_conditions.keys():
-            raise InvalidRequestException(req, f'Unknown trigger condition {req['condition']}')
+            raise InvalidRequestException(req, f'Unknown trigger condition {req["condition"]}')
 
         if len(req['operands']) != self.datalogging_supported_conditions[req['condition']].nb_operands:
-            raise InvalidRequestException(req, f'Bad number of condition operands for condition {req['condition']}')
+            raise InvalidRequestException(req, f'Bad number of condition operands for condition {req["condition"]}')
 
         axis_type_map = {
             "index": api_datalogging.XAxisType.Indexed,

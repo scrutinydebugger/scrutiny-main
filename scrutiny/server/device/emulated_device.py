@@ -13,8 +13,7 @@ __all__ = [
     'RPVValuePair',
     'EmulatedTimebase',
     'DataloggerEmulator',
-    'EmulatedDevice',
-    'UnitTestEmulatedDevice'
+    'EmulatedDevice'
 ]
 
 import struct
