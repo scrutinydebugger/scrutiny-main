@@ -16,7 +16,7 @@ __all__ = [
 ]
 
 from enum import Enum
-from abc import abstractmethod
+from abc import abstractmethod, ABC
 
 from scrutiny.core.basic_types import *
 import scrutiny.server.datalogging.definitions.device as device_datalogging
@@ -29,7 +29,7 @@ class ExecLoopType(Enum):
     VARIABLE_FREQ = 1
 
 
-class ExecLoop:
+class ExecLoop(ABC):
     __slots__ = ('name', 'support_datalogging')
     name: str
     support_datalogging: bool
@@ -68,6 +68,7 @@ class FixedFreqLoop(ExecLoop):
 
 
 class VariableFreqLoop(ExecLoop):
+    __slots__ = ()
 
     def __init__(self, name: str, support_datalogging: bool = True):
         super().__init__(name, support_datalogging)

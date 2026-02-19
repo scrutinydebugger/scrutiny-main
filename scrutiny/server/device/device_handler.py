@@ -181,6 +181,9 @@ class DeviceHandler:
     """Counter to keep track of how many device the server has connected to"""
     _demo_device: Optional[DemoDevice]
     """A fake device that runs in a separate thread used for demonstrating the GUI or the SDK"""
+    device_display_name:Optional[str]
+    """The display name given by the device during the handshake"""
+
 
     DEFAULT_PARAMS: DeviceHandlerConfig = {
         'response_timeout': 1.0,    # If a response take more than this delay to be received after a request is sent, drop the response.
@@ -296,6 +299,7 @@ class DeviceHandler:
         self.expect_no_timeout = False  # Unit tests will set this to True
         self.device_session_count = 0
         self._demo_device = None
+        self.comm_broken_count = 0
 
         if 'link_type' in self.config and 'link_config' in self.config:
             self.configure_comm(self.config['link_type'], self.config['link_config'])
@@ -400,7 +404,7 @@ class DeviceHandler:
             raise ValueError("Invalid subfunction")
 
         if len(data) > self.device_info.max_rx_data_size:
-            raise ValueError("The given does not fit in the device rexeice buffer")
+            raise ValueError("The given data does not fit in the device receive buffer")
 
         def success_callback(request: Request, response: Response, *args: Any, **kwargs: Any) -> None:
             assert request.subfn == response.subfn  # We trust the Dispatcher to match them
@@ -575,8 +579,8 @@ class DeviceHandler:
         self.disconnection_requested = False
         self.disconnect_callback = None
         self.disconnect_complete = False
-        self.comm_broken_count = 0
         self.fully_connected_ready = False
+        self.device_display_name = None
         self.comm_handler.reset()
         self.protocol.set_address_size_bits(self.config['default_address_size'])  # Set back the protocol to decode addresses of this size.
         (major, minor) = self.config['default_protocol_version'].split('.')
@@ -624,8 +628,6 @@ class DeviceHandler:
 
     def process(self) -> None:
         """To be called periodically"""
-        previous_datalogging_data = self.datalogging_poller.get_state_and_completion_ratio()
-
         self.device_searcher.process()
         self.heartbeat_generator.process()
         self.info_poller.process()
@@ -743,6 +745,7 @@ class DeviceHandler:
         # ============= [DISCOVERING] =====================
         elif self.fsm_state == self.FsmState.DISCOVERING:
             if state_entry:
+                self.device_display_name=None
                 self.device_searcher.start()
 
             if self.device_searcher.device_found():
