@@ -25,6 +25,10 @@ from scrutiny import tools
 from scrutiny.tools.typing import *
 
 
+class ProtocolParsingError(Exception):
+    pass
+
+
 class Protocol:
     version_major: int
     version_minor: int
@@ -97,7 +101,7 @@ class Protocol:
 
     def set_version(self, major: int, minor: int) -> None:
         if not isinstance(major, int) or not isinstance(minor, int):
-            raise ValueError('Version major and minor number must be a valid integer.')
+            raise TypeError('Version major and minor number must be a valid integer.')
 
         if major == 999 and minor == 123:
             pass  # Special version for unit test
@@ -231,7 +235,7 @@ class Protocol:
             mem_data = block[1]
             mask = block[2]
             if len(mem_data) != len(mask):
-                raise Exception('Length of mask must match length of data')
+                raise ValueError('Length of mask must match length of data')
             data += self.encode_address(addr) + pack('>H', len(mem_data)) + bytes(mem_data) + bytes(mask)
         return Request(cmd.MemoryControl, cmd.MemoryControl.Subfunction.WriteMasked, data, response_payload_size=(self.get_address_size_bytes() + 2) * len(block_list))
 
@@ -242,7 +246,7 @@ class Protocol:
         expected_response_size = 0
         for id in ids:
             if id not in self.rpv_map:
-                raise Exception('Unknown RuntimePublishedValue ID 0x%x' % id)
+                raise KeyError('Unknown RuntimePublishedValue ID 0x%x' % id)
             rpv = self.rpv_map[id]
             typesize = rpv.datatype.get_size_byte()
             assert typesize is not None
@@ -259,7 +263,7 @@ class Protocol:
         data = bytes()
         for id, val in values:
             if id not in self.rpv_map:
-                raise Exception('Unknown RuntimePublishedValue ID %s' % id)
+                raise KeyError('Unknown RuntimePublishedValue ID %s' % id)
             rpv = self.rpv_map[id]
             codec = Codecs.get(rpv.datatype, Endianness.Big)
             data += pack('>H', id)
@@ -416,7 +420,7 @@ class Protocol:
                     data = cast(protocol_typing.Request.MemoryControl.Read, data)
                     block_size = (2 + self.get_address_size_bytes())
                     if len(req.payload) % block_size != 0:
-                        raise Exception(
+                        raise ProtocolParsingError(
                             'Request data length is not a multiple of %d bytes (address[%d] + length[2])' % (block_size, self.get_address_size_bytes()))
                     nblock = int(len(req.payload) / block_size)
                     data['blocks_to_read'] = []
@@ -433,11 +437,11 @@ class Protocol:
                     index = 0
                     while True:
                         if len(req.payload) < index + address_length_size:
-                            raise Exception('Invalid request data, missing data')
+                            raise ProtocolParsingError('Invalid request data, missing data')
 
                         addr, length = unpack('>' + c + 'H', req.payload[(index + 0):(index + address_length_size)])
                         if len(req.payload) < index + address_length_size + length:
-                            raise Exception('Data length and encoded length mismatch for address 0x%x' % addr)
+                            raise ProtocolParsingError('Data length and encoded length mismatch for address 0x%x' % addr)
 
                         req_data = req.payload[(index + address_length_size):(index + address_length_size + length)]
                         data['blocks_to_write'].append(dict(address=addr, data=req_data))
@@ -454,11 +458,11 @@ class Protocol:
                     index = 0
                     while True:
                         if len(req.payload) < index + address_length_size:
-                            raise Exception('Invalid request data, missing data')
+                            raise ProtocolParsingError('Invalid request data, missing data')
 
                         addr, length = unpack('>' + c + 'H', req.payload[(index + 0):(index + address_length_size)])
                         if len(req.payload) < index + address_length_size + 2 * length:   # 2x length because of mask
-                            raise Exception('Data length and encoded length mismatch for address 0x%x' % addr)
+                            raise ProtocolParsingError('Data length and encoded length mismatch for address 0x%x' % addr)
 
                         req_data = req.payload[(index + address_length_size):(index + address_length_size + length)]
                         req_mask = req.payload[(index + address_length_size + length):(index + address_length_size + 2 * length)]
@@ -472,7 +476,7 @@ class Protocol:
                     data = cast(protocol_typing.Request.MemoryControl.ReadRPV, data)
                     data['rpvs_id'] = []
                     if len(req.payload) % 2 != 0:
-                        raise Exception('Invalid payload length')
+                        raise ProtocolParsingError('Invalid payload length')
 
                     nbids = len(req.payload) // 2
                     for i in range(nbids):
@@ -488,7 +492,7 @@ class Protocol:
                         id = unpack('>H', req.payload[cursor:cursor + 2])[0]
                         cursor += 2
                         if id not in self.rpv_map:
-                            raise Exception('Request requires to decode RPV with ID %s which is unknown' % id)
+                            raise ProtocolParsingError('Request requires to decode RPV with ID %s which is unknown' % id)
 
                         rpv = self.rpv_map[id]
                         codec = Codecs.get(rpv.datatype, Endianness.Big)
@@ -504,7 +508,7 @@ class Protocol:
 
                 if subfn == cmd.DatalogControl.Subfunction.ConfigureDatalog:
                     if len(req.payload) < 16:
-                        raise ValueError("Not enough data")
+                        raise ProtocolParsingError("Not enough data")
 
                     data['loop_id'] = req.payload[0]
                     data['config_id'] = unpack('>H', req.payload[1:3])[0]
@@ -514,7 +518,7 @@ class Protocol:
                     config.timeout = float(unpack('>L', req.payload[6:10])[0]) / 1.0e7
                     condition_id = req.payload[10]
                     if condition_id not in [v.value for v in device_datalogging.TriggerConditionID]:
-                        raise ValueError('Unknown condition ID %d' % condition_id)
+                        raise ProtocolParsingError('Unknown condition ID %d' % condition_id)
                     config.trigger_condition.condition_id = device_datalogging.TriggerConditionID(condition_id)
                     config.trigger_hold_time = float(unpack('>L', req.payload[11:15])[0]) / 1.0e7
 
@@ -522,43 +526,43 @@ class Protocol:
                     cursor = 16
                     for i in range(operand_count):
                         if len(req.payload) < cursor:
-                            raise ValueError('Not enough data. cursor = %d' % cursor)
+                            raise ProtocolParsingError('Not enough data. cursor = %d' % cursor)
                         operand_type_id = req.payload[cursor]
                         cursor += 1
                         if operand_type_id not in [v.value for v in device_datalogging.OperandType]:
-                            raise ValueError('Unknown operand type %d' % operand_type_id)
+                            raise ProtocolParsingError('Unknown operand type %d' % operand_type_id)
 
                         operand_type = device_datalogging.OperandType(operand_type_id)
                         operand: device_datalogging.Operand
                         if operand_type == device_datalogging.OperandType.Literal:
                             if len(req.payload) < cursor + 4:
-                                raise ValueError('Not enough data for operand #%d (Literal). Cursor = %d' % (i, cursor))
+                                raise ProtocolParsingError('Not enough data for operand #%d (Literal). Cursor = %d' % (i, cursor))
                             operand = device_datalogging.LiteralOperand(value=unpack('>f', req.payload[cursor:cursor + 4])[0])
                             cursor += 4
                         elif operand_type == device_datalogging.OperandType.RPV:
                             if len(req.payload) < cursor + 2:
-                                raise ValueError('Not enough data for operand #%d (RPV). Cursor = %d' % (i, cursor))
+                                raise ProtocolParsingError('Not enough data for operand #%d (RPV). Cursor = %d' % (i, cursor))
                             operand = device_datalogging.RPVOperand(rpv_id=unpack('>H', req.payload[cursor:cursor + 2])[0])
                             cursor += 2
 
                         elif operand_type == device_datalogging.OperandType.Var:
                             if len(req.payload) < cursor + 1 + self.get_address_size_bytes():
-                                raise ValueError('Not enough data for operand #%d (Var). Cursor = %d' % (i, cursor))
+                                raise ProtocolParsingError('Not enough data for operand #%d (Var). Cursor = %d' % (i, cursor))
                             datatype_id = req.payload[cursor]
                             cursor += 1
                             if datatype_id not in [v.value for v in EmbeddedDataType]:
-                                raise ValueError("Unknown datatype for operand #%d (Var). Cursor=%d" % (i, cursor))
+                                raise ProtocolParsingError("Unknown datatype for operand #%d (Var). Cursor=%d" % (i, cursor))
                             datatype = EmbeddedDataType(datatype_id)
                             address = self.decode_address(req.payload[cursor:cursor + self.get_address_size_bytes()])
                             cursor += self.get_address_size_bytes()
                             operand = device_datalogging.VarOperand(address=address, datatype=datatype)
                         elif operand_type == device_datalogging.OperandType.VarBit:
                             if len(req.payload) < cursor + 1 + self.get_address_size_bytes() + 1 + 1:
-                                raise ValueError('Not enough data for operand #%d (VarBit). Cursor = %d' % (i, cursor))
+                                raise ProtocolParsingError('Not enough data for operand #%d (VarBit). Cursor = %d' % (i, cursor))
                             datatype_id = req.payload[cursor]
                             cursor += 1
                             if datatype_id not in [v.value for v in EmbeddedDataType]:
-                                raise ValueError("Unknown datatype for operand #%d (VarBit). Cursor=%d" % (i, cursor))
+                                raise ProtocolParsingError("Unknown datatype for operand #%d (VarBit). Cursor=%d" % (i, cursor))
                             datatype = EmbeddedDataType(datatype_id)
                             address = self.decode_address(req.payload[cursor:cursor + self.get_address_size_bytes()])
                             cursor += self.get_address_size_bytes()
@@ -568,28 +572,28 @@ class Protocol:
                             cursor += 1
                             operand = device_datalogging.VarBitOperand(address=address, datatype=datatype, bitoffset=bitoffset, bitsize=bitsize)
                         else:
-                            raise NotImplementedError('Unsupported Operand Type %s' % operand_type)
+                            raise ProtocolParsingError('Unsupported Operand Type %s' % operand_type)
 
                         config.trigger_condition.operands.append(operand)
 
                     if len(req.payload) < cursor:
-                        raise ValueError('Not enough data to read the signal count. cursor = %d' % cursor)
+                        raise ProtocolParsingError('Not enough data to read the signal count. cursor = %d' % cursor)
                     signal_count = req.payload[cursor]
                     cursor += 1
 
                     for i in range(signal_count):
                         if len(req.payload) < cursor:
-                            raise ValueError('Not enough data to read the signal count. cursor = %d' % cursor)
+                            raise ProtocolParsingError('Not enough data to read the signal count. cursor = %d' % cursor)
                         signal_type_id = req.payload[cursor]
                         cursor += 1
                         if signal_type_id not in [v.value for v in device_datalogging.LoggableSignalType]:
-                            raise ValueError("Unknown signal type for signal #%d. Cursor=%d" % (i, cursor))
+                            raise ProtocolParsingError("Unknown signal type for signal #%d. Cursor=%d" % (i, cursor))
                         signal_type = device_datalogging.LoggableSignalType(signal_type_id)
 
                         signal: device_datalogging.LoggableSignal
                         if signal_type == device_datalogging.LoggableSignalType.MEMORY:
                             if len(req.payload) < cursor + self.get_address_size_bytes() + 1:
-                                raise ValueError('Not enough data for signal #%d (%s). Cursor = %d' % (i, signal_type.name, cursor))
+                                raise ProtocolParsingError('Not enough data for signal #%d (%s). Cursor = %d' % (i, signal_type.name, cursor))
                             address = self.decode_address(req.payload[cursor:cursor + self.get_address_size_bytes()])
                             cursor += self.get_address_size_bytes()
                             memory_size = req.payload[cursor]
@@ -597,14 +601,14 @@ class Protocol:
                             signal = device_datalogging.MemoryLoggableSignal(address=address, size=memory_size)
                         elif signal_type == device_datalogging.LoggableSignalType.RPV:
                             if len(req.payload) < cursor + 2:
-                                raise ValueError('Not enough data for signal #%d (%s). Cursor = %d' % (i, signal_type.name, cursor))
+                                raise ProtocolParsingError('Not enough data for signal #%d (%s). Cursor = %d' % (i, signal_type.name, cursor))
                             rpv_id = unpack('>H', req.payload[cursor:cursor + 2])[0]
                             cursor += 2
                             signal = device_datalogging.RPVLoggableSignal(rpv_id=rpv_id)
                         elif signal_type == device_datalogging.LoggableSignalType.TIME:
                             signal = device_datalogging.TimeLoggableSignal()
                         else:
-                            raise NotImplementedError('Unsupported signal type %s' % (signal_type.name))
+                            raise ProtocolParsingError('Unsupported signal type %s' % (signal_type.name))
 
                         config.add_signal(signal)
                     data['config'] = config
@@ -639,7 +643,6 @@ class Protocol:
 
 
 # ======================== Response =================
-
 
     def respond_not_ok(self, req: Request, code: Union[int, Enum]) -> Response:
         return Response(req.command, req.subfn, Response.ResponseCode(code))
@@ -724,7 +727,7 @@ class Protocol:
 
     def respond_comm_discover(self, firmware_id: Union[bytes, List[int], bytearray], display_name: str) -> Response:
         if len(display_name) > 64:
-            raise Exception('Display name too long.')
+            raise ValueError('Display name too long.')
 
         resp_data = bytes([self.version_major, self.version_minor]) + bytes(firmware_id) + bytes([len(display_name)]) + display_name.encode('utf8')
         return Response(cmd.CommControl, cmd.CommControl.Subfunction.Discover, Response.ResponseCode.OK, resp_data)
@@ -796,7 +799,7 @@ class Protocol:
         data = bytes()
         for id, val in vals:
             if id not in self.rpv_map:
-                raise Exception('Unknown RuntimePublishedValue ID %s' % id)
+                raise KeyError('Unknown RuntimePublishedValue ID %s' % id)
 
             rpv = self.rpv_map[id]
             codec = Codecs.get(rpv.datatype, Endianness.Big)
@@ -811,7 +814,7 @@ class Protocol:
         data = bytes()
         for id in ids:
             if id not in self.rpv_map:
-                raise Exception('Unknown RuntimePublishedValue ID %s' % id)
+                raise KeyError('Unknown RuntimePublishedValue ID %s' % id)
             rpv = self.rpv_map[id]
             data += pack('>HB', id, rpv.datatype.get_size_byte())
 
@@ -913,7 +916,7 @@ class Protocol:
                         data = cast(protocol_typing.Response.GetInfo.GetRuntimePublishedValuesDefinition, data)
                         n = 3   # 3 bytes per RPV
                         if len(response.payload) % n != 0:
-                            raise Exception('Invalid payload length for GetRuntimePublishedValuesDefinition')
+                            raise ProtocolParsingError('Invalid payload length for GetRuntimePublishedValuesDefinition')
                         data['rpvs'] = []
 
                         nbr_rpv = len(response.payload) // n
@@ -941,12 +944,12 @@ class Protocol:
                         elif loop_type == ExecLoopType.VARIABLE_FREQ:
                             pass
                         else:
-                            raise NotImplementedError('Unknown loop type')
+                            raise ProtocolParsingError('Unknown loop type')
 
                         namelength = response.payload[cursor]
                         cursor += 1
                         if namelength > 32:
-                            raise ValueError('Name length should be 32 bytes long or less')
+                            raise ProtocolParsingError('Name length should be 32 bytes long or less')
                         name = response.payload[cursor:cursor + namelength].decode('utf8')
 
                         loop: ExecLoop
@@ -955,7 +958,7 @@ class Protocol:
                         elif loop_type == ExecLoopType.VARIABLE_FREQ:
                             loop = VariableFreqLoop(name, support_datalogging=support_datalogging)
                         else:
-                            raise NotImplementedError('Unknown loop type')
+                            raise ProtocolParsingError('Unknown loop type')
                         data['loop'] = loop
 
                 elif response.command == cmd.MemoryControl:
@@ -967,11 +970,11 @@ class Protocol:
                         addr_size = self.get_address_size_bytes()
                         while True:
                             if len(response.payload[index:]) < addr_size + 2:
-                                raise Exception('Incomplete response payload')
+                                raise ProtocolParsingError('Incomplete response payload')
                             c = self.address_format.get_pack_char()
                             addr, length = unpack('>' + c + 'H', response.payload[(index + 0):(index + addr_size + 2)])
                             if len(response.payload[(index + addr_size + 2):]) < length:
-                                raise Exception('Invalid data length')
+                                raise ProtocolParsingError('Invalid data length')
                             memory_data = response.payload[(index + addr_size + 2):(index + addr_size + 2 + length)]
                             data['read_blocks'].append(dict(address=addr, data=memory_data))
                             index += addr_size + 2 + length
@@ -986,7 +989,7 @@ class Protocol:
                         addr_size = self.get_address_size_bytes()
                         while True:
                             if len(response.payload[index:]) < addr_size + 2:
-                                raise Exception('Incomplete response payload')
+                                raise ProtocolParsingError('Incomplete response payload')
                             c = self.address_format.get_pack_char()
                             addr, length = unpack('>' + c + 'H', response.payload[(index + 0):(index + addr_size + 2)])
                             data['written_blocks'].append(dict(address=addr, length=length))
@@ -1002,17 +1005,17 @@ class Protocol:
                         cursor = 0
                         while cursor < len(response.payload):
                             if len(response.payload) - cursor < 2:
-                                raise Exception('Invalid data length')
+                                raise ProtocolParsingError('Invalid data length')
 
                             id, = unpack('>H', response.payload[cursor:cursor + 2])
                             cursor += 2
                             if id not in self.rpv_map:
-                                raise Exception('Unknown RuntimePublishedValue of ID 0x%x' % id)
+                                raise ProtocolParsingError('Unknown RuntimePublishedValue of ID 0x%x' % id)
                             rpv = self.rpv_map[id]
                             typesize = rpv.datatype.get_size_byte()
                             assert typesize is not None
                             if len(response.payload) - cursor < typesize:
-                                raise Exception('Incomplete data for RPV with ID 0x%x' % id)
+                                raise ProtocolParsingError('Incomplete data for RPV with ID 0x%x' % id)
 
                             codec = Codecs.get(rpv.datatype, Endianness.Big)
                             val = codec.decode(response.payload[cursor:cursor + typesize])
@@ -1025,7 +1028,7 @@ class Protocol:
                         cursor = 0
                         while cursor < len(response.payload):
                             if len(response.payload) - cursor < 3:
-                                raise Exception('Invalid data length')
+                                raise ProtocolParsingError('Invalid data length')
                             id, size = unpack('>HB', response.payload[cursor:cursor + 3])
                             cursor += 3
                             data['written_rpv'].append(dict(id=id, size=size))
@@ -1036,12 +1039,13 @@ class Protocol:
                     if subfn == cmd.DatalogControl.Subfunction.GetSetup:
                         data = cast(protocol_typing.Response.DatalogControl.GetSetup, data)
                         if len(response.payload) != 6:
-                            raise ValueError('Not the right amount of data for a GetSetup response. Got %d expected %d' % (len(response.payload), 5))
+                            raise ProtocolParsingError(
+                                'Not the right amount of data for a GetSetup response. Got %d expected %d' % (len(response.payload), 5))
 
                         data['buffer_size'] = unpack('>L', response.payload[0:4])[0]
                         encoding_code = response.payload[4]
                         if encoding_code not in [v.value for v in device_datalogging.Encoding]:
-                            raise ValueError('Unknown encoding %d' % encoding_code)
+                            raise ProtocolParsingError('Unknown encoding %d' % encoding_code)
 
                         data['encoding'] = device_datalogging.Encoding(encoding_code)
                         data['max_signal_count'] = response.payload[5]
@@ -1049,12 +1053,12 @@ class Protocol:
                         data = cast(protocol_typing.Response.DatalogControl.GetStatus, data)
                         expected_size = 1 + 4 + 4
                         if len(response.payload) != expected_size:
-                            raise ValueError('Not the right amount of data for a GetStatus response. Got %d expected %d' %
-                                             (len(response.payload), expected_size))
+                            raise ProtocolParsingError('Not the right amount of data for a GetStatus response. Got %d expected %d' %
+                                                       (len(response.payload), expected_size))
 
                         state_code, remaining_bytes, write_counter = unpack('>BLL', response.payload)
                         if state_code not in [v.value for v in device_datalogging.DataloggerState]:
-                            raise ValueError('Unknown datalogger status code %d' % state_code)
+                            raise ProtocolParsingError('Unknown datalogger status code %d' % state_code)
 
                         data['state'] = device_datalogging.DataloggerState(state_code)
                         data['remaining_byte_from_trigger_to_complete'] = remaining_bytes
@@ -1062,8 +1066,8 @@ class Protocol:
                     elif subfn == cmd.DatalogControl.Subfunction.GetAcquisitionMetadata:
                         data = cast(protocol_typing.Response.DatalogControl.GetAcquisitionMetadata, data)
                         if len(response.payload) != 16:
-                            raise ValueError('Not the right amount of data for a GetAcquisitionMetadata response. Got %d expected %d' %
-                                             (len(response.payload), 16))
+                            raise ProtocolParsingError('Not the right amount of data for a GetAcquisitionMetadata response. Got %d expected %d' %
+                                                       (len(response.payload), 16))
 
                         data['acquisition_id'] = unpack('>H', response.payload[0:2])[0]
                         data['config_id'] = unpack('>H', response.payload[2:4])[0]
@@ -1073,8 +1077,8 @@ class Protocol:
                     elif subfn == cmd.DatalogControl.Subfunction.ReadAcquisition:
                         data = cast(protocol_typing.Response.DatalogControl.ReadAcquisition, data)
                         if len(response.payload) < 8:
-                            raise ValueError('Not enough data for a GetAcquisitionMetadata response. Got %d expected at least %d' %
-                                             (len(response.payload), 8))
+                            raise ProtocolParsingError('Not enough data for a GetAcquisitionMetadata response. Got %d expected at least %d' %
+                                                       (len(response.payload), 8))
 
                         data['finished'] = response.payload[0] != 0
                         data['rolling_counter'] = response.payload[1]
@@ -1093,7 +1097,7 @@ class Protocol:
                         data = cast(protocol_typing.Response.CommControl.Discover, data)
                         firmware_id_size = 16
                         if len(response.payload) < 1 + 1 + firmware_id_size + 1:    # proto_maj, proto_min + firmware_id + name_length
-                            raise Exception('Incomplete payload.')
+                            raise ProtocolParsingError('Incomplete payload.')
 
                         data['protocol_major'] = int(response.payload[0])
                         data['protocol_minor'] = int(response.payload[1])
@@ -1101,7 +1105,7 @@ class Protocol:
                         display_name_length = int(response.payload[2 + firmware_id_size])
                         name_position = 1 + 1 + firmware_id_size + 1
                         if len(response.payload) < name_position + display_name_length:
-                            raise Exception('Display name is incomplete according to length provided')
+                            raise ProtocolParsingError('Display name is incomplete according to length provided')
 
                         data['display_name'] = response.payload[name_position:name_position + display_name_length].decode('utf8')
 
@@ -1127,7 +1131,6 @@ class Protocol:
             except Exception as e:
                 tools.log_exception(self.logger, e, "Failed to parse the response")
                 valid = False
-                raise
 
         if not valid:
             raise InvalidResponseException(response, 'Could not properly decode response payload.')

@@ -31,7 +31,7 @@ class BaseCommand(ABC):
     def from_command_id(cls, given_id: int) -> Type["BaseCommand"]:
         """Returns the Command class associated with the given command ID"""
         given_id &= 0x7F
-        for name, obj in inspect.getmembers(sys.modules[__name__]):
+        for _, obj in inspect.getmembers(sys.modules[__name__]):
             if hasattr(obj, "__bases__") and cls in obj.__bases__:
                 if obj.request_id() == given_id:
                     return cast(Type["BaseCommand"], obj)

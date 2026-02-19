@@ -31,11 +31,11 @@ class Cluster:
     def data(self) -> bytes:
         return self.read(0, self.size)
 
-    def __init__(self, 
-                 start_addr: int, 
-                 size: int = 0, 
-                 has_data: bool = True, 
-                 data: Optional[Union[bytes, bytearray]] = None ) -> None:
+    def __init__(self,
+                 start_addr: int,
+                 size: int = 0,
+                 has_data: bool = True,
+                 data: Optional[Union[bytes, bytearray]] = None) -> None:
         if data is None:
             data = bytearray()
         self.start_addr = start_addr
@@ -137,7 +137,7 @@ class Cluster:
                 stop = self.size
             if stop < 0:
                 stop = self.size + stop
-            
+
             start = 0
             if key.start is not None:
                 start = key.start

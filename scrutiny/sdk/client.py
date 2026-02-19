@@ -2279,7 +2279,7 @@ class ScrutinyClient:
         if future.state != CallbackState.OK or cb_data.obj is None:
             raise sdk.exceptions.OperationFailure(f"Failed to read the device memory. {future.error_str}")
 
-        remaining_time = max(0, timeout - (time.monotonic()-time_start))
+        remaining_time = max(0, timeout - (time.monotonic() - time_start))
         request_token = cb_data.obj
 
         t = time.perf_counter()

@@ -237,7 +237,8 @@ class DataloggingAcquisition:
             trigger_val = []
             if self.trigger_index is not None:
                 trigger_val = [0 if i < self.trigger_index else 1]
-            writer.writerow([self.xdata.data[i]] + [ydata.series.data[i] if i <= len(ydata.series.data) else None for ydata in self.ydata] + trigger_val)
+            writer.writerow([self.xdata.data[i]] + [ydata.series.data[i] if i <=
+                            len(ydata.series.data) else None for ydata in self.ydata] + trigger_val)
 
     def to_csv(self, filename: str) -> None:
         """Export a :class:`DataloggingAcquisition<scrutiny.core.datalogging.DataloggingAcquisition>` content to a csv file

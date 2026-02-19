@@ -181,9 +181,8 @@ class DeviceHandler:
     """Counter to keep track of how many device the server has connected to"""
     _demo_device: Optional[DemoDevice]
     """A fake device that runs in a separate thread used for demonstrating the GUI or the SDK"""
-    device_display_name:Optional[str]
+    device_display_name: Optional[str]
     """The display name given by the device during the handshake"""
-
 
     DEFAULT_PARAMS: DeviceHandlerConfig = {
         'response_timeout': 1.0,    # If a response take more than this delay to be received after a request is sent, drop the response.
@@ -745,7 +744,7 @@ class DeviceHandler:
         # ============= [DISCOVERING] =====================
         elif self.fsm_state == self.FsmState.DISCOVERING:
             if state_entry:
-                self.device_display_name=None
+                self.device_display_name = None
                 self.device_searcher.start()
 
             if self.device_searcher.device_found():

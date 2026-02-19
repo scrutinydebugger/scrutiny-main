@@ -1450,7 +1450,6 @@ class API:
             if expected_type is float and isinstance(req[field], int):
                 req[field] = float(req[field])  # type:ignore
 
-
             if expected_type is int and isinstance(req[field], float):
                 assert isinstance(req[field], float)
                 if int(req[field]) - req[field] != 0:   # type:ignore

@@ -518,11 +518,10 @@ class ElfDwarfVarExtractor:
     """List of parsing errors we got"""
     _context: Context
     """The context object passed down during the recursive search stage of a compile unit scanning. Contains info such has compiler, architecture, endianness, etc."""
-    _dwarfinfo:DWARFInfo
+    _dwarfinfo: DWARFInfo
     """The dwarf info of the file being scanned"""
-    _demangler:BaseDemangler
+    _demangler: BaseDemangler
     """The demangler to use while scanning"""
-
 
     def __init__(self, filename: str,
                  cppfilt: Optional[str] = None,
@@ -1261,13 +1260,13 @@ class ElfDwarfVarExtractor:
         prevdie = die
         enum: Optional[DIE] = None
 
-        seen_dies:Set[DIE] = set()
+        seen_dies: Set[DIE] = set()
         while True:
             try:
                 nextdie = prevdie.get_DIE_from_attribute(Attrs.DW_AT_type)
             except KeyError as e:
                 raise ElfParsingError(f"Cannot get the type of var. DIE {prevdie} has no attribute DW_AT_type")
-            
+
             if nextdie in seen_dies:
                 raise ElfParsingError(f"Circular type referenc for DIE {die}")
             seen_dies.add(nextdie)
@@ -1297,10 +1296,9 @@ class ElfDwarfVarExtractor:
                     else:
                         raise ElfParsingError(f"Cannot find the enum underlying type {enum}")
             else:
-                pass # Keep going up the tree.
+                pass  # Keep going up the tree.
 
             prevdie = nextdie
-        
 
     def _get_composite_type_def(self, die: DIE, allow_dereferencing: bool) -> Struct:
         """Reads a DIE of type Class / Struct or Union and return a Scrutiny Struct

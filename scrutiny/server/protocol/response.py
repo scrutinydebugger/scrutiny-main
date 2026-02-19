@@ -78,19 +78,19 @@ class Response:
     def from_bytes(cls, data: bytes) -> "Response":
         """Recreate a Response object from a byte-encoded response"""
         if len(data) < 9:
-            raise Exception('Not enough data in payload')
+            raise ValueError('Not enough data in payload')
 
         cmd, subfn, code = struct.unpack('>BBB', data[:3])
         response = Response(cmd, subfn, code)
         length, = struct.unpack('>H', data[3:5])
         response.payload = data[5:-4]
         if length != len(response.payload):
-            raise Exception('Length mismatch between real payload length (%d) and encoded length (%d)' % (len(response.payload), length))
+            raise ValueError('Length mismatch between real payload length (%d) and encoded length (%d)' % (len(response.payload), length))
         crc = crc32(response.make_bytes_no_crc())
         received_crc, = struct.unpack('>L', data[-4:])
 
         if crc != received_crc:
-            raise Exception('CRC mismatch. Expecting %d, received %d' % (crc, received_crc))
+            raise ValueError('CRC mismatch. Expecting %d, received %d' % (crc, received_crc))
 
         return response
 

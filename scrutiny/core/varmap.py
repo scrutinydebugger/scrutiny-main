@@ -144,7 +144,7 @@ class VarMap:
         for typeid_str in self._content.typemap:
             typeid_int = int(typeid_str)
             if typeid_int >= self._next_type_id:
-                self._next_type_id = typeid_int+1
+                self._next_type_id = typeid_int + 1
 
             typename = self._content.typemap[str(typeid_int)]['name']
             self._typename2typeid_map[typename] = typeid_str
@@ -543,3 +543,17 @@ class VarMap:
             bitoffset=self._get_bitoffset(vardef),
             enum=self._get_enum(vardef)
         )
+
+    def get_regsitered_types(self) -> Dict[str, EmbeddedDataType]:
+        """Return a dictionnary of all the registered variable types mapping original type name to Scrutiny EmbeddedDataType"""
+        dout: Dict[str, EmbeddedDataType] = {}
+        for type_name in self._typename2typeid_map.keys():
+            dout[type_name] = self.get_vartype_from_base_type(type_name)
+        return dout
+
+    def get_regsitered_enums(self) -> List[EmbeddedEnum]:
+        """Return a dictionnary of all the registered variable types mapping original type name to Scrutiny EmbeddedDataType"""
+        outlist: List[EmbeddedEnum] = []
+        for enumdef in self._content.enums.values():
+            outlist.append(EmbeddedEnum.from_def(enumdef))
+        return outlist

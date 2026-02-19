@@ -8,8 +8,8 @@
 
 __all__ = ['DummyCommand']
 
-from .base_command import BaseCommand
 from enum import Enum
+from .base_command import BaseCommand
 
 # For testing purpose.
 
