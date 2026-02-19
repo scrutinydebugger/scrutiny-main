@@ -18,7 +18,6 @@ from scrutiny.core.variable_location import AbsoluteLocation, ResolvedPathPointe
 from scrutiny.core.codecs import Codecs, Encodable, UIntCodec
 from scrutiny.core import path_tools
 from scrutiny.tools.typing import *
-from scrutiny import tools
 
 MASK_MAP: Dict[int, int] = {}
 for i in range(64):
@@ -65,8 +64,6 @@ class VariableLayout:
 
         self.vartype = vartype
         self.endianness = endianness
-        self.bitsize = bitsize
-        self.bitoffset = bitoffset
         self.enum = enum
 
         var_size_bits = self.vartype.get_size_bit()
@@ -74,6 +71,9 @@ class VariableLayout:
             bitsize = var_size_bits - bitoffset
         elif bitoffset is None and bitsize is not None:
             bitoffset = 0
+
+        self.bitsize = bitsize
+        self.bitoffset = bitoffset
 
         self.bitfield = False if bitoffset is None or bitsize is None else True
         if self.bitfield:

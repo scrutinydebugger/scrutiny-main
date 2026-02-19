@@ -114,6 +114,8 @@ class SFDStorageManager:
             self.logger.warning('A Scrutiny Firmware Description file with the same firmware ID was already installed. Overwriting.')
 
         sfd.write(output_file)  # Write the Firmware Description file in storage folder with firmware ID as name
+        for callback in self.install_callbacks:
+            callback(firmware_id_ascii)
 
     def uninstall(self, firmwareid: str, ignore_not_exist: bool = False) -> None:
         """Remove a Scrutiny Firmware Description (SFD) with given ID from the global storage"""
@@ -190,13 +192,11 @@ class SFDStorageManager:
 
     @classmethod
     def is_valid_firmware_id(cls, firmware_id: str) -> bool:
-        """Returns True if the given string respect the expected format for a firmware ID"""
-        retval = False
+        """Returns ``True`` if the given string respect the expected format for a firmware ID"""
         with tools.SuppressException(Exception):
             firmware_id = cls.clean_firmware_id(firmware_id)
-            regex = '[0-9a-f]{%d}' % FirmwareDescription.firmware_id_length() * 2   # Match only check first line, which is good
-            if not re.match(regex, firmware_id):
-                raise Exception('regex not match')
-            retval = True
+            regex = '[0-9a-f]{%d}' % (FirmwareDescription.firmware_id_length() * 2)   # Match only check first line, which is good
+            if re.match(regex, firmware_id):
+                return True
 
-        return retval
+        return False

@@ -162,7 +162,7 @@ class Codecs:
             if bitsize is not None:
                 data_size = min(data_size, bitsize)
             if data_size <= 0 or data_size > 256:
-                ValueError(f"Does not support this data size: {data_size} bits")
+                raise ValueError(f"Does not support this data size: {data_size} bits")
 
             val = int(val)
             if signed:

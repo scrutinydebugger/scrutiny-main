@@ -22,7 +22,7 @@ class BaseDemangler(abc.ABC):
     def get_error(self) -> str:
         return "virtual class"
 
-    def demangle(self, mangler: str) -> str:
+    def demangle(self, mangled: str) -> str:
         raise NotImplementedError('Trying to demangle with base class')
 
 

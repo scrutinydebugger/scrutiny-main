@@ -39,7 +39,7 @@ class TestFirmwareDescription(ScrutinyUnitTest):
 
         alias2 = Alias('/x/y/z', '/i/dont/exist')
         bio = BytesIO(FirmwareDescription.serialize_aliases([alias2]))
-        alias_readback = FirmwareDescription.read_aliases(bio, varmap, suppress_errors=True)
+        alias_readback = FirmwareDescription.read_aliases(bio, varmap, ignore_errors=True)
         alias2_readback = alias_readback['/x/y/z']
         self.assertEqual(alias2.target, alias2_readback.target)
         self.assertEqual(alias2_readback.target, '/i/dont/exist')
@@ -47,4 +47,4 @@ class TestFirmwareDescription(ScrutinyUnitTest):
 
         bio = BytesIO(FirmwareDescription.serialize_aliases([alias2]))
         with self.assertRaises(Exception):
-            alias_readback = FirmwareDescription.read_aliases(bio, varmap, suppress_errors=False)
+            alias_readback = FirmwareDescription.read_aliases(bio, varmap, ignore_errors=False)

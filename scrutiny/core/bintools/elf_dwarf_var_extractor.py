@@ -24,7 +24,7 @@ from dataclasses import dataclass
 from inspect import currentframe
 from fnmatch import fnmatch
 
-from scrutiny.core.bintools.demangler import GccDemangler
+from scrutiny.core.bintools.demangler import GccDemangler, BaseDemangler
 from scrutiny.core.varmap import VarMap
 from scrutiny.core.basic_types import *
 from scrutiny.core.variable_location import AbsoluteLocation, UnresolvedPathPointedLocation
@@ -437,8 +437,8 @@ class ParseErrors:
     def register_error(self, e: Exception) -> None:
         self._exceptions.append(e)
 
-    def total_count(self, exclude: List[Type[Exception]] = []) -> int:
-        if len(exclude) == 0:
+    def total_count(self, exclude: Optional[List[Type[Exception]]] = None) -> int:
+        if exclude is None:
             return len(self._exceptions)
 
         count = 0
@@ -446,13 +446,15 @@ class ParseErrors:
             count += 1
         return count
 
-    def iter_exc(self, exclude: List[Type[Exception]] = []) -> Generator[Exception, None, None]:
-        exclude2 = tuple(exclude)
+    def iter_exc(self, exclude: Optional[List[Type[Exception]]] = None) -> Generator[Exception, None, None]:
+        exclude2 = tuple(exclude) if exclude is not None else tuple()
         for e in self._exceptions:
             if not isinstance(e, exclude2):
                 yield e
 
-    def get_first_exc(self, exclude: List[Type[Exception]] = []) -> Optional[Exception]:
+    def get_first_exc(self, exclude: Optional[List[Type[Exception]]] = None) -> Optional[Exception]:
+        if exclude is None:
+            exclude = []
         gen = self.iter_exc(exclude)
         return next(gen, None)
 
@@ -516,11 +518,16 @@ class ElfDwarfVarExtractor:
     """List of parsing errors we got"""
     _context: Context
     """The context object passed down during the recursive search stage of a compile unit scanning. Contains info such has compiler, architecture, endianness, etc."""
+    _dwarfinfo:DWARFInfo
+    """The dwarf info of the file being scanned"""
+    _demangler:BaseDemangler
+    """The demangler to use while scanning"""
+
 
     def __init__(self, filename: str,
                  cppfilt: Optional[str] = None,
-                 ignore_cu_patterns: List[str] = [],
-                 path_ignore_patterns: List[str] = []
+                 ignore_cu_patterns: Optional[List[str]] = None,
+                 path_ignore_patterns: Optional[List[str]] = None
                  ) -> None:
         self._varmap = VarMap()    # This is what we want to generate.
         self._die2vartype_map = {}
@@ -530,8 +537,8 @@ class ElfDwarfVarExtractor:
         self._struct_die_cache_map = {}
         self._array_die_cache_map = {}
         self._cppfilt = cppfilt
-        self._ignore_cu_patterns = ignore_cu_patterns
-        self._path_ignore_patterns = path_ignore_patterns
+        self._ignore_cu_patterns = ignore_cu_patterns if ignore_cu_patterns is not None else []
+        self._path_ignore_patterns = path_ignore_patterns if path_ignore_patterns is not None else []
         self._logger = logging.getLogger(self.__class__.__name__)
         self._context = Context(    # Default
             arch=Architecture.UNKNOWN,
@@ -539,8 +546,6 @@ class ElfDwarfVarExtractor:
             cu_compiler=Compiler.UNKNOWN,
             address_size=None
         )
-
-        self._initial_stack_depth = len(inspect.stack())
         self._parse_errors = ParseErrors()
 
         self._scan_elf_file(filename)
@@ -658,7 +663,7 @@ class ElfDwarfVarExtractor:
     def _log_debug_process_die(self, die: DIE) -> None:
         """When printing the full debug information, print that a function has been called with its stack depth represneted as indentation"""
         if self._logger.isEnabledFor(DUMPDATA_LOGLEVEL):  # pragma: no cover
-            stack_depth = len(inspect.stack()) - self.initial_stack_depth - 1
+            stack_depth = len(inspect.stack()) - self._initial_stack_depth - 1
             stack_depth = max(stack_depth, 1)
             funcname = inspect.stack()[1][3]
             pad = '|  ' * (stack_depth - 1) + '|--'
@@ -789,7 +794,7 @@ class ElfDwarfVarExtractor:
         if mangled_name is None:
             return None
 
-        return self.demangler.demangle(mangled_name)
+        return self._demangler.demangle(mangled_name)
 
     def _post_process_splitted_demangled_name(self, parts: List[str]) -> List[str]:
         """To be called on the result of ``split_demangled_name`` to apply some context specific transformation"""
@@ -814,22 +819,22 @@ class ElfDwarfVarExtractor:
             if not elffile.has_dwarf_info():
                 raise ElfParsingError('File has no DWARF info')
 
-            self.dwarfinfo = elffile.get_dwarf_info()
+            self._dwarfinfo = elffile.get_dwarf_info()
 
             self._context.arch = self._identify_arch()
             self._context.endianess = self._identify_endianness(self._context.arch)
             self._varmap.set_endianness(self._context.endianess)
 
-            self._make_cu_name_map(self.dwarfinfo)
-            self.demangler = GccDemangler(self._cppfilt)  # todo : adapt according to compile unit producer
+            self._make_cu_name_map(self._dwarfinfo)
+            self._demangler = GccDemangler(self._cppfilt)  # todo : adapt according to compile unit producer
 
-            if not self.demangler.can_run():
-                raise EnvionmentNotSetUpException("Demangler cannot be used. %s" % self.demangler.get_error())
+            if not self._demangler.can_run():
+                raise EnvionmentNotSetUpException("Demangler cannot be used. %s" % self._demangler.get_error())
 
-            self.initial_stack_depth = len(inspect.stack())
+            self._initial_stack_depth = len(inspect.stack())
 
             bad_support_warning_written = False  # Prevent spamming the console
-            for cu in self.dwarfinfo.iter_CUs():
+            for cu in self._dwarfinfo.iter_CUs():
                 die = cu.get_top_DIE()
 
                 # Check if we need to skip the Compile Unit
@@ -866,7 +871,7 @@ class ElfDwarfVarExtractor:
 
     def _identify_arch(self) -> Architecture:
         """Identify we're building for what architecture. Unknown uses the default behaviors that works on most platforms."""
-        machine_arch = self.dwarfinfo.config.machine_arch.lower().strip()
+        machine_arch = self._dwarfinfo.config.machine_arch.lower().strip()
         if 'c2000' in machine_arch and 'ti' in machine_arch:
             return Architecture.TI_C28x
 
@@ -1058,6 +1063,7 @@ class ElfDwarfVarExtractor:
             }
             if address_size not in typemap:
                 raise ElfParsingError(f"Pointer with unsupported byte size {address_size}")
+            self._die2vartype_map[die] = typemap[address_size]
             self._varmap.register_base_type(self._make_ptr_typename(address_size), typemap[address_size])
 
     def _die_process_enum(self, die: DIE) -> None:
@@ -1076,7 +1082,7 @@ class ElfDwarfVarExtractor:
                 if self._context.cu_compiler in [Compiler.TI_C28_CGT, Compiler.Tasking]:
                     # cl2000 embeds the full mangled path in the DW_AT_NAME attribute,
                     # ex :_ZN13FileNamespace14File3TestClass3BBBE = FileNamespace::File3TestClass::BBB
-                    demangled_name = self.demangler.demangle(enumerator_name)
+                    demangled_name = self._demangler.demangle(enumerator_name)
                     parts = self.split_demangled_name(demangled_name)
                     parts = self._post_process_splitted_demangled_name(parts)
                     enumerator_name = parts[-1]
@@ -1097,7 +1103,7 @@ class ElfDwarfVarExtractor:
         bytesize = enum_die.attributes[Attrs.DW_AT_byte_size].value
         try:
             encoding = DwarfEncoding(cast(int, enum_die.attributes[Attrs.DW_AT_encoding].value))
-        except:
+        except Exception:
             encoding = DwarfEncoding.DW_ATE_signed if enum.has_signed_value() else DwarfEncoding.DW_ATE_unsigned
         basetype = self.get_core_base_type(encoding, bytesize)
         fakename = 'enum_default_'
@@ -1222,9 +1228,9 @@ class ElfDwarfVarExtractor:
                 mangled_name = cast(str, die.attributes[Attrs.DW_AT_linkage_name].value.decode('ascii'))
 
         if mangled_name is not None:
-            demangled_name = self.demangler.demangle(mangled_name)
+            demangled_name = self._demangler.demangle(mangled_name)
             parts = self.split_demangled_name(demangled_name)
-            self._post_process_splitted_demangled_name(parts)
+            parts = self._post_process_splitted_demangled_name(parts)
             name = parts[-1]
 
         if name is None:
@@ -1255,8 +1261,17 @@ class ElfDwarfVarExtractor:
         prevdie = die
         enum: Optional[DIE] = None
 
+        seen_dies:Set[DIE] = set()
         while True:
-            nextdie = prevdie.get_DIE_from_attribute(Attrs.DW_AT_type)
+            try:
+                nextdie = prevdie.get_DIE_from_attribute(Attrs.DW_AT_type)
+            except KeyError as e:
+                raise ElfParsingError(f"Cannot get the type of var. DIE {prevdie} has no attribute DW_AT_type")
+            
+            if nextdie in seen_dies:
+                raise ElfParsingError(f"Circular type referenc for DIE {die}")
+            seen_dies.add(nextdie)
+
             if nextdie.tag == Tags.DW_TAG_structure_type:
                 return TypeDescriptor(TypeOfVar.Struct, enum, nextdie, None)
             elif nextdie.tag == Tags.DW_TAG_class_type:
@@ -1281,8 +1296,11 @@ class ElfDwarfVarExtractor:
                         return TypeDescriptor(TypeOfVar.EnumOnly, enum, type_die=enum, pointee=None)
                     else:
                         raise ElfParsingError(f"Cannot find the enum underlying type {enum}")
+            else:
+                pass # Keep going up the tree.
 
             prevdie = nextdie
+        
 
     def _get_composite_type_def(self, die: DIE, allow_dereferencing: bool) -> Struct:
         """Reads a DIE of type Class / Struct or Union and return a Scrutiny Struct
@@ -1494,8 +1512,6 @@ class ElfDwarfVarExtractor:
                 return None
         elif type_desc.type == TypeOfVar.Pointer:
             pointer = self._get_pointer_def(type_desc.type_die, allow_dereferencing)
-            if pointer is None:
-                return None
             typename = self._get_pointer_name_from_die(type_desc.type_die)
             embedded_enum = pointer.enum
 

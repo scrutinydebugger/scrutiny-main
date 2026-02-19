@@ -10,7 +10,6 @@
 __all__ = ['VariableFactory']
 
 from scrutiny.core import path_tools
-from scrutiny.core.variable import Variable
 from scrutiny.core.array import UntypedArray, Array
 from scrutiny.core.scrutiny_path import ScrutinyPath
 from scrutiny.core.variable_location import AbsoluteLocation, UnresolvedPathPointedLocation, ResolvedPathPointedLocation

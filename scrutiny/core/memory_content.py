@@ -31,7 +31,13 @@ class Cluster:
     def data(self) -> bytes:
         return self.read(0, self.size)
 
-    def __init__(self, start_addr: int, size: int = 0, has_data: bool = True, data: Union[bytes, bytearray] = bytearray()) -> None:
+    def __init__(self, 
+                 start_addr: int, 
+                 size: int = 0, 
+                 has_data: bool = True, 
+                 data: Optional[Union[bytes, bytearray]] = None ) -> None:
+        if data is None:
+            data = bytearray()
         self.start_addr = start_addr
         self.size = size
         self.has_data = has_data
@@ -131,8 +137,12 @@ class Cluster:
                 stop = self.size
             if stop < 0:
                 stop = self.size + stop
-            read_size = stop - key.start
-            offset = key.start
+            
+            start = 0
+            if key.start is not None:
+                start = key.start
+            read_size = stop - start
+            offset = start
         else:
             offset = key
             read_size = 1
@@ -188,10 +198,9 @@ class MemoryContent:
                         data = bytearray(bytes.fromhex(m.group(2)))
                         cluster = Cluster(start_addr=addr, size=len(data), data=data, has_data=True)
                     else:
-                        size = len(m.group(2)) / 2
-                        if size % 2 != 0:
+                        if len(m.group(2)) % 2 != 0:
                             raise Exception('Odd number of character')
-                        size = int(size)
+                        size = int(len(m.group(2)) // 2)
                         cluster = Cluster(start_addr=addr, size=size, has_data=False)
 
                     self.write_cluster(cluster)
@@ -349,7 +358,6 @@ class MemoryContent:
                 size2 = len(self.clusters[start_addr2])
 
                 if start_addr1 + size1 >= start_addr2:    # Need to agglomerate
-                    new_size = size1 + size2
                     self.clusters[start_addr1] += self.clusters[start_addr2]
                     del self.clusters[start_addr2]
                     del self.sorted_keys[i + 1]

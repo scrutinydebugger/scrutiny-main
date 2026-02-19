@@ -143,8 +143,8 @@ class VarMap:
         # Build _typename2typeid_map
         for typeid_str in self._content.typemap:
             typeid_int = int(typeid_str)
-            if typeid_int > self._next_type_id:
-                self._next_type_id = typeid_int
+            if typeid_int >= self._next_type_id:
+                self._next_type_id = typeid_int+1
 
             typename = self._content.typemap[str(typeid_int)]['name']
             self._typename2typeid_map[typename] = typeid_str
@@ -172,11 +172,11 @@ class VarMap:
         return EmbeddedDataType[typename]  # Enums support square brackets
 
     @classmethod
-    def _has_addr(cls, vardef: VariableEntry) -> int:
+    def _has_addr(cls, vardef: VariableEntry) -> bool:
         return 'addr' in vardef
 
     @classmethod
-    def _has_pointed_location(cls, vardef: VariableEntry) -> int:
+    def _has_pointed_location(cls, vardef: VariableEntry) -> bool:
         return 'pointer' in vardef
 
     @classmethod
@@ -518,7 +518,7 @@ class VarMap:
             if self._has_pointer_array_segments(vardef):
                 resolved_pointer_path = ScrutinyPath.resolve_pointer_path(unresolved_path, parsed_path, pointer_array_segments)
                 if resolved_pointer_path is None:
-                    raise ValueError("Cannot resolve pointer path from ")
+                    raise ValueError(f"Cannot resolve pointer path from {parsed_path.to_str()}")
 
                 location = ResolvedPathPointedLocation(
                     pointer_path=resolved_pointer_path.to_str(),
