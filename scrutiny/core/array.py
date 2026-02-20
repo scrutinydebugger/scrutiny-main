@@ -63,7 +63,7 @@ class Array(abc.ABC):
         index = 0
         for i in range(nbdim):
             if pos[i] >= self.dims[i] or pos[i] < 0:
-                raise ValueError(f"Index out of bound. {pos[i]} not within 0-{self.dims[i]-1}")
+                raise ValueError(f"Index out of bound. {pos[i]} not within 0-{self.dims[i] - 1}")
             index += pos[i] * self._multipliers[i]
 
         return index

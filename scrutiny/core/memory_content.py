@@ -221,7 +221,7 @@ class MemoryContent:
         try:
             return self.clusters[addr_start].read(offset, length)
         except IndexError as e:
-            raise IndexError(f"Invalid reading range : 0x{addr_start+offset:x} to 0x{addr_start+offset+length-1:x}") from e
+            raise IndexError(f"Invalid reading range : 0x{addr_start + offset:x} to 0x{addr_start + offset + length - 1:x}") from e
 
     def write(self, addr: int, data: Union[bytearray, bytes]) -> None:
         cluster = Cluster(start_addr=addr, size=len(data), data=data, has_data=self.retain_data)
