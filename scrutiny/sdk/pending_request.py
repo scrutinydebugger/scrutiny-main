@@ -23,6 +23,7 @@ if TYPE_CHECKING:
 class PendingRequest:
     _client: "ScrutinyClient"
 
+    _completed:bool
     _success: bool  # If the request has been successfully completed
     _completion_datetime: Optional[datetime]   # datetime of the completion. None if incomplete
     _completed_event: threading.Event   # Event that gets set upon completion of the request

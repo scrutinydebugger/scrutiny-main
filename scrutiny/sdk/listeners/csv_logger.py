@@ -95,7 +95,7 @@ class CSVLogger:
                  file_part_0pad: int = 4,
                  csv_config: Optional[CSVConfig] = None,
                  logger: Optional[logging.Logger] = None,
-                 file_headers: List[List[str]] = []
+                 file_headers: Optional[List[List[str]]] = None
                  ) -> None:
         """Logger that writes the watchable values into a CSV file as they are received
 
@@ -167,7 +167,8 @@ class CSVLogger:
         self._actual_x = 0
         self._column_map = {}
         self._new_val_flags = []
-
+        if file_headers is None:
+            file_headers = []
         self.set_file_headers(file_headers)
 
     def get_folder(self) -> Path:
@@ -183,7 +184,7 @@ class CSVLogger:
         """
         regex_test = re.compile(f'{re.escape(filename)}_[0-9]+{cls.EXTENSION}')
         for file in os.listdir(folder):
-            if regex_test.match(file):
+            if regex_test.fullmatch(file):
                 yield folder / file
 
     def set_file_headers(self, file_headers: List[List[str]]) -> None:
@@ -219,7 +220,7 @@ class CSVLogger:
         for handle in columns:
             validation.assert_type(handle, 'columns[n]', self.ColumnDescriptor)
 
-        self._column_descriptors = list(columns).copy()
+        self._column_descriptors = list(columns)
         self._actual_vals = [None] * len(self._column_descriptors)
         self._column_map = {}
         for i in range(len(self._column_descriptors)):
@@ -253,7 +254,7 @@ class CSVLogger:
         """Write a sequence of :class:`ValueUpdate<scrutiny.sdk.listeners.ValueUpdate> to the CSV output. 
 
         :param updates: A list of :class:`ValueUpdate<scrutiny.sdk.listeners.ValueUpdate>` given by a listener
-        :param updates: A list of ID to map the value updates to the right column. If not specified, the watchable :attr:`server_id<scrutiny.sdk.watchable_handle.WatchableHandler.server_id>` will 
+        :param signal_id_list: A list of ID to map the value updates to the right column. If not specified, the watchable :attr:`server_id<scrutiny.sdk.watchable_handle.WatchableHandler.server_id>` will 
             be used, assuming the columns were defined with :meth:`define_columns_from_handles()<scrutiny.sdk.csv_logger.CSVLogger.define_columns_from_handles>`
         """
 

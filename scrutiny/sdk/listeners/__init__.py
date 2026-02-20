@@ -131,16 +131,15 @@ class BaseListener(abc.ABC):
             with self._subscriptions_lock:
                 subscribed_watchables = [w for w in watchables if w in self._subscriptions]
             for watchable in subscribed_watchables:
-                if watchable in self._subscriptions:
-                    timestamp = watchable.last_update_timestamp
-                    if timestamp is None:
-                        timestamp = datetime.now()
-                    update = ValueUpdate(
-                        watchable=watchable,
-                        value=watchable.value,
-                        update_timestamp=timestamp,
-                    )
-                    update_list.append(update)
+                timestamp = watchable.last_update_timestamp
+                if timestamp is None:
+                    timestamp = datetime.now()
+                update = ValueUpdate(
+                    watchable=watchable,
+                    value=watchable.value,
+                    update_timestamp=timestamp,
+                )
+                update_list.append(update)
 
             if len(update_list) > 0 and self._update_queue is not None:
                 if self._logger.isEnabledFor(DUMPDATA_LOGLEVEL):    # pragma: no cover
@@ -149,9 +148,10 @@ class BaseListener(abc.ABC):
                     self._update_queue.put_nowait(update_list)
                 except queue.Full:
                     self._drop_count += 1
-                    must_print = (self._drop_count < 10 or self._drop_count % 10 == 0)
+                    drop_count = self._drop_count    # Just in case self._drop_count is reset by another thread while we are here.
+                    must_print = (drop_count < 10 or drop_count % 10 == 0)
                     if must_print:
-                        self._logger.warning(f"Listener queue is full. Dropping update. (Total dropped={self._drop_count})")
+                        self._logger.warning(f"Listener queue is full. Dropping update. (Total dropped={drop_count})")
 
     def _empty_update_queue(self) -> None:
         if self._update_queue is not None:
@@ -270,13 +270,11 @@ class BaseListener(abc.ABC):
         :raise ValueError: Given parameter has an invalid value
         :raise KeyError: Given watchable was not monitored previously
         """
-#        if self._started:
-#            raise sdk_exceptions.OperationFailure("Cannot subscribe a watchable once the listener is started")
-        if isinstance(watchables, WatchableHandle):
+        if isinstance(watchables, (WatchableHandle, tools.UnitTestStub)):
             watchables = [watchables]
         validation.assert_is_iterable(watchables, 'watchables')
         for watchable in watchables:
-            validation.assert_type(watchable, 'watchable', WatchableHandle)
+            validation.assert_type(watchable, 'watchable', (WatchableHandle, tools.UnitTestStub))
 
         with self._subscriptions_lock:
             self._assert_can_change_subscriptions()
@@ -286,7 +284,8 @@ class BaseListener(abc.ABC):
     def unsubscribe_all(self) -> None:
         """Removes all watchables from the monitored list. Does not stop the listener"""
         self._assert_can_change_subscriptions()
-        self._subscriptions.clear()
+        with self._subscriptions_lock:
+            self._subscriptions.clear()
 
     def start(self) -> "BaseListener":
         """Starts the listener thread. Once started, no more subscription can be added.
@@ -335,12 +334,11 @@ class BaseListener(abc.ABC):
                         try:
                             self._update_queue.put_nowait(None)
                         except queue.Full:
-                            self._thread.setDaemon(True)
+                            pass 
 
                 self._thread.join(timeout=5)
                 if self._thread.is_alive():
                     self._logger.error("Failed to stop the thread")
-                    self._thread.setDaemon(True)    # Failed to join
 
             self._thread = None
 
@@ -404,7 +402,7 @@ class BaseListener(abc.ABC):
         return self._name
 
     @property
-    def error_occured(self) -> int:
+    def error_occurred(self) -> bool:
         """Tells if an error occured while running the listener"""
         return self._setup_error or self._receive_error or self._teardown_error
 

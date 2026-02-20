@@ -17,7 +17,6 @@ import threading
 import uuid
 import logging
 import json
-import uuid
 
 from .abstract_client_handler import AbstractClientHandler, ClientHandlerConfig, ClientHandlerMessage
 from scrutiny.tools.typing import *
@@ -95,6 +94,7 @@ class DummyClientHandler(AbstractClientHandler):
     connection_map: Dict[str, DummyConnection]
     started: bool
     rx_event: Optional[threading.Event]
+    thread:Optional[threading.Thread]
 
     def __init__(self,
                  config: ClientHandlerConfig,
@@ -111,6 +111,7 @@ class DummyClientHandler(AbstractClientHandler):
         self.connections = []
         self.started = False
         self.rx_event = rx_event
+        self.thread = None
 
     def set_connections(self, connections: List[DummyConnection]) -> None:
         self.connections = connections
@@ -168,7 +169,7 @@ class DummyClientHandler(AbstractClientHandler):
             except Exception as e:
                 self.logger.error(str(e))
                 self.stop_requested = True
-                raise e
+                raise
             time.sleep(0.01)
 
     def process(self) -> None:
@@ -181,7 +182,10 @@ class DummyClientHandler(AbstractClientHandler):
 
     def stop(self) -> None:
         self.stop_requested = True
-        self.thread.join(timeout=5)
+        if self.thread is not None:
+            self.thread.join(timeout=5)
+        self.thread=None
+        self.started=False
 
     def send(self, msg: ClientHandlerMessage) -> None:
         try:

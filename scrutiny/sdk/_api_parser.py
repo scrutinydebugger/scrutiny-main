@@ -198,8 +198,8 @@ def _read_sfd_info(cmd: str, sfd_info: api_typing.SFDInfo) -> sdk.SFDInfo:
         if sfd_info['filesize'] < 0:
             raise sdk.exceptions.BadResponseError("Invalid filesize")
 
-        if len(sfd_info['firmware_id']) == 0:
-            raise sdk.exceptions.BadResponseError("Invalid firmware_id")
+    if len(sfd_info['firmware_id']) == 0:
+        raise sdk.exceptions.BadResponseError("Invalid firmware_id")
 
     return sdk.SFDInfo(
         firmware_id=sfd_info['firmware_id'],
@@ -369,7 +369,7 @@ def _read_map_of_detailed_watchable_info(
             for key, val in v['enum']['values'].items():
                 if not isinstance(key, str):
                     raise sdk.exceptions.BadResponseError('Invalid enum. Key is not a string')
-                if not isinstance(val, int):
+                if not isinstance(val, int) or isinstance(val, bool):
                     raise sdk.exceptions.BadResponseError('Invalid enum. Value is not an integer')
                 enum.add_value(key, val)
 
@@ -425,8 +425,8 @@ def _read_map_of_detailed_watchable_info(
 
             gain = _fetch_dict_val_of_type(v, 'gain', float, None, allow_none=True)
             offset = _fetch_dict_val_of_type(v, 'offset', float, None, allow_none=True)
-            min = _fetch_dict_val_of_type(v, 'min', float, None, allow_none=True)
-            max = _fetch_dict_val_of_type(v, 'max', float, None, allow_none=True)
+            minval = _fetch_dict_val_of_type(v, 'min', float, None, allow_none=True)
+            maxval = _fetch_dict_val_of_type(v, 'max', float, None, allow_none=True)
 
             outdict[k] = sdk.DetailedAliasWatchableConfiguration(
                 server_path=k,
@@ -439,8 +439,8 @@ def _read_map_of_detailed_watchable_info(
                 target_type=read_watchable_type(v['target_type']),
                 gain=gain,
                 offset=offset,
-                min=min,
-                max=max
+                min=minval,
+                max=maxval
             )
 
         elif watchable_type == WatchableType.RuntimePublishedValue:
@@ -526,7 +526,7 @@ def parse_get_device_info(response: api_typing.S2C.GetDeviceInfo) -> Optional[sd
             if region['end'] <= region['start']:
                 raise sdk.exceptions.BadResponseError(f'Received a forbidden memory region with incoherent start and end in message "{cmd}"')
             size = region['end'] - region['start'] + 1
-            if size <= 0:
+            if size <= 0:   # unreachable, but left for future proofing
                 raise sdk.exceptions.BadResponseError(f'Got a forbidden memory region with an invalid size "{cmd}"')
             forbidden_regions.append(sdk.MemoryRegion(
                 start=region['start'],
@@ -1108,11 +1108,6 @@ def parse_read_datalogging_acquisition_content_response(response: api_typing.S2C
             logged_watchable=response2watchable_desc(sig['watchable'])
         )
         acquisition.add_data(ds, axis=axis_map[sig['axis_id']])
-
-    try:
-        xaxis_data = [float(f) for f in response['xdata']['data']]    # Convert to float for inf or nan
-    except Exception:
-        raise sdk.exceptions.BadResponseError(f'X-Axis Dataseries data is not all numerical')
 
     xdata = sdk.datalogging.DataSeries(
         data=xaxis_data,

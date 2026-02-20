@@ -333,7 +333,7 @@ class API:
         elif config['client_interface_type'] == 'dummy':
             self.client_handler = DummyClientHandler(config['client_interface_config'], rx_event=rx_event)
         else:
-            raise NotImplementedError('Unsupported client interface type. %s', config['client_interface_type'])
+            raise NotImplementedError('Unsupported client interface type. %s' % config['client_interface_type'])
 
         self.server = server
         self.datastore = self.server.datastore
@@ -559,7 +559,7 @@ class API:
                 response = self.make_error_response(req, 'Internal error')
                 self.client_handler.send(ClientHandlerMessage(conn_id=conn_id, obj=response))
             else:
-                raise e
+                raise
 
     def process_debug(self, conn_id: str, req: Dict[Any, Any]) -> None:
         # Start ipdb tracing upon reception of a "debug" message (if enabled)
@@ -969,7 +969,7 @@ class API:
                                 break
 
                             if max_chunk_count != 0 and index >= max_chunk_count:
-                                continue
+                                break
 
                             msg: api_typing.S2C.DownloadSFD = {
                                 'cmd': self.Command.Api2Client.DOWNLOAD_SFD_RESPONSE,
@@ -1036,7 +1036,7 @@ class API:
 
         self.client_handler.send(ClientHandlerMessage(conn_id=conn_id, obj=msg))
 
-    # === UPLOAD_SFD_INIT ===
+    # === UPLOAD_SFD_DATA ===
 
     def process_upload_sfd_data(self, conn_id: str, req: api_typing.C2S.UploadSFDData) -> None:
         reqid = self.get_req_id(req)
@@ -1428,7 +1428,7 @@ class API:
         FieldType = Literal['yaxes', 'sampling_rate_id', 'decimation', 'timeout', 'trigger_hold_time',
                             'probe_location', 'condition', 'operands', 'signals', 'x_axis_type']
 
-        required_fileds: Dict[FieldType, Type[Any]] = {
+        required_fields: Dict[FieldType, Type[Any]] = {
             'yaxes': list,
             'sampling_rate_id': int,
             'decimation': int,
@@ -1442,13 +1442,14 @@ class API:
         }
 
         field: FieldType
-        for field in required_fileds:
+        for field in required_fields:
             if field not in req:
                 raise InvalidRequestException(req, f"Missing field {field} in request")
 
-            expected_type = required_fileds[field]
+            expected_type = required_fields[field]
             if expected_type is float and isinstance(req[field], int):
                 req[field] = float(req[field])  # type:ignore
+
 
             if expected_type is int and isinstance(req[field], float):
                 assert isinstance(req[field], float)

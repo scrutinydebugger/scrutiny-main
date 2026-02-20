@@ -425,8 +425,7 @@ class FirmwareDescription:
                 yield VarmapElement(
                     path=path,
                     var_or_factory=var_or_factory,
-                    pointer_path_and_var=(ptr_path, self.varmap.get_var(ptr_path)
-                                          )
+                    pointer_path_and_var=(ptr_path, self.varmap.get_var(ptr_path))
                 )
             else:
                 yield VarmapElement(

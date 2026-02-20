@@ -66,6 +66,7 @@ class TCPClientHandler(AbstractClientHandler):
 
     id2sock_map: Dict[str, socket.socket]
     sock2id_map: Dict[socket.socket, str]
+    client_parser_map: Dict[str, StreamParser]
     rx_queue: "ScrutinyQueue[ClientHandlerMessage]"
     stream_maker: StreamMaker
 
@@ -93,6 +94,7 @@ class TCPClientHandler(AbstractClientHandler):
         self.server_thread_info = None
         self.id2sock_map = {}
         self.sock2id_map = {}
+        self.client_parser_map={}
         self.server_sock = None
         self.selector = None
         self.stream_maker = StreamMaker(
@@ -123,7 +125,7 @@ class TCPClientHandler(AbstractClientHandler):
         try:
             if not self.force_silent:
                 self.tx_datarate_measurement.add_data(len(payload))
-                sock.send(payload)
+                sock.sendall(payload)
                 self.tx_msg_count += 1
         except OSError:
             # Client is gone. Did not get cleaned by the server thread. Should not happen.
@@ -137,7 +139,6 @@ class TCPClientHandler(AbstractClientHandler):
         return cast(int, port)
 
     def start(self) -> None:
-        self.last_process = time.perf_counter()
         self.logger.info('Starting TCP socket listener on %s:%s' % (self.config['host'], self.config['port']))
         self.server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -228,11 +229,8 @@ class TCPClientHandler(AbstractClientHandler):
             return
         assert self.server_sock is not None
         assert self.selector is not None
-        stream_parser = StreamParser(
-            mtu=self.STREAM_MTU,
-            interchunk_timeout=self.STREAM_INTERCHUNK_TIMEOUT,
-        )
 
+        client_parser_map:Dict[str, StreamParser] = {}
         try:
             self.server_thread_info.started_event.set()
             while not self.server_thread_info.stop_event.is_set():
@@ -248,7 +246,7 @@ class TCPClientHandler(AbstractClientHandler):
                             self.server_thread_info.stop_event.set()
                             break
 
-                        self.st_register_client(sock, addr)
+                        client_id = self.st_register_client(sock, addr)
                         self.selector.register(sock, selectors.EVENT_READ)
                     else:
                         client_socket = cast(socket.socket, key.fileobj)
@@ -260,11 +258,18 @@ class TCPClientHandler(AbstractClientHandler):
                             with tools.SuppressException():
                                 self.selector.unregister(client_socket)
                             continue
-
+                        
                         try:
                             data = client_socket.recv(self.READ_SIZE)
                         except OSError:
                             # Socket got closed
+
+                            self.unregister_client(client_id)
+                            continue
+                        
+                        try:
+                            parser = self.client_parser_map[client_id]
+                        except KeyError:
                             self.unregister_client(client_id)
                             continue
 
@@ -272,11 +277,12 @@ class TCPClientHandler(AbstractClientHandler):
                             # Client is gone
                             self.unregister_client(client_id)
                         else:
+                            
                             self.rx_datarate_measurement.add_data(len(data))
                             self.logger.log(DUMPDATA_LOGLEVEL, f"Received {len(data)} bytes from client ID: {client_id}")
-                            stream_parser.parse(data)
+                            parser.parse(data)
                             while True:
-                                datagram = stream_parser.queue().get_or_none()
+                                datagram = parser.queue().get_or_none()
                                 if datagram is None:
                                     break
 
@@ -308,6 +314,10 @@ class TCPClientHandler(AbstractClientHandler):
         with self.index_lock:
             self.id2sock_map[conn_id] = sock
             self.sock2id_map[sock] = conn_id
+        self.client_parser_map[conn_id] = StreamParser(
+            mtu=self.STREAM_MTU,
+            interchunk_timeout=self.STREAM_INTERCHUNK_TIMEOUT,
+        )
 
         self.logger.info(f"New client connected {sockaddr} (ID={conn_id}). {len(self.id2sock_map)} clients total")
 
@@ -340,6 +350,9 @@ class TCPClientHandler(AbstractClientHandler):
 
             with tools.SuppressException(KeyError):
                 del self.sock2id_map[sock]
+
+            with tools.SuppressException(KeyError):
+                del self.client_parser_map[conn_id]
 
             nb_client = len(self.id2sock_map)
 
