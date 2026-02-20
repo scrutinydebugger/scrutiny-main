@@ -281,11 +281,6 @@ class CustomFactory(QtAds.CDockComponentsFactory):
         self._shiboken_storage.insert(sidetab)  # Keep a reference. QtAds expect the factory to be the owner, but is not responsible to delete
         return sidetab
 
-    def crea(self, dock_area: QtAds.CDockAreaWidget) -> QtAds.CDockAreaTitleBar:
-        titlebar = ScrutinyDockAreaTitleBar(dock_area)
-        self._shiboken_storage.insert(titlebar)  # Keep a reference. QtAds expect the factory to be the owner, but is not responsible to delete
-        return titlebar
-
 
 class Dashboard(QWidget):
     """The main GUI dashboard"""
@@ -353,7 +348,6 @@ class Dashboard(QWidget):
 
 
 # region Public API
-
 
     @property
     def signals(self) -> _Signals:
@@ -810,6 +804,7 @@ class Dashboard(QWidget):
         # Placeholder are laid out, the dock areas exists. Now fill the dock areas with either a splitter or a component.
         for i in range(children_count):
             s_child_node = s_splitter.content[i]
+            new_suffix = f"{immutable_data.name_suffix}_{i}"
             if isinstance(s_child_node, dashboard_file_format.SerializableSplitter):
                 new_immutable_data = BuildSplitterRecursiveImmutableData(
                     name_suffix=new_suffix,

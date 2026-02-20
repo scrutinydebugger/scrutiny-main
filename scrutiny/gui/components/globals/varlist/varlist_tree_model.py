@@ -68,7 +68,7 @@ class VarListComponentTreeModel(WatchableTreeModel):
         assert mime_data is not None
         return mime_data
 
-    def _load_node_if_needed(self, node: BaseWatchableRegistryTreeStandardItem) -> None:
+    def load_node_if_needed(self, node: BaseWatchableRegistryTreeStandardItem) -> None:
         if not node.is_loaded():
             fqn = node.fqn
             assert fqn is not None  # All data is coming from the index, so it has an Fully Qualified Name
@@ -110,7 +110,7 @@ class VarListComponentTreeModel(WatchableTreeModel):
                     continue
                 if child.fqn is None:
                     continue
-                self._load_node_if_needed(child)
+                self.load_node_if_needed(child)
 
                 if WatchableRegistry.FQN.is_equal(child.fqn, wanted_fqn):
                     if len(remaining_parts) == 0:

@@ -118,6 +118,7 @@ class GraphConfigWidget(QWidget):
     _trigger_layout: QFormLayout
     _xaxis_layout: QFormLayout
     _sampling_rate_layout: QFormLayout
+    _user_changed_name_once: bool
 
     _device_info: Optional[DeviceInfo]
     """The DeviceInfo struct of the actually connected device. None means no device available"""
@@ -487,7 +488,7 @@ class GraphConfigWidget(QWidget):
 
                     self._cmb_sampling_rate.addItem(rate_name, rate.identifier)
 
-        self.update()
+        self.update_content()
 
     def validate_and_get_config(self) -> ValidationResult:
         """Validate the user input and return a DataloggingConfiguration is it is valid."""
@@ -537,8 +538,10 @@ class GraphConfigWidget(QWidget):
                 try:
                     value: Union[bool, float, int]
                     txt = txtw_operand.text().strip()
-                    if txt.lower() in ('true', 'false'):    # Convenience for user
-                        value = bool(txt)   # case insensitive
+                    if txt.lower() == 'true':
+                        value = True
+                    elif txt.lower() == 'false':
+                        value = False
                     else:
                         value = float(txtw_operand.text())
                     operands.append(value)

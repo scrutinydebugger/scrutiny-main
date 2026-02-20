@@ -204,7 +204,7 @@ class EmbeddedGraphChartView(ScrutinyChartView):
             chart = self.chart()
             plotarea_mapped_to_chartview = chart.mapRectToParent(chart.plotArea())
             trigger_xpos_mapped_to_chart = chart.xval_to_xpos(self._trigger_xval)
-            if trigger_xpos_mapped_to_chart:
+            if trigger_xpos_mapped_to_chart is not None:
                 trigger_xpos = chart.mapToParent(trigger_xpos_mapped_to_chart, 0).x()  # Map it to this chartview
                 y1 = plotarea_mapped_to_chartview.y()
                 y2 = plotarea_mapped_to_chartview.y() + plotarea_mapped_to_chartview.height()
