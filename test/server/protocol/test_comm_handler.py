@@ -180,7 +180,7 @@ class TestCommHandler(ScrutinyUnitTest):
             self.compare_responses(response1_, response1)
 
     def test_wait_for_get_no_timeout(self):
-        self.comm_handler.params.update({'response_timeout': 0.1})
+        self.comm_handler.get_params().update({'response_timeout': 0.1})
 
         req1 = Request(DummyCommand, DummyCommand.Subfunction.SubFn1, payload=bytes([0x1, 0x2, 0x3]))
         response1 = Response(DummyCommand, DummyCommand.Subfunction.SubFn1, Response.ResponseCode.OK, payload=bytes([0x11, 0x22, 0x33]))
@@ -197,7 +197,7 @@ class TestCommHandler(ScrutinyUnitTest):
         self.compare_responses(response1_, response1)
 
     def test_timeout(self):
-        self.comm_handler.params.update({'response_timeout': 0.1})
+        self.comm_handler.get_params().update({'response_timeout': 0.1})
 
         req1 = Request(DummyCommand, DummyCommand.Subfunction.SubFn1, payload=bytes([0x1, 0x2, 0x3]))
         response1 = Response(DummyCommand, DummyCommand.Subfunction.SubFn1, Response.ResponseCode.OK, payload=bytes([0x11, 0x22, 0x33]))

@@ -17,7 +17,6 @@ from scrutiny.tools.typing import *
 class IpPortValidator(QValidator):
     def validate(self, val: Optional[str], pos: int) -> Tuple[QValidator.State, str, int]:
         assert val is not None
-        port_valid = True
 
         if len(val) == 0:
             return (QValidator.State.Intermediate, val, pos)
@@ -27,9 +26,8 @@ class IpPortValidator(QValidator):
         except Exception:
             return (QValidator.State.Invalid, val, pos)
 
-        if port_valid:
-            if port <= 0 or port > 0xFFFF:
-                return (QValidator.State.Invalid, val, pos)
+        if port <= 0 or port > 0xFFFF:
+            return (QValidator.State.Invalid, val, pos)
 
         return (QValidator.State.Acceptable, val, pos)
 
