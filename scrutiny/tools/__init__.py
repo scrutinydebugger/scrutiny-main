@@ -171,8 +171,8 @@ class SuppressException:
                  exc_val: Optional[BaseException],
                  exc_tb: Optional[types.TracebackType]) -> bool:
         if exc_type is not None:
-            for exc_type in self.ignore_types:
-                if isinstance(exc_val, exc_type):
+            for t in self.ignore_types:
+                if isinstance(exc_val, t):
                     return True
         return False
 

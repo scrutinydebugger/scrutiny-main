@@ -130,6 +130,8 @@ class DataloggingPoller(BaseDeviceHandlerSubmodule):
     """Flag indicating that it is time to read the datalogger state"""
     reset_completed: bool
     """Indicate that the requested reset command has completed successfully."""
+    actual_config_id: int
+    """The config ID given to the acquisition presently being processed"""
 
     acquisition_metadata: Optional[device_datalogging.AcquisitionMetadata]
     received_data_chunk: Optional[_ReceivedChunk]

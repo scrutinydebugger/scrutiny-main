@@ -169,5 +169,5 @@ class StreamParser:
         return self._msg_queue
 
     def reset(self) -> None:
-        self._data_length = None
         self._buffer.clear()
+        self._payload_properties = None

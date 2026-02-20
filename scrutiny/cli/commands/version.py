@@ -33,7 +33,7 @@ class Version(BaseCommand):
 
         if args.format == 'full':
             print(f"Scrutiny Debugger v{scrutiny.__version__}\n(c) {scrutiny.__author__} (License : {scrutiny.__license__})")
-        if args.format == 'short':
+        elif args.format == 'short':
             print(f"{scrutiny.__version__}")
 
         return 0

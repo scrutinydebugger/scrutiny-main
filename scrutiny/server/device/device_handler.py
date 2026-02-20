@@ -601,8 +601,10 @@ class DeviceHandler:
         self.protocol.configure_rpvs([])    # Empty list
 
     # Open communication channel based on config
-    def configure_comm(self, link_type: str, link_config: LinkConfig = {}) -> None:
+    def configure_comm(self, link_type: str, link_config: Optional[LinkConfig] = None) -> None:
         """Configure the communication channel used to communicate with the device. Can be UDP, serial, etc"""
+        if link_config is None:
+            link_config = {}
         self.stop_demo_mode()   # In case this was active, we stop everything as we just lost comm with the emulated device
 
         self.comm_handler.set_link(link_type, link_config)
@@ -646,10 +648,6 @@ class DeviceHandler:
         if new_status != previous_status:
             for callback in self.device_state_changed_callbacks:
                 callback(new_status)
-
-    def reset_bitrate_monitor(self) -> None:
-        """Reset internal bitrate counter"""
-        self.comm_handler.reset_bitrate_monitor()
 
     def get_average_bitrate(self) -> float:
         """Returns the average bitrate measured"""
@@ -803,7 +801,7 @@ class DeviceHandler:
                 self.stop_all_submodules()
                 next_state = self.FsmState.DISCONNECTING
 
-            if state_entry:
+            elif state_entry:
                 self.info_poller.start()
                 # make mypy happy
                 assert self.device_id is not None
@@ -891,7 +889,7 @@ class DeviceHandler:
             if self.dispatcher.is_in_error():
                 next_state = self.FsmState.INIT
 
-       # ========= [DISCONNECTING] ==========
+        # ========= [DISCONNECTING] ==========
         elif self.fsm_state == self.FsmState.DISCONNECTING:
             if state_entry:
                 self.disconnect_complete = False
@@ -983,7 +981,6 @@ class DeviceHandler:
                         except Exception as e:                   # Malformed response.
                             self.comm_broken = True
                             tools.log_exception(self.logger, e, "Error in success callback.")
-                            self.active_request_record.complete(success=False)
 
                 else:   # Comm handler decided to go back to Idle by itself. Most likely a valid message that was not the response of the request.
                     self.comm_broken = True

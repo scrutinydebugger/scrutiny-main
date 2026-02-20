@@ -32,7 +32,7 @@ class DeleteDatalog(BaseCommand):
 
         args = self.parser.parse_args(self.args)
         if args.all:
-            DataloggingStorage.clear_all()
+            DataloggingStorage.clear_all()  # No need to initialize
             self.getLogger().info("All datalogs deleted")
         elif args.id:
             DataloggingStorage.initialize()

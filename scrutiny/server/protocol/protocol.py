@@ -363,7 +363,7 @@ class Protocol:
         return Request(cmd.DatalogControl, cmd.DatalogControl.Subfunction.GetStatus, response_payload_size=1 + 4 + 4)
 
     def datalogging_get_acquisition_metadata(self) -> Request:
-        return Request(cmd.DatalogControl, cmd.DatalogControl.Subfunction.GetAcquisitionMetadata, response_payload_size=14)
+        return Request(cmd.DatalogControl, cmd.DatalogControl.Subfunction.GetAcquisitionMetadata, response_payload_size=16)
 
     def datalogging_read_acquisition(self, data_read: int, total_size: int, tx_buffer_size: int, encoding: device_datalogging.Encoding) -> Request:
         payload_max_size = tx_buffer_size
@@ -504,12 +504,12 @@ class Protocol:
 
             elif req.command == cmd.DatalogControl:
                 subfn = cmd.DatalogControl.Subfunction(req.subfn)
-                data = cast(protocol_typing.Request.DatalogControl.Configure, data)
 
                 if subfn == cmd.DatalogControl.Subfunction.ConfigureDatalog:
                     if len(req.payload) < 16:
                         raise ProtocolParsingError("Not enough data")
 
+                    data = cast(protocol_typing.Request.DatalogControl.Configure, data)
                     data['loop_id'] = req.payload[0]
                     data['config_id'] = unpack('>H', req.payload[1:3])[0]
                     config = device_datalogging.Configuration()
@@ -1040,7 +1040,7 @@ class Protocol:
                         data = cast(protocol_typing.Response.DatalogControl.GetSetup, data)
                         if len(response.payload) != 6:
                             raise ProtocolParsingError(
-                                'Not the right amount of data for a GetSetup response. Got %d expected %d' % (len(response.payload), 5))
+                                'Not the right amount of data for a GetSetup response. Got %d expected %d' % (len(response.payload), 6))
 
                         data['buffer_size'] = unpack('>L', response.payload[0:4])[0]
                         encoding_code = response.payload[4]
@@ -1077,7 +1077,7 @@ class Protocol:
                     elif subfn == cmd.DatalogControl.Subfunction.ReadAcquisition:
                         data = cast(protocol_typing.Response.DatalogControl.ReadAcquisition, data)
                         if len(response.payload) < 8:
-                            raise ProtocolParsingError('Not enough data for a GetAcquisitionMetadata response. Got %d expected at least %d' %
+                            raise ProtocolParsingError('Not enough data for a ReadAcquisition response. Got %d expected at least %d' %
                                                        (len(response.payload), 8))
 
                         data['finished'] = response.payload[0] != 0
