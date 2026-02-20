@@ -94,7 +94,7 @@ class TCPClientHandler(AbstractClientHandler):
         self.server_thread_info = None
         self.id2sock_map = {}
         self.sock2id_map = {}
-        self.client_parser_map={}
+        self.client_parser_map = {}
         self.server_sock = None
         self.selector = None
         self.stream_maker = StreamMaker(
@@ -230,7 +230,7 @@ class TCPClientHandler(AbstractClientHandler):
         assert self.server_sock is not None
         assert self.selector is not None
 
-        client_parser_map:Dict[str, StreamParser] = {}
+        client_parser_map: Dict[str, StreamParser] = {}
         try:
             self.server_thread_info.started_event.set()
             while not self.server_thread_info.stop_event.is_set():
@@ -258,7 +258,7 @@ class TCPClientHandler(AbstractClientHandler):
                             with tools.SuppressException():
                                 self.selector.unregister(client_socket)
                             continue
-                        
+
                         try:
                             data = client_socket.recv(self.READ_SIZE)
                         except OSError:
@@ -266,7 +266,7 @@ class TCPClientHandler(AbstractClientHandler):
 
                             self.unregister_client(client_id)
                             continue
-                        
+
                         try:
                             parser = self.client_parser_map[client_id]
                         except KeyError:
@@ -277,7 +277,7 @@ class TCPClientHandler(AbstractClientHandler):
                             # Client is gone
                             self.unregister_client(client_id)
                         else:
-                            
+
                             self.rx_datarate_measurement.add_data(len(data))
                             self.logger.log(DUMPDATA_LOGLEVEL, f"Received {len(data)} bytes from client ID: {client_id}")
                             parser.parse(data)

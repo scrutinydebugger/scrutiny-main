@@ -94,7 +94,7 @@ class DummyClientHandler(AbstractClientHandler):
     connection_map: Dict[str, DummyConnection]
     started: bool
     rx_event: Optional[threading.Event]
-    thread:Optional[threading.Thread]
+    thread: Optional[threading.Thread]
 
     def __init__(self,
                  config: ClientHandlerConfig,
@@ -184,8 +184,8 @@ class DummyClientHandler(AbstractClientHandler):
         self.stop_requested = True
         if self.thread is not None:
             self.thread.join(timeout=5)
-        self.thread=None
-        self.started=False
+        self.thread = None
+        self.started = False
 
     def send(self, msg: ClientHandlerMessage) -> None:
         try:

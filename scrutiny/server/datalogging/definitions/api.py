@@ -35,9 +35,9 @@ from scrutiny.tools.typing import *
 
 class XAxisType(Enum):
     """Represent a type of X-Axis that a user can select"""
-    IdealTime = 0,
-    MeasuredTime = 1,
-    Signal = 2,
+    IdealTime = 0
+    MeasuredTime = 1
+    Signal = 2
     Indexed = 3
 
 

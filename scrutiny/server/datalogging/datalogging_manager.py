@@ -122,7 +122,7 @@ class DataloggingManager:
 
     @classmethod
     def make_xaxis_indexed(cls, nb_points: int) -> List[float]:
-        return [i for i in range(nb_points)]
+        return [float(i) for i in range(nb_points)]
 
     @classmethod
     def make_xaxis_ideal_time(cls, nb_points: int, sampling_rate: api_datalogging.SamplingRate, decimation: int) -> List[float]:
@@ -293,7 +293,7 @@ class DataloggingManager:
         return parsed_signal_data
 
     def process(self) -> None:
-        """Function th ebe called periodically"""
+        """Function to be called periodically"""
         device_status = self.device_handler.get_connection_status()
 
         state_entry = (self.state != self.previous_state)

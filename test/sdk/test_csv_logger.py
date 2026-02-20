@@ -59,7 +59,7 @@ class TestCSVLogger(ScrutinyUnitTest):
         defaults.update(kwargs)
         return CSVLogger(**defaults)
 
-    def _read_csv(self, filepath: str, csv_config: CSVConfig = CSVConfig()) :
+    def _read_csv(self, filepath: str, csv_config: CSVConfig = CSVConfig()):
         with open(filepath, 'r', encoding=csv_config.encoding, newline=csv_config.newline) as f:
             reader = csv.reader(f, delimiter=csv_config.delimiter, quotechar=csv_config.quotechar, quoting=csv_config.quoting)
             return list(reader)

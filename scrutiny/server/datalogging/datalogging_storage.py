@@ -14,6 +14,7 @@ __all__ = [
 ]
 
 import os
+import math
 import tempfile
 import logging
 from pathlib import Path
@@ -25,7 +26,6 @@ import types
 from scrutiny.server.globals import get_server_storage
 from scrutiny.core.datalogging import DataloggingAcquisition, DataSeries, AxisDefinition, LoggedWatchable
 from scrutiny.core.basic_types import WatchableType
-from scrutiny import tools
 from scrutiny.tools.typing import *
 
 from scrutiny import tools
@@ -259,11 +259,6 @@ class DataloggingStorageManager:
         """)
 
         cursor.execute(""" 
-            CREATE INDEX IF NOT EXISTS `idx_axis_acquisition_id` 
-            ON `axis` (`acquisition_id`)
-        """)
-
-        cursor.execute(""" 
             CREATE INDEX IF NOT EXISTS `idx_axis_ref_axis_id` 
             ON `axis` (`acquisition_id`, `axis_id`)
         """)
@@ -320,7 +315,7 @@ class DataloggingStorageManager:
 
             axis_sql = """
                 INSERT INTO `axis`
-                    (`acquisition_id`, `axis_id`, `name`, 'is_xaxis' )
+                    (`acquisition_id`, `axis_id`, `name`, `is_xaxis` )
                 VALUES (?,?,?,?)
                 """
             axis_to_id_map: Dict[AxisDefinition, int] = {}
@@ -330,7 +325,7 @@ class DataloggingStorageManager:
                     raise ValueError("Axis External ID cannot be -1, reserved value.")
                 cursor.execute(axis_sql, (acquisition_db_id, axis.axis_id, axis.name, 0))
                 if cursor.lastrowid is None:
-                    raise RuntimeError('Failed to insert axis %s in DB', str(axis.name))
+                    raise RuntimeError('Failed to insert axis %s in DB' % str(axis.name))
                 axis_to_id_map[axis] = cursor.lastrowid
 
             cursor.execute(axis_sql, (acquisition_db_id, -1, 'X-Axis', 1))
@@ -401,7 +396,7 @@ class DataloggingStorageManager:
 
         date_statement = "(1=1)"
         if before_datetime is not None:
-            date_statement = "`timestamp` < %d" % before_datetime.timestamp()   # sqlite seems to use floored integer
+            date_statement = "`timestamp` < %d" % math.floor(before_datetime.timestamp())   # sqlite seems to use floored integer
 
         with self.get_session() as conn:
             cursor = conn.cursor()
@@ -490,7 +485,6 @@ class DataloggingStorageManager:
                 )
 
             name = row[colmap['dataseries_name']]
-            logged_watchable = logged_watchable
             data = row[colmap['data']]
 
             if name is None or data is None:

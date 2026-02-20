@@ -163,7 +163,7 @@ class WatchableHandle:
 
             if time.monotonic() - t1 > timeout:
                 raise sdk_exceptions.TimeoutException(f'Value of {self._shortname} did not update in {timeout}s')
-            
+
             # No lock on purpose. Status can only go once to NeverSet or Valid
             if self._status != ValueStatus.NeverSet and self._status != ValueStatus.Valid:
                 raise sdk_exceptions.InvalidValueError(self._status._get_error())

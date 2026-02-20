@@ -334,7 +334,7 @@ class BaseListener(abc.ABC):
                         try:
                             self._update_queue.put_nowait(None)
                         except queue.Full:
-                            pass 
+                            pass
 
                 self._thread.join(timeout=5)
                 if self._thread.is_alive():
