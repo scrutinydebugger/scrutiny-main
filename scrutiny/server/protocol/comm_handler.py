@@ -139,7 +139,7 @@ class CommHandler:
                 time.sleep(0.2)
         self._logger.debug("RX thread exiting")
 
-    def get_params(self) -> Params :
+    def get_params(self) -> Params:
         return self._params
 
     def set_rx_data_event(self, evt: threading.Event) -> None:

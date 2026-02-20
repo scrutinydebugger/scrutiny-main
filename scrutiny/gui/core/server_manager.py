@@ -363,7 +363,7 @@ class ServerManager:
 
         def clear_var_alias_registration_status() -> None:
             self._registration_status_store[sdk.WatchableType.Variable].clear()
-            self._registration_status_store[sdk.WatchableType.RuntimePublishedValue].clear()
+            self._registration_status_store[sdk.WatchableType.Alias].clear()
 
         def clear_all_registration_status() -> None:
             for k in self._registration_status_store:
@@ -953,7 +953,7 @@ class ServerManager:
         else:
             self._set_device_info(None)
 
-        self._signals.device_info_availability_changed
+        self._signals.device_info_availability_changed.emit()
 
     @enforce_thread(QT_THREAD_NAME)
     def _receive_loaded_sfd_info(self, retval: Optional[Any], error: Optional[Exception]) -> None:
