@@ -953,8 +953,6 @@ class ServerManager:
         else:
             self._set_device_info(None)
 
-        self._signals.device_info_availability_changed.emit()
-
     @enforce_thread(QT_THREAD_NAME)
     def _receive_loaded_sfd_info(self, retval: Optional[Any], error: Optional[Exception]) -> None:
         # Called when client.get_loaded_sfd() completes.
