@@ -261,4 +261,4 @@ class WatchableLineEdit(QLineEdit):
             else:
                 return
         except AssertionError:
-            raise ValueError("Invalid state dictionnary")
+            raise ValueError("Invalid state dictionary")

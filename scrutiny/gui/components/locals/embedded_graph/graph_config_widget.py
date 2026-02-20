@@ -175,25 +175,32 @@ class GraphConfigWidget(QWidget):
         self._spin_decimation = QSpinBox(self)
         self._lbl_effective_sampling_rate = QLabel(self)
         self._spin_trigger_position = QSpinBox(self)
+        timeout_hard_validator = QDoubleValidator(0, MAX_TIMEOUT_SEC, 7)
+        timeout_hard_validator.setNotation(QDoubleValidator.Notation.StandardNotation)
         self._txt_acquisition_timeout = FloatValidableLineEdit(
-            hard_validator=QDoubleValidator(0, MAX_TIMEOUT_SEC, 7),
+            hard_validator=timeout_hard_validator,
             parent=self
         )
+        double_validator1 = QDoubleValidator()
+        double_validator2 = QDoubleValidator()
+        double_validator3 = QDoubleValidator()
+        for validator in [double_validator1, double_validator2, double_validator3]:
+            validator.setNotation(QDoubleValidator.Notation.StandardNotation)
+
         self._cmb_trigger_condition = QComboBox(self)
         self._txtw_trigger_operand1 = WatchableLineEdit("", self)
-        self._txtw_trigger_operand1.setValidator(QDoubleValidator())
+        self._txtw_trigger_operand1.setValidator(double_validator1)
         self._txtw_trigger_operand2 = WatchableLineEdit("", self)
-        self._txtw_trigger_operand2.setValidator(QDoubleValidator())
+        self._txtw_trigger_operand2.setValidator(double_validator2)
         self._txtw_trigger_operand3 = WatchableLineEdit("", self)
-        self._txtw_trigger_operand3.setValidator(QDoubleValidator())
+        self._txtw_trigger_operand3.setValidator(double_validator3)
         self._cmb_xaxis_type = QComboBox(self)
         self._txtw_xaxis_signal = WatchableLineEdit("", self)
         self._txtw_xaxis_signal.set_text_mode_enabled(False)    # No literal allowed, just watchables
 
-        self._txt_hold_time_ms = FloatValidableLineEdit(
-            hard_validator=QDoubleValidator(0, MAX_HOLD_TIME_MS, 4),
-            parent=self
-        )
+        hold_time_hard_validator = QDoubleValidator(0, MAX_HOLD_TIME_MS, 4)
+        hold_time_hard_validator.setNotation(QDoubleValidator.Notation.StandardNotation)
+        self._txt_hold_time_ms = FloatValidableLineEdit(hard_validator=hold_time_hard_validator, parent=self)
         self._lbl_estimated_duration = QLabel(self)
 
         self._txt_acquisition_name.setText(self.AUTONAME_PREFIX + "1")
