@@ -353,17 +353,18 @@ class FirmwareDescription:
             outzip.writestr(self.ALIAS_FILE, self.serialize_aliases(list(self.aliases.values())))
 
     @classmethod
-    def serialize_aliases(cls, aliases: Union[Dict[str, Alias], List[Alias]]) -> bytes:
+    def serialize_aliases(cls, aliases_input: Union[Dict[str, Alias], List[Alias]]) -> bytes:
         """
         Takes bunch of alias and return a JSON containing a dict structure like this
         [alias1.fullpath] => alias1,  [alias2.fullpath] => alias2
         """
-        if isinstance(aliases, dict):
-            aliases = aliases.values()
-        dic = {
-            alias.get_fullpath(): alias.to_dict()
-            for alias in aliases
-        }
+        aliases:Iterable[Alias]
+        if isinstance(aliases_input, dict):
+            aliases = aliases_input.values()
+        else:
+            aliases = aliases_input
+
+        dic = { alias.get_fullpath(): alias.to_dict() for alias in aliases }
         return json.dumps(dic, indent=4).encode('utf8')
 
     def get_firmware_id(self) -> bytes:
