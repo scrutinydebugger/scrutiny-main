@@ -11,7 +11,7 @@
 set -uo pipefail
 
 source $(dirname ${BASH_SOURCE[0]})/common.sh
-set +e
+set -e
 
 PROJECT_ROOT="$(get_project_root)"
 PY_MODULE_ROOT="$PROJECT_ROOT"
@@ -19,9 +19,15 @@ PY_MODULE_ROOT="$PROJECT_ROOT"
 SCRUTINY_VENV_DIR="${SCRUTINY_VENV_DIR:-venv}"
 SCRUTINY_VENV_ROOT="${SCRUTINY_VENV_DIR:-$PROJECT_ROOT/$SCRUTINY_VENV_DIR}"
 
-[ ! -d "$SCRUTINY_VENV_ROOT" ] \
-    && info "Missing venv. Creating..." \
-    && python3 -m venv "$SCRUTINY_VENV_ROOT"
+if [ ! -d "$SCRUTINY_VENV_ROOT" ]; then
+    info "Missing venv. Creating..."
+    for PYTHON3_RUNTIME in $(which -a python3.13 python3.12 python3.11 python3.10 python3); do
+        [ -e "$PYTHON3_RUNTIME" ] && break || unset PYTHON3_RUNTIME
+    done
+    [ -e "$PYTHON3_RUNTIME" ] || fatal No python3 interpreter found
+    info "Found $PYTHON3_RUNTIME"
+    trace_run "$PYTHON3_RUNTIME" -m venv --prompt venv "$SCRUTINY_VENV_ROOT"
+fi
 
 source "$SCRUTINY_VENV_ROOT/bin/activate"
 
@@ -34,22 +40,22 @@ if ! [[ -z "${BUILD_CONTEXT+x}" ]]; then
     fi
 fi
 
-pip3 cache info
+trace_run pip3 cache info
 
-if ! pip3 show wheel 2>&1 >/dev/null; then
+if ! pip3 show wheel >/dev/null 2>&1; then
     info "Installing wheel..."
-    pip3 install wheel
+    trace_run pip3 install wheel
     info "Upgrading pip..."
-    pip3 install --upgrade pip
+    trace_run pip3 install --upgrade pip
     info "Upgrading setuptools..."
-    pip3 install --upgrade setuptools
+    trace_run pip3 install --upgrade setuptools
 fi
 
 if ! diff "$PY_MODULE_ROOT/setup.py" "$SCRUTINY_VENV_ROOT/cache/setup.py" 2>&1 >/dev/null; then
     info "Install scrutiny inside venv"
-    pip3 install -e "${PY_MODULE_ROOT}${MODULE_FEATURE}"
-    mkdir -p "$SCRUTINY_VENV_ROOT/cache/"
-    cp "$PY_MODULE_ROOT/setup.py" "$SCRUTINY_VENV_ROOT/cache/setup.py"
+    trace_run pip3 install -e "${PY_MODULE_ROOT}${MODULE_FEATURE}"
+    trace_run mkdir -p "$SCRUTINY_VENV_ROOT/cache/"
+    trace_run cp "$PY_MODULE_ROOT/setup.py" "$SCRUTINY_VENV_ROOT/cache/setup.py"
 fi
 
 set +e

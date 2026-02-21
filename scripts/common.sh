@@ -17,6 +17,7 @@ info()  { >&2 echo -e "$CYAN[Info]$NC $1";}
 warn()  { >&2 echo -e "$YELLOW[Warning]$NC $1";}
 error() { >&2 echo -e "$RED[Error]$NC $1"; }
 fatal() { >&2 echo -e "$RED[Fatal]$NC $1"; exit ${2:-1}; }
+trace_run() { >&2 echo "+" "$@"; "$@"; }
 
 absnorm_exist() 
 { 
