@@ -1065,7 +1065,8 @@ class ServerManager:
             if handle is None:
                 raise Exception(f"Item {fqn} is not being watched. Cannot write its value")
 
-            handle.value = value    # String parsing is done by the server
+            # String parsing is done by the server
+            handle.value = value    #type: ignore 
 
         def ui_callback(_: None, exception: Optional[Exception]) -> None:
             callback(exception)
