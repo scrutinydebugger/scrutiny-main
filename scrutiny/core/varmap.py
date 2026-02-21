@@ -355,7 +355,10 @@ class VarMap:
         return (binary_type_name in self._typename2typeid_map)
 
     def has_var(self, fullname: str) -> bool:
-        parsed_path = ScrutinyPath.from_string(fullname)
+        try:
+            parsed_path = ScrutinyPath.from_string(fullname)
+        except Exception:
+            return False
         raw_path = parsed_path.to_raw_str()
         return raw_path in self._content.variables
 
