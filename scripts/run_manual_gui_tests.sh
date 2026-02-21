@@ -25,7 +25,7 @@ for f in $FILES; do
 
     read -p "Continue? [y/n] " yn
     case $yn in
-        [Yy]*)  ;;  
+        [Yy]*)  ;;
         [Nn]*) echo "Aborted" ; break ;;
     esac
 done

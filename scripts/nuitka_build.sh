@@ -90,7 +90,7 @@ python -m nuitka                                    \
 rm "${LICENSE_FILE}"
 
 if [ "$PLATFORM" = "darwin" ]; then
-    # Post process stage specific to mac OS. 
+    # Post process stage specific to mac OS.
     # Define some app properties + setup a symlink for CLI.
     APP_DIR="${OUTPUT_FOLDER}/scrutiny.app"
     PLIST="${APP_DIR}/Contents/Info.plist"

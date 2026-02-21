@@ -3,14 +3,14 @@
 
 Scrutiny main module. Contains
  - Server
- - QT GUI 
+ - QT GUI
  - CLI for build toolchain integration
  - Python SDK
 
 
 ## Getting started - User
 
-Install 
+Install
 
 ```
 pip install scrutinydebugger
@@ -26,7 +26,7 @@ Launch GUI
 scrutiny gui [--start-local-server] [--auto-connect]
 ```
 
-## Getting started - Developper 
+## Getting started - Developper
 
 Install
 

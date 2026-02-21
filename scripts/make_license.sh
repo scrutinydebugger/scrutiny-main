@@ -8,7 +8,7 @@
 #
 #    Copyright (c) 2025 Scrutiny Debugger
 
-set -euo pipefail 
+set -euo pipefail
 source $(dirname ${BASH_SOURCE[0]})/common.sh
 PROJECT_ROOT="$(get_project_root)"
 OUTFILE=${1:-"LICENSE.out"}

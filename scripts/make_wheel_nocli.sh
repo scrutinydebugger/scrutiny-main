@@ -24,5 +24,5 @@ NOCLI_BASENAME=$(./scripts/make_wheel_filename.sh NOCLI)
 
 SCRUTINY_ADD_ENTRYPOINTS=0 ./scripts/make_wheel.sh "$OUTPUT_FOLDER"    # Create a wheel without entry points (nocli)
 assert_file "$OUTPUT_FOLDER/$EXPECTED_NAME"
-mv "$OUTPUT_FOLDER/$EXPECTED_NAME" "$OUTPUT_FOLDER/$NOCLI_BASENAME"   # Rename 
+mv "$OUTPUT_FOLDER/$EXPECTED_NAME" "$OUTPUT_FOLDER/$NOCLI_BASENAME"   # Rename
 assert_file "$OUTPUT_FOLDER/$NOCLI_BASENAME"
