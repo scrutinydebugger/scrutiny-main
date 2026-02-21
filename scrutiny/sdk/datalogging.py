@@ -126,8 +126,6 @@ class _Signal:
 
 @dataclass(slots=True)
 class _SignalAxisPair(_Signal):
-    name: Optional[str]
-    path: str
     axis_id: int
 
 

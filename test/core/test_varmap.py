@@ -294,3 +294,73 @@ class TestVarmap(ScrutinyUnitTest):
             self.assertIn(key, location.array_segments)
             self.assertEqual(location.array_segments[key].dims, arr.dims)
             self.assertEqual(location.array_segments[key].get_element_byte_size(), arr.get_element_byte_size())
+
+    def test_valid_state_after_load(self):
+        varmap = VarMap()
+        varmap._next_type_id = 4
+        varmap.load_dict({
+            "endianness": "little",
+            "type_map": {
+                "0": {
+                    "name": "int",
+                    "type": "sint32"
+                },
+                "1": {
+                    "name": "unsigned int",
+                    "type": "uint32"
+                },
+                "2": {
+                    "name": "float",
+                    "type": "float32"
+                }
+            },
+            "variables": {
+                "/path1/path2/some_int32": {
+                    "type_id": "0",
+                    "addr": 1000
+                },
+                "/path1/path2/some_uint32": {
+                    "type_id": "1",
+                    "addr": 1004,
+                    "enum": "0"
+                },
+            },
+            "enums": {
+                "0": {
+                    "name": "EnumA",
+                    "values": {
+                        "eVal1": 0,
+                        "eVal2": 1,
+                        "eVal3": 100,
+                        "eVal4": 101
+                    }
+                }
+            }
+        })
+
+        enumADef = {
+            "name": "EnumA",
+                    "values": {
+                        "eVal1": 0,
+                        "eVal2": 1,
+                        "eVal3": 100,
+                        "eVal4": 101
+                    }
+        }
+
+        self.assertEqual(varmap.get_regsitered_types(), {
+            'int': EmbeddedDataType.sint32,
+            'unsigned int': EmbeddedDataType.uint32,
+            'float': EmbeddedDataType.float32
+        })
+
+        self.assertEqual(varmap.get_regsitered_enums(), [EmbeddedEnum.from_def(enumADef)])
+
+        varmap.register_base_type('double', EmbeddedDataType.float64)
+
+        self.assertEqual(varmap.get_regsitered_types(), {
+            'int': EmbeddedDataType.sint32,
+            'unsigned int': EmbeddedDataType.uint32,
+            'float': EmbeddedDataType.float32,
+            'double': EmbeddedDataType.float64,
+        })

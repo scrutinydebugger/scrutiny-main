@@ -210,7 +210,7 @@ class TestListeners(ScrutinyUnitTest):
         self.assertIsInstance(listener.recv_list[5].update_timestamp, datetime)
         self.assertEqual(listener.recv_list[5].value, -9.999)
 
-        self.assertFalse(listener.error_occured)
+        self.assertFalse(listener.error_occurred)
 
         listener.get_stats()
 
@@ -269,7 +269,7 @@ class TestListeners(ScrutinyUnitTest):
 
         self.assertFalse(listener.is_started)
         self.assertTrue(listener.teardown_called)
-        self.assertTrue(listener.error_occured)
+        self.assertTrue(listener.error_occurred)
 
     def test_listener_failing_teardown(self):
         listener = TeardownFailedListener()
@@ -280,7 +280,7 @@ class TestListeners(ScrutinyUnitTest):
         self.assertTrue(listener.setup_called)
         listener.stop()  # Should not throw.
         self.assertFalse(listener.is_started)
-        self.assertTrue(listener.error_occured)
+        self.assertTrue(listener.error_occurred)
 
     def test_listener_failing_receive(self):
         listener = ReceiveFailedListener()
@@ -296,7 +296,7 @@ class TestListeners(ScrutinyUnitTest):
 
         listener.stop()  # Should not throw.
         self.assertFalse(listener.is_started)
-        self.assertTrue(listener.error_occured)
+        self.assertTrue(listener.error_occurred)
 
     def test_queue_overflow_dropped(self):
         listener = WorkingTestListener(queue_max_size=1)

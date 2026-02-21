@@ -117,6 +117,7 @@ class SFDTableView(QTableView):
         show_details = Signal(object)
 
     _signals: _Signals
+    _allow_save: bool
 
     def __init__(self, parent: QWidget) -> None:
         super().__init__(parent)
@@ -565,9 +566,10 @@ class ServerSFDManagerDialog(QDialog):
 
     def set_transfer_inactive(self) -> None:
         self._active_transfer_req = None
-        self._sfd_table.allow_save(True)
-        self._install_action.setEnabled(True)
-        self._progress_widget.deactivate()
+        if self._server_manager.get_server_state() == sdk.ServerState.Connected:
+            self._sfd_table.allow_save(True)
+            self._install_action.setEnabled(True)
+            self._progress_widget.deactivate()
 
     def is_transfer_active(self) -> bool:
         return self._active_transfer_req is not None

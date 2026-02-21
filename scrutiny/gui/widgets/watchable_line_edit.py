@@ -58,7 +58,7 @@ class WatchableLineEdit(QLineEdit):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self._mode = self.Mode.TEXT
-        self._icon_action = None
+        self._watchable_icon_action = None
         self._clear_icon = scrutiny_get_theme().load_tiny_icon(assets.Icons.RedX)
         self._clear_being_clicked = False
         self._mouse_over_clear_button = False
@@ -261,4 +261,4 @@ class WatchableLineEdit(QLineEdit):
             else:
                 return
         except AssertionError:
-            raise ValueError("Invalid state dictionnary")
+            raise ValueError("Invalid state dictionary")

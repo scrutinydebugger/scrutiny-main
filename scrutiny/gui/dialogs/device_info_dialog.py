@@ -66,6 +66,7 @@ class MemoryRegionList(QWidget):
         address_size = address_size_bits // 8
         if address_size % 2 == 1:
             address_size += 1
+        address_size *= 2
 
         def make_label(region: MemoryRegion) -> QLabel:
             format_string = f"0x%0{address_size}X"
@@ -106,7 +107,7 @@ class SamplingRateList(QWidget):
             elif isinstance(sampling_rate, VariableFreqSamplingRate):
                 freq_label.setText("(Variable)")
             else:
-                NotImplementedError("Unsupported sampling rate type")
+                raise NotImplementedError("Unsupported sampling rate type")
             all_labels = (id_label, name_label, freq_label)
             for label in all_labels:
                 _configure_value_label(label)

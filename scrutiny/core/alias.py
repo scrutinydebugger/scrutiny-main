@@ -36,9 +36,9 @@ class Alias:
     offset: Optional[float]
     """Optional offset to apply on the value. 0 if ``None``"""
     min: Optional[float]
-    """Optional max to apply on the value. +inf if ``None``"""
-    max: Optional[float]
     """Optional min to apply on the value. -inf if ``None``"""
+    max: Optional[float]
+    """Optional max to apply on the value. +inf if ``None``"""
     enum: Optional[EmbeddedEnum]
     """Optional enum to add on top of the value being watched"""
 
@@ -80,7 +80,7 @@ class Alias:
             target_type = WatchableType(target_type)
             if target_type == WatchableType.Alias:
                 raise ValueError("Cannot make an alias over another alias.")
-            self.target_type = WatchableType(target_type)
+            self.target_type = target_type
         else:
             self.target_type = None
         self.target = target
@@ -112,13 +112,13 @@ class Alias:
             raise ValueError('Alias (%s) maximum is not a valid float' % self.fullpath)
 
         if self.get_min() > self.get_max():
-            raise ValueError('Max (%s) > min (%s)' % (str(self.max), str(self.min)))
+            raise ValueError('Min (%s) > Max (%s)' % (str(self.min), str(self.max)))
 
         if not math.isfinite(self.get_gain()):
             raise ValueError('Gain is not a finite value')
 
         if not math.isfinite(self.get_offset()):
-            raise ValueError('Gain is not a finite value')
+            raise ValueError('Offset is not a finite value')
 
         if self.enum is not None:
             if not isinstance(self.enum, EmbeddedEnum):
@@ -161,7 +161,7 @@ class Alias:
         return self.target_type
 
     def set_target_type(self, target_type: WatchableType) -> None:
-        if self.target_type == WatchableType.Alias:
+        if target_type == WatchableType.Alias:
             raise ValueError('Alias %s point onto another alias (%s)' % (self.get_fullpath(), self.get_target()))
         self.target_type = target_type
 

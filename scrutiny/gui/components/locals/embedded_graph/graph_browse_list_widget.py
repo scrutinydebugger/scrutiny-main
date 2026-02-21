@@ -14,8 +14,8 @@ __all__ = [
 ]
 
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QMenu, QAbstractItemDelegate, QLineEdit
-from PySide6.QtGui import QStandardItem, QContextMenuEvent, QKeyEvent, QMouseEvent, QAction
-from PySide6.QtCore import Signal, QObject, Qt, QModelIndex, QPoint
+from PySide6.QtGui import QStandardItem, QContextMenuEvent, QKeyEvent, QMouseEvent
+from PySide6.QtCore import Signal, QObject, Qt, QModelIndex
 
 from scrutiny.sdk import datalogging
 from scrutiny.gui.core.persistent_data import gui_persistent_data
@@ -187,8 +187,6 @@ class AcquisitionStorageEntryTreeView(BaseTreeView):
         """Called when the user finishes editing an item"""
         if self._item_being_edited is not None:  # We were really editing something. Paranoid check
             item_written = self._item_being_edited
-
-            reference_id = self.model().get_reference_id_from_index(item_written.index())
             new_name = item_written.text()
 
             must_update = (hint == QAbstractItemDelegate.EndEditHint.SubmitModelCache)  # User pressed Enter, not Escape
@@ -196,7 +194,8 @@ class AcquisitionStorageEntryTreeView(BaseTreeView):
                 item_written.setText(self._previous_name)
                 must_update = False
 
-            if must_update:
+            reference_id = self.model().get_reference_id_from_index(item_written.index())
+            if must_update and reference_id is not None:
                 self._signals.rename.emit(reference_id, new_name)
 
         self._item_being_edited = None

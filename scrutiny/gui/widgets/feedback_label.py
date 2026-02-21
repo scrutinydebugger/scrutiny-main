@@ -97,6 +97,9 @@ class FeedbackLabel(QWidget):
     def get_message_type(self) -> MessageType:
         return self._actual_msg_type
 
+    def is_success(self) -> bool:
+        return self.get_message_type() == self.MessageType.SUCCESS
+
     def is_info(self) -> bool:
         return self.get_message_type() == self.MessageType.INFO
 

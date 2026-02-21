@@ -199,7 +199,7 @@ class BaseTreeModel(QStandardItemModel):
         return True
 
     @classmethod
-    def remove_nested_indexes_unordered(cls, indexes: Sequence[QModelIndex], columns_to_keep: List[int] = [0]) -> Set[QModelIndex]:
+    def remove_nested_indexes_unordered(cls, indexes: Sequence[QModelIndex], columns_to_keep: Optional[List[int]] = None) -> Set[QModelIndex]:
         """Takes a list of indexes and remove any indexes nested under another index part of the input
 
         :param indexes: The list of indexes to filter
@@ -207,6 +207,8 @@ class BaseTreeModel(QStandardItemModel):
 
         :return: A set of indexes that has no nested indexes
         """
+        if columns_to_keep is None:
+            columns_to_keep = [0]
         indexes_without_nested_values = set([index for index in indexes if index.column() in columns_to_keep])
         # If we have nested nodes, we only keep the parent.
         for index in list(indexes_without_nested_values):   # Make copy
@@ -310,7 +312,6 @@ class BaseTreeView(QTreeView):
 
     def set_row_color(self, index: QModelIndex, color: QColor) -> None:
         """Change the background color of a row"""
-        item = self.model().itemFromIndex(index)
         for i in range(self.model().columnCount()):
             item = self.model().itemFromIndex(index.siblingAtColumn(i))
             if item is not None:
@@ -327,6 +328,7 @@ class BaseTreeView(QTreeView):
         while parent is not None:
             if not self.isExpanded(parent.index()):
                 visible = False
+                break
             parent = parent.parent()
         return visible
 

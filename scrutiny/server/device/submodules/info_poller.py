@@ -436,7 +436,6 @@ class InfoPoller(BaseDeviceHandlerSubmodule):
 
         if self.logger.isEnabledFor(logging.DEBUG):  # pragma: no cover
             self.logger.debug("Success callback. Request=%s. Response Code=%s, Params=%s" % (request, response.code, params))
-        response_data: protocol_typing.ResponseData
 
         must_process_response = True
         if self.stop_requested:
@@ -461,6 +460,7 @@ class InfoPoller(BaseDeviceHandlerSubmodule):
                 str(Request), response.code)
             must_process_response = False
 
+        response_data: Optional[protocol_typing.ResponseData] = None
         if must_process_response:
             try:
                 response_data = self.protocol.parse_response(response)  # It's ok to have the exception go up
@@ -484,6 +484,7 @@ class InfoPoller(BaseDeviceHandlerSubmodule):
                 must_process_response = False
 
         if must_process_response:
+            assert response_data is not None
             if self.fsm_state == self.FsmState.GetProtocolVersion:
                 response_data = cast(protocol_typing.Response.GetInfo.GetProtocolVersion, response_data)
                 self.info.protocol_major = response_data['major']

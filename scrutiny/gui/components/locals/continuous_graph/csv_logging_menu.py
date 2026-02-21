@@ -15,14 +15,13 @@ import os
 
 from PySide6.QtWidgets import (QHBoxLayout, QWidget, QVBoxLayout, QSizePolicy,
                                QPushButton, QFormLayout, QSpinBox,
-                               QLineEdit, QCheckBox, QGroupBox, QMessageBox)
+                               QLineEdit, QCheckBox, QGroupBox)
 from PySide6.QtCore import Qt
 
 from scrutiny.gui.tools import prompt
 from scrutiny.gui.core.persistent_data import gui_persistent_data
 from scrutiny.sdk.listeners.csv_logger import CSVLogger, CSVConfig
 from scrutiny.tools.typing import *
-from scrutiny.sdk.listeners.csv_logger import CSVLogger, CSVConfig
 
 
 class CsvLoggingMenuWidget(QWidget):
@@ -37,6 +36,7 @@ class CsvLoggingMenuWidget(QWidget):
     _txt_filename_pattern: QLineEdit
     _spin_max_line_per_file: QSpinBox
     _gb_content: QGroupBox
+    _btn_browse: QPushButton
 
     def __init__(self, parent: QWidget):
         super().__init__(parent)
@@ -122,6 +122,9 @@ class CsvLoggingMenuWidget(QWidget):
         self._txt_folder.setText(folder)
 
     def check_conflicts(self) -> bool:
+        """Tells if there might be file naming conflict with existing files
+        Raise an Exception if the configuration is not valid
+        """
         self.validate()
 
         folder = Path(self._txt_folder.text())
@@ -175,12 +178,14 @@ class CsvLoggingMenuWidget(QWidget):
         if 'line_per_files' in state and isinstance(state['line_per_files'], int):
             self._spin_max_line_per_file.setValue(state['line_per_files'])
         else:
-            fully_valid = fully_valid
+            self._spin_max_line_per_file.setValue(10000)
+            fully_valid = False
 
         if 'prefix' in state and isinstance(state['prefix'], str):
             self._txt_filename_pattern.setText(state['prefix'])
         else:
-            fully_valid = fully_valid
+            self._txt_filename_pattern.setText("")
+            fully_valid = False
 
         return fully_valid
 

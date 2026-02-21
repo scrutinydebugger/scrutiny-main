@@ -108,7 +108,7 @@ class Struct:
 
             if byte_offset is not None:
                 if not isinstance(byte_offset, int):
-                    raise ValueError(f'byte_offset must be an integer value. Got {bitsize.__class__.__name__}')
+                    raise ValueError(f'byte_offset must be an integer value. Got {byte_offset.__class__.__name__}')
                 if byte_offset < 0:
                     raise ValueError('byte_offset must be a positive integer')
 
@@ -196,4 +196,4 @@ class Struct:
             if member2.byte_offset is None:
                 raise RuntimeError("Expect byte_offset to be set to handle inheritance")
             member2.byte_offset += offset
-            self.add_member(member)
+            self.add_member(member2)

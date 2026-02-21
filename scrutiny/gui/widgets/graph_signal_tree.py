@@ -18,10 +18,9 @@ __all__ = [
 from dataclasses import dataclass
 
 from PySide6.QtWidgets import QAbstractItemDelegate, QWidget, QMenu
-from PySide6.QtGui import (QStandardItem, QDropEvent, QDragEnterEvent, QDragMoveEvent, QDragEnterEvent,
-                           QDragMoveEvent, QContextMenuEvent, QAction, QKeyEvent, QPixmap, QPalette
-                           )
-from PySide6.QtCore import QMimeData, QModelIndex, Qt, QPersistentModelIndex, QPoint, QItemSelection, QObject, Signal
+from PySide6.QtGui import (QStandardItem, QDropEvent, QDragEnterEvent, QDragMoveEvent,
+                           QContextMenuEvent, QKeyEvent, QPixmap, QPalette)
+from PySide6.QtCore import QMimeData, QModelIndex, Qt, QPersistentModelIndex, QItemSelection, QObject, Signal
 from PySide6.QtCharts import QLineSeries, QAbstractSeries, QValueAxis
 
 from scrutiny.gui import assets
@@ -330,8 +329,8 @@ class GraphSignalModel(BaseTreeModel):
                 continue
             axis = AxisContent(axis_name=axis_item.text(), axis_item=axis_item, signal_items=[])
 
-            for i in range(axis_item.rowCount()):
-                watchable_item = axis_item.child(i, self.watchable_col())
+            for j in range(axis_item.rowCount()):
+                watchable_item = axis_item.child(j, self.watchable_col())
                 assert isinstance(watchable_item, ChartSeriesWatchableStandardItem)
                 axis.signal_items.append(watchable_item)
             outlist.append(axis)
@@ -343,9 +342,9 @@ class GraphSignalModel(BaseTreeModel):
         outlist: List[Tuple[QLineSeries, QStandardItem]] = []
         for i in range(self.rowCount()):
             axis_item = self.item(i, self.axis_col())
-            for i in range(axis_item.rowCount()):
-                watchable_item = axis_item.child(i, self.watchable_col())
-                value_item = axis_item.child(i, self.value_col())
+            for j in range(axis_item.rowCount()):
+                watchable_item = axis_item.child(j, self.watchable_col())
+                value_item = axis_item.child(j, self.value_col())
                 assert isinstance(watchable_item, ChartSeriesWatchableStandardItem)
                 outlist.append((watchable_item.series(), value_item))
         return outlist
@@ -424,8 +423,8 @@ class GraphSignalModel(BaseTreeModel):
         outlist: List[QStandardItem] = []
         for i in range(self.rowCount()):
             axis_item = self.item(i, self.axis_col())
-            for i in range(axis_item.rowCount()):
-                outlist.append(axis_item.child(i, self.value_col()))
+            for j in range(axis_item.rowCount()):
+                outlist.append(axis_item.child(j, self.value_col()))
         return outlist
 
     def _update_editable_field(self) -> None:
@@ -433,10 +432,10 @@ class GraphSignalModel(BaseTreeModel):
         for i in range(self.rowCount()):
             axis_item = self.item(i, self.axis_col())
             axis_item.setEditable(editable)
-            for i in range(axis_item.rowCount()):
-                axis_item.child(i, self.watchable_col()).setEditable(editable)
+            for j in range(axis_item.rowCount()):
+                axis_item.child(j, self.watchable_col()).setEditable(editable)
                 if self.has_value_col():
-                    axis_item.child(i, self.value_col()).setEditable(False)
+                    axis_item.child(j, self.value_col()).setEditable(False)
 
     def disallow_item_edition(self) -> None:
         self._globally_uneditable = True

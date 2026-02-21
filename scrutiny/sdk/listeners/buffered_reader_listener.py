@@ -39,6 +39,7 @@ class BufferedReaderListener(BaseListener):
                 self._queue.put_nowait(update)
             except queue.Full:
                 self._logger.warning("Queue is full. Dropping updates")
+                break
 
     def get_queue(self) -> "ScrutinyQueue[ValueUpdate]":
         """Returns the queue used for storage"""

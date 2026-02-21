@@ -56,7 +56,7 @@ class GraphStatistics:
             self.prepareGeometryChange()
             metrics = QFontMetrics(self._font)
             self._text_rect = QRectF(metrics.boundingRect(QRect(0, 0, 200, 100), Qt.AlignmentFlag.AlignLeft, self._text))
-            self._bounding_box = QRectF(self._text_rect.adjusted(0, 0, 0, 0))
+            self._bounding_box = QRectF(self._text_rect)
 
         def boundingRect(self) -> QRectF:
             return self._bounding_box

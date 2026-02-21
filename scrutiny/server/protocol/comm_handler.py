@@ -79,7 +79,6 @@ class CommHandler:
     _logger: logging.Logger
     _opened: bool
     _throttler: Throttler
-    _tx_bitcount: int
     _timed_out: bool
     _pending_request: Optional[Request]
     _link_type: str
@@ -95,18 +94,19 @@ class CommHandler:
     _rx_datarate_measurement: VariableRateExponentialAverager
     _request_per_sec_measurement: VariableRateExponentialAverager
 
-    def __init__(self, params: Dict[str, Any] = {}) -> None:
+    def __init__(self, params: Optional[Dict[str, Any]] = None) -> None:
+        if params is None:
+            params = {}
         self._active_request = None      # Contains the request object that has been sent to the device. When None, no request sent and we are standby
         self._received_response = None   # Indicates that a response has been received.
         self._link = None                # Abstracted communication channel that implements  initialize, destroy, write, read
-        self.params = copy(self.DEFAULT_PARAMS)
-        self.params.update(cast(CommHandler.Params, params))
+        self._params = copy(self.DEFAULT_PARAMS)
+        self._params.update(cast(CommHandler.Params, params))
 
-        self._response_timer = Timer(self.params['response_timeout'])    # Timer for response timeout management
+        self._response_timer = Timer(self._params['response_timeout'])    # Timer for response timeout management
         self._rx_data = self.RxData()    # Contains the response data while we read it.
         self._logger = logging.getLogger(self.__class__.__name__)
         self._opened = False     # True when communication channel is active and working.
-        self.reset_bitrate_monitor()
         self._throttler = Throttler()
         self._link_type = "none"
         self._last_open_error = None
@@ -139,6 +139,9 @@ class CommHandler:
                 time.sleep(0.2)
         self._logger.debug("RX thread exiting")
 
+    def get_params(self) -> Params:
+        return self._params
+
     def set_rx_data_event(self, evt: threading.Event) -> None:
         self._rx_data_event = evt
 
@@ -162,10 +165,6 @@ class CommHandler:
     def get_throttling_bitrate(self) -> Optional[float]:
         """Get the target bitrate for throttling. None if disabled"""
         return self._throttler.get_bitrate() if self._throttler.is_enabled() else None
-
-    def reset_bitrate_monitor(self) -> None:
-        """Reset data size counters"""
-        self.tx_bitcount = 0
 
     def get_link(self) -> Optional[AbstractLink]:
         """Return the Link object used to talk with the device."""
@@ -238,8 +237,8 @@ class CommHandler:
         self._rx_thread = None
 
     def open(self) -> None:
-        self._logger.debug(f"Opening communication with device. Link : {self._link_type}")
         """Try to open the communication channel with the device."""
+        self._logger.debug(f"Opening communication with device. Link : {self._link_type}")
         if self._link is None:
             raise Exception('Link must be set before opening')
 
@@ -327,7 +326,7 @@ class CommHandler:
         # If we haven't got a response or we know we won't get one. Mark the request as timed out
         if self.waiting_response() and (self._response_timer.is_timed_out() or not self._link.operational()):
             self.reset_rx()
-            self.timed_out = True
+            self._timed_out = True
 
         data = bytes()
         try:
@@ -411,7 +410,7 @@ class CommHandler:
                 if not err:
                     self._tx_datarate_measurement.add_data(len(data))
                     self._throttler.consume_bandwidth(len(data) * 8)
-                    self._response_timer.start(self.params['response_timeout'])
+                    self._response_timer.start(self._params['response_timeout'])
             elif not self._throttler.possible(approx_delta_bandwidth):
                 self._logger.critical("Throttling doesn't allow to send request. Dropping %s" % self._pending_request)
                 self._pending_request = None
@@ -426,11 +425,11 @@ class CommHandler:
 
     def has_timed_out(self) -> bool:
         """Return True if the pending request has timed out without response"""
-        return self.timed_out
+        return self._timed_out
 
     def clear_timeout(self) -> None:
         """Clear the timeout if the pending request did time out. Put back the CommHandler in a ready state for the next request"""
-        self.timed_out = False
+        self._timed_out = False
 
     def get_response(self) -> Response:
         """Return the response received for the active request"""
@@ -461,7 +460,7 @@ class CommHandler:
         if self._opened:
             self._pending_request = request
             self._received_response = None
-            self.timed_out = False
+            self._timed_out = False
             self._request_per_sec_measurement.add_data(1)
             self._process_tx(newrequest=True)
 

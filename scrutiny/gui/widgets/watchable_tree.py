@@ -38,8 +38,8 @@ _watchable_icon_cache_init = False
 
 
 def get_watchable_icon(wt: WatchableType) -> QIcon:
-    global _watchable_icon_cache_init
     """Return the proper tree icon for a given watchable type (var, alias, rpv)"""
+    global _watchable_icon_cache_init
     if not _watchable_icon_cache_init:
         for wt_temp in WatchableType.all():
             _watchable_icon_cache[wt_temp] = scrutiny_get_theme().load_tiny_icon(watchabletype_2_icon(wt_temp))
@@ -250,7 +250,7 @@ class WatchableTreeModel(BaseTreeModel):
     def make_watchable_row_from_existing_item(cls,
                                               item: WatchableStandardItem,
                                               editable: bool,
-                                              extra_columns: List[QStandardItem] = []) -> List[QStandardItem]:
+                                              extra_columns: Optional[List[QStandardItem]] = None) -> List[QStandardItem]:
         """Makes a watchable row, i.e. a leaf node in the tree, from an already created first column
 
         :param item: The first column item
@@ -259,6 +259,8 @@ class WatchableTreeModel(BaseTreeModel):
 
         :return: the list of items in the row
         """
+        if extra_columns is None:
+            extra_columns = []
         item.setEditable(editable)
         item.setDragEnabled(True)
         for col in extra_columns:

@@ -46,6 +46,7 @@ class ChartStatusOverlay(QGraphicsItem):
     def set_font_size(self, pixel_size: int) -> None:
         self.prepareGeometryChange()
         self._font.setPixelSize(pixel_size)
+        self._compute_geometry()
 
     def set(self, icon: Optional[assets.Icons], text: str) -> None:
         self._icon_resized = None
@@ -72,7 +73,7 @@ class ChartStatusOverlay(QGraphicsItem):
         self._icon_rect = None
         self._icon_resized = None
         if self._icon is not None:
-            icon_ratio = self._icon.width() / self._icon.height()
+
             max_size = self.ICON_MAX_SIZE
 
             # Clip both dimensions.
@@ -82,6 +83,7 @@ class ChartStatusOverlay(QGraphicsItem):
                 # Scale the image if necessary.
                 # If one of the side has been clipped, the other will be reduced.
                 # If no side has been clipped, the icon should stay the same size.
+                icon_ratio = self._icon.width() / self._icon.height()
                 max_size_ratio = icon_w / icon_h
                 if icon_ratio > max_size_ratio:
                     icon_h = icon_w / icon_ratio

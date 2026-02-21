@@ -744,7 +744,7 @@ class TestProtocolV1_0(ScrutinyUnitTest):
         req = self.proto.datalogging_get_acquisition_metadata()
         self.assert_req_response_bytes(req, request_bytes)
         data = self.proto.parse_request(req)
-        self.check_expected_payload_size(req, 14)
+        self.check_expected_payload_size(req, 16)
 
     def test_req_datalogging_read_acquisition(self):
         request_bytes = bytes([5, 7, 0, 0])

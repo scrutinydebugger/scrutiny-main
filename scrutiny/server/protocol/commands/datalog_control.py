@@ -17,7 +17,8 @@ class DatalogControl(BaseCommand):
 
     class Subfunction(Enum):
         GetSetup = 1
-        """Request the device for its datalogging setup. (word "configuration" is purposely avoided here to avoid confusion). Includes encoding, buffer size, etc"""
+        """Request the device for its datalogging setup. (word "configuration" 
+        is purposely avoided here to avoid confusion). Includes encoding, buffer size, etc"""
 
         ConfigureDatalog = 2
         """ Configure the datalogger for an acquisition. Circular buffer will start to be filled after this command"""

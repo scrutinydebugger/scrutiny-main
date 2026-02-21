@@ -181,7 +181,7 @@ class LoggableSignalType(Enum):
     TIME = 2
 
 
-class LoggableSignal:
+class LoggableSignal(ABC):
     @abstractmethod
     def get_type(self) -> LoggableSignalType:
         raise NotImplementedError("Not implemented")
@@ -249,11 +249,11 @@ class TriggerCondition:
     """Type of trigger condition to use"""
 
     def __init__(self, condition_id: TriggerConditionID, *args: Operand) -> None:
-        self.operands = []
-        self.condition_id = condition_id
-
         if not isinstance(condition_id, TriggerConditionID):
             raise ValueError('Invalid condition ID')
+
+        self.operands = []
+        self.condition_id = condition_id
 
         expected_number_of_operands = {
             TriggerConditionID.AlwaysTrue: 0,
@@ -268,7 +268,7 @@ class TriggerCondition:
         }
 
         if len(args) != expected_number_of_operands[condition_id]:
-            raise ValueError("%d operands are required for trigger condition %s but %d were given",
+            raise ValueError("%d operands are required for trigger condition %s but %d were given" %
                              (expected_number_of_operands[condition_id], condition_id.name, len(args)))
 
         for operand in args:

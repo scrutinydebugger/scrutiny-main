@@ -42,7 +42,7 @@ class RawMemoryWriteRequest:
     address: int
     """Address to read"""
     data: bytes
-    """Size of to read"""
+    """Size to read"""
     completed: bool
     """Indicates if the request is completed (failed or successful)"""
     success: bool
@@ -147,7 +147,7 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
         if size > 0:
             self.forbidden_regions.append(MemoryRegion(start=start_addr, size=size))
         else:
-            self.logger.warning('Adding a forbidden region with non-positive size %d' % size)
+            self.logger.warning('Adding a forbidden region with non strictly positive size %d' % size)
 
     def add_readonly_region(self, start_addr: int, size: int) -> None:
         """Add a memory region that can only be read. We will avoid any write to them. 
@@ -497,6 +497,7 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
                     response_match_request = False
 
             if response_match_request:
+                assert self.target_update_value_written is not None
                 self.entry_being_updated.set_value(self.target_update_value_written)
                 self.target_update_request_being_processed.complete(success=True)
             else:
@@ -514,7 +515,7 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
             self.logger.debug("Failure callback. Request=%s. Params=%s" % (request, params))
 
         subfn = cmd.MemoryControl.Subfunction(request.subfn)
-        if subfn == cmd.MemoryControl.Subfunction.Write:
+        if subfn == cmd.MemoryControl.Subfunction.Write or subfn == cmd.MemoryControl.Subfunction.WriteMasked:
             self.logger.error('Failed to get a response for WriteMemory request.')
         elif subfn == cmd.MemoryControl.Subfunction.WriteRPV:
             self.logger.error('Failed to get a response for WriteRPV request.')

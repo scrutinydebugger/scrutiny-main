@@ -47,9 +47,11 @@ class SerialConfigPane(BaseConfigPane):
             hard_validator=QIntValidator(0, 0x7FFFFFFF),
             soft_validator=NotEmptyValidator()
         )
+        start_delay_hard_validator = QDoubleValidator(0, 5, 2, self)
+        start_delay_hard_validator.setNotation(QDoubleValidator.Notation.StandardNotation)
         self._start_delay_textbox = FloatValidableLineEdit(
             parent=self,
-            hard_validator=QDoubleValidator(0, 5, 2, self),
+            hard_validator=start_delay_hard_validator,
             soft_validator=NotEmptyValidator()
         )
         self._stopbits_combo_box = QComboBox()

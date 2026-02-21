@@ -194,7 +194,7 @@ class FirmwareDescription:
 
         if os.path.isfile(os.path.join(folder, cls.ALIAS_FILE)):
             with open(os.path.join(folder, cls.ALIAS_FILE), 'rb') as f:
-                aliases = cls.read_aliases(f, sfd.varmap, suppress_errors=True)
+                aliases = cls.read_aliases(f, sfd.varmap, ignore_errors=True)
                 sfd.append_aliases(aliases)
 
         return sfd
@@ -223,7 +223,7 @@ class FirmwareDescription:
             sfd = FirmwareDescription(firmwareid, varmap, metadata)
             if cls.ALIAS_FILE in zipsfd.namelist():
                 with zipsfd.open(cls.ALIAS_FILE, 'r') as f:
-                    sfd.append_aliases(cls.read_aliases(f, varmap, suppress_errors=True))
+                    sfd.append_aliases(cls.read_aliases(f, varmap, ignore_errors=True))
 
             return sfd
 
@@ -289,7 +289,7 @@ class FirmwareDescription:
         )
 
     @classmethod
-    def read_aliases(cls, f: IO[bytes], varmap: VarMap, suppress_errors: bool = True) -> Dict[str, Alias]:
+    def read_aliases(cls, f: IO[bytes], varmap: VarMap, ignore_errors: bool = True) -> Dict[str, Alias]:
         aliases_raw: Dict[str, Any] = json.loads(f.read().decode('utf8'))
         aliases: Dict[str, Alias] = {}
         for k in aliases_raw:
@@ -297,11 +297,10 @@ class FirmwareDescription:
             try:
                 alias.set_target_type(cls.get_alias_target_type(alias, varmap))
             except Exception as e:
-                if suppress_errors:
+                if ignore_errors:
                     cls.logger.error("Cannot read alias. %s" % str(e))
                 else:
                     raise e
-
             aliases[k] = alias
 
         return aliases
@@ -370,7 +369,7 @@ class FirmwareDescription:
                 [aliases[k].to_dict() for k in aliases]
             )
         else:
-            ValueError('Require a list or a dict of aliases')
+            raise ValueError('Require a list or a dict of aliases')
         return json.dumps(dict(zipped), indent=4).encode('utf8')
 
     def get_firmware_id(self) -> bytes:
@@ -394,7 +393,7 @@ class FirmwareDescription:
         """Expects a Firmware ID to have the same length as the default placeholder"""
         if len(self.firmwareid) != self.firmware_id_length():
             raise Exception('Firmware ID seems to be the wrong length. Found %d bytes, expected %d bytes' %
-                            (len(self.firmwareid), len(firmware_id.PLACEHOLDER)))
+                            (len(self.firmwareid), self.firmware_id_length()))
 
     def validate_metadata(self) -> None:
         if self.metadata.project_name is None:
@@ -426,8 +425,7 @@ class FirmwareDescription:
                 yield VarmapElement(
                     path=path,
                     var_or_factory=var_or_factory,
-                    pointer_path_and_var=(ptr_path, self.varmap.get_var(ptr_path)
-                                          )
+                    pointer_path_and_var=(ptr_path, self.varmap.get_var(ptr_path))
                 )
             else:
                 yield VarmapElement(

@@ -9,12 +9,12 @@
 
 __all__ = [
     'VarlistComponentTreeWidget',
-    'VarListComponent',
+    'VarListComponent'
 ]
 
 import enum
 
-from PySide6.QtWidgets import QVBoxLayout, QWidget, QStackedLayout, QMenu, QTabWidget
+from PySide6.QtWidgets import QVBoxLayout, QWidget, QMenu, QTabWidget
 from PySide6.QtGui import QContextMenuEvent, QStandardItemModel, QIcon
 from PySide6.QtCore import QModelIndex, Qt, QItemSelectionModel
 
@@ -163,7 +163,7 @@ class VarListComponent(ScrutinyGUIBaseGlobalComponent):
         item = cast(BaseWatchableRegistryTreeStandardItem, cast(QStandardItemModel, index.model()).itemFromIndex(index))
         for row in range(item.rowCount()):
             child = cast(BaseWatchableRegistryTreeStandardItem, item.child(row, 0))
-            self._tree_model._load_node_if_needed(child)
+            self._tree_model.load_node_if_needed(child)
 
         self._tree.expand_first_column_to_content()
 
@@ -206,6 +206,7 @@ class VarListComponent(ScrutinyGUIBaseGlobalComponent):
             self._tree_model.lazy_load(self._var_folder, WatchableType.Variable, '/')
 
     def reveal_fqn(self, fqn: str) -> None:
+        """Put the focus on an element of the tree referred to by its FQN """
         item = self._tree_model.find_item_by_fqn(fqn)
         if item is None:
             return

@@ -109,10 +109,10 @@ class ValueStatus(enum.Enum):
     DeviceGone = 4
     """Invalid - The device is gone and cannot provide updates anymore"""
 
-    SFDUnloaded = 4
+    SFDUnloaded = 5
     """Invalid - The Scrutiny Firmware Description file has been unloaded and the value is not available anymore"""
 
-    NotWatched = 5
+    NotWatched = 6
     """Invalid - The watchable is not being watched"""
 
     def _get_error(self) -> str:
@@ -205,7 +205,7 @@ class DataloggingEncoding(enum.Enum):
     """The default encoding. Stores the values as a bit copy inside the buffer in chronological order, without compression"""
 
 
-@dataclass(frozen=True, init=False)
+@dataclass(frozen=True, init=False, slots=True)
 class SamplingRate:
     """(Immutable struct) Represent a sampling rate supported by the device"""
 
@@ -353,6 +353,7 @@ class UDPLinkConfig(BaseLinkConfig):
 
     def __post_init__(self) -> None:
         validation.assert_int_range(self.port, 'port', 0, 0xFFFF)
+        validation.assert_type(self.host, 'host', str)
 
     def _to_api_format(self) -> Dict[str, Any]:
         return {

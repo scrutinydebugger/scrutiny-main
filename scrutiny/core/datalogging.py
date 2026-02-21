@@ -70,14 +70,14 @@ class DataSeries:
     data: List[float]
     """The data stored as a list of 64 bits float"""
 
-    def __init__(self, data: List[float] = [], name: str = "unnamed", logged_watchable: Optional[LoggedWatchable] = None):
+    def __init__(self, data: Optional[List[float]] = None, name: str = "unnamed", logged_watchable: Optional[LoggedWatchable] = None):
         self.name = name
         self.logged_watchable = logged_watchable
-        self.data = data
+        self.data = data if data is not None else []
 
-        validation.assert_type(data, 'data', list)
-        validation.assert_type(name, 'name', str)
-        validation.assert_type(logged_watchable, 'logged_watchable', (LoggedWatchable, type(None)))
+        validation.assert_type(self.data, 'data', list)
+        validation.assert_type(self.name, 'name', str)
+        validation.assert_type(self.logged_watchable, 'logged_watchable', (LoggedWatchable, type(None)))
 
     def set_data(self, data: List[float]) -> None:
         self.data = data
@@ -161,7 +161,7 @@ class DataloggingAcquisition:
         self.firmware_name = firmware_name
 
     @classmethod
-    def make_unique_id(self) -> str:
+    def make_unique_id(cls) -> str:
         return uuid4().hex.replace('-', '')
 
     def set_xdata(self, xdata: DataSeries) -> None:
@@ -237,7 +237,8 @@ class DataloggingAcquisition:
             trigger_val = []
             if self.trigger_index is not None:
                 trigger_val = [0 if i < self.trigger_index else 1]
-            writer.writerow([self.xdata.data[i]] + [ydata.series.data[i] for ydata in self.ydata] + trigger_val)
+            writer.writerow([self.xdata.data[i]] + [ydata.series.data[i] if i <=
+                            len(ydata.series.data) else None for ydata in self.ydata] + trigger_val)
 
     def to_csv(self, filename: str) -> None:
         """Export a :class:`DataloggingAcquisition<scrutiny.core.datalogging.DataloggingAcquisition>` content to a csv file

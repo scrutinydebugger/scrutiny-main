@@ -45,6 +45,7 @@ class RequestQueue:
         self.clear()
         self.maxsize = maxsize
         self.logger = logging.getLogger(self.__class__.__name__)
+        self.last_warning_time = None
 
     def clear(self) -> None:
         """Delete all data inside the queue"""

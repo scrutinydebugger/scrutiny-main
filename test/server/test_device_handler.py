@@ -320,7 +320,6 @@ class TestDeviceHandler(ScrutinyUnitTest):
             self.emulated_device.wake_if_sleep()    # speed up
             status = self.device_handler.get_connection_status()
             if status == DeviceHandler.ConnectionStatus.CONNECTED_READY and connect_time is None:
-                self.device_handler.reset_bitrate_monitor()
                 connect_time = time.monotonic()
                 self.assertTrue(self.device_handler.is_throttling_enabled())
                 self.assertEqual(self.device_handler.get_throttling_bitrate(), self.emulated_device.max_bitrate_bps)

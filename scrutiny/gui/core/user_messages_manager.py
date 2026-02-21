@@ -113,8 +113,7 @@ class UserMessagesManager:
         self._message_queue.append(msg)
         self._update_message_queue()
 
-    enforce_thread(QT_THREAD_NAME)
-
+    @enforce_thread(QT_THREAD_NAME)
     def clear_message(self, id: str) -> None:
         """Remove any message in the message queue with the specified id.
         If the message is presently active, clear it properly by emitting a signal"""

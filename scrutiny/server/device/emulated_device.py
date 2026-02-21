@@ -13,8 +13,7 @@ __all__ = [
     'RPVValuePair',
     'EmulatedTimebase',
     'DataloggerEmulator',
-    'EmulatedDevice',
-    'UnitTestEmulatedDevice'
+    'EmulatedDevice'
 ]
 
 import struct
@@ -24,7 +23,6 @@ import logging
 import random
 import traceback
 import collections
-from abc import ABC
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
 
@@ -308,8 +306,8 @@ class DataloggerEmulator:
             data = self.device.read_memory(operand.address, operand.datatype.get_size_byte())
             codec = Codecs.get(operand.datatype, Endianness.Little)
             v = uint_codec.decode(data)
-            v >>= operand.bitoffset
             v &= mask
+            v >>= operand.bitoffset
             if isinstance(codec, SIntCodec) and (v & (1 << (operand.bitsize - 1))) > 0:
                 v |= (~mask)
 

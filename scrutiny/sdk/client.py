@@ -166,7 +166,8 @@ class BatchWriteContext:
                 self.client._wait_write_batch_complete(self)
             finally:
                 self.client._end_batch()
-        self.client._end_batch()
+        else:
+            self.client._end_batch()
         return False
 
 
@@ -1203,7 +1204,8 @@ class ScrutinyClient:
                 confirmation = api_parser.parse_write_value_response(cast(api_typing.S2C.WriteValue, response))
 
                 if confirmation.count != len(batch_dict):
-                    request._mark_complete(False, f"Count mismatch in request and server confirmation.")
+                    for request in batch_dict.values():
+                        request._mark_complete(False, f"Count mismatch in request and server confirmation.")
                 else:
                     self._pending_api_batch_writes[confirmation.request_token] = PendingAPIBatchWrite(
                         update_dict=batch_dict,
@@ -1219,7 +1221,8 @@ class ScrutinyClient:
                     msg = cast(api_typing.S2C.Error, response).get('msg', None)
                     if msg is not None:
                         error = msg
-                request._mark_complete(False, error)
+                for request in batch_dict.values():
+                    request._mark_complete(False, error)
 
         self._send(api_req, _wt_write_watchable_response_callback, timeout=batch_timeout)
         # We don't need the future object here because the WriteRequest act as one.
@@ -1538,7 +1541,6 @@ class ScrutinyClient:
         if self._UNITTEST_DOWNLOAD_CHUNK_SIZE is not None:
             chunk_size = self._UNITTEST_DOWNLOAD_CHUNK_SIZE
 
-        chunk_size = 100
         try:
             req = self._pending_sfd_upload_requests[init_reqid]
         except KeyError:
@@ -2277,7 +2279,7 @@ class ScrutinyClient:
         if future.state != CallbackState.OK or cb_data.obj is None:
             raise sdk.exceptions.OperationFailure(f"Failed to read the device memory. {future.error_str}")
 
-        remaining_time = max(0, timeout - (time_start - time.monotonic()))
+        remaining_time = max(0, timeout - (time.monotonic() - time_start))
         request_token = cb_data.obj
 
         t = time.perf_counter()
@@ -2318,7 +2320,7 @@ class ScrutinyClient:
         validation.assert_type(data, 'data', bytes)
         timeout = validation.assert_float_range_if_not_none(timeout, 'timeout', minval=0)
 
-        time_start = time.perf_counter()
+        time_start = time.monotonic()
         if timeout is None:
             timeout = self._timeout
 
@@ -2345,13 +2347,13 @@ class ScrutinyClient:
         if future.state != CallbackState.OK or cb_data.obj is None:
             raise sdk.exceptions.OperationFailure(f"Failed to write the device memory. {future.error_str}")
 
-        remaining_time = max(0, timeout - (time_start - time.perf_counter()))
+        remaining_time = max(0, timeout - (time.monotonic() - time_start))
         request_token = cb_data.obj
 
         t = time.perf_counter()
         # No lock here because we have a 1 producer, 1 consumer scenario and are waiting. We don't write
         while request_token not in self._memory_write_completion_dict:
-            if time.perf_counter() - t >= remaining_time:
+            if (time.perf_counter() - t) >= remaining_time:
                 break
             time.sleep(0.002)
 
@@ -3018,7 +3020,7 @@ class ScrutinyClient:
 
     @property
     def name(self) -> str:
-        return '' if self._name is None else self.name
+        return '' if self._name is None else self._name
 
     @property
     def server_state(self) -> ServerState:

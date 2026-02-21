@@ -90,7 +90,7 @@ class DataTypeType(Enum):
     _cfloat = (4 << 4)
     _struct = (5 << 4)
     _pointer = (6 << 4)
-    _NA = 0xF
+    _NA = (0xF << 4)
 
 
 class DataTypeSize(Enum):
@@ -201,6 +201,8 @@ class EmbeddedDataType(Enum):
                 return cls.make(datatype_type, DataTypeSize._64)
             if size == 16:
                 return cls.make(datatype_type, DataTypeSize._128)
+            if size == 32:
+                return cls.make(datatype_type, DataTypeSize._256)
             raise ValueError(f"Impossible size given {size}")
         else:
             return cls(datatype_type.value | size.value)

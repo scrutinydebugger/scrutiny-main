@@ -22,8 +22,7 @@ from bisect import bisect_left, bisect_right
 from dataclasses import dataclass
 from PySide6.QtCharts import QLineSeries, QValueAxis, QChart, QChartView, QAbstractSeries, QAbstractAxis
 from PySide6.QtWidgets import (QGraphicsItem, QStyleOptionGraphicsItem, QWidget, QRubberBand,
-                               QGraphicsSceneMouseEvent, QGraphicsSceneHoverEvent, QHBoxLayout, QLabel,
-                               QGraphicsScene)
+                               QGraphicsSceneMouseEvent, QGraphicsSceneHoverEvent)
 from PySide6.QtGui import (QFont, QPainter, QFontMetrics, QColor, QContextMenuEvent,
                            QPaintEvent, QMouseEvent, QWheelEvent, QPixmap, QKeyEvent,
                            QResizeEvent, QStandardItem)
@@ -53,9 +52,6 @@ class ScrutinyLineSeries(QLineSeries):
         pen = self.pen()
         pen.setWidth(scrutiny_get_theme_prop(ScrutinyThemeProperties.CHART_NORMAL_SERIES_WIDTH))
         self.setPen(pen)
-
-    def search_closest_non_monotonic(self, xval: float, min_x: Optional[float] = None, max_x: Optional[float] = None) -> Optional[QPointF]:
-        pass
 
     def search_closest_monotonic(self, xval: float, min_x: Optional[float] = None, max_x: Optional[float] = None) -> Optional[QPointF]:
         """Search for the closest point using the XAxis. Assume a monotonic X axis.
@@ -216,7 +212,7 @@ class ScrutinyValueAxisWithMinMax(ScrutinyValueAxis):
         A rectangle with x1=0.2, x2=0.8 will zoom in, remove 20% of the graph on each side.
         A rectangle with x1=-0.1, x2=1.3 will zoom out and offset a little to the right. 10% more on the left, 30% more on the right.
         """
-        range = self.max() - self.min()
+        x_range = self.max() - self.min()
 
         minval = self.minval_with_margin(margin_ratio)
         maxval = self.maxval_with_margin(margin_ratio)
@@ -225,8 +221,8 @@ class ScrutinyValueAxisWithMinMax(ScrutinyValueAxis):
         limit_low, limit_high = minval, maxval
         if saturate_to_latched_range:
             limit_low, limit_high = self.get_latched_range()
-        new_low = max(zoombox.left() * range + self.min(), limit_low)
-        new_high = min(zoombox.right() * range + self.min(), limit_high)
+        new_low = max(zoombox.left() * x_range + self.min(), limit_low)
+        new_high = min(zoombox.right() * x_range + self.min(), limit_high)
         if new_low == new_high:
             self.setRange(new_low - 1, new_high + 1)
         else:
@@ -239,9 +235,9 @@ class ScrutinyValueAxisWithMinMax(ScrutinyValueAxis):
         A rectangle with y1=0.2, y2=0.8 will zoom in, remove 20% of the graph on each side.
         A rectangle with y1=-0.1, y2=1.3 will zoom out and offset a little to the right. 10% more on the left, 30% more on the right.
         """
-        range = self.max() - self.min()
-        new_low = (1 - zoombox.bottom()) * range + self.min()
-        new_high = (1 - zoombox.top()) * range + self.min()
+        y_range = self.max() - self.min()
+        new_low = (1 - zoombox.bottom()) * y_range + self.min()
+        new_high = (1 - zoombox.top()) * y_range + self.min()
         if new_low == new_high:
             self.setRange(new_low - 1, new_high + 1)
         else:
@@ -307,7 +303,7 @@ class ScrutinyChart(QChart):
 
     def setAxisY(self, axis: QAbstractAxis, series: Optional[QAbstractSeries] = None) -> None:
         assert isinstance(axis, ScrutinyValueAxis)
-        return super().setAxisX(axis, series)
+        return super().setAxisY(axis, series)
 
     def pos_to_val(self, pos: QPointF, yaxis: ScrutinyValueAxis, clip_if_outside: bool = False) -> Optional[QPointF]:
         """Convert a screen X/Y position relative to the chart origin into a graph value point"""
@@ -472,7 +468,7 @@ class ScrutinyChartCallout(QGraphicsItem):
     """The bounding box, include the callout filled region and the marker on the point"""
     _color: QColor
     """Fill color"""
-    _side: DisplaySide
+    _updown_side: DisplaySide
     """Above/below state kept to make an hysteresis on position change"""
     _marker_radius: int
     """Size of the marker drawn on top of the hovered point"""
@@ -1019,7 +1015,7 @@ class ScrutinyChartView(QChartView):
         xaxis = self.chart().axisX()
         if self._chart_cursor.is_enabled() and xaxis is not None:
             cursor_xpos_mapped_to_chart = chart.xval_to_xpos(self._chart_cursor.xval())
-            if cursor_xpos_mapped_to_chart:
+            if cursor_xpos_mapped_to_chart is not None:
                 cursor_xpos = chart.mapToParent(cursor_xpos_mapped_to_chart, 0).x()  # Map it to this chartview
                 y1 = plotarea_mapped_to_chartview.y()
                 y2 = plotarea_mapped_to_chartview.y() + plotarea_mapped_to_chartview.height()
@@ -1079,11 +1075,7 @@ class ScrutinyChartView(QChartView):
         self._clear_signal_tree_values()
 
         for pair in self._cursor_markers_vals:
-            try:
-                value_item = self._series_to_signal_tree_value_item[id(pair.series)]
-            except KeyError as e:
-                raise
-
+            value_item = self._series_to_signal_tree_value_item[id(pair.series)]
             value_item.setText(str(pair.point.y()))
 
     def _clear_signal_tree_values(self) -> None:
@@ -1398,7 +1390,7 @@ class ScrutinyChartToolBar(QGraphicsItem):
             required_height = max(required_height, r.height())  # We need as much height as the tallest button (doesn't matter, they're squares.)
             button.setPos(width_cursor, 0)  # This button new location. They draw from 0,0 internally
             width_cursor += r.width()
-            if i < len(self._buttons):
+            if i < len(self._buttons) - 1:
                 width_cursor += self.BUTTON_SPACING
         required_width = width_cursor
         size = QSizeF(required_width, required_height)

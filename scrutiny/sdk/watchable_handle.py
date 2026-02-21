@@ -62,6 +62,7 @@ class WatchableHandle:
         self._configuration = None
         self._lock = threading.Lock()
         self._update_counter = 0
+        self._last_write_dt = None
         self._set_invalid(ValueStatus.NeverSet)
 
     def __repr__(self) -> str:
@@ -163,6 +164,7 @@ class WatchableHandle:
             if time.monotonic() - t1 > timeout:
                 raise sdk_exceptions.TimeoutException(f'Value of {self._shortname} did not update in {timeout}s')
 
+            # No lock on purpose. Status can only go once to NeverSet or Valid
             if self._status != ValueStatus.NeverSet and self._status != ValueStatus.Valid:
                 raise sdk_exceptions.InvalidValueError(self._status._get_error())
 
@@ -186,7 +188,7 @@ class WatchableHandle:
         """
 
         timeout = validation.assert_float_range(timeout, 'timeout', minval=0)
-        sleep_interval = validation.assert_float_range(sleep_interval, 'timeout', minval=0)
+        sleep_interval = validation.assert_float_range(sleep_interval, 'sleep_interval', minval=0)
 
         if isinstance(value, str):
             value = self.parse_enum_val(value)
@@ -199,15 +201,16 @@ class WatchableHandle:
             if time.monotonic() - t1 > timeout:
                 raise sdk_exceptions.TimeoutException(f'Value of {self._shortname} did not set to {value} in {timeout}s')
 
-            if self.datatype.is_float():
-                if float(value) == self.value_float:
-                    break
-            elif self.datatype.is_integer():
-                if int(value) == self.value_int:
-                    break
-            elif self.datatype == EmbeddedDataType.boolean:
-                if bool(value) == self.value_bool:
-                    break
+            if self._status != ValueStatus.NeverSet:
+                if self.datatype.is_float():
+                    if float(value) == self.value_float:
+                        break
+                elif self.datatype.is_integer():
+                    if int(value) == self.value_int:
+                        break
+                elif self.datatype == EmbeddedDataType.boolean:
+                    if bool(value) == self.value_bool:
+                        break
 
             time.sleep(sleep_interval)
 

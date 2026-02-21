@@ -18,9 +18,9 @@ import logging
 import enum
 
 from PySide6.QtCore import QMimeData, QModelIndex, QPersistentModelIndex, Qt, Signal, QPoint, QObject, QAbstractItemModel
-from PySide6.QtWidgets import QWidget, QMenu, QAbstractItemDelegate, QComboBox, QStyleOptionViewItem, QStyledItemDelegate, QApplication
+from PySide6.QtWidgets import QWidget, QMenu, QAbstractItemDelegate, QComboBox, QStyleOptionViewItem, QStyledItemDelegate
 from PySide6.QtGui import (QStandardItem, QPalette, QContextMenuEvent, QDragMoveEvent, QDropEvent,
-                           QDragEnterEvent, QKeyEvent, QStandardItem, QAction)
+                           QDragEnterEvent, QKeyEvent)
 
 from scrutiny.sdk import BriefWatchableConfiguration, EmbeddedEnum
 from scrutiny.gui.core.scrutiny_drag_data import ScrutinyDragData, WatchableListDescriptor
@@ -359,9 +359,13 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
 
     def closeEditor(self, editor: QWidget, hint: QAbstractItemDelegate.EndEditHint) -> None:
         """Called when the user finishes editing a value. Press enter or blur focus"""
+
         item_written = self._model.itemFromIndex(self.currentIndex())
         model = self.model()
         nesting_col = model.nesting_col()
+
+        super().closeEditor(editor, hint)   # Call before emitting because combo box gets their value updated here
+
         if isinstance(item_written, ValueStandardItem):
             watchable_item = model.itemFromIndex(item_written.index().siblingAtColumn(nesting_col))
             if isinstance(watchable_item, WatchableStandardItem):   # paranoid check. Should never be false. Folders have no Value column
@@ -372,8 +376,6 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
         # Make arrow navigation easier because elements are nested on columns 0.
         # If current index is at another column, we can't go up in the tree with the keyboard
         self.setCurrentIndex(self.currentIndex().siblingAtColumn(nesting_col))
-
-        return super().closeEditor(editor, hint)
 
 
 class WatchComponentTreeModel(WatchableTreeModel):
@@ -741,7 +743,7 @@ class WatchComponentTreeModel(WatchableTreeModel):
                 else:
                     raise NotImplementedError(f"Unsupported item type: {child}")
         else:
-            recurse(parent)
+            yield from recurse(parent)
 
     def update_row_state(self, watchable_item: WatchableStandardItem) -> None:
         """Change the availability of an item based on its availability in the registry. 

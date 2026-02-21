@@ -44,20 +44,20 @@ class FirmwareParser:
         self.placeholder_location = None
 
         with open(filename, "rb") as f:
-            s = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
-            pos = s.find(firmware_id.PLACEHOLDER)
-            if pos != -1:
-                self.logger.debug('Found scrutiny placeholder at address 0x%08x' % pos)
-                self.placeholder_location = pos
+            with mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ) as mm:
+                pos = mm.find(firmware_id.PLACEHOLDER)
+                if pos != -1:
+                    self.logger.debug('Found scrutiny placeholder at address 0x%08x' % pos)
+                    self.placeholder_location = pos
 
-                sha256 = hashlib.sha256()
-                while True:
-                    data = f.read(self.BUF_SIZE)
-                    if not data:
-                        break
-                    sha256.update(data)
-                hash256 = bytes.fromhex(sha256.hexdigest())
-                self.firmware_id = bytes([a ^ b for a, b in zip(hash256[0:16], hash256[16:32])])    # Reduces from 256 to 128 bits
+                    sha256 = hashlib.sha256()
+                    while True:
+                        data = f.read(self.BUF_SIZE)
+                        if not data:
+                            break
+                        sha256.update(data)
+                    hash256 = bytes.fromhex(sha256.hexdigest())
+                    self.firmware_id = bytes([a ^ b for a, b in zip(hash256[0:16], hash256[16:32])])    # Reduces from 256 to 128 bits
 
     def has_placeholder(self) -> bool:
         """True if the parsed binary contains a placeholder ID ready to be replaced"""
