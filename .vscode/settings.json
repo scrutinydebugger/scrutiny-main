@@ -90,5 +90,7 @@
                 "uplaod" : "upload",
                 "sued" : "used",
             }
-        }]
+        }
+    ],
+    "python-envs.pythonProjects": []
 }

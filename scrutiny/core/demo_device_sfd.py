@@ -11,7 +11,7 @@ import binascii
 from scrutiny.core.firmware_description import FirmwareDescription, SFDMetadata, SFDGenerationInfo
 from scrutiny.core.variable_location import AbsoluteLocation
 from scrutiny.core.alias import Alias
-from scrutiny.core.basic_types import EmbeddedDataType
+from scrutiny.core.basic_types import EmbeddedDataType, WatchableType
 from scrutiny.core.varmap import VarMap
 from scrutiny.tools.typing import *
 import scrutiny
@@ -47,8 +47,8 @@ class DemoDeviceSFD(FirmwareDescription):
             Alias("/Sine Wave", target='/global/sinewave_generator/output'),
             Alias("/Counter/Enable", target='/static/main.cpp/counter_enable'),
             Alias("/Counter/Value", target='/static/main.cpp/counter'),
-            Alias("/Alias To RPV2000", target='/rpv/x2000'),
-            Alias("/RPV1000 with gain 1000", target='/rpv/x1000', gain=1000)
+            Alias("/Alias To RPV2000", target='/rpv/x2000', target_type=WatchableType.RuntimePublishedValue),
+            Alias("/RPV1000 with gain 1000", target='/rpv/x1000', gain=1000, target_type=WatchableType.RuntimePublishedValue)
         ]
         super().__init__(firmwareid=binascii.unhexlify(DEMO_DEVICE_FIRMWAREID_STR), varmap=varmap, metadata=metadata)
 

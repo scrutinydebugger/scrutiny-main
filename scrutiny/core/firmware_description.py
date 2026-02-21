@@ -327,20 +327,28 @@ class FirmwareDescription:
 
         return VarMap.from_file(fullpath)
 
+    def append_alias(self, path:str, alias:Alias) -> None:
+        if alias.target_type is None:
+            if self.varmap.has_var(alias.target):
+                alias.set_target_type(WatchableType.Variable)
+        
+        if alias.target_type is None:
+            raise ValueError(f"Alias at {path} has no target type defined")
+
+        if path not in self.aliases:
+            self.aliases[path] = alias
+        else:
+            self.logger.warning(f'Duplicate alias {path}. Dropping')
+
+
     def append_aliases(self, aliases: Union[List[Alias], Dict[str, Alias]]) -> None:
         """Add some aliases to the actual SFD"""
         if isinstance(aliases, list):
             for alias in aliases:
-                if alias.fullpath not in self.aliases:
-                    self.aliases[alias.fullpath] = alias
-                else:
-                    self.logger.warning(f'Duplicate alias {alias.fullpath}. Dropping')
+                self.append_alias(alias.fullpath, alias)
         elif isinstance(aliases, dict):
-            for unique_path in aliases:
-                if unique_path not in self.aliases:
-                    self.aliases[unique_path] = aliases[unique_path]
-                else:
-                    self.logger.warning(f'Duplicate alias {unique_path}. Dropping')
+            for unique_path, alias in aliases.items():
+                self.append_alias(unique_path, alias)
         else:
             raise ValueError("Aliases must be passed as a list or a dict.")
 

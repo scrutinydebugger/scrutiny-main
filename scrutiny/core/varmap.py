@@ -355,10 +355,9 @@ class VarMap:
         return (binary_type_name in self._typename2typeid_map)
 
     def has_var(self, fullname: str) -> bool:
-        v = False
-        if fullname in self._content.variables:
-            v = True
-        return v
+        parsed_path = ScrutinyPath.from_string(fullname)
+        raw_path = parsed_path.to_raw_str()
+        return raw_path in self._content.variables
 
     def has_array_segments(self, fullname: str) -> bool:
         vardef = self._get_var_def(fullname)
