@@ -37,7 +37,7 @@ iscc ${PROJECT_ROOT}/deploy/windows/main.iss    \
     -DSOURCE_DIR="${SOURCE_DIR}"                \
     -DVERSION="${SCRUTINY_VERSION}"             \
     "-O${OUTPUT_FOLDER}"                        \
-    "-F${PKG_NAME}"  
+    "-F${PKG_NAME}"
 
 OUTFILE="${OUTPUT_FOLDER}/$PKG_NAME.exe"
 assert_file ${OUTFILE}

@@ -14,7 +14,7 @@ source $(dirname ${BASH_SOURCE[0]})/common.sh
 PROJECT_ROOT="$(get_project_root)"
 cd "$PROJECT_ROOT"
 
-trap 'fatal "Exited with status $? at line $LINENO"' ERR 
+trap 'fatal "Exited with status $? at line $LINENO"' ERR
 
 [ -z ${1:+x} ] && fatal "Missing version argument"
 
@@ -39,7 +39,7 @@ python3 -m build
 read -p "Everything seems alright. Upload? "
 
 proceed=0
- 
+
 [ "${REPLY,,}" == "yes" ] && proceed=1
 [ "${REPLY,,}" == "y" ] && proceed=1
 

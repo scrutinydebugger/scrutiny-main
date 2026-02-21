@@ -49,7 +49,7 @@ cp -r "${SOURCE_DIR}" "${PKG_FOLDER}/opt/scrutinydebugger"                  # Th
 cp  "${PROJECT_ROOT}/deploy/debian/scrutiny.gui.default.desktop" "${PKG_FOLDER}/usr/share/applications/"        # Desktop Icon : Scrutiny GUI
 cp  "${PROJECT_ROOT}/deploy/debian/scrutiny.gui.local-server.desktop" "${PKG_FOLDER}/usr/share/applications/"   # Desktop Icon : Scrutiny GUI (Local)
 
-ln -s "/opt/scrutinydebugger/scrutiny.bin" "${PKG_FOLDER}/usr/local/bin/scrutiny"   # CLI launcher 
+ln -s "/opt/scrutinydebugger/scrutiny.bin" "${PKG_FOLDER}/usr/local/bin/scrutiny"   # CLI launcher
 dpkg-deb --root-owner-group --build "${PKG_FOLDER}"                                 # Pack
 
 # Move the package in the wnated output folder
@@ -58,7 +58,7 @@ OUTFILE="${OUTPUT_FOLDER}/${PKG_NAME}.deb"
 cp "${TEMP_FOLDER}/${PKG_NAME}.deb" "${OUTFILE}"
 
 assert_file "${OUTFILE}"
-success "File ${OUTFILE} has been created!" 
+success "File ${OUTFILE} has been created!"
 
 # Cleanup
 rm -rf "${TEMP_FOLDER}"

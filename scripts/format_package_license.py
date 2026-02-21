@@ -14,10 +14,10 @@ import piplicenses
 packages = sys.argv[1:]
 
 args = ['-p'] + packages
-args += ['-f', 'json'] 
-args += ['-d']   # description                                   
+args += ['-f', 'json']
+args += ['-d']   # description
 args += ['-u']   # url
-args += ['-a']   # authors 
+args += ['-a']   # authors
 args += ['-l']   # License file
 
 parser = piplicenses.create_parser()

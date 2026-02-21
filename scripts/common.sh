@@ -19,12 +19,12 @@ error() { >&2 echo -e "$RED[Error]$NC $1"; }
 fatal() { >&2 echo -e "$RED[Fatal]$NC $1"; exit ${2:-1}; }
 trace_run() { >&2 echo "+" "$@"; "$@"; }
 
-absnorm_exist() 
-{ 
+absnorm_exist()
+{
     if [ -f "$1" ]; then
-        echo "$( cd "$( dirname "$1" )" >/dev/null 2>&1 && pwd -P )/$(basename "$1")"; 
+        echo "$( cd "$( dirname "$1" )" >/dev/null 2>&1 && pwd -P )/$(basename "$1")";
     elif [ -d "$1" ]; then
-        echo "$( cd "$1" >/dev/null 2>&1 && pwd -P )"; 
+        echo "$( cd "$1" >/dev/null 2>&1 && pwd -P )";
     else
         error "No such file or directory $1"
         return 1

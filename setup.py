@@ -6,11 +6,11 @@
 #
 #   Copyright (c) 2021 Scrutiny Debugger
 
-#type: ignore 
+#type: ignore
 
 from setuptools import setup, find_packages #type:ignore
 import sys
-import os 
+import os
 
 os.chdir(os.path.dirname(__file__))
 
@@ -28,7 +28,7 @@ if ADD_ENTRY_POINTS:
         ]
     }
 
-    
+
 
 dependencies = [
     'appdirs==1.4.4',
@@ -83,11 +83,11 @@ setup(
         'test': ['mypy', 'coverage'] + doc_dependencies,
         'dev': ['mypy', 'ipdb', 'autopep8', 'coverage'] + doc_dependencies,
         'build': [
-            'nuitka==2.6.9',    # 2.7.3- is broken on Linux/Mac.   
-            'imageio==2.37.0', 
+            'nuitka==2.6.9',    # 2.7.3- is broken on Linux/Mac.
+            'imageio==2.37.0',
             'build==1.2.2',
             'pip-licenses==5.0.0'
-            ] 
+            ]
     },
     entry_points=entry_points,
 )
