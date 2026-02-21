@@ -46,7 +46,7 @@ class ServerConfig:
 
 class QtBufferedListener(BaseListener):
     """A listener that can plug into the SDK. This listener receives the updates from the server and buffers them in a queue.
-    A signal is emitted when new data is received to tell the UI to come read the queue. The signal is only emitted when the 
+    A signal is emitted when new data is received to tell the UI to come read the queue. The signal is only emitted when the
     UI is ready to receive it for natural derating on update speed if the CPU is overloaded"""
     MAX_SIGNALS_PER_SEC = 15
     TARGET_PROCESS_INTERVAL = 0.2
@@ -636,7 +636,7 @@ class ServerManager:
 
     def _make_var_watchable_from_factories(self, var_factories: Dict[str, sdk.VariableFactoryInterface]) -> Dict[str, sdk.BriefWatchableConfiguration]:
         """Take the variable factories received from the server and generate all the var watchables from them.
-        Might drop some of them to avoid bloating the registry with large buffers 
+        Might drop some of them to avoid bloating the registry with large buffers
         """
         outdict: Dict[str, sdk.BriefWatchableConfiguration] = {}
         var_factories_filt: List[sdk.VariableFactoryInterface] = []

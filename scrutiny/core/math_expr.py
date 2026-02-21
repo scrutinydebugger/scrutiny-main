@@ -73,7 +73,7 @@ class _Parser:
     def __init__(self, expr: str, vars: Optional[Dict[str, Any]] = None) -> None:
         self._expr = expr
         self._index = 0
-        self._vars = {} if vars == None else vars.copy()
+        self._vars = {} if vars is None else vars.copy()
         for constant in _CONSTANTS.keys():
             if self._vars.get(constant) != None:
                 raise ParsingError(f"Cannot redefine the value of {constant}")
@@ -245,12 +245,12 @@ class _Parser:
         var_str = ''.join(var)
 
         function = _FUNCTIONS.get(var_str.lower())
-        if function != None:
+        if function is not None:
             args = self._parse_arg()
             return float(function(*args))
 
         constant = _CONSTANTS.get(var_str.lower())
-        if constant != None:
+        if constant is not None:
             return constant
 
         value = self._vars.get(var_str, None)
