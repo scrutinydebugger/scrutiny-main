@@ -354,23 +354,17 @@ class FirmwareDescription:
 
     @classmethod
     def serialize_aliases(cls, aliases: Union[Dict[str, Alias], List[Alias]]) -> bytes:
-        """ 
-        Takes bunch of alias and return a JSON containing a dict structure like this
-        [alias1.fullpath] => alias1,  [alias2.fullpath] => alias2 
         """
-        if isinstance(aliases, list):
-            zipped = zip(
-                [alias.get_fullpath() for alias in aliases],
-                [alias.to_dict() for alias in aliases]
-            )
-        elif isinstance(aliases, dict):
-            zipped = zip(
-                [aliases[k].get_fullpath() for k in aliases],
-                [aliases[k].to_dict() for k in aliases]
-            )
-        else:
-            raise ValueError('Require a list or a dict of aliases')
-        return json.dumps(dict(zipped), indent=4).encode('utf8')
+        Takes bunch of alias and return a JSON containing a dict structure like this
+        [alias1.fullpath] => alias1,  [alias2.fullpath] => alias2
+        """
+        if isinstance(aliases, dict):
+            aliases = aliases.values()
+        dic = {
+            alias.get_fullpath(): alias.to_dict()
+            for alias in aliases
+        }
+        return json.dumps(dic, indent=4).encode('utf8')
 
     def get_firmware_id(self) -> bytes:
         return self.firmwareid
