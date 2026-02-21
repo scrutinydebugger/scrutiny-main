@@ -327,19 +327,14 @@ class FirmwareDescription:
 
         return VarMap.from_file(fullpath)
 
-    def append_alias(self, path:str, alias:Alias) -> None:
+    def append_alias(self, path: str, alias: Alias) -> None:
         if alias.target_type is None:
-            if self.varmap.has_var(alias.target):
-                alias.set_target_type(WatchableType.Variable)
-        
-        if alias.target_type is None:
-            raise ValueError(f"Alias at {path} has no target type defined")
+            alias.set_target_type(self.get_alias_target_type(alias, self.varmap))
 
         if path not in self.aliases:
             self.aliases[path] = alias
         else:
             self.logger.warning(f'Duplicate alias {path}. Dropping')
-
 
     def append_aliases(self, aliases: Union[List[Alias], Dict[str, Alias]]) -> None:
         """Add some aliases to the actual SFD"""
@@ -366,13 +361,13 @@ class FirmwareDescription:
         Takes bunch of alias and return a JSON containing a dict structure like this
         [alias1.fullpath] => alias1,  [alias2.fullpath] => alias2
         """
-        aliases:Iterable[Alias]
+        aliases: Iterable[Alias]
         if isinstance(aliases_input, dict):
             aliases = aliases_input.values()
         else:
             aliases = aliases_input
 
-        dic = { alias.get_fullpath(): alias.to_dict() for alias in aliases }
+        dic = {alias.get_fullpath(): alias.to_dict() for alias in aliases}
         return json.dumps(dic, indent=4).encode('utf8')
 
     def get_firmware_id(self) -> bytes:
