@@ -327,20 +327,23 @@ class FirmwareDescription:
 
         return VarMap.from_file(fullpath)
 
+    def append_alias(self, path: str, alias: Alias) -> None:
+        if alias.target_type is None:
+            alias.set_target_type(self.get_alias_target_type(alias, self.varmap))
+
+        if path not in self.aliases:
+            self.aliases[path] = alias
+        else:
+            self.logger.warning(f'Duplicate alias {path}. Dropping')
+
     def append_aliases(self, aliases: Union[List[Alias], Dict[str, Alias]]) -> None:
         """Add some aliases to the actual SFD"""
         if isinstance(aliases, list):
             for alias in aliases:
-                if alias.fullpath not in self.aliases:
-                    self.aliases[alias.fullpath] = alias
-                else:
-                    self.logger.warning(f'Duplicate alias {alias.fullpath}. Dropping')
+                self.append_alias(alias.fullpath, alias)
         elif isinstance(aliases, dict):
-            for unique_path in aliases:
-                if unique_path not in self.aliases:
-                    self.aliases[unique_path] = aliases[unique_path]
-                else:
-                    self.logger.warning(f'Duplicate alias {unique_path}. Dropping')
+            for unique_path, alias in aliases.items():
+                self.append_alias(unique_path, alias)
         else:
             raise ValueError("Aliases must be passed as a list or a dict.")
 
@@ -358,13 +361,13 @@ class FirmwareDescription:
         Takes bunch of alias and return a JSON containing a dict structure like this
         [alias1.fullpath] => alias1,  [alias2.fullpath] => alias2
         """
-        aliases:Iterable[Alias]
+        aliases: Iterable[Alias]
         if isinstance(aliases_input, dict):
             aliases = aliases_input.values()
         else:
             aliases = aliases_input
 
-        dic = { alias.get_fullpath(): alias.to_dict() for alias in aliases }
+        dic = {alias.get_fullpath(): alias.to_dict() for alias in aliases}
         return json.dumps(dic, indent=4).encode('utf8')
 
     def get_firmware_id(self) -> bytes:

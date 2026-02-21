@@ -11,7 +11,7 @@ import binascii
 from scrutiny.core.firmware_description import FirmwareDescription, SFDMetadata, SFDGenerationInfo
 from scrutiny.core.variable_location import AbsoluteLocation
 from scrutiny.core.alias import Alias
-from scrutiny.core.basic_types import EmbeddedDataType
+from scrutiny.core.basic_types import EmbeddedDataType, WatchableType
 from scrutiny.core.varmap import VarMap
 from scrutiny.tools.typing import *
 import scrutiny
