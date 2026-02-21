@@ -340,7 +340,8 @@ class WatchComponent(ScrutinyGUIBaseLocalComponent):
         except WatchableRegistryNodeNotFoundError:
             # we tolerate because we could simply try to watch to see if the watchable is available.
             # It might not if the server is gone or presently downloading data
-            self.logger.debug(f"Cannot watch {item.fqn}. Does not exist")
+            if self.logger.isEnabledFor(logging.DEBUG):  # pragma: no cover
+                self.logger.debug(f"Cannot watch {item.fqn}. Does not exist")
 
     def _unwatch_item(self, item: WatchableStandardItem, quiet: bool = True) -> None:
         """Internal function unregistering a tree line from the watchable registry"""
@@ -352,7 +353,8 @@ class WatchComponent(ScrutinyGUIBaseLocalComponent):
         except WatchableRegistryNodeNotFoundError:
             # We tolerate because a race condition could cause this if the server dies while the GUI is working
             # Should not happen normally
-            self.logger.debug(f"Cannot unwatch {item.fqn}. Does not exist")
+            if self.logger.isEnabledFor(logging.DEBUG):  # pragma: no cover
+                self.logger.debug(f"Cannot unwatch {item.fqn}. Does not exist")
             if not quiet:
                 raise
 
