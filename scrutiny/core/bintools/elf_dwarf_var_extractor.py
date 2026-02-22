@@ -1259,7 +1259,7 @@ class ElfDwarfVarExtractor:
         This can be a void type"""
         VOID_PTR = pointee = PointeeTypeDescriptor(TypeOfVar.Void, None, None)
         if Attrs.DW_AT_type not in ptr_die.attributes:
-            return  VOID_PTR
+            return VOID_PTR
 
         pointee_typedesc = self._get_type_of_var(ptr_die)
         if pointee_typedesc is None:
@@ -1286,7 +1286,6 @@ class ElfDwarfVarExtractor:
                 self._logger.warning(f"Line {get_linenumber()}: Could not deduce type. {prevdie} has no attribute DW_AT_type")
                 return None
             nextdie = prevdie.get_DIE_from_attribute(Attrs.DW_AT_type)
-
 
             if nextdie in seen_dies:
                 raise ElfParsingError(f"Circular type reference for {die}")

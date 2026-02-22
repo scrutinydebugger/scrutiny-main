@@ -1,7 +1,6 @@
-#    test_subscribe_to_testapp.py
-#        A test suite that request the server to load the SFD of testapp project then tries
-#        to subscribe to every single variable possible, including the array. Make sure the
-#        pointer/array logic is solid
+#    test_subscribe_to_prebuilt_bins.py
+#        A test suite that tries to load premade SFD and fill teh datastore without crashing
+#
 #
 #   - License : MIT - See LICENSE file
 #   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
