@@ -2077,10 +2077,7 @@ class API:
                 'values': enum_def['values']
             }
 
-        for path, array in factory.get_array_nodes().items():
-            definition['factory_params']['array_nodes'][path] = list(array.dims)
-
-        for path, array in factory.get_pointer_array_nodes().items():
+        for path, array in factory.get_all_array_nodes_flat().items():
             definition['factory_params']['array_nodes'][path] = list(array.dims)
 
         return definition

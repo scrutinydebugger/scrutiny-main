@@ -15,7 +15,7 @@ from test import ScrutinyUnitTest
 from test.artifacts import get_artifact
 
 
-class TestMakeVarMap_AurixTC334_GCC11_4_Dwarf4(BaseVarmapTest, ScrutinyUnitTest):
+class TestMakeVarMap_Demo_AurixTC334_GCC11_4_Dwarf4(BaseVarmapTest, ScrutinyUnitTest):
     dereference_pointer = True  # This adds some significant testing time. ~1min vs 2 sec
     memdump_filename = None
     bin_filename = get_artifact(os.path.join('demos_prebuilt', 'aurix_tc334_cmake', 'scrutiny-aurix-tc334-asclin0.elf'))

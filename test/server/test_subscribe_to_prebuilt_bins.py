@@ -117,8 +117,7 @@ class TestSubscribeToPrebuiltBins(ScrutinyUnitTest):
 
     def _test_subscribe_to_all_bin_var_from_api(self, sfd_filename):
         with SFDStorage.use_temp_folder():
-            test_sfd_filename = get_artifact('testapp_20260214.sfd')
-            sfd = SFDStorage.install(test_sfd_filename)
+            sfd = SFDStorage.install(sfd_filename)
 
             self.server.process()
 
@@ -168,6 +167,8 @@ class TestSubscribeToPrebuiltBins(ScrutinyUnitTest):
             self.assertNotEqual(response['cmd'], API.Command.Api2Client.ERROR_RESPONSE)
 
             for path, params in all_factories.items():
+                if path == '/global/htim3/hdma/*hdma/Instance':
+                    pass
                 generated_paths = []
                 segments = path_tools.make_segments(path)
                 array_dims_sorted_by_path = sorted([(path, dims) for path, dims in params['array_nodes'].items()], key=lambda x: x[0])
@@ -175,12 +176,13 @@ class TestSubscribeToPrebuiltBins(ScrutinyUnitTest):
                 dims_count_lookup = [len(x[1]) for x in array_dims_sorted_by_path]
                 dims_iterator: List["range"] = []
                 total = 1
-                for path, dims in array_dims_sorted_by_path:
+                for _, dims in array_dims_sorted_by_path:
                     total *= math.prod(dims)
                 if total > 4096:
                     continue  # prevent exploding if the numbers are crazy
                 expected_watched_count += total
-                for path, dims in array_dims_sorted_by_path:
+                for array_path, dims in array_dims_sorted_by_path:
+                    self.assertTrue(path_tools.is_subpath(array_path, path), f"{array_path} not a subpath of {path}")
                     dims_iterator.extend([range(x) for x in dims])
 
                 # Each iteration is a variable with all dimensions in the same list
@@ -223,4 +225,8 @@ class TestSubscribeToPrebuiltBins(ScrutinyUnitTest):
 
     def test_subscribe_to_all_aurix_can0_var_from_api(self):
         test_sfd_filename = get_artifact(os.path.join('demos_prebuilt', 'aurix_tc334_cmake', 'scrutiny-aurix-tc334-can0.sfd'))
+        self._test_subscribe_to_all_bin_var_from_api(test_sfd_filename)
+
+    def test_subscribe_to_all_stm32f4_demo_var_from_api(self):
+        test_sfd_filename = get_artifact(os.path.join('demos_prebuilt', 'stm32f4_cmake', 'stm32f4_demo.sfd'))
         self._test_subscribe_to_all_bin_var_from_api(test_sfd_filename)

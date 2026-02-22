@@ -331,8 +331,9 @@ def parse_get_watchable_list(response: api_typing.S2C.GetWatchableList) -> GetWa
                 array_dims = get_array_dims(element, keyprefix)
                 for subpath in array_dims.keys():
                     if not path_tools.is_subpath(subpath, path):
+                        print(array_dims.keys(), flush=True)
                         raise sdk.exceptions.BadResponseError(
-                            f"Received a Variable Factory with array nodes that does not match the access path ({path}).")
+                            f"Received a Variable Factory with array nodes that do not match the access path ({path}).")
 
                 outdata.data.var_factory[path] = sdk.VariableFactoryInterface(
                     access_path=path,
