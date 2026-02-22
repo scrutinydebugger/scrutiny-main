@@ -167,8 +167,6 @@ class TestSubscribeToPrebuiltBins(ScrutinyUnitTest):
             self.assertNotEqual(response['cmd'], API.Command.Api2Client.ERROR_RESPONSE)
 
             for path, params in all_factories.items():
-                if path == '/global/htim3/hdma/*hdma/Instance':
-                    pass
                 generated_paths = []
                 segments = path_tools.make_segments(path)
                 array_dims_sorted_by_path = sorted([(path, dims) for path, dims in params['array_nodes'].items()], key=lambda x: x[0])
