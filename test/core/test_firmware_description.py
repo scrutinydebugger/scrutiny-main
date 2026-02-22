@@ -10,11 +10,15 @@ from test import ScrutinyUnitTest
 from scrutiny.core.varmap import VarMap
 from scrutiny.core.alias import Alias
 from scrutiny.core.variable import *
-from scrutiny.core.variable_location import AbsoluteLocation
+from scrutiny.core.variable_location import AbsoluteLocation, UnresolvedPathPointedLocation
 from scrutiny.core.basic_types import EmbeddedDataType
-from scrutiny.core.firmware_description import FirmwareDescription
+from scrutiny.core.firmware_description import FirmwareDescription, SFDMetadata, SFDGenerationInfo
 from io import BytesIO
 from scrutiny.sdk import WatchableType
+import datetime
+
+
+DUMMY_METADATA = SFDMetadata("unit test", "unit test", "v1.0.0", SFDGenerationInfo(datetime.datetime.now(), "Vx.x", "Vx.x", "unknown"))
 
 
 class TestFirmwareDescription(ScrutinyUnitTest):
@@ -48,3 +52,28 @@ class TestFirmwareDescription(ScrutinyUnitTest):
         bio = BytesIO(FirmwareDescription.serialize_aliases([alias2]))
         with self.assertRaises(Exception):
             alias_readback = FirmwareDescription.read_aliases(bio, varmap, ignore_errors=False)
+
+    def test_get_vars_bad_pointer(self):
+
+        varmap = VarMap()
+        varmap.register_base_type(original_name='float', vartype=EmbeddedDataType.float32)
+
+        varmap.add_variable(
+            path_segments=['a', 'b', 'c1'],
+            location=AbsoluteLocation(0x1000),
+            original_type_name='float'
+        )
+
+        varmap.add_variable(
+            path_segments=['a', 'b', 'c2'],
+            location=UnresolvedPathPointedLocation(
+                pointer_path='/i/dont/exist',
+                pointer_offset=0,
+                array_segments=None
+            ),
+            original_type_name='float'
+        )
+
+        sfd = FirmwareDescription(firmwareid=bytes([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), varmap=varmap, metadata=DUMMY_METADATA)
+        vars = list(sfd.get_vars_for_datastore())
+        self.assertEqual(len(vars), 1)

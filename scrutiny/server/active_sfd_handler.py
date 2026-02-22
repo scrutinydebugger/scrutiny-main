@@ -34,7 +34,7 @@ SFDUnloadedCallback = Callable[[], None]
 class ActiveSFDHandler:
     """
     Handle which Scrutiny Firmware Description file (SFD) is loaded. Automatically load one
-    when the DeviceHandler connects to a device and the device broadcast a firmware ID associated with 
+    when the DeviceHandler connects to a device and the device broadcast a firmware ID associated with
     an installed SFD.
 
     When loaded, the SFD contents becomes available to the clients through the API, meaning variables and aliases.
@@ -104,7 +104,7 @@ class ActiveSFDHandler:
                     verbose = self.previous_device_status != device_status
                     device_id = self.device_handler.get_device_id()
                     if device_id is not None:
-                        self._load_sfd(device_id, verbose=verbose)   # Initiate loading. Will populate the datastore
+                        self._try_load_sfd(device_id, verbose=verbose)   # Initiate loading. Will populate the datastore
                     else:
                         self.logger.critical('No device ID available when connected. This should not happen')
                 else:
@@ -112,7 +112,7 @@ class ActiveSFDHandler:
                         self.reset_active_sfd()
 
         if self.requested_firmware_id is not None:  # If the API requested to load an SFD
-            self._load_sfd(self.requested_firmware_id)
+            self._try_load_sfd(self.requested_firmware_id)
             self.requested_firmware_id = None
 
         self.previous_device_status = device_status
@@ -125,7 +125,7 @@ class ActiveSFDHandler:
         self.logger.debug("Requested to load SFD for firmware %s" % firmware_id)
         self.requested_firmware_id = firmware_id
 
-    def _load_sfd(self, firmware_id: str, verbose: bool = True) -> None:
+    def _try_load_sfd(self, firmware_id: str, verbose: bool = True) -> None:
         """Loads a Scrutiny Firmware Description"""
         self.sfd = None
         # We only clear the entry types coming from the SFD.

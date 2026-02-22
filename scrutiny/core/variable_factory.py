@@ -59,6 +59,33 @@ class VariableFactory:
 
         return self._base_location.array_segments
 
+    def get_all_array_nodes_flat(self) -> Mapping[str, Array]:
+        """Returns the array node of the pointer part of the path. Make sure the path are consistent"""
+        all_nodes: Dict[str, Array] = {}
+
+        for path, array in self.get_array_nodes().items():
+            all_nodes[path] = array
+
+        if self.has_array_in_pointed_address():
+            parsed_access_name = ScrutinyPath.from_string(self.get_access_name())
+            for path, array in self.get_pointer_array_nodes().items():
+                parsed_path = ScrutinyPath.from_string(path)
+                if parsed_access_name.segments_count() < parsed_path.segments_count():
+                    raise ValueError("Invalid factory structure. Pointer arrays path longer than access name")
+
+                # Add the * in the path if needed.
+                # This could probably be less hacky, but it is also a one time deal and hidden under an api.. leaving as is for now.
+                if parsed_access_name.has_pointer_dereferencer() and not parsed_path.has_pointer_dereferencer():
+                    path_segments = parsed_path.get_segments()  # makes a copy
+                    star_index = parsed_access_name.get_pointer_dereferencer_index()
+                    if star_index < len(path_segments):
+                        path_segments[star_index] = '*' + path_segments[star_index]
+                        path = path_tools.join_segments(path_segments)
+                parsed_access_name.has_pointer_dereferencer()
+                all_nodes[path] = array
+
+        return all_nodes
+
     def get_variable_layout(self) -> VariableLayout:
         """Return the layout applied to each variable instantiated"""
         return self._layout

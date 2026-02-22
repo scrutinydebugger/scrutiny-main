@@ -1,7 +1,6 @@
-#    test_subscribe_to_testapp.py
-#        A test suite that request the server to load the SFD of testapp project then tries
-#        to subscribe to every single variable possible, including the array. Make sure the
-#        pointer/array logic is solid
+#    test_subscribe_to_prebuilt_bins.py
+#        A test suite that tries to load premade SFD and fill teh datastore without crashing
+#
 #
 #   - License : MIT - See LICENSE file
 #   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
@@ -10,6 +9,7 @@
 
 import json
 import time
+import os
 from test import ScrutinyUnitTest
 from test.artifacts import get_artifact
 from scrutiny.server.api import API
@@ -24,7 +24,7 @@ import itertools
 import math
 
 
-class TestSubscribetoTestApp(ScrutinyUnitTest):
+class TestSubscribeToPrebuiltBins(ScrutinyUnitTest):
 
     def setUp(self) -> None:
         super().setUp()
@@ -115,15 +115,9 @@ class TestSubscribetoTestApp(ScrutinyUnitTest):
     def make_api_call(self, msg) -> None:
         self.api_conn.write_to_server(json.dumps(msg))
 
-    def test_subscribe_to_all_testapp_var_from_api(self):
+    def _test_subscribe_to_all_bin_var_from_api(self, sfd_filename):
         with SFDStorage.use_temp_folder():
-            test_sfd_filename = get_artifact('testapp_20260214.sfd')
-            sfd = SFDStorage.install(test_sfd_filename)
-
-            self.server.datastore.add_entries([  # There are aliases to those in the test .sfd
-                DatastoreRPVEntry('/rpv/x5000', RuntimePublishedValue(0x5000, EmbeddedDataType.boolean)),
-                DatastoreRPVEntry('/rpv/x5001', RuntimePublishedValue(0x5001, EmbeddedDataType.uint16)),
-            ])
+            sfd = SFDStorage.install(sfd_filename)
 
             self.server.process()
 
@@ -180,12 +174,13 @@ class TestSubscribetoTestApp(ScrutinyUnitTest):
                 dims_count_lookup = [len(x[1]) for x in array_dims_sorted_by_path]
                 dims_iterator: List["range"] = []
                 total = 1
-                for path, dims in array_dims_sorted_by_path:
+                for _, dims in array_dims_sorted_by_path:
                     total *= math.prod(dims)
                 if total > 4096:
                     continue  # prevent exploding if the numbers are crazy
                 expected_watched_count += total
-                for path, dims in array_dims_sorted_by_path:
+                for array_path, dims in array_dims_sorted_by_path:
+                    self.assertTrue(path_tools.is_subpath(array_path, path), f"{array_path} not a subpath of {path}")
                     dims_iterator.extend([range(x) for x in dims])
 
                 # Each iteration is a variable with all dimensions in the same list
@@ -213,3 +208,27 @@ class TestSubscribetoTestApp(ScrutinyUnitTest):
         total_watched_alias = len(self.server.datastore.get_watched_entries_id(WatchableType.Alias))
 
         self.assertEqual(expected_watched_count, total_watched_var + total_watched_alias)
+
+    def test_subscribe_to_all_testapp_var_from_api(self):
+        self.server.datastore.add_entries([  # There are aliases to those in the test .sfd
+            DatastoreRPVEntry('/rpv/x5000', RuntimePublishedValue(0x5000, EmbeddedDataType.boolean)),
+            DatastoreRPVEntry('/rpv/x5001', RuntimePublishedValue(0x5001, EmbeddedDataType.uint16)),
+        ])
+        test_sfd_filename = get_artifact('testapp_20260214.sfd')
+        self._test_subscribe_to_all_bin_var_from_api(test_sfd_filename)
+
+    def test_subscribe_to_all_aurix_asclin_var_from_api(self):
+        test_sfd_filename = get_artifact(os.path.join('demos_prebuilt', 'aurix_tc334_cmake', 'scrutiny-aurix-tc334-asclin0.sfd'))
+        self._test_subscribe_to_all_bin_var_from_api(test_sfd_filename)
+
+    def test_subscribe_to_all_aurix_can0_var_from_api(self):
+        test_sfd_filename = get_artifact(os.path.join('demos_prebuilt', 'aurix_tc334_cmake', 'scrutiny-aurix-tc334-can0.sfd'))
+        self._test_subscribe_to_all_bin_var_from_api(test_sfd_filename)
+
+    def test_subscribe_to_all_stm32f4_demo_var_from_api(self):
+        test_sfd_filename = get_artifact(os.path.join('demos_prebuilt', 'stm32f4_cmake', 'stm32f4_demo.sfd'))
+        self._test_subscribe_to_all_bin_var_from_api(test_sfd_filename)
+
+    def test_subscribe_to_all_atmega2560_demo_var_from_api(self):
+        test_sfd_filename = get_artifact(os.path.join('demos_prebuilt', 'atmega_2560', 'scrutiny-nsec2024.sfd'))
+        self._test_subscribe_to_all_bin_var_from_api(test_sfd_filename)

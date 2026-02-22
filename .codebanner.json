@@ -955,11 +955,14 @@
         "scrutiny/core/variable_location.py": {
             "docstring": "Contains the 2 types of variable location possible for a variable"
         },
-        "test/server/test_subscribe_to_testapp.py": {
-            "docstring": "A test suite that request the server to load the SFD of testapp project then tries to subscribe to every single variable possible, including the array. Make sure the pointer/array logic is solid"
-        },
         "test/sdk/test_csv_logger.py": {
             "docstring": "Test suite for the CSVLogger class"
+        },
+        "test/cli/test_makevarmap_aurixtc334_gcc11_4.py": {
+            "docstring": "Tries to extract var from the Aurix demo"
+        },
+        "test/server/test_subscribe_to_prebuilt_bins.py": {
+            "docstring": "A test suite that tries to load premade SFD and fill teh datastore without crashing "
         }
     }
 }

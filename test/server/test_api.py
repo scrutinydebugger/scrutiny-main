@@ -39,6 +39,8 @@ from scrutiny.core.embedded_enum import *
 from scrutiny.core.variable_factory import VariableFactory
 from scrutiny.core.array import UntypedArray
 from scrutiny.core.alias import Alias
+from scrutiny.core.variable_location import UnresolvedPathPointedLocation
+
 import scrutiny.core.datalogging as core_datalogging
 import scrutiny.server.datalogging.definitions.api as api_datalogging
 import scrutiny.server.datalogging.definitions.device as device_datalogging
@@ -131,7 +133,9 @@ class StubbedDeviceHandler:
 
     def set_connection_status(self, connection_status: DeviceHandler.ConnectionStatus) -> None:
         if connection_status == DeviceHandler.ConnectionStatus.CONNECTED_READY and (
-                self.connection_status != DeviceHandler.ConnectionStatus.CONNECTED_READY or self.server_session_id is None):
+                self.connection_status != DeviceHandler.ConnectionStatus.CONNECTED_READY
+                or self.server_session_id is None
+        ):
             self.server_session_id = uuid4().hex
         elif connection_status != DeviceHandler.ConnectionStatus.CONNECTED_READY:
             self.server_session_id = None
@@ -630,6 +634,19 @@ class TestAPI(ScrutinyUnitTest):
         rpv_entries = self.make_dummy_entries(8, entry_type=WatchableType.RuntimePublishedValue, prefix='rpv')
         var_factories = self.make_dummy_var_factory(3, prefix='var_factory')
 
+        complex_factory = VariableFactory(
+            access_name='/x/y/*z/A/B/C',
+            base_location=UnresolvedPathPointedLocation(
+                pointer_path='/x/y/z',
+                pointer_offset=100,
+                array_segments={
+                        '/x/y/z': UntypedArray((2, 3, 4), 32)
+                }
+            ),
+            layout=VariableLayout(EmbeddedDataType.uint32, Endianness.Little)
+        )
+        complex_factory.add_array_node('/x/y/*z/A/B', UntypedArray((5, 6), 10))
+
         expected_entries_in_response = {}
         for entry in var_entries:
             expected_entries_in_response[entry.get_display_path()] = entry
@@ -642,6 +659,7 @@ class TestAPI(ScrutinyUnitTest):
         self.datastore.add_entries(alias_entries)
         self.datastore.add_entries(rpv_entries)
         self.datastore.register_var_factories(var_factories)
+        self.datastore.register_var_factory(complex_factory)
 
         req = {
             'cmd': 'get_watchable_list'
@@ -656,11 +674,11 @@ class TestAPI(ScrutinyUnitTest):
         self.assertEqual(response['qty']['var'], 5)
         self.assertEqual(response['qty']['alias'], 2)
         self.assertEqual(response['qty']['rpv'], 8)
-        self.assertEqual(response['qty']['var_factory'], 3)
+        self.assertEqual(response['qty']['var_factory'], 4)
         self.assertEqual(len(response['content']['var']), 5)
         self.assertEqual(len(response['content']['alias']), 2)
         self.assertEqual(len(response['content']['rpv']), 8)
-        self.assertEqual(len(response['content']['var_factory']), 3)
+        self.assertEqual(len(response['content']['var_factory']), 4)
 
         # Put all entries in a single list, paired with the name of the parent key.
         all_entries_same_level = []
@@ -685,8 +703,10 @@ class TestAPI(ScrutinyUnitTest):
         self.assertEqual(len(expected_entries_in_response), 0)
 
         expected_factories = dict([(x.get_access_name(), x) for x in var_factories])
-        for i in range(3):
-            factory = response['content']['var_factory'][i]
+        factory_positions = {response['content']['var_factory'][i]['path']: i for i in range(len(response['content']['var_factory']))}
+
+        for expected_path in list(expected_factories.keys()):
+            factory = response['content']['var_factory'][factory_positions[expected_path]]
             self.assertIn('dtype', factory)
             self.assertIn('path', factory)
             self.assertIn('factory_params', factory)
@@ -696,7 +716,20 @@ class TestAPI(ScrutinyUnitTest):
 
             self.assertEqual(factory['dtype'], 'float32')
             self.assertIn(factory['path'], expected_factories)
-            del expected_factories[factory['path']]
+            del expected_factories[expected_path]
+
+        self.assertEqual(len(expected_factories), 0)
+
+        # Here, we check that a factory that has array elements in both the pointer part and the dereferenced part
+        # Correctly shows up as a flat structure for the client that is consistent with the path given.
+        coimplex_factory_pos = factory_positions['/x/y/*z/A/B/C']
+        complex_factory_received = response['content']['var_factory'][coimplex_factory_pos]
+        complex_factory_array_nodes = complex_factory_received['factory_params']['array_nodes']
+        self.assertEqual(len(complex_factory_array_nodes), 2)
+        self.assertIn('/x/y/*z', complex_factory_array_nodes)
+        self.assertIn('/x/y/*z/A/B', complex_factory_array_nodes)
+        self.assertEqual(complex_factory_array_nodes['/x/y/*z'], [2, 3, 4])
+        self.assertEqual(complex_factory_array_nodes['/x/y/*z/A/B'], [5, 6])
 
     def test_get_watchable_list_with_name_filter(self):
         var_entries = self.make_dummy_entries(5, entry_type=WatchableType.Variable, prefix='/includeme_var')

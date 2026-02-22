@@ -47,6 +47,10 @@ class ScrutinyPath:
         """Get all path segments"""
         return self._segments.copy()
 
+    def segments_count(self) -> int:
+        """Return the number of segments in this path"""
+        return len(self._segments)
+
     def get_name_segment(self) -> str:
         """Get only the last path segments, corresponding to its name"""
         return self._segments[-1]
@@ -83,13 +87,13 @@ class ScrutinyPath:
         raise ValueError("No dereferencing segment in path")
 
     def get_path_to_array_pos_dict(self, skip_first_segments: int = 0) -> Dict[str, Tuple[int, ...]]:
-        """Extract the array information from the path and return it in a format easier to work with. 
+        """Extract the array information from the path and return it in a format easier to work with.
         Returns a dict mapping the subpath to a position.
 
-        /aaa[2]/bbb/ccc[3][4] 
+        /aaa[2]/bbb/ccc[3][4]
         becomes:
         {
-            '/aaa':(2,), 
+            '/aaa':(2,),
             '/aaa/bbb/ccc':(3,4)
         }
 

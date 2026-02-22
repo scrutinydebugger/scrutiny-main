@@ -251,7 +251,7 @@ class VarMap:
     def get_endianness(self) -> Endianness:
         return self._content.endianness
 
-    def write(self, filename: str, indent: int = 4) -> None:
+    def write(self, filename: str, indent: Optional[Union[int, str]] = '\t') -> None:
         with open(filename, 'wb') as f:
             f.write(self.get_json(indent).encode('utf8'))
 
