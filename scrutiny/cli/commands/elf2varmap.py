@@ -32,7 +32,8 @@ class Elf2VarMap(BaseCommand):
         self.parser.add_argument('file', help='The ELF file to read')
         self.parser.add_argument('--cppfilt', default=None, help='The path to the c++filt demangler used when parsing a binary produced by GCC')
         self.parser.add_argument('--output', default=None, help='The varmap output file. Will go to STDOUT if not set')
-        self.parser.add_argument('--indent', default=4, type=int, help='Number of spaces for JSON indentation')
+        self.parser.add_argument('--indent', default='\t', type=str,
+                                 help='Number of spaces for JSON indentation or the indentation character. "none" for no indentation')
         self.parser.add_argument('--cu_ignore_patterns', nargs="*", default=[],
                                  help='List of compile unit to ignore. Can be a filename or a glob pattern ')
         self.parser.add_argument('--path_ignore_patterns', nargs="*", default=[],
@@ -50,11 +51,19 @@ class Elf2VarMap(BaseCommand):
                                          path_ignore_patterns=args.path_ignore_patterns,
                                          dereference_pointers=args.dereference_pointers
                                          )
+        indent: Optional[Union[int, str]] = str(args.indent)
+        assert isinstance(indent, str)
+
+        if indent.isnumeric():
+            indent = int(indent)
+        elif indent.lower() == 'none':
+            indent = None
+
         try:
             varmap = extractor.get_varmap()
 
             if args.output is None:
-                print(varmap.get_json(indent=None))
+                print(varmap.get_json(indent=indent))
             else:
                 if os.path.isdir(args.output):
                     output_file = os.path.join(args.output, 'varmap.json')
@@ -64,7 +73,7 @@ class Elf2VarMap(BaseCommand):
                 if os.path.isfile(output_file):
                     logging.warning('File %s already exist. Overwritting' % output_file)
 
-                varmap.write(output_file, indent=args.indent)
+                varmap.write(output_file, indent=indent)
                 self.getLogger().info(f"Varmap file {output_file} written")
         except Exception as e:
             tools.log_exception(self.getLogger(), e, f"Failed to produce VarMap file.")
