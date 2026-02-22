@@ -65,7 +65,7 @@ def get_gui_assets():
 
 setup(
     name="scrutinydebugger",
-    python_requires='>=3.10,<3.14',
+    python_requires='>=3.10',
     description='Scrutiny Debugger Python framework',
     url='https://github.com/scrutinydebugger/scrutiny-main',
     version=scrutiny.__version__,

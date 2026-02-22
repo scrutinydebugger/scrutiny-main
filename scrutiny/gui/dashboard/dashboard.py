@@ -53,7 +53,7 @@ if TYPE_CHECKING:
 
 
 class ComponentAppInterface(AbstractComponentAppInterface):
-    """This class is a handle for the components to access the GUI application. 
+    """This class is a handle for the components to access the GUI application.
     A component should use this interface to do something else than managing itself,
     like accessing the watchable registry or making a request to the server"""
 
@@ -267,7 +267,7 @@ class CustomFactory(QtAds.CDockComponentsFactory):
         self._shiboken_prune_timer.start()
 
     def createDockWidgetTab(self, dock_wdiget: QtAds.CDockWidget) -> QtAds.CDockWidgetTab:
-        tab = ScrutinyDockWidgetTab(dock_wdiget, None)
+        tab = ScrutinyDockWidgetTab(dock_wdiget)
         self._shiboken_storage.insert(tab)  # Keep a reference. QtAds expect the factory to be the owner, but is not responsible to delete
         return tab
 
@@ -505,7 +505,7 @@ class Dashboard(QWidget):
             self.save_with_prompt(exceptions)
 
     def clear(self) -> None:
-        """Removes everything from the dashboard. 
+        """Removes everything from the dashboard.
         The ADS internal map maps object name to the widget. title is used if no object name is explicitly set before registration.
         Colliding names may cause this map to not return all the references, leaving some stray widget after clear.
         """
@@ -571,7 +571,7 @@ class Dashboard(QWidget):
 
     def _create_new_component(self, component_class: Type[ScrutinyGUIBaseComponent]) -> Optional[QtAds.CDockWidget]:
         """Create a new component and initializes it
-        :param component_class: The class that represent the component (inhreiting ScrutinyGUIBaseComponent) 
+        :param component_class: The class that represent the component (inhreiting ScrutinyGUIBaseComponent)
         """
         if issubclass(component_class, ScrutinyGUIBaseGlobalComponent):
             searched_widget = self._dock_manager.findDockWidget(component_class.__name__)
@@ -601,12 +601,16 @@ class Dashboard(QWidget):
             tools.log_exception(self._logger, e, f"Failed to create a dashboard component of type {component_class.__name__}")
             return None
 
-        dock_widget = ScrutinyDockWidget(component_class.get_name())
+        dock_widget = ScrutinyDockWidget(self._dock_manager, component_class.get_name())
         self._configure_new_dock_widget(dock_widget)
         if widget.instance_name in self._dock_manager.dockWidgetsMap():
             self._logger.error(f"Duplicate dashboard instance name {widget.instance_name}.")
         dock_widget.setObjectName(widget.instance_name)  # Name required to be unique by QT ADS.
-        dock_widget.setFeature(QtAds.CDockWidget.DockWidgetDeleteOnClose, True)
+
+        # Delete on close causes trouble with the custom factory + shiboken.
+        # Enabling that feature with this setup causes segfault with ADS 4.5.0+
+        dock_widget.setFeature(QtAds.CDockWidget.DockWidgetDeleteOnClose, False)
+
         dock_widget.setWidget(widget)
         dock_widget.visibilityChanged.connect(widget.visibilityChanged)  # Pass down the event
 
@@ -638,7 +642,7 @@ class Dashboard(QWidget):
         # There is no public API to create the layout without inserting a widget
         if title is None:
             title = "placeholder"
-        dock_widget = QtAds.CDockWidget(title)
+        dock_widget = QtAds.CDockWidget(self._dock_manager, title)
         dock_widget.setObjectName(uuid4().hex)
         self._configure_new_dock_widget(dock_widget)
         return dock_widget
