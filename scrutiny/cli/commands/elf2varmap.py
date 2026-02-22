@@ -37,6 +37,8 @@ class Elf2VarMap(BaseCommand):
                                  help='List of compile unit to ignore. Can be a filename or a glob pattern ')
         self.parser.add_argument('--path_ignore_patterns', nargs="*", default=[],
                                  help='List of variable paths to be ignored. Can be a glob pattern. example: /static/main.cpp/namespace1/*')
+        self.parser.add_argument('--dereference-pointers', action='store_true', default=False,
+                                 help='When set, adds variables for pointed variables that can be dereferenced by the server.  ')
 
     def run(self) -> Optional[int]:
         from scrutiny.core.bintools.elf_dwarf_var_extractor import ElfDwarfVarExtractor
@@ -46,6 +48,7 @@ class Elf2VarMap(BaseCommand):
                                          cppfilt=args.cppfilt,
                                          ignore_cu_patterns=args.cu_ignore_patterns,
                                          path_ignore_patterns=args.path_ignore_patterns,
+                                         dereference_pointers=args.dereference_pointers
                                          )
         try:
             varmap = extractor.get_varmap()

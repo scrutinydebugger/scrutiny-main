@@ -420,11 +420,12 @@ class FirmwareDescription:
             if isinstance(var_or_factory, Variable):
                 assert not isinstance(var_or_factory.location, AbsoluteLocation)
                 ptr_path = var_or_factory.location.pointer_path
-                yield VarmapElement(
-                    path=path,
-                    var_or_factory=var_or_factory,
-                    pointer_path_and_var=(ptr_path, self.varmap.get_var(ptr_path))
-                )
+                if self.varmap.has_var(ptr_path):
+                    yield VarmapElement(
+                        path=path,
+                        var_or_factory=var_or_factory,
+                        pointer_path_and_var=(ptr_path, self.varmap.get_var(ptr_path))
+                    )
             else:
                 yield VarmapElement(
                     path=path,
