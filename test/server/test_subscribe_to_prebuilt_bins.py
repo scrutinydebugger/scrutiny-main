@@ -230,3 +230,7 @@ class TestSubscribeToPrebuiltBins(ScrutinyUnitTest):
     def test_subscribe_to_all_stm32f4_demo_var_from_api(self):
         test_sfd_filename = get_artifact(os.path.join('demos_prebuilt', 'stm32f4_cmake', 'stm32f4_demo.sfd'))
         self._test_subscribe_to_all_bin_var_from_api(test_sfd_filename)
+
+    def test_subscribe_to_all_atmega2560_demo_var_from_api(self):
+        test_sfd_filename = get_artifact(os.path.join('demos_prebuilt', 'atmega_2560', 'scrutiny-nsec2024.sfd'))
+        self._test_subscribe_to_all_bin_var_from_api(test_sfd_filename)

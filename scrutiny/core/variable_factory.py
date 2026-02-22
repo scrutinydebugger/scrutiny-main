@@ -71,9 +71,10 @@ class VariableFactory:
             for path, array in self.get_pointer_array_nodes().items():
                 parsed_path = ScrutinyPath.from_string(path)
                 if parsed_access_name.segments_count() < parsed_path.segments_count():
-                    raise ValueError("Invalid factory structure. Pointer arrays path longer thana ccess name")
+                    raise ValueError("Invalid factory structure. Pointer arrays path longer than access name")
 
-                # Add the * in the path if needed. this could probably be less hacky, but it is also a one time deal.. leaving as is for now.
+                # Add the * in the path if needed.
+                # This could probably be less hacky, but it is also a one time deal and hidden under an api.. leaving as is for now.
                 if parsed_access_name.has_pointer_dereferencer() and not parsed_path.has_pointer_dereferencer():
                     path_segments = parsed_path.get_segments()  # makes a copy
                     star_index = parsed_access_name.get_pointer_dereferencer_index()
