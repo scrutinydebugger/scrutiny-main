@@ -20,6 +20,7 @@ import datetime
 
 DUMMY_METADATA = SFDMetadata("unit test", "unit test", "v1.0.0", SFDGenerationInfo(datetime.datetime.now(), "Vx.x", "Vx.x", "unknown"))
 
+
 class TestFirmwareDescription(ScrutinyUnitTest):
     def test_alias_save_and_read(self):
         varmap = VarMap()
@@ -52,8 +53,6 @@ class TestFirmwareDescription(ScrutinyUnitTest):
         with self.assertRaises(Exception):
             alias_readback = FirmwareDescription.read_aliases(bio, varmap, ignore_errors=False)
 
-
-
     def test_get_vars_bad_pointer(self):
 
         varmap = VarMap()
@@ -75,6 +74,6 @@ class TestFirmwareDescription(ScrutinyUnitTest):
             original_type_name='float'
         )
 
-        sfd = FirmwareDescription(firmwareid=bytes([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]), varmap=varmap, metadata=DUMMY_METADATA)
+        sfd = FirmwareDescription(firmwareid=bytes([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), varmap=varmap, metadata=DUMMY_METADATA)
         vars = list(sfd.get_vars_for_datastore())
         self.assertEqual(len(vars), 1)

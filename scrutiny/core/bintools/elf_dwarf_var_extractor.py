@@ -522,7 +522,7 @@ class ElfDwarfVarExtractor:
     """The dwarf info of the file being scanned"""
     _demangler: BaseDemangler
     """The demangler to use while scanning"""
-    _allow_dereference_pointer:bool
+    _allow_dereference_pointer: bool
 
     def __init__(self, filename: str,
                  cppfilt: Optional[str] = None,
@@ -1474,7 +1474,7 @@ class ElfDwarfVarExtractor:
         elif pointee_typedesc.type in (TypeOfVar.Class, TypeOfVar.Struct, TypeOfVar.Union):
             struct = self._get_composite_type_def(pointee_typedesc.type_die, allow_dereferencing=False)  # Break dereferencing recursion
             return Pointer(size=ptr_size, pointed_type=struct, pointed_typename=None, enum=None)
-        elif pointee_typedesc.type == TypeOfVar.Subroutine: # Nothing we can do with this.
+        elif pointee_typedesc.type == TypeOfVar.Subroutine:  # Nothing we can do with this.
             return VOID_PTR
         elif pointee_typedesc.type == TypeOfVar.Pointer:    # No double dereferencing.
             return VOID_PTR
@@ -1714,7 +1714,7 @@ class ElfDwarfVarExtractor:
                 self._register_member_as_var_recursive(path_segments, member, base_location, offset, new_array_segments)
             elif isinstance(array.datatype, Pointer):   # Array of pointers
                 ptr = array.datatype
-                was_added  = self._maybe_register_variable(
+                was_added = self._maybe_register_variable(
                     path_segments=path_segments,
                     original_type_name=array.element_type_name,
                     location=base_location,
