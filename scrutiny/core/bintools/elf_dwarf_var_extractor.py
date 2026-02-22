@@ -706,7 +706,10 @@ class ElfDwarfVarExtractor:
     def _get_enum_from_type_descriptor(self, type_desc: TypeDescriptor) -> Optional[EmbeddedEnum]:
         """Reads the enum of a type descriptor. If this is an array, return the enum of the subtype"""
         if type_desc.type == TypeOfVar.Array:
-            type_desc = self._get_type_of_var(type_desc.type_die)
+            temp_type_desc = self._get_type_of_var(type_desc.type_die)
+            if temp_type_desc is None:
+                return None
+            type_desc = temp_type_desc
 
         if type_desc.enum_die is not None:
             if type_desc.enum_die in self._enum_die_map:
@@ -1136,6 +1139,8 @@ class ElfDwarfVarExtractor:
 
         if location is not None:
             type_desc = self._get_type_of_var(die)
+            if type_desc is None:
+                return
 
             if type_desc.enum_die is not None:
                 self._die_process_enum(type_desc.enum_die)
@@ -1252,18 +1257,21 @@ class ElfDwarfVarExtractor:
     def _get_pointee_type_of_var(self, ptr_die: DIE) -> PointeeTypeDescriptor:
         """Does the same as _get_type_of_var, but for pointers. Return the type descriptor of the pointee.
         This can be a void type"""
+        VOID_PTR = pointee = PointeeTypeDescriptor(TypeOfVar.Void, None, None)
         if Attrs.DW_AT_type not in ptr_die.attributes:
-            pointee = PointeeTypeDescriptor(TypeOfVar.Void, None, None)
-        else:
-            pointee_typedesc = self._get_type_of_var(ptr_die)
-            pointee = PointeeTypeDescriptor(
-                type=pointee_typedesc.type,
-                type_die=pointee_typedesc.type_die,
-                enum_die=pointee_typedesc.enum_die
-            )
-        return pointee
+            return  VOID_PTR
 
-    def _get_type_of_var(self, die: DIE) -> TypeDescriptor:
+        pointee_typedesc = self._get_type_of_var(ptr_die)
+        if pointee_typedesc is None:
+            return VOID_PTR
+
+        return PointeeTypeDescriptor(
+            type=pointee_typedesc.type,
+            type_die=pointee_typedesc.type_die,
+            enum_die=pointee_typedesc.enum_die
+        )
+
+    def _get_type_of_var(self, die: DIE) -> Optional[TypeDescriptor]:
         """Go up the hiearchy to find the die that represent the type of the variable.
         For example : var -> const -> typedef -> volatile -> uint32.  Discard qualifiers and keeps just the "uint32" part
 
@@ -1274,13 +1282,14 @@ class ElfDwarfVarExtractor:
 
         seen_dies: Set[DIE] = set()
         while True:
-            try:
-                nextdie = prevdie.get_DIE_from_attribute(Attrs.DW_AT_type)
-            except KeyError as e:
-                raise ElfParsingError(f"Cannot get the type of var. DIE {prevdie} has no attribute DW_AT_type")
+            if Attrs.DW_AT_type not in prevdie.attributes:
+                self._logger.warning(f"Line {get_linenumber()}: Could not deduce type. {prevdie} has no attribute DW_AT_type")
+                return None
+            nextdie = prevdie.get_DIE_from_attribute(Attrs.DW_AT_type)
+
 
             if nextdie in seen_dies:
-                raise ElfParsingError(f"Circular type referenc for DIE {die}")
+                raise ElfParsingError(f"Circular type reference for {die}")
             seen_dies.add(nextdie)
 
             if nextdie.tag == Tags.DW_TAG_structure_type:
@@ -1400,6 +1409,8 @@ class ElfDwarfVarExtractor:
         # We have the dims!
 
         element_type = self._get_type_of_var(die)
+        if element_type is None:
+            return None
 
         if element_type.enum_die is not None:   # May have a value only if element_type is a base type
             self._die_process_enum(element_type.enum_die)
@@ -1498,6 +1509,8 @@ class ElfDwarfVarExtractor:
             name = ''
 
         type_desc = self._get_type_of_var(die)
+        if type_desc is None:
+            return None
         embedded_enum: Optional[EmbeddedEnum] = None
         substruct: Optional[Struct] = None
         subarray: Optional[TypedArray] = None
@@ -1926,6 +1939,9 @@ class ElfDwarfVarExtractor:
         array: Optional[TypedArray] = None
         if die.tag == Tags.DW_TAG_variable:
             var_typedesc = self._get_type_of_var(die)
+            if var_typedesc is None:
+                # Malformed type should have been discriminated already
+                raise ElfParsingError(f"Cannot build varpath for {die}. Invalid type")
             if var_typedesc.type == TypeOfVar.Array:
                 array = self._get_array_def(var_typedesc.type_die, allow_dereferencing=True)
 

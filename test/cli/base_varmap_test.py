@@ -37,6 +37,7 @@ class BaseVarmapTest:
     memdump_filename: Optional[str]
     memdump: Optional[MemoryContent]
     known_enums: Optional[KnownEnumTypedDict]
+    dereference_pointer = True
 
     _CPP_FILT = 'c++filt'   # Can be overriden
 
@@ -46,7 +47,7 @@ class BaseVarmapTest:
         try:
             if not hasattr(cls, "known_enums"):
                 cls.known_enums = None
-            extractor = ElfDwarfVarExtractor(cls.bin_filename, cppfilt=cls._CPP_FILT)
+            extractor = ElfDwarfVarExtractor(cls.bin_filename, cppfilt=cls._CPP_FILT, dereference_pointers=cls.dereference_pointer)
             error_ignore = [NotImplementedError]
             first_error = extractor.get_errors().get_first_exc(error_ignore)
             if first_error is not None:

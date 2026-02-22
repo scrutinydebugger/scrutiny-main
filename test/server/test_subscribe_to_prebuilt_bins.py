@@ -10,6 +10,7 @@
 
 import json
 import time
+import os
 from test import ScrutinyUnitTest
 from test.artifacts import get_artifact
 from scrutiny.server.api import API
@@ -24,7 +25,7 @@ import itertools
 import math
 
 
-class TestSubscribetoTestApp(ScrutinyUnitTest):
+class TestSubscribeToPrebuiltBins(ScrutinyUnitTest):
 
     def setUp(self) -> None:
         super().setUp()
@@ -115,15 +116,10 @@ class TestSubscribetoTestApp(ScrutinyUnitTest):
     def make_api_call(self, msg) -> None:
         self.api_conn.write_to_server(json.dumps(msg))
 
-    def test_subscribe_to_all_testapp_var_from_api(self):
+    def _test_subscribe_to_all_bin_var_from_api(self, sfd_filename):
         with SFDStorage.use_temp_folder():
             test_sfd_filename = get_artifact('testapp_20260214.sfd')
             sfd = SFDStorage.install(test_sfd_filename)
-
-            self.server.datastore.add_entries([  # There are aliases to those in the test .sfd
-                DatastoreRPVEntry('/rpv/x5000', RuntimePublishedValue(0x5000, EmbeddedDataType.boolean)),
-                DatastoreRPVEntry('/rpv/x5001', RuntimePublishedValue(0x5001, EmbeddedDataType.uint16)),
-            ])
 
             self.server.process()
 
@@ -213,3 +209,19 @@ class TestSubscribetoTestApp(ScrutinyUnitTest):
         total_watched_alias = len(self.server.datastore.get_watched_entries_id(WatchableType.Alias))
 
         self.assertEqual(expected_watched_count, total_watched_var + total_watched_alias)
+
+    def test_subscribe_to_all_testapp_var_from_api(self):
+        self.server.datastore.add_entries([  # There are aliases to those in the test .sfd
+            DatastoreRPVEntry('/rpv/x5000', RuntimePublishedValue(0x5000, EmbeddedDataType.boolean)),
+            DatastoreRPVEntry('/rpv/x5001', RuntimePublishedValue(0x5001, EmbeddedDataType.uint16)),
+        ])
+        test_sfd_filename = get_artifact('testapp_20260214.sfd')
+        self._test_subscribe_to_all_bin_var_from_api(test_sfd_filename)
+
+    def test_subscribe_to_all_aurix_asclin_var_from_api(self):
+        test_sfd_filename = get_artifact(os.path.join('demos_prebuilt', 'aurix_tc334_cmake', 'scrutiny-aurix-tc334-asclin0.sfd'))
+        self._test_subscribe_to_all_bin_var_from_api(test_sfd_filename)
+
+    def test_subscribe_to_all_aurix_can0_var_from_api(self):
+        test_sfd_filename = get_artifact(os.path.join('demos_prebuilt', 'aurix_tc334_cmake', 'scrutiny-aurix-tc334-can0.sfd'))
+        self._test_subscribe_to_all_bin_var_from_api(test_sfd_filename)
