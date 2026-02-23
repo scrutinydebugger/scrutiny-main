@@ -16,10 +16,13 @@ if TYPE_CHECKING:
 
 
 class WriteRequest(PendingRequest):
-    """A handle to a write request. Reports the progress and the status of the request. 
+    """A handle to a write request. Reports the progress and the status of the request.
     Gets updated by the client thread"""
-    _value: Union[int, bool, float, str]  # Value to be written
-    _watchable: "WatchableHandle"       # Watchable targeted by this update request
+
+    _value: Union[int, bool, float, str]
+    """Value to be written"""
+    _watchable: "WatchableHandle"
+    """Watchable targeted by this update request"""
 
     def __init__(self, watchable: "WatchableHandle", val: Union[int, bool, float, str]) -> None:
         super().__init__(watchable._client)

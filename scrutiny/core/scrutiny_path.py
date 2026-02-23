@@ -17,20 +17,19 @@ from scrutiny.core import path_tools
 
 
 @dataclass(slots=True)
-class AddressOffset:
-    pointer_part_offset: int
-    non_pointer_part_offset: int
-
-
-@dataclass(slots=True)
 class ScrutinyPath:
     """A class to manipulate and interpret paths used to refer to watchable elements across the project"""
 
     _complex_path_segment_regex = re.compile(r'((\*?)(.+?))((\[\d+\])*)$')
+    """The regex used to parse the given string"""
     _segments: List[str]
+    """Path splitted in segments"""
     _raw_segments: List[str]
+    """Copy of the segments, but without the path encoded information (array positions)"""
     _array_pos: List[Optional[Tuple[int, ...]]]
+    """The array position. The size fo this list must match the size of the segments. We can rebuild _segments from this attribute + _raw_segents"""
     _dereference_index: Optional[int]
+    """If the path is a pointed path, contains the segment index of the last pointer segment (where the asterisk is)"""
 
     def __str__(self) -> str:
         return self.to_str()
@@ -79,9 +78,11 @@ class ScrutinyPath:
         return False
 
     def has_pointer_dereferencer(self) -> bool:
+        """Return ``True`` if an asterisk was present in the path."""
         return self._dereference_index is not None
 
     def get_pointer_dereferencer_index(self) -> int:
+        """Return the index of the segment that had the asterisk"""
         if self._dereference_index is not None:
             return self._dereference_index
         raise ValueError("No dereferencing segment in path")
@@ -163,6 +164,13 @@ class ScrutinyPath:
 
     @staticmethod
     def resolve_pointer_path(unresolved_path: str, input_path: "ScrutinyPath", pointer_array_segments: Mapping[str, Array]) -> Optional["ScrutinyPath"]:
+        """Class method that can take an unresolved path (path with a generic pointer path without array resolving)
+         and create a resolved path from a string given by the user.
+
+         Ex: Unresolved path = /a/b/c/d/e/f with /a/b/c is the pointer where /a/b/ is an array of dims [2,3,4]
+         User gives /a/b[1][0][2]/*c/d/e/f
+         Creates a path where the path is /a/b[1][0][2]/*c/d/e/f and the pointer path is /a/b[1][0][2]/c
+        """
         unresolved_segments = path_tools.make_segments(unresolved_path)
         resolved_segments = input_path.get_segments()
 

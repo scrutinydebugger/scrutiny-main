@@ -28,10 +28,13 @@ class FirmwareParser:
     NO_TAG_ERROR = "Binary file does not contains Scrutiny placeholder. Either it is already tagged or the file hasn't been compiled with a full scrutiny-lib"
 
     filename: str
-    content: bytes
+    """The path to the input file"""
     logger: logging.Logger
+    """The logger"""
     placeholder_location: Optional[int]
+    """The location of the placeholder in the .ELF file. ``None`` if not found"""
     firmware_id: Optional[bytes]
+    """The firmware ID of this .ELF. ``None`` if we can't compute it"""
 
     def __init__(self, filename: str):
         self.filename = os.path.normpath(filename)
@@ -64,7 +67,8 @@ class FirmwareParser:
         return self.placeholder_location is not None
 
     def throw_no_tag_error(self) -> None:
-        raise Exception(self.NO_TAG_ERROR)
+        """Raise an error that says that we can't find the placeholder in a file"""
+        raise ValueError(self.NO_TAG_ERROR)
 
     def get_firmware_id(self) -> bytes:
         """Return the firmware ID generated while parsing an untagged binary"""
@@ -75,6 +79,7 @@ class FirmwareParser:
         return self.firmware_id
 
     def get_firmware_id_ascii(self) -> str:
+        """Return the firmware ID generated as an ASCII string"""
         return hexlify(self.get_firmware_id()).decode('ascii')
 
     def write_tagged(self, dst: Optional[str]) -> None:

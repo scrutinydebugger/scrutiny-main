@@ -348,17 +348,17 @@ class TestVarmap(ScrutinyUnitTest):
                     }
         }
 
-        self.assertEqual(varmap.get_regsitered_types(), {
+        self.assertEqual(varmap.get_registered_types(), {
             'int': EmbeddedDataType.sint32,
             'unsigned int': EmbeddedDataType.uint32,
             'float': EmbeddedDataType.float32
         })
 
-        self.assertEqual(varmap.get_regsitered_enums(), [EmbeddedEnum.from_def(enumADef)])
+        self.assertEqual(varmap.get_registered_enums(), [EmbeddedEnum.from_def(enumADef)])
 
         varmap.register_base_type('double', EmbeddedDataType.float64)
 
-        self.assertEqual(varmap.get_regsitered_types(), {
+        self.assertEqual(varmap.get_registered_types(), {
             'int': EmbeddedDataType.sint32,
             'unsigned int': EmbeddedDataType.uint32,
             'float': EmbeddedDataType.float32,

@@ -21,14 +21,27 @@ from scrutiny.tools.typing import *
 
 
 class ThreadValidationError(Exception):
+    """Exception raised when thread validation fails."""
     pass
 
 
 class ThreadEnforcer:
-    _thread_to_name_map: Dict[int, Set[str]] = {}
+    """Runtime checker that enforces the thread ID of function callers.
+
+    Prevents race conditions from misusage of internal APIs.
+    """
+    _thread_to_name_map: Dict[int, Set[str]]
+    """Map of thread IDs to sets of thread names."""
 
     @classmethod
     def register_thread(cls, name: str, thread_id: Optional[int] = None, unique: bool = False) -> None:
+        """Register a thread with a name for later enforcement.
+
+        :param name: The name to register the thread under.
+        :param thread_id: The thread ID (defaults to current thread).
+        :param unique: If ``True``, ensure no other thread is registered under this name.
+        :raises ThreadValidationError: If ``unique`` is ``True`` and name is already in use.
+        """
         if unique:
             for nameset in cls._thread_to_name_map.values():
                 if name in nameset:
@@ -44,6 +57,12 @@ class ThreadEnforcer:
 
     @classmethod
     def unregister_thread(cls, name: str, thread_id: Optional[int] = None) -> None:
+        """Unregister a thread name.
+
+        :param name: The name to unregister.
+        :param thread_id: The thread ID (defaults to current thread).
+        :raises ThreadValidationError: If the thread or name is not registered.
+        """
         if thread_id is None:
             thread_id = threading.get_ident()
 
@@ -57,6 +76,11 @@ class ThreadEnforcer:
 
     @classmethod
     def assert_thread(cls, name: str) -> None:
+        """Assert that the current thread is registered under the given name.
+
+        :param name: The expected thread name.
+        :raises ThreadValidationError: If the current thread is not registered under the name.
+        """
         thread_id = threading.get_ident()
         if thread_id not in cls._thread_to_name_map:
             raise ThreadValidationError(f"Running from unknown thread. Expected {name}")
@@ -72,7 +96,12 @@ P = ParamSpec('P')
 
 
 def enforce_thread(name: str) -> Callable[[Callable[P, T]], Callable[P, T]]:
-    """Decorator that ensure the function is called in the given thread (referenced by name)"""
+    """Decorator that ensures the function is called in the given thread.
+
+    :param name: The expected thread name.
+    :returns: A decorator function.
+    :raises ThreadValidationError: If called from wrong thread.
+    """
     def decorator(function: Callable[P, T]) -> Callable[P, T]:
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
             ThreadEnforcer.assert_thread(name)
@@ -83,8 +112,13 @@ def enforce_thread(name: str) -> Callable[[Callable[P, T]], Callable[P, T]]:
 
 
 def thread_func(name: str) -> Callable[[Callable[P, T]], Callable[P, T]]:
-    """Decorator that register a function as a thread (referenced by name). Used to enforce other function calls"""
+    """Decorator that registers a function as a thread.
 
+    Used to enforce other function calls to run in the same thread.
+
+    :param name: The name to register the thread under.
+    :returns: A decorator function.
+    """
     def decorator(function: Callable[P, T]) -> Callable[P, T]:
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
             ThreadEnforcer.register_thread(name, unique=True)
@@ -98,10 +132,21 @@ def thread_func(name: str) -> Callable[[Callable[P, T]], Callable[P, T]]:
 
 
 def register_thread(name: str, thread_id: Optional[int] = None, unique: bool = False) -> None:
-    """Register the given thread to a name for later enforcing"""
+    """Register the given thread to a name for later enforcing.
+
+    :param name: The name to register the thread under.
+    :param thread_id: The thread ID (defaults to current thread).
+    :param unique: If ``True``, ensure no other thread is registered under this name.
+    :raises ThreadValidationError: If ``unique`` is ``True`` and name is already in use.
+    """
     ThreadEnforcer.register_thread(name, thread_id, unique)
 
 
 def unregister_thread(name: str, thread_id: Optional[int] = None) -> None:
-    """Unregister the given thread"""
+    """Unregister the given thread.
+
+    :param name: The name to unregister.
+    :param thread_id: The thread ID (defaults to current thread).
+    :raises ThreadValidationError: If the thread or name is not registered.
+    """
     ThreadEnforcer.unregister_thread(name, thread_id)

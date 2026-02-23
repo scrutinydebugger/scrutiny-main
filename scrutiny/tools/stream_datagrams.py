@@ -29,11 +29,20 @@ MAX_HEADER_LENGTH = len("<SCRUTINY size=00000000 flags=ch>")
 
 
 class StreamMaker:
-    """Tool that encapsulate a chunk of data in a sized datagram with a header that can be sent onto a stream for reconstruction"""
+    """Tool that encapsulates a chunk of data in a sized datagram with a header that can be sent onto a stream for reconstruction.
+
+    :param mtu: Maximum Transmission Unit size.
+    :param use_hash: Whether to use hash verification (default ``True``).
+    :param compress: Whether to use compression (default ``True``).
+    """
     _use_hash: bool
+    """Whether to use hash verification."""
     _mtu: int
+    """Maximum Transmission Unit size."""
     _compress: bool
+    """Whether to use compression."""
     _flags: str
+    """Flags string for the header."""
 
     def __init__(self, mtu: int, use_hash: bool = True, compress: bool = DEFAULT_COMPRESS) -> None:
         self._use_hash = use_hash
@@ -48,6 +57,12 @@ class StreamMaker:
             self._flags += 'h'
 
     def encode(self, data: Any) -> bytearray:
+        """Encode data into a datagram with header.
+
+        :param data: The data to encode.
+        :returns: The encoded datagram as a bytearray.
+        :raises RuntimeError: If the data is too big for the MTU.
+        """
         if self._compress:
             data = zlib.compress(data, level=COMPRESSION_LEVEL)
         datasize = len(data)
@@ -63,23 +78,42 @@ class StreamMaker:
 
 @dataclass(slots=True)
 class PayloadProperties:
+    """Properties of a datagram payload."""
+
     data_length: int
+    """Length of the data in bytes"""
     compressed: bool
+    """Whether the data is compressed"""
     use_hash: bool
+    """Whether hash verification is used."""
 
 
 class StreamParser:
-    """A parser that reads a stream and extracts datagrams """
+    """A parser that reads a stream and extracts datagrams.
+
+    :param mtu: Maximum Transmission Unit size.
+    :param interchunk_timeout: Timeout between chunks in seconds (optional).
+    """
     _payload_properties: Optional[PayloadProperties]
+    """Properties of the current payload being parsed."""
     _bytes_read: int
+    """Number of bytes read."""
     _buffer: bytearray
+    """Buffer for incoming data."""
     _remainder: bytearray
+    """Remainder data after processing."""
     _msg_queue: "ScrutinyQueue[bytes]"
+    """Queue of parsed datagrams."""
     _pattern: "re.Pattern[bytes]"
+    """Regex pattern for parsing headers."""
     _logger: logging.Logger
+    """The logger."""
     _last_chunk_timestamp: float
+    """Timestamp of the last chunk received."""
     _interchunk_timeout: Optional[float]
+    """Timeout between chunks in seconds."""
     _mtu: int
+    """Maximum Transmission Unit size."""
 
     def __init__(self, mtu: int, interchunk_timeout: Optional[float] = None):
         if mtu > MAX_MTU:
@@ -95,6 +129,10 @@ class StreamParser:
         self._mtu = mtu
 
     def parse(self, chunk: Union[bytes, bytearray]) -> None:
+        """Parse a chunk of data from the stream.
+
+        :param chunk: The data chunk to parse.
+        """
         done = False
         if self._payload_properties is not None and self._interchunk_timeout is not None:
             if time.perf_counter() - self._last_chunk_timestamp > self._interchunk_timeout:
@@ -156,6 +194,11 @@ class StreamParser:
         self._last_chunk_timestamp = time.perf_counter()
 
     def _receive_data(self, data: bytes, compressed: bool) -> None:
+        """Process received data, decompressing if necessary.
+
+        :param data: The raw data bytes.
+        :param compressed: Whether the data is compressed.
+        """
         try:
             if compressed:
                 data = zlib.decompress(data)
@@ -166,8 +209,13 @@ class StreamParser:
             self._logger.error("Receive queue full. Dropping datagram")
 
     def queue(self) -> "ScrutinyQueue[bytes]":
+        """Get the queue of parsed datagrams.
+
+        :returns: The queue containing parsed datagrams.
+        """
         return self._msg_queue
 
     def reset(self) -> None:
+        """Reset the parser state, clearing the buffer and payload properties."""
         self._buffer.clear()
         self._payload_properties = None

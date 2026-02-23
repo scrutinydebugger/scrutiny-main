@@ -11,6 +11,8 @@ __all__ = ['make_segments', 'join_segments', 'is_subpath', 'is_rpv_path', 'count
 import re
 from scrutiny.tools.typing import *
 
+_rpv_path_regex = re.compile(r'^\/?rpv\/x\d+\/?$', re.IGNORECASE)
+
 
 def make_segments(path: str) -> List[str]:
     """Splits a path string into an list of string segments"""
@@ -19,6 +21,7 @@ def make_segments(path: str) -> List[str]:
 
 
 def count_segments(path: str) -> int:
+    """Return the number of segments in a path"""
     return len(make_segments(path))
 
 
@@ -28,6 +31,7 @@ def join_segments(segments: List[str]) -> str:
 
 
 def is_subpath(subpath: str, path: str) -> bool:
+    """Tells if a path is a subpath of another longer path"""
     subpath_segments = make_segments(subpath)
     path_segments = make_segments(path)
     if len(subpath_segments) > len(path_segments):
@@ -43,4 +47,4 @@ def is_subpath(subpath: str, path: str) -> bool:
 
 def is_rpv_path(path: str) -> bool:
     """Returns True if the given tree-like path is the path of a Runtime Published Value"""
-    return (re.match(r'^\/?rpv\/x\d+\/?$', path, re.IGNORECASE) is not None)
+    return _rpv_path_regex.match(path) is not None

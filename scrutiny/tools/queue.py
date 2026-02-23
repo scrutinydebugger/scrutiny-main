@@ -17,7 +17,10 @@ T = TypeVar("T")
 
 
 class ScrutinyQueue(Generic[T], queue.Queue[T]):
+    """A queue that extends the native Python queue with helper methods."""
+
     def deplete(self) -> None:
+        """Remove all items from the queue."""
         while True:
             try:
                 self.get_nowait()
@@ -25,12 +28,20 @@ class ScrutinyQueue(Generic[T], queue.Queue[T]):
                 break
 
     def get_or_none(self) -> Optional[T]:
+        """Get an item from the queue without blocking.
+
+        :returns: The next item, or ``None`` if the queue is empty.
+        """
         try:
             return self.get_nowait()
         except queue.Empty:
             return None
 
     def put_circular(self, obj: T) -> None:
+        """Put an item in the queue, removing oldest if full.
+
+        :param obj: The item to add to the queue.
+        """
         while True:
             try:
                 self.put_nowait(obj)

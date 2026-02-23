@@ -82,6 +82,12 @@ EntryOrVarFactoryGenerator = Generator[Union[DatastoreEntry, VariableFactory], N
 
 
 class InvalidRequestException(Exception):
+    """Exception raised when an invalid request is received.
+
+    :param req: The invalid request.
+    :param msg: The error message.
+    """
+
     def __init__(self, req: Any, msg: str) -> None:
         super().__init__(msg)
         self.req = req
@@ -99,10 +105,19 @@ def _is_dict_with_key(d: Dict[Any, Any], k: Any) -> bool:
 
 
 class API:
+    """Main API class that manages TCP communication with clients.
+
+    :param config: The API configuration.
+    :param server: The ScrutinyServer instance.
+    :param enable_debug: Enable debug mode (default ``False``).
+    :param rx_event: Optional event for receive notifications.
+    """
 
     # List of commands that can be shared with the clients
     class Command:
+        """Container class for API command constants."""
         class Client2Api:
+            """Client to API command constants."""
             ECHO = 'echo'
             GET_WATCHABLE_LIST = 'get_watchable_list'
             GET_WATCHABLE_COUNT = 'get_watchable_count'
@@ -134,6 +149,7 @@ class API:
             DEMO_MODE = 'demo_mode'
 
         class Api2Client:
+            """API to Client response command constants."""
             ECHO_RESPONSE = 'response_echo'
             WELCOME = 'welcome'
             GET_WATCHABLE_LIST_RESPONSE = 'response_get_watchable_list'
@@ -172,19 +188,32 @@ class API:
 
     @dataclass(slots=True)
     class SfdUploadState:
+        """State tracking for SFD upload operations."""
+
         expected_next_index: int
+        """The next expected chunk index."""
         upload_token: str
+        """Unique token for the upload session."""
         total_size: int
+        """Total size of the SFD file in bytes."""
         filepath: Path
+        """Path to the temporary file being uploaded."""
         completed: bool
+        """Whether the upload is complete."""
 
     @dataclass(frozen=True, slots=True)
     class Statistics:
+        """API statistics."""
+
         client_handler: AbstractClientHandler.Statistics
+        """Statistics from the client handler"""
         invalid_request_count: int
+        """Count of invalid requests"""
         unexpected_error_count: int
+        """Count of unexpected errors"""
 
     class DataloggingStateString:
+        """String constants for datalogging states."""
         UNAVAILABLE: api_typing.DataloggingState = 'unavailable'
         STANDBY: api_typing.DataloggingState = 'standby'
         WAITING_FOR_TRIGGER: api_typing.DataloggingState = 'waiting_for_trigger'
@@ -193,6 +222,7 @@ class API:
         ERROR: api_typing.DataloggingState = 'error'
 
     class DeviceCommStatus:
+        """String constants for device communication status."""
         UNKNOWN: api_typing.DeviceCommStatus = 'unknown'
         DISCONNECTED: api_typing.DeviceCommStatus = 'disconnected'
         CONNECTING: api_typing.DeviceCommStatus = 'connecting'
@@ -201,15 +231,25 @@ class API:
 
     @dataclass(slots=True)
     class DataloggingSupportedTriggerCondition:
+        """Supported datalogging trigger condition."""
+
         condition_id: api_datalogging.TriggerConditionID
+        """The trigger condition ID"""
         nb_operands: int
+        """Number of operands required"""
 
     FLUSH_VARS_TIMEOUT: float = 0.1
-    DATALOGGING_MAX_TIMEOUT: int = math.floor((2**32 - 1) * 1e-7)  # 100ns represented in sec
-    DATALOGGING_MAX_HOLD_TIME: int = math.floor((2**32 - 1) * 1e-7)   # 100ns represented in sec
+    """Timeout for flushing variables."""
+    DATALOGGING_MAX_TIMEOUT: int = math.floor((2**32 - 1) * 1e-7)
+    """Maximum datalogging timeout in seconds."""
+    DATALOGGING_MAX_HOLD_TIME: int = math.floor((2**32 - 1) * 1e-7)
+    """Maximum datalogging hold time in seconds."""
     SFD_MAX_UPLOAD_SIZE = 64 * 1024 * 1024
+    """Maximum SFD upload size in bytes."""
     TEMP_FILE_LIFETIME = 30
+    """Temporary file lifetime in seconds."""
     TEMP_FILE_PRUNE_INTERVAL = 10
+    """Interval for pruning temporary files in seconds."""
 
     DATATYPE_2_APISTR: Dict[EmbeddedDataType, api_typing.Datatype] = {
         EmbeddedDataType.sint8: 'sint8',
@@ -305,21 +345,37 @@ class API:
     LOOP_TYPE_2_APISTR: Dict[ExecLoopType, api_typing.LoopType] = {v: k for k, v in APISTR_2_LOOP_TYPE.items()}
 
     datastore: Datastore
+    """Reference to the server datastore."""
     device_handler: DeviceHandler
+    """Reference to the device handler."""
     logger: logging.Logger
+    """The logger."""
     connections: Set[str]
+    """Set of active connection IDs."""
     streamer: ValueStreamer
+    """The value streamer for publishing values to clients."""
     req_count: int
+    """Total number of requests processed."""
     client_handler: AbstractClientHandler
+    """The client handler for TCP communication."""
     sfd_handler: ActiveSFDHandler
+    """Reference to the SFD handler."""
     datalogging_manager: DataloggingManager
-    handle_unexpected_errors: bool   # Always true, except during unit tests
+    """Reference to the datalogging manager."""
+    handle_unexpected_errors: bool
+    """Always ``True``, except during unit tests."""
     invalid_request_count: int
+    """Count of invalid requests."""
     unexpected_error_count: int
+    """Count of unexpected errors."""
     temp_dir: "tempfile.TemporaryDirectory[str]"
+    """Temporary directory for file operations."""
     tempfile_timestamp_monotonic: Dict[str, float]
+    """Timestamps for temporary files."""
     last_tempfile_prune_timestamp_monotonic: float
+    """Last time temp files were pruned."""
     _sfd_upload_state: Dict[str, Dict[str, SfdUploadState]]
+    """State of SFD uploads per connection."""
 
     def __init__(self,
                  config: APIConfig,
@@ -398,6 +454,12 @@ class API:
 
     @classmethod
     def get_datatype_name(cls, datatype: EmbeddedDataType) -> api_typing.Datatype:
+        """Get the API string representation of a datatype.
+
+        :param datatype: The embedded data type.
+        :returns: The API string representation.
+        :raises ValueError: If the datatype is unknown.
+        """
         if datatype not in cls.DATATYPE_2_APISTR:
             raise ValueError('Unknown datatype : %s' % (str(datatype)))
 
@@ -405,6 +467,12 @@ class API:
 
     @classmethod
     def get_watchable_type_name(cls, watchable_type: WatchableType) -> api_typing.WatchableType:
+        """Get the API string representation of a watchable type.
+
+        :param watchable_type: The watchable type.
+        :returns: The API string representation.
+        :raises ValueError: If the watchable type is unknown.
+        """
         if watchable_type not in cls.WATCHABLE_TYPE_2_APISTR:
             raise ValueError('Unknown watchable type : %s' % (str(watchable_type)))
 
@@ -412,6 +480,11 @@ class API:
 
     @classmethod
     def _make_sfd_info(cls, firmware_id: str) -> api_typing.SFDInfo:
+        """Create SFD info dictionary for API response.
+
+        :param firmware_id: The firmware ID.
+        :returns: Dictionary with SFD information.
+        """
         return {
             'firmware_id': firmware_id,
             'metadata': SFDStorage.get_metadata(firmware_id).to_dict(),
@@ -419,12 +492,15 @@ class API:
         }
 
     def sfd_loaded_callback(self, sfd: FirmwareDescription) -> None:
-        # Called when a SFD is loaded after a device connection
+        """Callback called by the ``ActiveSFDHandler`` when an SFD is loaded.
+
+        :param sfd: The loaded firmware description.
+        """
         self.logger.debug("SFD Loaded callback called")
         self.send_server_status_to_all_clients()
 
     def sfd_unloaded_callback(self) -> None:
-        # Called when a SFD is unloaded (device disconnected)
+        """Callback called by the ``ActiveSFDHandler`` when an SFD is unloaded."""
         self.logger.debug("SFD unloaded callback called")
         self.send_server_status_to_all_clients()
 
@@ -442,14 +518,26 @@ class API:
         self.send_server_status_to_all_clients()
 
     def get_client_handler(self) -> AbstractClientHandler:
+        """Get the client handler.
+
+        :returns: The client handler instance.
+        """
         return self.client_handler
 
     def open_connection(self, conn_id: str) -> None:
+        """Open a new connection.
+
+        :param conn_id: The connection ID.
+        """
         self.connections.add(conn_id)
         self.streamer.new_connection(conn_id)
         self.send_welcome_message(conn_id)
 
     def close_connection(self, conn_id: str) -> None:
+        """Close a connection.
+
+        :param conn_id: The connection ID to close.
+        """
         self.datastore.stop_watching_all(conn_id)   # Removes this connection as a watcher from all entries
         self.connections.remove(conn_id)
         self.streamer.clear_connection(conn_id)
@@ -458,11 +546,16 @@ class API:
             del self._sfd_upload_state[conn_id]
 
     def is_new_connection(self, conn_id: str) -> bool:
-        # Tells if a connection ID is new (not known)
+        """Check if a connection ID is new.
+
+        :param conn_id: The connection ID to check.
+        :returns: ``True`` if the connection is new, ``False`` otherwise.
+        """
         return True if conn_id not in self.connections else False
 
     # Extract a chunk of data from the value streamer and send it to the clients.
     def stream_all_we_can(self) -> None:
+        """Stream all available data to connected clients."""
         for conn_id in self.connections:
             chunk = self.streamer.get_stream_chunk(conn_id)     # get a list of entry to send to this connection
 
@@ -478,6 +571,12 @@ class API:
             self.client_handler.send(ClientHandlerMessage(conn_id=conn_id, obj=msg))
 
     def validate_config(self, config: APIConfig) -> None:
+        """Validate the API configuration.
+        Raise an exception if the configuration is invalid.
+
+        :param config: The configuration to validate.
+        :raises ValueError: If required keys are missing.
+        """
         if 'client_interface_type' not in config:
             raise ValueError('Missing entry in API config : client_interface_type ')
 
@@ -486,10 +585,11 @@ class API:
 
     # Launch the client interface handler
     def start_listening(self) -> None:
+        """Start the client interface handler."""
         self.client_handler.start()
 
-    # to be called periodically
     def process(self) -> None:
+        """Process incoming requests and manage connections. To be called periodically."""
         self.client_handler.process()   # Get incoming requests
 
         while True:

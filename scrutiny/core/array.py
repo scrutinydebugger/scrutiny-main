@@ -96,6 +96,7 @@ class TypedArray(Array):
     __slots__ = ('datatype', )
 
     datatype: TypedArrayType
+    """A array of what"""
 
     def __init__(self, dims: Tuple[int, ...], datatype: TypedArrayType, element_type_name: str = "") -> None:
         super().__init__(dims, element_type_name)

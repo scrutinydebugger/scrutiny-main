@@ -20,24 +20,42 @@ if TYPE_CHECKING:
 
 
 class Struct:
+    """Represents a C/C++ struct, class, or union parsed from DWARF debug information"""
+
     class Member:
+        """Represents a single field (member) within a ``Struct``"""
+
         class MemberType(enum.Enum):
+            """Discriminant indicating the kind of data a ``Member`` holds"""
+
             BaseType = enum.auto()
             SubStruct = enum.auto()
             SubArray = enum.auto()
             Pointer = enum.auto()
 
         name: str
+        """Name of the struct member as declared in source code"""
         member_type: MemberType
+        """Discriminant describing what kind of value this member holds"""
         original_type_name: Optional[str]
+        """Original C/C++ type name string, if available"""
         bitoffset: Optional[int]
+        """Bit-level offset used for bit-fields. ``None`` for non-bitfield members"""
         byte_offset: Optional[int]
+        """Byte offset of this member from the start of the enclosing struct"""
         bitsize: Optional[int]
+        """Size in bits for bit-field members, or ``None`` for non-bitfield members"""
         substruct: Optional['Struct']
+        """Nested ``Struct`` instance, present only when ``member_type`` is ``MemberType.SubStruct``"""
         subarray: Optional["TypedArray"]
+        """Nested ``TypedArray`` instance, present only when ``member_type`` is ``MemberType.SubArray``"""
         pointer: Optional["Pointer"]
+        """``Pointer`` instance, present only when ``member_type`` is ``MemberType.Pointer``"""
         embedded_enum: Optional[EmbeddedEnum]
+        """Optional ``EmbeddedEnum`` associated with this member for symbolic value display"""
         is_unnamed: bool
+        """``True`` if this member represents an anonymous (unnamed) nested struct, class or union whose
+        members are merged into the parent scope"""
 
         def __init__(self, name: str,
                      member_type: MemberType,
@@ -141,25 +159,41 @@ class Struct:
             self.is_unnamed = is_unnamed
 
         def get_substruct(self) -> "Struct":
+            """Return the nested ``Struct`` for this member.
+
+            :raises ValueError: If this member is not of type ``MemberType.SubStruct``.
+            """
             if self.substruct is None or self.member_type != self.MemberType.SubStruct:
                 raise ValueError("Member is not a substruct")
 
             return self.substruct
 
         def get_array(self) -> "TypedArray":
+            """Return the ``TypedArray`` for this member.
+
+            :raises ValueError: If this member is not of type ``MemberType.SubArray``.
+            """
             if self.subarray is None or self.member_type != self.MemberType.SubArray:
                 raise ValueError("Member is not a subarray")
             return self.subarray
 
         def get_pointer(self) -> "Pointer":
+            """Return the ``Pointer`` for this member.
+
+            :raises ValueError: If this member is not of type ``MemberType.Pointer``.
+            """
             if self.pointer is None or self.member_type != self.MemberType.Pointer:
                 raise ValueError("Member is not a pointer")
             return self.pointer
 
     name: str
+    """Name of the struct as declared in source code"""
     is_anonymous: bool
+    """``True`` if this struct is anonymous (has no tag name in C/C++)"""
     members: Dict[str, "Struct.Member"]
+    """Mapping of member name to ``Member`` instance"""
     byte_size: Optional[int]
+    """Total size of the struct in bytes, or ``None`` if not yet determined"""
 
     def __init__(self, name: str, byte_size: Optional[int] = None) -> None:
         self.name = name
@@ -191,6 +225,15 @@ class Struct:
             self.members[member.name] = member
 
     def inherit(self, other: "Struct", offset: int = 0) -> None:
+        """Copy all members from another ``Struct`` into this one, adjusting their byte offsets.
+
+        Used to model C++ inheritance, where base class members are absorbed into the derived struct
+        shifted by ``offset`` bytes.
+
+        :param other: The base ``Struct`` whose members are to be inherited.
+        :param offset: Byte offset added to each inherited member's ``byte_offset``.
+        :raises RuntimeError: If any inherited member has no ``byte_offset`` set.
+        """
         for member in other.members.values():
             member2 = deepcopy(member)
             if member2.byte_offset is None:

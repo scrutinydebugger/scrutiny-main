@@ -12,27 +12,40 @@ import time
 
 
 class Throttler:
-    """
-    Class that allows us to do throttling on a given communication channels.
-    It measure the bitrate and tells us if we should wait or go ahead when we
+    """Class that allows us to do throttling on a given communication channel.
+
+    It measures the bitrate and tells us if we should wait or go ahead when we
     need to send data.
 
-    It works with to low pass filter, one fast to get an instantaneous measurement of the bitrate. 
-    One slow to get a long-term (relatively speaking) measurement of the bitrate. We allow data 
+    It works with two low pass filters, one fast to get an instantaneous measurement of the bitrate.
+    One slow to get a long-term (relatively speaking) measurement of the bitrate. We allow data
     transfer only when both of these filters are below the target.
+
+    :param mean_bitrate: Target mean bitrate in bps (default 0).
+    :param bitrate_estimation_window: Filters updated at this rate (default 0.1).
     """
 
-    MIN_BITRATE = 100   # We can't throttle more than 100bps
+    MIN_BITRATE = 100
+    """Minimum bitrate in bps that can be throttled."""
 
     enabled: bool
-    mean_bitrate: float     # target mean bitrate
-    bitrate_estimation_window: float    # Filters updated at this rate
-    slow_tau: float     # Time constant of first IIR filter (slow one)
-    fast_tau: float     # Time constant of second IIR filter (fast one)
+    """Whether the throttler is enabled."""
+    mean_bitrate: float
+    """Target mean bitrate."""
+    bitrate_estimation_window: float
+    """Filters updated at this rate."""
+    slow_tau: float
+    """Time constant of first IIR filter (slow one)."""
+    fast_tau: float
+    """Time constant of second IIR filter (fast one)."""
     last_process_timestamp: float
+    """Timestamp of last process call."""
     estimated_bitrate_slow: float
+    """Estimated bitrate using slow filter."""
     estimated_bitrate_fast: float
+    """Estimated bitrate using fast filter."""
     consumed_since_last_estimation: int
+    """Bytes consumed since last estimation."""
 
     def __init__(self, mean_bitrate: float = 0, bitrate_estimation_window: float = 0.1):
         self.enabled = False

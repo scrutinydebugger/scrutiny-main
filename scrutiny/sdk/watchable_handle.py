@@ -66,6 +66,7 @@ class WatchableHandle:
         self._set_invalid(ValueStatus.NeverSet)
 
     def __repr__(self) -> str:
+        """Return a developer-friendly string representation including the name, datatype, and object address."""
         addr = "0x%0.8x" % id(self)
         if self._configuration is None:
             return f'<{self.__class__.__name__} "{self._shortname}" [Unconfigured] at {addr}>'
@@ -73,6 +74,12 @@ class WatchableHandle:
         return f'<{self.__class__.__name__} "{self._shortname}" [{self._configuration.datatype.name}] at {addr}>'
 
     def _configure(self, config: BaseDetailedWatchableConfiguration) -> None:
+        """Store the server-provided configuration and reset the value state.
+
+        Called by the client after the server confirms a subscription.
+
+        :param config: The :class:`BaseDetailedWatchableConfiguration` returned by the server.
+        """
         with self._lock:
             self._configuration = config
             self._status = ValueStatus.NeverSet
@@ -81,6 +88,10 @@ class WatchableHandle:
             self._update_counter = 0
 
     def _set_last_write_datetime(self, dt: Optional[datetime] = None) -> None:
+        """Record the datetime of the most recent completed write operation.
+
+        :param dt: The completion datetime. Uses the current wall-clock time when ``None``.
+        """
         if dt is None:
             dt = datetime.now()
 
@@ -88,6 +99,14 @@ class WatchableHandle:
             self._last_write_dt = dt
 
     def _update_value(self, val: ValType, timestamp: Optional[datetime] = None) -> None:
+        """Update the cached value and mark the status as ``ValueStatus.Valid``.
+
+        No-op if the status is ``ValueStatus.ServerGone``.
+        Called by the client worker thread when a watchable-update message is received.
+
+        :param val: The new value.
+        :param timestamp: Server-side timestamp of the update. Uses the local wall clock when ``None``.
+        """
         with self._lock:
             if self._status != ValueStatus.ServerGone:
                 self._status = ValueStatus.Valid
@@ -98,6 +117,10 @@ class WatchableHandle:
                 self._value = None
 
     def _set_invalid(self, status: ValueStatus) -> None:
+        """Clear the cached value and set a non-``Valid`` status.
+
+        :param status: The new :class:`ValueStatus` to assign. Must not be ``ValueStatus.Valid``.
+        """
         assert status != ValueStatus.Valid
 
         with self._lock:
@@ -105,6 +128,10 @@ class WatchableHandle:
             self._status = status
 
     def _read(self) -> ValType:
+        """Return the current cached value.
+
+        :raises InvalidValueError: If the value is ``None`` or the status is not ``ValueStatus.Valid``.
+        """
         with self._lock:
             val = self._value
             val_status = self._status
@@ -115,6 +142,14 @@ class WatchableHandle:
         return val
 
     def _write(self, val: Union[ValType, str], parse_enum: bool) -> WriteRequest:
+        """Submit a value write to the server and wait for it to complete (unless a batch write is active).
+
+        :param val: The value to write. A ``str`` is required when ``parse_enum`` is ``True``.
+        :param parse_enum: When ``True``, ``val`` is interpreted as an enum name and converted to its integer value.
+        :raises ValueError: If ``parse_enum`` is ``True`` but ``val`` is not a ``str``.
+        :raises BadEnumError: If ``parse_enum`` is ``True`` and ``val`` is not a valid enumerator name.
+        :returns: The :class:`WriteRequest<scrutiny.sdk.write_request.WriteRequest>` that was submitted.
+        """
         if parse_enum:
             if not isinstance(val, str):
                 raise ValueError(f"Value is not an enum string")
@@ -126,18 +161,26 @@ class WatchableHandle:
         return write_request
 
     def _assert_has_enum(self) -> None:
+        """Assert that the watchable has an enum associated with it.
+
+        :raises BadEnumError: If no enum is defined for this watchable.
+        """
         if not self.has_enum():
             raise sdk_exceptions.BadEnumError(f"Watchable {self._shortname} has no enum defined")
 
     def _assert_configured(self) -> None:
+        """Assert that the handle has been configured by the server after a successful watch subscription.
+
+        :raises InvalidValueError: If the handle has not yet been configured.
+        """
         if self._configuration is None:
             raise sdk_exceptions.InvalidValueError("This watchable handle is not ready to be used")
 
     def unwatch(self) -> None:
         """Stop watching this item by unsubscribing to the server
 
-        :raise NameNotFoundError: If the required path is not presently being watched
-        :raise OperationFailure: If the subscription cancellation failed in any way
+        :raises NameNotFoundError: If the required path is not presently being watched
+        :raises OperationFailure: If the subscription cancellation failed in any way
         """
         self._client.unwatch(self._server_path)
 
@@ -148,10 +191,10 @@ class WatchableHandle:
         :param previous_counter: Optional update counter to use for change detection. Can be set to ``update_counter+N`` to wait for N updates
         :param sleep_interval: Value passed to ``time.sleep`` while waiting
 
-        :raise TypeError: Given parameter not of the expected type
-        :raise ValueError: Given parameter has an invalid value
-        :raise InvalidValueError: If the watchable becomes invalid while waiting
-        :raise TimeoutException: If no value update happens within the given timeout
+        :raises TypeError: Given parameter not of the expected type
+        :raises ValueError: Given parameter has an invalid value
+        :raises InvalidValueError: If the watchable becomes invalid while waiting
+        :raises TimeoutException: If no value update happens within the given timeout
         """
 
         timeout = validation.assert_float_range(timeout, 'timeout', minval=0)
@@ -174,17 +217,18 @@ class WatchableHandle:
             time.sleep(sleep_interval)
 
     def wait_value(self, value: Union[ValType, str], timeout: float, sleep_interval: float = 0.02) -> None:
-        """ 
+        """
         Wait for the watchable to reach a given value. Raises an exception if it does not happen within a timeout value
 
         :param value: The value that this watchable must have to exit the wait state
         :param timeout: Maximum amount of time to wait for the given value
         :param sleep_interval: Value passed to ``time.sleep`` while waiting
 
-        :raise TypeError: Given parameter not of the expected type
-        :raise ValueError: Given parameter has an invalid value
-        :raise InvalidValueError: If the watchable becomes invalid while waiting
-        :raise TimeoutException: If the watchable value never changes for the given value within the given timeout
+        :raises TypeError: Given parameter not of the expected type
+        :raises ValueError: Given parameter has an invalid value
+        :raises BadEnumError: If ``value`` is a string and no enumerator value matches it
+        :raises InvalidValueError: If the watchable becomes invalid while waiting
+        :raises TimeoutException: If the watchable value never changes for the given value within the given timeout
         """
 
         timeout = validation.assert_float_range(timeout, 'timeout', minval=0)
@@ -223,7 +267,7 @@ class WatchableHandle:
     def get_enum(self) -> EmbeddedEnum:
         """ Returns the enum associated with this watchable
 
-        :raise BadEnumError: If the watchable has no enum assigned
+        :raises BadEnumError: If the watchable has no enum assigned
         """
         self._assert_configured()
         assert self._configuration is not None
@@ -234,8 +278,8 @@ class WatchableHandle:
 
         :param val: The enumerator name to convert
 
-        :raise BadEnumError: If the watchable has no enum assigned or the given value is not a valid enumerator
-        :raise TypeError: Given parameter not of the expected type
+        :raises BadEnumError: If the watchable has no enum assigned or the given value is not a valid enumerator
+        :raises TypeError: Given parameter not of the expected type
         """
         self._assert_configured()
         assert self._configuration is not None
@@ -282,16 +326,18 @@ class WatchableHandle:
     def value(self) -> ValType:
         """The value without cast.
 
-        - When reading, returns a ``int``, ``float`` or ``bool``. 
+        - When reading, returns a ``int``, ``float`` or ``bool``.
         - When writing, accepts ``int``, ``float``, ``bool`` or a ``str``.
 
         If a string is assigned, the value is sent "as is" to the server which will then try to parse it.
-        The server will accepts "true", "false" or a mathematical expression supporting arithmetic operators (``+``, ``-``, ``*``, ``/``, ``^``), 
+        The server will accepts "true", "false" or a mathematical expression supporting arithmetic operators (``+``, ``-``, ``*``, ``/``, ``^``),
         base prefix (``0x``, ``0b``), scientific notation (1.5e-2), constants (such as pi) and common math functions. including:  ``abs``, ``exp``, ``pow``, ``sqrt``, ``mod``,
         ``ceil``, ``floor``, ``log``, ``ln``, ``log10``,
         ``hypot``, ``degrees``, ``radians``,
         ``cos``, ``cosh``, ``acos``, ``sin``, ``sinh``, ``asin``, ``tan``, ``tanh``, ``atan``, ``atan2``
 
+        :raises InvalidValueError: When reading, if the value has never been set or the handle is no longer valid.
+        :raises OperationFailure: When writing, if the server fails to complete the write.
         """
         return self._read()
 
@@ -316,7 +362,12 @@ class WatchableHandle:
 
     @property
     def value_enum(self) -> str:
-        """The value converted to its first enum name (alphabetical order). Returns a string. Can be written with a string"""
+        """The value converted to its first enum name (alphabetical order). Returns a string. Can be written with a string.
+
+        :raises BadEnumError: When reading, if the watchable has no enum defined. When writing, if ``val`` is not a valid enumerator name.
+        :raises ValueError: When writing, if the assigned value is not a ``str``.
+        :raises OperationFailure: When writing, if the server fails to complete the write.
+        """
         val_int = self.value_int
         self._assert_configured()
         assert self._configuration is not None
@@ -349,15 +400,17 @@ class WatchableHandle:
 
     @property
     def is_dead(self) -> bool:
-        """Return ``True`` if the watchable handle has lost its validity, ``False`` otherwise. 
+        """Return ``True`` if the watchable handle has lost its validity, ``False`` otherwise.
         If ``True``, the handle can be discarded. A new call to :meth:`watch()<scrutiny.sdk.client.ScrutinyClient.watch>` must be performed to get a new valid handle."""
         status = ValueStatus(self._status)  # copy for atomicity
         return status not in (ValueStatus.Valid, ValueStatus.NeverSet)
 
     @property
     def var_details(self) -> DetailedVarWatchableConfiguration:
-        """Returns the variable-specific metadata. Raises a :class:`BadTypeError<scrutiny.sdk.exceptions.BadTypeError>` if the 
-        :attr:`type<scrutiny.sdk.watchable_handle.WatchableHandle.type>` != :attr:`Variable<scrutiny.sdk.WatchableType.Variable>`"""
+        """Returns the variable-specific metadata.
+
+        :raises BadTypeError: If the watchable :attr:`type` is not :attr:`Variable<scrutiny.sdk.WatchableType.Variable>`.
+        """
         self._assert_configured()
         if not isinstance(self._configuration, DetailedVarWatchableConfiguration):
             raise sdk_exceptions.BadTypeError(f"Watchable {self._shortname} is not a variable. Type={self.type.name}")
@@ -365,8 +418,10 @@ class WatchableHandle:
 
     @property
     def alias_details(self) -> DetailedAliasWatchableConfiguration:
-        """Returns the alias-specific metadata. Raises a :class:`BadTypeError<scrutiny.sdk.exceptions.BadTypeError>` if the 
-        :attr:`type<scrutiny.sdk.watchable_handle.WatchableHandle.type>` != :attr:`Alias<scrutiny.sdk.WatchableType.Alias>`"""
+        """Returns the alias-specific metadata.
+
+        :raises BadTypeError: If the watchable :attr:`type` is not :attr:`Alias<scrutiny.sdk.WatchableType.Alias>`.
+        """
         self._assert_configured()
         if not isinstance(self._configuration, DetailedAliasWatchableConfiguration):
             raise sdk_exceptions.BadTypeError(f"Watchable {self._shortname} is not an alias. Type={self.type.name}")
@@ -374,8 +429,10 @@ class WatchableHandle:
 
     @property
     def rpv_details(self) -> DetailedRPVWatchableConfiguration:
-        """Returns the RPV-specific metadata. Raises a :class:`BadTypeError<scrutiny.sdk.exceptions.BadTypeError>` if the 
-        :attr:`type<scrutiny.sdk.watchable_handle.WatchableHandle.type>` != :attr:`RuntimePublishedValue<scrutiny.sdk.WatchableType.RuntimePublishedValue>`"""
+        """Returns the RPV-specific metadata.
+
+        :raises BadTypeError: If the watchable :attr:`type` is not :attr:`RuntimePublishedValue<scrutiny.sdk.WatchableType.RuntimePublishedValue>`.
+        """
         self._assert_configured()
         if not isinstance(self._configuration, DetailedRPVWatchableConfiguration):
             raise sdk_exceptions.BadTypeError(f"Watchable {self._shortname} is not a Runtime Published Value. Type={self.type.name}")
