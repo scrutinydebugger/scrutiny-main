@@ -30,7 +30,7 @@ class ThreadEnforcer:
 
     Prevents race conditions from misusage of internal APIs.
     """
-    _thread_to_name_map: Dict[int, Set[str]]
+    _thread_to_name_map: Dict[int, Set[str]] = {}
     """Map of thread IDs to sets of thread names."""
 
     @classmethod
