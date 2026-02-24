@@ -261,8 +261,8 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
     _pending_datalogging_request: Optional[DataloggingRequest]
     """The datalogging request presently being processed by the server. Is not None between a call to _acquire and a completion of the acquisition"""
     _request_to_ignore_completions: Dict[int, DataloggingRequest]
-    """A map that list the datalogging request to ignore the failure from. It's a trick to avoid displaying a failure when the same user interrupt an 
-    active acquisition with a new one. When that happen, the server will report that the previous acquisition failed with "Interrupted by new request" error. 
+    """A map that list the datalogging request to ignore the failure from. It's a trick to avoid displaying a failure when the same user interrupt an
+    active acquisition with a new one. When that happen, the server will report that the previous acquisition failed with "Interrupted by new request" error.
     We tell the user only if we are not the author of the new request"""
 
     # Browse stuff
@@ -698,7 +698,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
     def _clear_graph(self) -> None:
         """Remove the acquisition presently displayed in the chartview"""
         self._clear_graph_error()
-        self._chart_toolbar.disable_chart_cursor()
+        self._chart_toolbar.disable_chart_cursors()
         chart = self._chartview.chart()
 
         # Unbind the signal tree to the chart
@@ -846,7 +846,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
 
         # Put the chart toolbar in a correct state
         self._state.allow_chart_toolbar()
-        self._chart_toolbar.disable_chart_cursor()
+        self._chart_toolbar.disable_chart_cursors()
 
         # Configure the trigger marker. It is possible that there is no trigger index
         if acquisition.trigger_index is not None:
@@ -1297,7 +1297,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
             self._do_initial_graph_list_download()
 
     def _datalogging_storage_updated_slot(self, change_type: sdk.DataloggingListChangeType, reference_id: Optional[str]) -> None:
-        """The server informs us that a change was made to the datalogging storage. We use ths to update our list, even if this GUI 
+        """The server informs us that a change was made to the datalogging storage. We use ths to update our list, even if this GUI
         is the initiator of the change."""
 
         if change_type == sdk.DataloggingListChangeType.DELETE_ALL:

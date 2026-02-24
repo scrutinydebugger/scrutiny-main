@@ -207,7 +207,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
     _graph_device_info: Optional[sdk.DeviceInfo]
     """The details about the device when starting the acquisition"""
     _last_decimated_flush_paint_in_progress: bool
-    """A flag indicated that the repaint event following a data flush has not been completed yet. 
+    """A flag indicated that the repaint event following a data flush has not been completed yet.
     Used for auto-throttling of the repaint rate when the CPU is overloaded"""
     _csv_logger: Optional[CSVLogger]
     """The CSV logger that will save value update to disk in real time. Runs in the UI thread."""
@@ -437,7 +437,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
     def clear_graph(self) -> None:
         """Delete the graph content and reset the state to of the component to a vanilla state"""
         self._chartview.chart().hide_mouse_callout()
-        self._chart_toolbar.disable_chart_cursor()
+        self._chart_toolbar.disable_chart_cursors()
         self._chartview.chart().removeAllSeries()
         self._clear_stats_and_hide()
 
@@ -577,7 +577,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
 
             # Put toolbar in default state
             self._state.allow_chart_toolbar()
-            self._chart_toolbar.disable_chart_cursor()
+            self._chart_toolbar.disable_chart_cursors()
 
             self._start_periodic_graph_maintenance()
             self._clear_feedback()
@@ -699,7 +699,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
             self.stop_acquisition()
 
     def _flush_decimated_to_dirty_series(self) -> None:
-        """Flush the decimated data buffer of all series marked as dirty. They're dirty when new data is available in 
+        """Flush the decimated data buffer of all series marked as dirty. They're dirty when new data is available in
         the decimator decimated buffer (not the input buffer)"""
         for series in self._all_series():
             if series.is_dirty():
@@ -889,7 +889,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
         self._graph_maintenance_timer.stop()
 
     def _round_robin_recompute_single_series_min_max(self, full: bool) -> None:
-        """Compute a series min/max values. 
+        """Compute a series min/max values.
         if full=``False``, does only 1 series per call to reduce the load on the CPU. Does all if full=``True``"""
         sorted_ids = sorted(list(self._registryid2signal_item.keys()))
         all_series = [self._get_item_series(self._registryid2signal_item[server_id]) for server_id in sorted_ids]
@@ -908,7 +908,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
                 self._y_minmax_recompute_index = 0
 
     def _update_yaxes_minmax_based_on_series_minmax(self) -> None:
-        """Recompute the min/max values of an axis using the minmax values of each series. 
+        """Recompute the min/max values of an axis using the minmax values of each series.
         series.recompute_minmax() must be called prior to this method"""
         allseries = list(self._all_series())
         for yaxis in self._yaxes:

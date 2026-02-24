@@ -151,7 +151,7 @@ def build_chart():
         xaxis.set_minval(min(xdata))
         xaxis.set_maxval(max(xdata))
         xaxis.autoset_range()
-        chart_toolbar.disable_chart_cursor()
+        chart_toolbar.disable_chart_cursors()
 
 
 window.show()
