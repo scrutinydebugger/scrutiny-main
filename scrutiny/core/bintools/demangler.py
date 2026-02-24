@@ -33,17 +33,19 @@ class GccDemangler(BaseDemangler):
 
     binary_name: str
     error_details: str
+    binary_found: bool
 
     def __init__(self, binary_name: Optional[str] = None) -> None:
         if binary_name is None:
             binary_name = self._default_binary_name
         self.binary_name = binary_name
         self.error_details = ""
+        self.binary_found = shutil.which(self.binary_name) is not None
 
     def can_run(self) -> bool:
         """Returns True if c++filt is found on the system"""
         can_run = True
-        if shutil.which(self.binary_name) is None:
+        if not self.binary_found:
             can_run = False
             self.error_details = 'Demangler binary "%s" is not in the path' % self.binary_name
 

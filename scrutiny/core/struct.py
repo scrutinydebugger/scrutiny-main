@@ -11,7 +11,7 @@ __all__ = ['Struct']
 import enum
 from dataclasses import dataclass
 from scrutiny.core.embedded_enum import EmbeddedEnum
-from copy import deepcopy
+from copy import copy
 from scrutiny.tools.typing import *
 
 if TYPE_CHECKING:
@@ -57,6 +57,19 @@ class Struct:
         """``True`` if this member represents an anonymous (unnamed) nested struct, class or union whose
         members are merged into the parent scope"""
 
+        @dataclass(slots=True)
+        class _RequiredSubData:
+            substruct: bool
+            subarray: bool
+            pointer: bool
+
+        _REQUIRED_SUBDATA_MAP: Dict[MemberType, _RequiredSubData] = {
+            MemberType.BaseType: _RequiredSubData(substruct=False, subarray=False, pointer=False),
+            MemberType.SubStruct: _RequiredSubData(substruct=True, subarray=False, pointer=False),
+            MemberType.SubArray: _RequiredSubData(substruct=False, subarray=True, pointer=False),
+            MemberType.Pointer: _RequiredSubData(substruct=False, subarray=False, pointer=True),
+        }
+
         def __init__(self, name: str,
                      member_type: MemberType,
                      original_type_name: Optional[str] = None,
@@ -73,23 +86,10 @@ class Struct:
             from scrutiny.core.array import TypedArray
             from scrutiny.core.pointer import Pointer
 
-            @dataclass
-            class RequiredSubData:
-                substruct: bool
-                subarray: bool
-                pointer: bool
-
-            required_subdata_map: Dict[Struct.Member.MemberType, RequiredSubData] = {
-                self.MemberType.BaseType: RequiredSubData(substruct=False, subarray=False, pointer=False),
-                self.MemberType.SubStruct: RequiredSubData(substruct=True, subarray=False, pointer=False),
-                self.MemberType.SubArray: RequiredSubData(substruct=False, subarray=True, pointer=False),
-                self.MemberType.Pointer: RequiredSubData(substruct=False, subarray=False, pointer=True),
-            }
-
-            if member_type not in required_subdata_map:
+            if member_type not in self._REQUIRED_SUBDATA_MAP:
                 raise ValueError("Unsupported member type")
 
-            required_subdata = required_subdata_map[member_type]
+            required_subdata = self._REQUIRED_SUBDATA_MAP[member_type]
 
             if required_subdata.substruct:
                 if substruct is None:
@@ -213,7 +213,7 @@ class Struct:
             assert member.byte_offset is not None
 
             for subtruct_member in member.substruct.members.values():
-                substruct_member2 = deepcopy(subtruct_member)
+                substruct_member2 = copy(subtruct_member)
                 if substruct_member2.byte_offset is None:
                     raise RuntimeError("Expect byte_offset to be set to handle unnamed composite type")
                 substruct_member2.byte_offset += member.byte_offset
@@ -235,7 +235,7 @@ class Struct:
         :raises RuntimeError: If any inherited member has no ``byte_offset`` set.
         """
         for member in other.members.values():
-            member2 = deepcopy(member)
+            member2 = copy(member)
             if member2.byte_offset is None:
                 raise RuntimeError("Expect byte_offset to be set to handle inheritance")
             member2.byte_offset += offset

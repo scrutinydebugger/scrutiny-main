@@ -39,7 +39,11 @@ class UnresolvedPathPointedLocation:
             raise TypeError('array_segments must be a dictionary')
 
     def copy(self) -> "UnresolvedPathPointedLocation":
-        return copy(self)
+        return UnresolvedPathPointedLocation(
+            pointer_path=self.pointer_path,
+            pointer_offset=self.pointer_offset,
+            array_segments=self.array_segments.copy()
+        )
 
     def add_offset(self, val: int) -> None:
         self.pointer_offset += val
@@ -62,7 +66,10 @@ class ResolvedPathPointedLocation:
             raise TypeError('pointer_offset must be a valid integer')
 
     def copy(self) -> "ResolvedPathPointedLocation":
-        return copy(self)
+        return ResolvedPathPointedLocation(
+            pointer_path=self.pointer_path,
+            pointer_offset=self.pointer_offset
+        )
 
     def get_offset(self) -> int:
         return self.pointer_offset

@@ -149,7 +149,7 @@ class DataloggingManager:
             # It's fine to round measured time.
             # We round lower than the device precision, we just want to remove float64 imprecision.
             # Avoid values like : 0.5819999999999999999998
-            v_sec = round( (v - first_sample + offset) * 1e-7, cls.TIME_PRECISION_DIGIT)
+            v_sec = round((v - first_sample + offset) * 1e-7, cls.TIME_PRECISION_DIGIT)
             out_data.append(v_sec)
 
         return out_data
