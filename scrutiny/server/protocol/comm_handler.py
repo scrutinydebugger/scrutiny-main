@@ -32,34 +32,47 @@ from scrutiny.tools.typing import *
 
 
 class CommHandler:
-    """
-    This class is the bridge between the application and the communication channel with the device.
-    It exchange bytes with the device and exchanges request/response with the upper layer.
-    The link object abstract the communication channel.
+    """This class is the bridge between the application and the communication channel with the device.
 
-    This class also act as a Link Factory.
+    It exchanges bytes with the device and exchanges request/response with the upper layer.
+    The link object abstracts the communication channel.
+
+    This class also acts as a Link Factory.
+
+    :param params: Optional dictionary of parameters.
     """
 
     @dataclass(slots=True)
     class Statistics:
+        """Statistics for the communication handler"""
         tx_datarate_byte_per_sec: float
+        """Transmit data rate in bytes per second"""
         rx_datarate_byte_per_sec: float
+        """Receive data rate in bytes per second"""
         request_per_sec: float
+        """Number of requests per second"""
 
     class Params(TypedDict):
+        """Parameters for the CommHandler"""
         response_timeout: int
+        """Timeout for response in seconds"""
 
     class RxData:
+        """Internal class to track received data state"""
         __slots__ = ('data_buffer', 'length', 'length_bytes_received')
 
         data_buffer: bytearray
+        """Buffer for incoming data"""
         length: Optional[int]
+        """Expected length of the response"""
         length_bytes_received: int
+        """Number of length bytes received so far"""
 
         def __init__(self) -> None:
             self.clear()
 
         def clear(self) -> None:
+            """Clear the receive data buffer"""
             self.length = None
             self.length_bytes_received = 0
             self.data_buffer = bytearray()
@@ -67,32 +80,55 @@ class CommHandler:
     DEFAULT_PARAMS: "CommHandler.Params" = {
         'response_timeout': 1
     }
+    """Default parameters for the CommHandler"""
 
     READ_TIMEOUT = 0.2
+    """Read timeout in seconds"""
 
     _active_request: Optional[Request]
+    """The request currently being processed"""
     _received_response: Optional[Response]
+    """The response received from the device"""
     _link: Optional[AbstractLink]
+    """The communication link to the device"""
     _params: "CommHandler.Params"
+    """Parameters for the handler"""
     _response_timer: Timer
+    """Timer for response timeout"""
     _rx_data: "CommHandler.RxData"
+    """Received data tracking"""
     _logger: logging.Logger
+    """The logger"""
     _opened: bool
+    """Whether the communication channel is open"""
     _throttler: Throttler
+    """Throttler for bitrate control"""
     _timed_out: bool
+    """Whether the last request timed out"""
     _pending_request: Optional[Request]
+    """Request pending transmission"""
     _link_type: str
+    """Type of the communication link"""
     _last_open_error: Optional[str]
+    """Last error message from opening the link"""
     _rx_data_event: Optional[threading.Event]
+    """Event for received data notification"""
 
     _rx_queue: "queue.Queue[bytes]"
+    """Queue for received data"""
     _rx_thread: Optional[threading.Thread]
+    """Thread for receiving data"""
     _rx_thread_started: threading.Event
+    """Event signaled when RX thread starts"""
     _rx_thread_stop_requested: threading.Event
+    """Event to signal RX thread to stop"""
 
     _tx_datarate_measurement: VariableRateExponentialAverager
+    """Measurement of transmit data rate"""
     _rx_datarate_measurement: VariableRateExponentialAverager
+    """Measurement of receive data rate"""
     _request_per_sec_measurement: VariableRateExponentialAverager
+    """Measurement of requests per second"""
 
     def __init__(self, params: Optional[Dict[str, Any]] = None) -> None:
         if params is None:
@@ -122,6 +158,7 @@ class CommHandler:
         self._request_per_sec_measurement = VariableRateExponentialAverager(time_estimation_window=0.1, tau=0.5, near_zero=0.1)
 
     def _rx_thread_task(self) -> None:
+        """The RX thread task that continuously reads from the link"""
         self._logger.debug("RX thread started")
         self._rx_thread_started.set()
         while not self._rx_thread_stop_requested.is_set():
@@ -140,9 +177,17 @@ class CommHandler:
         self._logger.debug("RX thread exiting")
 
     def get_params(self) -> Params:
+        """Get the handler parameters.
+
+        :returns: The parameters dictionary.
+        """
         return self._params
 
     def set_rx_data_event(self, evt: threading.Event) -> None:
+        """Set the event to signal when data is received.
+
+        :param evt: The event to set.
+        """
         self._rx_data_event = evt
 
     def enable_throttling(self, bitrate: float) -> None:
@@ -167,7 +212,7 @@ class CommHandler:
         return self._throttler.get_bitrate() if self._throttler.is_enabled() else None
 
     def get_link(self) -> Optional[AbstractLink]:
-        """Return the Link object used to talk with the device."""
+        """Return the Link object used to talk with the device"""
         return self._link
 
     def get_link_type(self) -> str:
@@ -175,7 +220,7 @@ class CommHandler:
         return self._link_type
 
     def set_link(self, link_type: str, link_config: LinkConfig) -> None:
-        """Set the device Link object from a type and a configuration."""
+        """Set the device Link object from a type and a configuration"""
         self._logger.debug('Configuring new device link of type %s with config : %s' % (link_type, str(link_config)))
         self._link_type = link_type
         if link_type == 'none':
@@ -202,7 +247,7 @@ class CommHandler:
         return link_class.validate_config(link_config)
 
     def _get_link_class(self, link_type: str) -> Type[AbstractLink]:
-        """Link Factory that returns the correct Link class based on a type given as string."""
+        """Link Factory that returns the correct Link class based on a type given as string"""
         link_class: Type[AbstractLink]
 
         if link_type == 'udp':
@@ -226,7 +271,10 @@ class CommHandler:
         return link_class
 
     def _stop_rx_thread(self, timeout: float = 1) -> None:
-        """Stop the internal thread dedicated to reading the device link object"""
+        """Stop the internal thread dedicated to reading the device link object.
+
+        :param timeout: Timeout in seconds to wait for thread to stop.
+        """
         if self._rx_thread is not None:
             if self._rx_thread.is_alive():
                 self._rx_thread_stop_requested.set()
@@ -237,7 +285,7 @@ class CommHandler:
         self._rx_thread = None
 
     def open(self) -> None:
-        """Try to open the communication channel with the device."""
+        """Try to open the communication channel with the device"""
         self._logger.debug(f"Opening communication with device. Link : {self._link_type}")
         if self._link is None:
             raise Exception('Link must be set before opening')
@@ -291,7 +339,7 @@ class CommHandler:
         self._logger.debug("Communication with device closed")
 
     def is_operational(self) -> bool:
-        """Return True if the communication channel is presently in a healthy state."""
+        """Return True if the communication channel is presently in a healthy state"""
         if self._link is None:
             return False
 
@@ -442,7 +490,7 @@ class CommHandler:
         return response
 
     def reset_rx(self) -> None:
-        """ 
+        """
         Make sure we can send a new request.
         Also clear the received response so that response_available() return False
         """
@@ -465,7 +513,7 @@ class CommHandler:
             self._process_tx(newrequest=True)
 
     def waiting_response(self) -> bool:
-        """Return True if there is a pending request waiting for a response. 
+        """Return True if there is a pending request waiting for a response.
         Will return False if the pending request does time out"""
         # We are waiting response if a request is active, meaning it has been sent and response has not been acknowledge by the application
         if not self._opened:
@@ -485,6 +533,10 @@ class CommHandler:
         return (self._rx_datarate_measurement.get_value() + self._tx_datarate_measurement.get_value()) * 8
 
     def get_stats(self) -> Statistics:
+        """Get statistics for the communication handler.
+
+        :returns: Statistics including data rates and request rate.
+        """
         return self.Statistics(
             rx_datarate_byte_per_sec=self._rx_datarate_measurement.get_value(),
             tx_datarate_byte_per_sec=self._tx_datarate_measurement.get_value(),

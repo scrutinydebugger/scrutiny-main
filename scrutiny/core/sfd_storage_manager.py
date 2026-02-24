@@ -22,20 +22,29 @@ from scrutiny.tools.typing import *
 
 
 class TempStorageWithAutoRestore:
-    """This is used to set a temporary SFD storage. Mainly used for unit tests"""
+    """Context manager that temporarily redirects a ``SFDStorageManager`` to a temp folder and
+    restores the original storage on exit. Mainly used for unit tests."""
+
     storage: "SFDStorageManager"
+    """The ``SFDStorageManager`` instance whose storage directory is temporarily overridden."""
 
     def __init__(self, storage: "SFDStorageManager") -> None:
         self.storage = storage
 
     def __enter__(self) -> "TempStorageWithAutoRestore":
+        """Enter the context and return this instance."""
         return self
 
     def __exit__(self, exc_type: Optional[Type[BaseException]], exc_val: Optional[BaseException], exc_tb: Optional[types.TracebackType]) -> Literal[False]:
+        """Exit the context and restore the original storage directory.
+
+        :returns: ``False``, so any exception raised inside the block is propagated.
+        """
         self.restore()
         return False
 
     def restore(self) -> None:
+        """Restore the ``SFDStorageManager`` to its original storage directory."""
         self.storage.restore_storage()
 
 
@@ -44,13 +53,25 @@ UninstallCallback: TypeAlias = Callable[[str], None]
 
 
 class SFDStorageManager:
+    """Manages the on-disk storage of Scrutiny Firmware Description (SFD) files.
+
+    Provides install, uninstall, and lookup operations for SFD files, identified by their
+    firmware ID. Supports temporarily redirecting storage to a temp directory for testing.
+    """
 
     temporary_dir: Optional["tempfile.TemporaryDirectory[str]"]
+    """Temporary directory used when testing. When set, all storage operations target this
+    directory instead of ``folder``."""
     folder: str
+    """Path to the permanent on-disk directory where SFD files are stored."""
     install_callbacks: List[InstallCallback]
+    """Callbacks invoked with the firmware ID string after a successful SFD installation."""
     uninstall_callbacks: List[UninstallCallback]
+    """Callbacks invoked with the firmware ID string after a successful SFD uninstallation."""
     demo_device_sfd: DemoDeviceSFD
+    """Built-in demo device SFD served without requiring an installed file. For showcasing the GUI without a device"""
     logger: logging.Logger
+    """Logger for this class."""
 
     @classmethod
     def clean_firmware_id(cls, firmwareid: str) -> str:
@@ -69,9 +90,17 @@ class SFDStorageManager:
         self.logger = logging.getLogger(self.__class__.__name__)
 
     def register_install_callback(self, callback: InstallCallback) -> None:
+        """Register a callback to be invoked after each successful SFD installation.
+
+        :param callback: Callable receiving the installed firmware ID string.
+        """
         self.install_callbacks.append(callback)
 
     def register_uninstall_callback(self, callback: UninstallCallback) -> None:
+        """Register a callback to be invoked after each successful SFD uninstallation.
+
+        :param callback: Callable receiving the uninstalled firmware ID string.
+        """
         self.uninstall_callbacks.append(callback)
 
     def use_temp_folder(self) -> TempStorageWithAutoRestore:
@@ -93,7 +122,7 @@ class SFDStorageManager:
         return self.folder
 
     def install(self, filename: str, ignore_exist: bool = False) -> FirmwareDescription:
-        """Install a Scrutiny Firmware Description file (SFD) from a filename into the global storage. 
+        """Install a Scrutiny Firmware Description file (SFD) from a filename into the global storage.
         Once installed, it can be loaded when communication starts with a device that identify
         itself with an ID that matches this SFD"""
         if not os.path.isfile(filename):
@@ -104,7 +133,7 @@ class SFDStorageManager:
         return sfd
 
     def install_sfd(self, sfd: FirmwareDescription, ignore_exist: bool = False) -> None:
-        """Install a Scrutiny Firmware Description (SFD) object into the global storage. 
+        """Install a Scrutiny Firmware Description (SFD) object into the global storage.
         Once installed, it can be loaded when communication starts with a device that identify
         itself with an ID that matches this SFD"""
         firmware_id_ascii = self.clean_firmware_id(sfd.get_firmware_id_ascii())
@@ -144,6 +173,11 @@ class SFDStorageManager:
         return os.path.isfile(filename)
 
     def is_installed_or_demo(self, firmwareid: str) -> bool:
+        """Return ``True`` if the given firmware ID can resolve to a SFD.
+        e.g. matches an installed SFD file or the built-in demo device.
+
+        :param firmwareid: Firmware ID to look up.
+        """
         return (firmwareid == self.demo_device_sfd.get_firmware_id_ascii()) or (self.is_installed(firmwareid))
 
     def get(self, firmwareid: str) -> FirmwareDescription:
@@ -155,6 +189,12 @@ class SFDStorageManager:
         return FirmwareDescription.load_from_file(file)
 
     def get_file_location(self, firmwareid: str) -> str:
+        """Return the full filesystem path of the SFD file for the given firmware ID.
+
+        :param firmwareid: Firmware ID whose file location is requested.
+        :raises ValueError: If ``firmwareid`` does not have a valid format.
+        :raises FileNotFoundError: If no SFD file with that firmware ID is installed.
+        """
         firmwareid = self.clean_firmware_id(firmwareid)
         if not self.is_valid_firmware_id(firmwareid):
             raise ValueError('Invalid firmware ID')
@@ -162,10 +202,14 @@ class SFDStorageManager:
         storage = self.get_storage_dir()
         filename = os.path.join(storage, firmwareid)
         if not os.path.isfile(filename):
-            raise Exception(f'Scrutiny Firmware description with firmware ID {firmwareid} not installed on this system')
+            raise FileNotFoundError(f'Scrutiny Firmware description with firmware ID {firmwareid} not installed on this system')
         return filename
 
     def get_filesize(self, firmware_id: str) -> int:
+        """Return the size in bytes of the installed SFD file for the given firmware ID.
+
+        :param firmware_id: Firmware ID of the installed SFD file.
+        """
         return os.stat(self.get_file_location(firmware_id)).st_size
 
     def get_metadata(self, firmwareid: str) -> SFDMetadata:
@@ -179,11 +223,12 @@ class SFDStorageManager:
         return FirmwareDescription.read_metadata_from_sfd_file(filename)
 
     def get_demo_sfd(self) -> DemoDeviceSFD:
+        """Return the built-in demo device SFD."""
         return self.demo_device_sfd
 
     def list(self) -> List[str]:
+        """Return the list of firmware IDs for all SFD files installed in the global storage."""
         thelist = []
-        """Returns a list of firmware ID installed in the global storage"""
         if os.path.isdir(self.get_storage_dir()):
             for filename in os.listdir(self.get_storage_dir()):   # file name is firmware ID
                 if os.path.isfile(os.path.join(self.get_storage_dir(), filename)) and self.is_valid_firmware_id(filename):

@@ -150,31 +150,39 @@ class Alias:
         return json.dumps(self.to_dict())
 
     def get_fullpath(self) -> str:
+        """Get the full path of this Alias"""
         return self.fullpath
 
     def get_target(self) -> str:
+        """Get the path of the target watchable"""
         return self.target
 
     def get_target_type(self) -> WatchableType:
+        """Get the watchable type (Variable or RPV) that this alias refers to"""
         if self.target_type is None:
             raise RuntimeError('Target type for alias %s is not set' % self.get_fullpath())
         return self.target_type
 
     def set_target_type(self, target_type: WatchableType) -> None:
+        """Define to what type of watchable this alias points to. Valid values are Variable or RPV."""
         if target_type == WatchableType.Alias:
             raise ValueError('Alias %s point onto another alias (%s)' % (self.get_fullpath(), self.get_target()))
         self.target_type = target_type
 
     def get_min(self) -> float:
+        """Return the max to apply on this Alias. Return -inf if no value is defined"""
         return self.min if self.min is not None else float('-inf')
 
     def get_max(self) -> float:
+        """Return the max to apply on this Alias. Return +inf if no value is defined"""
         return self.max if self.max is not None else float('inf')
 
     def get_gain(self) -> float:
+        """Return the gain to apply on this Alias. Return 1 if no value is defined"""
         return self.gain if self.gain is not None else 1.0
 
     def get_offset(self) -> float:
+        """Return the offset to apply on this Alias. Return 0 if no value is defined"""
         return self.offset if self.offset is not None else 0.0
 
     def compute_user_to_device(self, value: Union[int, float, bool], apply_saturation: bool = True) -> Union[int, float, bool]:

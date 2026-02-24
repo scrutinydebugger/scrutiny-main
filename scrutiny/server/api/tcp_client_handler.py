@@ -33,50 +33,90 @@ from scrutiny.tools.typing import *
 
 
 class TCPClientHandlerConfig(TypedDict):
+    """Configuration for TCP client handler."""
     host: str
+    """The host address to bind to"""
     port: int
+    """The port number to listen on"""
 
 
 @dataclass(slots=True)
 class _ThreadBasics:
+    """Internal dataclass for thread management."""
+
     thread: threading.Thread
+    """The thread object"""
     started_event: threading.Event
+    """Event signaled when thread starts"""
     stop_event: threading.Event
+    """Event to signal thread to stop"""
 
 
 @dataclass(slots=True)
 class ClientInfo:
+    """Information about a connected client."""
+
     sock: socket.socket
+    """The socket connection to the client"""
     conn_id: str
+    """The unique connection ID"""
 
 
 class TCPClientHandler(AbstractClientHandler):
+    """TCP-based client handler for managing multiple client connections.
+
+    :param config: The client handler configuration.
+    :param rx_event: Optional event that can be triggered upon data reception.
+    """
+
     STREAM_MTU = 1024 * 1024
+    """Maximum Transmission Unit for a single datagram that travel through that stream"""
     STREAM_INTERCHUNK_TIMEOUT = 1.0
+    """Timeout between stream chunks in seconds."""
     STREAM_USE_HASH = True
+    """Whether to use hash verification for streaming."""
     STREAM_USE_COMPRESSION = True
+    """Whether to use compression for streaming."""
     READ_SIZE = 4096
+    """Size of reads from sockets in bytes."""
 
     config: TCPClientHandlerConfig
+    """The TCP client handler configuration."""
     logger: logging.Logger
+    """The logger."""
     rx_event: Optional[threading.Event]
+    """Optional event that can be triggered upon data reception."""
     server_thread_info: Optional[_ThreadBasics]
+    """Information about the server thread."""
     server_sock: Optional[socket.socket]
+    """The server socket."""
     selector: Optional[selectors.DefaultSelector]
+    """The selector for I/O multiplexing."""
 
     id2sock_map: Dict[str, socket.socket]
+    """Map of connection IDs to sockets."""
     sock2id_map: Dict[socket.socket, str]
+    """Map of sockets to connection IDs."""
     client_parser_map: Dict[str, StreamParser]
+    """Map of connection IDs to stream parsers."""
     rx_queue: "ScrutinyQueue[ClientHandlerMessage]"
+    """Queue for received messages."""
     stream_maker: StreamMaker
+    """Stream maker for encoding messages."""
 
     index_lock: threading.Lock
-    force_silent: bool  # For unit testing of timeouts
+    """Lock for thread-safe access to connection maps."""
+    force_silent: bool
+    """For unit testing of timeouts."""
     rx_datarate_measurement: VariableRateExponentialAverager
+    """Measurement of receive data rate."""
     tx_datarate_measurement: VariableRateExponentialAverager
+    """Measurement of transmit data rate."""
 
     rx_msg_count: int
+    """Count of received messages."""
     tx_msg_count: int
+    """Count of transmitted messages."""
 
     def __init__(self, config: ClientHandlerConfig, rx_event: Optional[threading.Event] = None):
         super().__init__(config, rx_event)
@@ -110,6 +150,10 @@ class TCPClientHandler(AbstractClientHandler):
         self.tx_msg_count = 0
 
     def send(self, msg: ClientHandlerMessage) -> None:
+        """Send a message to a client.
+
+        :param msg: The message to send.
+        """
         assert isinstance(msg, ClientHandlerMessage)
         try:
             # Using try/except to avoid race condition if the server thread deletes the client while sending
@@ -132,6 +176,10 @@ class TCPClientHandler(AbstractClientHandler):
             self.unregister_client(msg.conn_id)
 
     def get_port(self) -> Optional[int]:
+        """Get the port number the server is listening on.
+
+        :returns: The port number, or ``None`` if not started.
+        """
         if self.server_sock is None:
             return None
 
@@ -139,6 +187,7 @@ class TCPClientHandler(AbstractClientHandler):
         return cast(int, port)
 
     def start(self) -> None:
+        """Start the TCP server and begin accepting connections."""
         self.logger.info('Starting TCP socket listener on %s:%s' % (self.config['host'], self.config['port']))
         self.server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -158,6 +207,7 @@ class TCPClientHandler(AbstractClientHandler):
         self.tx_datarate_measurement.enable()
 
     def stop(self) -> None:
+        """Stop the TCP server and close all client connections."""
         self.rx_datarate_measurement.disable()
         self.tx_datarate_measurement.disable()
         if self.server_thread_info is not None:
@@ -182,17 +232,30 @@ class TCPClientHandler(AbstractClientHandler):
         self.selector = None
 
     def process(self) -> None:
+        """Process pending data. To be called periodically."""
         self.rx_datarate_measurement.update()
         self.tx_datarate_measurement.update()
 
     def available(self) -> bool:
+        """Check if there are messages available to receive.
+
+        :returns: ``True`` if there are messages in the queue.
+        """
         return not self.rx_queue.empty()
 
     def recv(self) -> Optional[ClientHandlerMessage]:
+        """Receive a message from the queue.
+
+        :returns: The next message, or ``None`` if queue is empty.
+        """
         return self.rx_queue.get_or_none()
 
     def is_connection_active(self, conn_id: str) -> bool:
-        """Tells if a client connection is presently functional and alive"""
+        """Check if a client connection is active.
+
+        :param conn_id: The connection ID to check.
+        :returns: ``True`` if the connection is active.
+        """
         with self.index_lock:
             try:
                 sock = self.id2sock_map[conn_id]
@@ -205,11 +268,19 @@ class TCPClientHandler(AbstractClientHandler):
         return True
 
     def get_number_client(self) -> int:
+        """Get the number of connected clients.
+
+        :returns: Number of active client connections.
+        """
         with self.index_lock:
             return len(self.id2sock_map)
 
     @classmethod
     def get_compatible_stream_parser(cls) -> StreamParser:
+        """Get a stream parser compatible with this handler's configuration.
+
+        :returns: A new StreamParser instance.
+        """
         return StreamParser(
             mtu=cls.STREAM_MTU,
             interchunk_timeout=cls.STREAM_INTERCHUNK_TIMEOUT
@@ -217,6 +288,10 @@ class TCPClientHandler(AbstractClientHandler):
 
     @classmethod
     def get_compatible_stream_maker(cls) -> StreamMaker:
+        """Get a stream maker compatible with this handler's configuration.
+
+        :returns: A new StreamMaker instance.
+        """
         return StreamMaker(
             mtu=cls.STREAM_MTU,
             use_hash=cls.STREAM_USE_HASH,
@@ -230,7 +305,6 @@ class TCPClientHandler(AbstractClientHandler):
         assert self.server_sock is not None
         assert self.selector is not None
 
-        client_parser_map: Dict[str, StreamParser] = {}
         try:
             self.server_thread_info.started_event.set()
             while not self.server_thread_info.stop_event.is_set():
@@ -305,11 +379,20 @@ class TCPClientHandler(AbstractClientHandler):
                 self.unregister_client(conn_id)
 
     def get_client_list(self) -> List[str]:
+        """Get the list of all connected client IDs.
+
+        :returns: List of connection IDs.
+        """
         with self.index_lock:
             return list(self.id2sock_map.keys())
 
     def st_register_client(self, sock: socket.socket, sockaddr: str) -> str:
-        """Register a client. Called by the server thread (st)."""
+        """Register a new client connection. Caleld by the Server Thread
+
+        :param sock: The client socket.
+        :param sockaddr: The client address.
+        :returns: The assigned connection ID.
+        """
         conn_id = uuid.uuid4().hex
         with self.index_lock:
             self.id2sock_map[conn_id] = sock
@@ -329,7 +412,10 @@ class TCPClientHandler(AbstractClientHandler):
         return conn_id
 
     def unregister_client(self, conn_id: str) -> None:
-        """Close the communication with a client and clear internal entry"""
+        """Unregister a client connection.
+
+        :param conn_id: The connection ID to unregister.
+        """
         with self.index_lock:
             try:
                 sock = self.id2sock_map[conn_id]
@@ -360,6 +446,10 @@ class TCPClientHandler(AbstractClientHandler):
         self.logger.info(f"Client disconnected {sockaddr_str} (ID={conn_id}). {nb_client} clients total")
 
     def get_stats(self) -> AbstractClientHandler.Statistics:
+        """Get statistics about the client handler.
+
+        :returns: Statistics about client connections and data rates.
+        """
         return AbstractClientHandler.Statistics(
             client_count=self.get_number_client(),
             input_datarate_byte_per_sec=self.rx_datarate_measurement.get_value(),

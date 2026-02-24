@@ -56,8 +56,9 @@ class TestCluster(ScrutinyUnitTest):
         self.assertEqual(len(cluster), 100)
         self.assertEqual(bytes(cluster.data), b'\xFF' * 50 + b'\xAA' * 50)
 
-        with self.assertRaises(Exception):
-            cluster.extend(1000)  # missing data
+        cluster.extend(200)  # missing data, fill with 0
+        self.assertEqual(len(cluster), 200)
+        self.assertEqual(bytes(cluster.data), b'\xFF' * 50 + b'\xAA' * 50 + b'\x00' * 100)
 
         cluster = Cluster(start_addr=0x1000, size=100, data=b'\xFF' * 100, has_data=True)
         with self.assertRaises(Exception):

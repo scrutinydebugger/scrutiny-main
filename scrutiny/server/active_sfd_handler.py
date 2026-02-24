@@ -32,24 +32,36 @@ SFDUnloadedCallback = Callable[[], None]
 
 
 class ActiveSFDHandler:
-    """
-    Handle which Scrutiny Firmware Description file (SFD) is loaded. Automatically load one
+    """Handle which Scrutiny Firmware Description file (SFD) is loaded. Automatically load one
     when the DeviceHandler connects to a device and the device broadcast a firmware ID associated with
     an installed SFD.
 
     When loaded, the SFD contents becomes available to the clients through the API, meaning variables and aliases.
+
+    :param device_handler: Reference to the device handler. We use it to know if a connection to a device is done.
+    :param datastore: Datastore that will be populated with the SFD content upon load.
+    :param autoload: When ``True``, automatically loads an SFD upon device connection.
     """
     logger: logging.Logger
-    device_handler: DeviceHandler   # Reference to the device handler. We use it to know if a connection to a device is done
-    datastore: Datastore            # Datastore that will be populated with the SFD content upon load
-    autoload: bool                  # When True, automatically loads an SFD upon device connection
+    """The logger."""
+    device_handler: DeviceHandler
+    """Reference to the device handler. We use it to know if a connection to a device is done."""
+    datastore: Datastore
+    """Datastore that will be populated with the SFD content upon load."""
+    autoload: bool
+    """When ``True``, automatically loads an SFD upon device connection."""
 
-    sfd: Optional[FirmwareDescription]  # The actually loaded SFD
-    previous_device_status: DeviceHandler.ConnectionStatus  # Device Handler status of previous loop
-    requested_firmware_id: Optional[str]   # When this value is set, we received a request from the external world (the API) to manually load an SFD
+    sfd: Optional[FirmwareDescription]
+    """The actually loaded SFD."""
+    previous_device_status: DeviceHandler.ConnectionStatus
+    """Device Handler status of previous loop."""
+    requested_firmware_id: Optional[str]
+    """When this value is set, we received a request from the external world (the API) to manually load an SFD."""
 
-    loaded_callbacks: List[SFDLoadedCallback]       # List of callbacks to call upon SFD loading
-    unloaded_callbacks: List[SFDUnloadedCallback]   # List of callbacks to load upon SFD unloading
+    loaded_callbacks: List[SFDLoadedCallback]
+    """List of callbacks to call upon SFD loading."""
+    unloaded_callbacks: List[SFDUnloadedCallback]
+    """List of callbacks to load upon SFD unloading."""
 
     def __init__(self, device_handler: DeviceHandler, datastore: Datastore, autoload: bool = True) -> None:
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -196,9 +208,17 @@ class ActiveSFDHandler:
                     tools.log_exception(self.logger, e, "Error in SFD Unload callback", str_level=logging.CRITICAL)
 
     def _install_callback(self, firmware_id: str) -> None:
+        """Callback called when an SFD is installed.
+
+        :param firmware_id: The firmware ID of the installed SFD.
+        """
         pass
 
     def _uninstall_callback(self, firmware_id: str) -> None:
+        """Callback called when an SFD is uninstalled.
+
+        :param firmware_id: The firmware ID of the uninstalled SFD.
+        """
         if self.sfd is not None:
             if self.sfd.get_firmware_id_ascii() == firmware_id:
                 self.reset_active_sfd()

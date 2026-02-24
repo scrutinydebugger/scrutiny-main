@@ -28,7 +28,7 @@ class VariableFactory:
     _base_location: Union[AbsoluteLocation, UnresolvedPathPointedLocation]
     """A location used to generate a new location when instantiating variables"""
     _array_nodes: Dict[str, UntypedArray]
-    """A dict mapping path to array defintions"""
+    """A dict mapping path to array definitions"""
 
     def __init__(self,
                  access_name: str,
@@ -46,6 +46,7 @@ class VariableFactory:
         self._array_nodes = {}
 
     def get_base_location(self) -> Union[AbsoluteLocation, UnresolvedPathPointedLocation]:
+        """Return the base location used to generate locations when instantiating variables"""
         return self._base_location
 
     def get_array_nodes(self) -> Mapping[str, Array]:

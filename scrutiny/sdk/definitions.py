@@ -181,7 +181,7 @@ class SupportedFeatureMap:
     """Indicates if the device has a callback set for the user command"""
 
     sixtyfour_bits: bool
-    """Indicates if the device supports 64bits element. 64bits RPV and datalogging of 64bits elements (variable or RPV) are not possible if ``False``. 
+    """Indicates if the device supports 64bits element. 64bits RPV and datalogging of 64bits elements (variable or RPV) are not possible if ``False``.
     Watching 64 bits variables does not depends on the device and is therefore always possible"""
 
 
@@ -492,7 +492,7 @@ class RTTLinkConfig(BaseLinkConfig):
     """(Immutable struct) The configuration structure for a device link of type :attr:`RTT<scrutiny.sdk.DeviceLinkType.RTT>`"""
 
     class JLinkInterface(enum.Enum):
-        """Type of JLink interface used when calling ``JLink.set_tif()``. 
+        """Type of JLink interface used when calling ``JLink.set_tif()``.
         Refer to Segger documentation for more details. The values of this enum are not meant to be in sync with the Segger API.
         The server will convert the SDK value to a JLink enum
         """
@@ -567,7 +567,7 @@ class CANLinkConfig(BaseLinkConfig):
     @dataclass(frozen=True, slots=True)
     class SocketCANConfig:
         """
-        (Immutable struct) A SocketCAN specific configuration used when 
+        (Immutable struct) A SocketCAN specific configuration used when
         :attr:`CANLinkConfig.interface<scrutiny.sdk.CANLinkConfig.interface>` = :attr:`SocketCAN<scrutiny.sdk.CANLinkConfig.CANInterface.SocketCAN>`.
 
         Refer to ``python-can`` documentation for more details.
@@ -586,8 +586,8 @@ class CANLinkConfig(BaseLinkConfig):
     @dataclass(frozen=True, slots=True)
     class VectorConfig:
         """
-        (Immutable struct) A Vector specific configuration used when 
-        :attr:`CANLinkConfig.interface<scrutiny.sdk.CANLinkConfig.interface>` = :attr:`Vector<scrutiny.sdk.CANLinkConfig.CANInterface.Vector>`. 
+        (Immutable struct) A Vector specific configuration used when
+        :attr:`CANLinkConfig.interface<scrutiny.sdk.CANLinkConfig.interface>` = :attr:`Vector<scrutiny.sdk.CANLinkConfig.CANInterface.Vector>`.
 
         Refer to ``python-can`` documentation for more details.
         """
@@ -617,8 +617,8 @@ class CANLinkConfig(BaseLinkConfig):
     @dataclass(frozen=True, slots=True)
     class KVaserConfig:
         """
-        (Immutable struct) A KVaser specific configuration used when 
-        :attr:`CANLinkConfig.interface<scrutiny.sdk.CANLinkConfig.interface>` = :attr:`KVaser<scrutiny.sdk.CANLinkConfig.CANInterface.KVaser>`. 
+        (Immutable struct) A KVaser specific configuration used when
+        :attr:`CANLinkConfig.interface<scrutiny.sdk.CANLinkConfig.interface>` = :attr:`KVaser<scrutiny.sdk.CANLinkConfig.CANInterface.KVaser>`.
 
         Refer to ``python-can`` documentation for more details.
         """
@@ -649,7 +649,7 @@ class CANLinkConfig(BaseLinkConfig):
     @dataclass(frozen=True, slots=True)
     class PCANConfig:
         """
-        (Immutable struct) A PCAN specific configuration used when 
+        (Immutable struct) A PCAN specific configuration used when
         :attr:`CANLinkConfig.interface<scrutiny.sdk.CANLinkConfig.interface>` = :attr:`PCAN<scrutiny.sdk.CANLinkConfig.CANInterface.PCAN>`.
 
         Refer to ``python-can`` documentation for more details.
@@ -673,8 +673,8 @@ class CANLinkConfig(BaseLinkConfig):
     @dataclass(frozen=True, slots=True)
     class ETASConfig:
         """
-        (Immutable struct) A ETAS specific configuration used when 
-        :attr:`CANLinkConfig.interface<scrutiny.sdk.CANLinkConfig.interface>` = :attr:`ETAS<scrutiny.sdk.CANLinkConfig.CANInterface.ETAS>`. 
+        (Immutable struct) A ETAS specific configuration used when
+        :attr:`CANLinkConfig.interface<scrutiny.sdk.CANLinkConfig.interface>` = :attr:`ETAS<scrutiny.sdk.CANLinkConfig.CANInterface.ETAS>`.
 
         Refer to ``python-can`` documentation for more details.
         """
@@ -830,10 +830,10 @@ class BriefWatchableConfiguration:
 
 @dataclass(frozen=True, slots=True)
 class BaseDetailedWatchableConfiguration(BriefWatchableConfiguration):
-    """(Immutable struct) Base class to be extended by: 
+    """(Immutable struct) Base class to be extended by:
         :class:`DetailedVarWatchableConfiguration<scrutiny.sdk.DetailedVarWatchableConfiguration>`,
         :class:`DetailedAliasWatchableConfiguration<scrutiny.sdk.DetailedAliasWatchableConfiguration>`,
-        :class:`DetailedRPVWatchableConfiguration<scrutiny.sdk.DetailedRPVWatchableConfiguration>` 
+        :class:`DetailedRPVWatchableConfiguration<scrutiny.sdk.DetailedRPVWatchableConfiguration>`
     """
     server_id: str
     """The unique ID assigned to that watchable item by the server"""
@@ -843,7 +843,7 @@ class BaseDetailedWatchableConfiguration(BriefWatchableConfiguration):
 
     @property
     def name(self) -> str:
-        """Returns the watchable name, e.g. the basename in the server_path. 
+        """Returns the watchable name, e.g. the basename in the server_path.
         If the server_path is /aaa/bbb/ccc, then this returns "ccc" """
         return path_tools.make_segments(self.server_path)[-1]
 
@@ -854,7 +854,7 @@ class BaseDetailedWatchableConfiguration(BriefWatchableConfiguration):
     def get_enum(self) -> EmbeddedEnum:
         """ Returns the enum associated with this watchable
 
-        :raise BadEnumError: If the watchable has no enum assigned
+        :raises BadEnumError: If the watchable has no enum assigned
         """
         self._assert_has_enum()
         assert self.enum is not None
@@ -869,8 +869,8 @@ class BaseDetailedWatchableConfiguration(BriefWatchableConfiguration):
 
         :param val: The enumerator name to convert
 
-        :raise BadEnumError: If the watchable has no enum assigned or the given value is not a valid enumerator
-        :raise TypeError: Given parameter not of the expected type
+        :raises BadEnumError: If the watchable has no enum assigned or the given value is not a valid enumerator
+        :raises TypeError: Given parameter not of the expected type
         """
         validation.assert_type(val, 'val', str)
 

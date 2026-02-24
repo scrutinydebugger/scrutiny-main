@@ -47,6 +47,11 @@ class Cluster:
             self.internal_data = None
 
     def read(self, offset: int, size: int) -> bytes:
+        """Read a chunk of data from this cluster, indexed from 0 to size-1
+
+        :param offset: Offset in the cluster to start reading from
+        :param size: Amount of data to read
+        """
         if size < 0:
             raise ValueError('Cannot read a negative size')
 
@@ -70,29 +75,38 @@ class Cluster:
         return data_out
 
     def write(self, data: Union[bytearray, bytes], offset: int = 0) -> None:
+        """Write a chunk of data in this cluster, indexed from 0 to size-1
+
+        :param data: The data to write
+        :param offset: Offset in the cluster to start reading from
+        """
         if offset < 0:
             raise ValueError('Offset cannot be negative %d' % offset)
 
         if self.size - offset < len(data):
-            raise Exception('Data too long for cluster')
+            raise IndexError('Data too long for cluster')
 
         if self.has_data:
             assert self.internal_data is not None
             self.internal_data[offset:offset + len(data)] = data
 
     def shrink(self, new_size: int) -> None:
+        """Reduce this cluster size to a new size"""
         self.size = new_size
         if self.has_data:
             assert self.internal_data is not None
             self.internal_data = self.internal_data[0:new_size]
 
     def extend(self, new_size: int, delta_data: Optional[Union[bytearray, bytes]] = None) -> None:
+        """Grow a cluster size
+
+        :param new_size: The new size the cluster must have
+        :delta_data: Data used to fill the new space created. Will fill with 0 if this is ``None``
+
+        """
         delta_size = new_size - self.size
         if delta_size < 0:
-            raise Exception('Cannot shrink cluster with extend() method')
-
-        if self.has_data and delta_data is None:
-            raise Exception('Missing data to extend cluster')
+            raise ValueError('Cannot shrink cluster with extend() method')
 
         if self.has_data:
             assert self.internal_data is not None
@@ -100,7 +114,7 @@ class Cluster:
                 delta_data = b'\x00' * delta_size
 
             if len(delta_data) != delta_size:
-                raise Exception('Given data size does not match size fo given data')
+                raise ValueError('Given data size does not match size fo given data')
 
             self.internal_data += delta_data
             self.size = new_size
@@ -152,15 +166,15 @@ class Cluster:
 
 class MemoryContent:
     """
-    MemoryContent creates a representation of a memory content. 
-    It keeps many non-contiguous memory chunk with data. 
-    Basic operation such as read,write, delete are possible.  
+    MemoryContent creates a representation of a memory content.
+    It keeps many non-contiguous memory chunk with data.
+    Basic operation such as read,write, delete are possible.
 
-    All chunks of data that are contiguous are automatically agglomerated 
+    All chunks of data that are contiguous are automatically agglomerated
     into a single chunk
 
     We will use the agglomeration feature of this class to converts
-    sparse subscription into a several contiguous read request for 
+    sparse subscription into a several contiguous read request for
     communication optimization (avoid polling each variable individually).
     """
 
@@ -224,6 +238,11 @@ class MemoryContent:
             raise IndexError(f"Invalid reading range : 0x{addr_start + offset:x} to 0x{addr_start + offset + length - 1:x}") from e
 
     def write(self, addr: int, data: Union[bytearray, bytes]) -> None:
+        """Write to the memory
+
+        :param addr: Address to write to
+        :param data: data to write
+        """
         cluster = Cluster(start_addr=addr, size=len(data), data=data, has_data=self.retain_data)
         self.write_cluster(cluster)
 
@@ -251,6 +270,7 @@ class MemoryContent:
         self.write_cluster(cluster)
 
     def get_cluster_count(self) -> int:
+        """Return the number of cluster this memory contains"""
         return len(self.clusters)
 
     def get_cluster_list_no_data_by_address(self) -> List[Cluster]:
@@ -274,6 +294,11 @@ class MemoryContent:
         return cluster_list
 
     def delete(self, addr: int, size: int) -> None:
+        """Delete a section of the memory and reorganize the clusters so they are unique, non-overlapping and agglomerated
+
+        :param addr: Address where to delete
+        :param size: Size to delete
+        """
         if size <= 0:
             return
 
@@ -342,6 +367,7 @@ class MemoryContent:
                                                              data=new_chunk_data, has_data=self.retain_data)
 
     def agglomerate(self, written_key_index: Optional[int] = None) -> None:
+        """Merge clusters that are contiguous into a single larger cluster"""
         if written_key_index is None:
             i = 0
         else:
@@ -355,7 +381,6 @@ class MemoryContent:
 
             if i < len(self.sorted_keys) - 1:
                 start_addr2 = self.sorted_keys[i + 1]
-                size2 = len(self.clusters[start_addr2])
 
                 if start_addr1 + size1 >= start_addr2:    # Need to agglomerate
                     self.clusters[start_addr1] += self.clusters[start_addr2]

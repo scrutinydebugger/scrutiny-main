@@ -124,7 +124,7 @@ class AddAlias(BaseCommand):
                     f.write(FirmwareDescription.serialize_aliases(all_aliases))
 
             elif os.path.isfile(args.destination):
-                sfd.append_aliases(new_aliases)
+                sfd.append_aliases(new_aliases.values())
                 sfd.write(args.destination)
 
             elif SFDStorage.is_installed(args.destination):

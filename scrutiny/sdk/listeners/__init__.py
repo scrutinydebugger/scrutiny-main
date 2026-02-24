@@ -123,7 +123,7 @@ class BaseListener(abc.ABC):
     def _broadcast_update(self, watchables: List[WatchableHandle]) -> None:
         """
             Method called by the client to notify the listener.
-            It should be possible for many clients to update the same listener, 
+            It should be possible for many clients to update the same listener,
             so this method is expected to be thread safe.
         """
         if self._started:
@@ -239,13 +239,13 @@ class BaseListener(abc.ABC):
         pass
 
     def subscribe(self, watchables: Union[WatchableHandle, Iterable[WatchableHandle]]) -> None:
-        """Add one or many new watchables to the list of monitored watchables. 
+        """Add one or many new watchables to the list of monitored watchables.
 
         :param watchables: The list of watchables to add to the monitor list
 
-        :raise TypeError: Given parameter not of the expected type
-        :raise ValueError: Given parameter has an invalid value
-        :raise InvalidValueError: If the watchable handle is not ready to be used (not configured by the server)
+        :raises TypeError: Given parameter not of the expected type
+        :raises ValueError: Given parameter has an invalid value
+        :raises InvalidValueError: If the watchable handle is not ready to be used (not configured by the server)
         """
 #        if self._started:
 #            raise sdk_exceptions.OperationFailure("Cannot subscribe a watchable once the listener is started")
@@ -262,13 +262,13 @@ class BaseListener(abc.ABC):
                 self._subscriptions.add(watchable)
 
     def unsubscribe(self, watchables: Union[WatchableHandle, Iterable[WatchableHandle]]) -> None:
-        """Remove one or many watchables from the list of monitored watchables. 
+        """Remove one or many watchables from the list of monitored watchables.
 
         :param watchables: The list of watchables to remove from the monitor list
 
-        :raise TypeError: Given parameter not of the expected type
-        :raise ValueError: Given parameter has an invalid value
-        :raise KeyError: Given watchable was not monitored previously
+        :raises TypeError: Given parameter not of the expected type
+        :raises ValueError: Given parameter has an invalid value
+        :raises KeyError: Given watchable was not monitored previously
         """
         if isinstance(watchables, (WatchableHandle, tools.UnitTestStub)):
             watchables = [watchables]
@@ -290,7 +290,7 @@ class BaseListener(abc.ABC):
     def start(self) -> "BaseListener":
         """Starts the listener thread. Once started, no more subscription can be added.
 
-        :raise OperationFailure: If an error occur while starting the listener
+        :raises OperationFailure: If an error occur while starting the listener
         """
         self._logger.debug("Start requested")
         if self._started:

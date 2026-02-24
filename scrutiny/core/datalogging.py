@@ -83,11 +83,16 @@ class DataSeries:
         self.data = data
 
     def set_data_binary(self, data: bytes) -> None:
+        """Set the data of the dataseries from a compressed bytestream (stored in a compressed storage)
+
+        :raises ValueError: If ``data`` is not a ``bytes`` object or its decompressed length is not a multiple of 8.
+        :raises zlib.error: If ``data`` is not a valid zlib-compressed stream.
+        """
         if not isinstance(data, bytes):
             raise ValueError('Data must be bytes')
 
         data = zlib.decompress(data)
-        if len(data) % 8 != 0:
+        if len(data) % 8 != 0:  # Data is a stream of 64bits float (python float)
             raise ValueError('Invalid byte stream')
         nfloat = len(data) // 8
         self.data = list(struct.unpack('>' + 'd' * nfloat, data))
@@ -96,6 +101,7 @@ class DataSeries:
         return self.data
 
     def get_data_binary(self) -> bytes:
+        """Get the content of the dataseries in a raw compressed bytestream, to be stored in a storage"""
         data = struct.pack('>' + 'd' * len(self.data), *self.data)
         return zlib.compress(data)
 
@@ -162,14 +168,28 @@ class DataloggingAcquisition:
 
     @classmethod
     def make_unique_id(cls) -> str:
+        """Generate a unique Id used as reference id"""
         return uuid4().hex.replace('-', '')
 
     def set_xdata(self, xdata: DataSeries) -> None:
+        """Define the dataseries that serves as the X-Axis
+
+        :param xdata: The dataseries to use as X-Axis
+        :raises TypeError: If ``xdata`` is not a :class:`DataSeries` instance.
+        """
+
         if not isinstance(xdata, DataSeries):
             raise TypeError('xdata must be a Dataseries instance')
         self.xdata = xdata
 
     def add_data(self, dataseries: DataSeries, axis: AxisDefinition) -> None:
+        """Add a dataseries do the acquisition
+
+        :param dataseries: The dataseries to add
+        :param axis: The Y-Axis on which to attach this dataseries. This can axis can be a new axis or already part of the acquisition
+        :raises TypeError: If ``dataseries`` is not a :class:`DataSeries` instance or ``axis`` is not an :class:`AxisDefinition` instance.
+        :raises ValueError: If ``dataseries`` ID is corrupted.
+        """
         if not isinstance(dataseries, DataSeries):
             raise TypeError('dataseries must be a Dataseries instance')
         if not isinstance(axis, AxisDefinition):
@@ -184,25 +204,38 @@ class DataloggingAcquisition:
         self.ydata.append(DataSeriesWithAxis(series=dataseries, axis=axis))
 
     def get_data(self) -> List[DataSeriesWithAxis]:
+        """Return the Y data of the acquisition. Returned value is a list of dataseries paired with their Y-axis"""
         return self.ydata
 
     def get_unique_yaxis_list(self) -> List[AxisDefinition]:
+        """Return the Y-Axes used in this acquisition. No duplicate"""
         yaxis = set()
         for dataseries in self.ydata:
             yaxis.add(dataseries.axis)
 
         return list(yaxis)
 
-    def find_axis_for_dataseries(self, ds: DataSeries) -> AxisDefinition:
-        if not isinstance(ds, DataSeries):
-            raise TypeError('ds must be a DataSeries instance')
+    def find_axis_for_dataseries(self, dataseries: DataSeries) -> AxisDefinition:
+        """Return the Y axis on which the given dataseries is bound to.
+
+        :param dataseries: The dataseries to lookup
+        :raises LookupError: If the given dataseries is not part of this acquisition
+        :raises TypeError: If dataseries is not of the right type
+
+        """
+        if not isinstance(dataseries, DataSeries):
+            raise TypeError('dataseries must be a DataSeries instance')
 
         for a in self.ydata:
-            if a.series is ds:
+            if a.series is dataseries:
                 return a.axis
         raise LookupError("Cannot find axis for given dataseries")
 
     def set_trigger_index(self, val: Optional[int]) -> None:
+        """Define at what sample the Trigger even has fired
+
+        :raises ValueError: If ``val`` is not aa positive integer ranging from 0 to nb_points - 1.
+        """
         if val is not None:
             if not isinstance(val, int):
                 raise ValueError("Trigger index must be an integer")
@@ -216,6 +249,10 @@ class DataloggingAcquisition:
         self.trigger_index = val
 
     def write_csv(self, writer: '_csv._writer') -> None:
+        """Export the acquisition to a CSV file
+
+        :param writer: The CSV writer to use
+        """
         firmware_name = 'N/A' if self.firmware_name is None else self.firmware_name
         writer.writerow(['Acquisition Name', self.name])
         writer.writerow(['Acquisition ID', self.reference_id])
@@ -244,6 +281,7 @@ class DataloggingAcquisition:
         """Export a :class:`DataloggingAcquisition<scrutiny.core.datalogging.DataloggingAcquisition>` content to a csv file
 
         :param filename: The file to write to
+        :raises OSError: If the file cannot be opened or written to.
         """
         with open(filename, 'w', encoding='utf8', newline='') as f:
             writer = csv.writer(f, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)

@@ -23,7 +23,7 @@ import scrutiny.core.firmware_id as firmware_id
 from scrutiny.core.varmap import VarMap
 from scrutiny.core import path_tools
 from scrutiny.core.variable import Variable
-from scrutiny.core.variable_location import UnresolvedPathPointedLocation, ResolvedPathPointedLocation, AbsoluteLocation
+from scrutiny.core.variable_location import AbsoluteLocation
 from scrutiny.core.variable_factory import VariableFactory
 from scrutiny.core.basic_types import WatchableType
 from scrutiny.core.alias import Alias
@@ -161,6 +161,10 @@ class FirmwareDescription:
 
     @classmethod
     def load_from_filesystem(cls, file_folder: str) -> "FirmwareDescription":
+        """Load a SFD from the filesystem. Can load a compressed .sfd file or a decompressed folder with all the content in it
+
+        :param file_folder: Path to the .sfd file or the decompressed folder
+        """
         if os.path.isdir(file_folder):
             return cls.load_from_folder(file_folder)
         elif os.path.isfile(file_folder):
@@ -195,12 +199,13 @@ class FirmwareDescription:
         if os.path.isfile(os.path.join(folder, cls.ALIAS_FILE)):
             with open(os.path.join(folder, cls.ALIAS_FILE), 'rb') as f:
                 aliases = cls.read_aliases(f, sfd.varmap, ignore_errors=True)
-                sfd.append_aliases(aliases)
+                sfd.append_aliases(aliases.values())
 
         return sfd
 
     @classmethod
     def read_metadata_from_sfd_file(cls, filename: str) -> SFDMetadata:
+        """Reads the metadata from a .sfd file without parsing the whole file"""
         with zipfile.ZipFile(filename, mode='r', compression=cls.COMPRESSION_TYPE) as sfd:
             with sfd.open(cls.METADATA_FILENAME) as f:
                 metadata = cls.read_metadata(f)
@@ -223,22 +228,25 @@ class FirmwareDescription:
             sfd = FirmwareDescription(firmwareid, varmap, metadata)
             if cls.ALIAS_FILE in zipsfd.namelist():
                 with zipsfd.open(cls.ALIAS_FILE, 'r') as f:
-                    sfd.append_aliases(cls.read_aliases(f, varmap, ignore_errors=True))
+                    sfd.append_aliases(cls.read_aliases(f, varmap, ignore_errors=True).values())
 
             return sfd
 
     @classmethod
     def read_firmware_id_from_sfd_file(cls, filename: str) -> bytes:
+        """Read the firmware ID from a .sfd file without parsing the whole file"""
         with zipfile.ZipFile(filename, mode='r', compression=cls.COMPRESSION_TYPE) as sfd:
             with sfd.open(cls.FIRMWAREID_FILENAME) as f:
                 return cls.read_firmware_id(f)
 
     @classmethod
     def read_firmware_id(cls, f: IO[bytes]) -> bytes:
+        """Reads the firmware ID from a ``firmwareid`` file"""
         return bytes.fromhex(f.read().decode('ascii'))
 
     @classmethod
     def read_metadata(cls, f: IO[bytes]) -> SFDMetadata:
+        """Reads the metadata from a ``metadata.json`` file"""
         FIELDS_TYPE: TypeAlias = List[Tuple[str, Type[Any]]]
 
         metadata_dict = cast(MetadataTypedDict, json.loads(f.read().decode('utf8')))
@@ -290,6 +298,12 @@ class FirmwareDescription:
 
     @classmethod
     def read_aliases(cls, f: IO[bytes], varmap: VarMap, ignore_errors: bool = True) -> Dict[str, Alias]:
+        """Reads the aliases from a ``alias.json`` file.
+
+        :param f: The file handle to the alias file
+        :param varmap: A VarMap to validate the alias paths
+        :param ignore_errors: When ``True``, load the aliases even if they point to a variable that does not exist.
+        """
         aliases_raw: Dict[str, Any] = json.loads(f.read().decode('utf8'))
         aliases: Dict[str, Alias] = {}
         for k in aliases_raw:
@@ -318,6 +332,7 @@ class FirmwareDescription:
 
     @classmethod
     def read_varmap_from_filesystem(cls, path: str) -> VarMap:
+        """Reads the VarMap from either a ``.json`` file or from a folder (will look for a file named ``varmap.json``)"""
         if os.path.isfile(path):
             fullpath = path
         elif os.path.isdir(path):
@@ -327,25 +342,16 @@ class FirmwareDescription:
 
         return VarMap.from_file(fullpath)
 
-    def append_alias(self, path: str, alias: Alias) -> None:
-        if alias.target_type is None:
-            alias.set_target_type(self.get_alias_target_type(alias, self.varmap))
+    def append_aliases(self, aliases: Iterable[Alias]) -> None:
+        """Add some aliases to this Firmware description"""
+        for alias in aliases:
+            if alias.target_type is None:
+                alias.set_target_type(self.get_alias_target_type(alias, self.varmap))
 
-        if path not in self.aliases:
-            self.aliases[path] = alias
-        else:
-            self.logger.warning(f'Duplicate alias {path}. Dropping')
-
-    def append_aliases(self, aliases: Union[List[Alias], Dict[str, Alias]]) -> None:
-        """Add some aliases to the actual SFD"""
-        if isinstance(aliases, list):
-            for alias in aliases:
-                self.append_alias(alias.fullpath, alias)
-        elif isinstance(aliases, dict):
-            for unique_path, alias in aliases.items():
-                self.append_alias(unique_path, alias)
-        else:
-            raise ValueError("Aliases must be passed as a list or a dict.")
+            if alias.get_fullpath() not in self.aliases:
+                self.aliases[alias.get_fullpath()] = alias
+            else:
+                self.logger.warning(f'Duplicate alias {alias.get_fullpath()}. Dropping')
 
     def write(self, filename: str) -> None:
         """SFD file format is just a .zip with a bunch of JSON (and a firmwareid file)"""
@@ -371,12 +377,15 @@ class FirmwareDescription:
         return json.dumps(dic, indent=4).encode('utf8')
 
     def get_firmware_id(self) -> bytes:
+        """Return the Firwmare ID of this FirmwareDescription"""
         return self.firmwareid
 
     def get_firmware_id_ascii(self) -> str:
+        """Return the Firwmare ID of this FirmwareDescription as a ASCII format"""
         return self.firmwareid.hex().lower()
 
     def get_endianness(self) -> Endianness:
+        """Get the endianness of this FirmwareDescription"""
         return self.varmap.get_endianness()
 
     def validate(self) -> None:
@@ -394,14 +403,15 @@ class FirmwareDescription:
                             (len(self.firmwareid), self.firmware_id_length()))
 
     def validate_metadata(self) -> None:
+        """Check the content of te metadata and raise warnings if something seems wrong"""
         if self.metadata.project_name is None:
-            self.logger.warning('No valid project name defined in %s' % self.METADATA_FILENAME)
+            self.logger.warning(f'No valid project name defined in {self.METADATA_FILENAME}')
 
         if self.metadata.version is None:
-            self.logger.warning('No valid version defined in %s' % self.METADATA_FILENAME)
+            self.logger.warning(f'No valid version defined in {self.METADATA_FILENAME}')
 
         if self.metadata.author is None:
-            self.logger.warning('No valid author defined in %s' % self.METADATA_FILENAME)
+            self.logger.warning(f'No valid author defined in {self.METADATA_FILENAME}')
 
     def get_vars_for_datastore(self) -> Generator[VarmapElement, None, None]:
         """Returns all variables in this SFD with a Generator to avoid consuming memory."""
@@ -440,11 +450,14 @@ class FirmwareDescription:
                 yield (self.aliases[k].get_fullpath(), self.aliases[k])
 
     def get_aliases(self) -> Dict[str, Alias]:
+        """Return all the aliases in this FirmwareDescription, indexed by their fullname"""
         return self.aliases
 
     def get_metadata(self) -> SFDMetadata:
+        """Get the metadata of this FirmwareDescription"""
         return self.metadata
 
     @classmethod
     def firmware_id_length(cls) -> int:
+        """Get the length in bytes of a firmware ID"""
         return len(firmware_id.PLACEHOLDER)

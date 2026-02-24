@@ -21,16 +21,32 @@ if TYPE_CHECKING:
 
 
 class PendingRequest:
+    """Base class for future-like request handles returned to the user.
+
+    Tracks the lifecycle of an asynchronous server request: whether it is still in flight,
+    whether it succeeded or failed, and the reason for any failure.
+    Subclasses add domain-specific result data on top of this common infrastructure.
+    """
+
     _client: "ScrutinyClient"
+    """The :class:`ScrutinyClient<scrutiny.sdk.client.ScrutinyClient>` that owns this request"""
 
     _completed: bool
-    _success: bool  # If the request has been successfully completed
-    _completion_datetime: Optional[datetime]   # datetime of the completion. None if incomplete
-    _completed_event: threading.Event   # Event that gets set upon completion of the request
-    _failure_reason: str    # Textual description of the reason of the failure to complete. Empty string if incomplete or succeeded
+    """``True`` once the request has reached a terminal state (success or failure)"""
+    _success: bool
+    """``True`` if the request completed successfully"""
+    _completion_datetime: Optional[datetime]
+    """Wall-clock time at which the request transitioned to its terminal state, or ``None`` if still in flight"""
+    _completed_event: threading.Event
+    """Threading event that is set when the request reaches its terminal state"""
+    _failure_reason: str
+    """Human-readable description of why the request failed. Empty string when incomplete or succeeded"""
     _monotonic_creation_timestamp: float
+    """Monotonic timestamp (seconds) recorded when the request object was created"""
     _monotonic_expiration_timestamp: float
+    """Monotonic timestamp (seconds) reset each time new data arrives, used to detect stale requests"""
     _completion_lock: threading.Lock
+    """Lock that ensures only the first completion call wins when concurrent completions race"""
 
     def __init__(self, client: "ScrutinyClient") -> None:
         self._client = client
@@ -44,14 +60,26 @@ class PendingRequest:
         self._completion_lock = threading.Lock()
 
     def _is_expired(self, timeout: float) -> bool:
+        """Return ``True`` if no new data has arrived for longer than ``timeout`` seconds.
+
+        :param timeout: Inactivity threshold in seconds.
+        """
         return time.monotonic() - self._monotonic_expiration_timestamp > timeout
 
     def _update_expiration_timer(self) -> None:
+        """Reset the expiration timestamp to the current monotonic time, signalling that fresh data has arrived"""
         self._monotonic_expiration_timestamp = time.monotonic()
 
     def _mark_complete(self, success: bool, failure_reason: str = "", server_time_us: Optional[float] = None) -> None:
-        # Put a request in "completed" state. Expected to be called by the client worker thread, but can be called by any
+        """Transition the request to its terminal state.
 
+        Thread-safe: only the first call takes effect; subsequent calls are ignored.
+        Expected to be called by the worker thread, but any thread may call it.
+
+        :param success: ``True`` if the request succeeded, ``False`` otherwise.
+        :param failure_reason: Human-readable description of the failure. Ignored when ``success`` is ``True``.
+        :param server_time_us: Server-side completion time in microseconds. When ``None``, the local wall clock is used.
+        """
         # We use a lock in case there is 2 simultaneous failures, we keep the first one.
         # Some client method can spawn an ephemerous thread to do client request, like upload_sfd
         with self._completion_lock:
@@ -66,9 +94,14 @@ class PendingRequest:
                 self._completed_event.set()
 
     def _timeout_exception_msg(self, timeout: float) -> str:
+        """Build the message for a :class:`TimeoutException<scrutiny.sdk.exceptions.TimeoutException>` when the request exceeds its deadline.
+
+        :param timeout: The timeout value in seconds that was exceeded.
+        """
         return f"Request did not complete in {timeout} seconds"
 
     def _failure_exception_msg(self) -> str:
+        """Build the message for an :class:`OperationFailure<scrutiny.sdk.exceptions.OperationFailure>` exception when the request has failed"""
         return f"Request failed to complete. {self._failure_reason}"
 
     def wait_for_completion(self, timeout: Optional[float] = None) -> None:
@@ -76,8 +109,8 @@ class PendingRequest:
 
         :params timeout: Maximum wait time in seconds. Waits forever if ``None``
 
-        :raise TimeoutException: If the request does not complete in less than the specified timeout value
-        :raise OperationFailure: If an error happened that prevented the request to successfully complete
+        :raises TimeoutException: If the request does not complete in less than the specified timeout value
+        :raises OperationFailure: If an error happened that prevented the request to successfully complete
         """
         timeout = validation.assert_float_range_if_not_none(timeout, 'timeout', minval=0)
         self._completed_event.wait(timeout=timeout)
