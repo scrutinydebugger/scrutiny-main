@@ -72,7 +72,7 @@ class DeviceHandlerConfig(TypedDict, total=False):
     """Amount of time to wait before considering that a request has timed out"""
 
     heartbeat_timeout: float
-    """Time interval in between Heartbeat request. This value will be 
+    """Time interval in between Heartbeat request. This value will be
     overridden if the device requires a smaller interval"""
 
     default_address_size: int
@@ -97,7 +97,7 @@ class DeviceHandlerConfig(TypedDict, total=False):
     """The type of communication link to use to talk with a device. udp, serial, dummy, etc"""
 
     link_config: LinkConfig
-    """The configuration dictionary that will configure the communication link layer. 
+    """The configuration dictionary that will configure the communication link layer.
     Unique for each type of link (udp, serial, etc)"""
 
 
@@ -592,6 +592,8 @@ class DeviceHandler:
 
         max_request_payload_size = self.config['max_request_size']
         max_response_payload_size = self.config['max_response_size']
+        self.memory_reader.clear_config()
+        self.memory_writer.clear_config()
         self.memory_reader.set_size_limits(max_request_payload_size=max_request_payload_size, max_response_payload_size=max_response_payload_size)
         self.memory_writer.set_size_limits(max_request_payload_size=max_request_payload_size, max_response_payload_size=max_response_payload_size)
         self.dispatcher.set_size_limits(max_request_payload_size=max_request_payload_size, max_response_payload_size=max_response_payload_size)

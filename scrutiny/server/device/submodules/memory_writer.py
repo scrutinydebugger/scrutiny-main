@@ -36,7 +36,7 @@ RawMemoryWriteRequestCompletionCallback = Callable[["RawMemoryWriteRequest", boo
 
 
 class RawMemoryWriteRequest:
-    """An internal structure used to define a raw memory write, meaning a read not tied to a datastore entry. 
+    """An internal structure used to define a raw memory write, meaning a read not tied to a datastore entry.
     Just the user that wants to dump the content"""
 
     address: int
@@ -69,7 +69,7 @@ class RawMemoryWriteRequest:
 
 
 class MemoryWriter(BaseDeviceHandlerSubmodule):
-    """Class that request the device for its memory content or RPV to me modified according to 
+    """Class that request the device for its memory content or RPV to me modified according to
     either a datastore entry value or a raw value requested by the user
     It treats Variable and RuntimePublishedValues differently as they use a different protocol command.
     """
@@ -150,7 +150,7 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
             self.logger.warning('Adding a forbidden region with non strictly positive size %d' % size)
 
     def add_readonly_region(self, start_addr: int, size: int) -> None:
-        """Add a memory region that can only be read. We will avoid any write to them. 
+        """Add a memory region that can only be read. We will avoid any write to them.
         They normally are broadcasted by the device itself"""
         if size > 0:
             self.readonly_regions.append(MemoryRegion(start=start_addr, size=size))
@@ -170,6 +170,7 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
     def start(self) -> None:
         """Enable the memory writer to poll the datastore and update the device"""
         self.started = True
+        self.logger.debug("Start requested")
 
     def stop(self) -> None:
         """Stops the memory writer from polling the datastore and updating the device"""
@@ -201,7 +202,7 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
         self.clear_active_entry_write_request()
         self.clear_active_raw_write_request()
 
-    def _clear_config(self) -> None:
+    def clear_config(self) -> None:
         """Erase the configuration coming from the device handler"""
         self.max_request_payload_size = self.DEFAULT_MAX_REQUEST_PAYLOAD_SIZE
         self.max_response_payload_size = self.DEFAULT_MAX_RESPONSE_PAYLOAD_SIZE
@@ -224,7 +225,7 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
     def reset(self) -> None:
         """Put back the memory writer to its startup state"""
         self.set_standby()
-        self._clear_config()
+        self.clear_config()
 
     def would_send_data(self) -> bool:
         if not self.started:
