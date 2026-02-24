@@ -39,7 +39,7 @@ RawMemoryReadRequestCompletionCallback = Callable[["RawMemoryReadRequest", bool,
 
 
 class RawMemoryReadRequest:
-    """An internal structure used to define a raw memory read, meaning a read not tied to a datastore entry. 
+    """An internal structure used to define a raw memory read, meaning a read not tied to a datastore entry.
     Just the user that wants to dump the content"""
 
     __slots__ = ('address', 'size', 'completed', 'success', 'completion_callback', 'completion_server_time_us')
@@ -113,7 +113,7 @@ class DataStoreEntrySortableByAddress(Generic[T]):
 
 
 class DataStoreEntrySortableByRpvId:
-    """Wrapper around DatastoreRPVEntry that can be sorted by RPV ID. 
+    """Wrapper around DatastoreRPVEntry that can be sorted by RPV ID.
     Used to feed a SortedSet"""
 
     __slots__ = ('entry', )
@@ -288,6 +288,7 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
 
     def start(self) -> None:
         """Enable the memory reader to poll the devices"""
+        self.logger.debug("Start requested")
         self.started = True
 
     def stop(self) -> None:
