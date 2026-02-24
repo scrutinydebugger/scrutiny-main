@@ -285,9 +285,11 @@ class ArraySegments:
         self._storage[new_path] = v
 
     def to_varmap_format(self) -> Dict[str, Array]:
-        """Return a dictionnary that gives the array information in the format required by the VarMap class"""
+        """Return a dictionary that gives the array information in the format required by the VarMap class"""
         # We use the same format here. Just future proofing the code.
-        return cast(Dict[str, Array], deepcopy(self._storage))
+        return {
+            path : arr.to_untyped_array() for path, arr in self._storage.items()    # Make a copy
+        }
 
     def shallow_copy(self) -> "ArraySegments":
         """Create a shallow copy of the storage. Returns a new dict that points to the same arrays"""
@@ -513,6 +515,8 @@ class ElfDwarfVarExtractor:
     """Cache mapping a struct die to a Scrutiny Struct"""
     _array_die_cache_map: Dict[Tuple[DIE, bool], TypedArray]
     """Cache mapping an array die to a Scrutiny TypedArray"""
+    _type_of_var_cache: Dict[DIE, Optional[TypeDescriptor]]
+    """Cache mapping type DIEs to a TypeDescriptor"""
     _cppfilt: Optional[str]
     """The path to cppfilt executable if provided"""
     _logger: logging.Logger
@@ -549,6 +553,7 @@ class ElfDwarfVarExtractor:
         self._enum_die_map = {}
         self._struct_die_cache_map = {}
         self._array_die_cache_map = {}
+        self._type_of_var_cache = {}
         self._cppfilt = cppfilt
         self._ignore_cu_patterns = ignore_cu_patterns if ignore_cu_patterns is not None else []
         self._path_ignore_patterns = path_ignore_patterns if path_ignore_patterns is not None else []
@@ -1291,14 +1296,20 @@ class ElfDwarfVarExtractor:
         For example : var -> const -> typedef -> volatile -> uint32.  Discard qualifiers and keeps just the "uint32" part
         """
         self._log_debug_process_die(die)
+
+        if die in self._type_of_var_cache:
+            return self._type_of_var_cache[die]
+
         prevdie = die
         enum: Optional[DIE] = None
 
         seen_dies: Set[DIE] = set()
+        val_out:Optional[TypeDescriptor] = None
         while True:
             if Attrs.DW_AT_type not in prevdie.attributes:
                 self._logger.warning(f"Line {get_linenumber()}: Could not deduce type. {prevdie} has no attribute DW_AT_type")
-                return None
+                val_out = None
+                break
             nextdie = prevdie.get_DIE_from_attribute(Attrs.DW_AT_type)
 
             if nextdie in seen_dies:
@@ -1306,27 +1317,36 @@ class ElfDwarfVarExtractor:
             seen_dies.add(nextdie)
 
             if nextdie.tag == Tags.DW_TAG_structure_type:
-                return TypeDescriptor(TypeOfVar.Struct, enum, nextdie, None)
+                val_out = TypeDescriptor(TypeOfVar.Struct, enum, nextdie, None)
+                break
             elif nextdie.tag == Tags.DW_TAG_class_type:
-                return TypeDescriptor(TypeOfVar.Class, enum, nextdie, None)
+                val_out = TypeDescriptor(TypeOfVar.Class, enum, nextdie, None)
+                break
             elif nextdie.tag == Tags.DW_TAG_array_type:
-                return TypeDescriptor(TypeOfVar.Array, enum, nextdie, None)
+                val_out = TypeDescriptor(TypeOfVar.Array, enum, nextdie, None)
+                break
             elif nextdie.tag == Tags.DW_TAG_base_type:
-                return TypeDescriptor(TypeOfVar.BaseType, enum, nextdie, None)
+                val_out = TypeDescriptor(TypeOfVar.BaseType, enum, nextdie, None)
+                break
             elif nextdie.tag == Tags.DW_TAG_pointer_type:
                 pointee = self._get_pointee_type_of_var(nextdie)
-                return TypeDescriptor(TypeOfVar.Pointer, enum, nextdie, pointee)
+                val_out = TypeDescriptor(TypeOfVar.Pointer, enum, nextdie, pointee)
+                break
             elif nextdie.tag == Tags.DW_TAG_union_type:
-                return TypeDescriptor(TypeOfVar.Union, enum, nextdie, None)
+                val_out = TypeDescriptor(TypeOfVar.Union, enum, nextdie, None)
+                break
             elif nextdie.tag == Tags.DW_TAG_subroutine_type:
-                return TypeDescriptor(TypeOfVar.Subroutine, enum, nextdie, None)
+                val_out = TypeDescriptor(TypeOfVar.Subroutine, enum, nextdie, None)
+                break
             elif nextdie.tag == Tags.DW_TAG_unspecified_type:   # Can happen with pointer to void. Tasking uses this
-                return TypeDescriptor(TypeOfVar.Void, enum, nextdie, None)
+                val_out = TypeDescriptor(TypeOfVar.Void, enum, nextdie, None)
+                break
             elif nextdie.tag == Tags.DW_TAG_enumeration_type:
                 enum = nextdie  # Will resolve on next iteration (if a type is available)
                 if Attrs.DW_AT_type not in nextdie.attributes:  # Clang dwarfv2 may not have type, but has a byte size
                     if Attrs.DW_AT_byte_size in nextdie.attributes:
-                        return TypeDescriptor(TypeOfVar.EnumOnly, enum, type_die=enum, pointee=None)
+                        val_out = TypeDescriptor(TypeOfVar.EnumOnly, enum, type_die=enum, pointee=None)
+                        break
                     else:
                         raise ElfParsingError(f"Cannot find the enum underlying type {enum}")
             else:
@@ -1334,6 +1354,8 @@ class ElfDwarfVarExtractor:
 
             prevdie = nextdie
 
+        self._type_of_var_cache[die] = val_out
+        return val_out
     def _get_composite_type_def(self, die: DIE, allow_dereferencing: bool) -> Struct:
         """Reads a DIE of type Class / Struct or Union and return a Scrutiny Struct
 
