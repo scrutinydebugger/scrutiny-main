@@ -558,6 +558,7 @@ class ElfDwarfVarExtractor:
         self._ignore_cu_patterns = ignore_cu_patterns if ignore_cu_patterns is not None else []
         self._path_ignore_patterns = path_ignore_patterns if path_ignore_patterns is not None else []
         self._logger = logging.getLogger(self.__class__.__name__)
+
         self._context = Context(    # Default
             arch=Architecture.UNKNOWN,
             endianess=Endianness.Little,
@@ -943,7 +944,7 @@ class ElfDwarfVarExtractor:
         """Scan all typedef and create a reverse map so we can find a typedef from a type. Mostly encessary ebcause of Tasking compielr"""
         if die.tag == Tags.DW_TAG_typedef:
             self._die_process_typedef(die)
-
+        
         for child in die.iter_children():
             try:
                 self._build_typedef_map_recursive(child)
@@ -1241,11 +1242,12 @@ class ElfDwarfVarExtractor:
     def _die_process_typedef(self, typedef_die: DIE) -> None:
         if Attrs.DW_AT_type in typedef_die.attributes:
             type_die = typedef_die.get_DIE_from_attribute(Attrs.DW_AT_type)
-            # Any type that can be declared as anonymous
             if type_die.tag in (Tags.DW_TAG_class_type, Tags.DW_TAG_structure_type, Tags.DW_TAG_union_type, Tags.DW_TAG_enumeration_type):
-                is_anonymous = self._get_die_name(type_die, no_tag_default=True) is None
-                if is_anonymous:
-                    self._anonymous_type_typedef_map[type_die] = typedef_die
+                if type_die not in self._anonymous_type_typedef_map:
+                    # Any type that can be declared as anonymous
+                    is_anonymous = self._get_die_name(type_die, no_tag_default=True) is None
+                    if is_anonymous:
+                        self._anonymous_type_typedef_map[type_die] = typedef_die
 # endregions
 
     def _read_enum_die_name(self, die: DIE) -> str:
