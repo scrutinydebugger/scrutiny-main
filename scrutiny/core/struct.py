@@ -57,7 +57,6 @@ class Struct:
         """``True`` if this member represents an anonymous (unnamed) nested struct, class or union whose
         members are merged into the parent scope"""
 
-
         @dataclass(slots=True)
         class _RequiredSubData:
             substruct: bool
@@ -70,7 +69,6 @@ class Struct:
             MemberType.SubArray: _RequiredSubData(substruct=False, subarray=True, pointer=False),
             MemberType.Pointer: _RequiredSubData(substruct=False, subarray=False, pointer=True),
         }
-
 
         def __init__(self, name: str,
                      member_type: MemberType,

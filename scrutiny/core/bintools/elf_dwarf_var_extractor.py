@@ -288,7 +288,7 @@ class ArraySegments:
         """Return a dictionary that gives the array information in the format required by the VarMap class"""
         # We use the same format here. Just future proofing the code.
         return {
-            path : arr.to_untyped_array() for path, arr in self._storage.items()    # Make a copy
+            path: arr.to_untyped_array() for path, arr in self._storage.items()    # Make a copy
         }
 
     def shallow_copy(self) -> "ArraySegments":
@@ -944,7 +944,7 @@ class ElfDwarfVarExtractor:
         """Scan all typedef and create a reverse map so we can find a typedef from a type. Mostly encessary ebcause of Tasking compielr"""
         if die.tag == Tags.DW_TAG_typedef:
             self._die_process_typedef(die)
-        
+
         for child in die.iter_children():
             try:
                 self._build_typedef_map_recursive(child)
@@ -1306,7 +1306,7 @@ class ElfDwarfVarExtractor:
         enum: Optional[DIE] = None
 
         seen_dies: Set[DIE] = set()
-        val_out:Optional[TypeDescriptor] = None
+        val_out: Optional[TypeDescriptor] = None
         while True:
             if Attrs.DW_AT_type not in prevdie.attributes:
                 self._logger.warning(f"Line {get_linenumber()}: Could not deduce type. {prevdie} has no attribute DW_AT_type")
@@ -1358,6 +1358,7 @@ class ElfDwarfVarExtractor:
 
         self._type_of_var_cache[die] = val_out
         return val_out
+
     def _get_composite_type_def(self, die: DIE, allow_dereferencing: bool) -> Struct:
         """Reads a DIE of type Class / Struct or Union and return a Scrutiny Struct
 

@@ -33,7 +33,7 @@ class GccDemangler(BaseDemangler):
 
     binary_name: str
     error_details: str
-    binary_found:bool
+    binary_found: bool
 
     def __init__(self, binary_name: Optional[str] = None) -> None:
         if binary_name is None:
