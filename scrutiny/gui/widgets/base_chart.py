@@ -22,10 +22,10 @@ from bisect import bisect_left, bisect_right
 from dataclasses import dataclass
 from PySide6.QtCharts import QLineSeries, QValueAxis, QChart, QChartView, QAbstractSeries, QAbstractAxis
 from PySide6.QtWidgets import (QGraphicsItem, QStyleOptionGraphicsItem, QWidget, QRubberBand,
-                               QGraphicsSceneMouseEvent, QGraphicsSceneHoverEvent)
+                               QGraphicsSceneMouseEvent, QGraphicsSceneHoverEvent, QMenu)
 from PySide6.QtGui import (QFont, QPainter, QFontMetrics, QColor, QContextMenuEvent,
                            QPaintEvent, QMouseEvent, QWheelEvent, QPixmap, QKeyEvent,
-                           QResizeEvent, QStandardItem)
+                           QResizeEvent, QStandardItem, QAction)
 from PySide6.QtCore import QPointF, QRect, QRectF, Qt, QObject, Signal, QSize, QPoint, QSizeF, QTimer
 
 from scrutiny import tools
@@ -1294,6 +1294,19 @@ class ScrutinyChartToolBar(QGraphicsItem):
             self._is_pressed = False
             self.update()
 
+        def show_menu(self, chartview:QChartView, menu:QMenu) -> None:
+            pos = self.mapToScene(QPointF(self.x(), self.y()))
+            pos = chartview.mapToGlobal(chartview.mapFromScene(pos))
+
+            actions = menu.actions()
+            at: Optional[QAction] = None
+            if len(actions) > 0:
+                pos += QPoint(0, menu.actionGeometry(actions[0]).height())
+                at = actions[0]
+            print(pos)
+            menu.popup(pos, at)
+            pass
+
     class ToolbarSpacer(QGraphicsItem):
         _width: int
 
@@ -1338,7 +1351,7 @@ class ScrutinyChartToolBar(QGraphicsItem):
 
     _btn_mode_drag: ToolbarButton
 
-    _btn_enable_cursor1: ToolbarButton
+    _btn_cursor_menu: ToolbarButton
     """ Enable/disable the graph cursor"""
     _btn_zoom_xy: ToolbarButton
     """ Zoom XY button"""
@@ -1357,8 +1370,7 @@ class ScrutinyChartToolBar(QGraphicsItem):
         self._chart = chartview.chart()
         self._chartview = chartview
 
-        self._btn_enable_cursor1 = self.ToolbarButton(self, assets.Icons.GraphCursor)
-        self._btn_enable_cursor2 = self.ToolbarButton(self, assets.Icons.GraphCursor)
+        self._btn_cursor_menu = self.ToolbarButton(self, assets.Icons.GraphCursor)
         self._btn_mode_select_zoom = self.ToolbarButton(self, assets.Icons.CursorArrow)
         self._btn_mode_drag = self.ToolbarButton(self, assets.Icons.CursorHandDrag)
         self._btn_zoom_xy = self.ToolbarButton(self, assets.Icons.ZoomXY)
@@ -1367,8 +1379,7 @@ class ScrutinyChartToolBar(QGraphicsItem):
         self._bounding_rect = QRectF()
 
         self._buttons = [
-            self._btn_enable_cursor1,
-            self._btn_enable_cursor2,
+            self._btn_cursor_menu,
             self.ToolbarDivision(self),
             self._btn_mode_select_zoom,
             self._btn_mode_drag,
@@ -1379,8 +1390,7 @@ class ScrutinyChartToolBar(QGraphicsItem):
         ]
         self._chart.geometryChanged.connect(self._update_geometry)
 
-        self._btn_enable_cursor1.signals.clicked.connect(self._slot_btn_enable_disable_cursor1)
-        self._btn_enable_cursor2.signals.clicked.connect(self._slot_btn_enable_disable_cursor2)
+        self._btn_cursor_menu.signals.clicked.connect(self._slot_btn_enable_disable_cursor1)
         self._btn_zoom_xy.signals.clicked.connect(self._slot_btn_zoom_xy)
         self._btn_zoom_x.signals.clicked.connect(self._slot_btn_zoom_x)
         self._btn_zoom_y.signals.clicked.connect(self._slot_btn_zoom_y)
@@ -1411,17 +1421,15 @@ class ScrutinyChartToolBar(QGraphicsItem):
         else:
             self.enable_chart_cursor1()
 
-    def toggle_chart_cursor2(self) -> None:
-        if self._chartview.cursor2_enabled():
-            self.disable_chart_cursor2()    # Disable both when x1 is disabled
-        else:
-            self.enable_chart_cursor2()
+
 
     def _slot_btn_enable_disable_cursor1(self) -> None:
-        self.toggle_chart_cursor1()
+        menu = QMenu(self._chartview)
+        no_cursor_action = menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.RedX), "No cursor")
+        single_cursor_action = menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.SingleMarker), "Single cursor")
+        diff_cursor_action = menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.DualMarker), "Diff cursor")
+        self._btn_cursor_menu.show_menu(self._chartview, menu)
 
-    def _slot_btn_enable_disable_cursor2(self) -> None:
-        self.toggle_chart_cursor2()
 
     def _slot_btn_zoom_x(self) -> None:
         """Called when Zoom X button is clicked"""
@@ -1448,8 +1456,7 @@ class ScrutinyChartToolBar(QGraphicsItem):
         self.update_buttons_from_state()
 
     def update_buttons_from_state(self) -> None:
-        self._btn_enable_cursor1.set_selected(self._chartview.cursor1_enabled())
-        self._btn_enable_cursor2.set_selected(self._chartview.cursor2_enabled())
+        self._btn_cursor_menu.set_selected(self._chartview.cursor1_enabled())
 
         self._btn_mode_select_zoom.set_selected(self._chartview.get_interaction_mode() == ScrutinyChartView.InteractionMode.SELECT_ZOOM)
         self._btn_mode_drag.set_selected(self._chartview.get_interaction_mode() == ScrutinyChartView.InteractionMode.DRAG)

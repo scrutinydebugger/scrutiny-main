@@ -16,7 +16,7 @@ from manual_test_base import make_manual_test_app
 app = make_manual_test_app()
 
 import logging
-from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QSplitter, QLabel
+from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QSplitter, QLabel
 from PySide6.QtCore import Qt, QPointF, QRectF
 from scrutiny.gui.dialogs.device_config.device_config_dialog import DeviceConfigDialog
 from scrutiny import sdk
@@ -80,7 +80,23 @@ splitter = QSplitter(Qt.Orientation.Horizontal, window)
 splitter.addWidget(chartview)
 splitter.addWidget(right_side)
 splitter.setSizes([1000, 200])
-window.setCentralWidget(splitter)
+
+# Add spacing to offset the chartview and make sure stuff is aligned with the graph, not the window
+container_v=QWidget()
+layout_v = QVBoxLayout(container_v)
+container_h=QWidget()
+layout_h = QHBoxLayout(container_h)
+spacer_v = QWidget()
+spacer_v.setFixedHeight(100)
+spacer_h = QWidget()
+spacer_h.setFixedWidth(50)
+
+layout_v.addWidget(spacer_v)
+layout_v.addWidget(container_h)
+layout_h.addWidget(spacer_h)
+layout_h.addWidget(splitter)
+
+window.setCentralWidget(container_v)
 
 
 # Fill the registry with dummy data by enabling a simulated device
@@ -152,6 +168,7 @@ def build_chart():
         xaxis.set_maxval(max(xdata))
         xaxis.autoset_range()
         chart_toolbar.disable_chart_cursors()
+        signal_tree.lock()
 
 
 window.show()
