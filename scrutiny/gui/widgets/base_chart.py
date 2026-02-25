@@ -25,7 +25,7 @@ from PySide6.QtWidgets import (QGraphicsItem, QStyleOptionGraphicsItem, QWidget,
                                QGraphicsSceneMouseEvent, QGraphicsSceneHoverEvent, QMenu)
 from PySide6.QtGui import (QFont, QPainter, QFontMetrics, QColor, QContextMenuEvent,
                            QPaintEvent, QMouseEvent, QWheelEvent, QPixmap, QKeyEvent,
-                           QResizeEvent, QStandardItem, QAction)
+                           QResizeEvent, QStandardItem, QAction, QPalette)
 from PySide6.QtCore import QPointF, QRect, QRectF, Qt, QObject, Signal, QSize, QPoint, QSizeF, QTimer
 
 from scrutiny import tools
@@ -1295,17 +1295,14 @@ class ScrutinyChartToolBar(QGraphicsItem):
             self.update()
 
         def show_menu(self, chartview:QChartView, menu:QMenu) -> None:
-            pos = self.mapToScene(QPointF(self.x(), self.y()))
-            pos = chartview.mapToGlobal(chartview.mapFromScene(pos))
+            pos = chartview.mapToGlobal(chartview.mapFromScene(self.mapToScene(self.pos())))
 
             actions = menu.actions()
             at: Optional[QAction] = None
             if len(actions) > 0:
                 pos += QPoint(0, menu.actionGeometry(actions[0]).height())
                 at = actions[0]
-            print(pos)
             menu.popup(pos, at)
-            pass
 
     class ToolbarSpacer(QGraphicsItem):
         _width: int
@@ -1319,6 +1316,13 @@ class ScrutinyChartToolBar(QGraphicsItem):
 
         def paint(self, painter: QPainter, option: QStyleOptionGraphicsItem, widget: Optional[QWidget] = None) -> None:
             pass    # Nothing to do. Need to exist
+
+    class ToolbarMenu(QMenu):
+        @tools.copy_type(QMenu.__init__)
+        def __init__(self, *args:Any, **kwargs:Any) -> None:
+            super().__init__(*args, **kwargs)
+
+
 
     class ToolbarDivision(QGraphicsItem):
         LINE_WIDTH = 1
@@ -1390,7 +1394,7 @@ class ScrutinyChartToolBar(QGraphicsItem):
         ]
         self._chart.geometryChanged.connect(self._update_geometry)
 
-        self._btn_cursor_menu.signals.clicked.connect(self._slot_btn_enable_disable_cursor1)
+        self._btn_cursor_menu.signals.clicked.connect(self._slot_btn_cursor_menu)
         self._btn_zoom_xy.signals.clicked.connect(self._slot_btn_zoom_xy)
         self._btn_zoom_x.signals.clicked.connect(self._slot_btn_zoom_x)
         self._btn_zoom_y.signals.clicked.connect(self._slot_btn_zoom_y)
@@ -1409,25 +1413,24 @@ class ScrutinyChartToolBar(QGraphicsItem):
 
     def enable_chart_cursor1(self) -> None:
         self._chartview.enable_cursor1()
+        self._chartview.disable_cursor2()
         self.update_buttons_from_state()
 
-    def enable_chart_cursor2(self) -> None:
+    def enable_chart_diff_cursor(self) -> None:
+        self._chartview.enable_cursor1()
         self._chartview.enable_cursor2()
         self.update_buttons_from_state()
 
-    def toggle_chart_cursor1(self) -> None:
-        if self._chartview.cursor1_enabled():
-            self.disable_chart_cursors()    # Disable both when x1 is disabled
-        else:
-            self.enable_chart_cursor1()
-
-
-
-    def _slot_btn_enable_disable_cursor1(self) -> None:
-        menu = QMenu(self._chartview)
+    def _slot_btn_cursor_menu(self) -> None:
+        menu = self.ToolbarMenu(self._chartview)
+        menu.setBackgroundRole(QPalette.ColorRole.Base)
         no_cursor_action = menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.RedX), "No cursor")
         single_cursor_action = menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.SingleMarker), "Single cursor")
         diff_cursor_action = menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.DualMarker), "Diff cursor")
+
+        no_cursor_action.triggered.connect(self.disable_chart_cursors)
+        single_cursor_action.triggered.connect(self.enable_chart_cursor1)
+        diff_cursor_action.triggered.connect(self.enable_chart_diff_cursor)
         self._btn_cursor_menu.show_menu(self._chartview, menu)
 
 
@@ -1456,7 +1459,7 @@ class ScrutinyChartToolBar(QGraphicsItem):
         self.update_buttons_from_state()
 
     def update_buttons_from_state(self) -> None:
-        self._btn_cursor_menu.set_selected(self._chartview.cursor1_enabled())
+        self._btn_cursor_menu.set_selected(self._chartview.cursor1_enabled() or self._chartview.cursor2_enabled())
 
         self._btn_mode_select_zoom.set_selected(self._chartview.get_interaction_mode() == ScrutinyChartView.InteractionMode.SELECT_ZOOM)
         self._btn_mode_drag.set_selected(self._chartview.get_interaction_mode() == ScrutinyChartView.InteractionMode.DRAG)
