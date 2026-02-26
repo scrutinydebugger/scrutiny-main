@@ -287,7 +287,7 @@ class ScrutinyChart(QChart):
             closest_real_point = series.search_closest_monotonic(val_point.x(), xaxis.min(), xaxis.max())
             if closest_real_point is not None:
                 self._mouse_callout_hide_timer.stop()
-                txt = f"{signal_name}\nX: {closest_real_point.x()}\nY: {closest_real_point.y()}"
+                txt = "%s\nX: %g\nY: %g" % (signal_name, closest_real_point.x(), closest_real_point.y())
                 pos = self.mapToPosition(closest_real_point, series)
                 color = series.color()
                 self._mouse_callout.set_content(pos, txt, color)
@@ -848,7 +848,8 @@ class ScrutinyChartView(QChartView):
         delta_cursor = min(20, plotarea_width // 5)
         xpos = self._chart_cursor_x1.xpos()
         assert xpos is not None
-        if xpos > plotarea_width / 2:
+        midpoint = plotarea_width / 2 + self.chart().plotArea().x()
+        if xpos > midpoint:
             delta_cursor = -delta_cursor
 
         self._chart_cursor_x2.enable()

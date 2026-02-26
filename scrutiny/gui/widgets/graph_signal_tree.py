@@ -501,11 +501,11 @@ class GraphSignalTree(BaseTreeView):
     _model: GraphSignalModel
     _detail_filter_proxy: GraphSignalDetailFilterProxy
 
-    def model(self) -> GraphSignalModel:
-        return self._model
+    def real_model_selected_indexes(self) -> List[QModelIndex]:
+        return [self._detail_filter_proxy.mapToSource(index) for index in super().selectedIndexes() if index.isValid()]
 
-    def real_selected_indexes(self) -> List[QModelIndex]:
-        return [self._detail_filter_proxy.mapToSource(index) for index in super().selectedIndexes()]
+    def real_model(self) -> GraphSignalModel:
+        return self._model
 
     def __init__(self, parent: QWidget, watchable_registry: WatchableRegistry) -> None:
         super().__init__(parent)
@@ -516,7 +516,7 @@ class GraphSignalTree(BaseTreeView):
         self._detail_filter_proxy = GraphSignalDetailFilterProxy()    #
         self._detail_filter_proxy.setSourceModel(self._model)
         self.setModel(self._detail_filter_proxy)
-        self.model().add_axis("Axis 1")
+        self._model.add_axis("Axis 1")
         self.setUniformRowHeights(True)   # Documentation says it helps performance
         self.setAnimated(False)
         self.header().setStretchLastSection(True)
@@ -530,13 +530,13 @@ class GraphSignalTree(BaseTreeView):
         return self._signals
 
     def update_all_availabilities(self) -> None:
-        self.model().update_all_availabilities()
+        self._model.update_all_availabilities()
 
     def set_all_available(self) -> None:
-        self.model().set_all_available()
+        self._model.set_all_available()
 
     def has_unavailable_signals(self) -> bool:
-        return self.model().has_unavailable_signals()
+        return self._model.has_unavailable_signals()
 
     def rowsInserted(self, parent: Union[QModelIndex, QPersistentModelIndex], start: int, end: int) -> None:
         if parent.isValid():
@@ -571,25 +571,26 @@ class GraphSignalTree(BaseTreeView):
 
     def contextMenuEvent(self, event: QContextMenuEvent) -> None:
         context_menu = QMenu(self)
-        selected_indexes_no_nested_unordered = self.model().remove_nested_indexes_unordered(self.real_selected_indexes())
-        nesting_col = self.model().nesting_col()
-        selected_items_no_nested_unordered = [self.model().itemFromIndex(index)
+        selected_indexes_no_nested_unordered = self._model.remove_nested_indexes_unordered(self.real_model_selected_indexes())
+        nesting_col = self._model.nesting_col()
+        selected_items_no_nested_unordered = [self._model.itemFromIndex(index)
                                               for index in selected_indexes_no_nested_unordered if index.column() == nesting_col]
         # Filter None. Should not happen, but be safe
         selected_items_no_nested_unordered = [item for item in selected_items_no_nested_unordered if item is not None]
+
         def new_axis_action_slot() -> None:
-            self.model().appendRow(self.model().make_axis_row("New Axis"))
+            self._model.appendRow(self._model.make_axis_row("New Axis"))
 
         def remove_action_slot() -> None:
             for item in selected_items_no_nested_unordered:
-                self.model().removeRow(item.row(), item.index().parent())
+                self._model.removeRow(item.row(), item.index().parent())
 
         new_axis_action = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.GraphAxis), "New Axis")
         new_axis_action.triggered.connect(new_axis_action_slot)
 
-        indexes = self.real_selected_indexes()
+        indexes = self.real_model_selected_indexes()
 
-        items = [self.model().itemFromIndex(index) for index in indexes if index.isValid()]
+        items = [self._model.itemFromIndex(index) for index in indexes if index.isValid()]
         signals_with_series = [item for item in items if isinstance(item, ChartSeriesWatchableStandardItem) and item.series_attached()]
 
         if len(signals_with_series) > 0:
@@ -626,21 +627,20 @@ class GraphSignalTree(BaseTreeView):
 
     def keyPressEvent(self, event: QKeyEvent) -> None:
         if event.key() == Qt.Key.Key_Delete and not self._locked:
-            model = self.model()
             # Avoid errors when parent is deleted before children
-            indexes_without_nested_values = model.remove_nested_indexes_unordered(self.real_selected_indexes())
-            items = [model.itemFromIndex(index) for index in indexes_without_nested_values]
+            indexes_without_nested_values = self._model.remove_nested_indexes_unordered(self.real_model_selected_indexes())
+            items = [self._model.itemFromIndex(index) for index in indexes_without_nested_values]
             for item in items:
                 if item is not None:
-                    model.removeRow(item.row(), item.index().parent())
+                    self._model.removeRow(item.row(), item.index().parent())
         else:
             return super().keyPressEvent(event)
 
     def get_signals(self) -> List[AxisContent]:
-        return self.model().get_signals()
+        return self._model.get_signals()
 
     def get_selected_axes(self, include_if_signal_is_selected: bool = True) -> List[AxisStandardItem]:
-        selected_items = [self.model().itemFromIndex(index) for index in self.real_selected_indexes() if index.isValid()]
+        selected_items = [self._model.itemFromIndex(index) for index in self.real_model_selected_indexes() if index.isValid()]
         selected_axes: Dict[int, AxisStandardItem] = {}
         for item in selected_items:
             if item is None:
@@ -661,25 +661,25 @@ class GraphSignalTree(BaseTreeView):
     def lock(self) -> None:
         self.setDragDropMode(self.DragDropMode.DragOnly)
         self._locked = True
-        self.model().disallow_item_edition()
+        self._model.disallow_item_edition()
 
     def unlock(self) -> None:
         self.setDragDropMode(self.DragDropMode.DragDrop)
         self._locked = False
-        self.model().allow_item_edition()
+        self._model.allow_item_edition()
 
     def reload_original_icons(self) -> None:
-        self.model().reload_original_icons()
+        self._model.reload_original_icons()
 
     def selectionChanged(self, selected: QItemSelection, deselected: QItemSelection) -> None:
         super().selectionChanged(selected, deselected)
         self._signals.selection_changed.emit()
 
     def get_value_item_by_attached_series(self) -> List[Tuple[QLineSeries, ValueItems]]:
-        return self.model().get_value_item_by_attached_series()
+        return self._model.get_value_item_by_attached_series()
 
     def get_all_value_items(self) -> List[ValueItems]:
-        return self.model().get_all_value_items()
+        return self._model.get_all_value_items()
 
     def enable_cursor2_rows(self) -> None:
         self._detail_filter_proxy.show_details_row()

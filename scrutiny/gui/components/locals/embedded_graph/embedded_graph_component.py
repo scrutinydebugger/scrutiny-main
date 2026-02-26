@@ -604,7 +604,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
             self._graph_config_widget.get_txtw_trigger_operand3().load_state(config['trigger']["operand3"])
 
         validation.assert_dict_key(state, 'signals', list)
-        signal_tree_model = self._signal_tree.model()
+        signal_tree_model = self._signal_tree.real_model()
         signal_tree_model.removeRows(0, signal_tree_model.rowCount())
         try:
             for axis_content in state['signals']:
@@ -769,7 +769,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
 
         # Since we put a graph, the signal tree (on the right) needs to be in sync with the graph content.
         # We start by clearing the signal tree and refill it with the signals from the acquisition
-        signal_tree_model = self._signal_tree.model()
+        signal_tree_model = self._signal_tree.real_model()
         signal_tree_model.removeRows(0, signal_tree_model.rowCount())
 
         chart = self._chartview.chart()
