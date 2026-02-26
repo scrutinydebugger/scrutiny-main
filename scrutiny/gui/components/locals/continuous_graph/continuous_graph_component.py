@@ -344,24 +344,15 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
         layout.addWidget(self._splitter)
 
         def update_xval(data: XValuesData) -> None:
-            if data.x1val is not None:
-                self._x1val_label.setText(f"Time [s] (x1) : {data.x1val}")
-                self._x1val_label.setVisible(True)
-            else:
-                self._x1val_label.setVisible(False)
+            self._x1val_label.setText("Time [s] (x1) : %g" % data.x1val)
+            self._x1val_label.setVisible(data.x1enabled)
 
-            if data.x2val is not None:
-                self._x1val_label.setText(f"Time [s] (x2) : {data.x2val}")
-                self._x1val_label.setVisible(True)
-            else:
-                self._x1val_label.setVisible(False)
+            self._x2val_label.setText("Time [s] (x2) : %g" % data.x2val)
+            self._x2val_label.setVisible(data.x2enabled)
 
-            if data.x1val is not None and data.x2val is not None:
-                delta = abs(data.x1val - data.x2val)
-                self._x1val_label.setText(f"Δx : {delta}")
-                self._x1val_label.setVisible(True)
-            else:
-                self._x1val_label.setVisible(False)
+            delta = abs(data.x1val - data.x2val)
+            self._xdiffval_label.setText("Δx : %g" % delta)
+            self._xdiffval_label.setVisible(data.x1enabled and data.x2enabled)
 
         self._chartview.configure_chart_cursor(self._signal_tree, update_xval)
 

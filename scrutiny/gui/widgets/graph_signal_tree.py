@@ -383,7 +383,7 @@ class GraphSignalModel(BaseTreeModel):
         When the watchable referred by an element is not in the registry, becomes "unavailable" (grayed out).
         """
         for i in range(self.rowCount()):
-            axis = self.item(i, self.watchable_col())
+            axis = self.item(i, self.axis_col())
             for j in range(axis.rowCount()):
                 series_item = axis.child(j, self.watchable_col())
                 assert isinstance(series_item, ChartSeriesWatchableStandardItem)
@@ -391,7 +391,7 @@ class GraphSignalModel(BaseTreeModel):
 
     def set_all_available(self) -> None:
         for i in range(self.rowCount()):
-            axis = self.item(i, self.watchable_col())
+            axis = self.item(i, self.axis_col())
             for j in range(axis.rowCount()):
                 series_item = axis.child(j, self.watchable_col())
                 assert isinstance(series_item, ChartSeriesWatchableStandardItem)
@@ -400,7 +400,7 @@ class GraphSignalModel(BaseTreeModel):
     def has_unavailable_signals(self) -> bool:
         """Return True if one signal refers to an unavailable watchable in the registry"""
         for i in range(self.rowCount()):
-            axis = self.item(i, self.watchable_col())
+            axis = self.item(i, self.axis_col())
             for j in range(axis.rowCount()):
                 signal_item = axis.child(j, self.watchable_col())
                 assert isinstance(signal_item, ChartSeriesWatchableStandardItem)
@@ -505,6 +505,9 @@ class GraphSignalTree(BaseTreeView):
     def model(self) -> GraphSignalModel:
         return self._model
 
+    def real_selected_indexes(self) -> List[QModelIndex]:
+        return [self._detail_filter_proxy.mapToSource(index) for index in super().selectedIndexes()]
+
     def __init__(self, parent: QWidget, watchable_registry: WatchableRegistry) -> None:
         super().__init__(parent)
         self._locked = False
@@ -569,7 +572,7 @@ class GraphSignalTree(BaseTreeView):
 
     def contextMenuEvent(self, event: QContextMenuEvent) -> None:
         context_menu = QMenu(self)
-        selected_indexes_no_nested_unordered = self.model().remove_nested_indexes_unordered(self.selectedIndexes())
+        selected_indexes_no_nested_unordered = self.model().remove_nested_indexes_unordered(self.real_selected_indexes())
         nesting_col = self.model().nesting_col()
         selected_items_no_nested_unordered = [self.model().itemFromIndex(index)
                                               for index in selected_indexes_no_nested_unordered if index.column() == nesting_col]
@@ -579,12 +582,13 @@ class GraphSignalTree(BaseTreeView):
 
         def remove_action_slot() -> None:
             for item in selected_items_no_nested_unordered:
-                self.model().removeRow(item.row(), item.index().parent())
+                if item is not None:
+                    self.model().removeRow(item.row(), item.index().parent())
 
         new_axis_action = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.GraphAxis), "New Axis")
         new_axis_action.triggered.connect(new_axis_action_slot)
 
-        indexes = self.selectedIndexes()
+        indexes = self.real_selected_indexes()
 
         items = [self.model().itemFromIndex(index) for index in indexes if index.isValid()]
         signals_with_series = [item for item in items if isinstance(item, ChartSeriesWatchableStandardItem) and item.series_attached()]
@@ -624,8 +628,8 @@ class GraphSignalTree(BaseTreeView):
     def keyPressEvent(self, event: QKeyEvent) -> None:
         if event.key() == Qt.Key.Key_Delete and not self._locked:
             model = self.model()
-            indexes_without_nested_values = model.remove_nested_indexes_unordered(
-                self.selectedIndexes())  # Avoid errors when parent is deleted before children
+            # Avoid errors when parent is deleted before children
+            indexes_without_nested_values = model.remove_nested_indexes_unordered(self.real_selected_indexes())
             items = [model.itemFromIndex(index) for index in indexes_without_nested_values]
             for item in items:
                 if item is not None:
@@ -637,9 +641,11 @@ class GraphSignalTree(BaseTreeView):
         return self.model().get_signals()
 
     def get_selected_axes(self, include_if_signal_is_selected: bool = True) -> List[AxisStandardItem]:
-        selected_items = [self.model().itemFromIndex(index) for index in self.selectedIndexes() if index.isValid()]
+        selected_items = [self.model().itemFromIndex(index) for index in self.real_selected_indexes() if index.isValid()]
         selected_axes: Dict[int, AxisStandardItem] = {}
         for item in selected_items:
+            if item is None:
+                continue    # Should not happen since we checked Valid(). Better safe than sorry
             if isinstance(item, AxisStandardItem):
                 selected_axes[id(item)] = item
             elif include_if_signal_is_selected:

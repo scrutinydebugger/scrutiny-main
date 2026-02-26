@@ -46,19 +46,19 @@ xdifflabel.setText("N/A")
 
 
 def x_val_write(data: XValuesData):
-    if data.x1val is not None:
-        x1label.setText(f"X1: {data.x1val}")
+    if data.x1enabled:
+        x1label.setText("X1: %g" % data.x1val)
     else:
         x1label.setText("X1: N/A")
 
-    if data.x2val is not None:
-        x2label.setText(f"X2: {data.x2val}")
+    if data.x2enabled:
+        x2label.setText("X2: %g" % data.x2val)
     else:
         x2label.setText("X2: N/A")
 
-    if data.x1val is not None and data.x2val is not None:
+    if data.x1enabled and data.x2enabled:
         delta = abs(data.x1val - data.x2val)
-        xdifflabel.setText(f"ΔX: {delta}")
+        xdifflabel.setText("ΔX: %g" % delta)
     else:
         xdifflabel.setText("ΔX: N/A")
 

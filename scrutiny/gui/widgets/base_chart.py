@@ -42,8 +42,10 @@ from scrutiny.tools.typing import *
 
 @dataclass(slots=True)
 class XValuesData:
-    x1val: Optional[float]
-    x2val: Optional[float]
+    x1val: float
+    x2val: float
+    x1enabled: bool
+    x2enabled: bool
 
 
 class ScrutinyLineSeries(QLineSeries):
@@ -1174,7 +1176,7 @@ class ScrutinyChartView(QChartView):
             value_items = self._series_to_signal_tree_value_item[series_id]
             v1 = pair.point.y()
             val1_series_dict[series_id] = v1
-            value_items.value1.setText(str(v1))
+            value_items.value1.setText('%g' % v1)
 
         for pair in self._chart_cursor_x2.get_markers_vals():   # Empty list if disabled
             series_id = id(pair.series)
@@ -1182,11 +1184,11 @@ class ScrutinyChartView(QChartView):
             v2 = pair.point.y()
 
             if value_items.value2 is not None:
-                value_items.value2.setText(str(v2))
+                value_items.value2.setText('%g' % v2)
             if value_items.delta is not None and series_id in val1_series_dict:
                 v1 = val1_series_dict[series_id]
                 delta = abs(v2 - v1)
-                value_items.delta.setText(str(delta))
+                value_items.delta.setText('%g' % delta)
 
     def _clear_signal_tree_values(self) -> None:
         """Clear the value box in the signal tree"""
@@ -1209,8 +1211,10 @@ class ScrutinyChartView(QChartView):
         self._update_signal_tree_with_cursor_values()
         if self._chart_cursor_broadcast_xval_func is not None:
             xdata = XValuesData(
-                x1val=self._chart_cursor_x1.xval() if self._chart_cursor_x1.is_enabled() else None,
-                x2val=self._chart_cursor_x2.xval() if self._chart_cursor_x2.is_enabled() else None
+                x1val=self._chart_cursor_x1.xval(),
+                x2val=self._chart_cursor_x2.xval(),
+                x1enabled=self._chart_cursor_x1.is_enabled(),
+                x2enabled=self._chart_cursor_x2.is_enabled()
             )
             self._chart_cursor_broadcast_xval_func(xdata)
         super().update(*args, **kwargs)
