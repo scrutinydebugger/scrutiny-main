@@ -513,7 +513,7 @@ class GraphSignalTree(BaseTreeView):
         self._signals = self._Signals()
 
         self._model = GraphSignalModel(self, watchable_registry)
-        self._detail_filter_proxy = GraphSignalDetailFilterProxy()    #
+        self._detail_filter_proxy = GraphSignalDetailFilterProxy()
         self._detail_filter_proxy.setSourceModel(self._model)
         self.setModel(self._detail_filter_proxy)
         self._model.add_axis("Axis 1")

@@ -1174,22 +1174,24 @@ class ScrutinyChartView(QChartView):
         val1_series_dict: Dict[int, float] = {}
         for pair in self._chart_cursor_x1.get_markers_vals():
             series_id = id(pair.series)
-            value_items = self._series_to_signal_tree_value_item[series_id]
-            v1 = pair.point.y()
-            val1_series_dict[series_id] = v1
-            value_items.value1.setText('%g' % v1)
+            if series_id in self._series_to_signal_tree_value_item:
+                value_items = self._series_to_signal_tree_value_item[series_id]
+                v1 = pair.point.y()
+                val1_series_dict[series_id] = v1
+                value_items.value1.setText('%g' % v1)
 
         for pair in self._chart_cursor_x2.get_markers_vals():   # Empty list if disabled
             series_id = id(pair.series)
-            value_items = self._series_to_signal_tree_value_item[series_id]
-            v2 = pair.point.y()
+            if series_id in self._series_to_signal_tree_value_item:
+                value_items = self._series_to_signal_tree_value_item[series_id]
+                v2 = pair.point.y()
 
-            if value_items.value2 is not None:
-                value_items.value2.setText('%g' % v2)
-            if value_items.delta is not None and series_id in val1_series_dict:
-                v1 = val1_series_dict[series_id]
-                delta = abs(v2 - v1)
-                value_items.delta.setText('%g' % delta)
+                if value_items.value2 is not None:
+                    value_items.value2.setText('%g' % v2)
+                if value_items.delta is not None and series_id in val1_series_dict:
+                    v1 = val1_series_dict[series_id]
+                    delta = abs(v2 - v1)
+                    value_items.delta.setText('%g' % delta)
 
     def _clear_signal_tree_values(self) -> None:
         """Clear the value box in the signal tree"""
