@@ -37,15 +37,30 @@ def config_applied(dialog: DeviceConfigDialog):
 window = QMainWindow()
 window.setGeometry(0, 0, 1200, 800)
 registry = WatchableRegistry()
-xlabel = QLabel()
-xlabel.setText("N/A")
+x1label = QLabel()
+x2label = QLabel()
+xdifflabel = QLabel()
+x1label.setText("N/A")
+x2label.setText("N/A")
+xdifflabel.setText("N/A")
 
 
-def x_val_write(val: float, enabled: bool):
-    if enabled:
-        xlabel.setText(str(val))
+def x_val_write(data: XValuesData):
+    if data.x1val is not None:
+        x1label.setText(f"X1: {data.x1val}")
     else:
-        xlabel.setText("N/A")
+        x1label.setText("X1: N/A")
+
+    if data.x2val is not None:
+        x2label.setText(f"X2: {data.x2val}")
+    else:
+        x2label.setText("X2: N/A")
+
+    if data.x1val is not None and data.x2val is not None:
+        delta = abs(data.x1val - data.x2val)
+        xdifflabel.setText(f"ΔX: {delta}")
+    else:
+        xdifflabel.setText("ΔX: N/A")
 
 
 server_manager = FakeServerManager(registry)
@@ -54,7 +69,9 @@ signal_tree = GraphSignalTree(window, registry)
 right_side = QWidget()
 right_vlayout = QVBoxLayout(right_side)
 right_vlayout.setContentsMargins(0, 0, 0, 0)
-right_vlayout.addWidget(xlabel)
+right_vlayout.addWidget(x1label)
+right_vlayout.addWidget(x2label)
+right_vlayout.addWidget(xdifflabel)
 right_vlayout.addWidget(signal_tree)
 
 chart = ScrutinyChart()

@@ -14,7 +14,8 @@ __all__ = [
     'ScrutinyChartCallout',
     'ScrutinyChartView',
     'ScrutinyChartToolBar',
-    'ChartCursorMovedData'
+    'ChartCursorMovedData',
+    'XValuesData'
 ]
 
 import enum
@@ -37,6 +38,12 @@ from scrutiny.tools import validation
 from scrutiny.gui.widgets.graph_signal_tree import GraphSignalTree, ValueItems
 
 from scrutiny.tools.typing import *
+
+
+@dataclass(slots=True)
+class XValuesData:
+    x1val: Optional[float]
+    x2val: Optional[float]
 
 
 class ScrutinyLineSeries(QLineSeries):
@@ -722,7 +729,7 @@ class ScrutinyChartView(QChartView):
     """A map that let us find the where to write a Y-value when moving the cursor using the QValueSeries as the key"""
     _last_mouse_pos: QPoint
     """Last mouse position recorded onmousemove event in order to compute drag delta"""
-    _chart_cursor_broadcast_xval_func: Optional[Callable[[float, bool], None]]
+    _chart_cursor_broadcast_xval_func: Optional[Callable[[XValuesData], None]]
     """The function to call to display the cursor x-value into the app"""
     _text_color: QColor
     """Text color given by the loaded theme"""
@@ -1191,7 +1198,7 @@ class ScrutinyChartView(QChartView):
                 if value_items.delta is not None:
                     value_items.delta.setText("")
 
-    def configure_chart_cursor(self, signal_tree: GraphSignalTree, xval_func: Optional[Callable[[float, bool], None]]) -> None:
+    def configure_chart_cursor(self, signal_tree: GraphSignalTree, xval_func: Optional[Callable[[XValuesData], None]]) -> None:
         self._signal_tree = signal_tree
         self._chart_cursor_broadcast_xval_func = xval_func
 
@@ -1201,7 +1208,11 @@ class ScrutinyChartView(QChartView):
         self._chart_cursor_x2.update()
         self._update_signal_tree_with_cursor_values()
         if self._chart_cursor_broadcast_xval_func is not None:
-            self._chart_cursor_broadcast_xval_func(self._chart_cursor_x1.xval(), self._chart_cursor_x1.is_enabled())
+            xdata = XValuesData(
+                x1val=self._chart_cursor_x1.xval() if self._chart_cursor_x1.is_enabled() else None,
+                x2val=self._chart_cursor_x2.xval() if self._chart_cursor_x2.is_enabled() else None
+            )
+            self._chart_cursor_broadcast_xval_func(xdata)
         super().update(*args, **kwargs)
 
 

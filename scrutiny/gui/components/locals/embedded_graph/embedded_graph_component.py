@@ -36,7 +36,7 @@ from scrutiny.gui.components.locals.embedded_graph.graph_config_widget import Gr
 from scrutiny.gui.components.locals.embedded_graph.graph_browse_list_widget import GraphBrowseListWidget
 from scrutiny.gui.components.locals.embedded_graph.chart_status_overlay import ChartStatusOverlay
 from scrutiny.gui.widgets.base_chart import (
-    ScrutinyChart, ScrutinyChartView, ScrutinyChartToolBar, ScrutinyLineSeries, ScrutinyValueAxisWithMinMax
+    ScrutinyChart, ScrutinyChartView, ScrutinyChartToolBar, ScrutinyLineSeries, ScrutinyValueAxisWithMinMax, XValuesData
 )
 from scrutiny.gui.widgets.graph_signal_tree import GraphSignalTree, ChartSeriesWatchableStandardItem, AxisStandardItem, AxisContent
 from scrutiny.gui.widgets.feedback_label import FeedbackLabel
@@ -230,8 +230,12 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
 
     _splitter: QSplitter
     """3 section splitter separating left / center / right"""
-    _xval_label: QLabel
-    """The label used to display the X-Value when moving the graph cursor (red vertical line)"""
+    _x1val_label: QLabel
+    """The label used to display the X1-Value when moving the graph cursor (red vertical line)"""
+    _x2val_label: QLabel
+    """The label used to display the X2-Value when moving the graph cursor (red vertical line)"""
+    _xdiffval_label: QLabel
+    """The label used to display the delta X-Value when moving the graph cursor (red vertical line)"""
     _chk_show_trigger: QCheckBox
     """A checkbox to show or hide the trigger marker"""
     _signal_tree: GraphSignalTree
@@ -315,7 +319,9 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
             right_pane_layout = QVBoxLayout(right_pane)
             right_pane_layout.setContentsMargins(0, 0, 0, 0)
 
-            self._xval_label = QLabel()
+            self._x1val_label = QLabel()
+            self._x2val_label = QLabel()
+            self._xdiffval_label = QLabel()
             self._chk_show_trigger = QCheckBox("Show Trigger")
             self._chk_show_trigger.checkStateChanged.connect(self._chk_show_trigger_changed_slot)
 
@@ -325,8 +331,12 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
             self._signal_tree.signals.selection_changed.connect(self._signal_tree_selection_changed_slot)
             self._signal_tree.signals.content_changed.connect(self._signal_tree_content_changed_slot)
 
-            self._xval_label.setVisible(False)
-            right_pane_layout.addWidget(self._xval_label)
+            self._x1val_label.setVisible(False)
+            self._x2val_label.setVisible(False)
+            self._xdiffval_label.setVisible(False)
+            right_pane_layout.addWidget(self._x1val_label)
+            right_pane_layout.addWidget(self._x2val_label)
+            right_pane_layout.addWidget(self._xdiffval_label)
             right_pane_layout.addWidget(self._chk_show_trigger)
             right_pane_layout.addWidget(self._signal_tree)
 
@@ -695,6 +705,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
 
 # region Chart handling
 
+
     def _clear_graph(self) -> None:
         """Remove the acquisition presently displayed in the chartview"""
         self._clear_graph_error()
@@ -859,9 +870,26 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
             self._chk_show_trigger.setEnabled(False)
 
         # Enable the chart cursor so it can display values in the signal tree
-        def update_xval(val: float, enabled: bool) -> None:
-            self._xval_label.setText(f"{acquisition.xdata.name} : {val}")
-            self._xval_label.setVisible(enabled)
+        def update_xval(data: XValuesData) -> None:
+            if data.x1val is not None:
+                self._x1val_label.setText(f"{acquisition.xdata.name} (x1) : {data.x1val}")
+                self._x1val_label.setVisible(True)
+            else:
+                self._x1val_label.setVisible(False)
+
+            if data.x2val is not None:
+                self._x2val_label.setText(f"{acquisition.xdata.name} (x2) : {data.x2val}")
+                self._x2val_label.setVisible(True)
+            else:
+                self._x2val_label.setVisible(False)
+
+            if data.x1val is not None and data.x2val is not None:
+                delta = abs(data.x1val - data.x2val)
+                self._xdiffval_label.setText(f"Δx : {delta}")
+                self._xdiffval_label.setVisible(True)
+            else:
+                self._xdiffval_label.setVisible(False)
+
         self._chartview.configure_chart_cursor(self._signal_tree, update_xval)
 
         self._apply_internal_state()    # UI update based on the state variables
