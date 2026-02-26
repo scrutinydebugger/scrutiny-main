@@ -50,7 +50,7 @@ def x_val_write(val: float, enabled: bool):
 
 server_manager = FakeServerManager(registry)
 
-signal_tree = GraphSignalTree(window, registry, has_value_col=True)
+signal_tree = GraphSignalTree(window, registry)
 right_side = QWidget()
 right_vlayout = QVBoxLayout(right_side)
 right_vlayout.setContentsMargins(0, 0, 0, 0)
@@ -82,9 +82,9 @@ splitter.addWidget(right_side)
 splitter.setSizes([1000, 200])
 
 # Add spacing to offset the chartview and make sure stuff is aligned with the graph, not the window
-container_v=QWidget()
+container_v = QWidget()
 layout_v = QVBoxLayout(container_v)
-container_h=QWidget()
+container_h = QWidget()
 layout_h = QHBoxLayout(container_h)
 spacer_v = QWidget()
 spacer_v.setFixedHeight(100)

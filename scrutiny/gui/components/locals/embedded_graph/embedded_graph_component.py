@@ -321,7 +321,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
 
             # Series on continuous graph don't have their X value aligned.
             # We can only show the value next to each point, not all together in the tree
-            self._signal_tree = GraphSignalTree(self, watchable_registry=self.app.watchable_registry, has_value_col=True)
+            self._signal_tree = GraphSignalTree(self, watchable_registry=self.app.watchable_registry)
             self._signal_tree.signals.selection_changed.connect(self._signal_tree_selection_changed_slot)
             self._signal_tree.signals.content_changed.connect(self._signal_tree_content_changed_slot)
 

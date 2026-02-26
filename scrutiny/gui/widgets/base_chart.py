@@ -34,7 +34,7 @@ from scrutiny.gui.themes import scrutiny_get_theme_prop, ScrutinyThemeProperties
 from scrutiny.gui.tools.min_max import MinMax
 
 from scrutiny.tools import validation
-from scrutiny.gui.widgets.graph_signal_tree import GraphSignalTree
+from scrutiny.gui.widgets.graph_signal_tree import GraphSignalTree, ValueItems
 
 from scrutiny.tools.typing import *
 
@@ -564,9 +564,6 @@ class ScrutinyChartView(QChartView):
     MIN_RUBBERBAND_SIZE_PX = 5
     """The minimum size the rubberband to emit a zoom event. Prevent accidental zooms"""
 
-    MARKER_RADIUS = scrutiny_get_theme_prop(ScrutinyThemeProperties.CHART_CURSOR_MARKER_RADIUS)
-    CHART_CURSOR_COLOR = scrutiny_get_theme_prop(ScrutinyThemeProperties.CHART_CURSOR_COLOR)
-
     @dataclass(slots=True)
     class SeriesPointPair:
         series: ScrutinyLineSeries
@@ -591,20 +588,22 @@ class ScrutinyChartView(QChartView):
         """The graph x value pointed by the cursor"""
         _dragging: bool
         """``True`` When the user is moving the cursor"""
-        _markers_vals:List["ScrutinyChartView.SeriesPointPair"]
+        _markers_vals: List["ScrutinyChartView.SeriesPointPair"]
+        _label: str
 
-        def __init__(self, chartview: "ScrutinyChartView") -> None:
+        def __init__(self, chartview: "ScrutinyChartView", label: str = "") -> None:
             self._enabled = False
             self._chartview = chartview
             self._x = None
             self._xval = 0
             self._dragging = False
             self._markers_vals = []
+            self._label = label
 
         def clear_markers(self) -> None:
             self._markers_vals.clear()
 
-        def set_markers(self, markers_vals:List["ScrutinyChartView.SeriesPointPair"]) -> None:
+        def set_markers(self, markers_vals: List["ScrutinyChartView.SeriesPointPair"]) -> None:
             self._markers_vals = markers_vals
 
         def get_markers_vals(self) -> List["ScrutinyChartView.SeriesPointPair"]:
@@ -660,6 +659,12 @@ class ScrutinyChartView(QChartView):
             else:
                 self._x = None
 
+        def set_label(self, label: str) -> None:
+            self._label = label
+
+        def get_label(self) -> str:
+            return self._label
+
     class InteractionMode(enum.Enum):
         SELECT_ZOOM = enum.auto()
         """Select/zoom, the user can draw a zoombox (rubberband) with his mouse to zoom the graph """
@@ -713,7 +718,7 @@ class ScrutinyChartView(QChartView):
     """The vertical value cursor (red line)"""
     _signal_tree: Optional[GraphSignalTree]
     """An optional Singal tree (TreeView that displays the curves color/name/values) tied to the chart cursor"""
-    _series_to_signal_tree_value_item: Dict[int, QStandardItem]
+    _series_to_signal_tree_value_item: Dict[int, ValueItems]
     """A map that let us find the where to write a Y-value when moving the cursor using the QValueSeries as the key"""
     _last_mouse_pos: QPoint
     """Last mouse position recorded onmousemove event in order to compute drag delta"""
@@ -736,8 +741,8 @@ class ScrutinyChartView(QChartView):
         self._zoom_allowed = False
         self._drag_allowed = False
         self._is_dragging = False
-        self._chart_cursor_x1 = self.ChartCursor(self)
-        self._chart_cursor_x2 = self.ChartCursor(self)
+        self._chart_cursor_x1 = self.ChartCursor(self, "x1")
+        self._chart_cursor_x2 = self.ChartCursor(self, "x2")
         self._signal_tree = None
         self._series_to_signal_tree_value_item = {}
         self._last_mouse_pos = QPoint()
@@ -792,8 +797,18 @@ class ScrutinyChartView(QChartView):
         """Tells if the chart cursor is enabled"""
         return self._chart_cursor_x2.is_enabled()
 
+    def _rebuild_series_to_item_lookup(self) -> None:
+        # Here we build a lookup between series and the signal tree element that this series refer to
+        # Will be used for mapping quickly a value referenced by the chart cursor to a textbox
+        self._series_to_signal_tree_value_item.clear()
+        if self._signal_tree is not None:
+            for series, value_item in self._signal_tree.get_value_item_by_attached_series():
+                self._series_to_signal_tree_value_item[id(series)] = value_item
+
     def enable_cursor1(self) -> None:
         """Enable the chart cursor (red vertical line) to inspect the data"""
+        if self._chart_cursor_x1.is_enabled():
+            return
         xaxis = self.chart().axisX()
         assert xaxis is not None
         range = xaxis.max() - xaxis.min()
@@ -802,13 +817,7 @@ class ScrutinyChartView(QChartView):
 
         self._invalidate_forground()
         self.update()
-
-        # Here we build a lookup between series and the signal tree element that this series refer to
-        # Will be used for mapping quickly a value referenced by the chart cursor to a textbox
-        self._series_to_signal_tree_value_item.clear()
-        if self._signal_tree is not None:
-            for series, value_item in self._signal_tree.get_value_item_by_attached_series():
-                self._series_to_signal_tree_value_item[id(series)] = value_item
+        self._rebuild_series_to_item_lookup()
 
         # The cursor is set at a value that is not snapped to a real point (range/2).
         # Don't show text value to avoid giving false information. Values will be updated on first drag
@@ -818,12 +827,20 @@ class ScrutinyChartView(QChartView):
     def enable_cursor2(self) -> None:
         if not self._chart_cursor_x1.is_enabled():
             return
+        if self._chart_cursor_x2.is_enabled():
+            return
+
+        if self._signal_tree is not None:
+            self._signal_tree.enable_cursor2_rows()
+            self._signal_tree.expandAll()
+
+        self._rebuild_series_to_item_lookup()
         plotarea_width = self.chart().plotArea().width()
-        delta_cursor = min(20, plotarea_width//5)
+        delta_cursor = min(20, plotarea_width // 5)
         xpos = self._chart_cursor_x1.xpos()
         assert xpos is not None
-        if xpos > plotarea_width/2:
-             delta_cursor = -delta_cursor
+        if xpos > plotarea_width / 2:
+            delta_cursor = -delta_cursor
 
         self._chart_cursor_x2.enable()
         self._chart_cursor_x2.set_xval(self._chart_cursor_x1.xval() + self.chart().dx_to_dvalx(delta_cursor))
@@ -834,6 +851,8 @@ class ScrutinyChartView(QChartView):
 
     def disable_cursors(self) -> None:
         """Disable the chart cursor (red vertical line) to inspect the data"""
+        if self._signal_tree is not None:
+            self._signal_tree.disable_cursor2_rows()
         self._chart_cursor_x1.disable()
         self._chart_cursor_x2.disable()
         self._invalidate_forground()
@@ -841,10 +860,11 @@ class ScrutinyChartView(QChartView):
         self._clear_signal_tree_values()
 
     def disable_cursor2(self) -> None:
+        if self._signal_tree is not None:
+            self._signal_tree.disable_cursor2_rows()
         self._chart_cursor_x2.disable()
         self._invalidate_forground()
         self.update()
-
 
     @property
     def signals(self) -> _Signals:
@@ -946,7 +966,7 @@ class ScrutinyChartView(QChartView):
         mouse_cursor = Qt.CursorShape.ArrowCursor
         chart = self.chart()
 
-        dragged_cursor:Optional[ScrutinyChartView.ChartCursor] = None
+        dragged_cursor: Optional[ScrutinyChartView.ChartCursor] = None
         if self._chart_cursor_x1.is_dragging():
             dragged_cursor = self._chart_cursor_x1
         elif self._chart_cursor_x2.is_dragging():
@@ -1058,11 +1078,14 @@ class ScrutinyChartView(QChartView):
 
         super().mouseReleaseEvent(event)
 
-    def _draw_cursor(self, cursor:ChartCursor, painter: QPainter, color:QColor) -> None:
+    def _draw_cursor(self, cursor: ChartCursor, painter: QPainter, color: QColor) -> None:
         chart = self.chart()
         xaxis = self.chart().axisX()
         if xaxis is None:
             return
+
+        MARKER_RADIUS = scrutiny_get_theme_prop(ScrutinyThemeProperties.CHART_CURSOR_MARKER_RADIUS)
+
         plotarea_mapped_to_chartview = chart.mapRectToParent(chart.plotArea())
         cursor_xpos_mapped_to_chart = chart.xval_to_xpos(cursor.xval())
         if cursor_xpos_mapped_to_chart is not None:
@@ -1071,9 +1094,11 @@ class ScrutinyChartView(QChartView):
             y2 = plotarea_mapped_to_chartview.y() + plotarea_mapped_to_chartview.height()
             painter.setPen(self._text_color)
             painter.setBrush(self._text_color)
-            painter.drawPolygon([QPointF(cursor_xpos, y1), QPointF(cursor_xpos - 3, y1 - 4), QPointF(cursor_xpos + 3, y1 - 4)])
+            painter.drawPolygon([QPointF(cursor_xpos, y1), QPointF(cursor_xpos - 3, y1 - 4),
+                                QPointF(cursor_xpos + 3, y1 - 4)])  # Little triangle at the top
+            painter.drawText(QPointF(cursor_xpos + 5, y1 - 5), cursor.get_label())  # Label next to he triangle
             painter.setPen(color)
-            painter.drawLine(QPointF(cursor_xpos, y1), QPointF(cursor_xpos, y2))
+            painter.drawLine(QPointF(cursor_xpos, y1), QPointF(cursor_xpos, y2))    # The cursor line
 
             plotarea_width = chart.plotArea().width()
             cursor_val_width = (xaxis.max() - xaxis.min()) / plotarea_width
@@ -1087,17 +1112,19 @@ class ScrutinyChartView(QChartView):
                     pos = chart.val_to_pos(val, chart.axisY(pair.series), clip_if_outside=False)
                     if pos is not None:
                         painter.setBrush(pair.series.color())
-                        painter.drawEllipse(chart.mapToParent(pos), self.MARKER_RADIUS, self.MARKER_RADIUS)
+                        painter.drawEllipse(chart.mapToParent(pos), MARKER_RADIUS, MARKER_RADIUS)
 
     def drawForeground(self, painter: QPainter, rect: Union[QRectF, QRect]) -> None:
         """Draw the forground of the chartview. We use it to draw a vertical cursor overlay"""
         super().drawForeground(painter, rect)
 
+        CHART_CURSOR_COLOR = scrutiny_get_theme_prop(ScrutinyThemeProperties.CHART_CURSOR_COLOR)
+
         if self._chart_cursor_x1.is_enabled():
-            self._draw_cursor(self._chart_cursor_x1, painter, self.CHART_CURSOR_COLOR)
+            self._draw_cursor(self._chart_cursor_x1, painter, CHART_CURSOR_COLOR)
 
         if self._chart_cursor_x2.is_enabled():
-            self._draw_cursor(self._chart_cursor_x2, painter, QColor('blue'))
+            self._draw_cursor(self._chart_cursor_x2, painter, CHART_CURSOR_COLOR)
 
     def _invalidate_forground(self) -> None:
         # self.invalidateScene(self.geometry(), QGraphicsScene.SceneLayer.ForegroundLayer)   # Does not work??
@@ -1134,19 +1161,37 @@ class ScrutinyChartView(QChartView):
 
         self._clear_signal_tree_values()
 
+        val1_series_dict: Dict[int, float] = {}
         for pair in self._chart_cursor_x1.get_markers_vals():
-            value_item = self._series_to_signal_tree_value_item[id(pair.series)]
-            value_item.setText(str(pair.point.y()))
+            series_id = id(pair.series)
+            value_items = self._series_to_signal_tree_value_item[series_id]
+            v1 = pair.point.y()
+            val1_series_dict[series_id] = v1
+            value_items.value1.setText(str(v1))
+
+        for pair in self._chart_cursor_x2.get_markers_vals():   # Empty list if disabled
+            series_id = id(pair.series)
+            value_items = self._series_to_signal_tree_value_item[series_id]
+            v2 = pair.point.y()
+
+            if value_items.value2 is not None:
+                value_items.value2.setText(str(v2))
+            if value_items.delta is not None and series_id in val1_series_dict:
+                v1 = val1_series_dict[series_id]
+                delta = abs(v2 - v1)
+                value_items.delta.setText(str(delta))
 
     def _clear_signal_tree_values(self) -> None:
         """Clear the value box in the signal tree"""
         if self._signal_tree is not None:
-            for value_item in self._signal_tree.get_all_value_items():
-                value_item.setText("")
+            for value_items in self._signal_tree.get_all_value_items():
+                value_items.value1.setText("")
+                if value_items.value2 is not None:
+                    value_items.value2.setText("")
+                if value_items.delta is not None:
+                    value_items.delta.setText("")
 
     def configure_chart_cursor(self, signal_tree: GraphSignalTree, xval_func: Optional[Callable[[float, bool], None]]) -> None:
-        if not signal_tree.has_value_col():
-            raise RuntimeError("Cannot tie the chart cursor to a signal tree with no value column")
         self._signal_tree = signal_tree
         self._chart_cursor_broadcast_xval_func = xval_func
 
@@ -1294,7 +1339,7 @@ class ScrutinyChartToolBar(QGraphicsItem):
             self._is_pressed = False
             self.update()
 
-        def show_menu(self, chartview:QChartView, menu:QMenu) -> None:
+        def show_menu(self, chartview: QChartView, menu: QMenu) -> None:
             pos = chartview.mapToGlobal(chartview.mapFromScene(self.mapToScene(self.pos())))
 
             actions = menu.actions()
@@ -1319,10 +1364,8 @@ class ScrutinyChartToolBar(QGraphicsItem):
 
     class ToolbarMenu(QMenu):
         @tools.copy_type(QMenu.__init__)
-        def __init__(self, *args:Any, **kwargs:Any) -> None:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
             super().__init__(*args, **kwargs)
-
-
 
     class ToolbarDivision(QGraphicsItem):
         LINE_WIDTH = 1
@@ -1432,7 +1475,6 @@ class ScrutinyChartToolBar(QGraphicsItem):
         single_cursor_action.triggered.connect(self.enable_chart_cursor1)
         diff_cursor_action.triggered.connect(self.enable_chart_diff_cursor)
         self._btn_cursor_menu.show_menu(self._chartview, menu)
-
 
     def _slot_btn_zoom_x(self) -> None:
         """Called when Zoom X button is clicked"""
