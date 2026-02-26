@@ -413,7 +413,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
 
         with log_and_suppress_exceptions:
             validation.assert_dict_key(state, 'signals', list)
-            signal_tree_model = self._signal_tree.model()
+            signal_tree_model = self._signal_tree.real_model()
             signal_tree_model.removeRows(0, signal_tree_model.rowCount())
             try:
                 for axis_content in state['signals']:
@@ -1044,7 +1044,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
             self.start_acquisition()
 
     def _selection_changed_slot(self) -> None:
-        """Whent he user selected/deselected a signal in the right menu"""
+        """When the user selected/deselected a signal in the right menu"""
         self.update_emphasize_state()
 
     def _series_clicked_slot(self, signal_item: ChartSeriesWatchableStandardItem, point: QPointF) -> None:

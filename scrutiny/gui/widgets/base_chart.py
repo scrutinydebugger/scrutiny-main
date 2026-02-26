@@ -287,7 +287,7 @@ class ScrutinyChart(QChart):
             closest_real_point = series.search_closest_monotonic(val_point.x(), xaxis.min(), xaxis.max())
             if closest_real_point is not None:
                 self._mouse_callout_hide_timer.stop()
-                txt = f"{signal_name}\nX: {closest_real_point.x()}\nY: {closest_real_point.y()}"
+                txt = "%s\nX: %g\nY: %g" % (signal_name, closest_real_point.x(), closest_real_point.y())
                 pos = self.mapToPosition(closest_real_point, series)
                 color = series.color()
                 self._mouse_callout.set_content(pos, txt, color)
@@ -848,7 +848,8 @@ class ScrutinyChartView(QChartView):
         delta_cursor = min(20, plotarea_width // 5)
         xpos = self._chart_cursor_x1.xpos()
         assert xpos is not None
-        if xpos > plotarea_width / 2:
+        midpoint = plotarea_width / 2 + self.chart().plotArea().x()
+        if xpos > midpoint:
             delta_cursor = -delta_cursor
 
         self._chart_cursor_x2.enable()
@@ -1173,22 +1174,24 @@ class ScrutinyChartView(QChartView):
         val1_series_dict: Dict[int, float] = {}
         for pair in self._chart_cursor_x1.get_markers_vals():
             series_id = id(pair.series)
-            value_items = self._series_to_signal_tree_value_item[series_id]
-            v1 = pair.point.y()
-            val1_series_dict[series_id] = v1
-            value_items.value1.setText('%g' % v1)
+            if series_id in self._series_to_signal_tree_value_item:
+                value_items = self._series_to_signal_tree_value_item[series_id]
+                v1 = pair.point.y()
+                val1_series_dict[series_id] = v1
+                value_items.value1.setText('%g' % v1)
 
         for pair in self._chart_cursor_x2.get_markers_vals():   # Empty list if disabled
             series_id = id(pair.series)
-            value_items = self._series_to_signal_tree_value_item[series_id]
-            v2 = pair.point.y()
+            if series_id in self._series_to_signal_tree_value_item:
+                value_items = self._series_to_signal_tree_value_item[series_id]
+                v2 = pair.point.y()
 
-            if value_items.value2 is not None:
-                value_items.value2.setText('%g' % v2)
-            if value_items.delta is not None and series_id in val1_series_dict:
-                v1 = val1_series_dict[series_id]
-                delta = abs(v2 - v1)
-                value_items.delta.setText('%g' % delta)
+                if value_items.value2 is not None:
+                    value_items.value2.setText('%g' % v2)
+                if value_items.delta is not None and series_id in val1_series_dict:
+                    v1 = val1_series_dict[series_id]
+                    delta = abs(v2 - v1)
+                    value_items.delta.setText('%g' % delta)
 
     def _clear_signal_tree_values(self) -> None:
         """Clear the value box in the signal tree"""
