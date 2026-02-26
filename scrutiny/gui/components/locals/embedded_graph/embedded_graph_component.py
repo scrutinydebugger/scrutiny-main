@@ -36,7 +36,7 @@ from scrutiny.gui.components.locals.embedded_graph.graph_config_widget import Gr
 from scrutiny.gui.components.locals.embedded_graph.graph_browse_list_widget import GraphBrowseListWidget
 from scrutiny.gui.components.locals.embedded_graph.chart_status_overlay import ChartStatusOverlay
 from scrutiny.gui.widgets.base_chart import (
-    ScrutinyChart, ScrutinyChartView, ScrutinyChartToolBar, ScrutinyLineSeries, ScrutinyValueAxisWithMinMax
+    ScrutinyChart, ScrutinyChartView, ScrutinyChartToolBar, ScrutinyLineSeries, ScrutinyValueAxisWithMinMax, XValuesData
 )
 from scrutiny.gui.widgets.graph_signal_tree import GraphSignalTree, ChartSeriesWatchableStandardItem, AxisStandardItem, AxisContent
 from scrutiny.gui.widgets.feedback_label import FeedbackLabel
@@ -230,8 +230,12 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
 
     _splitter: QSplitter
     """3 section splitter separating left / center / right"""
-    _xval_label: QLabel
-    """The label used to display the X-Value when moving the graph cursor (red vertical line)"""
+    _x1val_label: QLabel
+    """The label used to display the X1-Value when moving the graph cursor (red vertical line)"""
+    _x2val_label: QLabel
+    """The label used to display the X2-Value when moving the graph cursor (red vertical line)"""
+    _xdiffval_label: QLabel
+    """The label used to display the delta X-Value when moving the graph cursor (red vertical line)"""
     _chk_show_trigger: QCheckBox
     """A checkbox to show or hide the trigger marker"""
     _signal_tree: GraphSignalTree
@@ -261,8 +265,8 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
     _pending_datalogging_request: Optional[DataloggingRequest]
     """The datalogging request presently being processed by the server. Is not None between a call to _acquire and a completion of the acquisition"""
     _request_to_ignore_completions: Dict[int, DataloggingRequest]
-    """A map that list the datalogging request to ignore the failure from. It's a trick to avoid displaying a failure when the same user interrupt an 
-    active acquisition with a new one. When that happen, the server will report that the previous acquisition failed with "Interrupted by new request" error. 
+    """A map that list the datalogging request to ignore the failure from. It's a trick to avoid displaying a failure when the same user interrupt an
+    active acquisition with a new one. When that happen, the server will report that the previous acquisition failed with "Interrupted by new request" error.
     We tell the user only if we are not the author of the new request"""
 
     # Browse stuff
@@ -315,18 +319,24 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
             right_pane_layout = QVBoxLayout(right_pane)
             right_pane_layout.setContentsMargins(0, 0, 0, 0)
 
-            self._xval_label = QLabel()
+            self._x1val_label = QLabel()
+            self._x2val_label = QLabel()
+            self._xdiffval_label = QLabel()
             self._chk_show_trigger = QCheckBox("Show Trigger")
             self._chk_show_trigger.checkStateChanged.connect(self._chk_show_trigger_changed_slot)
 
             # Series on continuous graph don't have their X value aligned.
             # We can only show the value next to each point, not all together in the tree
-            self._signal_tree = GraphSignalTree(self, watchable_registry=self.app.watchable_registry, has_value_col=True)
+            self._signal_tree = GraphSignalTree(self, watchable_registry=self.app.watchable_registry)
             self._signal_tree.signals.selection_changed.connect(self._signal_tree_selection_changed_slot)
             self._signal_tree.signals.content_changed.connect(self._signal_tree_content_changed_slot)
 
-            self._xval_label.setVisible(False)
-            right_pane_layout.addWidget(self._xval_label)
+            self._x1val_label.setVisible(False)
+            self._x2val_label.setVisible(False)
+            self._xdiffval_label.setVisible(False)
+            right_pane_layout.addWidget(self._x1val_label)
+            right_pane_layout.addWidget(self._x2val_label)
+            right_pane_layout.addWidget(self._xdiffval_label)
             right_pane_layout.addWidget(self._chk_show_trigger)
             right_pane_layout.addWidget(self._signal_tree)
 
@@ -695,10 +705,11 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
 
 # region Chart handling
 
+
     def _clear_graph(self) -> None:
         """Remove the acquisition presently displayed in the chartview"""
         self._clear_graph_error()
-        self._chart_toolbar.disable_chart_cursor()
+        self._chart_toolbar.disable_chart_cursors()
         chart = self._chartview.chart()
 
         # Unbind the signal tree to the chart
@@ -846,7 +857,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
 
         # Put the chart toolbar in a correct state
         self._state.allow_chart_toolbar()
-        self._chart_toolbar.disable_chart_cursor()
+        self._chart_toolbar.disable_chart_cursors()
 
         # Configure the trigger marker. It is possible that there is no trigger index
         if acquisition.trigger_index is not None:
@@ -859,9 +870,17 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
             self._chk_show_trigger.setEnabled(False)
 
         # Enable the chart cursor so it can display values in the signal tree
-        def update_xval(val: float, enabled: bool) -> None:
-            self._xval_label.setText(f"{acquisition.xdata.name} : {val}")
-            self._xval_label.setVisible(enabled)
+        def update_xval(data: XValuesData) -> None:
+            self._x1val_label.setText("%s (x1) : %g" % (acquisition.xdata.name, data.x1val))
+            self._x1val_label.setVisible(data.x1enabled)
+
+            self._x2val_label.setText("%s (x2) : %g" % (acquisition.xdata.name, data.x2val))
+            self._x2val_label.setVisible(data.x2enabled)
+
+            delta = abs(data.x1val - data.x2val)
+            self._xdiffval_label.setText("Δx : %g" % delta)
+            self._xdiffval_label.setVisible(data.x1enabled and data.x2enabled)
+
         self._chartview.configure_chart_cursor(self._signal_tree, update_xval)
 
         self._apply_internal_state()    # UI update based on the state variables
@@ -1297,7 +1316,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
             self._do_initial_graph_list_download()
 
     def _datalogging_storage_updated_slot(self, change_type: sdk.DataloggingListChangeType, reference_id: Optional[str]) -> None:
-        """The server informs us that a change was made to the datalogging storage. We use ths to update our list, even if this GUI 
+        """The server informs us that a change was made to the datalogging storage. We use ths to update our list, even if this GUI
         is the initiator of the change."""
 
         if change_type == sdk.DataloggingListChangeType.DELETE_ALL:

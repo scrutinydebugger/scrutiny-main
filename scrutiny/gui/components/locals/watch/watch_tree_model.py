@@ -64,17 +64,19 @@ class ValueStandardItem(QStandardItem):
         display_txt = str(value_to_set)
         if value_to_set is None:
             display_txt = ""
-        elif value_enum is not None:
-            if isinstance(value_to_set, int):
+        elif isinstance(value_to_set, float):
+            display_txt = '%g' % value_to_set
+        elif isinstance(value_to_set, int):
+            if value_enum is not None:
                 name = value_enum.get_first_value_name_match(value_to_set)
                 if name is not None:
                     display_txt = self.make_enum_display_val(name, value_to_set)
                 else:
                     pass  # Can happen if the data has a value not defined in the enum. Default to string cast
             else:
-                pass  # That'd be weird. Let's be resilient
+                pass
         else:
-            pass  # Basic type values. Just cast to string for display
+            pass
         self.setData(display_txt, Qt.ItemDataRole.EditRole)
 
     def get_value(self) -> Optional[ValType]:
@@ -746,7 +748,7 @@ class WatchComponentTreeModel(WatchableTreeModel):
             yield from recurse(parent)
 
     def update_row_state(self, watchable_item: WatchableStandardItem) -> None:
-        """Change the availability of an item based on its availability in the registry. 
+        """Change the availability of an item based on its availability in the registry.
         When the watchable referred by an element is not in the registry, becomes "unavailable" (grayed out).
         """
         watchable_node = self._watchable_registry.get_watchable_node_fqn(watchable_item.fqn)

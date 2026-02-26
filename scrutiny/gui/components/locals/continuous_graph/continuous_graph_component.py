@@ -34,7 +34,7 @@ from scrutiny.gui.widgets.graph_signal_tree import GraphSignalTree, ChartSeriesW
 from scrutiny.gui.core.export_chart_csv import export_chart_csv_threaded, make_csv_headers
 from scrutiny.gui.widgets.base_chart import (
     ScrutinyLineSeries, ScrutinyValueAxisWithMinMax, ScrutinyChartView, ScrutinyChart,
-    ScrutinyChartToolBar)
+    ScrutinyChartToolBar, XValuesData)
 from scrutiny.gui.components.locals.continuous_graph.csv_logging_menu import CsvLoggingMenuWidget
 from scrutiny.gui.components.locals.continuous_graph.realtime_line_series import RealTimeScrutinyLineSeries
 from scrutiny.gui.components.locals.continuous_graph.graph_statistics import GraphStatistics
@@ -166,8 +166,12 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
     """The QT chartview"""
     _chart_toolbar: ScrutinyChartToolBar
     """The toolbar that let the user control the zoom"""
-    _xval_label: QLabel
-    """The label above the signal tree that shows the X value when moving the chart cursor"""
+    _x1val_label: QLabel
+    """The label above the signal tree that shows the X1 value when moving the chart cursor"""
+    _x2val_label: QLabel
+    """The label above the signal tree that shows the X2 value when moving the chart cursor"""
+    _xdiffval_label: QLabel
+    """The label above the signal tree that shows the Delta X value when moving the chart cursor"""
     _signal_tree: GraphSignalTree
     """The right menu with axis and signal"""
     _btn_start_stop: QPushButton
@@ -207,7 +211,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
     _graph_device_info: Optional[sdk.DeviceInfo]
     """The details about the device when starting the acquisition"""
     _last_decimated_flush_paint_in_progress: bool
-    """A flag indicated that the repaint event following a data flush has not been completed yet. 
+    """A flag indicated that the repaint event following a data flush has not been completed yet.
     Used for auto-throttling of the repaint rate when the CPU is overloaded"""
     _csv_logger: Optional[CSVLogger]
     """The CSV logger that will save value update to disk in real time. Runs in the UI thread."""
@@ -243,11 +247,13 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
             right_side = QWidget()
             right_side_layout = QVBoxLayout(right_side)
 
-            self._xval_label = QLabel()
+            self._x1val_label = QLabel()
+            self._x2val_label = QLabel()
+            self._xdiffval_label = QLabel()
 
             # Series on continuous graph don't have their X value aligned.
             # We can only show the value next to each point, not all together in the tree
-            self._signal_tree = GraphSignalTree(self, watchable_registry=self.app.watchable_registry, has_value_col=True)
+            self._signal_tree = GraphSignalTree(self, watchable_registry=self.app.watchable_registry)
             self._signal_tree.setMinimumWidth(self._signal_tree.sizeHint().width())
             self._signal_tree.signals.selection_changed.connect(self._selection_changed_slot)
 
@@ -282,7 +288,9 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
             start_pause_line_layout.addWidget(self._btn_start_stop)
             start_pause_line_layout.addWidget(self._btn_pause)
 
-            right_side_layout.addWidget(self._xval_label)
+            right_side_layout.addWidget(self._x1val_label)
+            right_side_layout.addWidget(self._x2val_label)
+            right_side_layout.addWidget(self._xdiffval_label)
             right_side_layout.addWidget(self._signal_tree)
             right_side_layout.addWidget(self._csv_log_menu)
             right_side_layout.addWidget(param_widget)
@@ -335,9 +343,16 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
         layout = QHBoxLayout(self)
         layout.addWidget(self._splitter)
 
-        def update_xval(val: float, enabled: bool) -> None:
-            self._xval_label.setText(f"Time [s] : {val}")
-            self._xval_label.setVisible(enabled)
+        def update_xval(data: XValuesData) -> None:
+            self._x1val_label.setText("Time [s] (x1) : %g" % data.x1val)
+            self._x1val_label.setVisible(data.x1enabled)
+
+            self._x2val_label.setText("Time [s] (x2) : %g" % data.x2val)
+            self._x2val_label.setVisible(data.x2enabled)
+
+            delta = abs(data.x1val - data.x2val)
+            self._xdiffval_label.setText("Δx : %g" % delta)
+            self._xdiffval_label.setVisible(data.x1enabled and data.x2enabled)
 
         self._chartview.configure_chart_cursor(self._signal_tree, update_xval)
 
@@ -437,7 +452,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
     def clear_graph(self) -> None:
         """Delete the graph content and reset the state to of the component to a vanilla state"""
         self._chartview.chart().hide_mouse_callout()
-        self._chart_toolbar.disable_chart_cursor()
+        self._chart_toolbar.disable_chart_cursors()
         self._chartview.chart().removeAllSeries()
         self._clear_stats_and_hide()
 
@@ -577,7 +592,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
 
             # Put toolbar in default state
             self._state.allow_chart_toolbar()
-            self._chart_toolbar.disable_chart_cursor()
+            self._chart_toolbar.disable_chart_cursors()
 
             self._start_periodic_graph_maintenance()
             self._clear_feedback()
@@ -699,7 +714,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
             self.stop_acquisition()
 
     def _flush_decimated_to_dirty_series(self) -> None:
-        """Flush the decimated data buffer of all series marked as dirty. They're dirty when new data is available in 
+        """Flush the decimated data buffer of all series marked as dirty. They're dirty when new data is available in
         the decimator decimated buffer (not the input buffer)"""
         for series in self._all_series():
             if series.is_dirty():
@@ -889,7 +904,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
         self._graph_maintenance_timer.stop()
 
     def _round_robin_recompute_single_series_min_max(self, full: bool) -> None:
-        """Compute a series min/max values. 
+        """Compute a series min/max values.
         if full=``False``, does only 1 series per call to reduce the load on the CPU. Does all if full=``True``"""
         sorted_ids = sorted(list(self._registryid2signal_item.keys()))
         all_series = [self._get_item_series(self._registryid2signal_item[server_id]) for server_id in sorted_ids]
@@ -908,7 +923,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
                 self._y_minmax_recompute_index = 0
 
     def _update_yaxes_minmax_based_on_series_minmax(self) -> None:
-        """Recompute the min/max values of an axis using the minmax values of each series. 
+        """Recompute the min/max values of an axis using the minmax values of each series.
         series.recompute_minmax() must be called prior to this method"""
         allseries = list(self._all_series())
         for yaxis in self._yaxes:

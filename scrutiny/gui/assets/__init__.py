@@ -7,11 +7,7 @@ __all__ = [
     'IconFormat',
     'icon_filename',
     'Icons',
-    'load_icon',
-    'load_icon_filename',
-    'load_tiny_icon',
-    'load_medium_icon',
-    'load_large_icon',
+    'load_icon'
 ]
 
 import os
@@ -116,6 +112,8 @@ class Icons(enum.Enum):
     Window = "window"
     Pin = "pin"
     Unpin = "unpin"
+    SingleMarker = "single-marker"
+    DualMarker = "dual-marker"
 
     SidebarLeft = "sidebar-left"
     SidebarRight = "sidebar-right"

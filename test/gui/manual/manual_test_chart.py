@@ -16,7 +16,7 @@ from manual_test_base import make_manual_test_app
 app = make_manual_test_app()
 
 import logging
-from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QSplitter, QLabel
+from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QSplitter, QLabel
 from PySide6.QtCore import Qt, QPointF, QRectF
 from scrutiny.gui.dialogs.device_config.device_config_dialog import DeviceConfigDialog
 from scrutiny import sdk
@@ -37,24 +37,41 @@ def config_applied(dialog: DeviceConfigDialog):
 window = QMainWindow()
 window.setGeometry(0, 0, 1200, 800)
 registry = WatchableRegistry()
-xlabel = QLabel()
-xlabel.setText("N/A")
+x1label = QLabel()
+x2label = QLabel()
+xdifflabel = QLabel()
+x1label.setText("N/A")
+x2label.setText("N/A")
+xdifflabel.setText("N/A")
 
 
-def x_val_write(val: float, enabled: bool):
-    if enabled:
-        xlabel.setText(str(val))
+def x_val_write(data: XValuesData):
+    if data.x1enabled:
+        x1label.setText("X1: %g" % data.x1val)
     else:
-        xlabel.setText("N/A")
+        x1label.setText("X1: N/A")
+
+    if data.x2enabled:
+        x2label.setText("X2: %g" % data.x2val)
+    else:
+        x2label.setText("X2: N/A")
+
+    if data.x1enabled and data.x2enabled:
+        delta = abs(data.x1val - data.x2val)
+        xdifflabel.setText("ΔX: %g" % delta)
+    else:
+        xdifflabel.setText("ΔX: N/A")
 
 
 server_manager = FakeServerManager(registry)
 
-signal_tree = GraphSignalTree(window, registry, has_value_col=True)
+signal_tree = GraphSignalTree(window, registry)
 right_side = QWidget()
 right_vlayout = QVBoxLayout(right_side)
 right_vlayout.setContentsMargins(0, 0, 0, 0)
-right_vlayout.addWidget(xlabel)
+right_vlayout.addWidget(x1label)
+right_vlayout.addWidget(x2label)
+right_vlayout.addWidget(xdifflabel)
 right_vlayout.addWidget(signal_tree)
 
 chart = ScrutinyChart()
@@ -80,7 +97,23 @@ splitter = QSplitter(Qt.Orientation.Horizontal, window)
 splitter.addWidget(chartview)
 splitter.addWidget(right_side)
 splitter.setSizes([1000, 200])
-window.setCentralWidget(splitter)
+
+# Add spacing to offset the chartview and make sure stuff is aligned with the graph, not the window
+container_v = QWidget()
+layout_v = QVBoxLayout(container_v)
+container_h = QWidget()
+layout_h = QHBoxLayout(container_h)
+spacer_v = QWidget()
+spacer_v.setFixedHeight(100)
+spacer_h = QWidget()
+spacer_h.setFixedWidth(50)
+
+layout_v.addWidget(spacer_v)
+layout_v.addWidget(container_h)
+layout_h.addWidget(spacer_h)
+layout_h.addWidget(splitter)
+
+window.setCentralWidget(container_v)
 
 
 # Fill the registry with dummy data by enabling a simulated device
@@ -151,7 +184,8 @@ def build_chart():
         xaxis.set_minval(min(xdata))
         xaxis.set_maxval(max(xdata))
         xaxis.autoset_range()
-        chart_toolbar.disable_chart_cursor()
+        chart_toolbar.disable_chart_cursors()
+        signal_tree.lock()
 
 
 window.show()

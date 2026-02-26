@@ -76,7 +76,7 @@ def export_chart_csv_threaded(
 
     :param filename: Name of the output file
     :param signals: The list of signal handles to use for data fetching. Provided by :meth:`GraphSignalTree.get_signals<scrutiny.gui.components.dashboard.common.graph_signal_tree.GraphSignalTree.get_signals>`
-    :param finished_callback: A callback to be called when the job is finished or an error occured
+    :param finished_callback: A callback to be called when the job is finished or an error occurred
     :param device: Info about the device connected when the graph was acquired. Will be added to the CSV header
     :param sfd: The Scrutiny Firmware Description loaded when the graph was acquired. Will be added to the CSV header
     :param x_axis_name: Name of the X axis

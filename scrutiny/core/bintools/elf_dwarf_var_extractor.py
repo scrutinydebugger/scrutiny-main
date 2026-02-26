@@ -18,7 +18,6 @@ from sortedcontainers import SortedSet
 import os
 import logging
 import inspect
-from copy import deepcopy
 from enum import Enum, auto
 from dataclasses import dataclass
 from inspect import currentframe
@@ -295,12 +294,6 @@ class ArraySegments:
         """Create a shallow copy of the storage. Returns a new dict that points to the same arrays"""
         o = ArraySegments()
         o._storage = self._storage.copy()
-        return o
-
-    def deep_copy(self) -> "ArraySegments":
-        """Create a deep copy. Returns a new dict with a copy of the arrays"""
-        o = ArraySegments()
-        o._storage = deepcopy(self._storage)
         return o
 
     def clear(self) -> None:
