@@ -129,13 +129,13 @@ class AxisContent:
 
 @dataclass(slots=True)
 class ValueItems:
+    """Contains all the value Tree items attached to a data series"""
     value1: QStandardItem
     value2: QStandardItem
     delta: QStandardItem
 
 
 class GraphSignalModel(BaseTreeModel):
-
     _watchable_registry: WatchableRegistry
     _available_palette: QPalette
     _unavailable_palette: QPalette
@@ -151,7 +151,6 @@ class GraphSignalModel(BaseTreeModel):
         self._watchable_registry = watchable_registry
         self._globally_uneditable = False
         self.setColumnCount(2)
-        self._cursor2_rows_enabled = False
 
         if available_palette is not None:
             self._available_palette = available_palette
@@ -576,14 +575,14 @@ class GraphSignalTree(BaseTreeView):
         nesting_col = self.model().nesting_col()
         selected_items_no_nested_unordered = [self.model().itemFromIndex(index)
                                               for index in selected_indexes_no_nested_unordered if index.column() == nesting_col]
-
+        # Filter None. Should not happen, but be safe
+        selected_items_no_nested_unordered = [item for item in selected_items_no_nested_unordered if item is not None]
         def new_axis_action_slot() -> None:
             self.model().appendRow(self.model().make_axis_row("New Axis"))
 
         def remove_action_slot() -> None:
             for item in selected_items_no_nested_unordered:
-                if item is not None:
-                    self.model().removeRow(item.row(), item.index().parent())
+                self.model().removeRow(item.row(), item.index().parent())
 
         new_axis_action = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.GraphAxis), "New Axis")
         new_axis_action.triggered.connect(new_axis_action_slot)
