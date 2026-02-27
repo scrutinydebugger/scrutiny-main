@@ -82,7 +82,6 @@ class TestGraphFeatures(ScrutinyBaseGuiTest):
 
         config = GridConfiguration.from_serializable_dict({
             'major': {
-                'color': "#123456",
                 "line_width": 5,
                 'line_style': 'dot',
                 'visible': False,
@@ -93,7 +92,7 @@ class TestGraphFeatures(ScrutinyBaseGuiTest):
         self.assertEqual(config.minor, default_config.minor)
         self.assertEqual(config.major.line_style, Qt.PenStyle.DotLine)
         self.assertEqual(config.major.line_width, 5)
-        self.assertEqual(config.major.color, QColor(0x12, 0x34, 0x56))
+        self.assertEqual(config.major.color, default_config.major.color)    # We don't reload the color. always reload the default
         self.assertEqual(config.major.visible, False)
 
         d = config.to_serializable_dict()
@@ -101,7 +100,6 @@ class TestGraphFeatures(ScrutinyBaseGuiTest):
         self.assertIn('major', d)
         self.assertIn('minor', d)
 
-        self.assertEqual(d['major']['color'], "#123456")
         self.assertEqual(d['major']['line_width'], 5)
         self.assertEqual(d['major']['line_style'], 'dot')
         self.assertEqual(d['major']['visible'], False)
