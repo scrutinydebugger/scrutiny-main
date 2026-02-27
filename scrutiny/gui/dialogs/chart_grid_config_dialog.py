@@ -1,3 +1,10 @@
+#    chart_grid_config_dialog.py
+#        A dialog to configure the grid on a ScrutinyChart
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
 
 __all__ = ['GridConfiguration', 'GridConfiguration', 'SingleTypeGridConfiguration']
 

@@ -418,9 +418,6 @@
         "test/cli/test_makevarmap_Linux_LE_x64_Clang_14_0_0_dwarf4.py": {
             "docstring": "Test suite for symbol extraction. clang dwarf V4"
         },
-        "test/cli/test_makevarmap_atmega2560_LE_avr_gcc_5_4_0.py": {
-            "docstring": "Test suite for symbol extraction. AvrGCC dwarf V4"
-        },
         "test/cli/base_testapp_makevarmap_test.py": {
             "docstring": "Base test for symbol extraction based on C++ TestApp"
         },
@@ -958,11 +955,24 @@
         "test/sdk/test_csv_logger.py": {
             "docstring": "Test suite for the CSVLogger class"
         },
-        "test/cli/test_makevarmap_aurixtc334_gcc11_4.py": {
-            "docstring": "Tries to extract var from the Aurix demo"
-        },
         "test/server/test_subscribe_to_prebuilt_bins.py": {
             "docstring": "A test suite that tries to load premade SFD and fill teh datastore without crashing "
+        },
+        "test/cli/test_makevarmap_demo_stm32f4_gcc10_3.py": {
+            "docstring": "Test suite parse the debug symbols of the STM32F4 demo"
+        },
+        "test/cli/test_makevarmap_demo_atmega2560_LE_avr_gcc_5_4_0.py": {
+            "docstring": "Test suite parse the debug symbols of the ATMega2560 demo"
+        },
+        "test/cli/test_makevarmap_demo_aurixtc334_gcc11_4.py": {
+            "docstring": "Test suite parse the debug symbols of the Aurix TC344 demo"
+        },
+        "test/gui/manual/manual_test_chart_grid_config.py": {
+            "docstring": "A test fil to check how the grid config dialog behaves"
+        },
+        "scrutiny/gui/dialogs/chart_grid_config_dialog.py": {
+            "docstring": "A dialog to configure the grid on a ScrutinyChart"
         }
-    }
+    },
+    "authors": {}
 }

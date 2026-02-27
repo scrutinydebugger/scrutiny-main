@@ -1,5 +1,5 @@
-#    test_makevarmap_aurixtc334_gcc11_4.py
-#        Tries to extract var from the Aurix demo
+#    test_makevarmap_demo_stm32f4_gcc10_3.py
+#        Test suite parse the debug symbols of the STM32F4 demo
 #
 #   - License : MIT - See LICENSE file
 #   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
