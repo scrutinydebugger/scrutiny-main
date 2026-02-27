@@ -50,7 +50,7 @@ app_interface.watchable_registry = registry
 
 varlist = VarListComponent(main_window=window, instance_name="varlist1", app_interface=app_interface)
 watch1 = WatchComponent(main_window=window, instance_name="watch1", app_interface=app_interface)
-graph_axes_zone = GraphSignalTree(window, registry, has_value_col=True)
+graph_axes_zone = GraphSignalTree(window, registry)
 
 app_interface.varlist = varlist
 

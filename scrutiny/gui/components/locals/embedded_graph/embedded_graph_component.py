@@ -31,12 +31,14 @@ from scrutiny.gui import assets
 from scrutiny.gui.themes import scrutiny_get_theme, scrutiny_get_theme_prop, ScrutinyThemeProperties
 from scrutiny.gui.tools import prompt
 from scrutiny.gui.widgets.watchable_line_edit import WatchableLineEdit
+from scrutiny.gui.dialogs.chart_grid_config_dialog import GridConfigDialog
 from scrutiny.gui.components.locals.base_local_component import ScrutinyGUIBaseLocalComponent
 from scrutiny.gui.components.locals.embedded_graph.graph_config_widget import GraphConfigWidget
 from scrutiny.gui.components.locals.embedded_graph.graph_browse_list_widget import GraphBrowseListWidget
 from scrutiny.gui.components.locals.embedded_graph.chart_status_overlay import ChartStatusOverlay
 from scrutiny.gui.widgets.base_chart import (
-    ScrutinyChart, ScrutinyChartView, ScrutinyChartToolBar, ScrutinyLineSeries, ScrutinyValueAxisWithMinMax, XValuesData
+    ScrutinyChart, ScrutinyChartView, ScrutinyChartToolBar, ScrutinyLineSeries,
+    ScrutinyValueAxisWithMinMax, XValuesData, GridConfiguration
 )
 from scrutiny.gui.widgets.graph_signal_tree import GraphSignalTree, ChartSeriesWatchableStandardItem, AxisStandardItem, AxisContent
 from scrutiny.gui.widgets.feedback_label import FeedbackLabel
@@ -83,6 +85,7 @@ class State:
     class ComponentState(TypedDict):
         config: "State.Config"
         signals: List["State.AxisContent"]
+        grid_config: GridConfiguration.SerializableDict
 
 
 @dataclass(slots=True)
@@ -540,7 +543,8 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
                         'operand3': self._graph_config_widget.get_txtw_trigger_operand3().get_state(),
                     }
                 },
-                'signals': signals
+                'signals': signals,
+                'grid_config': self._chartview.chart().get_grid_config().to_serializable_dict()
             }
         return cast(Dict[Any, Any], make_state())
 
@@ -627,6 +631,11 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
             self.logger.warning(f"Invalid signal list. {e}")
             raise e
 
+        if 'grid_config' in state_untyped:
+            with log_and_suppress_exceptions:
+                grid_config = GridConfiguration.from_serializable_dict(state_untyped['grid_config'])
+                self._chartview.chart().set_grid_config(grid_config)
+
         self._signal_tree.update_all_availabilities()
 
         if log_and_suppress_exceptions.exception_logged:
@@ -704,7 +713,6 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
 
 
 # region Chart handling
-
 
     def _clear_graph(self) -> None:
         """Remove the acquisition presently displayed in the chartview"""
@@ -945,12 +953,22 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
         save_csv_action.setEnabled(self._state.allow_save_csv())
 
         context_menu.addSection("Content")
+        # Grid Settings
+        grid_setting_action = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.Grid), "Grid settings")
+        grid_setting_action.triggered.connect(self._grid_setting_slot)
+
         # Clear
         clear_chart_action = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.RedX), "Clear")
         clear_chart_action.triggered.connect(self._clear_graph)
         clear_chart_action.setEnabled(self._state.enable_clear_button())
 
         context_menu.popup(self._chartview.mapToGlobal(chartview_event.pos()))
+
+    def _grid_setting_slot(self) -> None:
+        config = self._chartview.chart().get_grid_config()
+        dialog = GridConfigDialog(config, self)
+        if dialog.exec() == GridConfigDialog.DialogCode.Accepted:
+            self._chartview.chart().set_grid_config(dialog.get_config())
 
     def _reset_zoom_slot(self) -> None:
         """Right-click -> Reset zoom"""

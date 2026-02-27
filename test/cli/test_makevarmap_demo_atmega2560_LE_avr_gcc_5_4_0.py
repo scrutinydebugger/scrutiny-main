@@ -1,5 +1,5 @@
-#    test_makevarmap_atmega2560_LE_avr_gcc_5_4_0.py
-#        Test suite for symbol extraction. AvrGCC dwarf V4
+#    test_makevarmap_demo_atmega2560_LE_avr_gcc_5_4_0.py
+#        Test suite parse the debug symbols of the ATMega2560 demo
 #
 #   - License : MIT - See LICENSE file
 #   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)

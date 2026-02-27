@@ -502,7 +502,9 @@ class GraphSignalTree(BaseTreeView):
     _detail_filter_proxy: GraphSignalDetailFilterProxy
 
     def real_model_selected_indexes(self) -> List[QModelIndex]:
-        return [self._detail_filter_proxy.mapToSource(index) for index in super().selectedIndexes() if index.isValid()]
+        # FIXME: Sometime raise an error? When deleting elements in the tree
+        mapped = [self._detail_filter_proxy.mapToSource(index) for index in self.selectedIndexes() if index.isValid()]
+        return [index for index in mapped if index.isValid()]
 
     def real_model(self) -> GraphSignalModel:
         return self._model
