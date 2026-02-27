@@ -125,6 +125,7 @@ class Icons(enum.Enum):
     ContinuousGraph = "continuous-graph"
     Watch = "watch"
     Copy = "copy"
+    Grid = "grid"
 
 
 _filename_cache: Dict[Tuple[Icons, IconFormat, IconSet], Path] = {}

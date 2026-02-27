@@ -11,14 +11,16 @@ if __name__ != '__main__':
 
 import sys
 import os
+
+from PySide6.QtGui import QContextMenuEvent
 sys.path.insert(0, os.path.dirname(__file__))
 from manual_test_base import make_manual_test_app
 app = make_manual_test_app()
 
 import logging
-from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QSplitter, QLabel
+from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QSplitter, QLabel, QMenu
 from PySide6.QtCore import Qt, QPointF, QRectF
-from scrutiny.gui.dialogs.device_config.device_config_dialog import DeviceConfigDialog
+from scrutiny.gui.dialogs.chart_grid_config_dialog import GridConfigDialog
 from scrutiny import sdk
 from scrutiny.gui.widgets.base_chart import *
 from scrutiny.gui.widgets.graph_signal_tree import GraphSignalTree, ChartSeriesWatchableStandardItem
@@ -27,11 +29,6 @@ from test.gui.fake_server_manager import FakeServerManager, ServerConfig
 from scrutiny.core.basic_types import WatchableType
 from scrutiny.tools.typing import *
 import random
-
-
-def config_applied(dialog: DeviceConfigDialog):
-    summary = dialog.get_content_summary()
-    logging.info(f"Config applied: Link: {summary.link_type}. Config : {summary.link_config}. Demo: {summary.demo_mode}")
 
 
 window = QMainWindow()
@@ -188,7 +185,23 @@ def build_chart():
         signal_tree.lock()
 
 
+def make_context_menu(e: QContextMenuEvent) -> None:
+    menu = QMenu(window)
+    action = menu.addAction("Configure grid")
+
+    def make_config_slot() -> None:
+        config = chart.get_grid_config()
+        dialog = GridConfigDialog(config, window)
+        if dialog.exec() == GridConfigDialog.DialogCode.Accepted:
+            chart.apply_grid_config(dialog.get_config())
+
+    action.triggered.connect(make_config_slot)
+    menu.popup(chartview.mapToGlobal(e.pos()))
+
+
+chartview.signals.context_menu_event.connect(make_context_menu)
 window.show()
 build_chart()
+
 
 sys.exit(app.exec())

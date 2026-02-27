@@ -6,10 +6,12 @@
 #
 #    Copyright (c) 2025 Scrutiny Debugger
 
-from PySide6.QtCore import QPointF
+import json
+from PySide6.QtCore import QPointF, Qt
+from PySide6.QtGui import QColor
 from test.gui.base_gui_test import ScrutinyBaseGuiTest
 
-from scrutiny.gui.widgets.base_chart import ScrutinyLineSeries
+from scrutiny.gui.widgets.base_chart import ScrutinyLineSeries, GridConfiguration
 
 
 class TestGraphFeatures(ScrutinyBaseGuiTest):
@@ -72,3 +74,39 @@ class TestGraphFeatures(ScrutinyBaseGuiTest):
 
         series.replace([])
         self.assertIsNone(series.search_closest_monotonic(5))
+
+    def test_grid_configuration(self):
+        default_config = GridConfiguration.make_default()
+        config = GridConfiguration.from_serializable_dict({})   # Should not fail
+        self.assertEqual(default_config, config)
+
+        config = GridConfiguration.from_serializable_dict({
+            'major': {
+                'color': "#123456",
+                "line_width": 5,
+                'line_style': 'dot',
+                'visible': False,
+                'tick_count': 8
+            }
+        })
+
+        self.assertEqual(config.minor, default_config.minor)
+        self.assertEqual(config.major.line_style, Qt.PenStyle.DotLine)
+        self.assertEqual(config.major.line_width, 5)
+        self.assertEqual(config.major.color, QColor(0x12, 0x34, 0x56))
+        self.assertEqual(config.major.visible, False)
+
+        d = config.to_serializable_dict()
+        default_d = default_config.to_serializable_dict()
+        self.assertIn('major', d)
+        self.assertIn('minor', d)
+
+        self.assertEqual(d['major']['color'], "#123456")
+        self.assertEqual(d['major']['line_width'], 5)
+        self.assertEqual(d['major']['line_style'], 'dot')
+        self.assertEqual(d['major']['visible'], False)
+        self.assertEqual(d['major']['tick_count'], 8)
+
+        self.assertEqual(d['minor'], default_d['minor'])
+
+        json.dumps(d)   # Make sure it can be serialized

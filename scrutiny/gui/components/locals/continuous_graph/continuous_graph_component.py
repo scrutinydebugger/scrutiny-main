@@ -29,12 +29,13 @@ from scrutiny.gui.tools import prompt
 from scrutiny.gui.tools.invoker import invoke_later, invoke_in_qt_thread
 from scrutiny.gui.core.watchable_registry import WatchableRegistryNodeNotFoundError, RegistryValueUpdate
 from scrutiny.gui.widgets.feedback_label import FeedbackLabel
-from scrutiny.gui.components.locals.base_local_component import ScrutinyGUIBaseLocalComponent
 from scrutiny.gui.widgets.graph_signal_tree import GraphSignalTree, ChartSeriesWatchableStandardItem, AxisContent
+from scrutiny.gui.dialogs.chart_grid_config_dialog import GridConfigDialog
 from scrutiny.gui.core.export_chart_csv import export_chart_csv_threaded, make_csv_headers
 from scrutiny.gui.widgets.base_chart import (
     ScrutinyLineSeries, ScrutinyValueAxisWithMinMax, ScrutinyChartView, ScrutinyChart,
-    ScrutinyChartToolBar, XValuesData)
+    ScrutinyChartToolBar, XValuesData, GridConfiguration)
+from scrutiny.gui.components.locals.base_local_component import ScrutinyGUIBaseLocalComponent
 from scrutiny.gui.components.locals.continuous_graph.csv_logging_menu import CsvLoggingMenuWidget
 from scrutiny.gui.components.locals.continuous_graph.realtime_line_series import RealTimeScrutinyLineSeries
 from scrutiny.gui.components.locals.continuous_graph.graph_statistics import GraphStatistics
@@ -59,6 +60,7 @@ class State:
         signals: List["State.AxisContent"]
         graph_width_sec: int
         csv_logging: CsvLoggingMenuWidget.SerializableState
+        grid_config: GridConfiguration.SerializableDict
 
 
 @dataclass(slots=True)
@@ -386,7 +388,8 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
             return {
                 'signals': signals,
                 'graph_width_sec': self._spinbox_graph_max_width.value(),
-                'csv_logging': self._csv_log_menu.get_state()
+                'csv_logging': self._csv_log_menu.get_state(),
+                'grid_config': self._chartview.chart().get_grid_config().to_serializable_dict()
             }
 
         return cast(Dict[Any, Any], make_state())
@@ -437,6 +440,11 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
                 raise e
 
             self._signal_tree.update_all_availabilities()
+
+        if 'grid_config' in state:
+            with log_and_suppress_exceptions:
+                grid_config = GridConfiguration.from_serializable_dict(state['grid_config'])
+                self._chartview.chart().set_grid_config(grid_config)
 
         if log_and_suppress_exceptions.exception_logged:
             fully_valid = False
@@ -1152,6 +1160,16 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
         save_csv_action.setEnabled(self._state.allow_save_csv())
 
         context_menu.popup(self._chartview.mapToGlobal(chartview_event.pos()))
+
+        context_menu.addSection("Content")
+        grid_setting_action = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.Grid), "Grid settings")
+        grid_setting_action.triggered.connect(self._grid_setting_slot)
+
+    def _grid_setting_slot(self) -> None:
+        config = self._chartview.chart().get_grid_config()
+        dialog = GridConfigDialog(config, self)
+        if dialog.exec() == GridConfigDialog.DialogCode.Accepted:
+            self._chartview.chart().set_grid_config(dialog.get_config())
 
     def _save_image_slot(self) -> None:
         """When the user right-click the graph then click "Save as image" """
