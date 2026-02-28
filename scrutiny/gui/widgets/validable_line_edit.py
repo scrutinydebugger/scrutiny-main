@@ -97,7 +97,7 @@ class FloatValidableLineEdit(ValidableLineEdit):
         super().__init__(parent=parent, hard_validator=hard_validator, soft_validator=soft_validator)
 
     def set_float_value(self, val: float) -> None:
-        self.setText(str(val))
+        self.setText('%g' % val)
 
     def get_float_value(self) -> Optional[float]:
         with tools.SuppressException(ValueError):

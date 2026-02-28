@@ -463,6 +463,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
         self._chart_toolbar.disable_chart_cursors()
         self._chartview.chart().removeAllSeries()
         self._clear_stats_and_hide()
+        self._signal_tree.detach_all_chart_elements()
 
         for yaxis in self._yaxes:
             with tools.SuppressException():

@@ -721,13 +721,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
         chart = self._chartview.chart()
 
         # Unbind the signal tree to the chart
-        axes_content = self._signal_tree.get_signals()
-        for axis_item in axes_content:
-            if axis_item.axis_item.axis_attached():
-                axis_item.axis_item.detach_axis()
-            for signal_item in axis_item.signal_items:
-                if signal_item.series_attached():
-                    signal_item.detach_series()
+        self._signal_tree.detach_all_chart_elements()
 
         # Clear the graph content
         chart.removeAllSeries()
