@@ -643,7 +643,7 @@ class GraphSignalTree(BaseTreeView):
                 dialog = ChartRangeEditDialog(axis_item.axis(), self)
                 dialog.show()
 
-        edit_range_action = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.Pin), "Edit range")
+        edit_range_action = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.YRange), "Edit range")
         edit_range_action.triggered.connect(edit_range_action_slot)
         edit_range_action.setVisible(axis_item is not None)
 
