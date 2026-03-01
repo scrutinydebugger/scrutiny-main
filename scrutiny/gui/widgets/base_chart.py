@@ -38,7 +38,6 @@ from scrutiny.gui.tools.min_max import MinMax
 
 from scrutiny.tools import validation
 from scrutiny.gui.widgets.graph_signal_tree import GraphSignalTree, ValueItems
-from scrutiny.gui.dialogs.chart_grid_config_dialog import GridConfigDialog
 
 from scrutiny.tools.typing import *
 
@@ -606,17 +605,6 @@ class ScrutinyChart(QChart):
                 line_width=minor_pen.width(),
             )
         )
-
-    def add_grid_config_action(self, menu:QMenu, parent:QWidget) -> QAction:
-        def slot() -> None:
-            config = self.get_grid_config()
-            dialog = GridConfigDialog(config, parent=parent)
-            if dialog.exec() == GridConfigDialog.DialogCode.Accepted:
-                self.set_grid_config(dialog.get_config())
-
-        action = menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.Grid), "Grid settings")
-        action.triggered.connect(slot)
-        return action
 
 
 class ScrutinyChartCallout(QGraphicsItem):

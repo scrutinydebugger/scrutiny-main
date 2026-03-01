@@ -31,7 +31,6 @@ from scrutiny.gui import assets
 from scrutiny.gui.themes import scrutiny_get_theme, scrutiny_get_theme_prop, ScrutinyThemeProperties
 from scrutiny.gui.tools import prompt
 from scrutiny.gui.widgets.watchable_line_edit import WatchableLineEdit
-from scrutiny.gui.dialogs.chart_grid_config_dialog import GridConfigDialog
 from scrutiny.gui.components.locals.base_local_component import ScrutinyGUIBaseLocalComponent
 from scrutiny.gui.components.locals.embedded_graph.graph_config_widget import GraphConfigWidget
 from scrutiny.gui.components.locals.embedded_graph.graph_browse_list_widget import GraphBrowseListWidget
@@ -42,7 +41,7 @@ from scrutiny.gui.widgets.base_chart import (
 )
 from scrutiny.gui.widgets.graph_signal_tree import GraphSignalTree, ChartSeriesWatchableStandardItem, AxisStandardItem, AxisContent
 from scrutiny.gui.widgets.feedback_label import FeedbackLabel
-
+from scrutiny.gui.tools.menus import add_grid_config_action
 from scrutiny import tools
 from scrutiny.tools import validation
 from scrutiny.tools.typing import *
@@ -948,7 +947,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
 
         context_menu.addSection("Content")
         # Grid Settings
-        self._chartview.chart().add_grid_config_action(context_menu, parent=self)
+        add_grid_config_action(self._chartview.chart(), menu=context_menu, parent=self)
 
         # Clear
         clear_chart_action = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.RedX), "Clear")

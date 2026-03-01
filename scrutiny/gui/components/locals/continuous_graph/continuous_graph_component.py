@@ -30,7 +30,6 @@ from scrutiny.gui.tools.invoker import invoke_later, invoke_in_qt_thread
 from scrutiny.gui.core.watchable_registry import WatchableRegistryNodeNotFoundError, RegistryValueUpdate
 from scrutiny.gui.widgets.feedback_label import FeedbackLabel
 from scrutiny.gui.widgets.graph_signal_tree import GraphSignalTree, ChartSeriesWatchableStandardItem, AxisContent
-from scrutiny.gui.dialogs.chart_grid_config_dialog import GridConfigDialog
 from scrutiny.gui.core.export_chart_csv import export_chart_csv_threaded, make_csv_headers
 from scrutiny.gui.widgets.base_chart import (
     ScrutinyLineSeries, ScrutinyValueAxisWithMinMax, ScrutinyChartView, ScrutinyChart,
@@ -42,6 +41,7 @@ from scrutiny.gui.components.locals.continuous_graph.graph_statistics import Gra
 from scrutiny.gui.core.persistent_data import gui_persistent_data
 from scrutiny.gui.themes import scrutiny_get_theme
 from scrutiny.sdk.listeners.csv_logger import CSVLogger
+from scrutiny.gui.tools.menus import add_grid_config_action
 
 from scrutiny.tools.typing import *
 
@@ -1163,7 +1163,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
         context_menu.popup(self._chartview.mapToGlobal(chartview_event.pos()))
 
         context_menu.addSection("Content")
-        self._chartview.chart().add_grid_config_action(context_menu, parent=self)
+        add_grid_config_action(self._chartview.chart(), menu=context_menu, parent=self)
 
     def _save_image_slot(self) -> None:
         """When the user right-click the graph then click "Save as image" """

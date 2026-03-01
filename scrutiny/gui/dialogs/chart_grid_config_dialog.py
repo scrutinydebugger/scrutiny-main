@@ -8,8 +8,6 @@
 
 __all__ = ['GridConfiguration', 'GridConfiguration', 'SingleTypeGridConfiguration']
 
-from dataclasses import dataclass
-
 from PySide6.QtWidgets import (
     QDialog, QDialogButtonBox, QWidget, QVBoxLayout, QHBoxLayout,
     QGroupBox, QFormLayout, QSpinBox, QCheckBox,

@@ -11,16 +11,17 @@ if __name__ != '__main__':
 
 import sys
 import os
+from scrutiny.gui.tools.menus import add_grid_config_action
 
 from PySide6.QtGui import QContextMenuEvent
 sys.path.insert(0, os.path.dirname(__file__))
 from manual_test_base import make_manual_test_app
 app = make_manual_test_app()
 
+
 import logging
 from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QSplitter, QLabel, QMenu
 from PySide6.QtCore import Qt, QPointF, QRectF
-from scrutiny.gui.dialogs.chart_grid_config_dialog import GridConfigDialog
 from scrutiny import sdk
 from scrutiny.gui.widgets.base_chart import *
 from scrutiny.gui.widgets.graph_signal_tree import GraphSignalTree, ChartSeriesWatchableStandardItem
@@ -187,15 +188,8 @@ def build_chart():
 
 def make_context_menu(e: QContextMenuEvent) -> None:
     menu = QMenu(window)
-    action = menu.addAction("Configure grid")
+    add_grid_config_action(chartview.chart(), menu=menu, parent=window)
 
-    def make_config_slot() -> None:
-        config = chart.get_grid_config()
-        dialog = GridConfigDialog(config, window)
-        if dialog.exec() == GridConfigDialog.DialogCode.Accepted:
-            chart.apply_grid_config(dialog.get_config())
-
-    action.triggered.connect(make_config_slot)
     menu.popup(chartview.mapToGlobal(e.pos()))
 
 
