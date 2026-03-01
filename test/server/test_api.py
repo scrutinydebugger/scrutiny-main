@@ -2221,6 +2221,48 @@ class TestAPI(ScrutinyUnitTest):
                 self.assertEqual(response['request_token'], request_token, 'i=%d' % i)
                 self.assertEqual(response['completion_server_time_us'], req2.get_completion_server_time_us(), 'i=%d' % i)
 
+    def test_write_watchable_by_path_no_watch(self):
+        entries = self.make_dummy_entries(10, entry_type=WatchableType.Variable, prefix='var')
+        self.datastore.add_entries(entries)
+
+        entry_to_write = entries[3]
+
+        def base():
+            return {
+                'cmd': 'write_single_watchable',
+                'server_path': entry_to_write.get_display_path(),
+                'value': 1234
+            }
+
+        req = base()
+        self.assertIsNone(self.datastore.pop_target_update_request())
+        self.send_request(req, 0)
+        self.wait_true(lambda: self.datastore.get_pending_target_update_count() > 0)
+        update = self.datastore.pop_target_update_request()
+        self.assertIsNotNone(update)
+        self.assertEqual(update.get_value(), 1234)
+        update.complete(True)
+        response = self.wait_and_load_response()
+        self.assert_no_error(response)
+
+        for server_path in [123, 'idontexist', None, []]:
+            req = base()
+            req['server_path'] = server_path
+            self.send_request(req)
+            self.assert_is_error(self.wait_and_load_response())
+
+        for value in [[], None, {}, 'cannotbeparsed']:
+            req = base()
+            req['value'] = value
+            self.send_request(req)
+            self.assert_is_error(self.wait_and_load_response())
+
+        for todelete in ['server_path', 'value']:
+            req = base()
+            del req[todelete]
+            self.send_request(req)
+            self.assert_is_error(self.wait_and_load_response())
+
     def test_subscribe_watchable_bad_ID(self):
         req = {
             'cmd': 'subscribe_watchable',
@@ -2269,8 +2311,23 @@ class TestAPI(ScrutinyUnitTest):
 
         self.send_request(req, 0)
         response = self.wait_and_load_response()
-        self.assert_is_error(response)
+        self.assert_no_error(response)
         self.assertEqual(response['reqid'], 555)
+
+        self.assertIn(response['cmd'], API.Command.Api2Client.WRITE_WATCHABLE_RESPONSE)
+        self.assertIn('count', response)
+        self.assertIn('request_token', response)
+        self.assertIsInstance(response['request_token'], str)
+        self.assertGreater(len(response['request_token']), 0)
+        self.assertEqual(response['count'], 1)
+
+        req1 = self.datastore.pop_target_update_request()
+        self.assertIsNotNone(req1)
+        req1.complete(True)
+        self.assertEqual(req1.get_value(), 1234)
+
+        response = self.wait_and_load_response(cmd=API.Command.Api2Client.INFORM_WRITE_COMPLETION)
+        self.assert_no_error(response)
 
     def test_write_watchable_bad_values(self):
         varf32 = Variable(vartype=EmbeddedDataType.float32, path_segments=[

@@ -315,6 +315,10 @@ class C2S:
     class WriteValue(BaseC2SMessage):
         updates: List[UpdateRecord]
 
+    class WriteSingleWatchable(BaseC2SMessage):
+        server_path: str
+        value: Any
+
     class RequestDataloggingAcquisition(BaseC2SMessage):
         name: Optional[str]
         sampling_rate_id: int
@@ -440,6 +444,9 @@ class S2C:
     class WriteValue(BaseS2CMessage):
         count: int
         request_token: str
+
+    class WriteSingleWatchable(BaseS2CMessage):
+        success: bool
 
     class WriteCompletion(BaseS2CMessage):
         batch_index: int

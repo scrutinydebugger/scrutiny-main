@@ -789,7 +789,7 @@ class WatchableRegistry:
             """
             colon_position = fqn.find(':')
             if colon_position == -1:
-                raise WatchableRegistryError("Bad fully qualified name")
+                raise WatchableRegistryError(f"Bad fully qualified name {fqn}")
             typestr = fqn[0:colon_position]
             if typestr not in TYPESTR_MAP_S2WT:
                 raise WatchableRegistryError(f"Unknown watchable type {typestr}")

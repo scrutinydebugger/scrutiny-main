@@ -18,6 +18,7 @@ from PySide6.QtWidgets import QMainWindow
 
 from scrutiny.gui.core.persistent_data import gui_persistent_data
 from scrutiny.gui.core.local_server_runner import LocalServerRunner
+from scrutiny.gui.core.serializable_value_set import SerializableValueSet
 from scrutiny.gui.app_settings import app_settings
 from scrutiny.gui.tools.invoker import invoke_later
 from scrutiny.gui.tools import prompt
@@ -28,6 +29,7 @@ from scrutiny.gui.widgets.component_sidebar import ComponentSidebar
 from scrutiny.gui.widgets.status_bar import StatusBar
 from scrutiny.gui.widgets.menu_bar import MenuBar
 from scrutiny.gui.dialogs.server_config_dialog import ServerConfigDialog
+from scrutiny.gui.dialogs.value_import_dialog import ValueImportDialog
 from scrutiny.gui.dashboard.dashboard import Dashboard
 
 from scrutiny.gui.components.locals.base_local_component import ScrutinyGUIBaseLocalComponent
@@ -42,6 +44,7 @@ from scrutiny.gui.core.user_messages_manager import UserMessagesManager
 from scrutiny.gui.core.server_manager import ServerManager
 from scrutiny.gui.core.watchable_registry import WatchableRegistry
 
+from scrutiny import tools
 from scrutiny.tools.typing import *
 
 
@@ -102,7 +105,8 @@ class MainWindow(QMainWindow):
         self._menu_bar.signals.dashboard_save_as_click.connect(self._dashboard_save_as_click)
         self._menu_bar.signals.dashboard_open_click.connect(self._dashboard_open_click)
         self._menu_bar.signals.dashboard_recent_open.connect(self._dashboard_recent_open_click)
-        self._menu_bar.signals.firmwares_manage_click.connect(self.show_server_sfd_manage_dialog)
+        self._menu_bar.signals.server_firmwares_manage_click.connect(self.show_server_sfd_manage_dialog)
+        self._menu_bar.signals.server_upload_values_click.connect(self._upload_value_set_file)
 
         self._menu_bar.set_dashboard_recents(self._dashboard.read_history())
 
@@ -110,6 +114,13 @@ class MainWindow(QMainWindow):
 
         self._server_sfd_manage_dialog = ServerSFDManagerDialog(server_manager=self._server_manager)
         UserMessagesManager.init()
+        self._server_manager.signals.server_connected.connect(self._update_menubar_state)
+        self._server_manager.signals.server_disconnected.connect(self._update_menubar_state)
+        self._server_manager.signals.device_info_availability_changed.connect(self._update_menubar_state)
+        self._server_manager.signals.device_ready.connect(self._update_menubar_state)
+        self._server_manager.signals.device_disconnected.connect(self._update_menubar_state)
+
+        self._update_menubar_state()
 
         if app_settings().start_local_server:
             port = app_settings().local_server_port
@@ -140,6 +151,33 @@ class MainWindow(QMainWindow):
     def show_server_sfd_manage_dialog(self) -> None:
         if not self._server_sfd_manage_dialog.isVisible():
             self._server_sfd_manage_dialog.show()
+
+    def _upload_value_set_file(self) -> None:
+        filepath = prompt.get_open_filepath_from_last_save_dir(
+            extension_with_dot=SerializableValueSet.DEFAULT_EXTENSION,
+            title=f"Open value set ({SerializableValueSet.DEFAULT_EXTENSION})"
+        )
+        if filepath is None:
+            return
+
+        value_set: Optional[SerializableValueSet] = None
+        try:
+            value_set = SerializableValueSet.from_file(filepath)
+        except Exception as e:
+            tools.log_exception(self._logger, e, "Failed to open value set file")
+            prompt.exception_msgbox(e, "Failed to open", f"Failed to open {filepath}")
+            return
+
+        assert value_set is not None
+
+        dialog = ValueImportDialog(value_set=value_set, server_manager=self._server_manager)
+        dialog.exec()
+
+    def _update_menubar_state(self) -> None:
+        self._menu_bar.update_enable_disable_state(
+            server_state=self._server_manager.get_server_state(),
+            server_info=self._server_manager.get_server_info()
+        )
 
     def _make_main_zone(self) -> None:
         self._central_widget = QWidget()

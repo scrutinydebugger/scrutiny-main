@@ -468,6 +468,7 @@ class EmulatedDevice:
     rpvs: Dict[int, RPVValuePair]
     datalogger: DataloggerEmulator
     display_name: str
+    last_heatbeat_time: Optional[float]
 
     datalogging_read_in_progress: bool
     datalogging_read_cursor: int
@@ -494,6 +495,7 @@ class EmulatedDevice:
         self.request_shutdown = False
         self.thread_started_event = threading.Event()
         self.thread = None
+        self.last_heatbeat_time = None
 
         self.max_rx_data_size = 128        # Rx buffer size max. Server should make sure the request won't overflow
         self.max_tx_data_size = 128        # Tx buffer size max. Server should make sure the response won't overflow
@@ -586,6 +588,12 @@ class EmulatedDevice:
             if self.is_datalogging_enabled():
                 self.datalogger.process()
 
+            if self.is_connected():
+                assert self.last_heatbeat_time is not None
+                if time.monotonic() - self.last_heatbeat_time > self.heartbeat_timeout_us / 1000000:
+                    self.logger.info("Communication timeout")
+                    self._destroy_session()
+
             # Some tasks may be required by unit tests to be run in this thread
             with self.additional_tasks_lock:
                 for task in self.additional_tasks:
@@ -662,6 +670,7 @@ class EmulatedDevice:
             if data['session_id'] == self.session_id:
                 challenge_response = self.protocol.heartbeat_expected_challenge_response(data['challenge'])
                 response = self.protocol.respond_comm_heartbeat(self.session_id, challenge_response)
+                self.last_heatbeat_time = time.monotonic()
             else:
                 self.logger.warning('Received a Heartbeat request for session ID 0x%08X, but my active session ID is %s' %
                                     (data['session_id'], session_id_str))
@@ -960,11 +969,13 @@ class EmulatedDevice:
     def _initiate_session(self) -> None:
         self.session_id = random.randrange(0, 0xFFFFFFFF)
         self.connected = True
+        self.last_heatbeat_time = time.monotonic()
         self.logger.info('Initiating session. SessionID = 0x%08x', self.session_id)
 
     def _destroy_session(self) -> None:
         self.logger.info('Destroying session. SessionID = 0x%08x', self.session_id)
         self.session_id = None
+        self.last_heatbeat_time = None
         self.connected = False
 
     def get_firmware_id(self) -> bytes:

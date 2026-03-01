@@ -26,9 +26,9 @@ class RealTimeScrutinyLineSeries(ScrutinyLineSeries):
     _decimator: GraphMonotonicNonUniformMinMaxDecimator
     """The decimator that keeps the whole dataset and also provides a decimated version of it"""
     _x_minmax: MinMax
-    """Min/Max trackerfor the X values"""
+    """Min/Max tracker for the X values"""
     _y_minmax: MinMax
-    """Min/Max trackerfor the Y values"""
+    """Min/Max tracker for the Y values"""
     _dirty: bool
     """Flag indicating that the output of the decimator has new data ready to be flushed to the chart"""
 
