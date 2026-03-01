@@ -11,7 +11,7 @@ if __name__ != '__main__':
 
 import sys
 import os
-from scrutiny.gui.tools.menus import add_grid_config_action
+from scrutiny.gui.components.common import chart_mixins
 
 from PySide6.QtGui import QContextMenuEvent
 sys.path.insert(0, os.path.dirname(__file__))
@@ -188,7 +188,7 @@ def build_chart():
 
 def make_context_menu(e: QContextMenuEvent) -> None:
     menu = QMenu(window)
-    add_grid_config_action(chartview.chart(), menu=menu, parent=window)
+    chart_mixins.add_grid_config_action(chartview.chart(), menu=menu, parent=window)
 
     menu.popup(chartview.mapToGlobal(e.pos()))
 

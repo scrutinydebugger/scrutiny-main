@@ -27,10 +27,11 @@ from scrutiny.gui import assets
 from scrutiny.gui.app_settings import app_settings
 from scrutiny.gui.tools import prompt
 from scrutiny.gui.tools.invoker import invoke_later, invoke_in_qt_thread
+from scrutiny.gui.core.export_chart_csv import export_chart_csv_threaded, make_csv_headers
 from scrutiny.gui.core.watchable_registry import WatchableRegistryNodeNotFoundError, RegistryValueUpdate
 from scrutiny.gui.widgets.feedback_label import FeedbackLabel
 from scrutiny.gui.widgets.graph_signal_tree import GraphSignalTree, ChartSeriesWatchableStandardItem, AxisContent
-from scrutiny.gui.core.export_chart_csv import export_chart_csv_threaded, make_csv_headers
+from scrutiny.gui.dialogs.chart_range_edit_dialog import ChartRangeEditDialog
 from scrutiny.gui.widgets.base_chart import (
     ScrutinyLineSeries, ScrutinyValueAxisWithMinMax, ScrutinyChartView, ScrutinyChart,
     ScrutinyChartToolBar, XValuesData, GridConfiguration)
@@ -41,7 +42,7 @@ from scrutiny.gui.components.locals.continuous_graph.graph_statistics import Gra
 from scrutiny.gui.core.persistent_data import gui_persistent_data
 from scrutiny.gui.themes import scrutiny_get_theme
 from scrutiny.sdk.listeners.csv_logger import CSVLogger
-from scrutiny.gui.tools.menus import add_grid_config_action
+from scrutiny.gui.components.common import chart_mixins
 
 from scrutiny.tools.typing import *
 
@@ -150,6 +151,9 @@ class ContinuousGraphState:
 
     def enable_csv_logging_menu(self) -> bool:
         return not self.acquiring
+
+    def enable_edit_range_menu(self) -> bool:
+        return self.has_non_moving_content()
 
 
 class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
@@ -1163,7 +1167,14 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
         context_menu.popup(self._chartview.mapToGlobal(chartview_event.pos()))
 
         context_menu.addSection("Content")
-        add_grid_config_action(self._chartview.chart(), menu=context_menu, parent=self)
+        chart_mixins.add_grid_config_action(self._chartview.chart(), menu=context_menu, parent=self)
+
+        def range_edit_slot() -> None:
+            dialog = ChartRangeEditDialog(self._xaxis, self._yaxes, parent=self)
+            dialog.show()
+        edit_range_action = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.YRange), "Axes range")
+        edit_range_action.triggered.connect(range_edit_slot)
+        edit_range_action.setEnabled(self._state.enable_edit_range_menu())
 
     def _save_image_slot(self) -> None:
         """When the user right-click the graph then click "Save as image" """

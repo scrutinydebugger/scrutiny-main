@@ -14,7 +14,8 @@ import logging
 import enum
 
 from PySide6.QtWidgets import (
-    QVBoxLayout, QLabel, QWidget, QSplitter, QPushButton, QScrollArea, QHBoxLayout, QMenu, QTabWidget, QCheckBox, QMessageBox
+    QVBoxLayout, QLabel, QWidget, QSplitter, QPushButton, QScrollArea, QHBoxLayout, QMenu,
+    QTabWidget, QCheckBox, QMessageBox
 )
 from PySide6.QtCore import Qt, QPointF, QRectF, QRect
 from PySide6.QtGui import QContextMenuEvent, QKeyEvent, QResizeEvent, QIcon, QPainter, QPen
@@ -30,18 +31,19 @@ from scrutiny.sdk.client import ScrutinyClient
 from scrutiny.gui import assets
 from scrutiny.gui.themes import scrutiny_get_theme, scrutiny_get_theme_prop, ScrutinyThemeProperties
 from scrutiny.gui.tools import prompt
-from scrutiny.gui.widgets.watchable_line_edit import WatchableLineEdit
 from scrutiny.gui.components.locals.base_local_component import ScrutinyGUIBaseLocalComponent
 from scrutiny.gui.components.locals.embedded_graph.graph_config_widget import GraphConfigWidget
 from scrutiny.gui.components.locals.embedded_graph.graph_browse_list_widget import GraphBrowseListWidget
 from scrutiny.gui.components.locals.embedded_graph.chart_status_overlay import ChartStatusOverlay
+from scrutiny.gui.widgets.watchable_line_edit import WatchableLineEdit
 from scrutiny.gui.widgets.base_chart import (
     ScrutinyChart, ScrutinyChartView, ScrutinyChartToolBar, ScrutinyLineSeries,
     ScrutinyValueAxisWithMinMax, XValuesData, GridConfiguration
 )
 from scrutiny.gui.widgets.graph_signal_tree import GraphSignalTree, ChartSeriesWatchableStandardItem, AxisStandardItem, AxisContent
 from scrutiny.gui.widgets.feedback_label import FeedbackLabel
-from scrutiny.gui.tools.menus import add_grid_config_action
+from scrutiny.gui.dialogs.chart_range_edit_dialog import ChartRangeEditDialog
+from scrutiny.gui.components.common import chart_mixins
 from scrutiny import tools
 from scrutiny.tools import validation
 from scrutiny.tools.typing import *
@@ -165,6 +167,9 @@ class EmbeddedGraphState:
 
     def must_use_load_more_btn_label(self) -> bool:
         return self.initial_load_completed
+
+    def enable_edit_range_menu(self) -> bool:
+        return self.has_content
 
 
 @dataclass(slots=True)
@@ -947,7 +952,16 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
 
         context_menu.addSection("Content")
         # Grid Settings
-        add_grid_config_action(self._chartview.chart(), menu=context_menu, parent=self)
+        chart_mixins.add_grid_config_action(self._chartview.chart(), menu=context_menu, parent=self)
+
+        def range_edit_slot() -> None:
+            if self._xaxis is not None:
+                dialog = ChartRangeEditDialog(self._xaxis, self._yaxes, parent=self)
+                dialog.show()
+        edit_range_action = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.YRange), "Axes range")
+        edit_range_action.triggered.connect(range_edit_slot)
+        edit_range_action.setEnabled(self._state.enable_edit_range_menu())
+
 
         # Clear
         clear_chart_action = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.RedX), "Clear")
