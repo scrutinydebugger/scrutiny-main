@@ -9,12 +9,12 @@
 __all__ = ['SerialConfigPane']
 
 from PySide6.QtWidgets import QLabel, QFormLayout, QWidget, QComboBox
-from PySide6.QtGui import QIntValidator, QDoubleValidator
+from PySide6.QtGui import QIntValidator
 
 from scrutiny import sdk
 from scrutiny.gui.core.persistent_data import gui_persistent_data
 from scrutiny.gui.widgets.validable_line_edit import ValidableLineEdit, FloatValidableLineEdit, IntValidableLineEdit
-from scrutiny.gui.tools.validators import NotEmptyValidator
+from scrutiny.gui.tools.validators import NotEmptyValidator, QStandardNotationDoubleValidator
 from scrutiny.gui.dialogs.device_config.base_config_pane import BaseConfigPane
 from scrutiny.tools.typing import *
 from scrutiny import tools
@@ -47,8 +47,7 @@ class SerialConfigPane(BaseConfigPane):
             hard_validator=QIntValidator(0, 0x7FFFFFFF),
             soft_validator=NotEmptyValidator()
         )
-        start_delay_hard_validator = QDoubleValidator(0, 5, 2, self)
-        start_delay_hard_validator.setNotation(QDoubleValidator.Notation.StandardNotation)
+        start_delay_hard_validator = QStandardNotationDoubleValidator(0, 5, 2, self)
         self._start_delay_textbox = FloatValidableLineEdit(
             parent=self,
             hard_validator=start_delay_hard_validator,

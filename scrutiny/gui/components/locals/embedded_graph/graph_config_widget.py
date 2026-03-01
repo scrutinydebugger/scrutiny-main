@@ -14,11 +14,12 @@ import re
 
 from dataclasses import dataclass
 from PySide6.QtWidgets import QWidget, QFormLayout, QComboBox, QSpinBox, QLabel, QLineEdit, QVBoxLayout, QGroupBox, QSizePolicy
-from PySide6.QtGui import QDoubleValidator, QStandardItemModel
+from PySide6.QtGui import QStandardItemModel
 from PySide6.QtCore import Qt
 from scrutiny.gui.widgets.validable_line_edit import FloatValidableLineEdit
 from scrutiny.gui.widgets.watchable_line_edit import WatchableLineEdit
 from scrutiny.gui.core.watchable_registry import WatchableRegistry
+from scrutiny.gui.tools.validators import QStandardNotationDoubleValidator
 from scrutiny.sdk.datalogging import (TriggerCondition, SamplingRate, FixedFreqSamplingRate, DataloggingEncoding, XAxisType,
                                       VariableFreqSamplingRate, DataloggingConfig)
 from scrutiny.sdk import EmbeddedDataType, DeviceInfo
@@ -71,7 +72,7 @@ GreaterOrEqualThan: x1 >= x2
 LessThan: x1 < x2
 LessOrEqualThan: x1 <= x2
 ChangeMoreThan: |dx1| > |x2| & sign(dx1)=sign(x2)
-IsWithin: |x1-x2| < |x3|    
+IsWithin: |x1-x2| < |x3|
 """
     OPERAND1 = r"Operand x1 for trigger condition. Can be a literal or a watchable dragged & dropped from other widgets"
     OPERAND2 = r"Operand x2 for trigger condition. Can be a literal or a watchable dragged & dropped from other widgets"
@@ -175,31 +176,24 @@ class GraphConfigWidget(QWidget):
         self._spin_decimation = QSpinBox(self)
         self._lbl_effective_sampling_rate = QLabel(self)
         self._spin_trigger_position = QSpinBox(self)
-        timeout_hard_validator = QDoubleValidator(0, MAX_TIMEOUT_SEC, 7)
-        timeout_hard_validator.setNotation(QDoubleValidator.Notation.StandardNotation)
+        timeout_hard_validator = QStandardNotationDoubleValidator(0, MAX_TIMEOUT_SEC, 7)
         self._txt_acquisition_timeout = FloatValidableLineEdit(
             hard_validator=timeout_hard_validator,
             parent=self
         )
-        double_validator1 = QDoubleValidator()
-        double_validator2 = QDoubleValidator()
-        double_validator3 = QDoubleValidator()
-        for validator in [double_validator1, double_validator2, double_validator3]:
-            validator.setNotation(QDoubleValidator.Notation.StandardNotation)
 
         self._cmb_trigger_condition = QComboBox(self)
         self._txtw_trigger_operand1 = WatchableLineEdit("", self)
-        self._txtw_trigger_operand1.setValidator(double_validator1)
+        self._txtw_trigger_operand1.setValidator(QStandardNotationDoubleValidator())
         self._txtw_trigger_operand2 = WatchableLineEdit("", self)
-        self._txtw_trigger_operand2.setValidator(double_validator2)
+        self._txtw_trigger_operand2.setValidator(QStandardNotationDoubleValidator())
         self._txtw_trigger_operand3 = WatchableLineEdit("", self)
-        self._txtw_trigger_operand3.setValidator(double_validator3)
+        self._txtw_trigger_operand3.setValidator(QStandardNotationDoubleValidator())
         self._cmb_xaxis_type = QComboBox(self)
         self._txtw_xaxis_signal = WatchableLineEdit("", self)
         self._txtw_xaxis_signal.set_text_mode_enabled(False)    # No literal allowed, just watchables
 
-        hold_time_hard_validator = QDoubleValidator(0, MAX_HOLD_TIME_MS, 4)
-        hold_time_hard_validator.setNotation(QDoubleValidator.Notation.StandardNotation)
+        hold_time_hard_validator = QStandardNotationDoubleValidator(0, MAX_HOLD_TIME_MS, 4)
         self._txt_hold_time_ms = FloatValidableLineEdit(hard_validator=hold_time_hard_validator, parent=self)
         self._lbl_estimated_duration = QLabel(self)
 

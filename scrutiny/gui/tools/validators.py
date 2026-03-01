@@ -6,12 +6,21 @@
 #
 #    Copyright (c) 2024 Scrutiny Debugger
 
-__all__ = ['IpPortValidator', 'NotEmptyValidator']
+__all__ = ['IpPortValidator', 'NotEmptyValidator', 'QStandardNotationDoubleValidator']
 
-from PySide6.QtGui import QValidator
+from PySide6.QtGui import QValidator, QDoubleValidator
 from PySide6.QtWidgets import QWidget
 
 from scrutiny.tools.typing import *
+from scrutiny import tools
+
+
+class QStandardNotationDoubleValidator(QDoubleValidator):
+
+    @tools.copy_type(QDoubleValidator.__init__)
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.setNotation(QDoubleValidator.Notation.StandardNotation)
 
 
 class IpPortValidator(QValidator):

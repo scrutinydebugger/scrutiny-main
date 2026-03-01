@@ -16,7 +16,8 @@ __all__ = [
     'MutableNullableFloat',
     'MutableNullableBool',
     'NullableMutable',
-    'is_documented_by'
+    'is_documented_by',
+    'f2g'
 ]
 
 import tempfile
@@ -26,7 +27,6 @@ import traceback
 import types
 import logging
 import threading
-import queue
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
@@ -38,6 +38,10 @@ from scrutiny.tools.typing import *
 
 T = TypeVar("T")
 P = ParamSpec('P')
+
+
+def f2g(f: float) -> float:
+    return float('%g' % f)
 
 
 def get_not_none(v: Optional[T]) -> T:

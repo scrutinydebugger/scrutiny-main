@@ -126,6 +126,7 @@ class Icons(enum.Enum):
     Watch = "watch"
     Copy = "copy"
     Grid = "grid"
+    YRange = "yrange"
 
 
 _filename_cache: Dict[Tuple[Icons, IconFormat, IconSet], Path] = {}

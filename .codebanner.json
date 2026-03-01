@@ -972,6 +972,15 @@
         },
         "scrutiny/gui/dialogs/chart_grid_config_dialog.py": {
             "docstring": "A dialog to configure the grid on a ScrutinyChart"
+        },
+        "test/gui/manual/manual_test_chart_range_edit_dialog.py": {
+            "docstring": "A manual test suite for the ChartRangeEditDialog"
+        },
+        "scrutiny/gui/components/common/chart_mixins.py": {
+            "docstring": "Mixin functions related to charts that are shared across components. They exhibit similar chart features"
+        },
+        "scrutiny/gui/dialogs/chart_range_edit_dialog.py": {
+            "docstring": "A dialog to configure a chart axes range"
         }
     },
     "authors": {}

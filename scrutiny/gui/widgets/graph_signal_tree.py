@@ -30,6 +30,7 @@ from scrutiny.gui.core.watchable_registry import WatchableRegistry
 from scrutiny.gui.core.scrutiny_drag_data import ScrutinyDragData, WatchableListDescriptor, SingleWatchableDescriptor
 from scrutiny.gui.widgets.watchable_tree import WatchableStandardItem, get_watchable_icon
 from scrutiny.gui.widgets.base_tree import BaseTreeModel, BaseTreeView, SerializableItemIndexDescriptor
+from scrutiny.gui.dialogs.chart_range_edit_dialog import ChartRangeEditDialog
 from scrutiny import tools
 
 from scrutiny.tools.typing import *
@@ -461,6 +462,19 @@ class GraphSignalModel(BaseTreeModel):
         self._globally_uneditable = False
         self._update_editable_field()
 
+    def detach_all_chart_elements(self) -> None:
+        """Detach chart axes from axis item and detach data series from watchable rows"""
+        for i in range(self.rowCount()):
+            axis_item = cast(AxisStandardItem, self.item(i, self.axis_col()))
+
+            for j in range(axis_item.rowCount()):
+                signal_item = cast(ChartSeriesWatchableStandardItem, axis_item.child(j, self.watchable_col()))
+                if signal_item.series_attached():
+                    signal_item.detach_series()
+
+            if axis_item.axis_attached():
+                axis_item.detach_axis()
+
 
 class GraphSignalDetailFilterProxy(QSortFilterProxyModel):
 
@@ -688,3 +702,6 @@ class GraphSignalTree(BaseTreeView):
 
     def disable_cursor2_rows(self) -> None:
         self._detail_filter_proxy.hide_details_row()
+
+    def detach_all_chart_elements(self) -> None:
+        self._model.detach_all_chart_elements()

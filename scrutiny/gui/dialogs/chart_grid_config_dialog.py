@@ -8,8 +8,6 @@
 
 __all__ = ['GridConfiguration', 'GridConfiguration', 'SingleTypeGridConfiguration']
 
-from dataclasses import dataclass
-
 from PySide6.QtWidgets import (
     QDialog, QDialogButtonBox, QWidget, QVBoxLayout, QHBoxLayout,
     QGroupBox, QFormLayout, QSpinBox, QCheckBox,
@@ -18,7 +16,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtGui import QColor
 from PySide6.QtCore import Qt
 from scrutiny.gui.widgets.base_chart import SingleTypeGridConfiguration, GridConfiguration
-
+from scrutiny.gui.themes import scrutiny_get_theme
 
 from scrutiny.tools.typing import *
 
@@ -31,8 +29,13 @@ class _ColorButton(QWidget):
         super().__init__(parent)
         self._color = QColor(color)
         self._btn = QPushButton(self)
-        self._btn.setMinimumWidth(60)
+
+        self._btn.setFixedWidth(60)
         self._btn.clicked.connect(self._open_color_dialog)
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        layout.addWidget(self._btn)
         self._update_appearance()
 
     def _open_color_dialog(self) -> None:
@@ -42,9 +45,10 @@ class _ColorButton(QWidget):
             self._update_appearance()
 
     def _update_appearance(self) -> None:
-        self._btn.setStyleSheet(
-            f"background-color: {self._color.name(QColor.NameFormat.HexRgb)}; border: 1px solid gray;"
-        )
+        border_color = scrutiny_get_theme().palette().text().color()
+        stylesheet = f"background-color: {self._color.name(QColor.NameFormat.HexRgb)};"
+        stylesheet += f'border: 1px solid {border_color.name(QColor.NameFormat.HexRgb)}'
+        self._btn.setStyleSheet(stylesheet)
 
     def get_color(self) -> QColor:
         """Return a copy of the currently selected color"""
