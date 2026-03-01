@@ -17,11 +17,9 @@ app = make_manual_test_app()
 
 import logging
 from PySide6.QtWidgets import QMainWindow, QPushButton, QWidget, QVBoxLayout, QDialog
-from scrutiny.gui.widgets.chart_range_edit_dialog import ChartRangeEditDialog
+from scrutiny.gui.dialogs.chart_range_edit_dialog import ChartRangeEditDialog
 from scrutiny.gui.widgets.base_chart import ScrutinyValueAxisWithMinMax
 
-DATASERIES_MIN = -100.5
-DATASERIES_MAX = 200.75
 
 window = QMainWindow()
 central_widget = QWidget()
@@ -30,19 +28,27 @@ window.setCentralWidget(central_widget)
 layout = QVBoxLayout(central_widget)
 layout.addWidget(btn_show)
 
-axis = ScrutinyValueAxisWithMinMax()
-axis.set_maxval(DATASERIES_MAX)
-axis.set_minval(DATASERIES_MIN)
-axis.autoset_range()
+axis1 = ScrutinyValueAxisWithMinMax()
+axis2 = ScrutinyValueAxisWithMinMax()
+axis3 = ScrutinyValueAxisWithMinMax()
+axis1.setRange(-1,1)
+axis2.setRange(-2,2)
+axis3.setRange(-3,3)
+axis1.setTitleText("Axis1")
+axis2.setTitleText("Axis2")
+axis3.setTitleText("Axis3")
+
 
 
 def show_dialog() -> None:
-    dialog = ChartRangeEditDialog(axis, window)
-    result = dialog.exec()
-    if result == QDialog.DialogCode.Accepted:
-        logging.info(f"Accepted - min={dialog.get_min()}, max={dialog.get_max()}")
-    else:
-        logging.info("Cancelled")
+    dialog = ChartRangeEditDialog(axis1, [axis2, axis3], window)
+    dialog.show()
+    def display():
+        logging.info("Axis1: [%g - %g]" % (axis1.min(), axis1.max()))
+        logging.info("Axis2: [%g - %g]" % (axis2.min(), axis2.max()))
+        logging.info("Axis3: [%g - %g]" % (axis3.min(), axis3.max()))
+    dialog.finished.connect(display)
+
 
 
 btn_show.clicked.connect(show_dialog)
