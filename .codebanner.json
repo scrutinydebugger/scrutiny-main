@@ -981,6 +981,18 @@
         },
         "scrutiny/tools/sorted_set.py": {
             "docstring": "A custom implementation of a sorted set"
+        },
+        "test/gui/test_serializable_value_set.py": {
+            "docstring": "A test suite for the value set fil"
+        },
+        "scrutiny/gui/core/serializable_value_set.py": {
+            "docstring": "A class that represent the content of a .scval file. It's a set of values tied to a server path."
+        },
+        "scrutiny/gui/dialogs/value_upload_status_dialog.py": {
+            "docstring": "A dialog that makes the value import and gives the user a progress of each element individually"
+        },
+        "scrutiny/gui/widgets/mixins.py": {
+            "docstring": "Some mixins to use across the GUI to keep it consistent"
         }
     },
     "authors": {}
