@@ -39,8 +39,10 @@ from scrutiny.tools.typing import *
 T = TypeVar("T")
 P = ParamSpec('P')
 
-def f2g(f:float) -> float:
+
+def f2g(f: float) -> float:
     return float('%g' % f)
+
 
 def get_not_none(v: Optional[T]) -> T:
     assert v is not None

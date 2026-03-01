@@ -31,24 +31,23 @@ layout.addWidget(btn_show)
 axis1 = ScrutinyValueAxisWithMinMax()
 axis2 = ScrutinyValueAxisWithMinMax()
 axis3 = ScrutinyValueAxisWithMinMax()
-axis1.setRange(-1,1)
-axis2.setRange(-2,2)
-axis3.setRange(-3,3)
+axis1.setRange(-1, 1)
+axis2.setRange(-2, 2)
+axis3.setRange(-3, 3)
 axis1.setTitleText("Axis1")
 axis2.setTitleText("Axis2")
 axis3.setTitleText("Axis3")
 
 
-
 def show_dialog() -> None:
     dialog = ChartRangeEditDialog(axis1, [axis2, axis3], window)
     dialog.show()
+
     def display():
         logging.info("Axis1: [%g - %g]" % (axis1.min(), axis1.max()))
         logging.info("Axis2: [%g - %g]" % (axis2.min(), axis2.max()))
         logging.info("Axis3: [%g - %g]" % (axis3.min(), axis3.max()))
     dialog.finished.connect(display)
-
 
 
 btn_show.clicked.connect(show_dialog)

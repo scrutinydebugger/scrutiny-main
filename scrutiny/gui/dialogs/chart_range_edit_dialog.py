@@ -9,7 +9,7 @@
 from dataclasses import dataclass
 import functools
 import math
-from PySide6.QtWidgets import (QDialog, QDialogButtonBox, QWidget, QGroupBox,
+from PySide6.QtWidgets import (QDialog, QWidget, QGroupBox,
                                QVBoxLayout, QHBoxLayout, QScrollArea, QPushButton)
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QDoubleValidator
@@ -20,18 +20,26 @@ from scrutiny import tools
 
 from scrutiny.tools.typing import *
 
+
 @dataclass(init=False)
 class AxisEditData:
+    """Each axis has a row with those widgets"""
     axis: QValueAxis
-    txt_min:FloatValidableLineEdit
-    txt_max:FloatValidableLineEdit
-    btn_apply:QPushButton
-    btn_reset:QPushButton
-    initial_min:float
-    initial_max:float
+    """The graph axis object"""
+    txt_min: FloatValidableLineEdit
+    """Min textbox"""
+    txt_max: FloatValidableLineEdit
+    """Max textbox"""
+    btn_apply: QPushButton
+    """Apply button"""
+    btn_reset: QPushButton
+    """Reset button"""
+    initial_min: float
+    """Axis min when the dialog was created"""
+    initial_max: float
+    """Axis max when the dialog was created"""
 
-
-    def __init__(self, axis:QValueAxis, parent:QWidget) -> None:
+    def __init__(self, axis: QValueAxis, parent: QWidget) -> None:
         self.axis = axis
         self.txt_min = FloatValidableLineEdit(parent, hard_validator=QDoubleValidator())
         self.txt_max = FloatValidableLineEdit(parent, hard_validator=QDoubleValidator())
@@ -40,8 +48,9 @@ class AxisEditData:
         self.initial_min = tools.f2g(axis.min())
         self.initial_max = tools.f2g(axis.max())
 
+
 class ChartRangeEditDialog(QDialog):
-    _axes_edit_data:List[AxisEditData]
+    _axes_edit_data: List[AxisEditData]
     """Data about every axes given to the constructor"""
     _btn_close: QPushButton
     """Close button"""
@@ -50,7 +59,7 @@ class ChartRangeEditDialog(QDialog):
     _feedback_label: FeedbackLabel
     """A label to display errors"""
 
-    def __init__(self, xaxis: QValueAxis, axes:Sequence[QValueAxis], parent: QWidget) -> None:
+    def __init__(self, xaxis: QValueAxis, axes: Sequence[QValueAxis], parent: QWidget) -> None:
         super().__init__(parent)
 
         self._feedback_label = FeedbackLabel(self)
@@ -123,13 +132,17 @@ class ChartRangeEditDialog(QDialog):
 
     def load_ui_from_axis(self) -> None:
         for axis_data in self._axes_edit_data:
-            axis_data.txt_min.set_float_value(axis_data.axis.min())
-            axis_data.txt_max.set_float_value(axis_data.axis.max())
+            axis_data.txt_min.set_float_value(axis_data.axis.min())  # Apply f2g
+            axis_data.txt_max.set_float_value(axis_data.axis.max())  # Apply f2g
 
-    def _text_changed_slot(self, axis_data:AxisEditData, text:str) -> None:
+    def _text_changed_slot(self, axis_data: AxisEditData, text: str) -> None:
         self._update_btn_state(axis_data)
 
-    def _update_btn_state(self, axis_data:AxisEditData) -> None:
+    def _update_btn_state(self, axis_data: AxisEditData) -> None:
+        """Enable/disable buttons based on axes values.
+        Apply is enabled if the value changed.
+        Reset is enabled if the value written is different from initial
+        """
         minval = axis_data.txt_min.get_float_value()
         maxval = axis_data.txt_max.get_float_value()
 
@@ -141,22 +154,24 @@ class ChartRangeEditDialog(QDialog):
         axis_min = tools.f2g(axis_data.axis.min())
         axis_max = tools.f2g(axis_data.axis.max())
         diff_from_axis = not math.isclose(minval, axis_min) or not math.isclose(maxval, axis_max)
-        diff_from_initial = not math.isclose(minval, axis_data.initial_min) or not math.isclose(maxval,axis_data.initial_max)
+        diff_from_initial = not math.isclose(minval, axis_data.initial_min) or not math.isclose(maxval, axis_data.initial_max)
 
         axis_data.btn_apply.setEnabled(diff_from_axis)
         axis_data.btn_reset.setEnabled(diff_from_initial)
 
-
-    def _reset_slot(self, axis_data:AxisEditData) -> None:
+    def _reset_slot(self, axis_data: AxisEditData) -> None:
+        """Reset button click"""
         axis_data.txt_min.set_float_value(axis_data.initial_min)
         axis_data.txt_max.set_float_value(axis_data.initial_max)
         axis_data.axis.setRange(axis_data.initial_min, axis_data.initial_max)
         self._update_btn_state(axis_data)
 
-    def _apply_single_slot(self, axis_data:AxisEditData) -> None:
+    def _apply_single_slot(self, axis_data: AxisEditData) -> None:
+        """Apply button (for a single axis)"""
         self._validate_apply_axis(axis_data)
 
     def _apply_all_slot(self) -> None:
+        """Apply all button"""
         all_fine = True
         for axis_data in self._axes_edit_data:
             applied = self._validate_apply_axis(axis_data)
@@ -167,7 +182,8 @@ class ChartRangeEditDialog(QDialog):
         if all_fine:
             self.close()
 
-    def _validate_apply_axis(self, axis_data:AxisEditData) -> bool:
+    def _validate_apply_axis(self, axis_data: AxisEditData) -> bool:
+        """Check that values for an axis in the textboxes are valid and apply if they are """
         axis_name = axis_data.axis.titleText()
         valid_min = axis_data.txt_min.validate_expect_valid()
         valid_max = axis_data.txt_max.validate_expect_valid()
@@ -182,6 +198,7 @@ class ChartRangeEditDialog(QDialog):
         assert minval is not None
         assert maxval is not None
 
+        # Keep significant digits
         minval = tools.f2g(minval)
         maxval = tools.f2g(maxval)
 

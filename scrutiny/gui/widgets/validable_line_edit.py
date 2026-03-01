@@ -99,7 +99,7 @@ class FloatValidableLineEdit(ValidableLineEdit):
     def set_float_value(self, val: float) -> None:
         self.setText('%g' % val)
 
-    def get_float_value(self, f2g:bool=True) -> Optional[float]:
+    def get_float_value(self, f2g: bool = True) -> Optional[float]:
         with tools.SuppressException(ValueError):
             v = float(self.text())
             if f2g:

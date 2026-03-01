@@ -33,7 +33,7 @@ class _ColorButton(QWidget):
         self._btn.setFixedWidth(60)
         self._btn.clicked.connect(self._open_color_dialog)
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(0,0,0,0)
+        layout.setContentsMargins(0, 0, 0, 0)
         layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
         layout.addWidget(self._btn)
         self._update_appearance()
