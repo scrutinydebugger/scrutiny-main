@@ -948,8 +948,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
 
         context_menu.addSection("Content")
         # Grid Settings
-        grid_setting_action = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.Grid), "Grid settings")
-        grid_setting_action.triggered.connect(self._grid_setting_slot)
+        self._chartview.chart().add_grid_config_action(context_menu, parent=self)
 
         # Clear
         clear_chart_action = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.RedX), "Clear")
@@ -957,12 +956,6 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
         clear_chart_action.setEnabled(self._state.enable_clear_button())
 
         context_menu.popup(self._chartview.mapToGlobal(chartview_event.pos()))
-
-    def _grid_setting_slot(self) -> None:
-        config = self._chartview.chart().get_grid_config()
-        dialog = GridConfigDialog(config, self)
-        if dialog.exec() == GridConfigDialog.DialogCode.Accepted:
-            self._chartview.chart().set_grid_config(dialog.get_config())
 
     def _reset_zoom_slot(self) -> None:
         """Right-click -> Reset zoom"""

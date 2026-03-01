@@ -1163,14 +1163,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
         context_menu.popup(self._chartview.mapToGlobal(chartview_event.pos()))
 
         context_menu.addSection("Content")
-        grid_setting_action = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.Grid), "Grid settings")
-        grid_setting_action.triggered.connect(self._grid_setting_slot)
-
-    def _grid_setting_slot(self) -> None:
-        config = self._chartview.chart().get_grid_config()
-        dialog = GridConfigDialog(config, self)
-        if dialog.exec() == GridConfigDialog.DialogCode.Accepted:
-            self._chartview.chart().set_grid_config(dialog.get_config())
+        self._chartview.chart().add_grid_config_action(context_menu, parent=self)
 
     def _save_image_slot(self) -> None:
         """When the user right-click the graph then click "Save as image" """

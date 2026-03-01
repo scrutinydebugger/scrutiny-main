@@ -50,6 +50,7 @@ class ChartRangeEditDialog(QDialog):
         super().__init__(parent)
 
         self._feedback_label = FeedbackLabel(self)
+        self._buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close, parent=self)
 
         self.setWindowTitle(f"Axes range")
         self.setModal(True)
@@ -103,6 +104,10 @@ class ChartRangeEditDialog(QDialog):
         main_layout = QVBoxLayout(self)
         main_layout.addWidget(scroll_area)
         main_layout.addWidget(self._feedback_label)
+        main_layout.addWidget(self._buttons)
+
+        self._buttons.accepted.connect(self.close)
+        self._buttons.rejected.connect(self.close)
 
         self.load_ui_from_axis()
 

@@ -633,25 +633,10 @@ class GraphSignalTree(BaseTreeView):
         remove_action = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.RedX), "Remove")
         remove_action.setEnabled(len(selected_items_no_nested_unordered) > 0)
         remove_action.triggered.connect(remove_action_slot)
-        axis_item: Optional[AxisStandardItem] = None
-        if len(selected_items_no_nested_unordered) == 1:
-            if isinstance(selected_items_no_nested_unordered[0], AxisStandardItem):
-                axis_item = selected_items_no_nested_unordered[0]
-
-        def edit_range_action_slot() -> None:
-            if axis_item is not None:
-                dialog = ChartRangeEditDialog(axis_item.axis(), self)
-                dialog.show()
-
-        edit_range_action = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.YRange), "Edit range")
-        edit_range_action.triggered.connect(edit_range_action_slot)
-        edit_range_action.setVisible(axis_item is not None)
 
         if self._locked:
             new_axis_action.setDisabled(True)
             remove_action.setDisabled(True)
-
-        edit_range_action.setEnabled(axis_item is not None and axis_item.axis_attached())
 
         context_menu.popup(self.mapToGlobal(event.pos()))
         event.accept()
