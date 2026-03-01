@@ -1,3 +1,12 @@
+#    chart_mixins.py
+#        Mixin functions related to charts that are shared across components. They exhibit
+#        similar chart features
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
+
 from PySide6.QtWidgets import QWidget, QMenu
 from PySide6.QtGui import QAction
 from scrutiny.gui.dialogs.chart_grid_config_dialog import GridConfigDialog

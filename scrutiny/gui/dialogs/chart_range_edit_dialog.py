@@ -1,5 +1,5 @@
 #    chart_range_edit_dialog.py
-#        A dialog to edit a chart axis range
+#        A dialog to configure a chart axes range
 #
 #   - License : MIT - See LICENSE file
 #   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
