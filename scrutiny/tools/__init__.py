@@ -17,7 +17,7 @@ __all__ = [
     'MutableNullableBool',
     'NullableMutable',
     'is_documented_by',
-    'f2general'
+    'f2g'
 ]
 
 import tempfile
