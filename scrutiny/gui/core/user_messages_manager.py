@@ -42,6 +42,10 @@ class UserMessagesManager:
     _instance: Optional["UserMessagesManager"] = None
 
     @classmethod
+    def init(cls) -> None:
+        cls.instance()
+
+    @classmethod
     def instance(cls) -> "UserMessagesManager":
         if cls._instance is None:
             cls._instance = cls()
