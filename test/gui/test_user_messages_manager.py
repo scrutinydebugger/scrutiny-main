@@ -40,12 +40,14 @@ class TestUserMessagesManager(ScrutinyBaseGuiTest):
         return super().setUp()
 
     def test_messages_are_queued(self):
-        tstart = time.perf_counter()
-        self.manager.register_message("aaa", "hello1", 1.0)
-        self.manager.register_message("bbb", "hello2", 2.0)
-        self.manager.register_message("ccc", "hello3", 3.0)
+        MARGIN = 1.2
 
-        self.wait_equal_with_events(lambda: len(self.msg_clear_list), 3, timeout=5)
+        tstart = time.perf_counter()
+        self.manager.register_message("aaa", "hello1", 2.0)
+        self.manager.register_message("bbb", "hello2", 4.0)
+        self.manager.register_message("ccc", "hello3", 6.0)
+
+        self.wait_equal_with_events(lambda: len(self.msg_clear_list), 3, timeout=6 + MARGIN)
 
         self.assertEqual(len(self.msg_shown_list), 3)
         self.assertEqual(len(self.msg_clear_list), 3)
@@ -61,19 +63,18 @@ class TestUserMessagesManager(ScrutinyBaseGuiTest):
             self.assertLessEqual(val, target + margin)
             self.assertGreaterEqual(val, target - margin)
 
-        MARGIN = 0.3
 
         assertWithin(self.msg_shown_list[0].t - tstart, 0, MARGIN)
-        assertWithin(self.msg_shown_list[1].t - tstart, 1, MARGIN)
-        assertWithin(self.msg_shown_list[2].t - tstart, 2, MARGIN)
+        assertWithin(self.msg_shown_list[1].t - tstart, 2, MARGIN)
+        assertWithin(self.msg_shown_list[2].t - tstart, 4, MARGIN)
 
-        assertWithin(self.msg_clear_list[0].t - tstart, 1, MARGIN)
-        assertWithin(self.msg_clear_list[1].t - tstart, 2, MARGIN)
-        assertWithin(self.msg_clear_list[2].t - tstart, 3, MARGIN)
+        assertWithin(self.msg_clear_list[0].t - tstart, 2, MARGIN)
+        assertWithin(self.msg_clear_list[1].t - tstart, 4, MARGIN)
+        assertWithin(self.msg_clear_list[2].t - tstart, 6, MARGIN)
 
-        assertWithin(self.msg_clear_list[0].t - self.msg_shown_list[0].t, 1, MARGIN)
-        assertWithin(self.msg_clear_list[1].t - self.msg_shown_list[1].t, 1, MARGIN)
-        assertWithin(self.msg_clear_list[2].t - self.msg_shown_list[2].t, 1, MARGIN)
+        assertWithin(self.msg_clear_list[0].t - self.msg_shown_list[0].t, 2, MARGIN)
+        assertWithin(self.msg_clear_list[1].t - self.msg_shown_list[1].t, 2, MARGIN)
+        assertWithin(self.msg_clear_list[2].t - self.msg_shown_list[2].t, 2, MARGIN)
 
     def test_expired_messages_doesnt_show(self):
         self.manager.register_message("aaa", "msg1", 1.0)

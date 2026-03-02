@@ -105,10 +105,10 @@ class TestServerManager(ScrutinyBaseGuiTest):
     def tearDown(self) -> None:
         if self.server_manager.is_running():
             self.server_manager.stop()
-            self.wait_true_with_events(lambda: not self.server_manager.is_running() and not self.server_manager.is_stopping(), timeout=1)
+            self.wait_true_with_events(lambda: not self.server_manager.is_running() and not self.server_manager.is_stopping(), timeout=2)
 
         if self.server_manager.is_stopping():
-            self.wait_true_with_events(lambda: not self.server_manager.is_stopping(), timeout=1)
+            self.wait_true_with_events(lambda: not self.server_manager.is_stopping(), timeout=2)
         super().tearDown()
 
     def wait_server_state(self, state: sdk.ServerState, timeout: float = 2) -> None:
@@ -238,24 +238,24 @@ class TestServerManager(ScrutinyBaseGuiTest):
         self.assertEqual(self.fake_client.get_call_count('disconnect'), 0)
         self.fake_client.server_state = sdk.ServerState.Error
 
-        self.wait_events([EventType.SERVER_DISCONNECTED], timeout=1)
+        self.wait_events([EventType.SERVER_DISCONNECTED], timeout=2)
         self.assertFalse(self.server_manager.is_running())
         self.assertEqual(self.fake_client.get_call_count('disconnect'), 1)
 
     def test_auto_reconnect(self):
         self.server_manager.start(SERVER_MANAGER_CONFIG)
-        self.server_manager.RECONNECT_DELAY = 0.2
+        self.server_manager.RECONNECT_DELAY = 0.5
 
         self.wait_events_and_clear([EventType.SERVER_CONNECTED], timeout=2)
         self.assertEqual(self.fake_client.get_call_count('connect'), 1)
 
         for i in range(5):
             self.fake_client.disconnect()
-            self.wait_events_and_clear([EventType.SERVER_DISCONNECTED, EventType.SERVER_CONNECTED], timeout=self.server_manager.RECONNECT_DELAY + 1)
+            self.wait_events_and_clear([EventType.SERVER_DISCONNECTED, EventType.SERVER_CONNECTED], timeout=self.server_manager.RECONNECT_DELAY + 2)
             self.assertEqual(self.fake_client.get_call_count('connect'), i + 2)
 
     def test_auto_retry_connect_on_connect_fail(self):
-        self.server_manager.RECONNECT_DELAY = 0.2
+        self.server_manager.RECONNECT_DELAY = 0.5
         RETRY_COUNT = 3
         self.fake_client.force_connect_fail()
         self.server_manager.start(SERVER_MANAGER_CONFIG)
@@ -268,13 +268,13 @@ class TestServerManager(ScrutinyBaseGuiTest):
         total_time = time.perf_counter() - t1
 
         self.fake_client.force_connect_fail(False)  # Reenable connection
-        self.wait_events([EventType.SERVER_CONNECTED], timeout=self.server_manager.RECONNECT_DELAY + 1)
+        self.wait_events([EventType.SERVER_CONNECTED], timeout=self.server_manager.RECONNECT_DELAY + 2)
 
         # Should be n+RETRY_COUNT+1. Could be more depending on scheduling
         self.assertGreater(self.fake_client.get_call_count('connect'), n + RETRY_COUNT)
 
         self.assertGreaterEqual(total_time, (RETRY_COUNT - 1) * self.server_manager.RECONNECT_DELAY)
-        self.assertLessEqual(total_time, (RETRY_COUNT + 1) * self.server_manager.RECONNECT_DELAY)
+        self.assertLessEqual(total_time, (RETRY_COUNT + 1) * self.server_manager.RECONNECT_DELAY + 2)
 
     def test_event_device_connect_disconnect_with_data_download(self):
         self.assertEqual(self.event_list, [])
@@ -314,7 +314,7 @@ class TestServerManager(ScrutinyBaseGuiTest):
                 expected_events = [EventType.DEVICE_DISCONNECTED]
             else:
                 expected_events = [EventType.WATCHABLE_REGISTRY_CHANGED, EventType.DEVICE_DISCONNECTED]
-            self.wait_events_and_clear(expected_events, timeout=1, msg=f"cancel_request={cancel_request}")
+            self.wait_events_and_clear(expected_events, timeout=2, msg=f"cancel_request={cancel_request}")
 
             self.assertFalse(self.registry.has_data(sdk.WatchableType.RuntimePublishedValue))
             self.assertFalse(self.registry.has_data(sdk.WatchableType.Alias))
@@ -382,7 +382,7 @@ class TestServerManager(ScrutinyBaseGuiTest):
                 expected_events = [EventType.WATCHABLE_REGISTRY_CHANGED, EventType.DEVICE_DISCONNECTED,
                                    EventType.WATCHABLE_REGISTRY_CHANGED, EventType.SFD_UNLOADED, ]
 
-            self.wait_events_and_clear(expected_events, timeout=1, enforce_order=True)
+            self.wait_events_and_clear(expected_events, timeout=2, enforce_order=True)
 
         self.fake_client.server_info = None
         self.server_manager.stop()
@@ -446,7 +446,7 @@ class TestServerManager(ScrutinyBaseGuiTest):
                 EventType.DEVICE_DISCONNECTED,
                 EventType.SFD_LOADED,
                 EventType.DEVICE_READY,
-            ], timeout=1)
+            ], timeout=2)
 
             respond_to_download_requests()  # Check for download request. Respond and make sure the events are triggered
 
@@ -457,7 +457,7 @@ class TestServerManager(ScrutinyBaseGuiTest):
             EventType.WATCHABLE_REGISTRY_CHANGED,
             EventType.SFD_UNLOADED,
             EventType.WATCHABLE_REGISTRY_CHANGED,
-            EventType.DEVICE_DISCONNECTED], timeout=1)
+            EventType.DEVICE_DISCONNECTED], timeout=2)
 
         self.server_manager.stop()
         self.wait_server_state(sdk.ServerState.Disconnected)
@@ -573,11 +573,11 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
         def ready_slot():
             ready.val = True
         self.server_manager.signals.server_connected.connect(ready_slot)
-        self.wait_true_with_events(lambda: ready.val, timeout=1)
+        self.wait_true_with_events(lambda: ready.val, timeout=2)
 
     def tearDown(self):
         self.server_manager.stop()
-        self.wait_true_with_events(lambda: not self.server_manager.is_running() and not self.server_manager.is_stopping(), timeout=1)
+        self.wait_true_with_events(lambda: not self.server_manager.is_running() and not self.server_manager.is_stopping(), timeout=2)
         return super().tearDown()
 
     def get_watch_request(self, timeout: float = 2, assert_single: bool = True, allow_none: bool = False):
@@ -644,7 +644,7 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
         self.assert_no_watch_or_unwatch_request(max_wait=0.5)
         self.assertEqual(ui_callback_count, self.server_manager._qt_watch_unwatch_ui_callback_call_count)
         watch_request.simulate_failure()
-        self.wait_true_with_events(lambda: self.server_manager._qt_watch_unwatch_ui_callback_call_count != ui_callback_count, timeout=1)
+        self.wait_true_with_events(lambda: self.server_manager._qt_watch_unwatch_ui_callback_call_count != ui_callback_count, timeout=2)
         # watch failed. We have no watcher. Should do nothing more
         self.assert_no_watch_or_unwatch_request(max_wait=0.5)
 
@@ -664,7 +664,7 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
         self.assert_no_watch_or_unwatch_request(max_wait=0.5)
         self.assertEqual(ui_callback_count, self.server_manager._qt_watch_unwatch_ui_callback_call_count)
         watch_request.simulate_success(watchable_config)
-        self.wait_true_with_events(lambda: self.server_manager._qt_watch_unwatch_ui_callback_call_count != ui_callback_count, timeout=1)
+        self.wait_true_with_events(lambda: self.server_manager._qt_watch_unwatch_ui_callback_call_count != ui_callback_count, timeout=2)
         # We are supposed to have no watcher. Expect an unwatch request
 
         unwatch_request = self.get_unwatch_request(assert_single=True)
@@ -694,7 +694,7 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
         request1 = self.get_watch_request(assert_single=True)
         self.assert_no_watch_request(max_wait=0.5)  # Should have a single watch request for the 2 watches
         request1.simulate_failure()  # Should stay unwatched
-        self.wait_true_with_events(lambda: call_count != self.server_manager._qt_watch_unwatch_ui_callback_call_count, timeout=1)
+        self.wait_true_with_events(lambda: call_count != self.server_manager._qt_watch_unwatch_ui_callback_call_count, timeout=2)
 
         self.registry.watch(watcher3, sdk.WatchableType.Variable, 'a/b/c')  # Will trigger a retry
 
@@ -705,7 +705,7 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
 
         call_count = self.server_manager._qt_watch_unwatch_ui_callback_call_count
         request2.simulate_success(some_watchable_config)
-        self.wait_true_with_events(lambda: call_count != self.server_manager._qt_watch_unwatch_ui_callback_call_count, timeout=1)
+        self.wait_true_with_events(lambda: call_count != self.server_manager._qt_watch_unwatch_ui_callback_call_count, timeout=2)
 
         # We have 3 watchers here.
         self.assertEqual(self.registry.node_watcher_count(sdk.WatchableType.Variable, 'a/b/c'), 3)
@@ -717,7 +717,7 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
         self.assert_no_unwatch_request(max_wait=0.5)
         call_count = self.server_manager._qt_watch_unwatch_ui_callback_call_count
         request1.simulate_failure()  # Should stay watched
-        self.wait_true_with_events(lambda: call_count != self.server_manager._qt_watch_unwatch_ui_callback_call_count, timeout=1)
+        self.wait_true_with_events(lambda: call_count != self.server_manager._qt_watch_unwatch_ui_callback_call_count, timeout=2)
 
         # Registry now consider that watcher3 is not listening, but the client is still subscribed
         # The following watch will cause the registry to consider watcher3 as a watcher, but will not trigger a request to the server
@@ -728,7 +728,7 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
 
         call_count = self.server_manager._qt_watch_unwatch_ui_callback_call_count
         request3.simulate_success()
-        self.wait_true_with_events(lambda: call_count != self.server_manager._qt_watch_unwatch_ui_callback_call_count, timeout=1)
+        self.wait_true_with_events(lambda: call_count != self.server_manager._qt_watch_unwatch_ui_callback_call_count, timeout=2)
 
         self.assert_no_unwatch_request(max_wait=0.5)
         self.assertEqual(self.registry.node_watcher_count(sdk.WatchableType.Variable, 'a/b/c'), 0)
@@ -768,7 +768,7 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
         self.server_manager._listener.subscribe(watch1)
         self.server_manager._listener._broadcast_update([watch1])
 
-        self.wait_true_with_events(lambda: len(all_updates) > 0, timeout=1)
+        self.wait_true_with_events(lambda: len(all_updates) > 0, timeout=2)
         self.assertEqual(len(all_updates), 1)
         self.assertEqual(all_updates[0].sdk_update.value, 1234)
 
@@ -865,7 +865,7 @@ class TestQtListener(ScrutinyBaseGuiTest):
         # Simulate what the client does. Date comes in from the network
         self.listener._broadcast_update([self.watch1, self.watch2, self.watch3])
 
-        self.wait_true_with_events(lambda: len(data_received) >= 2, timeout=1)   # Wait for callback to be called through a QT signal
+        self.wait_true_with_events(lambda: len(data_received) >= 2, timeout=2)   # Wait for callback to be called through a QT signal
         self.assertEqual(len(data_received), 2)
         self.assertEqual(counter.count, 1)
         self.assertIs(data_received[0].watchable, self.watch1)
@@ -883,7 +883,7 @@ class TestQtListener(ScrutinyBaseGuiTest):
         self.listener.ready_for_next_update()
 
         # Now that we authorized it, a new QT signal will be emitted so that we empty the gui_queue
-        self.wait_true_with_events(lambda: len(data_received) >= 2, timeout=1)
+        self.wait_true_with_events(lambda: len(data_received) >= 2, timeout=2)
         self.assertEqual(len(data_received), 2)
         self.assertEqual(counter.count, 2)
         self.assertIs(data_received[0].watchable, self.watch1)

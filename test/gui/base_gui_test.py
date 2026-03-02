@@ -8,13 +8,16 @@
 
 from test import ScrutinyUnitTest
 from PySide6.QtWidgets import QApplication
-from PySide6.QtCore import QLocale
+from PySide6.QtCore import qInstallMessageHandler, QtMsgType, QMessageLogContext
+
 import enum
 import time
 from test import logger
+import logging
 from scrutiny.gui.core.qt import make_qt_app
 from scrutiny.gui.themes import scrutiny_set_theme
 from scrutiny.gui.themes.default_theme import DefaultTheme
+from scrutiny.gui.core.user_messages_manager import UserMessagesManager
 
 from scrutiny.tools.typing import *
 
@@ -39,12 +42,27 @@ class ScrutinyBaseGuiTest(ScrutinyUnitTest):
         logger.debug(f"Event: {event_type.name}")
         self.event_list.append(event_type)
 
+    def QTMessageHandler(self, messagetype:QtMsgType, context:QMessageLogContext, msg:str ) -> None:
+        logging_map = {
+            QtMsgType.QtDebugMsg : logging.DEBUG,
+            QtMsgType.QtWarningMsg : logging.WARNING,
+            QtMsgType.QtCriticalMsg : logging.CRITICAL,
+            QtMsgType.QtSystemMsg : logging.CRITICAL,
+            QtMsgType.QtFatalMsg : logging.FATAL,
+            QtMsgType.QtInfoMsg : logging.INFO,
+        }
+
+        logging_level = logging_map.get(messagetype, logging.CRITICAL)
+        logger.log(logging_level, f"QT:{msg}")
+
     def setUp(self) -> None:
         self.event_list: List[EventType] = []
         self.app = QApplication.instance()
         if self.app is None:
             # Required to process event because they are emitted in a different thread, therefore the connection type is queued
+            qInstallMessageHandler(self.QTMessageHandler)
             self.app = make_qt_app([])
+            UserMessagesManager.init()
 
         scrutiny_set_theme(self.app, DefaultTheme())
 

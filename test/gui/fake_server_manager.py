@@ -174,6 +174,12 @@ class FakeServerManager:
         self.registry.clear_content_by_type(sdk.WatchableType.Variable)
         self._signals.registry_changed.emit()
 
+    def get_server_state(self) -> sdk.ServerState:
+        if self._server_connected:
+            return sdk.ServerState.Connected
+
+        return sdk.ServerState.Disconnected
+
     def get_server_info(self) -> Optional[sdk.ServerInfo]:
         if not self._started:
             return None

@@ -38,6 +38,7 @@ from scrutiny.gui.components.locals.continuous_graph.continuous_graph_component 
 from scrutiny.gui.components.locals.embedded_graph.embedded_graph_component import EmbeddedGraphComponent
 from scrutiny.gui.components.globals.metrics.metrics_component import MetricsComponent
 
+from scrutiny.gui.core.user_messages_manager import UserMessagesManager
 from scrutiny.gui.core.server_manager import ServerManager
 from scrutiny.gui.core.watchable_registry import WatchableRegistry
 
@@ -108,6 +109,7 @@ class MainWindow(QMainWindow):
         server_config_dialog = self._status_bar.get_server_config_dialog()
 
         self._server_sfd_manage_dialog = ServerSFDManagerDialog(self, self._server_manager)
+        UserMessagesManager.init()
 
         if app_settings().start_local_server:
             port = app_settings().local_server_port

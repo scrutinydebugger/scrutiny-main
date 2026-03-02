@@ -244,7 +244,6 @@ class TestDashboard(ScrutinyBaseGuiTest):
         #   ├---------------┤
         #   |      12       |
         #   └---------------┘
-
         floating1 = dashboard.dock_manager().addDockWidgetFloating(dw12)
         dashboard.dock_manager().addDockWidget(QtAds.TopDockWidgetArea, dw13, dw12.dockAreaWidget())
         dashboard.dock_manager().addDockWidget(QtAds.TopDockWidgetArea, dw14, dw13.dockAreaWidget())
@@ -261,7 +260,6 @@ class TestDashboard(ScrutinyBaseGuiTest):
         for dw in all_dock_widgets:
             component = cast(StubbedLocalComponent, dw.widget())
             component.load_state({"original_instance_name": component.instance_name})
-
         # Create a new dashboard from previous dashboard. State of first dashboard should be transferred to the new one
         new_dashboard = Dashboard(self.main_window)
         self.assertEqual(len(new_dashboard.dock_manager().dockWidgetsMap()), 0)
