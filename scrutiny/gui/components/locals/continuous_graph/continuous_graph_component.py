@@ -18,7 +18,7 @@ import logging
 from PySide6.QtGui import QContextMenuEvent, QKeyEvent, QIcon
 from PySide6.QtWidgets import (QHBoxLayout, QSplitter, QWidget, QVBoxLayout, QMenu,
                                QPushButton, QFormLayout, QSpinBox, QLineEdit, QLabel)
-from PySide6.QtCore import Qt, QItemSelectionModel, QPointF, QTimer, QRectF
+from PySide6.QtCore import Qt, QPointF, QTimer, QRectF
 
 from scrutiny import sdk
 from scrutiny import tools
@@ -646,11 +646,11 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
         """Read the items in the SignalTree object (right menu with axis) and update the size/boldness of the graph series
         based on wether they are selected or not"""
         emphasized_yaxes_id: Set[int] = set()
-        selected_index = self._signal_tree.selectedIndexes()
+        selected_items = self._signal_tree.get_selected_signal_items()
         for item in self._registryid2signal_item.values():
             if item.series_attached():
                 series = self._get_item_series(item)
-                if item.index() in selected_index:
+                if item in selected_items:
                     series.emphasize()
                     yaxis = self._get_series_yaxis(series)
                     emphasized_yaxes_id.add(id(yaxis))
@@ -1062,8 +1062,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
 
     def _series_clicked_slot(self, signal_item: ChartSeriesWatchableStandardItem, point: QPointF) -> None:
         """When the user clicked a line on the graph. We make it bold and select the matching item in the right menu"""
-        sel = self._signal_tree.selectionModel()
-        sel.select(signal_item.index(), QItemSelectionModel.SelectionFlag.ClearAndSelect | QItemSelectionModel.SelectionFlag.Rows)
+        self._signal_tree.select_item(signal_item)
 
     def _graph_maintenance_timer_slot(self) -> None:
         """Periodic callback meant to prune the graph and recompute the rang eof the axis.

@@ -1062,13 +1062,13 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
         """Read the items in the SignalTree object (right menu with axis) and update the size/boldness of the graph series
         based on wether they are selected or not"""
         emphasized_yaxes_id: Set[int] = set()
-        selected_index = self._signal_tree.selectedIndexes()
+        selected_items = self._signal_tree.get_selected_signal_items()
         axes_content = self._signal_tree.get_signals()
         for axis_item in axes_content:
             for signal_item in axis_item.signal_items:
                 if signal_item.series_attached():
                     series = self._get_item_series(signal_item)
-                    if signal_item.index() in selected_index:
+                    if signal_item in selected_items:
                         series.emphasize()
                         yaxis = self._get_series_yaxis(series)
                         emphasized_yaxes_id.add(id(yaxis))
