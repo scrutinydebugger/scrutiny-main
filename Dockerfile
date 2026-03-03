@@ -1,4 +1,4 @@
-FROM ubuntu:22.04 as build-tests
+FROM ubuntu:20.04 as build-tests
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -22,7 +22,7 @@ WORKDIR /tmp/
 
 
 # ============================================
-ARG PYTHON_VERSION="3.13.12"
+ARG PYTHON_VERSION="3.13.1"
 ARG PYTHON_SRC="https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tgz"
 
 RUN wget $PYTHON_SRC \
