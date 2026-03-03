@@ -17,7 +17,7 @@ pipeline {
                         stage ('Python 3.13') {
                             steps {
                                 sh '''
-                                python3.13 -m venv3.13
+                                python3.13 -m venv venv3.13
                                 wget https://scrutinydebugger.com/pyside6_debug.tar.gz
                                 tar -xvzf pyside6_debug.tar.gz
                                 venv3.13/bin/python3 -m pip install pyside6_debug/*.whl
