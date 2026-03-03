@@ -18,6 +18,7 @@ from scrutiny.gui.core.qt import make_qt_app
 from scrutiny.gui.themes import scrutiny_set_theme
 from scrutiny.gui.themes.default_theme import DefaultTheme
 from scrutiny.gui.core.user_messages_manager import UserMessagesManager
+import gc
 
 from scrutiny.tools.typing import *
 
@@ -68,6 +69,8 @@ class ScrutinyBaseGuiTest(ScrutinyUnitTest):
 
     def tearDown(self):
         self.process_events()
+        gc.collect()    # Hope to trigger crash early if something is dangling
+
 
     def wait_equal(self, fn, val, timeout, no_assert=False):
         t = time.perf_counter()
