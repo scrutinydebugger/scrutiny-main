@@ -9,7 +9,7 @@
 from dataclasses import dataclass
 import functools
 import math
-from PySide6.QtWidgets import (QDialog, QWidget, QGroupBox,
+from PySide6.QtWidgets import (QDialog, QWidget, QGroupBox, QLabel,
                                QVBoxLayout, QHBoxLayout, QScrollArea, QPushButton)
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QDoubleValidator
@@ -77,7 +77,7 @@ class ChartRangeEditDialog(QDialog):
         scroll_area = QScrollArea(self)
         edit_zone = QWidget()
         edit_zone_layout = QVBoxLayout(edit_zone)
-        edit_zone_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        edit_zone_layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
 
         scroll_area.setWidget(edit_zone)
         scroll_area.setWidgetResizable(True)
@@ -95,8 +95,27 @@ class ChartRangeEditDialog(QDialog):
             gb = QGroupBox(gb_title, self)
             gb_layout = QHBoxLayout(gb)
             gb_layout.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
-            gb_layout.addWidget(axis_data.txt_min)
-            gb_layout.addWidget(axis_data.txt_max)
+
+            min_container = QWidget()
+            minlabel = QLabel("Min:")
+            min_container_layout = QHBoxLayout(min_container)
+            min_container_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
+            min_container_layout.addWidget(minlabel)
+            min_container_layout.addWidget(axis_data.txt_min)
+            minlabel.setMaximumWidth(minlabel.sizeHint().width())
+            min_container.setMaximumWidth(min_container.sizeHint().width())
+            gb_layout.addWidget(min_container)
+
+            max_container = QWidget()
+            maxlabel = QLabel("Max:")
+            max_container_layout = QHBoxLayout(max_container)
+            max_container_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
+            max_container_layout.addWidget(maxlabel)
+            max_container_layout.addWidget(axis_data.txt_max)
+            maxlabel.setMaximumWidth(minlabel.sizeHint().width())
+            max_container.setMaximumWidth(max_container.sizeHint().width())
+            gb_layout.addWidget(max_container)
+
             gb_layout.addWidget(axis_data.btn_apply)
             gb_layout.addWidget(axis_data.btn_reset)
 
@@ -121,6 +140,7 @@ class ChartRangeEditDialog(QDialog):
 
         btn_container = QWidget()
         btn_layout = QHBoxLayout(btn_container)
+        btn_layout.setAlignment(Qt.AlignmentFlag.AlignRight)
         btn_layout.addWidget(self._btn_close)
         btn_layout.addWidget(self._btn_apply_all)
         main_layout.addWidget(btn_container)
