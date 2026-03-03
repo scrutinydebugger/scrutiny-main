@@ -275,14 +275,6 @@ class BaseTreeModel(QStandardItemModel):
 
 class BaseTreeView(QTreeView):
 
-    def setModel(self, model: Optional[QAbstractItemModel]) -> None:
-        # if not isinstance(model, (QStandardItemModel, QProxyModel)):
-        #    raise ValueError("model must be a QStandardItemModel")
-        return super().setModel(model)
-
-    def model(self) -> QStandardItemModel:
-        return cast(QStandardItemModel, super().model())
-
     def keyPressEvent(self, event: QKeyEvent) -> None:
         """Some convenient behavior. Ctrl to multiselect. Shift to select a range"""
         if event.key() == Qt.Key.Key_Control:
@@ -309,13 +301,6 @@ class BaseTreeView(QTreeView):
         # Needs to do that, otherwise holding ctrl/shift and cliking outside of the tree will not detect the key release
         self.setSelectionMode(self.SelectionMode.SingleSelection)
         return super().focusOutEvent(event)
-
-    def set_row_color(self, index: QModelIndex, color: QColor) -> None:
-        """Change the background color of a row"""
-        for i in range(self.model().columnCount()):
-            item = self.model().itemFromIndex(index.siblingAtColumn(i))
-            if item is not None:
-                item.setBackground(color)
 
     def is_visible(self, item: QStandardItem) -> bool:
         """Tells if a node is visible, i.e. all parents are expanded.

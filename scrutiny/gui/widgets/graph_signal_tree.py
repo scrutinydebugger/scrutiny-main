@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from PySide6.QtWidgets import QAbstractItemDelegate, QWidget, QMenu
 from PySide6.QtGui import (QStandardItem, QDropEvent, QDragEnterEvent, QDragMoveEvent,
                            QContextMenuEvent, QKeyEvent, QPixmap, QPalette)
-from PySide6.QtCore import QMimeData, QModelIndex, Qt, QPersistentModelIndex, QItemSelection, QObject, Signal, QSortFilterProxyModel
+from PySide6.QtCore import QItemSelectionModel, QMimeData, QModelIndex, Qt, QPersistentModelIndex, QItemSelection, QObject, Signal, QSortFilterProxyModel
 from PySide6.QtCharts import QLineSeries, QAbstractSeries, QValueAxis
 
 from scrutiny.gui import assets
@@ -496,13 +496,14 @@ class GraphSignalDetailFilterProxy(QSortFilterProxyModel):
         return super().filterAcceptsRow(source_row, source_parent)
 
     def hide_details_row(self) -> None:
+        self.beginFilterChange()
         self._show_details = False
-        self.invalidate()
+        self.invalidateRowsFilter()
 
     def show_details_row(self) -> None:
+        self.beginFilterChange()
         self._show_details = True
-        self.invalidate()
-
+        self.invalidateRowsFilter()
 
 class GraphSignalTree(BaseTreeView):
 
@@ -515,8 +516,7 @@ class GraphSignalTree(BaseTreeView):
     _model: GraphSignalModel
     _detail_filter_proxy: GraphSignalDetailFilterProxy
 
-    def real_model_selected_indexes(self) -> List[QModelIndex]:
-        # FIXME: Sometime raise an error? When deleting elements in the tree
+    def _real_model_selected_indexes(self) -> List[QModelIndex]:
         mapped = [self._detail_filter_proxy.mapToSource(index) for index in self.selectedIndexes() if index.isValid()]
         return [index for index in mapped if index.isValid()]
 
@@ -544,6 +544,15 @@ class GraphSignalTree(BaseTreeView):
     @property
     def signals(self) -> _Signals:
         return self._signals
+
+    def select_item(self, signal_item: ChartSeriesWatchableStandardItem) -> None:
+        sel = self.selectionModel()
+        mapped_index = self._detail_filter_proxy.mapFromSource(signal_item.index())
+        sel.select(mapped_index, QItemSelectionModel.SelectionFlag.ClearAndSelect | QItemSelectionModel.SelectionFlag.Rows)
+
+    def get_selected_signal_items(self) -> List[ChartSeriesWatchableStandardItem]:
+        selected_items = [self._model.itemFromIndex(index) for index in self._real_model_selected_indexes() ]
+        return [item for item in selected_items if isinstance(item, ChartSeriesWatchableStandardItem)]
 
     def update_all_availabilities(self) -> None:
         self._model.update_all_availabilities()
@@ -587,7 +596,7 @@ class GraphSignalTree(BaseTreeView):
 
     def contextMenuEvent(self, event: QContextMenuEvent) -> None:
         context_menu = QMenu(self)
-        selected_indexes_no_nested_unordered = self._model.remove_nested_indexes_unordered(self.real_model_selected_indexes())
+        selected_indexes_no_nested_unordered = self._model.remove_nested_indexes_unordered(self._real_model_selected_indexes())
         nesting_col = self._model.nesting_col()
         selected_items_no_nested_unordered = [self._model.itemFromIndex(index)
                                               for index in selected_indexes_no_nested_unordered if index.column() == nesting_col]
@@ -604,7 +613,7 @@ class GraphSignalTree(BaseTreeView):
         new_axis_action = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.GraphAxis), "New Axis")
         new_axis_action.triggered.connect(new_axis_action_slot)
 
-        indexes = self.real_model_selected_indexes()
+        indexes = self._real_model_selected_indexes()
 
         items = [self._model.itemFromIndex(index) for index in indexes if index.isValid()]
         signals_with_series = [item for item in items if isinstance(item, ChartSeriesWatchableStandardItem) and item.series_attached()]
@@ -644,7 +653,7 @@ class GraphSignalTree(BaseTreeView):
     def keyPressEvent(self, event: QKeyEvent) -> None:
         if event.key() == Qt.Key.Key_Delete and not self._locked:
             # Avoid errors when parent is deleted before children
-            indexes_without_nested_values = self._model.remove_nested_indexes_unordered(self.real_model_selected_indexes())
+            indexes_without_nested_values = self._model.remove_nested_indexes_unordered(self._real_model_selected_indexes())
             items = [self._model.itemFromIndex(index) for index in indexes_without_nested_values]
             for item in items:
                 if item is not None:
@@ -656,7 +665,7 @@ class GraphSignalTree(BaseTreeView):
         return self._model.get_signals()
 
     def get_selected_axes(self, include_if_signal_is_selected: bool = True) -> List[AxisStandardItem]:
-        selected_items = [self._model.itemFromIndex(index) for index in self.real_model_selected_indexes() if index.isValid()]
+        selected_items = [self._model.itemFromIndex(index) for index in self._real_model_selected_indexes() if index.isValid()]
         selected_axes: Dict[int, AxisStandardItem] = {}
         for item in selected_items:
             if item is None:
