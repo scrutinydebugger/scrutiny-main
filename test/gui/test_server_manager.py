@@ -226,7 +226,7 @@ class TestServerManager(ScrutinyBaseGuiTest):
             self.wait_events_and_clear([EventType.DATALOGGING_STATE_CHANGED], timeout=2)
 
         self.server_manager.stop()
-        self.wait_server_state(sdk.ServerState.Disconnected)
+        self.wait_server_state(sdk.ServerState.Disconnected, timeout=5)
         self.assert_events([EventType.SERVER_DISCONNECTED])
 
     def test_disconnect_on_error(self):

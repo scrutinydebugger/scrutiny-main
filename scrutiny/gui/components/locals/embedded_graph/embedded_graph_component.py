@@ -958,7 +958,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
         def range_edit_slot() -> None:
             if self._xaxis is not None:
                 dialog = ChartRangeEditDialog(self._xaxis, self._yaxes, parent=self)
-                dialog.exec()
+                dialog.show()
         edit_range_action = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.YRange), "Axes range")
         edit_range_action.triggered.connect(range_edit_slot)
         edit_range_action.setEnabled(self._state.enable_edit_range_menu())
