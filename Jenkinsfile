@@ -17,8 +17,12 @@ pipeline {
                         stage ('Python 3.13') {
                             steps {
                                 sh '''
-                                SCRUTINY_VENV_DIR=/tmp/venv_test3.13 scripts/with-venv.sh scripts/check-python-version.sh 3.13
-                                SCRUTINY_VENV_DIR=/tmp/venv_test3.13 SCRUTINY_COVERAGE_SUFFIX=3.13 UNITTEST_VCAN=vcan0 scripts/with-venv.sh scripts/runtests.sh
+                                python3.13 -m venv3.13
+                                wget https://scrutinydebugger.com/pyside6_debug.tar.gz
+                                tar -xvzf pyside6_debug.tar.gz
+                                venv3.13/bin/python3 -m pip install pyside6_debug/*.whl
+                                SCRUTINY_VENV_DIR=venv3.13 scripts/with-venv.sh scripts/check-python-version.sh 3.13
+                                SCRUTINY_VENV_DIR=venv3.13 SCRUTINY_COVERAGE_SUFFIX=3.13 UNITTEST_VCAN=vcan0 scripts/with-venv.sh scripts/runtests.sh
                                 '''
                             }
                         }

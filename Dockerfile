@@ -87,36 +87,5 @@ RUN apt-get update && apt-get install -y \
     libxkbcommon-x11-0 \
     libfontconfig1 \
     libdbus-glib-1-dev  \
+    gdb \
     && rm -rf /var/lib/apt/lists/*
-
-## TEMP for building PySide and debugging
-
-
-RUN apt-get update && apt-get install -y \
-    gdb     \
-    p7zip   \
-    cmake   \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN wget "https://scrutinydebugger.com/qt6.9.tar.gz" \
-    && tar -xvzf qt6.9.tar.gz
-
-RUN wget "https://download.qt.io/development_releases/prebuilt/libclang/libclang-release_18.1.5-based-linux-Ubuntu22.04-gcc11.4-x86_64.7z"  \
-    && 7z x libclang-release_18.1.5-based-linux-Ubuntu22.04-gcc11.4-x86_64.7z
-
-ENV LLVM_INSTALL_DIR=/tmp/libclang
-
-RUN python3.13 -m venv /tmp/venv_test3.13 && source venv_test3.13/bin/activate && pip install setuptools
-
-RUN git clone https://code.qt.io/pyside/pyside-setup    \
-    cd pyside-setup                                     \
-    git checkout 6.9.0
-
-RUN python setup.py install --qtpaths=/tmp/Qt6.9/6.9.3/gcc_64/bin/qtpaths6 \
-                        --ignore-git \
-                        --debug \
-                        --build-tests \
-                        --parallel=8 \
-                        --verbose-build \
-                        --build-type=all \
-                        --module-subset=Core,Gui,Widgets,Charts

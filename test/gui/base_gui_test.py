@@ -69,7 +69,7 @@ class ScrutinyBaseGuiTest(ScrutinyUnitTest):
 
     def tearDown(self):
         self.process_events()
-        gc.collect()    # Hope to trigger crash early if something is dangling
+        #gc.collect()    # Hope to trigger crash early if something is dangling
 
 
     def wait_equal(self, fn, val, timeout, no_assert=False):
