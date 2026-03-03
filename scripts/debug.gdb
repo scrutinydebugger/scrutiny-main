@@ -12,7 +12,7 @@ handle SIGCHLD nostop pass
 handle SIGSEGV stop print
 
 define hook-stop
-  if $_siginfo._si_signo == 11
+  if $_siginfo.si_signo == 11
     echo \n=== SEGFAULT DETECTED ===\n
     echo --- Backtrace ---\n
     backtrace full
