@@ -86,4 +86,5 @@ RUN apt-get update && apt-get install -y \
     libxkbcommon-x11-0 \
     libfontconfig1 \
     libdbus-glib-1-dev  \
+    gdb \
     && rm -rf /var/lib/apt/lists/*
