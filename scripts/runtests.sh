@@ -27,6 +27,6 @@ fi
 set -x
 export QT_QPA_PLATFORM=offscreen
 python3 -m mypy scrutiny  # .mypy.ini dictacte the rules
-gdb -x "$PROJECT_ROOT/scripts/segfault_trace.gdb" --batch --args python3 -m coverage run --data-file ${COV_DATAFILE} -m scrutiny runtest
+gdb -x "$PROJECT_ROOT/scripts/debug.gdb" --batch --args python3 -m coverage run --data-file ${COV_DATAFILE} -m scrutiny runtest
 python3 -m coverage report --data-file ${COV_DATAFILE}
 python3 -m coverage html --data-file ${COV_DATAFILE} -d $HTML_COVDIR
