@@ -1,4 +1,4 @@
-FROM ubuntu:20.04 as build-tests
+FROM ubuntu:22.04 as build-tests
 
 ENV DEBIAN_FRONTEND=noninteractive
 
