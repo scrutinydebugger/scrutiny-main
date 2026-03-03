@@ -20,6 +20,7 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /tmp/
 
+
 # ============================================
 ARG PYTHON_VERSION="3.13.12"
 ARG PYTHON_SRC="https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tgz"
@@ -88,3 +89,8 @@ RUN apt-get update && apt-get install -y \
     libdbus-glib-1-dev  \
     gdb \
     && rm -rf /var/lib/apt/lists/*
+
+RUN wget "https://scrutinydebugger.com/qt6.9.tar.gz" \
+    && tar -xvzf qt6.9.tar.gz
+
+RUN
