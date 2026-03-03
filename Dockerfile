@@ -1,4 +1,4 @@
-FROM ubuntu:20.04 as build-tests
+FROM ubuntu:22.04 as build-tests
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -21,7 +21,7 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /tmp/
 
 # ============================================
-ARG PYTHON_VERSION="3.13.1"
+ARG PYTHON_VERSION="3.13.12"
 ARG PYTHON_SRC="https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tgz"
 
 RUN wget $PYTHON_SRC \
@@ -35,7 +35,7 @@ RUN wget $PYTHON_SRC \
     && rm -rf "Python-${PYTHON_VERSION}"
 
 # ============================================
-ARG PYTHON_VERSION="3.12.0"
+ARG PYTHON_VERSION="3.12.13"
 ARG PYTHON_SRC="https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tgz"
 
 RUN wget $PYTHON_SRC \
@@ -49,7 +49,7 @@ RUN wget $PYTHON_SRC \
     && rm -rf "Python-${PYTHON_VERSION}"
 
 # ============================================
-ARG PYTHON_VERSION="3.11.10"
+ARG PYTHON_VERSION="3.11.15"
 ARG PYTHON_SRC="https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tgz"
 
 RUN wget $PYTHON_SRC \
@@ -64,7 +64,7 @@ RUN wget $PYTHON_SRC \
 
 
 # ============================================
-ARG PYTHON_VERSION="3.10.15"
+ARG PYTHON_VERSION="3.10.20"
 ARG PYTHON_SRC="https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tgz"
 
 RUN wget $PYTHON_SRC \
