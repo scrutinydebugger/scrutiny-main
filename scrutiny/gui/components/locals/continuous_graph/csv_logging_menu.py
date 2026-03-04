@@ -38,7 +38,7 @@ class CsvLoggingMenuWidget(QWidget):
     _gb_content: QGroupBox
     _btn_browse: QPushButton
 
-    def __init__(self, parent: QWidget):
+    def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)

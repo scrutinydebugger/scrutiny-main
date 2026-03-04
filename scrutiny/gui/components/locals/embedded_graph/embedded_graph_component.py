@@ -1121,21 +1121,6 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
 
 # region Acquire Tab
 
-    def _get_signal_size_list(self) -> List[EmbeddedDataType]:
-        """This function provide all the embedded data type of the signals presently in the signal tree.
-        Used to estimate the duration of the acquisition."""
-
-        outlist: List[EmbeddedDataType] = []
-        axes = self._signal_tree.get_signals()
-        for axis in axes:
-            for item in axis.signal_items:
-                watchable_node = self.app.watchable_registry.get_watchable_node_fqn(item.fqn)  # Might be unavailable
-                if watchable_node is None:
-                    return []
-                outlist.append(watchable_node.configuration.datatype)
-
-        return outlist
-
     def _acquire_tab_visible_slot(self) -> None:
         """When the "Acquire" tab become visible"""
         pass    # Nothing to do

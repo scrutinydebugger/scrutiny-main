@@ -271,7 +271,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
             param_widget = QWidget()
             param_layout = QFormLayout(param_widget)
 
-            self._spinbox_graph_max_width = QSpinBox(self)
+            self._spinbox_graph_max_width = QSpinBox()
             self._spinbox_graph_max_width.setMaximum(600)
             self._spinbox_graph_max_width.setMinimum(0)
             self._spinbox_graph_max_width.setValue(self.DEFAULT_GRAPH_MAX_WIDTH)
@@ -284,7 +284,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
             self._graph_maintenance_timer = QTimer()
             self._graph_maintenance_timer.setInterval(1000)
             self._graph_maintenance_timer.timeout.connect(self._graph_maintenance_timer_slot)
-            self._csv_log_menu = CsvLoggingMenuWidget(self)
+            self._csv_log_menu = CsvLoggingMenuWidget()
 
             start_pause_line = QWidget()
             start_pause_line_layout = QHBoxLayout(start_pause_line)
@@ -541,7 +541,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
 
             self._get_x_axis().setRange(0, 1)
             for axis in signals:    # For each axes
-                yaxis = ScrutinyValueAxisWithMinMax(self)
+                yaxis = ScrutinyValueAxisWithMinMax()
                 axis.axis_item.attach_axis(yaxis)
                 yaxis.setTitleText(axis.axis_name)
                 yaxis.setTitleVisible(True)
