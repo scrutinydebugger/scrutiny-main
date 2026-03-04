@@ -133,7 +133,7 @@ class MainWindow(QMainWindow):
             w, h)
 
     def show_about(self) -> None:
-        dialog = AboutDialog()
+        dialog = AboutDialog()  # Modal
         dialog.setGeometry(self.centered(400, 200))
         dialog.exec()
 

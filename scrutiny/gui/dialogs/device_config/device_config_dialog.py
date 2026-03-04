@@ -144,8 +144,8 @@ class DeviceConfigDialog(QDialog):
         self._commit_configs_to_persistent_data()   # Override any corrupted values
 
     def _demo_mode_info_click_slot(self) -> None:
-        dialog = DemoModeInfoDialog(self)  # Modal window
-        dialog.show()
+        dialog = DemoModeInfoDialog()  # Modal window
+        dialog.exec()
 
     def _commit_configs_to_persistent_data(self) -> None:
         """Put the actual state of the dialog inside the persistent preferences system
@@ -230,7 +230,7 @@ class DeviceConfigDialog(QDialog):
         self.close()
 
     def set_config(self, link_type: sdk.DeviceLinkType, config: sdk.BaseLinkConfig, demo_mode: bool) -> None:
-        """Set the config for a given link type. 
+        """Set the config for a given link type.
         This config will be displayed when the user select the given link type"""
         if demo_mode:
             link_type = sdk.DeviceLinkType.NONE
