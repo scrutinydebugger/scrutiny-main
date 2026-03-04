@@ -377,25 +377,24 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
         self._teared_down = True
 
     def get_state(self) -> Dict[Any, Any]:
-        def make_state() -> State.ComponentState:
-            def axis_content_to_state(v: AxisContent) -> State.AxisContent:
-                return {
-                    'text': v.axis_name,
-                    'signals': [
-                        {'fqn': signal_item.fqn, 'text': signal_item.text()} for signal_item in v.signal_items
-                    ]
-                }
-
-            signals = [axis_content_to_state(sig) for sig in self._signal_tree.get_signals()]
-
+        def axis_content_to_state(v: AxisContent) -> State.AxisContent:
             return {
-                'signals': signals,
-                'graph_width_sec': self._spinbox_graph_max_width.value(),
-                'csv_logging': self._csv_log_menu.get_state(),
-                'grid_config': self._chartview.chart().get_grid_config().to_serializable_dict()
+                'text': v.axis_name,
+                'signals': [
+                    {'fqn': signal_item.fqn, 'text': signal_item.text()} for signal_item in v.signal_items
+                ]
             }
 
-        return cast(Dict[Any, Any], make_state())
+        signals = [axis_content_to_state(sig) for sig in self._signal_tree.get_signals()]
+
+        state:State.ComponentState = {
+            'signals': signals,
+            'graph_width_sec': self._spinbox_graph_max_width.value(),
+            'csv_logging': self._csv_log_menu.get_state(),
+            'grid_config': self._chartview.chart().get_grid_config().to_serializable_dict()
+        }
+
+        return cast(Dict[Any, Any], state)
 
     def load_state(self, state_untyped: Dict[Any, Any]) -> bool:
         state = cast(State.ComponentState, state_untyped)
