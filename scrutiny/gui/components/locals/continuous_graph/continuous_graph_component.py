@@ -208,8 +208,6 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
     """The actual X resolution in sec. This value is given to the series decimator"""
     _stats: GraphStatistics
     """Graph statistics displayed to the user in real time"""
-    _xaxis: ScrutinyValueAxisWithMinMax
-    """The single time X-Axis"""
     _yaxes: List[ScrutinyValueAxisWithMinMax]
     """All the Y-Axes defined by the user"""
     _graph_sfd: Optional[sdk.SFDInfo]
@@ -221,6 +219,8 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
     Used for auto-throttling of the repaint rate when the CPU is overloaded"""
     _csv_logger: Optional[CSVLogger]
     """The CSV logger that will save value update to disk in real time. Runs in the UI thread."""
+    _teared_down: bool
+    """Flag indicating that we ahve teared down the component"""
 
     @classmethod
     def get_icon(cls) -> QIcon:
@@ -228,10 +228,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
 
     def setup(self) -> None:
         self._registryid2series = {}
-        self._xaxis = ScrutinyValueAxisWithMinMax()
-        self._xaxis.setTitleText("Time [s]")
-        self._xaxis.setTitleVisible(True)
-        self._xaxis.deemphasize()   # Default state
+
         self._yaxes = []
         self._x_resolution = 0
         self._graph_sfd = None
@@ -240,6 +237,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
         self._csv_logger = None
         self._first_val_dt = None
         self._y_minmax_recompute_index = 0
+        self._teared_down  = False
 
         self._state = ContinuousGraphState(
             acquiring=False,
@@ -313,7 +311,12 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
 
         def make_left_side() -> QWidget:
             chart = ScrutinyChart()
-            chart.setAxisX(self._xaxis)
+            xaxis = ScrutinyValueAxisWithMinMax()
+            xaxis.setTitleText("Time [s]")
+            xaxis.setTitleVisible(True)
+            xaxis.deemphasize()   # Default state
+
+            chart.addAxis(xaxis, Qt.AlignmentFlag.AlignBottom)
             self._stats = GraphStatistics(chart)
             self._stats.overlay().setPos(0, 0)
 
@@ -380,7 +383,10 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
         """Called when the component is removed from the dashboard"""
         self.stop_acquisition()
         self.clear_graph()
+        splitter = self.findChild(QSplitter, "MainSplitter")
+        splitter.setParent(None)
         self.app.watchable_registry.unregister_watcher(self._watcher_id())
+        self._teared_down = True
 
     def get_state(self) -> Dict[Any, Any]:
         def make_state() -> State.ComponentState:
@@ -462,7 +468,8 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
 
     def visibilityChanged(self, visible: bool) -> None:
         """Called when the dashboard component is either hidden or showed"""
-        self._chartview.setEnabled(visible)
+        if not self._teared_down:
+            self._chartview.setEnabled(visible)
 
     # region Controls
 
@@ -479,8 +486,9 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
                 self._chartview.chart().removeAxis(yaxis)
 
         self._registryid2series.clear()
-        self._xaxis.setRange(0, 1)
-        self._xaxis.clear_minmax()
+        xaxis = self._get_x_axis()
+        xaxis.setRange(0, 1)
+        xaxis.clear_minmax()
         self._yaxes.clear()
         self._state.has_content = False
         self._first_val_dt = None
@@ -543,7 +551,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
                 self._report_error(f"Too many signals. Max={self.MAX_SIGNALS}")
                 return
 
-            self._xaxis.setRange(0, 1)
+            self._get_x_axis().setRange(0, 1)
             for axis in signals:    # For each axes
                 yaxis = ScrutinyValueAxisWithMinMax(self)
                 axis.axis_item.attach_axis(yaxis)
@@ -568,7 +576,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
                     signal_item.show_series()
                     self._registryid2series[registry_id] = series  # The main lookup
                     series.setName(signal_item.text())
-                    series.attachAxis(self._xaxis)
+                    series.attachAxis(self._get_x_axis())
                     series.attachAxis(yaxis)
 
                     # Click is used to make a line bold when we click. # Hovered to display a callout (only when the graph paused/stopped)
@@ -668,27 +676,33 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
 
     def auto_scale_xaxis(self) -> None:
         """Sets the scale of the X-Axis based on the save min/max"""
-        max_x = self._xaxis.maxval()
-        min_x = self._xaxis.minval()
+        xaxis = self._get_x_axis()
+        max_x = xaxis.maxval()
+        min_x = xaxis.minval()
         if max_x is not None and min_x is not None:
             if max_x > min_x + self._graph_max_width:
                 min_x = max_x - self._graph_max_width
             if max_x == min_x:
-                self._xaxis.setRange(min_x, max_x + 1)
+                xaxis.setRange(min_x, max_x + 1)
             else:
-                self._xaxis.setRange(min_x, max_x)
+                xaxis.setRange(min_x, max_x)
 
     # endregion Control
 
     # region Internal
 
+    def _get_x_axis(self) ->ScrutinyValueAxisWithMinMax:
+        haxes = self._chartview.chart().axes(Qt.Orientation.Horizontal)
+        assert len(haxes) == 1
+        return cast(ScrutinyValueAxisWithMinMax, haxes[0])
+
     def _latch_all_axis_range(self) -> None:
-        self._xaxis.latch_range()
+        self._get_x_axis().latch_range()
         for yaxis in self._yaxes:
             yaxis.latch_range()
 
     def _reload_all_latched_ranges(self) -> None:
-        self._xaxis.reload_latched_range()
+        self._get_x_axis().reload_latched_range()
         for yaxis in self._yaxes:
             yaxis.reload_latched_range()
 
@@ -886,7 +900,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
                 series = self._registryid2series[value_update.registry_id]
                 yaxis = self._get_series_yaxis(series)
                 series.add_point(QPointF(xval, yval))
-                self._xaxis.update_minmax(xval)
+                self._get_x_axis().update_minmax(xval)
                 yaxis.update_minmax(yval)   # Can only grow
                 if self._state.autoscale_enabled():
                     yaxis.autoset_range(margin_ratio=self.Y_AXIS_MARGIN)
@@ -951,7 +965,8 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
     def _compute_new_decimator_resolution(self) -> None:
         """Compute a decimator resolution to have ~1pt per pixel. Maybe a little more to spare the CPU."""
         w = self._chartview.chart().size().width()
-        xspan = self._xaxis.max() - self._xaxis.min()
+        xaxis = self._get_x_axis()
+        xspan = xaxis.max() - xaxis.min()
         sec_per_pixel = xspan / w
         resolution = 2 * sec_per_pixel        # When full, the decimator produces 2 points per time slice. (min/max
         resolution = 1.5 * resolution         # Heuristic to reduce the CPU load. Result is visually acceptable
@@ -982,8 +997,9 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
                 new_min_x = min(new_min_x, first_x)  # Reduce the axis lower bound to the series lower bound
 
         if math.isfinite(new_min_x):
-            self._xaxis.set_minval(new_min_x)
-            self._xaxis.set_maxval(new_max_f)
+            xaxis =  self._get_x_axis()
+            xaxis.set_minval(new_min_x)
+            xaxis.set_maxval(new_max_f)
 
     # endregion Internal
 
@@ -1002,7 +1018,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
         # When we are paused, we want the zoom to stay within the range of that was latched when pause was called.
         # When not pause, saturate to min/max values
         saturate_to_latched_range = True if self._state.paused else False
-        self._xaxis.apply_zoombox_x(zoombox, saturate_to_latched_range=saturate_to_latched_range)
+        self._get_x_axis().apply_zoombox_x(zoombox, saturate_to_latched_range=saturate_to_latched_range)
         selected_axis_items = self._signal_tree.get_selected_axes(include_if_signal_is_selected=True)
         selected_axis_ids = [id(item.axis()) for item in selected_axis_items]
         for yaxis in self._yaxes:
@@ -1019,7 +1035,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
             # Latched when paused. guaranteed to be unzoomed because zoom is not allowed when not
             self._reload_all_latched_ranges()
         else:
-            self._xaxis.autoset_range()
+            self._get_x_axis().autoset_range()
             for yaxis in self._yaxes:
                 yaxis.autoset_range(margin_ratio=self.Y_AXIS_MARGIN)
         self._chartview.update()
@@ -1166,7 +1182,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
         chart_mixins.add_grid_config_action(self._chartview.chart(), menu=context_menu, parent=self)
 
         def range_edit_slot() -> None:
-            dialog = ChartRangeEditDialog(self._xaxis, self._yaxes)
+            dialog = ChartRangeEditDialog(self._get_x_axis(), self._yaxes)
             dialog.exec()   # Exec because dialog ahs no parent. Will get destroyed when going out of scope
         edit_range_action = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.YRange), "Axes range")
         edit_range_action.triggered.connect(range_edit_slot)

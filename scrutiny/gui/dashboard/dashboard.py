@@ -73,6 +73,9 @@ class ComponentAppInterface(AbstractComponentAppInterface):
 class ScrutinyDockWidget(QtAds.CDockWidget):
     """An extension of the QT Advanced Docking System CDockWidget with some additional default behaviors"""
 
+    def __del__(self) -> None:
+        print("ScrutinyDockWidget del")
+
     @tools.copy_type(QtAds.CDockWidget.__init__)
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
