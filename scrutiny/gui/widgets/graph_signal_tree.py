@@ -716,13 +716,12 @@ class GraphSignalTree(BaseTreeView):
     def detach_all_chart_elements(self) -> None:
         self._model.detach_all_chart_elements()
 
-    def apply_on_series(self, selected_cb: Callable[[QLineSeries], None], deselected_cb: Callable[[QLineSeries], None]) -> None:
+    def apply_on_series(self, callback: Callable[[QLineSeries, bool], None]) -> None:
+        """Apply a callback on every series in the signal tree"""
         selected_items = self._get_selected_signal_items()
         axes_content = self.get_signals()
         for axis_item in axes_content:
             for signal_item in axis_item.signal_items:
                 if signal_item.series_attached():
-                    if signal_item in selected_items:
-                        selected_cb(signal_item.series())
-                    else:
-                        deselected_cb(signal_item.series())
+                    selected = signal_item in selected_items
+                    callback(signal_item.series(), selected)

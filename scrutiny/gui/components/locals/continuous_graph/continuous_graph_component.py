@@ -648,16 +648,16 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
         based on wether they are selected or not"""
         emphasized_yaxes_id: Set[int] = set()
 
-        def emphasize_series(series: QLineSeries) -> None:
+        def series_callback(series: QLineSeries, selected: bool) -> None:
             series2 = cast(RealTimeScrutinyLineSeries, series)
-            series2.emphasize()
-            yaxis = self._get_series_yaxis(series2)
-            emphasized_yaxes_id.add(id(yaxis))
+            if selected:
+                series2.emphasize()
+                yaxis = self._get_series_yaxis(series2)
+                emphasized_yaxes_id.add(id(yaxis))
+            else:
+                series2.deemphasize()
 
-        def deemphasize_series(series: QLineSeries) -> None:
-            cast(RealTimeScrutinyLineSeries, series).deemphasize()
-
-        self._signal_tree.apply_on_series(selected_cb=emphasize_series, deselected_cb=deemphasize_series)
+        self._signal_tree.apply_on_series(series_callback)
 
         for axis in self._yaxes:
             if id(axis) in emphasized_yaxes_id:
