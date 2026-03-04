@@ -356,7 +356,7 @@ class ServerSFDManagerDialog(QDialog):
         if self._server_manager.get_server_state() != sdk.ServerState.Connected:
             return
 
-        result = prompt.warning_yes_no_question(self, f"Are you sure you want to uninstall {len(firmware_ids)} SFD from the server?", "Are you sure?")
+        result = prompt.warning_yes_no_question(f"Are you sure you want to uninstall {len(firmware_ids)} SFD from the server?", "Are you sure?")
         if not result:
             return
 
@@ -407,7 +407,7 @@ class ServerSFDManagerDialog(QDialog):
 
             assert data is not None
             default_name = self._make_sfd_default_name(sfd_info)
-            save_path = prompt.get_save_filepath_from_last_save_dir(self, ".sfd", "Save SFD", default_name=default_name)
+            save_path = prompt.get_save_filepath_from_last_save_dir(".sfd", "Save SFD", default_name=default_name)
             if save_path is not None:
                 try:
                     with open(save_path, 'wb') as f:
@@ -424,8 +424,8 @@ class ServerSFDManagerDialog(QDialog):
 
     def _show_sfd_details_slot(self, sfd_info: sdk.SFDInfo) -> None:
         """Called when right click an SFD and select "Details """
-        dialog = SFDContentDialog(self, sfd_info)
-        dialog.show()
+        dialog = SFDContentDialog(parent=None, sfd=sfd_info)
+        dialog.exec()   # Exec because dialog ahs no parent. Will get destroyed when going out of scope
 
     def _make_sfd_default_name(self, sfd_info: sdk.SFDInfo) -> str:
         """Makes a default filename from the SFDInfo structure."""
@@ -451,7 +451,7 @@ class ServerSFDManagerDialog(QDialog):
         if self.is_transfer_active():
             return
 
-        filepath = prompt.get_open_filepath_from_last_save_dir(self, ".sfd", "Scrutiny Firmware Description")
+        filepath = prompt.get_open_filepath_from_last_save_dir(".sfd", "Scrutiny Firmware Description")
         if filepath is None:
             return
 
@@ -469,7 +469,6 @@ class ServerSFDManagerDialog(QDialog):
             proceed = True
             if req.will_overwrite:
                 proceed = prompt.warning_yes_no_question(
-                    parent=self,
                     msg="Installing this file will overwrite an existing SFD on the server that shares the same firmware ID. Proceed?",
                     title="Proceed?"
                 )
@@ -499,7 +498,7 @@ class ServerSFDManagerDialog(QDialog):
                 row_number = self._sfd_table.model().add_row(sfd_info)  # Append a row
                 self._sfd_table.selectRow(row_number)   # Select inserted row (last one)
 
-                prompt.success_msgbox(self, "Installed", f"Installed SFD {data.firmware_id}")
+                prompt.success_msgbox("Installed", f"Installed SFD {data.firmware_id}")
 
             self._server_manager.schedule_client_request(
                 user_func=ephemerous_thread_upload,

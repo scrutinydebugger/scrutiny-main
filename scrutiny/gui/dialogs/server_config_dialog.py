@@ -227,7 +227,7 @@ class LocalServerConfigurator(QWidget):
         self._log_viewer.clear()
 
     def _save_logs(self) -> None:
-        filepath = prompt.get_save_filepath_from_last_save_dir(self, '.log', 'Save server logs')
+        filepath = prompt.get_save_filepath_from_last_save_dir('.log', 'Save server logs')
         if filepath is None:
             return
 
@@ -235,10 +235,10 @@ class LocalServerConfigurator(QWidget):
             with open(filepath, 'w') as f:
                 lines = [line + '\n' for line in self._log_viewer.get_lines()]
                 f.writelines(lines)
-                prompt.success_msgbox(self, "Logs saved", f"Logs saved to {filepath.absolute()}")
+                prompt.success_msgbox("Logs saved", f"Logs saved to {filepath.absolute()}")
         except Exception as e:
             tools.log_exception(self._logger, e, "Cannot save logs")
-            prompt.exception_msgbox(self, e, "Failed to save logs", f"Cannot save logs to file {filepath.absolute()}")
+            prompt.exception_msgbox(e, "Failed to save logs", f"Cannot save logs to file {filepath.absolute()}")
 
     def _abnormal_termination_slot(self) -> None:
         """The running thread emits a signal if the subprocess exits without a request for it."""

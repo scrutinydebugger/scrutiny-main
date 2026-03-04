@@ -108,7 +108,7 @@ class MainWindow(QMainWindow):
 
         server_config_dialog = self._status_bar.get_server_config_dialog()
 
-        self._server_sfd_manage_dialog = ServerSFDManagerDialog(self, self._server_manager)
+        self._server_sfd_manage_dialog = ServerSFDManagerDialog(parent=self, server_manager=self._server_manager)
         UserMessagesManager.init()
 
         if app_settings().start_local_server:
@@ -133,9 +133,9 @@ class MainWindow(QMainWindow):
             w, h)
 
     def show_about(self) -> None:
-        dialog = AboutDialog(self)
+        dialog = AboutDialog()
         dialog.setGeometry(self.centered(400, 200))
-        dialog.show()
+        dialog.exec()
 
     def show_server_sfd_manage_dialog(self) -> None:
         if not self._server_sfd_manage_dialog.isVisible():
@@ -189,7 +189,7 @@ class MainWindow(QMainWindow):
 
     def _save_before_open_question(self) -> None:
         if self._dashboard.local_components_count() > 0:
-            require_save = prompt.yes_no_question(self, "Do you want to save the actual dashboard?", "Save?")
+            require_save = prompt.yes_no_question("Do you want to save the actual dashboard?", "Save?")
             if require_save:
                 self._dashboard.save_with_prompt()
 

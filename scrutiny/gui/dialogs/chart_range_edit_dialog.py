@@ -59,7 +59,7 @@ class ChartRangeEditDialog(QDialog):
     _feedback_label: FeedbackLabel
     """A label to display errors"""
 
-    def __init__(self, xaxis: QValueAxis, axes: Sequence[QValueAxis], parent: QWidget) -> None:
+    def __init__(self, xaxis: QValueAxis, axes: Sequence[QValueAxis], parent: Optional[QWidget]=None) -> None:
         super().__init__(parent)
 
         self._feedback_label = FeedbackLabel(self)

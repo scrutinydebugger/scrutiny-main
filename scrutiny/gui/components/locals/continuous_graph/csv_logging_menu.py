@@ -93,7 +93,7 @@ class CsvLoggingMenuWidget(QWidget):
             actual_folder = Path(os.path.normpath(self._txt_folder.text()))
             actual_folder = actual_folder.absolute()
 
-        folder = prompt.get_save_folderpath_from_last_save_dir(self, "Select a folder", save_dir=actual_folder)
+        folder = prompt.get_save_folderpath_from_last_save_dir("Select a folder", save_dir=actual_folder)
         if folder is not None:
             self._txt_folder.setText(str(folder))
 
@@ -143,7 +143,7 @@ class CsvLoggingMenuWidget(QWidget):
 
         msgbox_text += '\n Do you want to delete them?'
 
-        override = prompt.warning_yes_no_question(self, msg=msgbox_text, title="Filename conflict")
+        override = prompt.warning_yes_no_question(msg=msgbox_text, title="Filename conflict")
 
         if override:
             for file in conflicting_files:

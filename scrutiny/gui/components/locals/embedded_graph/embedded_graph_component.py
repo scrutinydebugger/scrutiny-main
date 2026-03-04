@@ -957,8 +957,8 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
 
         def range_edit_slot() -> None:
             if self._xaxis is not None:
-                dialog = ChartRangeEditDialog(self._xaxis, self._yaxes, parent=self)
-                dialog.show()
+                dialog = ChartRangeEditDialog(self._xaxis, self._yaxes)
+                dialog.exec()   # Exec because dialog ahs no parent. Will get destroyed when going out of scope
         edit_range_action = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.YRange), "Axes range")
         edit_range_action.triggered.connect(range_edit_slot)
         edit_range_action.setEnabled(self._state.enable_edit_range_menu())
@@ -997,14 +997,14 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
             self._apply_internal_state()
             self._chartview.update()
 
-            filepath = prompt.get_save_filepath_from_last_save_dir(self, ".png")
+            filepath = prompt.get_save_filepath_from_last_save_dir(".png")
             if filepath is None:
                 return
             pix.save(str(filepath), 'png', 100)
         except Exception as e:
             logfilepath = "<noname>" if filepath is None else str(filepath)
             tools.log_exception(self.logger, e, f"Error while saving graph into {logfilepath}")
-            prompt.exception_msgbox(self, e, "Failed to save", f"Failed to save the graph to {logfilepath}")
+            prompt.exception_msgbox(e, "Failed to save", f"Failed to save the graph to {logfilepath}")
 
     def _save_csv_slot(self) -> None:
         """When the user right-click the graph then click "Save as CSV" """
@@ -1013,7 +1013,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
 
         assert self._displayed_acquisition is not None
 
-        filepath = prompt.get_save_filepath_from_last_save_dir(self, ".csv")
+        filepath = prompt.get_save_filepath_from_last_save_dir(".csv")
         if filepath is None:
             return
 
@@ -1021,7 +1021,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
             # This runs in a different thread
             if exception is not None:
                 tools.log_exception(self.logger, exception, f"Error while saving graph into {filepath}")
-                invoke_in_qt_thread(lambda: prompt.exception_msgbox(self, exception, "Failed to save", f"Failed to save the graph to {filepath}"))
+                invoke_in_qt_thread(lambda: prompt.exception_msgbox(exception, "Failed to save", f"Failed to save the graph to {filepath}"))
 
         loaded_sfd = self.app.server_manager.get_loaded_sfd()
         connected_device_info = self.app.server_manager.get_device_info()

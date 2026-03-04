@@ -27,41 +27,41 @@ from scrutiny.gui.themes import scrutiny_get_theme
 from scrutiny.tools.typing import *
 
 
-def error_msgbox(parent: QWidget, title: str, message: str) -> None:
-    msgbox = QMessageBox(parent)
+def error_msgbox(title: str, message: str) -> None:
+    msgbox = QMessageBox()
     msgbox.setIconPixmap(scrutiny_get_theme().load_medium_icon_as_pixmap(assets.Icons.Error))
     msgbox.setStandardButtons(QMessageBox.StandardButton.Close)
     msgbox.setWindowTitle(title)
     msgbox.setText(message)
-    msgbox.show()
+    msgbox.exec()
 
 
-def success_msgbox(parent: QWidget, title: str, message: str) -> None:
-    msgbox = QMessageBox(parent)
+def success_msgbox(title: str, message: str) -> None:
+    msgbox = QMessageBox()
     msgbox.setIconPixmap(scrutiny_get_theme().load_medium_icon_as_pixmap(assets.Icons.Success))
     msgbox.setStandardButtons(QMessageBox.StandardButton.Close)
     msgbox.setWindowTitle(title)
     msgbox.setText(message)
-    msgbox.show()
+    msgbox.exec()
 
 
-def exception_msgbox(parent: QWidget, exception: Exception, title: str, message: str) -> None:
+def exception_msgbox(exception: Exception, title: str, message: str) -> None:
     fullmsg = f"{message}.\n {exception.__class__.__name__}: {exception}"
-    error_msgbox(parent, title, fullmsg)
+    error_msgbox(title, fullmsg)
 
 
-def get_open_filepath_from_last_save_dir(parent: QWidget, extension_with_dot: str, title: str = "Open") -> Optional[Path]:
+def get_open_filepath_from_last_save_dir(extension_with_dot: str, title: str = "Open") -> Optional[Path]:
     save_dir = gui_persistent_data.global_namespace().get_last_save_dir_or_workdir()
-    filename, _ = QFileDialog.getOpenFileName(parent, title, str(save_dir), f"*{extension_with_dot}")
+    filename, _ = QFileDialog.getOpenFileName(None, title, str(save_dir), f"*{extension_with_dot}")
     if len(filename) == 0:
         return None     # Cancelled
     gui_persistent_data.global_namespace().set_last_save_dir(Path(os.path.dirname(filename)))
     return Path(filename)
 
 
-def get_save_filepath_from_last_save_dir(parent: QWidget, extension_with_dot: str, title: str = "Save", default_name: str = "") -> Optional[Path]:
+def get_save_filepath_from_last_save_dir(extension_with_dot: str, title: str = "Save", default_name: str = "") -> Optional[Path]:
     save_dir = gui_persistent_data.global_namespace().get_last_save_dir_or_workdir()
-    filename, _ = QFileDialog.getSaveFileName(parent, title, str(save_dir / default_name), f"*{extension_with_dot}")
+    filename, _ = QFileDialog.getSaveFileName(None, title, str(save_dir / default_name), f"*{extension_with_dot}")
     if len(filename) == 0:
         return None     # Cancelled
     gui_persistent_data.global_namespace().set_last_save_dir(Path(os.path.dirname(filename)))
@@ -70,19 +70,19 @@ def get_save_filepath_from_last_save_dir(parent: QWidget, extension_with_dot: st
     return Path(filename)
 
 
-def get_save_folderpath_from_last_save_dir(parent: QWidget, title: str = "Save", save_dir: Optional[Path] = None) -> Optional[Path]:
+def get_save_folderpath_from_last_save_dir(title: str = "Save", save_dir: Optional[Path] = None) -> Optional[Path]:
     if save_dir is None:
         save_dir = gui_persistent_data.global_namespace().get_last_save_dir_or_workdir()
 
-    foldername = QFileDialog.getExistingDirectory(parent, title, str(save_dir))
+    foldername = QFileDialog.getExistingDirectory(None, title, str(save_dir))
     if len(foldername) == 0:
         return None     # Cancelled
     gui_persistent_data.global_namespace().set_last_save_dir(Path(foldername))
     return Path(foldername)
 
 
-def yes_no_question(parent: QWidget, msg: str, title: str, icon: QMessageBox.Icon = QMessageBox.Icon.Question) -> bool:
-    msgbox = QMessageBox(parent)
+def yes_no_question(msg: str, title: str, icon: QMessageBox.Icon = QMessageBox.Icon.Question) -> bool:
+    msgbox = QMessageBox()
     msgbox.setIcon(icon)
     msgbox.setWindowTitle(title)
     msgbox.setText(msg)
@@ -95,5 +95,5 @@ def yes_no_question(parent: QWidget, msg: str, title: str, icon: QMessageBox.Ico
     return (reply == QMessageBox.StandardButton.Yes)
 
 
-def warning_yes_no_question(parent: QWidget, msg: str, title: str) -> bool:
-    return yes_no_question(parent, msg, title, QMessageBox.Icon.Warning)
+def warning_yes_no_question(msg: str, title: str) -> bool:
+    return yes_no_question(msg, title, QMessageBox.Icon.Warning)
