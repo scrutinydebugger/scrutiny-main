@@ -16,6 +16,7 @@ from uuid import uuid4
 import json
 from datetime import datetime
 from pathlib import Path
+import gc
 
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QMenu, QInputDialog, QLineEdit
 from PySide6.QtCore import Qt, QSize, QObject, Signal, QTimer
@@ -72,9 +73,6 @@ class ComponentAppInterface(AbstractComponentAppInterface):
 
 class ScrutinyDockWidget(QtAds.CDockWidget):
     """An extension of the QT Advanced Docking System CDockWidget with some additional default behaviors"""
-
-    def __del__(self) -> None:
-        print("ScrutinyDockWidget del")
 
     @tools.copy_type(QtAds.CDockWidget.__init__)
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -703,6 +701,10 @@ class Dashboard(QWidget):
             tools.log_exception(
                 self._logger, e, f"Exception while tearing down component {component.__class__.__name__} (instance name: {component.instance_name})")
 
+        gc.collect()
+        referer_count = len(gc.get_referrers(component))
+        if referer_count > 1:
+            self._logger.warning(f"Component {component.instance_name} has {referer_count} referrer after teardown. Only 1 should remain. This indicates a memory leak")
 # endregion
 
 # region Restore

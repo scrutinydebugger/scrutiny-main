@@ -222,10 +222,6 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
     _teared_down: bool
     """Flag indicating that we ahve teared down the component"""
 
-
-    def __del__(self) -> None:
-        print("YAY")
-
     @classmethod
     def get_icon(cls) -> QIcon:
         return scrutiny_get_theme().load_medium_icon(assets.Icons.ContinuousGraph)
