@@ -52,7 +52,7 @@ def make_sfd_info() -> SFDInfo:
 window = QMainWindow()
 central_widget = QWidget()
 btn_show = QPushButton("Show")
-dialog = SFDContentDialog(window, make_sfd_info())
+dialog = SFDContentDialog(make_sfd_info())
 window.setCentralWidget(central_widget)
 layout = QVBoxLayout(central_widget)
 layout.addWidget(btn_show)

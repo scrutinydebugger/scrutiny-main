@@ -40,6 +40,7 @@ from scrutiny.tools import validation
 from scrutiny.gui.widgets.graph_signal_tree import GraphSignalTree, ValueItems
 
 from scrutiny.tools.typing import *
+import shiboken6
 
 
 @dataclass(slots=True)
@@ -973,6 +974,8 @@ class ScrutinyChartView(QChartView):
         self._series_to_signal_tree_value_item.clear()
         if self._signal_tree is not None:
             for series, value_item in self._signal_tree.get_value_item_by_attached_series():
+                # Careful here. The model has full ownership of the value item.
+                # We can't assume it still exist at any given moment
                 self._series_to_signal_tree_value_item[id(series)] = value_item
 
     def enable_cursor1(self) -> None:
@@ -1337,22 +1340,25 @@ class ScrutinyChartView(QChartView):
             series_id = id(pair.series)
             if series_id in self._series_to_signal_tree_value_item:
                 value_items = self._series_to_signal_tree_value_item[series_id]
-                v1 = pair.point.y()
-                val1_series_dict[series_id] = v1
-                value_items.value1.setText('%g' % v1)
+                # We do not own those items. They are owned by the model. The model may have deleted them
+                if shiboken6.isValid(value_items.value1):
+                    v1 = pair.point.y()
+                    val1_series_dict[series_id] = v1
+                    value_items.value1.setText('%g' % v1)
 
         for pair in self._chart_cursor_x2.get_markers_vals():   # Empty list if disabled
             series_id = id(pair.series)
             if series_id in self._series_to_signal_tree_value_item:
                 value_items = self._series_to_signal_tree_value_item[series_id]
-                v2 = pair.point.y()
-
-                if value_items.value2 is not None:
-                    value_items.value2.setText('%g' % v2)
-                if value_items.delta is not None and series_id in val1_series_dict:
-                    v1 = val1_series_dict[series_id]
-                    delta = abs(v2 - v1)
-                    value_items.delta.setText('%g' % delta)
+                # We do not own those items. They are owned by the model. The model may have deleted them
+                if shiboken6.isValid(value_items.value2) and shiboken6.isValid(value_items.delta):
+                    v2 = pair.point.y()
+                    if value_items.value2 is not None:
+                        value_items.value2.setText('%g' % v2)
+                    if value_items.delta is not None and series_id in val1_series_dict:
+                        v1 = val1_series_dict[series_id]
+                        delta = abs(v2 - v1)
+                        value_items.delta.setText('%g' % delta)
 
     def _clear_signal_tree_values(self) -> None:
         """Clear the value box in the signal tree"""

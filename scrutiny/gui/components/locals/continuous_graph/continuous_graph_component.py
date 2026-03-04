@@ -19,6 +19,7 @@ from PySide6.QtGui import QContextMenuEvent, QKeyEvent, QIcon
 from PySide6.QtWidgets import (QHBoxLayout, QSplitter, QWidget, QVBoxLayout, QMenu,
                                QPushButton, QFormLayout, QSpinBox, QLineEdit, QLabel)
 from PySide6.QtCore import Qt, QPointF, QTimer, QRectF
+from PySide6.QtCharts import QLineSeries
 
 from scrutiny import sdk
 from scrutiny import tools
@@ -646,16 +647,17 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
         """Read the items in the SignalTree object (right menu with axis) and update the size/boldness of the graph series
         based on wether they are selected or not"""
         emphasized_yaxes_id: Set[int] = set()
-        selected_items = self._signal_tree.get_selected_signal_items()
-        for item in self._registryid2signal_item.values():
-            if item.series_attached():
-                series = self._get_item_series(item)
-                if item in selected_items:
-                    series.emphasize()
-                    yaxis = self._get_series_yaxis(series)
-                    emphasized_yaxes_id.add(id(yaxis))
-                else:
-                    series.deemphasize()
+
+        def emphasize_series(series: QLineSeries) -> None:
+            series2 = cast(RealTimeScrutinyLineSeries, series)
+            series2.emphasize()
+            yaxis = self._get_series_yaxis(series2)
+            emphasized_yaxes_id.add(id(yaxis))
+
+        def deemphasize_series(series: QLineSeries) -> None:
+            cast(RealTimeScrutinyLineSeries, series).deemphasize()
+
+        self._signal_tree.apply_on_series(selected_cb=emphasize_series, deselected_cb=deemphasize_series)
 
         for axis in self._yaxes:
             if id(axis) in emphasized_yaxes_id:

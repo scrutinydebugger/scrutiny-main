@@ -42,14 +42,14 @@ class ScrutinyBaseGuiTest(ScrutinyUnitTest):
         logger.debug(f"Event: {event_type.name}")
         self.event_list.append(event_type)
 
-    def QTMessageHandler(self, messagetype:QtMsgType, context:QMessageLogContext, msg:str ) -> None:
+    def QTMessageHandler(self, messagetype: QtMsgType, context: QMessageLogContext, msg: str) -> None:
         logging_map = {
-            QtMsgType.QtDebugMsg : logging.DEBUG,
-            QtMsgType.QtWarningMsg : logging.WARNING,
-            QtMsgType.QtCriticalMsg : logging.CRITICAL,
-            QtMsgType.QtSystemMsg : logging.CRITICAL,
-            QtMsgType.QtFatalMsg : logging.FATAL,
-            QtMsgType.QtInfoMsg : logging.INFO,
+            QtMsgType.QtDebugMsg: logging.DEBUG,
+            QtMsgType.QtWarningMsg: logging.WARNING,
+            QtMsgType.QtCriticalMsg: logging.CRITICAL,
+            QtMsgType.QtSystemMsg: logging.CRITICAL,
+            QtMsgType.QtFatalMsg: logging.FATAL,
+            QtMsgType.QtInfoMsg: logging.INFO,
         }
 
         logging_level = logging_map.get(messagetype, logging.CRITICAL)

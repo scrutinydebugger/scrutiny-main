@@ -424,7 +424,7 @@ class ServerSFDManagerDialog(QDialog):
 
     def _show_sfd_details_slot(self, sfd_info: sdk.SFDInfo) -> None:
         """Called when right click an SFD and select "Details """
-        dialog = SFDContentDialog(parent=None, sfd=sfd_info)
+        dialog = SFDContentDialog(sfd_info)
         dialog.exec()   # Exec because dialog ahs no parent. Will get destroyed when going out of scope
 
     def _make_sfd_default_name(self, sfd_info: sdk.SFDInfo) -> str:

@@ -505,6 +505,7 @@ class GraphSignalDetailFilterProxy(QSortFilterProxyModel):
         self._show_details = True
         self.invalidateRowsFilter()
 
+
 class GraphSignalTree(BaseTreeView):
 
     class _Signals(QObject):
@@ -550,8 +551,8 @@ class GraphSignalTree(BaseTreeView):
         mapped_index = self._detail_filter_proxy.mapFromSource(signal_item.index())
         sel.select(mapped_index, QItemSelectionModel.SelectionFlag.ClearAndSelect | QItemSelectionModel.SelectionFlag.Rows)
 
-    def get_selected_signal_items(self) -> List[ChartSeriesWatchableStandardItem]:
-        selected_items = [self._model.itemFromIndex(index) for index in self._real_model_selected_indexes() ]
+    def _get_selected_signal_items(self) -> List[ChartSeriesWatchableStandardItem]:
+        selected_items = [self._model.itemFromIndex(index) for index in self._real_model_selected_indexes()]
         return [item for item in selected_items if isinstance(item, ChartSeriesWatchableStandardItem)]
 
     def update_all_availabilities(self) -> None:
@@ -714,3 +715,14 @@ class GraphSignalTree(BaseTreeView):
 
     def detach_all_chart_elements(self) -> None:
         self._model.detach_all_chart_elements()
+
+    def apply_on_series(self, selected_cb: Callable[[QLineSeries], None], deselected_cb: Callable[[QLineSeries], None]) -> None:
+        selected_items = self._get_selected_signal_items()
+        axes_content = self.get_signals()
+        for axis_item in axes_content:
+            for signal_item in axis_item.signal_items:
+                if signal_item.series_attached():
+                    if signal_item in selected_items:
+                        selected_cb(signal_item.series())
+                    else:
+                        deselected_cb(signal_item.series())
