@@ -237,7 +237,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
         self._csv_logger = None
         self._first_val_dt = None
         self._y_minmax_recompute_index = 0
-        self._teared_down  = False
+        self._teared_down = False
 
         self._state = ContinuousGraphState(
             acquiring=False,
@@ -690,7 +690,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
 
     # region Internal
 
-    def _get_x_axis(self) ->ScrutinyValueAxisWithMinMax:
+    def _get_x_axis(self) -> ScrutinyValueAxisWithMinMax:
         haxes = self._chartview.chart().axes(Qt.Orientation.Horizontal)
         assert len(haxes) == 1
         return cast(ScrutinyValueAxisWithMinMax, haxes[0])
@@ -996,7 +996,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
                 new_min_x = min(new_min_x, first_x)  # Reduce the axis lower bound to the series lower bound
 
         if math.isfinite(new_min_x):
-            xaxis =  self._get_x_axis()
+            xaxis = self._get_x_axis()
             xaxis.set_minval(new_min_x)
             xaxis.set_maxval(new_max_f)
 

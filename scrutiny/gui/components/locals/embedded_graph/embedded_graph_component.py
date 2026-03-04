@@ -236,8 +236,6 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
     _center_pane: QWidget
     _right_pane: QWidget
 
-    _splitter: QSplitter
-    """3 section splitter separating left / center / right"""
     _x1val_label: QLabel
     """The label used to display the X1-Value when moving the graph cursor (red vertical line)"""
     _x2val_label: QLabel
@@ -336,8 +334,8 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
             # Series on continuous graph don't have their X value aligned.
             # We can only show the value next to each point, not all together in the tree
             self._signal_tree = GraphSignalTree(self.app.watchable_registry)
-            self._signal_tree.signals.selection_changed.connect(self._signal_tree_selection_changed_slot)
             self._signal_tree.signals.content_changed.connect(self._signal_tree_content_changed_slot)
+            self._signal_tree.signals.selection_changed.connect(self._signal_tree_selection_changed_slot)
 
             self._x1val_label.setVisible(False)
             self._x2val_label.setVisible(False)
@@ -360,7 +358,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
         def make_center_pane() -> QWidget:
             chart = ScrutinyChart()
 
-            self._chartview = EmbeddedGraphChartView(self)
+            self._chartview = EmbeddedGraphChartView()
             self._chartview.setChart(chart)
             self._xaxis = None
             self._yaxes = []
@@ -378,9 +376,10 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
             return self._chartview
 
         def make_acquire_left_pane() -> QWidget:
-            self._graph_config_widget = GraphConfigWidget(self,
-                                                          watchable_registry=self.app.watchable_registry,
-                                                          get_signal_dtype_fn=self._get_signal_size_list)
+            self._graph_config_widget = GraphConfigWidget(
+                watchable_registry=self.app.watchable_registry,
+                get_signal_dtype_fn=self._get_signal_size_list
+            )
             container = QWidget()
             container_layout = QVBoxLayout(container)
             container_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
@@ -410,14 +409,14 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
             container_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
             self._chk_browse_loaded_sfd_only = QCheckBox("Loaded firmware only")
-            self._chk_browse_loaded_sfd_only.setToolTip("Load acquisition taken with the same firmware that the device you're conencted to is using.")
+            self._chk_browse_loaded_sfd_only.setToolTip("Load acquisition taken with the same firmware that the device you're connected to is using.")
             self._chk_browse_loaded_sfd_only.checkStateChanged.connect(self._checkbox_filter_sfd_checkstate_change_slot)
             if self.app.server_manager.get_loaded_sfd() is None:
                 self._chk_browse_loaded_sfd_only.setDisabled(True)
 
-            self._graph_browse_list_widget = GraphBrowseListWidget(self)
-            self._btn_delete_all = QPushButton(scrutiny_get_theme().load_tiny_icon(assets.Icons.RedX), " Delete All", self)
-            self._btn_load_more = QPushButton("Load", self)
+            self._graph_browse_list_widget = GraphBrowseListWidget()
+            self._btn_delete_all = QPushButton(scrutiny_get_theme().load_tiny_icon(assets.Icons.RedX), " Delete All")
+            self._btn_load_more = QPushButton("Load")
             self._browse_feedback_label = FeedbackLabel()
 
             btn_line = QWidget()
@@ -443,19 +442,13 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
             acquire_tab_content = make_acquire_left_pane()
             browse_tab_content = make_browse_left_pane()
 
-            tab = QTabWidget(self)
+            tab = QTabWidget()
             tab.addTab(acquire_tab_content, "Acquire")
             tab.addTab(browse_tab_content, "Browse")
 
-            def current_changed_slot(index: int) -> None:
-                if index == 0:
-                    self._acquire_tab_visible_slot()
-                elif index == 1:
-                    self._browse_tab_visible_slot()
+            tab.currentChanged.connect(self._current_tab_changed_slot)
 
-            tab.currentChanged.connect(current_changed_slot)
-
-            left_pane_scroll = QScrollArea(self)
+            left_pane_scroll = QScrollArea()
             left_pane_scroll.setWidget(tab)
             left_pane_scroll.setWidgetResizable(True)
             left_pane_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -468,17 +461,18 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
         self._center_pane = make_center_pane()
         self._right_pane = make_right_pane()
 
-        self._splitter = QSplitter(Qt.Orientation.Horizontal)
-        self._splitter.setContentsMargins(0, 0, 0, 0)
-        self._splitter.setHandleWidth(5)
-        self._splitter.addWidget(self._left_pane)
-        self._splitter.addWidget(self._center_pane)
-        self._splitter.addWidget(self._right_pane)
-        self._splitter.setCollapsible(0, True)
-        self._splitter.setCollapsible(1, False)
-        self._splitter.setCollapsible(2, True)
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+        splitter.setObjectName("MainSplitter")
+        splitter.setContentsMargins(0, 0, 0, 0)
+        splitter.setHandleWidth(5)
+        splitter.addWidget(self._left_pane)
+        splitter.addWidget(self._center_pane)
+        splitter.addWidget(self._right_pane)
+        splitter.setCollapsible(0, True)
+        splitter.setCollapsible(1, False)
+        splitter.setCollapsible(2, True)
 
-        layout.addWidget(self._splitter)
+        layout.addWidget(splitter)
 
         self.app.server_manager.signals.server_connected.connect(self._server_connected_slot)
         self.app.server_manager.signals.server_disconnected.connect(self._server_disconnected_slot)
@@ -502,10 +496,14 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
     def ready(self) -> None:
         """Called when the component is inside the dashboard and its dimensions are computed"""
         # Make the right menu as small as possible. Only works after the widget is loaded. we need the ready() function for that
-        self._splitter.setSizes([self._left_pane.minimumWidth(), self.width(), self._right_pane.minimumWidth()])
+        splitter = self.findChild(QSplitter, 'MainSplitter')
+        assert splitter is not None
+        splitter.setSizes([self._left_pane.minimumWidth(), self.width(), self._right_pane.minimumWidth()])
 
     def teardown(self) -> None:
         self._clear_graph()
+        self._graph_config_widget.teardown()
+        self._chartview.teardown()
         self._teared_down = True
 
     def get_state(self) -> Dict[Any, Any]:
@@ -649,6 +647,27 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
 
         return fully_valid
 
+    def _current_tab_changed_slot(self, index: int) -> None:
+        if index == 0:
+            self._acquire_tab_visible_slot()
+        elif index == 1:
+            self._browse_tab_visible_slot()
+
+    def _get_signal_size_list(self) -> List[EmbeddedDataType]:
+        """This function provide all the embedded data type of the signals presently in the signal tree.
+        Used to estimate the duration of the acquisition."""
+
+        outlist: List[EmbeddedDataType] = []
+        axes = self._signal_tree.get_signals()
+        for axis in axes:
+            for item in axis.signal_items:
+                watchable_node = self.app.watchable_registry.get_watchable_node_fqn(item.fqn)  # Might be unavailable
+                if watchable_node is None:
+                    return []
+                outlist.append(watchable_node.configuration.datatype)
+
+        return outlist
+
     def _apply_internal_state(self) -> None:
         """Update all the widgets based on our internal state variables"""
         self._btn_acquire.setEnabled(self._state.enable_acquire_button())
@@ -719,7 +738,6 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
 
 
 # region Chart handling
-
 
     def _clear_graph(self) -> None:
         """Remove the acquisition presently displayed in the chartview"""

@@ -217,7 +217,7 @@ class AcquisitionStorageEntryTreeView(BaseTreeView):
 
 
 class GraphBrowseListWidget(QWidget):
-    """A continer widget that is the public API. Wraps the treeview"""
+    """A container widget that is the public API. Wraps the treeview"""
 
     class _Signals(QObject):
         display = Signal(str)
@@ -232,7 +232,7 @@ class GraphBrowseListWidget(QWidget):
     def signals(self) -> _Signals:
         return self._signals
 
-    def __init__(self, parent: QWidget):
+    def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)
         self._signals = self._Signals()
         self._treeview = AcquisitionStorageEntryTreeView(self)

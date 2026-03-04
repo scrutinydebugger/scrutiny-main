@@ -349,6 +349,7 @@ class Dashboard(QWidget):
 
 # region Public API
 
+
     @property
     def signals(self) -> _Signals:
         return self._signals
@@ -704,7 +705,8 @@ class Dashboard(QWidget):
         gc.collect()
         referer_count = len(gc.get_referrers(component))
         if referer_count > 1:
-            self._logger.warning(f"Component {component.instance_name} has {referer_count} referrer after teardown. Only 1 should remain. This indicates a memory leak")
+            self._logger.warning(
+                f"Component {component.instance_name} has {referer_count} referrer after teardown. Only 1 should remain.")
 # endregion
 
 # region Restore

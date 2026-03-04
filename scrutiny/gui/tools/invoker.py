@@ -55,6 +55,7 @@ class CrossThreadInvoker(QObject):
         self.called_signal.connect(method, Qt.ConnectionType.SingleShotConnection)
         self.called_signal.emit()
 
+
 class QueuedInvoker(QObject):
     _instance: Optional["QueuedInvoker"] = None
 

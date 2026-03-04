@@ -126,7 +126,7 @@ class GraphConfigWidget(QWidget):
 
     AUTONAME_PREFIX = r"Acquisition #"
 
-    def __init__(self, parent: QWidget, watchable_registry: WatchableRegistry, get_signal_dtype_fn: Optional[GetSignalDatatypeFn]) -> None:
+    def __init__(self, watchable_registry: WatchableRegistry, get_signal_dtype_fn: Optional[GetSignalDatatypeFn], parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         MAX_HOLD_TIME_MS = math.floor((2**32 - 1) * 1e-7) * 1e3     # 32bits, increment of 100ns
         MAX_TIMEOUT_SEC = math.floor((2**32 - 1) * 1e-7)            # 32bits, increment of 100ns
@@ -144,12 +144,6 @@ class GraphConfigWidget(QWidget):
         layout.addWidget(sampling_rate_container)
         layout.addWidget(xaxis_container)
         layout.addWidget(trigger_container)
-
-        def set_top_bottom_margin(layout: QFormLayout, top: int, bottom: int) -> None:
-            margins = layout.contentsMargins()
-            margins.setTop(top)
-            margins.setBottom(bottom)
-            layout.setContentsMargins(margins)
 
         class InternalFormLayout(QFormLayout):
             @tools.copy_type(QFormLayout.__init__)
@@ -285,6 +279,9 @@ class GraphConfigWidget(QWidget):
                 self.setTabOrder(widget_order[i - 1], widget_order[i])
 
         self.update_content()
+
+    def teardown(self) -> None:
+        self._get_signal_dtype_fn = None
 
     def _acquisition_timeout_changed_slot(self) -> None:
         self.update_content()
