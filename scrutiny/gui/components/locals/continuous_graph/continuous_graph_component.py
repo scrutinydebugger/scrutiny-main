@@ -353,18 +353,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
         layout = QHBoxLayout(self)
         layout.addWidget(splitter)
 
-        def update_xval(data: XValuesData) -> None:
-            self._x1val_label.setText("Time [s] (x1) : %g" % data.x1val)
-            self._x1val_label.setVisible(data.x1enabled)
-
-            self._x2val_label.setText("Time [s] (x2) : %g" % data.x2val)
-            self._x2val_label.setVisible(data.x2enabled)
-
-            delta = abs(data.x1val - data.x2val)
-            self._xdiffval_label.setText("Δx : %g" % delta)
-            self._xdiffval_label.setVisible(data.x1enabled and data.x2enabled)
-
-        self._chartview.configure_chart_cursor(self._signal_tree, update_xval)
+        self._chartview.configure_chart_cursor(self._signal_tree, self._update_xval)
 
         # App integration
         self.app.server_manager.signals.registry_changed.connect(self._registry_changed_slot)
@@ -689,6 +678,17 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
     # endregion Control
 
     # region Internal
+
+    def _update_xval(self, data: XValuesData) -> None:
+        self._x1val_label.setText("Time [s] (x1) : %g" % data.x1val)
+        self._x1val_label.setVisible(data.x1enabled)
+
+        self._x2val_label.setText("Time [s] (x2) : %g" % data.x2val)
+        self._x2val_label.setVisible(data.x2enabled)
+
+        delta = abs(data.x1val - data.x2val)
+        self._xdiffval_label.setText("Δx : %g" % delta)
+        self._xdiffval_label.setVisible(data.x1enabled and data.x2enabled)
 
     def _get_x_axis(self) -> ScrutinyValueAxisWithMinMax:
         haxes = self._chartview.chart().axes(Qt.Orientation.Horizontal)
