@@ -387,7 +387,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
 
         signals = [axis_content_to_state(sig) for sig in self._signal_tree.get_signals()]
 
-        state:State.ComponentState = {
+        state: State.ComponentState = {
             'signals': signals,
             'graph_width_sec': self._spinbox_graph_max_width.value(),
             'csv_logging': self._csv_log_menu.get_state(),
@@ -1177,7 +1177,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
         save_csv_action.setEnabled(self._state.allow_save_csv())
 
         context_menu.addSection("Content")
-        chart_mixins.add_grid_config_action(self._chartview.chart(), menu=context_menu, parent=self)
+        chart_mixins.add_grid_config_action(self._chartview.chart(), menu=context_menu)
 
         def range_edit_slot() -> None:
             dialog = ChartRangeEditDialog(self._get_x_axis(), self._yaxes)

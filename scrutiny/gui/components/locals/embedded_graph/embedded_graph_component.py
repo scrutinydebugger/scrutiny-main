@@ -346,7 +346,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
             right_pane_layout.addWidget(self._chk_show_trigger)
             right_pane_layout.addWidget(self._signal_tree)
 
-            right_pane_scroll = QScrollArea(self)
+            right_pane_scroll = QScrollArea()
             right_pane_scroll.setWidget(right_pane)
             right_pane_scroll.setWidgetResizable(True)
             right_pane_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -973,7 +973,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
 
         context_menu.addSection("Content")
         # Grid Settings
-        chart_mixins.add_grid_config_action(self._chartview.chart(), menu=context_menu, parent=self)
+        chart_mixins.add_grid_config_action(self._chartview.chart(), menu=context_menu)
 
         def range_edit_slot() -> None:
             if self._xaxis is not None:

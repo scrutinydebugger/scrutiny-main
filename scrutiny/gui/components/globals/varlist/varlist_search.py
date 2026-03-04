@@ -75,8 +75,8 @@ class SearchResultTreeWidget(WatchableTreeWidget):
 
     _signals: _Signals
 
-    def __init__(self, parent: QWidget, model: SearchResultTreeModel) -> None:
-        super().__init__(parent, model)
+    def __init__(self, model: SearchResultTreeModel, parent: Optional[QWidget] = None) -> None:
+        super().__init__(model, parent=parent)
         self.set_header_labels(['', 'Path', 'Type', 'Enum'])
         self.setDragDropMode(self.DragDropMode.DragOnly)
         self.setDragEnabled(True)
@@ -174,8 +174,8 @@ class SearchResultWidget(QWidget):
     def __init__(self, parent: QWidget, watchable_registry: WatchableRegistry, search_batch_size: int = _DEFAULT_SEARCH_ITERATION_BATCH_SIZE) -> None:
         super().__init__(parent)
         self._watchable_registry = watchable_registry
-        self._tree_model = SearchResultTreeModel(self, watchable_registry=self._watchable_registry)
-        self._tree = SearchResultTreeWidget(self, self._tree_model)
+        self._tree_model = SearchResultTreeModel(watchable_registry=self._watchable_registry)
+        self._tree = SearchResultTreeWidget(self._tree_model)
         self._search_batch_size = search_batch_size
         self._pause_counter = 0
 
@@ -340,17 +340,17 @@ class SearchControlWidget(QWidget):
     _last_emitted_text: str
     _signals: _Signals
 
-    def __init__(self, parent: QWidget, commit_delay_ms: int = 500) -> None:
+    def __init__(self, commit_delay_ms: int = 500, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self._last_emitted_text = ""
         self._commit_delay_ms = commit_delay_ms
         self._signals = self._Signals()
-        self._timer_commit = QTimer(self)
+        self._timer_commit = QTimer()
         self._timer_commit.setInterval(commit_delay_ms)
         self._timer_commit.setSingleShot(True)
         self._timer_commit.timeout.connect(self._timer_commit_timeout_slot)
 
-        self._txt_search = QLineEdit(self)
+        self._txt_search = QLineEdit()
         self._txt_search.setPlaceholderText("Search")
         self._txt_search.textChanged.connect(self._txt_changed_slot)
         self._txt_search.editingFinished.connect(self._commit_text)

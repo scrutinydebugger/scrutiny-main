@@ -36,7 +36,7 @@ class SocketCanSubconfigPane(QWidget):
     @tools.copy_type(QWidget.__init__)
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        self._txt_channel = ValidableLineEdit(parent=self, soft_validator=NotEmptyValidator())
+        self._txt_channel = ValidableLineEdit(soft_validator=NotEmptyValidator())
         self._txt_channel.setText('can0')
         layout = QFormLayout(self)
         layout.addRow("Channel", self._txt_channel)
@@ -79,9 +79,9 @@ class VectorSubconfigPane(QWidget):
         super().__init__(*args, **kwargs)
         layout = QFormLayout(self)
 
-        self._txt_channel = ValidableLineEdit(parent=self, soft_validator=NotEmptyValidator())
-        self._txt_bitrate = IntValidableLineEdit(parent=self, soft_validator=NotEmptyValidator(), hard_validator=QIntValidator(bottom=10000))
-        self._txt_data_bitrate = IntValidableLineEdit(parent=self, soft_validator=NotEmptyValidator(), hard_validator=QIntValidator(bottom=10000))
+        self._txt_channel = ValidableLineEdit(soft_validator=NotEmptyValidator())
+        self._txt_bitrate = IntValidableLineEdit(soft_validator=NotEmptyValidator(), hard_validator=QIntValidator(bottom=10000))
+        self._txt_data_bitrate = IntValidableLineEdit(soft_validator=NotEmptyValidator(), hard_validator=QIntValidator(bottom=10000))
         self._txt_channel.setText('0')
         self._txt_bitrate.set_int_value(500000)
         self._txt_data_bitrate.set_int_value(500000)
@@ -140,9 +140,9 @@ class KVaserSubconfigPane(QWidget):
         super().__init__(*args, **kwargs)
         layout = QFormLayout(self)
 
-        self._txt_channel = IntValidableLineEdit(parent=self, soft_validator=NotEmptyValidator(), hard_validator=QIntValidator(bottom=0))
-        self._txt_bitrate = IntValidableLineEdit(parent=self, soft_validator=NotEmptyValidator(), hard_validator=QIntValidator(bottom=10000))
-        self._txt_data_bitrate = IntValidableLineEdit(parent=self, soft_validator=NotEmptyValidator(), hard_validator=QIntValidator(bottom=10000))
+        self._txt_channel = IntValidableLineEdit(soft_validator=NotEmptyValidator(), hard_validator=QIntValidator(bottom=0))
+        self._txt_bitrate = IntValidableLineEdit(soft_validator=NotEmptyValidator(), hard_validator=QIntValidator(bottom=10000))
+        self._txt_data_bitrate = IntValidableLineEdit(soft_validator=NotEmptyValidator(), hard_validator=QIntValidator(bottom=10000))
         self._chk_fd_non_iso = QCheckBox()
         self._txt_channel.set_int_value(0)
         self._txt_bitrate.set_int_value(500000)
@@ -207,8 +207,8 @@ class PCANSubconfigPane(QWidget):
         super().__init__(*args, **kwargs)
         layout = QFormLayout(self)
 
-        self._txt_channel = ValidableLineEdit(parent=self, soft_validator=NotEmptyValidator())
-        self._txt_bitrate = IntValidableLineEdit(parent=self, soft_validator=NotEmptyValidator(), hard_validator=QIntValidator(bottom=10000))
+        self._txt_channel = ValidableLineEdit(soft_validator=NotEmptyValidator())
+        self._txt_bitrate = IntValidableLineEdit(soft_validator=NotEmptyValidator(), hard_validator=QIntValidator(bottom=10000))
         self._txt_channel.setText('0')
         self._txt_bitrate.set_int_value(500000)
 
@@ -259,9 +259,9 @@ class ETASSubconfigPane(QWidget):
         super().__init__(*args, **kwargs)
         layout = QFormLayout(self)
 
-        self._txt_channel = ValidableLineEdit(parent=self, soft_validator=NotEmptyValidator())
-        self._txt_bitrate = IntValidableLineEdit(parent=self, soft_validator=NotEmptyValidator(), hard_validator=QIntValidator(bottom=10000))
-        self._txt_data_bitrate = IntValidableLineEdit(parent=self, soft_validator=NotEmptyValidator(), hard_validator=QIntValidator(bottom=10000))
+        self._txt_channel = ValidableLineEdit(soft_validator=NotEmptyValidator())
+        self._txt_bitrate = IntValidableLineEdit(soft_validator=NotEmptyValidator(), hard_validator=QIntValidator(bottom=10000))
+        self._txt_data_bitrate = IntValidableLineEdit(soft_validator=NotEmptyValidator(), hard_validator=QIntValidator(bottom=10000))
         self._txt_channel.setText('')
         self._txt_bitrate.set_int_value(500000)
         self._txt_data_bitrate.set_int_value(500000)

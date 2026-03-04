@@ -143,12 +143,12 @@ class GraphSignalModel(BaseTreeModel):
     _globally_uneditable: bool
 
     def __init__(self,
-                 parent: QWidget,
                  watchable_registry: WatchableRegistry,
                  available_palette: Optional[QPalette] = None,
-                 unavailable_palette: Optional[QPalette] = None
+                 unavailable_palette: Optional[QPalette] = None,
+                 parent: Optional[QWidget] = None
                  ) -> None:
-        super().__init__(parent, nesting_col=self.axis_col())
+        super().__init__(nesting_col=self.axis_col(), parent=parent)
         self._watchable_registry = watchable_registry
         self._globally_uneditable = False
         self.setColumnCount(2)
@@ -525,7 +525,7 @@ class GraphSignalTree(BaseTreeView):
         self._locked = False
         self._signals = self._Signals()
 
-        self._model = GraphSignalModel(self, watchable_registry)
+        self._model = GraphSignalModel(watchable_registry)
         self._detail_filter_proxy = GraphSignalDetailFilterProxy()
         self._detail_filter_proxy.setSourceModel(self._model)
         self.setModel(self._detail_filter_proxy)

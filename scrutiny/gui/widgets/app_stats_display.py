@@ -88,7 +88,7 @@ class ApplicationStatsDisplay(QWidget):
     server_device_datarate_byte_per_sec_label: QLabel
     server_device_datarate_up_down_ratio_label: QLabel
 
-    def __init__(self, parent: QWidget) -> None:
+    def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.main_layout = QVBoxLayout(self)
         self.main_layout.setAlignment(Qt.AlignmentFlag.AlignTop)

@@ -108,7 +108,7 @@ class MainWindow(QMainWindow):
 
         server_config_dialog = self._status_bar.get_server_config_dialog()
 
-        self._server_sfd_manage_dialog = ServerSFDManagerDialog(parent=self, server_manager=self._server_manager)
+        self._server_sfd_manage_dialog = ServerSFDManagerDialog(server_manager=self._server_manager)
         UserMessagesManager.init()
 
         if app_settings().start_local_server:

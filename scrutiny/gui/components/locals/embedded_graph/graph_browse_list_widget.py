@@ -40,8 +40,8 @@ class AcquisitionStorageEntryTreeModel(BaseTreeModel):
         Version = 3
         FirmwareID = 4
 
-    def __init__(self, parent: QWidget) -> None:
-        super().__init__(parent)
+    def __init__(self, parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent=parent)
         self.setColumnCount(5)
         self.setHorizontalHeaderLabels([
             "Date",

@@ -902,7 +902,8 @@ class ScrutinyChartView(QChartView):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self._signals = self._Signals()
-        self._rubber_band = QRubberBand(QRubberBand.Shape.Rectangle, parent=self)
+        self._rubber_band = QRubberBand(QRubberBand.Shape.Rectangle)
+        self._rubber_band.setParent(self)
         self._rubberband_origin = QPointF()
         self._rubberband_end = QPointF()
         self._rubberband_valid = False

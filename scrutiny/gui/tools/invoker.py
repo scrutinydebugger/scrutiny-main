@@ -72,7 +72,7 @@ class QueuedInvoker(QObject):
             raise RuntimeError("A QT application must be running")
 
     def exec(self, method: Callable[[], None]) -> None:
-        timer = QTimer(self)
+        timer = QTimer(self)    # Parent is important
         timer.setSingleShot(True)
         timer.setInterval(0)
 

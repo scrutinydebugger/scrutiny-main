@@ -35,8 +35,8 @@ from scrutiny.tools.typing import *
 
 
 class VarlistComponentTreeWidget(WatchableTreeWidget):
-    def __init__(self, parent: QWidget, model: VarListComponentTreeModel) -> None:
-        super().__init__(parent, model)
+    def __init__(self, model: VarListComponentTreeModel, parent: Optional[QWidget] = None) -> None:
+        super().__init__(model, parent=parent)
         self.set_header_labels(['', 'Type', 'Enum'])
         self.setDragDropMode(self.DragDropMode.DragOnly)
         self.setDragEnabled(True)
@@ -99,9 +99,9 @@ class VarListComponent(ScrutinyGUIBaseGlobalComponent):
     def setup(self) -> None:
         layout = QVBoxLayout(self)
 
-        self._tree_model = VarListComponentTreeModel(self, watchable_registry=self.app.watchable_registry)
-        self._tree = VarlistComponentTreeWidget(self, self._tree_model)
-        self._search_controls = SearchControlWidget(self)
+        self._tree_model = VarListComponentTreeModel(watchable_registry=self.app.watchable_registry)
+        self._tree = VarlistComponentTreeWidget(self._tree_model)
+        self._search_controls = SearchControlWidget()
         self._search_result_widget = SearchResultWidget(self, self.app.watchable_registry, search_batch_size=100)
         self._display_mode = self.DisplayMode.Content
 
@@ -120,7 +120,7 @@ class VarListComponent(ScrutinyGUIBaseGlobalComponent):
         self._alias_folder = cast(BaseWatchableRegistryTreeStandardItem, alias_row[0])
         self._rpv_folder = cast(BaseWatchableRegistryTreeStandardItem, rpv_row[0])
 
-        self._content_tabs = QTabWidget(self)
+        self._content_tabs = QTabWidget()
         self._browse_tab_index = self._content_tabs.addTab(self._tree, "Browse")
         self._search_tab_index = self._content_tabs.addTab(self._search_result_widget, "Search")
 

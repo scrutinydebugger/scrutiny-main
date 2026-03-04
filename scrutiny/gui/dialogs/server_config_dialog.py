@@ -130,13 +130,9 @@ class LocalServerConfigurator(QWidget):
         top_menu_hlayout.setAlignment(Qt.AlignmentFlag.AlignLeft)
 
         self._state_label = LocalServerStateLabel(self)
-        self._txt_port = IntValidableLineEdit(
-            parent=self,
-            hard_validator=QIntValidator(0, 0xFFFF),
-            soft_validator=IpPortValidator()
-        )
+        self._txt_port = IntValidableLineEdit(hard_validator=QIntValidator(0, 0xFFFF), soft_validator=IpPortValidator())
 
-        self._cmb_loglevel = QComboBox(self, editable=False)
+        self._cmb_loglevel = QComboBox(editable=False)
         self._cmb_loglevel.addItem('Critical', logging.CRITICAL)
         self._cmb_loglevel.addItem('Error', logging.ERROR)
         self._cmb_loglevel.addItem('Warning', logging.WARNING)
@@ -324,12 +320,8 @@ class RemoteServerConfigurator(QWidget):
     def __init__(self, parent: QWidget) -> None:
         super().__init__(parent)
         self._persistent_data = gui_persistent_data.get_namespace(self.__class__.__name__)
-        self._hostname_textbox = ValidableLineEdit(parent=self, soft_validator=NotEmptyValidator())
-        self._port_textbox = IntValidableLineEdit(
-            parent=self,
-            hard_validator=QIntValidator(0, 0xFFFF),
-            soft_validator=IpPortValidator()
-        )
+        self._hostname_textbox = ValidableLineEdit(soft_validator=NotEmptyValidator())
+        self._port_textbox = IntValidableLineEdit(hard_validator=QIntValidator(0, 0xFFFF), soft_validator=IpPortValidator())
 
         self._hostname_textbox.textChanged.connect(self._hostname_textbox.validate_expect_not_wrong_default_slot)
         self._port_textbox.textChanged.connect(self._port_textbox.validate_expect_not_wrong_default_slot)

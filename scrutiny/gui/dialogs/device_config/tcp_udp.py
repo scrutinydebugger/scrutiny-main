@@ -33,8 +33,8 @@ class IPConfigPane(BaseConfigPane):
 
         hostname_label = QLabel("Hostname: ")
         port_label = QLabel("Port: ")
-        self._hostname_textbox = ValidableLineEdit(parent=self, soft_validator=NotEmptyValidator())
-        self._port_textbox = IntValidableLineEdit(parent=self, hard_validator=QIntValidator(0, 0xFFFF), soft_validator=IpPortValidator())
+        self._hostname_textbox = ValidableLineEdit(soft_validator=NotEmptyValidator())
+        self._port_textbox = IntValidableLineEdit(hard_validator=QIntValidator(0, 0xFFFF), soft_validator=IpPortValidator())
 
         # Make sure the red background disappear when we type (fixing the invalid content)
         self._hostname_textbox.textChanged.connect(self._hostname_textbox.validate_expect_not_wrong_default_slot)

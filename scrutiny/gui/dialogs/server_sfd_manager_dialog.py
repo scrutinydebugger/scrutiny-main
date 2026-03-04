@@ -281,7 +281,7 @@ class ServerSFDManagerDialog(QDialog):
     _active_transfer_req: Optional[Union[SFDUploadRequest, SFDDownloadRequest]]
     _progress_widget: ProgressWidget
 
-    def __init__(self, parent: QWidget, server_manager: ServerManager) -> None:
+    def __init__(self, server_manager: ServerManager, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.setWindowTitle("Server SFDs")
         self.setMinimumSize(600, 400)

@@ -164,32 +164,29 @@ class GraphConfigWidget(QWidget):
         self._watchable_registry = watchable_registry
 
         # Widgets
-        self._txt_acquisition_name = QLineEdit(self)
-        self._cmb_sampling_rate = QComboBox(self)
+        self._txt_acquisition_name = QLineEdit()
+        self._cmb_sampling_rate = QComboBox()
         self._cmb_sampling_rate.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Preferred)
-        self._spin_decimation = QSpinBox(self)
-        self._lbl_effective_sampling_rate = QLabel(self)
-        self._spin_trigger_position = QSpinBox(self)
+        self._spin_decimation = QSpinBox()
+        self._lbl_effective_sampling_rate = QLabel()
+        self._spin_trigger_position = QSpinBox()
         timeout_hard_validator = QStandardNotationDoubleValidator(0, MAX_TIMEOUT_SEC, 7)
-        self._txt_acquisition_timeout = FloatValidableLineEdit(
-            hard_validator=timeout_hard_validator,
-            parent=self
-        )
+        self._txt_acquisition_timeout = FloatValidableLineEdit(hard_validator=timeout_hard_validator)
 
-        self._cmb_trigger_condition = QComboBox(self)
-        self._txtw_trigger_operand1 = WatchableLineEdit("", self)
+        self._cmb_trigger_condition = QComboBox()
+        self._txtw_trigger_operand1 = WatchableLineEdit("")
         self._txtw_trigger_operand1.setValidator(QStandardNotationDoubleValidator())
-        self._txtw_trigger_operand2 = WatchableLineEdit("", self)
+        self._txtw_trigger_operand2 = WatchableLineEdit("")
         self._txtw_trigger_operand2.setValidator(QStandardNotationDoubleValidator())
-        self._txtw_trigger_operand3 = WatchableLineEdit("", self)
+        self._txtw_trigger_operand3 = WatchableLineEdit("")
         self._txtw_trigger_operand3.setValidator(QStandardNotationDoubleValidator())
-        self._cmb_xaxis_type = QComboBox(self)
-        self._txtw_xaxis_signal = WatchableLineEdit("", self)
+        self._cmb_xaxis_type = QComboBox()
+        self._txtw_xaxis_signal = WatchableLineEdit("")
         self._txtw_xaxis_signal.set_text_mode_enabled(False)    # No literal allowed, just watchables
 
         hold_time_hard_validator = QStandardNotationDoubleValidator(0, MAX_HOLD_TIME_MS, 4)
-        self._txt_hold_time_ms = FloatValidableLineEdit(hard_validator=hold_time_hard_validator, parent=self)
-        self._lbl_estimated_duration = QLabel(self)
+        self._txt_hold_time_ms = FloatValidableLineEdit(hard_validator=hold_time_hard_validator)
+        self._lbl_estimated_duration = QLabel()
 
         self._txt_acquisition_name.setText(self.AUTONAME_PREFIX + "1")
         self._txt_acquisition_name.textEdited.connect(self._acquisition_name_edited_slot)

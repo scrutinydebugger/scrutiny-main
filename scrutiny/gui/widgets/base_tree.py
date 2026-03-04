@@ -35,7 +35,7 @@ class BaseTreeModel(QStandardItemModel):
     logger: logging.Logger
     _nesting_col: int
 
-    def __init__(self, parent: QWidget, nesting_col: int = 0) -> None:
+    def __init__(self, nesting_col: int = 0, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self._nesting_col = nesting_col
         if not hasattr(self, 'logger'):

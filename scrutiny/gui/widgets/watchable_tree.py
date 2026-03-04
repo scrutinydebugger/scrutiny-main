@@ -225,14 +225,14 @@ class WatchableTreeModel(BaseTreeModel):
      - Leaf nodes that cannot accept children
      - Autofill from the global watchable registry (with possible lazy loading)
 
-    :param parent: The parent 
+    :param parent: The parent
     :param watchable_registry: A reference to the WatchableRegistry object to feed from
 
     """
     _watchable_registry: WatchableRegistry
 
-    def __init__(self, parent: QWidget, watchable_registry: WatchableRegistry) -> None:
-        super().__init__(parent)
+    def __init__(self, watchable_registry: WatchableRegistry, parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent=parent)
         self._watchable_registry = watchable_registry
 
     def get_watchable_extra_columns(self, fqn: str, watchable_config: Optional[BriefWatchableConfiguration] = None) -> List[QStandardItem]:
@@ -430,7 +430,7 @@ class WatchableTreeWidget(BaseTreeView):
     DEFAULT_ITEM0_WIDTH = 400
     DEFAULT_ITEM_WIDTH = 100
 
-    def __init__(self, parent: QWidget, model: WatchableTreeModel) -> None:
+    def __init__(self, model: WatchableTreeModel, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self._model = model
 
