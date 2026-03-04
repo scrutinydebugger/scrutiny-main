@@ -1379,6 +1379,10 @@ class ScrutinyChartView(QChartView):
         self._signal_tree = signal_tree
         self._chart_cursor_broadcast_xval_func = xval_func
 
+    def teardown(self) -> None:
+        self._signal_tree = None
+        self._chart_cursor_broadcast_xval_func = None
+
     @tools.copy_type(QChartView.update)
     def update(self, *args: Any, **kwargs: Any) -> None:
         self._chart_cursor_x1.update()

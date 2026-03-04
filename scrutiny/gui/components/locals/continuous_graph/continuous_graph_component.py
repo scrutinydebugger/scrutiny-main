@@ -387,6 +387,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
         """Called when the component is removed from the dashboard"""
         self.stop_acquisition()
         self.clear_graph()
+        self._chartview.teardown()  # Break the ties with the treeview
         self.app.watchable_registry.unregister_watcher(self._watcher_id())
         self._teared_down = True
 
