@@ -902,7 +902,7 @@ class ScrutinyChartView(QChartView):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self._signals = self._Signals()
-        self._rubber_band = QRubberBand(QRubberBand.Shape.Rectangle)
+        self._rubber_band = QRubberBand(QRubberBand.Shape.Rectangle, parent=self)
         self._rubberband_origin = QPointF()
         self._rubberband_end = QPointF()
         self._rubberband_valid = False
@@ -1373,12 +1373,8 @@ class ScrutinyChartView(QChartView):
         """Clear the value box in the signal tree"""
         signal_tree = self._get_signal_tree()
         if signal_tree is not None:
-            for value_items in signal_tree.get_all_value_items():
-                value_items.value1.setText("")
-                if value_items.value2 is not None:
-                    value_items.value2.setText("")
-                if value_items.delta is not None:
-                    value_items.delta.setText("")
+            signal_tree.clear_all_value_item_text()
+
 
     def configure_chart_cursor(self, signal_tree: GraphSignalTree, xval_func: Optional[Callable[[XValuesData], None]]) -> None:
         self._signal_tree = signal_tree

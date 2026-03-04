@@ -429,22 +429,18 @@ class GraphSignalModel(BaseTreeModel):
                 item.setBackground(background_color)
                 item.setForeground(forground_color)
 
-    def get_all_value_items(self) -> List[ValueItems]:
-        outlist: List[ValueItems] = []
+    def clear_all_value_item_text(self) -> None:
         for i in range(self.rowCount()):
             axis_item = self.item(i, self.axis_col())
             for j in range(axis_item.rowCount()):
                 watchable_item = axis_item.child(j, self.watchable_col())
                 assert isinstance(watchable_item, ChartSeriesWatchableStandardItem)
+                value1_item = axis_item.child(j, self.value_col())
                 value2_item = watchable_item.child(0, self.value_col())
                 delta_item = watchable_item.child(1, self.value_col())
-                value_items = ValueItems(
-                    value1=axis_item.child(j, self.value_col()),
-                    value2=value2_item,
-                    delta=delta_item
-                )
-                outlist.append(value_items)
-        return outlist
+                for item in [value1_item, value2_item, delta_item]:
+                    if item is not None:
+                        item.setText("")
 
     def _update_editable_field(self) -> None:
         editable = not self._globally_uneditable
@@ -704,8 +700,8 @@ class GraphSignalTree(BaseTreeView):
     def get_value_item_by_attached_series(self) -> List[Tuple[QLineSeries, ValueItems]]:
         return self._model.get_value_item_by_attached_series()
 
-    def get_all_value_items(self) -> List[ValueItems]:
-        return self._model.get_all_value_items()
+    def clear_all_value_item_text(self) -> None:
+        return self._model.clear_all_value_item_text()
 
     def enable_cursor2_rows(self) -> None:
         self._detail_filter_proxy.show_details_row()
