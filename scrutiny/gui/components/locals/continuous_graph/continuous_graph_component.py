@@ -46,6 +46,7 @@ from scrutiny.sdk.listeners.csv_logger import CSVLogger
 from scrutiny.gui.components.common import chart_mixins
 
 from scrutiny.tools.typing import *
+import shiboken6
 
 
 class State:
@@ -193,9 +194,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
     """The widget with all the configurations for the CSV logger"""
     _feedback_label: FeedbackLabel
     """A label to report error to the user"""
-    _splitter: QSplitter
-    """The splitter between the graph and the signal/axis tree"""
-    _registryid2signal_item: Dict[int, ChartSeriesWatchableStandardItem]
+    _registryid2series: Dict[int, RealTimeScrutinyLineSeries]
     """A dictionnary mapping server_id associated with ValueUpdates broadcast by the server to their respective signal (a tree item, which has a reference to the chart series) """
     _first_val_dt: Optional[datetime]
     """The server timestamp of the first value gotten. Used to offset the ValueUpdates timestamps to 0"""
@@ -228,8 +227,8 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
         return scrutiny_get_theme().load_medium_icon(assets.Icons.ContinuousGraph)
 
     def setup(self) -> None:
-        self._registryid2signal_item = {}
-        self._xaxis = ScrutinyValueAxisWithMinMax(self)
+        self._registryid2series = {}
+        self._xaxis = ScrutinyValueAxisWithMinMax()
         self._xaxis.setTitleText("Time [s]")
         self._xaxis.setTitleVisible(True)
         self._xaxis.deemphasize()   # Default state
@@ -260,7 +259,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
 
             # Series on continuous graph don't have their X value aligned.
             # We can only show the value next to each point, not all together in the tree
-            self._signal_tree = GraphSignalTree(self, watchable_registry=self.app.watchable_registry)
+            self._signal_tree = GraphSignalTree(self.app.watchable_registry)
             self._signal_tree.setMinimumWidth(self._signal_tree.sizeHint().width())
             self._signal_tree.signals.selection_changed.connect(self._selection_changed_slot)
 
@@ -318,7 +317,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
             self._stats = GraphStatistics(chart)
             self._stats.overlay().setPos(0, 0)
 
-            self._chartview = ScrutinyChartView(self)
+            self._chartview = ScrutinyChartView()
             self._chartview.setChart(chart)
             self._chartview.signals.context_menu_event.connect(self._chart_context_menu_slot)
             self._chartview.signals.paint_finished.connect(self._paint_finished_slot)
@@ -338,17 +337,18 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
         right_side = make_right_side()
         left_side = make_left_side()
 
-        self._splitter = QSplitter(self)
-        self._splitter.setOrientation(Qt.Orientation.Horizontal)
-        self._splitter.setContentsMargins(0, 0, 0, 0)
-        self._splitter.setHandleWidth(5)
-        self._splitter.addWidget(left_side)
-        self._splitter.addWidget(right_side)
-        self._splitter.setCollapsible(0, False)  # Cannot collapse the graph
-        self._splitter.setCollapsible(1, True)  # Can collapse the right menu
+        splitter = QSplitter()
+        splitter.setOrientation(Qt.Orientation.Horizontal)
+        splitter.setContentsMargins(0, 0, 0, 0)
+        splitter.setHandleWidth(5)
+        splitter.addWidget(left_side)
+        splitter.addWidget(right_side)
+        splitter.setCollapsible(0, False)  # Cannot collapse the graph
+        splitter.setCollapsible(1, True)  # Can collapse the right menu
+        splitter.setObjectName("MainSplitter")
 
         layout = QHBoxLayout(self)
-        layout.addWidget(self._splitter)
+        layout.addWidget(splitter)
 
         def update_xval(data: XValuesData) -> None:
             self._x1val_label.setText("Time [s] (x1) : %g" % data.x1val)
@@ -371,11 +371,15 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
     def ready(self) -> None:
         """Called when the component is inside the dashboard and its dimensions are computed"""
         # Make the right menu as small as possible. Only works after the widget is loaded. we need the ready() function for that
-        self._splitter.setSizes([self.width(), self._signal_tree.minimumWidth()])
+        splitter = self.findChild(QSplitter, "MainSplitter")
+        assert splitter is not None
+        splitter.setSizes([self.width(), self._signal_tree.minimumWidth()])
         self._apply_internal_state()
 
     def teardown(self) -> None:
         """Called when the component is removed from the dashboard"""
+        self.stop_acquisition()
+        self.clear_graph()
         self.app.watchable_registry.unregister_watcher(self._watcher_id())
 
     def get_state(self) -> Dict[Any, Any]:
@@ -474,10 +478,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
             with tools.SuppressException():
                 self._chartview.chart().removeAxis(yaxis)
 
-        for signal_item in self._registryid2signal_item.values():
-            if signal_item.series_attached():
-                signal_item.detach_series()  # Will reload original icons if any
-        self._registryid2signal_item.clear()
+        self._registryid2series.clear()
         self._xaxis.setRange(0, 1)
         self._xaxis.clear_minmax()
         self._yaxes.clear()
@@ -565,7 +566,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
                     self._chartview.chart().addSeries(series)
                     signal_item.attach_series(series)
                     signal_item.show_series()
-                    self._registryid2signal_item[registry_id] = signal_item  # The main lookup
+                    self._registryid2series[registry_id] = series  # The main lookup
                     series.setName(signal_item.text())
                     series.attachAxis(self._xaxis)
                     series.attachAxis(yaxis)
@@ -700,18 +701,19 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
         # Reverse lookup of the server id / item map.
         # We do that just so the columns in the CSV file is in the same order as the right menu
         # Right-click -> Save to CSV also follow the same ordering. We want the 2 CSV files to be identical
-        def get_registry_id_from_signal_item(arg: ChartSeriesWatchableStandardItem) -> int:
-            for registry_id, item in self._registryid2signal_item.items():
-                if item is arg:
+        def get_registry_id_from_series(arg: RealTimeScrutinyLineSeries) -> int:
+            for registry_id, series in self._registryid2series.items():
+                if series is arg:
                     return registry_id
-            raise KeyError(f"Could not find the server ID for item: {arg.text()}")
+            raise KeyError(f"Could not find the server ID for series: {arg.name()}")
 
         # Creates the list of columns following the same order as the export_to_csv feature
         signals = self._signal_tree.get_signals()
         for axis in signals:
             for signal_item in axis.signal_items:
+                series = cast(RealTimeScrutinyLineSeries, signal_item.series())
                 columns.append(CSVLogger.ColumnDescriptor(
-                    signal_id=str(get_registry_id_from_signal_item(signal_item)),
+                    signal_id=str(get_registry_id_from_series(series)),
                     name=signal_item.text(),
                     fullpath=signal_item.fqn
                 ))
@@ -736,18 +738,13 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
                 series.flush_decimated()
                 self._last_decimated_flush_paint_in_progress = True
 
-    def _get_item_series(self, item: ChartSeriesWatchableStandardItem) -> RealTimeScrutinyLineSeries:
-        """Return the series tied to a Tree Item (right menu)"""
-        return cast(RealTimeScrutinyLineSeries, item.series())
-
     def _get_series_yaxis(self, series: RealTimeScrutinyLineSeries) -> ScrutinyValueAxisWithMinMax:
         """Return the Y-Axis tied to a series"""
         return cast(ScrutinyValueAxisWithMinMax, self._chartview.chart().axisY(series))
 
     def _all_series(self) -> Generator[RealTimeScrutinyLineSeries, None, None]:
         """Return the list of all series in the graph"""
-        for item in self._registryid2signal_item.values():
-            yield self._get_item_series(item)
+        yield from self._registryid2series.values()
 
     def _maybe_enable_opengl_drawing(self, val: bool) -> None:
         """Enable OpenGL drawing for real time graph, only if the app is running with OpenGL enabled"""
@@ -886,7 +883,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
                 xval = get_x(value_update)
                 yval = float(value_update.sdk_update.value)
 
-                series = self._get_item_series(self._registryid2signal_item[value_update.registry_id])
+                series = self._registryid2series[value_update.registry_id]
                 yaxis = self._get_series_yaxis(series)
                 series.add_point(QPointF(xval, yval))
                 self._xaxis.update_minmax(xval)
@@ -921,8 +918,8 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
     def _round_robin_recompute_single_series_min_max(self, full: bool) -> None:
         """Compute a series min/max values.
         if full=``False``, does only 1 series per call to reduce the load on the CPU. Does all if full=``True``"""
-        sorted_ids = sorted(list(self._registryid2signal_item.keys()))
-        all_series = [self._get_item_series(self._registryid2signal_item[server_id]) for server_id in sorted_ids]
+        sorted_ids = sorted(list(self._registryid2series.keys()))
+        all_series = [self._registryid2series[server_id] for server_id in sorted_ids]
 
         if full:
             self._y_minmax_recompute_index = 0

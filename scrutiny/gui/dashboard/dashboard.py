@@ -700,9 +700,6 @@ class Dashboard(QWidget):
         except Exception as e:
             tools.log_exception(
                 self._logger, e, f"Exception while tearing down component {component.__class__.__name__} (instance name: {component.instance_name})")
-            return
-        finally:
-            component.deleteLater()
 
 # endregion
 

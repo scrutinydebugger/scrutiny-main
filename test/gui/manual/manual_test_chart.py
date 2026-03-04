@@ -63,7 +63,7 @@ def x_val_write(data: XValuesData):
 
 server_manager = FakeServerManager(registry)
 
-signal_tree = GraphSignalTree(window, registry)
+signal_tree = GraphSignalTree(registry)
 right_side = QWidget()
 right_vlayout = QVBoxLayout(right_side)
 right_vlayout.setContentsMargins(0, 0, 0, 0)

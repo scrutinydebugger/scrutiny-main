@@ -335,7 +335,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
 
             # Series on continuous graph don't have their X value aligned.
             # We can only show the value next to each point, not all together in the tree
-            self._signal_tree = GraphSignalTree(self, watchable_registry=self.app.watchable_registry)
+            self._signal_tree = GraphSignalTree(self.app.watchable_registry)
             self._signal_tree.signals.selection_changed.connect(self._signal_tree_selection_changed_slot)
             self._signal_tree.signals.content_changed.connect(self._signal_tree_content_changed_slot)
 
@@ -420,7 +420,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
             self._btn_load_more = QPushButton("Load", self)
             self._browse_feedback_label = FeedbackLabel()
 
-            btn_line = QWidget(self)
+            btn_line = QWidget()
             btn_line_layout = QHBoxLayout(btn_line)
             btn_line_layout.addWidget(self._btn_load_more)
             btn_line_layout.addWidget(self._btn_delete_all)
@@ -505,6 +505,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
         self._splitter.setSizes([self._left_pane.minimumWidth(), self.width(), self._right_pane.minimumWidth()])
 
     def teardown(self) -> None:
+        self._clear_graph()
         self._teared_down = True
 
     def get_state(self) -> Dict[Any, Any]:
@@ -718,6 +719,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
 
 
 # region Chart handling
+
 
     def _clear_graph(self) -> None:
         """Remove the acquisition presently displayed in the chartview"""
@@ -1347,6 +1349,8 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
                     return client.read_datalogging_acquisitions_metadata(reference_id)
 
                 def qt_thread_update(entry: Optional[DataloggingStorageEntry], error: Optional[Exception]) -> None:
+                    if self._teared_down:
+                        return
                     if entry is not None:
                         self._graph_browse_list_widget.update_storage_entry(entry)
 
@@ -1357,6 +1361,8 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
                     return client.read_datalogging_acquisitions_metadata(reference_id)
 
                 def qt_thread_new(entry: Optional[DataloggingStorageEntry], error: Optional[Exception]) -> None:
+                    if self._teared_down:
+                        return
                     if entry is not None:
                         self._graph_browse_list_widget.add_storage_entries([entry])
 
@@ -1380,6 +1386,8 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
             return client.read_datalogging_acquisition(reference_id)
 
         def qt_thread_show(acq: Optional[DataloggingAcquisition], error: Optional[Exception]) -> None:
+            if self._teared_down:
+                return
             if acq is not None and error is None:
                 self._display_acquisition(acq, source=DisplaySource.RELOADED)
             else:
@@ -1394,6 +1402,8 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
             client.update_datalogging_acquisition(reference_id, name=new_name)
 
         def qt_thread_complete(_: None, error: Optional[Exception]) -> None:
+            if self._teared_down:
+                return
             if error is not None:
                 self._browse_feedback_label.set_error(f'Failed to rename acquisition to "{new_name}". {error}')
             else:
@@ -1410,6 +1420,9 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
             client.delete_datalogging_acquisition(reference_id)
 
         def qt_thread_complete(_: None, error: Optional[Exception]) -> None:
+            if self._teared_down:
+                return
+
             if error is not None:
                 self._browse_feedback_label.set_error(f"Failed to delete. {error}")
             else:
@@ -1449,6 +1462,8 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
             )
 
         def qt_thread_receive(result: Optional[List[DataloggingStorageEntry]], error: Optional[Exception]) -> None:
+            if self._teared_down:
+                return
             self._state.load_list_in_progress = False
             if result is not None:
                 self._state.initial_load_completed = True
@@ -1491,6 +1506,8 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
             client.clear_datalogging_storage()
 
         def qt_thread_complete(_: None, error: Optional[Exception]) -> None:
+            if self._teared_down:
+                return
             if error is not None:
                 msg = f"Failed to clear the datalogging storage. {error}"
                 self._browse_feedback_label.set_error(msg)
@@ -1522,6 +1539,8 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
             )
 
         def qt_thread_receive(result: Optional[List[DataloggingStorageEntry]], error: Optional[Exception]) -> None:
+            if self._teared_down:
+                return
             self._state.load_list_in_progress = False
             if result is not None:
                 self._receive_acquisition_list(result)

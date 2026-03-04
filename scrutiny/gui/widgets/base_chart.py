@@ -902,7 +902,7 @@ class ScrutinyChartView(QChartView):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self._signals = self._Signals()
-        self._rubber_band = QRubberBand(QRubberBand.Shape.Rectangle, self)
+        self._rubber_band = QRubberBand(QRubberBand.Shape.Rectangle)
         self._rubberband_origin = QPointF()
         self._rubberband_end = QPointF()
         self._rubberband_valid = False
@@ -972,11 +972,18 @@ class ScrutinyChartView(QChartView):
         # Here we build a lookup between series and the signal tree element that this series refer to
         # Will be used for mapping quickly a value referenced by the chart cursor to a textbox
         self._series_to_signal_tree_value_item.clear()
-        if self._signal_tree is not None:
-            for series, value_item in self._signal_tree.get_value_item_by_attached_series():
+        signal_tree = self._get_signal_tree()
+        if signal_tree is not None:
+            for series, value_item in signal_tree.get_value_item_by_attached_series():
                 # Careful here. The model has full ownership of the value item.
                 # We can't assume it still exist at any given moment
                 self._series_to_signal_tree_value_item[id(series)] = value_item
+
+    def _get_signal_tree(self) -> Optional[GraphSignalTree]:
+        if self._signal_tree is not None:
+            if shiboken6.isValid(self._signal_tree):
+                return self._signal_tree
+        return None
 
     def enable_cursor1(self) -> None:
         """Enable the chart cursor (red vertical line) to inspect the data"""
@@ -1002,10 +1009,10 @@ class ScrutinyChartView(QChartView):
             return
         if self._chart_cursor_x2.is_enabled():
             return
-
-        if self._signal_tree is not None:
-            self._signal_tree.enable_cursor2_rows()
-            self._signal_tree.expandAll()
+        signal_tree = self._get_signal_tree()
+        if signal_tree is not None:
+            signal_tree.enable_cursor2_rows()
+            signal_tree.expandAll()
 
         self._rebuild_series_to_item_lookup()
         plotarea_width = self.chart().plotArea().width()
@@ -1025,8 +1032,9 @@ class ScrutinyChartView(QChartView):
 
     def disable_cursors(self) -> None:
         """Disable the chart cursor (red vertical line) to inspect the data"""
-        if self._signal_tree is not None:
-            self._signal_tree.disable_cursor2_rows()
+        signal_tree = self._get_signal_tree()
+        if signal_tree is not None:
+            signal_tree.disable_cursor2_rows()
         self._chart_cursor_x1.disable()
         self._chart_cursor_x2.disable()
         self._invalidate_forground()
@@ -1034,8 +1042,9 @@ class ScrutinyChartView(QChartView):
         self._clear_signal_tree_values()
 
     def disable_cursor2(self) -> None:
-        if self._signal_tree is not None:
-            self._signal_tree.disable_cursor2_rows()
+        signal_tree = self._get_signal_tree()
+        if signal_tree is not None:
+            signal_tree.disable_cursor2_rows()
         self._chart_cursor_x2.disable()
         self._invalidate_forground()
         self.update()
@@ -1330,7 +1339,7 @@ class ScrutinyChartView(QChartView):
 
     def _update_signal_tree_with_cursor_values(self) -> None:
         """Update the textual Y value that appears next to a signal in a treeview dedicated to show the graph series."""
-        if self._signal_tree is None:
+        if self._get_signal_tree() is None:
             return
 
         self._clear_signal_tree_values()
@@ -1362,8 +1371,9 @@ class ScrutinyChartView(QChartView):
 
     def _clear_signal_tree_values(self) -> None:
         """Clear the value box in the signal tree"""
-        if self._signal_tree is not None:
-            for value_items in self._signal_tree.get_all_value_items():
+        signal_tree = self._get_signal_tree()
+        if signal_tree is not None:
+            for value_items in signal_tree.get_all_value_items():
                 value_items.value1.setText("")
                 if value_items.value2 is not None:
                     value_items.value2.setText("")

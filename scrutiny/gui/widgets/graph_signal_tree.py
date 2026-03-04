@@ -524,7 +524,7 @@ class GraphSignalTree(BaseTreeView):
     def real_model(self) -> GraphSignalModel:
         return self._model
 
-    def __init__(self, parent: QWidget, watchable_registry: WatchableRegistry) -> None:
+    def __init__(self, watchable_registry: WatchableRegistry, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self._locked = False
         self._signals = self._Signals()

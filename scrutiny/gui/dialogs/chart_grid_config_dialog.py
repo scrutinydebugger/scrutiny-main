@@ -189,7 +189,7 @@ class GridConfigDialog(QDialog):
             parent=self,
         )
 
-        btn_row = QWidget(self)
+        btn_row = QWidget()
         btn_row_layout = QHBoxLayout(btn_row)
         btn_row_layout.setContentsMargins(0, 0, 0, 0)
         btn_row_layout.addWidget(self._btn_reset)
