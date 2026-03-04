@@ -143,7 +143,7 @@ class SFDTableView(QTableView):
 
     def contextMenuEvent(self, event: QContextMenuEvent) -> None:
 
-        menu = QMenu(self)
+        menu = QMenu()
         uninstall_action = menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.RedX), "Uninstall")
         save_action = menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.Download), "Save")
         details_action = menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.Info), "Details")
@@ -201,7 +201,7 @@ class SFDTableView(QTableView):
         if len(actions) > 0:
             pos += QPoint(0, menu.actionGeometry(actions[0]).height())
             at = actions[0]
-        menu.popup(self.mapToGlobal(pos), at)
+        menu.exec(self.mapToGlobal(pos), at)
 
 
 class ProgressWidget(QWidget):

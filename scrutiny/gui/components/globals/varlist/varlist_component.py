@@ -46,7 +46,7 @@ class VarlistComponentTreeWidget(WatchableTreeWidget):
         return cast(VarListComponentTreeModel, super().model())
 
     def contextMenuEvent(self, e: QContextMenuEvent) -> None:
-        context_menu = QMenu(self)
+        context_menu = QMenu()
         selected_indexes = self.selectedIndexes()
         nesting_col = self.model().nesting_col()
 

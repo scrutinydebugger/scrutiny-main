@@ -88,7 +88,7 @@ class SearchResultTreeWidget(WatchableTreeWidget):
         return self._signals
 
     def contextMenuEvent(self, event: QContextMenuEvent) -> None:
-        context_menu = QMenu(self)
+        context_menu = QMenu()
         selected_indexes = self.selectedIndexes()
         nesting_col = self.model().nesting_col()
         # Assumes that the tree only contains watchable. No folder.
@@ -239,7 +239,7 @@ class SearchResultWidget(QWidget):
         self._internal_signals.continue_consuming.emit()
 
     def _consume_generator(self) -> None:
-        """Perform a part of the search job. Exit when the search is complete or if a pause must be taken after N watchables 
+        """Perform a part of the search job. Exit when the search is complete or if a pause must be taken after N watchables
         have been evaluated, where N is the value of ``_search_batch_size``"""
         if self._active_generator is not None:
             try:

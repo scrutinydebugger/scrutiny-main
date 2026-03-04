@@ -165,7 +165,7 @@ class StatusBarLabel(QWidget):
         def show_menu() -> None:
             assert self._toolbar is not None
             menu.show()
-            menu.popup(self.mapToGlobal(self._toolbar.pos() - QPoint(0, menu.height())))
+            menu.exec(self.mapToGlobal(self._toolbar.pos() - QPoint(0, menu.height())))
         self._text_label.triggered.connect(show_menu)
 
     def set_click_action(self, fn: Callable[[], None]) -> None:

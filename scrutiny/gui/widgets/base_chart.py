@@ -1375,7 +1375,6 @@ class ScrutinyChartView(QChartView):
         if signal_tree is not None:
             signal_tree.clear_all_value_item_text()
 
-
     def configure_chart_cursor(self, signal_tree: GraphSignalTree, xval_func: Optional[Callable[[XValuesData], None]]) -> None:
         self._signal_tree = signal_tree
         self._chart_cursor_broadcast_xval_func = xval_func
@@ -1538,7 +1537,7 @@ class ScrutinyChartToolBar(QGraphicsItem):
             if len(actions) > 0:
                 pos += QPoint(0, menu.actionGeometry(actions[0]).height())
                 at = actions[0]
-            menu.popup(pos, at)
+            menu.exec(pos, at)
 
     class ToolbarSpacer(QGraphicsItem):
         _width: int
@@ -1656,7 +1655,7 @@ class ScrutinyChartToolBar(QGraphicsItem):
         self.update_buttons_from_state()
 
     def _slot_btn_cursor_menu(self) -> None:
-        menu = self.ToolbarMenu(self._chartview)
+        menu = self.ToolbarMenu()
         menu.setBackgroundRole(QPalette.ColorRole.Base)
         no_cursor_action = menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.RedX), "No cursor")
         single_cursor_action = menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.SingleMarker), "Single cursor")

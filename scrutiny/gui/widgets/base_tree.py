@@ -338,4 +338,4 @@ class BaseTreeView(QTreeView):
         if len(actions) > 0:
             pos += QPoint(0, menu.actionGeometry(actions[0]).height())
             at = actions[0]
-        menu.popup(self.mapToGlobal(pos), at)
+        menu.exec(self.mapToGlobal(pos), at)

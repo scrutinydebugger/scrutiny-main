@@ -110,15 +110,14 @@ class BuildSplitterRecursiveImmutableData:
     top_level: bool
 
 
-def tab_context_menu(owner: QWidget,
-                     dock_widget: QtAds.CDockWidget,
+def tab_context_menu(dock_widget: QtAds.CDockWidget,
                      rename: bool = True,
                      detach: bool = True,
                      pin_to: bool = True,
                      unpin: bool = True,
                      close: bool = True) -> QMenu:
     """Creates a context menu when the user for when the user right-click a tab."""
-    menu = QMenu(owner)
+    menu = QMenu()
     dock_widget.setAsCurrentTab()
     component = cast(ScrutinyGUIBaseComponent, dock_widget.widget())
     is_autohide = dock_widget.dockAreaWidget().isAutoHide()    # Check dockarea. dock_widget.isautoHide is buggy. See bug #739
@@ -130,7 +129,7 @@ def tab_context_menu(owner: QWidget,
             def rename_slot() -> None:
                 if dock_widget.isClosed():
                     return
-                new_name, changed = QInputDialog.getText(owner, "Rename tab", "New name",
+                new_name, changed = QInputDialog.getText(dock_widget, "Rename tab", "New name",
                                                          echo=QLineEdit.EchoMode.Normal, text=dock_widget.windowTitle())
                 if changed:
                     dock_widget.setWindowTitle(new_name)
@@ -209,9 +208,9 @@ class ScrutinyDockWidgetSideTab(QtAds.ads.CAutoHideTab):
         if dock_widget is None:
             return
 
-        menu = tab_context_menu(self, dock_widget)
+        menu = tab_context_menu(dock_widget)
         if len(menu.actions()) > 0:
-            menu.popup(self.mapToGlobal(event.pos()))
+            menu.exec(self.mapToGlobal(event.pos()))
 
 
 class ScrutinyDockAreaTitleBar(QtAds.CDockAreaTitleBar):
@@ -239,9 +238,9 @@ class ScrutinyDockWidgetTab(QtAds.CDockWidgetTab):
         if dock_widget is None:
             return
 
-        menu = tab_context_menu(self, dock_widget)
+        menu = tab_context_menu(dock_widget)
         if len(menu.actions()) > 0:
-            menu.popup(self.mapToGlobal(event.pos()))
+            menu.exec(self.mapToGlobal(event.pos()))
 
 
 class CustomFactory(QtAds.CDockComponentsFactory):

@@ -917,7 +917,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
     def _chart_context_menu_slot(self, chartview_event: QContextMenuEvent) -> None:
         """Slot called when the user right click the chartview. Create a context menu and display it.
         This event is forwarded by the chartview through a signal."""
-        context_menu = QMenu(self)
+        context_menu = QMenu()
 
         context_menu.addSection("Zoom")
 
@@ -970,7 +970,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
         clear_chart_action.triggered.connect(self._clear_graph)
         clear_chart_action.setEnabled(self._state.enable_clear_button())
 
-        context_menu.popup(self._chartview.mapToGlobal(chartview_event.pos()))
+        context_menu.exec(self._chartview.mapToGlobal(chartview_event.pos()))
 
     def _reset_zoom_slot(self) -> None:
         """Right-click -> Reset zoom"""

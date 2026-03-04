@@ -592,7 +592,7 @@ class GraphSignalTree(BaseTreeView):
         return super().dropEvent(event)
 
     def contextMenuEvent(self, event: QContextMenuEvent) -> None:
-        context_menu = QMenu(self)
+        context_menu = QMenu()
         selected_indexes_no_nested_unordered = self._model.remove_nested_indexes_unordered(self._real_model_selected_indexes())
         nesting_col = self._model.nesting_col()
         selected_items_no_nested_unordered = [self._model.itemFromIndex(index)
@@ -644,7 +644,7 @@ class GraphSignalTree(BaseTreeView):
             new_axis_action.setDisabled(True)
             remove_action.setDisabled(True)
 
-        context_menu.popup(self.mapToGlobal(event.pos()))
+        context_menu.exec(self.mapToGlobal(event.pos()))
         event.accept()
 
     def keyPressEvent(self, event: QKeyEvent) -> None:

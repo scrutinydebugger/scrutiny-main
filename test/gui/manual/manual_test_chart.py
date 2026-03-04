@@ -187,10 +187,10 @@ def build_chart():
 
 
 def make_context_menu(e: QContextMenuEvent) -> None:
-    menu = QMenu(window)
+    menu = QMenu()
     chart_mixins.add_grid_config_action(chartview.chart(), menu=menu, parent=window)
 
-    menu.popup(chartview.mapToGlobal(e.pos()))
+    menu.exec(chartview.mapToGlobal(e.pos()))
 
 
 chartview.signals.context_menu_event.connect(make_context_menu)

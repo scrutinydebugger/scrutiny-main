@@ -178,7 +178,7 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
         self.setItemDelegateForColumn(self.model().value_col(), ValueEditDelegate())
 
     def contextMenuEvent(self, event: QContextMenuEvent) -> None:
-        context_menu = QMenu(self)
+        context_menu = QMenu()
         selected_indexes = self.selectedIndexes()
         selected_indexes_no_nested_unordered = self.model().remove_nested_indexes_unordered(selected_indexes)
         nesting_col = self.model().nesting_col()

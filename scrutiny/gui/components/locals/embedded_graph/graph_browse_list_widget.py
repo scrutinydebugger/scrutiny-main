@@ -142,7 +142,7 @@ class AcquisitionStorageEntryTreeView(BaseTreeView):
         return cast(AcquisitionStorageEntryTreeModel, super().model())
 
     def contextMenuEvent(self, event: QContextMenuEvent) -> None:
-        context_menu = QMenu(self)
+        context_menu = QMenu()
         action_display = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.Eye), "Display")
         action_delete = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.RedX), "Delete")
         action_rename = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.TextEdit), "Rename")

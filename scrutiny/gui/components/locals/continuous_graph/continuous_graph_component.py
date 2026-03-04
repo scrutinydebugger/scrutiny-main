@@ -1116,7 +1116,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
     def _chart_context_menu_slot(self, chartview_event: QContextMenuEvent) -> None:
         """Slot called when the user right click the chartview. Create a context menu and display it.
         This event is forwarded by the chartview through a signal."""
-        context_menu = QMenu(self)
+        context_menu = QMenu()
 
         context_menu.addSection("Zoom")
 
@@ -1162,8 +1162,6 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
         save_csv_action.triggered.connect(self._save_csv_slot)
         save_csv_action.setEnabled(self._state.allow_save_csv())
 
-        context_menu.popup(self._chartview.mapToGlobal(chartview_event.pos()))
-
         context_menu.addSection("Content")
         chart_mixins.add_grid_config_action(self._chartview.chart(), menu=context_menu, parent=self)
 
@@ -1173,6 +1171,8 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
         edit_range_action = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.YRange), "Axes range")
         edit_range_action.triggered.connect(range_edit_slot)
         edit_range_action.setEnabled(self._state.enable_edit_range_menu())
+
+        context_menu.exec(self._chartview.mapToGlobal(chartview_event.pos()))
 
     def _save_image_slot(self) -> None:
         """When the user right-click the graph then click "Save as image" """
