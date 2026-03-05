@@ -126,7 +126,7 @@ class GraphConfigWidget(QWidget):
 
     AUTONAME_PREFIX = r"Acquisition #"
 
-    def __init__(self, parent: QWidget, watchable_registry: WatchableRegistry, get_signal_dtype_fn: Optional[GetSignalDatatypeFn]) -> None:
+    def __init__(self, watchable_registry: WatchableRegistry, get_signal_dtype_fn: Optional[GetSignalDatatypeFn], parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         MAX_HOLD_TIME_MS = math.floor((2**32 - 1) * 1e-7) * 1e3     # 32bits, increment of 100ns
         MAX_TIMEOUT_SEC = math.floor((2**32 - 1) * 1e-7)            # 32bits, increment of 100ns
@@ -144,12 +144,6 @@ class GraphConfigWidget(QWidget):
         layout.addWidget(sampling_rate_container)
         layout.addWidget(xaxis_container)
         layout.addWidget(trigger_container)
-
-        def set_top_bottom_margin(layout: QFormLayout, top: int, bottom: int) -> None:
-            margins = layout.contentsMargins()
-            margins.setTop(top)
-            margins.setBottom(bottom)
-            layout.setContentsMargins(margins)
 
         class InternalFormLayout(QFormLayout):
             @tools.copy_type(QFormLayout.__init__)
@@ -170,32 +164,29 @@ class GraphConfigWidget(QWidget):
         self._watchable_registry = watchable_registry
 
         # Widgets
-        self._txt_acquisition_name = QLineEdit(self)
-        self._cmb_sampling_rate = QComboBox(self)
+        self._txt_acquisition_name = QLineEdit()
+        self._cmb_sampling_rate = QComboBox()
         self._cmb_sampling_rate.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Preferred)
-        self._spin_decimation = QSpinBox(self)
-        self._lbl_effective_sampling_rate = QLabel(self)
-        self._spin_trigger_position = QSpinBox(self)
+        self._spin_decimation = QSpinBox()
+        self._lbl_effective_sampling_rate = QLabel()
+        self._spin_trigger_position = QSpinBox()
         timeout_hard_validator = QStandardNotationDoubleValidator(0, MAX_TIMEOUT_SEC, 7)
-        self._txt_acquisition_timeout = FloatValidableLineEdit(
-            hard_validator=timeout_hard_validator,
-            parent=self
-        )
+        self._txt_acquisition_timeout = FloatValidableLineEdit(hard_validator=timeout_hard_validator)
 
-        self._cmb_trigger_condition = QComboBox(self)
-        self._txtw_trigger_operand1 = WatchableLineEdit("", self)
+        self._cmb_trigger_condition = QComboBox()
+        self._txtw_trigger_operand1 = WatchableLineEdit("")
         self._txtw_trigger_operand1.setValidator(QStandardNotationDoubleValidator())
-        self._txtw_trigger_operand2 = WatchableLineEdit("", self)
+        self._txtw_trigger_operand2 = WatchableLineEdit("")
         self._txtw_trigger_operand2.setValidator(QStandardNotationDoubleValidator())
-        self._txtw_trigger_operand3 = WatchableLineEdit("", self)
+        self._txtw_trigger_operand3 = WatchableLineEdit("")
         self._txtw_trigger_operand3.setValidator(QStandardNotationDoubleValidator())
-        self._cmb_xaxis_type = QComboBox(self)
-        self._txtw_xaxis_signal = WatchableLineEdit("", self)
+        self._cmb_xaxis_type = QComboBox()
+        self._txtw_xaxis_signal = WatchableLineEdit("")
         self._txtw_xaxis_signal.set_text_mode_enabled(False)    # No literal allowed, just watchables
 
         hold_time_hard_validator = QStandardNotationDoubleValidator(0, MAX_HOLD_TIME_MS, 4)
-        self._txt_hold_time_ms = FloatValidableLineEdit(hard_validator=hold_time_hard_validator, parent=self)
-        self._lbl_estimated_duration = QLabel(self)
+        self._txt_hold_time_ms = FloatValidableLineEdit(hard_validator=hold_time_hard_validator)
+        self._lbl_estimated_duration = QLabel()
 
         self._txt_acquisition_name.setText(self.AUTONAME_PREFIX + "1")
         self._txt_acquisition_name.textEdited.connect(self._acquisition_name_edited_slot)
@@ -285,6 +276,9 @@ class GraphConfigWidget(QWidget):
                 self.setTabOrder(widget_order[i - 1], widget_order[i])
 
         self.update_content()
+
+    def teardown(self) -> None:
+        self._get_signal_dtype_fn = None
 
     def _acquisition_timeout_changed_slot(self) -> None:
         self.update_content()

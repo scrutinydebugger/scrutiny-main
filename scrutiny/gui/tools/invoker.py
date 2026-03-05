@@ -72,7 +72,7 @@ class QueuedInvoker(QObject):
             raise RuntimeError("A QT application must be running")
 
     def exec(self, method: Callable[[], None]) -> None:
-        timer = QTimer(self)
+        timer = QTimer(self)    # Parent is important
         timer.setSingleShot(True)
         timer.setInterval(0)
 
@@ -80,7 +80,10 @@ class QueuedInvoker(QObject):
             timer.setParent(None)
             method()
 
-        timer.timeout.connect(exec_method)
+        # SingleShotConnection ensure to break the connection after
+        # allowing the garbage collector to delete the method if a closure is given.
+        # Closure should be ephemerous otherwise they will keep everything alive.
+        timer.timeout.connect(exec_method, Qt.ConnectionType.SingleShotConnection)
         timer.start()
 
 
@@ -99,7 +102,7 @@ T = TypeVar('T')
 
 
 def invoke_in_qt_thread_synchronized(method: Callable[[], T], timeout: Optional[int] = None) -> T:
-    """Runs a function in the QT thread and wait for its completion. Returns its return value. 
+    """Runs a function in the QT thread and wait for its completion. Returns its return value.
     If an exception is raised in the function, it will be raised in the caller thread"""
 
     syncer: tools.ThreadSyncer[T] = tools.ThreadSyncer()

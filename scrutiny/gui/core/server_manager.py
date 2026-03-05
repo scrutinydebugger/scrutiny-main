@@ -156,6 +156,7 @@ class ClientRequestStore:
             self._next_id = 0
 
     def register(self, entry: ClientRequestEntry) -> int:
+        """Register a request in the storage and return a unique, growing ID"""
         with self._lock:
             while self._next_id in self._storage:
                 self._next_id += 1

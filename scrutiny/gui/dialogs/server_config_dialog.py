@@ -130,13 +130,9 @@ class LocalServerConfigurator(QWidget):
         top_menu_hlayout.setAlignment(Qt.AlignmentFlag.AlignLeft)
 
         self._state_label = LocalServerStateLabel(self)
-        self._txt_port = IntValidableLineEdit(
-            parent=self,
-            hard_validator=QIntValidator(0, 0xFFFF),
-            soft_validator=IpPortValidator()
-        )
+        self._txt_port = IntValidableLineEdit(hard_validator=QIntValidator(0, 0xFFFF), soft_validator=IpPortValidator())
 
-        self._cmb_loglevel = QComboBox(self, editable=False)
+        self._cmb_loglevel = QComboBox(editable=False)
         self._cmb_loglevel.addItem('Critical', logging.CRITICAL)
         self._cmb_loglevel.addItem('Error', logging.ERROR)
         self._cmb_loglevel.addItem('Warning', logging.WARNING)
@@ -227,7 +223,7 @@ class LocalServerConfigurator(QWidget):
         self._log_viewer.clear()
 
     def _save_logs(self) -> None:
-        filepath = prompt.get_save_filepath_from_last_save_dir(self, '.log', 'Save server logs')
+        filepath = prompt.get_save_filepath_from_last_save_dir('.log', 'Save server logs')
         if filepath is None:
             return
 
@@ -235,10 +231,10 @@ class LocalServerConfigurator(QWidget):
             with open(filepath, 'w') as f:
                 lines = [line + '\n' for line in self._log_viewer.get_lines()]
                 f.writelines(lines)
-                prompt.success_msgbox(self, "Logs saved", f"Logs saved to {filepath.absolute()}")
+                prompt.success_msgbox("Logs saved", f"Logs saved to {filepath.absolute()}")
         except Exception as e:
             tools.log_exception(self._logger, e, "Cannot save logs")
-            prompt.exception_msgbox(self, e, "Failed to save logs", f"Cannot save logs to file {filepath.absolute()}")
+            prompt.exception_msgbox(e, "Failed to save logs", f"Cannot save logs to file {filepath.absolute()}")
 
     def _abnormal_termination_slot(self) -> None:
         """The running thread emits a signal if the subprocess exits without a request for it."""
@@ -324,12 +320,8 @@ class RemoteServerConfigurator(QWidget):
     def __init__(self, parent: QWidget) -> None:
         super().__init__(parent)
         self._persistent_data = gui_persistent_data.get_namespace(self.__class__.__name__)
-        self._hostname_textbox = ValidableLineEdit(parent=self, soft_validator=NotEmptyValidator())
-        self._port_textbox = IntValidableLineEdit(
-            parent=self,
-            hard_validator=QIntValidator(0, 0xFFFF),
-            soft_validator=IpPortValidator()
-        )
+        self._hostname_textbox = ValidableLineEdit(soft_validator=NotEmptyValidator())
+        self._port_textbox = IntValidableLineEdit(hard_validator=QIntValidator(0, 0xFFFF), soft_validator=IpPortValidator())
 
         self._hostname_textbox.textChanged.connect(self._hostname_textbox.validate_expect_not_wrong_default_slot)
         self._port_textbox.textChanged.connect(self._port_textbox.validate_expect_not_wrong_default_slot)

@@ -16,6 +16,7 @@ from uuid import uuid4
 import json
 from datetime import datetime
 from pathlib import Path
+import gc
 
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QMenu, QInputDialog, QLineEdit
 from PySide6.QtCore import Qt, QSize, QObject, Signal, QTimer
@@ -53,7 +54,7 @@ if TYPE_CHECKING:
 
 
 class ComponentAppInterface(AbstractComponentAppInterface):
-    """This class is a handle for the components to access the GUI application. 
+    """This class is a handle for the components to access the GUI application.
     A component should use this interface to do something else than managing itself,
     like accessing the watchable registry or making a request to the server"""
 
@@ -110,15 +111,14 @@ class BuildSplitterRecursiveImmutableData:
     top_level: bool
 
 
-def tab_context_menu(owner: QWidget,
-                     dock_widget: QtAds.CDockWidget,
+def tab_context_menu(dock_widget: QtAds.CDockWidget,
                      rename: bool = True,
                      detach: bool = True,
                      pin_to: bool = True,
                      unpin: bool = True,
                      close: bool = True) -> QMenu:
     """Creates a context menu when the user for when the user right-click a tab."""
-    menu = QMenu(owner)
+    menu = QMenu()
     dock_widget.setAsCurrentTab()
     component = cast(ScrutinyGUIBaseComponent, dock_widget.widget())
     is_autohide = dock_widget.dockAreaWidget().isAutoHide()    # Check dockarea. dock_widget.isautoHide is buggy. See bug #739
@@ -130,7 +130,7 @@ def tab_context_menu(owner: QWidget,
             def rename_slot() -> None:
                 if dock_widget.isClosed():
                     return
-                new_name, changed = QInputDialog.getText(owner, "Rename tab", "New name",
+                new_name, changed = QInputDialog.getText(dock_widget, "Rename tab", "New name",
                                                          echo=QLineEdit.EchoMode.Normal, text=dock_widget.windowTitle())
                 if changed:
                     dock_widget.setWindowTitle(new_name)
@@ -209,9 +209,9 @@ class ScrutinyDockWidgetSideTab(QtAds.ads.CAutoHideTab):
         if dock_widget is None:
             return
 
-        menu = tab_context_menu(self, dock_widget)
+        menu = tab_context_menu(dock_widget)
         if len(menu.actions()) > 0:
-            menu.popup(self.mapToGlobal(event.pos()))
+            menu.exec(self.mapToGlobal(event.pos()))
 
 
 class ScrutinyDockAreaTitleBar(QtAds.CDockAreaTitleBar):
@@ -239,9 +239,9 @@ class ScrutinyDockWidgetTab(QtAds.CDockWidgetTab):
         if dock_widget is None:
             return
 
-        menu = tab_context_menu(self, dock_widget)
+        menu = tab_context_menu(dock_widget)
         if len(menu.actions()) > 0:
-            menu.popup(self.mapToGlobal(event.pos()))
+            menu.exec(self.mapToGlobal(event.pos()))
 
 
 class CustomFactory(QtAds.CDockComponentsFactory):
@@ -348,6 +348,7 @@ class Dashboard(QWidget):
 
 
 # region Public API
+
 
     @property
     def signals(self) -> _Signals:
@@ -463,7 +464,7 @@ class Dashboard(QWidget):
 
         except Exception as e:
             tools.log_exception(self._logger, e, "Internal error while saving the dashboard")
-            prompt.exception_msgbox(title="Error while saving", parent=self, exception=e, message="Internal error while saving the dashboard")
+            prompt.exception_msgbox(title="Error while saving", exception=e, message="Internal error while saving the dashboard")
             if exceptions:
                 raise e
             return
@@ -473,7 +474,7 @@ class Dashboard(QWidget):
                 f.write(dashboard_json.encode('utf8'))
             self._set_active_file(filepath)
         except Exception as e:
-            prompt.exception_msgbox(title="Failed to save dashboard", parent=self, exception=e, message="Failed to save dashboard")
+            prompt.exception_msgbox(title="Failed to save dashboard", exception=e, message="Failed to save dashboard")
             tools.log_exception(self._logger, e, "Failed to save")
             if exceptions:
                 raise e
@@ -481,7 +482,7 @@ class Dashboard(QWidget):
 
     def save_with_prompt(self, exceptions: bool = False) -> None:
         """Save the active dashboard to a new file. Ask the user for the file"""
-        filepath = prompt.get_save_filepath_from_last_save_dir(self, self.FILE_EXT)
+        filepath = prompt.get_save_filepath_from_last_save_dir(self.FILE_EXT)
         if filepath is None:
             return
 
@@ -492,7 +493,6 @@ class Dashboard(QWidget):
         if self._active_file is not None:
             if os.path.isfile(self._active_file):
                 overwrite = prompt.warning_yes_no_question(
-                    parent=self,
                     title="File already exist",
                     msg=f"File {self._active_file.name} already exist. Overwrite?"
                 )
@@ -505,7 +505,7 @@ class Dashboard(QWidget):
             self.save_with_prompt(exceptions)
 
     def clear(self) -> None:
-        """Removes everything from the dashboard. 
+        """Removes everything from the dashboard.
         The ADS internal map maps object name to the widget. title is used if no object name is explicitly set before registration.
         Colliding names may cause this map to not return all the references, leaving some stray widget after clear.
         """
@@ -515,7 +515,7 @@ class Dashboard(QWidget):
 
     def open_with_prompt(self, exceptions: bool = False) -> None:
         """Select a file form the filesystem and reload a dashboard from it"""
-        filepath = prompt.get_open_filepath_from_last_save_dir(self, self.FILE_EXT)
+        filepath = prompt.get_open_filepath_from_last_save_dir(self.FILE_EXT)
         if filepath is None:
             return
 
@@ -523,7 +523,7 @@ class Dashboard(QWidget):
 
     def open(self, filepath: Path, exceptions: bool = False) -> None:
         if not os.path.isfile(filepath):
-            prompt.error_msgbox(self, "File not found", f"File {filepath} does not exist")
+            prompt.error_msgbox("File not found", f"File {filepath} does not exist")
             if exceptions:
                 raise FileNotFoundError(f"File {filepath} does not exist")
             return
@@ -531,7 +531,7 @@ class Dashboard(QWidget):
         filesize = os.path.getsize(filepath)
         if filesize > self.MAX_FILE_SIZE_TO_LOAD:
             msg = f"File {filepath} has a size of {filesize} bytes. This is unusual for a dashboard.\n Will not load. (max={self.MAX_FILE_SIZE_TO_LOAD})."
-            prompt.error_msgbox(self, "File too big", msg)
+            prompt.error_msgbox("File too big", msg)
             if exceptions:
                 raise RuntimeError(msg)
             return
@@ -571,7 +571,7 @@ class Dashboard(QWidget):
 
     def _create_new_component(self, component_class: Type[ScrutinyGUIBaseComponent]) -> Optional[QtAds.CDockWidget]:
         """Create a new component and initializes it
-        :param component_class: The class that represent the component (inhreiting ScrutinyGUIBaseComponent) 
+        :param component_class: The class that represent the component (inhreiting ScrutinyGUIBaseComponent)
         """
         if issubclass(component_class, ScrutinyGUIBaseGlobalComponent):
             searched_widget = self._dock_manager.findDockWidget(component_class.__name__)
@@ -701,10 +701,12 @@ class Dashboard(QWidget):
         except Exception as e:
             tools.log_exception(
                 self._logger, e, f"Exception while tearing down component {component.__class__.__name__} (instance name: {component.instance_name})")
-            return
-        finally:
-            component.deleteLater()
 
+        gc.collect()
+        referer_count = len(gc.get_referrers(component))
+        if referer_count > 1:
+            self._logger.debug(
+                f"Component {component.instance_name} has {referer_count} referrer after teardown. Only 1 should remain.")
 # endregion
 
 # region Restore
@@ -715,7 +717,7 @@ class Dashboard(QWidget):
                 json_decoded = json.load(f)
                 serialized_dashboard = dashboard_file_format.SerializableDashboard.from_dict(json_decoded)
         except Exception as e:
-            prompt.exception_msgbox(title="Failed to open dashboard", parent=self, exception=e,
+            prompt.exception_msgbox(title="Failed to open dashboard", exception=e,
                                     message="Failed to parse the dashboard file. JSON is invalid")
             tools.log_exception(self._logger, e, "Failed to open")
             if exceptions:

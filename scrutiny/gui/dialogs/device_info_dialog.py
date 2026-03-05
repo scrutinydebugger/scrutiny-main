@@ -167,7 +167,7 @@ class DeviceInfoDisplayTable(QWidget):
 class DeviceInfoDialog(QDialog):
     """Window that display the device information, including capabilities and configuration"""
 
-    def __init__(self, parent: Optional[QWidget], info: DeviceInfo) -> None:
+    def __init__(self, info: DeviceInfo, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
 
         self.setWindowTitle("Device")

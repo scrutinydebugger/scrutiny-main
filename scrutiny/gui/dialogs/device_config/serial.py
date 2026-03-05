@@ -41,15 +41,13 @@ class SerialConfigPane(BaseConfigPane):
         super().__init__(parent)
 
         layout = QFormLayout(self)
-        self._port_name_textbox = ValidableLineEdit(parent=self, soft_validator=NotEmptyValidator())
+        self._port_name_textbox = ValidableLineEdit(soft_validator=NotEmptyValidator())
         self._baudrate_textbox = IntValidableLineEdit(
-            parent=self,
             hard_validator=QIntValidator(0, 0x7FFFFFFF),
             soft_validator=NotEmptyValidator()
         )
         start_delay_hard_validator = QStandardNotationDoubleValidator(0, 5, 2, self)
         self._start_delay_textbox = FloatValidableLineEdit(
-            parent=self,
             hard_validator=start_delay_hard_validator,
             soft_validator=NotEmptyValidator()
         )

@@ -19,6 +19,7 @@ from PySide6.QtGui import QContextMenuEvent, QKeyEvent, QIcon
 from PySide6.QtWidgets import (QHBoxLayout, QSplitter, QWidget, QVBoxLayout, QMenu,
                                QPushButton, QFormLayout, QSpinBox, QLineEdit, QLabel)
 from PySide6.QtCore import Qt, QPointF, QTimer, QRectF
+from PySide6.QtCharts import QLineSeries
 
 from scrutiny import sdk
 from scrutiny import tools
@@ -45,6 +46,7 @@ from scrutiny.sdk.listeners.csv_logger import CSVLogger
 from scrutiny.gui.components.common import chart_mixins
 
 from scrutiny.tools.typing import *
+import shiboken6
 
 
 class State:
@@ -192,9 +194,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
     """The widget with all the configurations for the CSV logger"""
     _feedback_label: FeedbackLabel
     """A label to report error to the user"""
-    _splitter: QSplitter
-    """The splitter between the graph and the signal/axis tree"""
-    _registryid2signal_item: Dict[int, ChartSeriesWatchableStandardItem]
+    _registryid2series: Dict[int, RealTimeScrutinyLineSeries]
     """A dictionnary mapping server_id associated with ValueUpdates broadcast by the server to their respective signal (a tree item, which has a reference to the chart series) """
     _first_val_dt: Optional[datetime]
     """The server timestamp of the first value gotten. Used to offset the ValueUpdates timestamps to 0"""
@@ -208,8 +208,6 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
     """The actual X resolution in sec. This value is given to the series decimator"""
     _stats: GraphStatistics
     """Graph statistics displayed to the user in real time"""
-    _xaxis: ScrutinyValueAxisWithMinMax
-    """The single time X-Axis"""
     _yaxes: List[ScrutinyValueAxisWithMinMax]
     """All the Y-Axes defined by the user"""
     _graph_sfd: Optional[sdk.SFDInfo]
@@ -221,17 +219,16 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
     Used for auto-throttling of the repaint rate when the CPU is overloaded"""
     _csv_logger: Optional[CSVLogger]
     """The CSV logger that will save value update to disk in real time. Runs in the UI thread."""
+    _teared_down: bool
+    """Flag indicating that we ahve teared down the component"""
 
     @classmethod
     def get_icon(cls) -> QIcon:
         return scrutiny_get_theme().load_medium_icon(assets.Icons.ContinuousGraph)
 
     def setup(self) -> None:
-        self._registryid2signal_item = {}
-        self._xaxis = ScrutinyValueAxisWithMinMax(self)
-        self._xaxis.setTitleText("Time [s]")
-        self._xaxis.setTitleVisible(True)
-        self._xaxis.deemphasize()   # Default state
+        self._registryid2series = {}
+
         self._yaxes = []
         self._x_resolution = 0
         self._graph_sfd = None
@@ -240,6 +237,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
         self._csv_logger = None
         self._first_val_dt = None
         self._y_minmax_recompute_index = 0
+        self._teared_down = False
 
         self._state = ContinuousGraphState(
             acquiring=False,
@@ -259,7 +257,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
 
             # Series on continuous graph don't have their X value aligned.
             # We can only show the value next to each point, not all together in the tree
-            self._signal_tree = GraphSignalTree(self, watchable_registry=self.app.watchable_registry)
+            self._signal_tree = GraphSignalTree(self.app.watchable_registry)
             self._signal_tree.setMinimumWidth(self._signal_tree.sizeHint().width())
             self._signal_tree.signals.selection_changed.connect(self._selection_changed_slot)
 
@@ -273,7 +271,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
             param_widget = QWidget()
             param_layout = QFormLayout(param_widget)
 
-            self._spinbox_graph_max_width = QSpinBox(self)
+            self._spinbox_graph_max_width = QSpinBox()
             self._spinbox_graph_max_width.setMaximum(600)
             self._spinbox_graph_max_width.setMinimum(0)
             self._spinbox_graph_max_width.setValue(self.DEFAULT_GRAPH_MAX_WIDTH)
@@ -286,7 +284,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
             self._graph_maintenance_timer = QTimer()
             self._graph_maintenance_timer.setInterval(1000)
             self._graph_maintenance_timer.timeout.connect(self._graph_maintenance_timer_slot)
-            self._csv_log_menu = CsvLoggingMenuWidget(self)
+            self._csv_log_menu = CsvLoggingMenuWidget()
 
             start_pause_line = QWidget()
             start_pause_line_layout = QHBoxLayout(start_pause_line)
@@ -313,11 +311,16 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
 
         def make_left_side() -> QWidget:
             chart = ScrutinyChart()
-            chart.setAxisX(self._xaxis)
+            xaxis = ScrutinyValueAxisWithMinMax()
+            xaxis.setTitleText("Time [s]")
+            xaxis.setTitleVisible(True)
+            xaxis.deemphasize()   # Default state
+
+            chart.addAxis(xaxis, Qt.AlignmentFlag.AlignBottom)
             self._stats = GraphStatistics(chart)
             self._stats.overlay().setPos(0, 0)
 
-            self._chartview = ScrutinyChartView(self)
+            self._chartview = ScrutinyChartView()
             self._chartview.setChart(chart)
             self._chartview.signals.context_menu_event.connect(self._chart_context_menu_slot)
             self._chartview.signals.paint_finished.connect(self._paint_finished_slot)
@@ -337,30 +340,20 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
         right_side = make_right_side()
         left_side = make_left_side()
 
-        self._splitter = QSplitter(self)
-        self._splitter.setOrientation(Qt.Orientation.Horizontal)
-        self._splitter.setContentsMargins(0, 0, 0, 0)
-        self._splitter.setHandleWidth(5)
-        self._splitter.addWidget(left_side)
-        self._splitter.addWidget(right_side)
-        self._splitter.setCollapsible(0, False)  # Cannot collapse the graph
-        self._splitter.setCollapsible(1, True)  # Can collapse the right menu
+        splitter = QSplitter()
+        splitter.setOrientation(Qt.Orientation.Horizontal)
+        splitter.setContentsMargins(0, 0, 0, 0)
+        splitter.setHandleWidth(5)
+        splitter.addWidget(left_side)
+        splitter.addWidget(right_side)
+        splitter.setCollapsible(0, False)  # Cannot collapse the graph
+        splitter.setCollapsible(1, True)  # Can collapse the right menu
+        splitter.setObjectName("MainSplitter")
 
         layout = QHBoxLayout(self)
-        layout.addWidget(self._splitter)
+        layout.addWidget(splitter)
 
-        def update_xval(data: XValuesData) -> None:
-            self._x1val_label.setText("Time [s] (x1) : %g" % data.x1val)
-            self._x1val_label.setVisible(data.x1enabled)
-
-            self._x2val_label.setText("Time [s] (x2) : %g" % data.x2val)
-            self._x2val_label.setVisible(data.x2enabled)
-
-            delta = abs(data.x1val - data.x2val)
-            self._xdiffval_label.setText("Δx : %g" % delta)
-            self._xdiffval_label.setVisible(data.x1enabled and data.x2enabled)
-
-        self._chartview.configure_chart_cursor(self._signal_tree, update_xval)
+        self._chartview.configure_chart_cursor(self._signal_tree, self._update_xval)
 
         # App integration
         self.app.server_manager.signals.registry_changed.connect(self._registry_changed_slot)
@@ -370,33 +363,38 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
     def ready(self) -> None:
         """Called when the component is inside the dashboard and its dimensions are computed"""
         # Make the right menu as small as possible. Only works after the widget is loaded. we need the ready() function for that
-        self._splitter.setSizes([self.width(), self._signal_tree.minimumWidth()])
+        splitter = self.findChild(QSplitter, "MainSplitter")
+        assert splitter is not None
+        splitter.setSizes([self.width(), self._signal_tree.minimumWidth()])
         self._apply_internal_state()
 
     def teardown(self) -> None:
         """Called when the component is removed from the dashboard"""
+        self.stop_acquisition()
+        self.clear_graph()
+        self._chartview.teardown()  # Break the ties with the treeview
         self.app.watchable_registry.unregister_watcher(self._watcher_id())
+        self._teared_down = True
 
     def get_state(self) -> Dict[Any, Any]:
-        def make_state() -> State.ComponentState:
-            def axis_content_to_state(v: AxisContent) -> State.AxisContent:
-                return {
-                    'text': v.axis_name,
-                    'signals': [
-                        {'fqn': signal_item.fqn, 'text': signal_item.text()} for signal_item in v.signal_items
-                    ]
-                }
-
-            signals = [axis_content_to_state(sig) for sig in self._signal_tree.get_signals()]
-
+        def axis_content_to_state(v: AxisContent) -> State.AxisContent:
             return {
-                'signals': signals,
-                'graph_width_sec': self._spinbox_graph_max_width.value(),
-                'csv_logging': self._csv_log_menu.get_state(),
-                'grid_config': self._chartview.chart().get_grid_config().to_serializable_dict()
+                'text': v.axis_name,
+                'signals': [
+                    {'fqn': signal_item.fqn, 'text': signal_item.text()} for signal_item in v.signal_items
+                ]
             }
 
-        return cast(Dict[Any, Any], make_state())
+        signals = [axis_content_to_state(sig) for sig in self._signal_tree.get_signals()]
+
+        state: State.ComponentState = {
+            'signals': signals,
+            'graph_width_sec': self._spinbox_graph_max_width.value(),
+            'csv_logging': self._csv_log_menu.get_state(),
+            'grid_config': self._chartview.chart().get_grid_config().to_serializable_dict()
+        }
+
+        return cast(Dict[Any, Any], state)
 
     def load_state(self, state_untyped: Dict[Any, Any]) -> bool:
         state = cast(State.ComponentState, state_untyped)
@@ -457,7 +455,8 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
 
     def visibilityChanged(self, visible: bool) -> None:
         """Called when the dashboard component is either hidden or showed"""
-        self._chartview.setEnabled(visible)
+        if not self._teared_down:
+            self._chartview.setEnabled(visible)
 
     # region Controls
 
@@ -473,12 +472,10 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
             with tools.SuppressException():
                 self._chartview.chart().removeAxis(yaxis)
 
-        for signal_item in self._registryid2signal_item.values():
-            if signal_item.series_attached():
-                signal_item.detach_series()  # Will reload original icons if any
-        self._registryid2signal_item.clear()
-        self._xaxis.setRange(0, 1)
-        self._xaxis.clear_minmax()
+        self._registryid2series.clear()
+        xaxis = self._get_x_axis()
+        xaxis.setRange(0, 1)
+        xaxis.clear_minmax()
         self._yaxes.clear()
         self._state.has_content = False
         self._first_val_dt = None
@@ -541,9 +538,9 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
                 self._report_error(f"Too many signals. Max={self.MAX_SIGNALS}")
                 return
 
-            self._xaxis.setRange(0, 1)
+            self._get_x_axis().setRange(0, 1)
             for axis in signals:    # For each axes
-                yaxis = ScrutinyValueAxisWithMinMax(self)
+                yaxis = ScrutinyValueAxisWithMinMax()
                 axis.axis_item.attach_axis(yaxis)
                 yaxis.setTitleText(axis.axis_name)
                 yaxis.setTitleVisible(True)
@@ -564,9 +561,9 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
                     self._chartview.chart().addSeries(series)
                     signal_item.attach_series(series)
                     signal_item.show_series()
-                    self._registryid2signal_item[registry_id] = signal_item  # The main lookup
+                    self._registryid2series[registry_id] = series  # The main lookup
                     series.setName(signal_item.text())
-                    series.attachAxis(self._xaxis)
+                    series.attachAxis(self._get_x_axis())
                     series.attachAxis(yaxis)
 
                     # Click is used to make a line bold when we click. # Hovered to display a callout (only when the graph paused/stopped)
@@ -646,16 +643,17 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
         """Read the items in the SignalTree object (right menu with axis) and update the size/boldness of the graph series
         based on wether they are selected or not"""
         emphasized_yaxes_id: Set[int] = set()
-        selected_items = self._signal_tree.get_selected_signal_items()
-        for item in self._registryid2signal_item.values():
-            if item.series_attached():
-                series = self._get_item_series(item)
-                if item in selected_items:
-                    series.emphasize()
-                    yaxis = self._get_series_yaxis(series)
-                    emphasized_yaxes_id.add(id(yaxis))
-                else:
-                    series.deemphasize()
+
+        def series_callback(series: QLineSeries, selected: bool) -> None:
+            series2 = cast(RealTimeScrutinyLineSeries, series)
+            if selected:
+                series2.emphasize()
+                yaxis = self._get_series_yaxis(series2)
+                emphasized_yaxes_id.add(id(yaxis))
+            else:
+                series2.deemphasize()
+
+        self._signal_tree.apply_on_series(series_callback)
 
         for axis in self._yaxes:
             if id(axis) in emphasized_yaxes_id:
@@ -665,27 +663,44 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
 
     def auto_scale_xaxis(self) -> None:
         """Sets the scale of the X-Axis based on the save min/max"""
-        max_x = self._xaxis.maxval()
-        min_x = self._xaxis.minval()
+        xaxis = self._get_x_axis()
+        max_x = xaxis.maxval()
+        min_x = xaxis.minval()
         if max_x is not None and min_x is not None:
             if max_x > min_x + self._graph_max_width:
                 min_x = max_x - self._graph_max_width
             if max_x == min_x:
-                self._xaxis.setRange(min_x, max_x + 1)
+                xaxis.setRange(min_x, max_x + 1)
             else:
-                self._xaxis.setRange(min_x, max_x)
+                xaxis.setRange(min_x, max_x)
 
     # endregion Control
 
     # region Internal
 
+    def _update_xval(self, data: XValuesData) -> None:
+        self._x1val_label.setText("Time [s] (x1) : %g" % data.x1val)
+        self._x1val_label.setVisible(data.x1enabled)
+
+        self._x2val_label.setText("Time [s] (x2) : %g" % data.x2val)
+        self._x2val_label.setVisible(data.x2enabled)
+
+        delta = abs(data.x1val - data.x2val)
+        self._xdiffval_label.setText("Δx : %g" % delta)
+        self._xdiffval_label.setVisible(data.x1enabled and data.x2enabled)
+
+    def _get_x_axis(self) -> ScrutinyValueAxisWithMinMax:
+        haxes = self._chartview.chart().axes(Qt.Orientation.Horizontal)
+        assert len(haxes) == 1
+        return cast(ScrutinyValueAxisWithMinMax, haxes[0])
+
     def _latch_all_axis_range(self) -> None:
-        self._xaxis.latch_range()
+        self._get_x_axis().latch_range()
         for yaxis in self._yaxes:
             yaxis.latch_range()
 
     def _reload_all_latched_ranges(self) -> None:
-        self._xaxis.reload_latched_range()
+        self._get_x_axis().reload_latched_range()
         for yaxis in self._yaxes:
             yaxis.reload_latched_range()
 
@@ -698,18 +713,19 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
         # Reverse lookup of the server id / item map.
         # We do that just so the columns in the CSV file is in the same order as the right menu
         # Right-click -> Save to CSV also follow the same ordering. We want the 2 CSV files to be identical
-        def get_registry_id_from_signal_item(arg: ChartSeriesWatchableStandardItem) -> int:
-            for registry_id, item in self._registryid2signal_item.items():
-                if item is arg:
+        def get_registry_id_from_series(arg: RealTimeScrutinyLineSeries) -> int:
+            for registry_id, series in self._registryid2series.items():
+                if series is arg:
                     return registry_id
-            raise KeyError(f"Could not find the server ID for item: {arg.text()}")
+            raise KeyError(f"Could not find the server ID for series: {arg.name()}")
 
         # Creates the list of columns following the same order as the export_to_csv feature
         signals = self._signal_tree.get_signals()
         for axis in signals:
             for signal_item in axis.signal_items:
+                series = cast(RealTimeScrutinyLineSeries, signal_item.series())
                 columns.append(CSVLogger.ColumnDescriptor(
-                    signal_id=str(get_registry_id_from_signal_item(signal_item)),
+                    signal_id=str(get_registry_id_from_series(series)),
                     name=signal_item.text(),
                     fullpath=signal_item.fqn
                 ))
@@ -734,18 +750,13 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
                 series.flush_decimated()
                 self._last_decimated_flush_paint_in_progress = True
 
-    def _get_item_series(self, item: ChartSeriesWatchableStandardItem) -> RealTimeScrutinyLineSeries:
-        """Return the series tied to a Tree Item (right menu)"""
-        return cast(RealTimeScrutinyLineSeries, item.series())
-
     def _get_series_yaxis(self, series: RealTimeScrutinyLineSeries) -> ScrutinyValueAxisWithMinMax:
         """Return the Y-Axis tied to a series"""
         return cast(ScrutinyValueAxisWithMinMax, self._chartview.chart().axisY(series))
 
     def _all_series(self) -> Generator[RealTimeScrutinyLineSeries, None, None]:
         """Return the list of all series in the graph"""
-        for item in self._registryid2signal_item.values():
-            yield self._get_item_series(item)
+        yield from self._registryid2series.values()
 
     def _maybe_enable_opengl_drawing(self, val: bool) -> None:
         """Enable OpenGL drawing for real time graph, only if the app is running with OpenGL enabled"""
@@ -884,10 +895,10 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
                 xval = get_x(value_update)
                 yval = float(value_update.sdk_update.value)
 
-                series = self._get_item_series(self._registryid2signal_item[value_update.registry_id])
+                series = self._registryid2series[value_update.registry_id]
                 yaxis = self._get_series_yaxis(series)
                 series.add_point(QPointF(xval, yval))
-                self._xaxis.update_minmax(xval)
+                self._get_x_axis().update_minmax(xval)
                 yaxis.update_minmax(yval)   # Can only grow
                 if self._state.autoscale_enabled():
                     yaxis.autoset_range(margin_ratio=self.Y_AXIS_MARGIN)
@@ -919,8 +930,8 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
     def _round_robin_recompute_single_series_min_max(self, full: bool) -> None:
         """Compute a series min/max values.
         if full=``False``, does only 1 series per call to reduce the load on the CPU. Does all if full=``True``"""
-        sorted_ids = sorted(list(self._registryid2signal_item.keys()))
-        all_series = [self._get_item_series(self._registryid2signal_item[server_id]) for server_id in sorted_ids]
+        sorted_ids = sorted(list(self._registryid2series.keys()))
+        all_series = [self._registryid2series[server_id] for server_id in sorted_ids]
 
         if full:
             self._y_minmax_recompute_index = 0
@@ -952,7 +963,8 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
     def _compute_new_decimator_resolution(self) -> None:
         """Compute a decimator resolution to have ~1pt per pixel. Maybe a little more to spare the CPU."""
         w = self._chartview.chart().size().width()
-        xspan = self._xaxis.max() - self._xaxis.min()
+        xaxis = self._get_x_axis()
+        xspan = xaxis.max() - xaxis.min()
         sec_per_pixel = xspan / w
         resolution = 2 * sec_per_pixel        # When full, the decimator produces 2 points per time slice. (min/max
         resolution = 1.5 * resolution         # Heuristic to reduce the CPU load. Result is visually acceptable
@@ -983,8 +995,9 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
                 new_min_x = min(new_min_x, first_x)  # Reduce the axis lower bound to the series lower bound
 
         if math.isfinite(new_min_x):
-            self._xaxis.set_minval(new_min_x)
-            self._xaxis.set_maxval(new_max_f)
+            xaxis = self._get_x_axis()
+            xaxis.set_minval(new_min_x)
+            xaxis.set_maxval(new_max_f)
 
     # endregion Internal
 
@@ -1003,7 +1016,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
         # When we are paused, we want the zoom to stay within the range of that was latched when pause was called.
         # When not pause, saturate to min/max values
         saturate_to_latched_range = True if self._state.paused else False
-        self._xaxis.apply_zoombox_x(zoombox, saturate_to_latched_range=saturate_to_latched_range)
+        self._get_x_axis().apply_zoombox_x(zoombox, saturate_to_latched_range=saturate_to_latched_range)
         selected_axis_items = self._signal_tree.get_selected_axes(include_if_signal_is_selected=True)
         selected_axis_ids = [id(item.axis()) for item in selected_axis_items]
         for yaxis in self._yaxes:
@@ -1020,7 +1033,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
             # Latched when paused. guaranteed to be unzoomed because zoom is not allowed when not
             self._reload_all_latched_ranges()
         else:
-            self._xaxis.autoset_range()
+            self._get_x_axis().autoset_range()
             for yaxis in self._yaxes:
                 yaxis.autoset_range(margin_ratio=self.Y_AXIS_MARGIN)
         self._chartview.update()
@@ -1117,7 +1130,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
     def _chart_context_menu_slot(self, chartview_event: QContextMenuEvent) -> None:
         """Slot called when the user right click the chartview. Create a context menu and display it.
         This event is forwarded by the chartview through a signal."""
-        context_menu = QMenu(self)
+        context_menu = QMenu()
 
         context_menu.addSection("Zoom")
 
@@ -1163,17 +1176,17 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
         save_csv_action.triggered.connect(self._save_csv_slot)
         save_csv_action.setEnabled(self._state.allow_save_csv())
 
-        context_menu.popup(self._chartview.mapToGlobal(chartview_event.pos()))
-
         context_menu.addSection("Content")
-        chart_mixins.add_grid_config_action(self._chartview.chart(), menu=context_menu, parent=self)
+        chart_mixins.add_grid_config_action(self._chartview.chart(), menu=context_menu)
 
         def range_edit_slot() -> None:
-            dialog = ChartRangeEditDialog(self._xaxis, self._yaxes, parent=self)
-            dialog.show()
+            dialog = ChartRangeEditDialog(self._get_x_axis(), self._yaxes)
+            dialog.exec()   # Exec because dialog ahs no parent. Will get destroyed when going out of scope
         edit_range_action = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.YRange), "Axes range")
         edit_range_action.triggered.connect(range_edit_slot)
         edit_range_action.setEnabled(self._state.enable_edit_range_menu())
+
+        context_menu.exec(self._chartview.mapToGlobal(chartview_event.pos()))
 
     def _save_image_slot(self) -> None:
         """When the user right-click the graph then click "Save as image" """
@@ -1199,21 +1212,21 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
             self._apply_internal_state()
             self._chartview.update()
 
-            filepath = prompt.get_save_filepath_from_last_save_dir(self, ".png")
+            filepath = prompt.get_save_filepath_from_last_save_dir(".png")
             if filepath is None:
                 return
             pix.save(str(filepath), 'png', 100)
         except Exception as e:
             logfilepath = "<noname>" if filepath is None else str(filepath)
             tools.log_exception(self.logger, e, f"Error while saving graph into {logfilepath}")
-            prompt.exception_msgbox(self, e, "Failed to save", f"Failed to save the graph to {logfilepath}")
+            prompt.exception_msgbox(e, "Failed to save", f"Failed to save the graph to {logfilepath}")
 
     def _save_csv_slot(self) -> None:
         """When the user right-click the graph then click "Save as CSV" """
         if not self._state.allow_save_csv():
             return
 
-        filepath = prompt.get_save_filepath_from_last_save_dir(self, ".csv")
+        filepath = prompt.get_save_filepath_from_last_save_dir(".csv")
         if filepath is None:
             return
 
@@ -1221,7 +1234,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
             # This runs in a different thread
             if exception is not None:
                 tools.log_exception(self.logger, exception, f"Error while saving graph into {filepath}")
-                invoke_in_qt_thread(lambda: prompt.exception_msgbox(self, exception, "Failed to save", f"Failed to save the graph to {filepath}"))
+                invoke_in_qt_thread(lambda: prompt.exception_msgbox(exception, "Failed to save", f"Failed to save the graph to {filepath}"))
 
         # Todo : Add visual "saving..." feedback ?
         export_chart_csv_threaded(

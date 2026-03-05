@@ -23,9 +23,9 @@ class ValidableLineEdit(QLineEdit):
     _soft_validator: Optional[QValidator]
 
     def __init__(self,
-                 parent: QWidget,
                  hard_validator: Optional[QValidator] = None,
                  soft_validator: Optional[QValidator] = None,
+                 parent: Optional[QWidget] = None,
                  ) -> None:
         super().__init__(parent)
 
@@ -90,9 +90,10 @@ class ValidableLineEdit(QLineEdit):
 
 
 class FloatValidableLineEdit(ValidableLineEdit):
-    def __init__(self, parent: QWidget,
+    def __init__(self,
                  hard_validator: Optional[QDoubleValidator] = None,
-                 soft_validator: Optional[QValidator] = None
+                 soft_validator: Optional[QValidator] = None,
+                 parent: Optional[QWidget] = None
                  ) -> None:
         super().__init__(parent=parent, hard_validator=hard_validator, soft_validator=soft_validator)
 
@@ -109,9 +110,10 @@ class FloatValidableLineEdit(ValidableLineEdit):
 
 
 class IntValidableLineEdit(ValidableLineEdit):
-    def __init__(self, parent: QWidget,
+    def __init__(self,
                  hard_validator: Optional[QIntValidator] = None,
-                 soft_validator: Optional[QValidator] = None
+                 soft_validator: Optional[QValidator] = None,
+                 parent: Optional[QWidget] = None,
                  ) -> None:
         super().__init__(parent=parent, hard_validator=hard_validator, soft_validator=soft_validator)
 

@@ -13,9 +13,10 @@ from scrutiny.gui.dialogs.chart_grid_config_dialog import GridConfigDialog
 from scrutiny.gui.widgets.base_chart import ScrutinyChart
 from scrutiny.gui.themes import scrutiny_get_theme
 from scrutiny.gui import assets
+from scrutiny.tools.typing import *
 
 
-def add_grid_config_action(chart: ScrutinyChart, menu: QMenu, parent: QWidget) -> QAction:
+def add_grid_config_action(chart: ScrutinyChart, menu: QMenu, parent: Optional[QWidget] = None) -> QAction:
     def slot() -> None:
         config = chart.get_grid_config()
         dialog = GridConfigDialog(config, parent=parent)

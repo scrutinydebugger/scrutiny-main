@@ -28,7 +28,7 @@ class _ColorButton(QWidget):
     def __init__(self, color: QColor, parent: QWidget) -> None:
         super().__init__(parent)
         self._color = QColor(color)
-        self._btn = QPushButton(self)
+        self._btn = QPushButton()
 
         self._btn.setFixedWidth(60)
         self._btn.clicked.connect(self._open_color_dialog)
@@ -78,19 +78,19 @@ class _SingleTypeGridConfigWidget(QGroupBox):
 
         self._chk_visible = QCheckBox(self)
 
-        self._spn_tick_count = QSpinBox(self)
+        self._spn_tick_count = QSpinBox()
         self._spn_tick_count.setMinimum(0)
         self._spn_tick_count.setMaximum(10)
 
         self._btn_color = _ColorButton(QColor(0, 0, 0), self)
 
-        self._cmb_line_style = QComboBox(self)
+        self._cmb_line_style = QComboBox()
 
         self._cmb_line_style.addItem("Solid", Qt.PenStyle.SolidLine)
         self._cmb_line_style.addItem("Dash", Qt.PenStyle.DashLine)
         self._cmb_line_style.addItem("Dot", Qt.PenStyle.DotLine)
 
-        self._spn_line_width = QSpinBox(self)
+        self._spn_line_width = QSpinBox()
         self._spn_line_width.setMinimum(0)
         self._spn_line_width.setMaximum(10)
 
@@ -184,12 +184,9 @@ class GridConfigDialog(QDialog):
 
         # --- Button row ---
         self._btn_reset = QPushButton("Reset to Defaults", self)
-        self._buttons = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel,
-            parent=self,
-        )
+        self._buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
 
-        btn_row = QWidget(self)
+        btn_row = QWidget()
         btn_row_layout = QHBoxLayout(btn_row)
         btn_row_layout.setContentsMargins(0, 0, 0, 0)
         btn_row_layout.addWidget(self._btn_reset)

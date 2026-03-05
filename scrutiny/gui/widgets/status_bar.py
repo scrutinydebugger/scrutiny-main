@@ -165,7 +165,7 @@ class StatusBarLabel(QWidget):
         def show_menu() -> None:
             assert self._toolbar is not None
             menu.show()
-            menu.popup(self.mapToGlobal(self._toolbar.pos() - QPoint(0, menu.height())))
+            menu.exec(self.mapToGlobal(self._toolbar.pos() - QPoint(0, menu.height())))
         self._text_label.triggered.connect(show_menu)
 
     def set_click_action(self, fn: Callable[[], None]) -> None:
@@ -350,7 +350,7 @@ class StatusBar(QStatusBar):
             self._server_connect_func()
 
     def _device_link_click_func(self) -> None:
-        """ Called when the user click on the device link label in the status bar. 
+        """ Called when the user click on the device link label in the status bar.
         Opens a configuration dialog"""
         info = self._server_manager.get_server_info()
         if info is None:
@@ -367,15 +367,15 @@ class StatusBar(QStatusBar):
         """Called when the user click on the sfd label"""
         loaded_sfd = self._server_manager.get_loaded_sfd()
         if loaded_sfd is not None:
-            dialog = SFDContentDialog(self, loaded_sfd)
-            dialog.show()
+            dialog = SFDContentDialog(loaded_sfd)
+            dialog.exec()
 
     def _device_details_func(self) -> None:
         """Called when the user click on the device label->details menu"""
         device_info = self._server_manager.get_device_info()
         if device_info is not None:
-            dialog = DeviceInfoDialog(parent=self, info=device_info)
-            dialog.show()
+            dialog = DeviceInfoDialog(info=device_info)
+            dialog.exec()
 
     def _device_config_applied(self, dialog: DeviceConfigDialog) -> None:
         # When the user click OK in the DeviceLinkConfigDialog. He wants the change the link between the server and the device

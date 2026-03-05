@@ -19,7 +19,7 @@ _TEXT = """
 <br/>
 
 
-The demo device is an emulated device run by the server. 
+The demo device is an emulated device run by the server.
 It is implemented in Python, runs in a separate thread, and communicates with the server through data queues.
 
 <br/>
@@ -41,7 +41,7 @@ Its main purpose is to showcase how Scrutiny works without having to go through 
 
 ### Runtime Published Values
 
-  - ``0x1000`` (float32) : A random value ranging from 0 to 1. 
+  - ``0x1000`` (float32) : A random value ranging from 0 to 1.
   - ``0x2000`` (sint32) : A square wave oscillating between -1 and 1 at a rate of 1Hz
 
 <br/>
@@ -67,7 +67,7 @@ class DemoModeInfoDialog(QDialog):
         super().__init__(*args, **kwargs)
 
         self.setWindowTitle("Demo device")
-        self.content_label = QLabel(self)
+        self.content_label = QLabel()
         self.content_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByKeyboard | Qt.TextInteractionFlag.TextSelectableByMouse)
         self.content_label.setTextFormat(Qt.TextFormat.MarkdownText)
         self.content_label.setText(_TEXT)

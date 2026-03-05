@@ -38,23 +38,23 @@ class CsvLoggingMenuWidget(QWidget):
     _gb_content: QGroupBox
     _btn_browse: QPushButton
 
-    def __init__(self, parent: QWidget):
+    def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
         self._chk_enable = QCheckBox("Log to CSV", self)
-        self._gb_content = QGroupBox(self)
+        self._gb_content = QGroupBox()
         self._gb_content.setVisible(False)
         layout.addWidget(self._chk_enable)
         layout.addWidget(self._gb_content)
-        self._txt_folder = QLineEdit(self)
-        self._txt_filename_pattern = QLineEdit(self)
-        self._spin_max_line_per_file = QSpinBox(self)
+        self._txt_folder = QLineEdit()
+        self._txt_filename_pattern = QLineEdit()
+        self._spin_max_line_per_file = QSpinBox()
         self._spin_max_line_per_file.setMinimum(1000)
         self._spin_max_line_per_file.setMaximum(1000000)
         self._spin_max_line_per_file.setValue(10000)
-        self._btn_browse = QPushButton("...", self)
+        self._btn_browse = QPushButton("...")
         self._txt_folder.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         self._btn_browse.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Preferred)
         self._btn_browse.setMinimumWidth(20)
@@ -93,7 +93,7 @@ class CsvLoggingMenuWidget(QWidget):
             actual_folder = Path(os.path.normpath(self._txt_folder.text()))
             actual_folder = actual_folder.absolute()
 
-        folder = prompt.get_save_folderpath_from_last_save_dir(self, "Select a folder", save_dir=actual_folder)
+        folder = prompt.get_save_folderpath_from_last_save_dir("Select a folder", save_dir=actual_folder)
         if folder is not None:
             self._txt_folder.setText(str(folder))
 
@@ -143,7 +143,7 @@ class CsvLoggingMenuWidget(QWidget):
 
         msgbox_text += '\n Do you want to delete them?'
 
-        override = prompt.warning_yes_no_question(self, msg=msgbox_text, title="Filename conflict")
+        override = prompt.warning_yes_no_question(msg=msgbox_text, title="Filename conflict")
 
         if override:
             for file in conflicting_files:

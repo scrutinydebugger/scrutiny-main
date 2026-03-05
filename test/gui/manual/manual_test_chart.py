@@ -63,7 +63,7 @@ def x_val_write(data: XValuesData):
 
 server_manager = FakeServerManager(registry)
 
-signal_tree = GraphSignalTree(window, registry)
+signal_tree = GraphSignalTree(registry)
 right_side = QWidget()
 right_vlayout = QVBoxLayout(right_side)
 right_vlayout.setContentsMargins(0, 0, 0, 0)
@@ -187,10 +187,10 @@ def build_chart():
 
 
 def make_context_menu(e: QContextMenuEvent) -> None:
-    menu = QMenu(window)
+    menu = QMenu()
     chart_mixins.add_grid_config_action(chartview.chart(), menu=menu, parent=window)
 
-    menu.popup(chartview.mapToGlobal(e.pos()))
+    menu.exec(chartview.mapToGlobal(e.pos()))
 
 
 chartview.signals.context_menu_event.connect(make_context_menu)

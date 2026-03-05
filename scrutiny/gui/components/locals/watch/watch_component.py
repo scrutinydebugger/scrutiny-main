@@ -68,8 +68,8 @@ class WatchComponent(ScrutinyGUIBaseLocalComponent):
         return scrutiny_get_theme().load_medium_icon(assets.Icons.Watch)
 
     def setup(self) -> None:
-        self._tree_model = WatchComponentTreeModel(self, watchable_registry=self.app.watchable_registry)
-        self._tree = WatchComponentTreeWidget(self, self._tree_model)
+        self._tree_model = WatchComponentTreeModel(watchable_registry=self.app.watchable_registry)
+        self._tree = WatchComponentTreeWidget(self._tree_model)
         self._teared_down = False
 
         layout = QVBoxLayout(self)

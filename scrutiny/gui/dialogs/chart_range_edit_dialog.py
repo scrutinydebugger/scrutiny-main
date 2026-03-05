@@ -39,12 +39,12 @@ class AxisEditData:
     initial_max: float
     """Axis max when the dialog was created"""
 
-    def __init__(self, axis: QValueAxis, parent: QWidget) -> None:
+    def __init__(self, axis: QValueAxis) -> None:
         self.axis = axis
-        self.txt_min = FloatValidableLineEdit(parent, hard_validator=QDoubleValidator())
-        self.txt_max = FloatValidableLineEdit(parent, hard_validator=QDoubleValidator())
-        self.btn_apply = QPushButton("Apply", parent)
-        self.btn_reset = QPushButton("Reset", parent)
+        self.txt_min = FloatValidableLineEdit(hard_validator=QDoubleValidator())
+        self.txt_max = FloatValidableLineEdit(hard_validator=QDoubleValidator())
+        self.btn_apply = QPushButton("Apply")
+        self.btn_reset = QPushButton("Reset")
         self.initial_min = tools.f2g(axis.min())
         self.initial_max = tools.f2g(axis.max())
 
@@ -59,22 +59,22 @@ class ChartRangeEditDialog(QDialog):
     _feedback_label: FeedbackLabel
     """A label to display errors"""
 
-    def __init__(self, xaxis: QValueAxis, axes: Sequence[QValueAxis], parent: QWidget) -> None:
+    def __init__(self, xaxis: QValueAxis, axes: Sequence[QValueAxis], parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
 
-        self._feedback_label = FeedbackLabel(self)
-        self._btn_close = QPushButton("Close", parent=self)
-        self._btn_apply_all = QPushButton("Apply All", parent=self)
+        self._feedback_label = FeedbackLabel()
+        self._btn_close = QPushButton("Close")
+        self._btn_apply_all = QPushButton("Apply All")
 
         self.setWindowTitle(f"Axes range")
         self.setModal(True)
 
         self._axes_edit_data = []
-        self._axes_edit_data.append(AxisEditData(xaxis, self))
+        self._axes_edit_data.append(AxisEditData(xaxis))
         for axis in axes:
-            self._axes_edit_data.append(AxisEditData(axis, self))
+            self._axes_edit_data.append(AxisEditData(axis))
 
-        scroll_area = QScrollArea(self)
+        scroll_area = QScrollArea()
         edit_zone = QWidget()
         edit_zone_layout = QVBoxLayout(edit_zone)
         edit_zone_layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)

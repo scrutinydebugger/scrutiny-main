@@ -168,8 +168,8 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
 
     signals: _Signals
 
-    def __init__(self, parent: QWidget, model: "WatchComponentTreeModel") -> None:
-        super().__init__(parent, model)
+    def __init__(self, model: "WatchComponentTreeModel", parent: Optional[QWidget] = None) -> None:
+        super().__init__(model, parent)
         self.setDragEnabled(True)
         self.setDropIndicatorShown(True)
         self.setDragDropMode(self.DragDropMode.DragDrop)
@@ -178,7 +178,7 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
         self.setItemDelegateForColumn(self.model().value_col(), ValueEditDelegate())
 
     def contextMenuEvent(self, event: QContextMenuEvent) -> None:
-        context_menu = QMenu(self)
+        context_menu = QMenu()
         selected_indexes = self.selectedIndexes()
         selected_indexes_no_nested_unordered = self.model().remove_nested_indexes_unordered(selected_indexes)
         nesting_col = self.model().nesting_col()
@@ -396,11 +396,12 @@ class WatchComponentTreeModel(WatchableTreeModel):
     _unavailable_palette: QPalette
 
     def __init__(self,
-                 parent: QWidget,
                  watchable_registry: WatchableRegistry,
                  available_palette: Optional[QPalette] = None,
-                 unavailable_palette: Optional[QPalette] = None) -> None:
-        super().__init__(parent, watchable_registry)
+                 unavailable_palette: Optional[QPalette] = None,
+                 parent: Optional[QWidget] = None,
+                 ) -> None:
+        super().__init__(watchable_registry, parent=parent)
         self.logger = logging.getLogger(self.__class__.__name__)
 
         if available_palette is not None:

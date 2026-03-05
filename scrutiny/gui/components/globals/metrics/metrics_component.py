@@ -48,11 +48,11 @@ class MetricsComponent(ScrutinyGUIBaseGlobalComponent):
     def setup(self) -> None:
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-        self._app_stats = ApplicationStatsDisplay(self)
+        self._app_stats = ApplicationStatsDisplay()
         self._app_stats.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
         layout.addWidget(self._app_stats)
 
-        self._local_reset_btn = QPushButton(self)
+        self._local_reset_btn = QPushButton()
         self._local_reset_btn.setText("Reset local values")
         self._local_reset_btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
         self._local_reset_btn.clicked.connect(self._btn_reset_local_click_slot)

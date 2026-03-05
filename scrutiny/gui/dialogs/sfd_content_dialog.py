@@ -18,7 +18,7 @@ from scrutiny.tools.typing import *
 class SFDContentDialog(QDialog):
     """A dialog to show what's inside a SFD"""
 
-    def __init__(self, parent: Optional[QWidget], sfd: sdk.SFDInfo) -> None:
+    def __init__(self, sfd: sdk.SFDInfo, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
 
         layout = QVBoxLayout(self)

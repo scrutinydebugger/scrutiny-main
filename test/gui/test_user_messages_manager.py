@@ -63,7 +63,6 @@ class TestUserMessagesManager(ScrutinyBaseGuiTest):
             self.assertLessEqual(val, target + margin)
             self.assertGreaterEqual(val, target - margin)
 
-
         assertWithin(self.msg_shown_list[0].t - tstart, 0, MARGIN)
         assertWithin(self.msg_shown_list[1].t - tstart, 2, MARGIN)
         assertWithin(self.msg_shown_list[2].t - tstart, 4, MARGIN)

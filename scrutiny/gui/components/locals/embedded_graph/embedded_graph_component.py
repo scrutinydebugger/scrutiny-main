@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, QPointF, QRectF, QRect
 from PySide6.QtGui import QContextMenuEvent, QKeyEvent, QResizeEvent, QIcon, QPainter, QPen
+from PySide6.QtCharts import QLineSeries
 
 from scrutiny import sdk
 from scrutiny.sdk import EmbeddedDataType
@@ -235,8 +236,6 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
     _center_pane: QWidget
     _right_pane: QWidget
 
-    _splitter: QSplitter
-    """3 section splitter separating left / center / right"""
     _x1val_label: QLabel
     """The label used to display the X1-Value when moving the graph cursor (red vertical line)"""
     _x2val_label: QLabel
@@ -334,9 +333,9 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
 
             # Series on continuous graph don't have their X value aligned.
             # We can only show the value next to each point, not all together in the tree
-            self._signal_tree = GraphSignalTree(self, watchable_registry=self.app.watchable_registry)
-            self._signal_tree.signals.selection_changed.connect(self._signal_tree_selection_changed_slot)
+            self._signal_tree = GraphSignalTree(self.app.watchable_registry)
             self._signal_tree.signals.content_changed.connect(self._signal_tree_content_changed_slot)
+            self._signal_tree.signals.selection_changed.connect(self._signal_tree_selection_changed_slot)
 
             self._x1val_label.setVisible(False)
             self._x2val_label.setVisible(False)
@@ -347,7 +346,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
             right_pane_layout.addWidget(self._chk_show_trigger)
             right_pane_layout.addWidget(self._signal_tree)
 
-            right_pane_scroll = QScrollArea(self)
+            right_pane_scroll = QScrollArea()
             right_pane_scroll.setWidget(right_pane)
             right_pane_scroll.setWidgetResizable(True)
             right_pane_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -359,7 +358,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
         def make_center_pane() -> QWidget:
             chart = ScrutinyChart()
 
-            self._chartview = EmbeddedGraphChartView(self)
+            self._chartview = EmbeddedGraphChartView()
             self._chartview.setChart(chart)
             self._xaxis = None
             self._yaxes = []
@@ -377,9 +376,10 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
             return self._chartview
 
         def make_acquire_left_pane() -> QWidget:
-            self._graph_config_widget = GraphConfigWidget(self,
-                                                          watchable_registry=self.app.watchable_registry,
-                                                          get_signal_dtype_fn=self._get_signal_size_list)
+            self._graph_config_widget = GraphConfigWidget(
+                watchable_registry=self.app.watchable_registry,
+                get_signal_dtype_fn=self._get_signal_size_list
+            )
             container = QWidget()
             container_layout = QVBoxLayout(container)
             container_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
@@ -409,17 +409,17 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
             container_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
             self._chk_browse_loaded_sfd_only = QCheckBox("Loaded firmware only")
-            self._chk_browse_loaded_sfd_only.setToolTip("Load acquisition taken with the same firmware that the device you're conencted to is using.")
+            self._chk_browse_loaded_sfd_only.setToolTip("Load acquisition taken with the same firmware that the device you're connected to is using.")
             self._chk_browse_loaded_sfd_only.checkStateChanged.connect(self._checkbox_filter_sfd_checkstate_change_slot)
             if self.app.server_manager.get_loaded_sfd() is None:
                 self._chk_browse_loaded_sfd_only.setDisabled(True)
 
-            self._graph_browse_list_widget = GraphBrowseListWidget(self)
-            self._btn_delete_all = QPushButton(scrutiny_get_theme().load_tiny_icon(assets.Icons.RedX), " Delete All", self)
-            self._btn_load_more = QPushButton("Load", self)
+            self._graph_browse_list_widget = GraphBrowseListWidget()
+            self._btn_delete_all = QPushButton(scrutiny_get_theme().load_tiny_icon(assets.Icons.RedX), " Delete All")
+            self._btn_load_more = QPushButton("Load")
             self._browse_feedback_label = FeedbackLabel()
 
-            btn_line = QWidget(self)
+            btn_line = QWidget()
             btn_line_layout = QHBoxLayout(btn_line)
             btn_line_layout.addWidget(self._btn_load_more)
             btn_line_layout.addWidget(self._btn_delete_all)
@@ -442,19 +442,13 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
             acquire_tab_content = make_acquire_left_pane()
             browse_tab_content = make_browse_left_pane()
 
-            tab = QTabWidget(self)
+            tab = QTabWidget()
             tab.addTab(acquire_tab_content, "Acquire")
             tab.addTab(browse_tab_content, "Browse")
 
-            def current_changed_slot(index: int) -> None:
-                if index == 0:
-                    self._acquire_tab_visible_slot()
-                elif index == 1:
-                    self._browse_tab_visible_slot()
+            tab.currentChanged.connect(self._current_tab_changed_slot)
 
-            tab.currentChanged.connect(current_changed_slot)
-
-            left_pane_scroll = QScrollArea(self)
+            left_pane_scroll = QScrollArea()
             left_pane_scroll.setWidget(tab)
             left_pane_scroll.setWidgetResizable(True)
             left_pane_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -467,17 +461,18 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
         self._center_pane = make_center_pane()
         self._right_pane = make_right_pane()
 
-        self._splitter = QSplitter(Qt.Orientation.Horizontal)
-        self._splitter.setContentsMargins(0, 0, 0, 0)
-        self._splitter.setHandleWidth(5)
-        self._splitter.addWidget(self._left_pane)
-        self._splitter.addWidget(self._center_pane)
-        self._splitter.addWidget(self._right_pane)
-        self._splitter.setCollapsible(0, True)
-        self._splitter.setCollapsible(1, False)
-        self._splitter.setCollapsible(2, True)
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+        splitter.setObjectName("MainSplitter")
+        splitter.setContentsMargins(0, 0, 0, 0)
+        splitter.setHandleWidth(5)
+        splitter.addWidget(self._left_pane)
+        splitter.addWidget(self._center_pane)
+        splitter.addWidget(self._right_pane)
+        splitter.setCollapsible(0, True)
+        splitter.setCollapsible(1, False)
+        splitter.setCollapsible(2, True)
 
-        layout.addWidget(self._splitter)
+        layout.addWidget(splitter)
 
         self.app.server_manager.signals.server_connected.connect(self._server_connected_slot)
         self.app.server_manager.signals.server_disconnected.connect(self._server_disconnected_slot)
@@ -501,9 +496,14 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
     def ready(self) -> None:
         """Called when the component is inside the dashboard and its dimensions are computed"""
         # Make the right menu as small as possible. Only works after the widget is loaded. we need the ready() function for that
-        self._splitter.setSizes([self._left_pane.minimumWidth(), self.width(), self._right_pane.minimumWidth()])
+        splitter = self.findChild(QSplitter, 'MainSplitter')
+        assert splitter is not None
+        splitter.setSizes([self._left_pane.minimumWidth(), self.width(), self._right_pane.minimumWidth()])
 
     def teardown(self) -> None:
+        self._clear_graph()
+        self._graph_config_widget.teardown()
+        self._chartview.teardown()
         self._teared_down = True
 
     def get_state(self) -> Dict[Any, Any]:
@@ -647,6 +647,27 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
 
         return fully_valid
 
+    def _current_tab_changed_slot(self, index: int) -> None:
+        if index == 0:
+            self._acquire_tab_visible_slot()
+        elif index == 1:
+            self._browse_tab_visible_slot()
+
+    def _get_signal_size_list(self) -> List[EmbeddedDataType]:
+        """This function provide all the embedded data type of the signals presently in the signal tree.
+        Used to estimate the duration of the acquisition."""
+
+        outlist: List[EmbeddedDataType] = []
+        axes = self._signal_tree.get_signals()
+        for axis in axes:
+            for item in axis.signal_items:
+                watchable_node = self.app.watchable_registry.get_watchable_node_fqn(item.fqn)  # Might be unavailable
+                if watchable_node is None:
+                    return []
+                outlist.append(watchable_node.configuration.datatype)
+
+        return outlist
+
     def _apply_internal_state(self) -> None:
         """Update all the widgets based on our internal state variables"""
         self._btn_acquire.setEnabled(self._state.enable_acquire_button())
@@ -717,7 +738,6 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
 
 
 # region Chart handling
-
 
     def _clear_graph(self) -> None:
         """Remove the acquisition presently displayed in the chartview"""
@@ -915,7 +935,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
     def _chart_context_menu_slot(self, chartview_event: QContextMenuEvent) -> None:
         """Slot called when the user right click the chartview. Create a context menu and display it.
         This event is forwarded by the chartview through a signal."""
-        context_menu = QMenu(self)
+        context_menu = QMenu()
 
         context_menu.addSection("Zoom")
 
@@ -953,12 +973,12 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
 
         context_menu.addSection("Content")
         # Grid Settings
-        chart_mixins.add_grid_config_action(self._chartview.chart(), menu=context_menu, parent=self)
+        chart_mixins.add_grid_config_action(self._chartview.chart(), menu=context_menu)
 
         def range_edit_slot() -> None:
             if self._xaxis is not None:
-                dialog = ChartRangeEditDialog(self._xaxis, self._yaxes, parent=self)
-                dialog.show()
+                dialog = ChartRangeEditDialog(self._xaxis, self._yaxes)
+                dialog.exec()   # Exec because dialog ahs no parent. Will get destroyed when going out of scope
         edit_range_action = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.YRange), "Axes range")
         edit_range_action.triggered.connect(range_edit_slot)
         edit_range_action.setEnabled(self._state.enable_edit_range_menu())
@@ -968,7 +988,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
         clear_chart_action.triggered.connect(self._clear_graph)
         clear_chart_action.setEnabled(self._state.enable_clear_button())
 
-        context_menu.popup(self._chartview.mapToGlobal(chartview_event.pos()))
+        context_menu.exec(self._chartview.mapToGlobal(chartview_event.pos()))
 
     def _reset_zoom_slot(self) -> None:
         """Right-click -> Reset zoom"""
@@ -997,14 +1017,14 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
             self._apply_internal_state()
             self._chartview.update()
 
-            filepath = prompt.get_save_filepath_from_last_save_dir(self, ".png")
+            filepath = prompt.get_save_filepath_from_last_save_dir(".png")
             if filepath is None:
                 return
             pix.save(str(filepath), 'png', 100)
         except Exception as e:
             logfilepath = "<noname>" if filepath is None else str(filepath)
             tools.log_exception(self.logger, e, f"Error while saving graph into {logfilepath}")
-            prompt.exception_msgbox(self, e, "Failed to save", f"Failed to save the graph to {logfilepath}")
+            prompt.exception_msgbox(e, "Failed to save", f"Failed to save the graph to {logfilepath}")
 
     def _save_csv_slot(self) -> None:
         """When the user right-click the graph then click "Save as CSV" """
@@ -1013,7 +1033,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
 
         assert self._displayed_acquisition is not None
 
-        filepath = prompt.get_save_filepath_from_last_save_dir(self, ".csv")
+        filepath = prompt.get_save_filepath_from_last_save_dir(".csv")
         if filepath is None:
             return
 
@@ -1021,7 +1041,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
             # This runs in a different thread
             if exception is not None:
                 tools.log_exception(self.logger, exception, f"Error while saving graph into {filepath}")
-                invoke_in_qt_thread(lambda: prompt.exception_msgbox(self, exception, "Failed to save", f"Failed to save the graph to {filepath}"))
+                invoke_in_qt_thread(lambda: prompt.exception_msgbox(exception, "Failed to save", f"Failed to save the graph to {filepath}"))
 
         loaded_sfd = self.app.server_manager.get_loaded_sfd()
         connected_device_info = self.app.server_manager.get_device_info()
@@ -1062,18 +1082,17 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
         """Read the items in the SignalTree object (right menu with axis) and update the size/boldness of the graph series
         based on wether they are selected or not"""
         emphasized_yaxes_id: Set[int] = set()
-        selected_items = self._signal_tree.get_selected_signal_items()
-        axes_content = self._signal_tree.get_signals()
-        for axis_item in axes_content:
-            for signal_item in axis_item.signal_items:
-                if signal_item.series_attached():
-                    series = self._get_item_series(signal_item)
-                    if signal_item in selected_items:
-                        series.emphasize()
-                        yaxis = self._get_series_yaxis(series)
-                        emphasized_yaxes_id.add(id(yaxis))
-                    else:
-                        series.deemphasize()
+
+        def series_callback(series: QLineSeries, selected: bool) -> None:
+            series2 = cast(ScrutinyLineSeries, series)
+            if selected:
+                series2.emphasize()
+                yaxis = self._get_series_yaxis(series2)
+                emphasized_yaxes_id.add(id(yaxis))
+            else:
+                series2.deemphasize()
+
+        self._signal_tree.apply_on_series(series_callback)
 
         for axis in self._yaxes:
             if id(axis) in emphasized_yaxes_id:
@@ -1101,21 +1120,6 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
 # endregion
 
 # region Acquire Tab
-
-    def _get_signal_size_list(self) -> List[EmbeddedDataType]:
-        """This function provide all the embedded data type of the signals presently in the signal tree.
-        Used to estimate the duration of the acquisition."""
-
-        outlist: List[EmbeddedDataType] = []
-        axes = self._signal_tree.get_signals()
-        for axis in axes:
-            for item in axis.signal_items:
-                watchable_node = self.app.watchable_registry.get_watchable_node_fqn(item.fqn)  # Might be unavailable
-                if watchable_node is None:
-                    return []
-                outlist.append(watchable_node.configuration.datatype)
-
-        return outlist
 
     def _acquire_tab_visible_slot(self) -> None:
         """When the "Acquire" tab become visible"""
@@ -1348,6 +1352,8 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
                     return client.read_datalogging_acquisitions_metadata(reference_id)
 
                 def qt_thread_update(entry: Optional[DataloggingStorageEntry], error: Optional[Exception]) -> None:
+                    if self._teared_down:
+                        return
                     if entry is not None:
                         self._graph_browse_list_widget.update_storage_entry(entry)
 
@@ -1358,6 +1364,8 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
                     return client.read_datalogging_acquisitions_metadata(reference_id)
 
                 def qt_thread_new(entry: Optional[DataloggingStorageEntry], error: Optional[Exception]) -> None:
+                    if self._teared_down:
+                        return
                     if entry is not None:
                         self._graph_browse_list_widget.add_storage_entries([entry])
 
@@ -1381,6 +1389,8 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
             return client.read_datalogging_acquisition(reference_id)
 
         def qt_thread_show(acq: Optional[DataloggingAcquisition], error: Optional[Exception]) -> None:
+            if self._teared_down:
+                return
             if acq is not None and error is None:
                 self._display_acquisition(acq, source=DisplaySource.RELOADED)
             else:
@@ -1395,6 +1405,8 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
             client.update_datalogging_acquisition(reference_id, name=new_name)
 
         def qt_thread_complete(_: None, error: Optional[Exception]) -> None:
+            if self._teared_down:
+                return
             if error is not None:
                 self._browse_feedback_label.set_error(f'Failed to rename acquisition to "{new_name}". {error}')
             else:
@@ -1411,6 +1423,9 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
             client.delete_datalogging_acquisition(reference_id)
 
         def qt_thread_complete(_: None, error: Optional[Exception]) -> None:
+            if self._teared_down:
+                return
+
             if error is not None:
                 self._browse_feedback_label.set_error(f"Failed to delete. {error}")
             else:
@@ -1450,6 +1465,8 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
             )
 
         def qt_thread_receive(result: Optional[List[DataloggingStorageEntry]], error: Optional[Exception]) -> None:
+            if self._teared_down:
+                return
             self._state.load_list_in_progress = False
             if result is not None:
                 self._state.initial_load_completed = True
@@ -1492,6 +1509,8 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
             client.clear_datalogging_storage()
 
         def qt_thread_complete(_: None, error: Optional[Exception]) -> None:
+            if self._teared_down:
+                return
             if error is not None:
                 msg = f"Failed to clear the datalogging storage. {error}"
                 self._browse_feedback_label.set_error(msg)
@@ -1523,6 +1542,8 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
             )
 
         def qt_thread_receive(result: Optional[List[DataloggingStorageEntry]], error: Optional[Exception]) -> None:
+            if self._teared_down:
+                return
             self._state.load_list_in_progress = False
             if result is not None:
                 self._receive_acquisition_list(result)
