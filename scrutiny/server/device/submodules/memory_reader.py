@@ -17,7 +17,6 @@ __all__ = [
 import logging
 import copy
 import enum
-import queue
 from sortedcontainers import SortedSet
 
 from scrutiny.server.device.submodules.base_device_handler_submodule import BaseDeviceHandlerSubmodule
@@ -635,11 +634,14 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
                         for block in response_data['read_blocks']:
                             temp_memory.write(block['address'], block['data'])
 
+                        batch_source = self.__class__.__name__
+                        self.datastore.start_batch(batch_source)
                         for entry in self.entries_in_pending_read_var_request:
                             block_addr = self.protocol.get_truncated_address(entry.get_address())
                             raw_data = temp_memory.read(block_addr, entry.get_size())
                             entry.set_value_from_data(raw_data)
                             self.entries_in_pending_read_var_request = []
+                        self.datastore.stop_batch(batch_source)
                     except Exception as e:
                         tools.log_exception(self.logger, e, "Error while writing datastore.", str_level=logging.CRITICAL)
                 except Exception as e:

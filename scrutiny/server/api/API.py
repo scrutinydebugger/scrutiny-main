@@ -398,7 +398,7 @@ class API:
         self.datalogging_manager = self.server.datalogging_manager
         self.logger = logging.getLogger('scrutiny.' + self.__class__.__name__)
         self.connections = set()            # Keep a list of all clients connections
-        self.streamer = ValueStreamer()     # The value streamer takes cares of publishing values to the client without polling.
+        self.streamer = ValueStreamer(self.datastore)     # The value streamer takes cares of publishing values to the client without polling.
         self.req_count = 0
         self.handle_unexpected_errors = True
         self.invalid_request_count = 0
