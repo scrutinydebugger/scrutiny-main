@@ -31,7 +31,7 @@ class ValueStreamer:
     frozen_connections: Set[str]
     datastore: Datastore
 
-    def __init__(self, datastore:Datastore) -> None:
+    def __init__(self, datastore: Datastore) -> None:
         self.entry_to_publish = {}
         self.entry_to_publish_on_batch_end = {}
         self.batch_state_per_conn_id = {}
@@ -40,7 +40,7 @@ class ValueStreamer:
 
         self.datastore.add_batch_edit_callback(self._batch_edit_callback)
 
-    def _batch_edit_callback(self, source:str, state:BatchState) -> None:
+    def _batch_edit_callback(self, source: str, state: BatchState) -> None:
 
         if state == BatchState.INACTIVE:    # Flush  entry_to_publish_on_batch_end --> entry_to_publish
             for conn_id, entry_set in self.entry_to_publish_on_batch_end.items():

@@ -544,11 +544,12 @@ class TestDataStore(ScrutinyUnitTest):
 
         @dataclass
         class CallbackLogEntry:
-            source:str
-            state:BatchState
+            source: str
+            state: BatchState
 
-        callback_history:List[CallbackLogEntry] = []
-        def batch_edit_callback(source:str, state:BatchState) -> None:
+        callback_history: List[CallbackLogEntry] = []
+
+        def batch_edit_callback(source: str, state: BatchState) -> None:
             callback_history.append(CallbackLogEntry(source=source, state=state))
 
         ds.add_batch_edit_callback(batch_edit_callback)
@@ -572,6 +573,7 @@ class TestDataStore(ScrutinyUnitTest):
         ds.start_batch('yyy')
         with self.assertRaises(Exception):
             ds.start_batch('yyy')
+
 
 if __name__ == '__main__':
     import unittest
