@@ -45,7 +45,8 @@ class ValueStreamer:
                     self.entry_to_publish[conn_id].add(entry)
                 self.entry_to_publish_on_batch_end[conn_id].clear()
         if state == BatchState.ACTIVE:
-            self.entry_to_publish_on_batch_end[conn_id].clear()
+            for conn_id in self.entry_to_publish_on_batch_end.keys():
+                self.entry_to_publish_on_batch_end[conn_id].clear()
 
     def freeze_connection(self, conn_id: str) -> None:
         # Mainly used for unit testing. Pause a connection
