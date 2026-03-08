@@ -8,10 +8,11 @@
 #
 #    Copyright (c) 2022 Scrutiny Debugger
 
-__all__ = ['Datastore']
+__all__ = ['Datastore', 'BatchState', 'WatchCallback', 'BatchEditCallback']
 
 import logging
 import functools
+import enum
 from scrutiny.core.basic_types import WatchableType
 from scrutiny.core.scrutiny_path import ScrutinyPath
 from scrutiny.server.datastore.datastore_entry import *
@@ -21,7 +22,13 @@ from scrutiny import tools
 
 from scrutiny.tools.typing import *
 
-WatchCallback = Callable[[str], None]
+
+class BatchState(enum.Enum):
+    ACTIVE = enum.auto()
+    INACTIVE = enum.auto()
+
+WatchCallback:TypeAlias = Callable[[str], None]
+BatchEditCallback:TypeAlias = Callable[[str, BatchState], None]
 
 
 class Datastore:
@@ -33,7 +40,7 @@ class Datastore:
     The datastore manages entries per type. There is 3 types : Variable, RPV, Alias.
     We can do most operation on all entries of one type. This per-type management is required because
     from the outside, there are differences. Mainly, RPV are added and removed to the datastore by the device
-    handler when a connection is made. Aliases and variables are added when a Firmware Description is loaded. 
+    handler when a connection is made. Aliases and variables are added when a Firmware Description is loaded.
     It's the same as having 3 datastore, one for each type.
     """
 
@@ -45,6 +52,8 @@ class Datastore:
     _global_unwatch_callbacks: List[WatchCallback]
     _target_update_request_queue: "List[UpdateTargetRequest]"
     _var_factories: Dict[str, VariableFactory]
+    _batch_edit_callbacks:List[BatchEditCallback]
+    _batch_edit_source_state:Dict[str, BatchState]
     _display_path_to_templated_entries_map: Dict[WatchableType, Dict[str, DatastoreEntry]]
 
     MAX_ENTRY: int = 1000000
@@ -60,6 +69,8 @@ class Datastore:
         self._var_factories = {}
         self._display_path_to_templated_entries_map = {}
         self._target_update_request_queue = []
+        self._batch_edit_callbacks = []
+        self._batch_edit_source_state = {}
         for watchable_type in WatchableType.all():
             self._entries[watchable_type] = {}
             self._watcher_map[watchable_type] = {}
@@ -215,6 +226,26 @@ class Datastore:
             raise KeyError(f"No Variable Factory located at {access_path}")
         return self._var_factories[access_path]
 
+    def add_batch_edit_callback(self, callback:BatchEditCallback) -> None:
+        self._batch_edit_callbacks.append(callback)
+
+    def start_batch(self, source:str) -> None:
+        state = self._batch_edit_source_state.get(source, BatchState.INACTIVE)
+        if state != BatchState.INACTIVE:
+            raise RuntimeError("Cannot start a batch when another batch is already active")
+        self._batch_edit_source_state[source] = BatchState.ACTIVE
+        for callback in self._batch_edit_callbacks:
+            callback(source, BatchState.ACTIVE)
+
+    def stop_batch(self, source:str) -> None:
+        state = self._batch_edit_source_state.get(source, BatchState.INACTIVE)
+        if state != BatchState.ACTIVE:
+            raise RuntimeError("Cannot end a batch when none is active")
+
+        for callback in self._batch_edit_callbacks:
+            callback(source, BatchState.INACTIVE)
+        self._batch_edit_source_state[source] = BatchState.INACTIVE
+
     def add_watch_callback(self, callback: WatchCallback) -> None:
         """ Mainly used to notify device handler that a new variable is to be polled"""
         self._global_watch_callbacks.append(callback)
@@ -234,7 +265,7 @@ class Datastore:
                        watcher: str,
                        value_change_callback: Optional[UserValueChangeCallback] = None
                        ) -> DatastoreEntry:
-        """ 
+        """
         Register a new callback on the entry identified by the given entry_id.
         The watcher parameter will be given back when calling the callback.
         We ensure to call the callback for each watcher.
@@ -309,7 +340,7 @@ class Datastore:
 
     def stop_watching(self, entry_or_entryid: Union[DatastoreEntry, str], watcher: str) -> None:
         """Indicates that a watcher does not want to watch an entry anymore.
-        Mainly removes the callback for that watcher for that given entry. 
+        Mainly removes the callback for that watcher for that given entry.
         Also notifies the rest of the application through callback (mostly MemoryReader/MemoryWriter)
 
         :param entry_or_entryid: The entry to stop watching

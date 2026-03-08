@@ -6,7 +6,7 @@
 #
 #    Copyright (c) 2022 Scrutiny Debugger
 
-from scrutiny.server.datastore.datastore import Datastore
+from scrutiny.server.datastore.datastore import Datastore, BatchState
 from scrutiny.server.datastore.datastore_entry import *
 from scrutiny.core.alias import Alias
 from scrutiny.core.variable import Variable, VariableLayout
@@ -17,6 +17,7 @@ from scrutiny.core.embedded_enum import EmbeddedEnum
 from scrutiny.core.basic_types import *
 from test import ScrutinyUnitTest
 from scrutiny.tools.typing import *
+from dataclasses import dataclass
 
 dummy_callback = lambda *args, **kwargs: None
 
@@ -536,6 +537,41 @@ class TestDataStore(ScrutinyUnitTest):
         self.assertFalse(ds.has_watchers(pointee2_entry))
         self.assertEqual(len(ds.get_watchers(pointer_entry)), 0)
 
+    def test_batch_mechanism(self):
+        ds = Datastore()
+        entries = list(self.make_dummy_entries(10, WatchableType.Variable))
+        ds.add_entries(entries)
+
+        @dataclass
+        class CallbackLogEntry:
+            source:str
+            state:BatchState
+
+        callback_history:List[CallbackLogEntry] = []
+        def batch_edit_callback(source:str, state:BatchState) -> None:
+            callback_history.append(CallbackLogEntry(source=source, state=state))
+
+        ds.add_batch_edit_callback(batch_edit_callback)
+
+        ds.start_batch('potato')
+        ds.start_batch('tomato')
+        ds.stop_batch('tomato')
+        ds.stop_batch('potato')
+
+        self.assertEqual(len(callback_history), 4)
+        self.assertEqual(callback_history, [
+            CallbackLogEntry('potato', BatchState.ACTIVE),
+            CallbackLogEntry('tomato', BatchState.ACTIVE),
+            CallbackLogEntry('tomato', BatchState.INACTIVE),
+            CallbackLogEntry('potato', BatchState.INACTIVE),
+        ])
+
+        with self.assertRaises(Exception):
+            ds.stop_batch('xxx')
+
+        ds.start_batch('yyy')
+        with self.assertRaises(Exception):
+            ds.start_batch('yyy')
 
 if __name__ == '__main__':
     import unittest

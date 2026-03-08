@@ -571,7 +571,7 @@ class Dashboard(QWidget):
 
     def _create_new_component(self, component_class: Type[ScrutinyGUIBaseComponent]) -> Optional[QtAds.CDockWidget]:
         """Create a new component and initializes it
-        :param component_class: The class that represent the component (inhreiting ScrutinyGUIBaseComponent)
+        :param component_class: The class that represent the component (inheriting ScrutinyGUIBaseComponent)
         """
         if issubclass(component_class, ScrutinyGUIBaseGlobalComponent):
             searched_widget = self._dock_manager.findDockWidget(component_class.__name__)
