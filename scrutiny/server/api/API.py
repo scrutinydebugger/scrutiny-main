@@ -41,7 +41,7 @@ from scrutiny.core.variable_factory import VariableFactory
 from scrutiny.server.timebase import server_timebase
 from scrutiny.server.datalogging.datalogging_storage import DataloggingStorage
 from scrutiny.server.datalogging.datalogging_manager import DataloggingManager
-from scrutiny.server.datastore.datastore import Datastore
+from scrutiny.server.datastore.datastore import Datastore, BatchState, BatchEditCallback
 from scrutiny.server.datastore.datastore_entry import DatastoreEntry, DatastoreVariableEntry, DatastoreAliasEntry, DatastoreRPVEntry
 from scrutiny.server.device.device_handler import DeviceHandler, RawMemoryReadRequest, RawMemoryWriteRequest, UserCommandCallback
 from scrutiny.server.active_sfd_handler import ActiveSFDHandler
@@ -451,6 +451,7 @@ class API:
         self.sfd_handler.register_sfd_unloaded_callback(self.sfd_unloaded_callback)
         self.device_handler.register_device_state_change_callback(self.device_state_changed_callback)
         self.datalogging_manager.register_datalogging_state_change_callback(self.datalogging_state_changed_callback)
+        self.datastore.add_batch_edit_callback(self._datastore_batch_edit_callback)
 
     @classmethod
     def get_datatype_name(cls, datatype: EmbeddedDataType) -> api_typing.Datatype:
@@ -490,6 +491,10 @@ class API:
             'metadata': SFDStorage.get_metadata(firmware_id).to_dict(),
             'filesize': SFDStorage.get_filesize(firmware_id)
         }
+
+    def _datastore_batch_edit_callback(self, source:str, state:BatchState) -> None:
+        if state == BatchState.INACTIVE:
+            self.stream_all_we_can()
 
     def sfd_loaded_callback(self, sfd: FirmwareDescription) -> None:
         """Callback called by the ``ActiveSFDHandler`` when an SFD is loaded.

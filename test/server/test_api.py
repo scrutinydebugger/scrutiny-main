@@ -1061,7 +1061,9 @@ class TestAPI(ScrutinyUnitTest):
 
         self.assertIsNone(self.wait_for_response(timeout=0.2))
 
+        self.datastore.start_batch('unittest')
         self.datastore.set_value(subscribed_entry.get_id(), 1234)
+        self.datastore.stop_batch('unittest')
 
         var_update_msg = self.wait_and_load_response()
         self.assert_valid_value_update_message(var_update_msg)
@@ -1301,10 +1303,10 @@ class TestAPI(ScrutinyUnitTest):
         response = self.wait_and_load_response(0)
         self.assert_no_error(response)
 
-        self.api.streamer.freeze_connection(self.connections[0].get_id())
+        self.datastore.start_batch('unittest')
         self.datastore.set_value(subscribed_entry.get_id(), 1234)
         self.datastore.set_value(subscribed_entry.get_id(), 4567)
-        self.api.streamer.unfreeze_connection(self.connections[0].get_id())
+        self.datastore.stop_batch('unittest')
 
         var_update_msg = self.wait_and_load_response()
         self.assert_valid_value_update_message(var_update_msg)
