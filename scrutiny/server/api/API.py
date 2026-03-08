@@ -492,7 +492,7 @@ class API:
             'filesize': SFDStorage.get_filesize(firmware_id)
         }
 
-    def _datastore_batch_edit_callback(self, source:str, state:BatchState) -> None:
+    def _datastore_batch_edit_callback(self, source: str, state: BatchState) -> None:
         if state == BatchState.INACTIVE:
             self.stream_all_we_can()
 

@@ -27,8 +27,9 @@ class BatchState(enum.Enum):
     ACTIVE = enum.auto()
     INACTIVE = enum.auto()
 
-WatchCallback:TypeAlias = Callable[[str], None]
-BatchEditCallback:TypeAlias = Callable[[str, BatchState], None]
+
+WatchCallback: TypeAlias = Callable[[str], None]
+BatchEditCallback: TypeAlias = Callable[[str, BatchState], None]
 
 
 class Datastore:
@@ -52,8 +53,8 @@ class Datastore:
     _global_unwatch_callbacks: List[WatchCallback]
     _target_update_request_queue: "List[UpdateTargetRequest]"
     _var_factories: Dict[str, VariableFactory]
-    _batch_edit_callbacks:List[BatchEditCallback]
-    _batch_edit_source_state:Dict[str, BatchState]
+    _batch_edit_callbacks: List[BatchEditCallback]
+    _batch_edit_source_state: Dict[str, BatchState]
     _display_path_to_templated_entries_map: Dict[WatchableType, Dict[str, DatastoreEntry]]
 
     MAX_ENTRY: int = 1000000
@@ -226,10 +227,10 @@ class Datastore:
             raise KeyError(f"No Variable Factory located at {access_path}")
         return self._var_factories[access_path]
 
-    def add_batch_edit_callback(self, callback:BatchEditCallback) -> None:
+    def add_batch_edit_callback(self, callback: BatchEditCallback) -> None:
         self._batch_edit_callbacks.append(callback)
 
-    def start_batch(self, source:str) -> None:
+    def start_batch(self, source: str) -> None:
         state = self._batch_edit_source_state.get(source, BatchState.INACTIVE)
         if state != BatchState.INACTIVE:
             raise RuntimeError("Cannot start a batch when another batch is already active")
@@ -237,7 +238,7 @@ class Datastore:
         for callback in self._batch_edit_callbacks:
             callback(source, BatchState.ACTIVE)
 
-    def stop_batch(self, source:str) -> None:
+    def stop_batch(self, source: str) -> None:
         state = self._batch_edit_source_state.get(source, BatchState.INACTIVE)
         if state != BatchState.ACTIVE:
             raise RuntimeError("Cannot end a batch when none is active")
