@@ -41,7 +41,7 @@ from scrutiny.core.variable_factory import VariableFactory
 from scrutiny.server.timebase import server_timebase
 from scrutiny.server.datalogging.datalogging_storage import DataloggingStorage
 from scrutiny.server.datalogging.datalogging_manager import DataloggingManager
-from scrutiny.server.datastore.datastore import Datastore, BatchState, BatchEditCallback
+from scrutiny.server.datastore.datastore import Datastore, BatchState
 from scrutiny.server.datastore.datastore_entry import DatastoreEntry, DatastoreVariableEntry, DatastoreAliasEntry, DatastoreRPVEntry
 from scrutiny.server.device.device_handler import DeviceHandler, RawMemoryReadRequest, RawMemoryWriteRequest, UserCommandCallback
 from scrutiny.server.active_sfd_handler import ActiveSFDHandler
@@ -147,6 +147,7 @@ class API:
             GET_SERVER_STATS = 'get_server_stats'
             DEBUG = 'debug'
             DEMO_MODE = 'demo_mode'
+            SET_THROTTLING = 'set_throttling'
 
         class Api2Client:
             """API to Client response command constants."""
@@ -184,6 +185,7 @@ class API:
             USER_COMMAND_RESPONSE = "response_user_command"
             GET_SERVER_STATS = 'response_get_server_stats'
             DEMO_MODE_RESPONSE = 'response_demo_mode'
+            SET_THROTTLING_RESPONSE = 'response_set_throttling'
             ERROR_RESPONSE = 'error'
 
     @dataclass(slots=True)
@@ -439,7 +441,8 @@ class API:
             self.Command.Client2Api.WRITE_MEMORY: self.process_write_memory,
             self.Command.Client2Api.USER_COMMAND: self.process_user_command,
             self.Command.Client2Api.GET_SERVER_STATS: self.process_server_stats,
-            self.Command.Client2Api.DEMO_MODE: self.process_demo_mode
+            self.Command.Client2Api.DEMO_MODE: self.process_demo_mode,
+            self.Command.Client2Api.SET_THROTTLING: self.process_set_throttling
         }
 
         if enable_debug:
@@ -2020,6 +2023,28 @@ class API:
             'to_device_datarate_byte_per_sec': stats.device.comm_handler.tx_datarate_byte_per_sec,
             'from_device_datarate_byte_per_sec': stats.device.comm_handler.rx_datarate_byte_per_sec,
             'device_request_per_sec': stats.device.comm_handler.request_per_sec,
+        }
+
+        self.client_handler.send(ClientHandlerMessage(conn_id=conn_id, obj=response))
+
+    def process_set_throttling(self, conn_id:str, req: api_typing.C2S.SetThrottling) -> None:
+        _check_request_dict(req, req, 'update_rate', (float, int, type(None)))
+
+        update_rate = cast(Optional[Union[int, float]], req['update_rate'])
+        if update_rate is None:
+            self.streamer.disable_throttling(conn_id)
+        else:
+            update_rate = float(update_rate)
+            if update_rate == 0:
+                self.streamer.disable_throttling(conn_id)
+            else:
+                self.streamer.enable_throttling(conn_id, update_rate)
+
+        response: api_typing.S2C.SetThrottling = {
+            'cmd': API.Command.Api2Client.SET_THROTTLING_RESPONSE,
+            'reqid': self.get_req_id(req),
+            'enabled': self.streamer.throttling_enabled(conn_id),
+            'rate': self.streamer.get_target_throttling_rate(conn_id)
         }
 
         self.client_handler.send(ClientHandlerMessage(conn_id=conn_id, obj=response))

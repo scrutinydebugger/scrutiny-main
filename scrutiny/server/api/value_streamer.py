@@ -79,6 +79,15 @@ class ValueStreamer:
     def disable_throttling(self, conn_id: str) -> None:
         self._conn_data[conn_id].stream_rate_throttler.disable()
 
+    def throttling_enabled(self, conn_id:str) -> bool:
+        return self._conn_data[conn_id].stream_rate_throttler.is_enabled()
+
+    def get_target_throttling_rate(self, conn_id:str) -> Optional[float]:
+        throttler = self._conn_data[conn_id].stream_rate_throttler
+        if not throttler.is_enabled():
+            return None
+        return throttler.get_rate()
+
     def _set_actual_throttling_measurement(self, conn_id: str, rate: float) -> None:
         """For unit testing"""
         pass

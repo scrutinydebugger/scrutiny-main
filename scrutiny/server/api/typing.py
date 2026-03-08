@@ -362,6 +362,9 @@ class C2S:
     class GetServerStats(BaseC2SMessage):
         pass
 
+    class SetThrottling(BaseC2SMessage):
+        update_rate:Optional[float]
+
 
 class S2C:
     "Server To Client"
@@ -515,6 +518,10 @@ class S2C:
 
     class DemoMode(BaseS2CMessage):
         enabled: bool
+
+    class SetThrottling(BaseS2CMessage):
+        enabled: bool
+        rate:Optional[float]
 
 
 C2SMessage = Union[
