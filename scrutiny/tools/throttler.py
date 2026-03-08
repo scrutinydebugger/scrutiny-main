@@ -14,25 +14,25 @@ import time
 class Throttler:
     """Class that allows us to do throttling on a given communication channel.
 
-    It measures the bitrate and tells us if we should wait or go ahead when we
+    It measures the throughput rate and tells us if we should wait or go ahead when we
     need to send data.
 
-    It works with two low pass filters, one fast to get an instantaneous measurement of the bitrate.
-    One slow to get a long-term (relatively speaking) measurement of the bitrate. We allow data
+    It works with two low pass filters, one fast to get an instantaneous measurement of the rate.
+    One slow to get a long-term (relatively speaking) measurement of the rate. We allow data
     transfer only when both of these filters are below the target.
 
-    :param mean_bitrate: Target mean bitrate in bps (default 0).
-    :param bitrate_estimation_window: Filters updated at this rate (default 0.1).
+    :param mean_rate: Target mean rate (default 0).
+    :param estimation_window: Filters updated at this rate (default 0.1).
     """
 
-    MIN_BITRATE = 100
-    """Minimum bitrate in bps that can be throttled."""
+    MIN_RATE = 100
+    """Minimum rate that can be throttled."""
 
     enabled: bool
     """Whether the throttler is enabled."""
-    mean_bitrate: float
-    """Target mean bitrate."""
-    bitrate_estimation_window: float
+    mean_rate: float
+    """Target mean rate."""
+    estimation_window: float
     """Filters updated at this rate."""
     slow_tau: float
     """Time constant of first IIR filter (slow one)."""
@@ -40,35 +40,35 @@ class Throttler:
     """Time constant of second IIR filter (fast one)."""
     last_process_timestamp: float
     """Timestamp of last process call."""
-    estimated_bitrate_slow: float
-    """Estimated bitrate using slow filter."""
-    estimated_bitrate_fast: float
-    """Estimated bitrate using fast filter."""
+    estimated_rate_slow: float
+    """Estimated rate using slow filter."""
+    estimated_rate_fast: float
+    """Estimated rate using fast filter."""
     consumed_since_last_estimation: int
-    """Bytes consumed since last estimation."""
+    """Amount consumed since last estimation."""
 
-    def __init__(self, mean_bitrate: float = 0, bitrate_estimation_window: float = 0.1):
+    def __init__(self, mean_rate: float = 0, estimation_window: float = 0.1):
         self.enabled = False
-        self.mean_bitrate = mean_bitrate
-        self.bitrate_estimation_window = bitrate_estimation_window
+        self.mean_rate = mean_rate
+        self.estimation_window = estimation_window
         # 1 sec time constant, but we can't be smaller than the window  (otherwise unstable)
-        self.slow_tau = max(1.0, self.bitrate_estimation_window)
+        self.slow_tau = max(1.0, self.estimation_window)
         # 0.05 sec time constant, but we can't be smaller than the window (otherwise unstable)
-        self.fast_tau = max(0.05, self.bitrate_estimation_window)
+        self.fast_tau = max(0.05, self.estimation_window)
         self.reset()
 
-    def set_bitrate(self, mean_bitrate: float) -> None:
-        """ Sets the target mean bitrate to rexpect"""
-        self.mean_bitrate = mean_bitrate
+    def set_rate(self, mean_rate: float) -> None:
+        """ Sets the target mean rate to respect"""
+        self.mean_rate = mean_rate
 
     def enable(self) -> None:
         """ Enable the throttler. Will allow everything when disabled"""
-        if self.mean_bitrate > self.MIN_BITRATE:
+        if self.mean_rate > self.MIN_RATE:
             self.enabled = True
             self.reset()
-            self.mean_bitrate = float(self.mean_bitrate)
+            self.mean_rate = float(self.mean_rate)
         else:
-            raise ValueError('Throttler requires a bitrate of at least %dbps. Actual bitrate is %dbps' % (self.MIN_BITRATE, round(self.mean_bitrate)))
+            raise ValueError('Throttler requires a rate of at least %d. Actual rate is %d' % (self.MIN_RATE, round(self.mean_rate)))
 
     def disable(self) -> None:
         """ Disable the throttler"""
@@ -78,15 +78,15 @@ class Throttler:
         """Returns True if the Throttler is enabled"""
         return self.enabled
 
-    def get_bitrate(self) -> float:
-        """Return the target average bitrate"""
-        return self.mean_bitrate
+    def get_rate(self) -> float:
+        """Return the target average rate"""
+        return self.mean_rate
 
     def reset(self) -> None:
         """ Sets the throttler to its initial state"""
         self.last_process_timestamp = time.perf_counter()
-        self.estimated_bitrate_slow = 0
-        self.estimated_bitrate_fast = 0
+        self.estimated_rate_slow = 0
+        self.estimated_rate_fast = 0
         self.consumed_since_last_estimation = 0
 
     def process(self) -> None:
@@ -97,54 +97,54 @@ class Throttler:
 
         t = time.perf_counter()
         dt = t - self.last_process_timestamp
-        if dt > self.bitrate_estimation_window:
-            # We need to update the filters, e.g. our estimation of the bitrate
+        if dt > self.estimation_window:
+            # We need to update the filters, e.g. our estimation of the rate
             # The time delta (dT) is variable because of thread resolution. We need to recompute the
             # filters weights every time
-            instant_bitrate = self.consumed_since_last_estimation / dt  # Filters inputs
+            instant_rate = self.consumed_since_last_estimation / dt  # Filters inputs
 
             # Fast filter
             b = min(1, dt / self.fast_tau)
             a = 1 - b
-            self.estimated_bitrate_fast = b * instant_bitrate + a * self.estimated_bitrate_fast
+            self.estimated_rate_fast = b * instant_rate + a * self.estimated_rate_fast
 
             # Slow filter
             b = min(1, dt / self.slow_tau)
             a = 1 - b
-            self.estimated_bitrate_slow = b * instant_bitrate + a * self.estimated_bitrate_slow
+            self.estimated_rate_slow = b * instant_rate + a * self.estimated_rate_slow
 
             # Reset instant measurement
             self.consumed_since_last_estimation = 0     # Reset the data counter
             self.last_process_timestamp = t             # Sets new timestamp
 
-    def get_estimated_bitrate(self) -> float:
-        """ Estimated bitrate is the long average. Fast average is only to avoid peak at startup."""
-        return self.estimated_bitrate_slow
+    def get_estimated_rate(self) -> float:
+        """ Estimated rate is the long average. Fast average is only to avoid peak at startup."""
+        return self.estimated_rate_slow
 
-    def allowed(self, delta_bandwidth: int) -> bool:
-        """ Tells if it this chunk of data can be sent right now or we should wait"""
+    def allowed(self, amount: int) -> bool:
+        """ Tells if this chunk of data can be sent right now or we should wait"""
 
         if not self.enabled:
             return True
 
         allowed = True
-        approx_bitrate = max(self.estimated_bitrate_slow, self.estimated_bitrate_fast)
+        approx_rate = max(self.estimated_rate_slow, self.estimated_rate_fast)
 
-        # bit/s + bit compared with bit/s. Units doesn't match, this is not a mistake.
-        if approx_bitrate + self.consumed_since_last_estimation > self.mean_bitrate:
+        # rate + amount compared with rate. Units don't match, this is not a mistake.
+        if approx_rate + self.consumed_since_last_estimation > self.mean_rate:
             allowed = False
 
         return allowed
 
-    def possible(self, delta_bandwidth: int) -> bool:
+    def possible(self, amount: int) -> bool:
         """ Tells if it will be ever possible to send this amount of data in one chunk."""
 
         if not self.enabled:
             return True
 
-        return self.mean_bitrate > 0  # This was originally designed to prevent burst. It is not needed, but we keep the interface
+        return self.mean_rate > 0  # This was originally designed to prevent burst. It is not needed, but we keep the interface
 
-    def consume_bandwidth(self, delta_bandwidth: int) -> None:
+    def consume(self, amount: int) -> None:
         """ Indicates to the throttler that data has been sent"""
         if self.enabled:
-            self.consumed_since_last_estimation += delta_bandwidth
+            self.consumed_since_last_estimation += amount

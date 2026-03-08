@@ -195,12 +195,12 @@ class CommHandler:
         Overall bitrate (incoming and outgoing data included) will try to be respected.
         This does not take in account the protocol overhead. Just the payload sum.
         """
-        self._throttler.set_bitrate(bitrate)
+        self._throttler.set_rate(bitrate)
         self._throttler.enable()
 
     def disable_throttling(self) -> None:
         """Disable throttling on communication with the device"""
-        self._throttler.set_bitrate(0)
+        self._throttler.set_rate(0)
         self._throttler.disable()
 
     def is_throttling_enabled(self) -> bool:
@@ -209,7 +209,7 @@ class CommHandler:
 
     def get_throttling_bitrate(self) -> Optional[float]:
         """Get the target bitrate for throttling. None if disabled"""
-        return self._throttler.get_bitrate() if self._throttler.is_enabled() else None
+        return self._throttler.get_rate() if self._throttler.is_enabled() else None
 
     def get_link(self) -> Optional[AbstractLink]:
         """Return the Link object used to talk with the device"""
@@ -387,7 +387,7 @@ class CommHandler:
             return
 
         datasize_bits = len(data) * 8
-        self._throttler.consume_bandwidth(datasize_bits)
+        self._throttler.consume(datasize_bits)
         self._rx_datarate_measurement.add_data(len(data))
         if self._logger.isEnabledFor(DUMPDATA_LOGLEVEL):  # pragma: no cover
             self._logger.log(DUMPDATA_LOGLEVEL, 'Received : %s' % (hexlify(data).decode('ascii')))
@@ -457,7 +457,7 @@ class CommHandler:
 
                 if not err:
                     self._tx_datarate_measurement.add_data(len(data))
-                    self._throttler.consume_bandwidth(len(data) * 8)
+                    self._throttler.consume(len(data) * 8)
                     self._response_timer.start(self._params['response_timeout'])
             elif not self._throttler.possible(approx_delta_bandwidth):
                 self._logger.critical("Throttling doesn't allow to send request. Dropping %s" % self._pending_request)
