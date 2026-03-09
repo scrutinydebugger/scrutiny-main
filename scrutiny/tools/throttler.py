@@ -83,7 +83,7 @@ class Throttler:
         self.estimated_rate_fast = 0
         self.consumed_since_last_estimation = 0
 
-    def set_estimated_rate_for_testing(self, rate:float) -> None:
+    def set_estimated_rate_for_testing(self, rate: float) -> None:
         self.estimated_rate_fast = rate
         self.estimated_rate_slow = rate
 
