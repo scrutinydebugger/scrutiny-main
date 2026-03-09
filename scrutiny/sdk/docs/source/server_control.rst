@@ -4,7 +4,7 @@ Server Control
 Establishing a connection
 -------------------------
 
-The communication with the server is done through a TCP socket. One can call :meth:`connect()<scrutiny.sdk.client.ScrutinyClient.connect>` 
+The communication with the server is done through a TCP socket. One can call :meth:`connect()<scrutiny.sdk.client.ScrutinyClient.connect>`
 and :meth:`disconnect()<scrutiny.sdk.client.ScrutinyClient.disconnect>`.  It is also possible to use :meth:`connect()<scrutiny.sdk.client.ScrutinyClient.connect>`
 in a ``with`` block
 
@@ -31,8 +31,8 @@ Example
 Getting the server status
 -------------------------
 
-Upon establishing a connection with a client, and at regular intervals thereafter, the server broadcasts a status. 
-This status is a data structure that encapsulates all the pertinent information about what is happening at the other end of the TCP socket. 
+Upon establishing a connection with a client, and at regular intervals thereafter, the server broadcasts a status.
+This status is a data structure that encapsulates all the pertinent information about what is happening at the other end of the TCP socket.
 It includes:
 
 - The type of connection used by the device
@@ -123,7 +123,7 @@ It includes:
 Diagnostic metrics
 ------------------
 
-The client can also provide some diagnostic metrics to monitor the well being of the system.  
+The client can also provide some diagnostic metrics to monitor the well being of the system.
 Local metrics (measured by the client) are available through :meth:`get_local_stats()<scrutiny.sdk.client.ScrutinyClient.get_local_stats>`.
 Server metrics (measured by the server) are available through :meth:`get_server_stats()<scrutiny.sdk.client.ScrutinyClient.get_server_stats>`.
 
@@ -154,9 +154,9 @@ Server metrics (measured by the server) are available through :meth:`get_server_
 Configuring the device link
 ----------------------------
 
-The device link is the communication channel between the server and the device. 
+The device link is the communication channel between the server and the device.
 
-This link can be configured by the client. If a device is present, the server will automatically connect to it. If no device is found, the server will simply report 
+This link can be configured by the client. If a device is present, the server will automatically connect to it. If no device is found, the server will simply report
 that no device is connected
 
 -----
@@ -167,7 +167,7 @@ that no device is connected
 
 .. autoclass:: scrutiny.sdk.DeviceLinkType
     :exclude-members: __new__, __init__
-    :members: 
+    :members:
     :member-order: bysource
 
 -----
@@ -214,17 +214,17 @@ Serial
     :member-order: bysource
 
 .. autoclass:: scrutiny.sdk.SerialLinkConfig.DataBits
-    :exclude-members: __new__, __init__, from_int, to_int, get_numerical 
+    :exclude-members: __new__, __init__, from_int, to_int, get_numerical
     :members:
     :undoc-members:
     :member-order: bysource
 
 .. autoclass:: scrutiny.sdk.SerialLinkConfig.Parity
     :exclude-members: __new__, __init__, from_str, to_str, get_displayable_name
-    :members: 
+    :members:
     :undoc-members:
-    :member-order: bysource 
-    
+    :member-order: bysource
+
 -----
 
 Seger RTT
@@ -292,14 +292,27 @@ None
     :member-order: bysource
 
 
+-----
+
 Demo Mode
 ---------
 
 One can enable the server demo mode with :meth:`request_demo_mode()<scrutiny.sdk.client.ScrutinyClient.request_demo_mode>`.
 
-When the demo mode is enabled, the server connects to an emulated device that runs in a python thread and simulate the scrutiny-embedded library. 
+When the demo mode is enabled, the server connects to an emulated device that runs in a python thread and simulate the scrutiny-embedded library.
 This mode is meant to try Scrutiny without having to go through the process of instrumenting a firmware.
 
 The demo mode is deactivated by the server when the device connection parameters are updated with :meth:`configure_device_link()<scrutiny.sdk.client.ScrutinyClient.configure_device_link>`
 
 .. automethod:: scrutiny.sdk.client.ScrutinyClient.request_demo_mode
+
+-----
+
+Throttling the update rate
+--------------------------
+
+It is possible to request the server to reduce its value streaming rate. When throttled, the oldest value updates are dropped first.
+
+This can be useful when processing every updates with a listener in an application where the device is being polled over a very fast link (such as USB), helping prevent queue overflows.
+
+.. automethod:: scrutiny.sdk.client.ScrutinyClient.set_server_throttling
