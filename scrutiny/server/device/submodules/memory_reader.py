@@ -649,7 +649,7 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
         # Write request have higher priority. Pointed variables can change address between a dispatch and a response.
         expected_addresses = cast(Optional[List[int]], params)
         entries_to_update = self.entries_in_pending_read_var_request
-        if expected_addresses is not None:  # Pointed Adresses only
+        if expected_addresses is not None:  # Pointed Addresses only
             assert len(expected_addresses) == len(entries_to_update)
             # Drop entries that changed address during the read operation.
             entries_to_update = [entry for i, entry in enumerate(entries_to_update) if entry.get_address() == expected_addresses[i]]
