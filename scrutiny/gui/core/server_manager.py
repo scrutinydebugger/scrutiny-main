@@ -265,7 +265,7 @@ class ServerManager:
     RECONNECT_DELAY = 1
     VAR_FACTORY_MAX_WATCHABLE = 1024            # Arbitrary value
     VAR_FACTORY_MAX_TOTAL_GENERATED_VAR = 65536  # Arbitrary value
-    SERVER_THROTTLING_RATE = 3000  # Arbitrary value
+    SERVER_THROTTLING_RATE = 4000  # Arbitrary value
 
     _client: ScrutinyClient
     """The SDK client object that talks with the server"""
