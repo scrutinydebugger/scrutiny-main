@@ -83,6 +83,7 @@ class ScrutinyIntegrationTest(ScrutinyUnitTest):
 
             self.server = ScrutinyServer(server_config)
             self.server.device_handler.expect_no_timeout = True     # Will throw an exception on comm timeout
+            self.server.device_handler.memory_reader.unittest_crash_on_critical_error = True     # Will throw an exception on unwanted errors
             self.server.api.handle_unexpected_errors = False        # Will throw an exception if one is raised during request process
             self.emulated_device = UnitTestEmulatedDevice(self.server.device_handler.get_comm_link())
             self.api_conn = DummyConnection()

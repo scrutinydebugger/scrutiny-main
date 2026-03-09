@@ -221,6 +221,7 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
     """A cursor used to split a raw read request into many small request tot he device. This cursor keep track of where we're at"""
     active_raw_read_request_data: bytearray
     """A buffer to store the data of a raw read request while each chunk is being read"""
+    unittest_crash_on_critical_error: bool
 
     def __init__(self, protocol: Protocol, dispatcher: RequestDispatcher, datastore: Datastore, request_priority: int):
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -232,6 +233,7 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
         self.datastore.add_unwatch_callback(self._the_unwatch_callback)
         self.active_raw_read_request = None
         self.raw_read_request_queue = ScrutinyQueue()
+        self.unittest_crash_on_critical_error = False
 
         self.reset()
 
@@ -394,7 +396,8 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
                 if request is not None:
                     if self.logger.isEnabledFor(logging.DEBUG):  # pragma: no cover
                         self.logger.debug('Registering a MemoryRead request for %d datastore entries. %s' % (len(var_entries_in_request), request))
-                    self._dispatch(request)  # sets pending_request
+                    addresses = [x.get_address() for x in var_entries_in_request]
+                    self._dispatch(request, success_params=addresses)  # sets pending_request
                     self.entries_in_pending_read_var_request = var_entries_in_request
 
                 if wrapped_to_beginning or self.pending_request is None:
@@ -426,13 +429,15 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
             else:
                 raise Exception('Unknown read type.')
 
-    def _dispatch(self, request: Request) -> None:
+    def _dispatch(self, request: Request, success_params: Any = None, failure_params: Any = None) -> None:
         """Sends a request to the request dispatcher and assign the corrects completion callbacks"""
         self._dispatcher.register_request(
             request=request,
             success_callback=self._success_callback,
             failure_callback=self._failure_callback,
-            priority=self.request_priority
+            priority=self.request_priority,
+            success_params=success_params,
+            failure_params=failure_params
         )
         self.pending_request = request
 
@@ -624,77 +629,108 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
     def _success_callback_memory_read(self, request: Request, response: Response, params: Any = None) -> None:
         """Called when a MemoryRead request completes and succeeds"""
         if len(self.entries_in_pending_read_var_request) > 0:
-            assert self.active_raw_read_request is None
-            # Trigger by a readvar type
-            if response.code == ResponseCode.OK:
-                try:
-                    response_data = cast(protocol_typing.Response.MemoryControl.Read, self.protocol.parse_response(response))
-                    try:
-                        temp_memory = MemoryContent()
-                        for block in response_data['read_blocks']:
-                            temp_memory.write(block['address'], block['data'])
-
-                        batch_source = self.__class__.__name__
-                        self.datastore.start_batch(batch_source)
-                        for entry in self.entries_in_pending_read_var_request:
-                            block_addr = self.protocol.get_truncated_address(entry.get_address())
-                            raw_data = temp_memory.read(block_addr, entry.get_size())
-                            entry.set_value_from_data(raw_data)
-                            self.entries_in_pending_read_var_request = []
-                        self.datastore.stop_batch(batch_source)
-                    except Exception as e:
-                        tools.log_exception(self.logger, e, "Error while writing datastore.", str_level=logging.CRITICAL)
-                except Exception as e:
-                    tools.log_exception(self.logger, e, 'Response for ReadMemory read request is malformed and must be discarded.')
-            else:
-                self.logger.warning(f'Response for ReadMemory has been refused with response code {response.code}.')
+            self._success_callback_memory_read_entries(request, response, params)
 
         elif self.active_raw_read_request is not None:
-            if response.code != ResponseCode.OK:
-                self.active_raw_read_request.set_completed(False, None, failure_reason="Device refused the request")
-                self.clear_active_raw_read_request()
-            else:
-                try:
-                    request_data = cast(protocol_typing.Request.MemoryControl.Read, self.protocol.parse_request(request))
-                    response_data = cast(protocol_typing.Response.MemoryControl.Read, self.protocol.parse_response(response))
-                    assert len(response_data['read_blocks']) == 1, "Expected a single block in response"
-                    assert len(request_data['blocks_to_read']) == 1, "Expected a single block in request"
-                    address = response_data['read_blocks'][0]['address']
-                    data = response_data['read_blocks'][0]['data']
+            self._success_callback_memory_read_raw_read(request, response, params)
 
-                    assert address == request_data['blocks_to_read'][0]['address'], "Memory block does not match with request"
-                    assert len(data) == request_data['blocks_to_read'][0]['length'], "Memory block does not match with request"
-                    assert address + len(data) == self.active_raw_read_request.address + \
-                        self.active_raw_read_request_cursor, "Memory block not the expected one"
+    def _success_callback_memory_read_entries(self, request: Request, response: Response, params: Any = None) -> None:
+        assert self.active_raw_read_request is None
+        # Trigger by a readvar type
+        if response.code != ResponseCode.OK:
+            self.logger.warning(f'Response for ReadMemory has been refused with response code {response.code}.')
+            return
+        try:
+            response_data = cast(protocol_typing.Response.MemoryControl.Read, self.protocol.parse_response(response))
+        except Exception as e:
+            tools.log_exception(self.logger, e, 'Response for ReadMemory read request is malformed and must be discarded.')
+            return
 
-                    self.active_raw_read_request_data += data
+        # Write request have higher priority. Pointed variables can change address between a dispatch and a reponse.
+        expected_addresses = cast(Optional[List[int]], params)
+        entries_to_update = self.entries_in_pending_read_var_request
+        if expected_addresses is not None:
+            assert len(expected_addresses) == len(entries_to_update)
+            # Drop entries that changed address during the read operation.
+            entries_to_update = [entry for i, entry in enumerate(entries_to_update) if entry.get_address() == expected_addresses[i]]
+            if self.logger.isEnabledFor(logging.DEBUG):
+                dropped = len(self.entries_in_pending_read_var_request) - len(entries_to_update)
+                self.logger.debug(f"Dropped {dropped} entries for update. Their address changed while reading.")
+        self.entries_in_pending_read_var_request = []
 
-                    if len(self.active_raw_read_request_data) >= self.active_raw_read_request.size:
-                        self.active_raw_read_request.set_completed(True, bytes(self.active_raw_read_request_data))
-                        self.clear_active_raw_read_request()
-                except Exception as e:
-                    tools.log_exception(self.logger, e, 'Response for ReadMemory read request is malformed and must be discarded.')
-                    self.active_raw_read_request.set_completed(False, None, failure_reason=str(e))
+        try:
+            temp_memory = MemoryContent()
+            for block in response_data['read_blocks']:
+                temp_memory.write(block['address'], block['data'])
+
+            batch_source = self.__class__.__name__
+            self.datastore.start_batch(batch_source)
+
+            try:
+                for entry in entries_to_update:
+                    block_addr = self.protocol.get_truncated_address(entry.get_address())
+                    raw_data = temp_memory.read(block_addr, entry.get_size())
+                    entry.set_value_from_data(raw_data)
+            finally:
+                self.datastore.stop_batch(batch_source)
+        except Exception as e:
+            tools.log_exception(self.logger, e, "Error while writing datastore.", str_level=logging.CRITICAL)
+            if self.unittest_crash_on_critical_error:
+                raise
+
+    def _success_callback_memory_read_raw_read(self, request: Request, response: Response, params: Any = None) -> None:
+        assert self.active_raw_read_request is not None
+
+        if response.code != ResponseCode.OK:
+            self.active_raw_read_request.set_completed(False, None, failure_reason="Device refused the request")
+            self.clear_active_raw_read_request()
+        else:
+            try:
+                request_data = cast(protocol_typing.Request.MemoryControl.Read, self.protocol.parse_request(request))
+                response_data = cast(protocol_typing.Response.MemoryControl.Read, self.protocol.parse_response(response))
+                assert len(response_data['read_blocks']) == 1, "Expected a single block in response"
+                assert len(request_data['blocks_to_read']) == 1, "Expected a single block in request"
+                address = response_data['read_blocks'][0]['address']
+                data = response_data['read_blocks'][0]['data']
+
+                assert address == request_data['blocks_to_read'][0]['address'], "Memory block does not match with request"
+                assert len(data) == request_data['blocks_to_read'][0]['length'], "Memory block does not match with request"
+                assert address + len(data) == self.active_raw_read_request.address + \
+                    self.active_raw_read_request_cursor, "Memory block not the expected one"
+
+                self.active_raw_read_request_data += data
+
+                if len(self.active_raw_read_request_data) >= self.active_raw_read_request.size:
+                    self.active_raw_read_request.set_completed(True, bytes(self.active_raw_read_request_data))
                     self.clear_active_raw_read_request()
+            except Exception as e:
+                tools.log_exception(self.logger, e, 'Response for ReadMemory read request is malformed and must be discarded.')
+                self.active_raw_read_request.set_completed(False, None, failure_reason=str(e))
+                self.clear_active_raw_read_request()
 
     def _success_callback_rpv_read(self, request: Request, response: Response, params: Any = None) -> None:
         """Called when a RPV read request completes and succeeds"""
-        if response.code == ResponseCode.OK:
-            try:
-                response_data = cast(protocol_typing.Response.MemoryControl.ReadRPV, self.protocol.parse_response(response))
-                try:
-                    for read_rpv in response_data['read_rpv']:
-                        if read_rpv['id'] not in self.entries_in_pending_read_rpv_request:
-                            self.logger.error('Received data for RPV ID=0x%x but this Id was not requested' % (read_rpv['id']))
-                        else:
-                            entry = self.entries_in_pending_read_rpv_request[read_rpv['id']]
-                            entry.set_value(read_rpv['data'])
-                except Exception as e:
-                    tools.log_exception(self.logger, e, 'Error while writing datastore.', str_level=logging.CRITICAL)
-            except Exception as e:
-                tools.log_exception(self.logger, e, 'Response for ReadRPV read request is malformed and must be discarded.')
-        else:
+        if response.code != ResponseCode.OK:
             self.logger.warning('Response for ReadRPV has been refused with response code %s.' % response.code)
+            return
+
+        try:
+            response_data = cast(protocol_typing.Response.MemoryControl.ReadRPV, self.protocol.parse_response(response))
+        except Exception as e:
+            tools.log_exception(self.logger, e, 'Response for ReadRPV read request is malformed and must be discarded.')
+            return
+
+        try:
+            for read_rpv in response_data['read_rpv']:
+                if read_rpv['id'] not in self.entries_in_pending_read_rpv_request:
+                    self.logger.error('Received data for RPV ID=0x%x but this Id was not requested' % (read_rpv['id']))
+                else:
+                    entry = self.entries_in_pending_read_rpv_request[read_rpv['id']]
+                    entry.set_value(read_rpv['data'])
+        except Exception as e:
+            tools.log_exception(self.logger, e, 'Error while writing datastore.', str_level=logging.CRITICAL)
+            if self.unittest_crash_on_critical_error:
+                raise
 
     def _failure_callback(self, request: Request, params: Any = None) -> None:
         """Callback called by the request dispatcher when a request fails to complete"""

@@ -25,12 +25,20 @@ from scrutiny.core.array import UntypedArray
 from scrutiny.core.basic_types import *
 from test import ScrutinyUnitTest
 from scrutiny.core.codecs import Codecs, Encodable
+from scrutiny import tools
 import math
 import functools
 import struct
 
 
 from scrutiny.tools.typing import *
+
+
+class UnitTestMemoryReader(MemoryReader):
+    @tools.copy_type(MemoryReader.__init__)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.unittest_crash_on_critical_error = True
 
 
 class BlockToRead:
@@ -184,7 +192,7 @@ class TestMemoryReaderBasicReadOperation(ScrutinyUnitTest):
 
         protocol = Protocol(1, 0)
         protocol.set_address_size_bits(32)
-        reader = MemoryReader(protocol, dispatcher=dispatcher, datastore=ds, request_priority=0)
+        reader = UnitTestMemoryReader(protocol, dispatcher=dispatcher, datastore=ds, request_priority=0)
         reader.set_max_request_payload_size(1024)  # big enough for all of them
         reader.set_max_response_payload_size(1024)  # big enough for all of them
         reader.start()
@@ -222,7 +230,7 @@ class TestMemoryReaderBasicReadOperation(ScrutinyUnitTest):
         ds.add_entries(all_entries)
         dispatcher = RequestDispatcher()
         protocol = Protocol(1, 0)
-        reader = MemoryReader(protocol, dispatcher=dispatcher, datastore=ds, request_priority=0)
+        reader = UnitTestMemoryReader(protocol, dispatcher=dispatcher, datastore=ds, request_priority=0)
         reader.set_max_request_payload_size(protocol.read_memory_request_size_per_block() * 2)  # 2 block per request
         reader.set_max_response_payload_size(1024)  # Non-limiting here
         reader.start()
@@ -253,7 +261,7 @@ class TestMemoryReaderBasicReadOperation(ScrutinyUnitTest):
 
         dispatcher = RequestDispatcher()
         protocol = Protocol(1, 0)
-        reader = MemoryReader(protocol, dispatcher=dispatcher, datastore=ds, request_priority=0)
+        reader = UnitTestMemoryReader(protocol, dispatcher=dispatcher, datastore=ds, request_priority=0)
         reader.set_max_request_payload_size(1024)  # Non-limiting here
         reader.set_max_response_payload_size(protocol.read_memory_response_overhead_size_per_block() * 10 + 4 * 10)
         reader.start()
@@ -287,7 +295,7 @@ class TestMemoryReaderBasicReadOperation(ScrutinyUnitTest):
         ds.add_entries(entries)
         dispatcher = RequestDispatcher()
         protocol = Protocol(1, 0)
-        reader = MemoryReader(protocol, dispatcher=dispatcher, datastore=ds, request_priority=0)
+        reader = UnitTestMemoryReader(protocol, dispatcher=dispatcher, datastore=ds, request_priority=0)
         reader.set_max_request_payload_size(1024)
         reader.set_max_response_payload_size(1024)
         reader.start()
@@ -331,7 +339,7 @@ class TestMemoryReaderBasicReadOperation(ScrutinyUnitTest):
         ds.add_entries(entries)
         dispatcher = RequestDispatcher()
         protocol = Protocol(1, 0)
-        reader = MemoryReader(protocol, dispatcher=dispatcher, datastore=ds, request_priority=0)
+        reader = UnitTestMemoryReader(protocol, dispatcher=dispatcher, datastore=ds, request_priority=0)
         reader.set_max_request_payload_size(1024)
         reader.set_max_response_payload_size(1024)
         reader.start()
@@ -377,7 +385,7 @@ class TestMemoryReaderBasicReadOperation(ScrutinyUnitTest):
 
         dispatcher = RequestDispatcher()
         protocol = Protocol(1, 0)
-        reader = MemoryReader(protocol, dispatcher=dispatcher, datastore=ds, request_priority=0)
+        reader = UnitTestMemoryReader(protocol, dispatcher=dispatcher, datastore=ds, request_priority=0)
         reader.set_max_request_payload_size(1024)  # Non-limiting here
         reader.set_max_response_payload_size(1024)  # Non-limiting here
         reader.start()
@@ -452,7 +460,7 @@ class TestMemoryReaderBasicReadOperation(ScrutinyUnitTest):
 
         dispatcher = RequestDispatcher()
         protocol = Protocol(1, 0)
-        reader = MemoryReader(protocol, dispatcher=dispatcher, datastore=ds, request_priority=0)
+        reader = UnitTestMemoryReader(protocol, dispatcher=dispatcher, datastore=ds, request_priority=0)
         reader.set_max_request_payload_size(1024)  # Non-limiting here
         reader.set_max_response_payload_size(1024)  # Non-limiting here
         reader.start()
@@ -556,7 +564,7 @@ class TestMemoryReaderComplexReadOperation(ScrutinyUnitTest):
         ds.add_entries(entries)
         dispatcher = RequestDispatcher()
         protocol = Protocol(1, 0)
-        reader = MemoryReader(protocol=protocol, dispatcher=dispatcher, datastore=ds, request_priority=0)
+        reader = UnitTestMemoryReader(protocol=protocol, dispatcher=dispatcher, datastore=ds, request_priority=0)
         reader.set_max_request_payload_size(128)
         reader.set_max_response_payload_size(128)
         reader.add_forbidden_region(forbidden_region_start, forbidden_region_end - forbidden_region_start + 1)
@@ -627,7 +635,7 @@ class TestRawMemoryRead(ScrutinyUnitTest):
         self.ds = Datastore()
         self.dispatcher = RequestDispatcher()
         self.protocol = Protocol(1, 0)
-        self.reader = MemoryReader(protocol=self.protocol, dispatcher=self.dispatcher, datastore=self.ds, request_priority=0)
+        self.reader = UnitTestMemoryReader(protocol=self.protocol, dispatcher=self.dispatcher, datastore=self.ds, request_priority=0)
         self.reader.set_max_request_payload_size(256)
         self.reader.set_max_response_payload_size(128)
         self.reader.start()
@@ -893,7 +901,7 @@ class TestRPVReaderBasicReadOperation(ScrutinyUnitTest):
 
         protocol = Protocol(1, 0)
         protocol.set_address_size_bits(32)
-        reader = MemoryReader(protocol, dispatcher=dispatcher, datastore=ds, request_priority=0)
+        reader = UnitTestMemoryReader(protocol, dispatcher=dispatcher, datastore=ds, request_priority=0)
         reader.set_max_request_payload_size(1024)  # big enough for all of them
         reader.set_max_response_payload_size(1024)  # big enough for all of them
         reader.start()
@@ -918,7 +926,7 @@ class TestRPVReaderBasicReadOperation(ScrutinyUnitTest):
         ds.add_entries(entries)
         dispatcher = RequestDispatcher()
         protocol = Protocol(1, 0)
-        reader = MemoryReader(protocol, dispatcher=dispatcher, datastore=ds, request_priority=0)
+        reader = UnitTestMemoryReader(protocol, dispatcher=dispatcher, datastore=ds, request_priority=0)
         reader.set_max_request_payload_size(protocol.read_rpv_request_size_per_rpv() * 2)  # 2 rpv per request
         reader.set_max_response_payload_size(1024)  # Non-limiting here
         reader.start()
@@ -949,7 +957,7 @@ class TestRPVReaderBasicReadOperation(ScrutinyUnitTest):
 
         dispatcher = RequestDispatcher()
         protocol = Protocol(1, 0)
-        reader = MemoryReader(protocol, dispatcher=dispatcher, datastore=ds, request_priority=0)
+        reader = UnitTestMemoryReader(protocol, dispatcher=dispatcher, datastore=ds, request_priority=0)
         reader.set_max_request_payload_size(1024)  # Non-limiting here
         temp_list = [entry.get_rpv() for entry in entries]
         reader.set_max_response_payload_size(protocol.read_rpv_response_required_size(
@@ -985,7 +993,7 @@ class TestRPVReaderBasicReadOperation(ScrutinyUnitTest):
         dispatcher = RequestDispatcher()
         protocol = Protocol(1, 0)
         protocol.configure_rpvs([entry.get_rpv() for entry in entries])
-        reader = MemoryReader(protocol, dispatcher=dispatcher, datastore=ds, request_priority=0)
+        reader = UnitTestMemoryReader(protocol, dispatcher=dispatcher, datastore=ds, request_priority=0)
         reader.set_max_request_payload_size(1024)
         reader.set_max_response_payload_size(1024)
         reader.start()
@@ -1030,7 +1038,7 @@ class TestRPVReaderBasicReadOperation(ScrutinyUnitTest):
         dispatcher = RequestDispatcher()
         protocol = Protocol(1, 0)
         protocol.configure_rpvs([entry.get_rpv() for entry in entries])
-        reader = MemoryReader(protocol, dispatcher=dispatcher, datastore=ds, request_priority=0)
+        reader = UnitTestMemoryReader(protocol, dispatcher=dispatcher, datastore=ds, request_priority=0)
         reader.set_max_request_payload_size(1024)
         reader.set_max_response_payload_size(1024)
         reader.start()
@@ -1160,7 +1168,7 @@ class TestAllTypesOfReadMixed(ScrutinyUnitTest):
         for entry in self.datastore.get_all_entries():
             self.callback_counter_per_type[entry.get_type()][entry.get_id()] = 0
 
-        reader = MemoryReader(self.protocol, dispatcher=dispatcher, datastore=self.datastore, request_priority=0)
+        reader = UnitTestMemoryReader(self.protocol, dispatcher=dispatcher, datastore=self.datastore, request_priority=0)
         reader.set_max_request_payload_size(1024)
         reader.set_max_response_payload_size(20 * 4 + 4 * 2)
         reader.start()
