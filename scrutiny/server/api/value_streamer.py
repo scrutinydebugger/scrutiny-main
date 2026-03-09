@@ -103,6 +103,14 @@ class ValueStreamer:
             else:
                 conn_data.to_publish.add(entry)
 
+    def remove_entry_from_pending(self, conn_id: str, entry: DatastoreEntry) -> None:
+        """To be called when an entry is unsubscribed"""
+        conn_data = self._conn_data[conn_id]
+        with tools.SuppressException(KeyError):
+            conn_data.to_publish.remove(entry)
+        with tools.SuppressException(KeyError):
+            conn_data.to_publish_on_batch_end.remove(entry)
+
     def get_stream_chunk(self, conn_id: str) -> List[DatastoreEntry]:
         """Returns a list of entry to be flushed per connection.
         Entries returned are removed from the internal "to stream" set """

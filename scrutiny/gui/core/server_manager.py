@@ -265,6 +265,7 @@ class ServerManager:
     RECONNECT_DELAY = 1
     VAR_FACTORY_MAX_WATCHABLE = 1024            # Arbitrary value
     VAR_FACTORY_MAX_TOTAL_GENERATED_VAR = 65536  # Arbitrary value
+    SERVER_THROTTLING_RATE = 2000  # Arbitrary value
 
     _client: ScrutinyClient
     """The SDK client object that talks with the server"""
@@ -405,6 +406,7 @@ class ServerManager:
         self._signals.device_ready.connect(self._device_ready_callback)
         self._signals.device_disconnected.connect(self._device_disconnected_callback)
         self._signals.server_disconnected.connect(self._server_disconnected_callback)
+        self._signals.server_connected.connect(self._server_connected_callback)
 
         def read_env_positive_int(name: str, default: int) -> int:
             if name in os.environ:
@@ -415,6 +417,7 @@ class ServerManager:
                     return v
             return default
 
+        self.SERVER_THROTTLING_RATE = read_env_positive_int('SCRUTINY_GUI_SERVER_THROTTLING_RATE', self.SERVER_THROTTLING_RATE)
         self.VAR_FACTORY_MAX_WATCHABLE = read_env_positive_int('SCRUTINY_GUI_MAX_GENERATED_VAR_PER_ELEMENT', self.VAR_FACTORY_MAX_WATCHABLE)
         self.VAR_FACTORY_MAX_TOTAL_GENERATED_VAR = read_env_positive_int(
             'SCRUTINY_GUI_MAX_TOTAL_GENERATED_VAR', self.VAR_FACTORY_MAX_TOTAL_GENERATED_VAR)
@@ -980,6 +983,26 @@ class ServerManager:
     def _server_disconnected_callback(self) -> None:
         self._set_device_info(None)
         self._set_loaded_sfd(None)
+
+    def _server_connected_callback(self) -> None:
+        self._request_throttling()
+
+    def _request_throttling(self) -> None:
+        def _emphemerous_thread_set_throttling(client: ScrutinyClient) -> int:
+            rate = self.SERVER_THROTTLING_RATE
+            client.set_server_throttling(rate)
+            return rate
+
+        def _ui_thread_response(requested_rate: int, error: Optional[Exception]) -> None:
+            if error is not None:
+                tools.log_exception(self._logger, error, "Failed to configure server throttling")
+            else:
+                self._logger.info(f"Server throttling configured to {requested_rate} updates/sec")
+
+        self.schedule_client_request(
+            user_func=_emphemerous_thread_set_throttling,
+            ui_thread_callback=_ui_thread_response
+        )
 
     # endregion
 

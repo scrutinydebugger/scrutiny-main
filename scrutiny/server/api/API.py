@@ -944,6 +944,7 @@ class API:
         for path in req['watchables']:
             entry = self.datastore.get_entry_by_display_path(path)
             self.datastore.stop_watching(entry, watcher=conn_id)
+            self.streamer.remove_entry_from_pending(conn_id, entry)
 
         response: api_typing.S2C.UnsubscribeWatchable = {
             'cmd': self.Command.Api2Client.UNSUBSCRIBE_WATCHABLE_RESPONSE,

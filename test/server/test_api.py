@@ -3594,6 +3594,38 @@ class TestAPI(ScrutinyUnitTest):
             response = self.wait_and_load_response()
             self.assert_is_error(response, f'val = {val}')
 
+    def test_dont_stream_unwatched_when_in_transit(self):
+        entries = self.make_dummy_entries(10, entry_type=WatchableType.Variable, prefix='var')
+        self.datastore.add_entries(entries)
+        subscribed_entry = entries[2]
+        subscribe_cmd = {
+            'cmd': 'subscribe_watchable',
+            'watchables': [subscribed_entry.get_display_path()]
+        }
+
+        # Subscribe through conn 0
+        self.send_request(subscribe_cmd, 0)
+        response = self.wait_and_load_response(0)
+        self.assert_no_error(response)
+
+        self.datastore.start_batch('unittest')
+        subscribed_entry.set_value(123)
+
+        unsubscribe_cmd = {
+            'cmd': 'unsubscribe_watchable',
+            'watchables': [subscribed_entry.get_display_path()]
+        }
+
+        self.send_request(unsubscribe_cmd, 0)
+        response = self.wait_and_load_response(0)
+        self.assertEqual(response['cmd'], 'response_unsubscribe_watchable')
+        self.assert_no_error(response)
+
+        self.datastore.stop_batch('unittest')
+        self.process_all()
+
+        self.assertIsNone(self.wait_for_response(0, timeout=0.5))
+
 
 # endregion
 if __name__ == '__main__':
