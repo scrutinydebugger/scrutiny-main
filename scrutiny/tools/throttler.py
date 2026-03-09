@@ -25,9 +25,6 @@ class Throttler:
     :param estimation_window: Filters updated at this rate (default 0.1).
     """
 
-    MIN_RATE = 100
-    """Minimum rate that can be throttled."""
-
     enabled: bool
     """Whether the throttler is enabled."""
     mean_rate: float
@@ -63,12 +60,9 @@ class Throttler:
 
     def enable(self) -> None:
         """ Enable the throttler. Will allow everything when disabled"""
-        if self.mean_rate > self.MIN_RATE:
-            self.enabled = True
-            self.reset()
-            self.mean_rate = float(self.mean_rate)
-        else:
-            raise ValueError('Throttler requires a rate of at least %d. Actual rate is %d' % (self.MIN_RATE, round(self.mean_rate)))
+        self.enabled = True
+        self.reset()
+        self.mean_rate = float(self.mean_rate)
 
     def disable(self) -> None:
         """ Disable the throttler"""

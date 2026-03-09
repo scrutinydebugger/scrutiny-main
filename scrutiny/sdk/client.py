@@ -3382,6 +3382,30 @@ class ScrutinyClient:
         stats = cb_data.obj
         return stats
 
+    def set_server_throttling(self, max_update_rate: float) -> None:
+        """ Request the server to throttle the stream of update to a maximum value.
+
+        :param max_update_rate: The maximum update rate in update/sec. A value of ``0`` disable the throttling.
+        :raises TypeError: Given parameter not of the expected type
+        :raises OperationFailure: If the request to the server fails
+        """
+        validation.assert_float_range(max_update_rate, 'max_update_rate', minval=0)
+        req = cast(api_typing.C2S.SetThrottling,
+                   self._make_request(API.Command.Client2Api.SET_THROTTLING, {
+                       'update_rate': max_update_rate
+                   })
+                   )
+
+        def callback(state: CallbackState, response: Optional[api_typing.S2CMessage]) -> None:
+            pass
+
+        future = self._send(req, callback)
+        assert future is not None
+        future.wait(self._timeout)
+
+        if future.state != CallbackState.OK:
+            raise sdk.exceptions.OperationFailure(f"Failed to configure the server throttling. {future.error_str}")
+
     @property
     def logger(self) -> logging.Logger:
         """The python logger used by the Client"""

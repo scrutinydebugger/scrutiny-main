@@ -2950,6 +2950,12 @@ class TestClient(ScrutinyUnitTest):
             self.assertEqual(acq1.name, 'potato')
             DataloggingStorage.read('acq2')
 
+    def test_set_throttling(self):
+        self.client.set_server_throttling(1234)
+        self.assertEqual(len(self.api.connections), 1)
+        conn_id = list(self.api.connections)[0]
+        self.assertEqual(self.api.streamer.get_target_throttling_rate(conn_id), 1234)
+
 
 if __name__ == '__main__':
     unittest.main()
