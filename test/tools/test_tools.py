@@ -23,7 +23,7 @@ class TestThrottler(ScrutinyUnitTest):
     def test_throttler_measurement(self):
         bitrate = 5000
         throttler = Throttler()
-        throttler.set_bitrate(bitrate)
+        throttler.set_rate(bitrate)
         throttler.enable()
 
         runtime = 5
@@ -34,7 +34,7 @@ class TestThrottler(ScrutinyUnitTest):
         while time.perf_counter() - tstart < runtime:
             throttler.process()
             if throttler.allowed(write_chunk):
-                throttler.consume_bandwidth(write_chunk)
+                throttler.consume(write_chunk)
                 time_axis.append(time.perf_counter())
                 data_axis.append(write_chunk)
             time.sleep(0.001)

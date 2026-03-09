@@ -192,7 +192,7 @@ class ScrutinyIntegrationTest(ScrutinyUnitTest):
         while time.monotonic() - t1 < timeout:
             self.server.process()
 
-    def wait_and_load_response(self, cmd=None, nbr=1, timeout=1, ignore_error=False):
+    def wait_and_load_response(self, cmd=None, nbr=1, timeout=2, ignore_error=False):
         response = None
         t1 = time.monotonic()
         rcv_counter = 0

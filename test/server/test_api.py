@@ -3535,6 +3535,97 @@ class TestAPI(ScrutinyUnitTest):
         self.assertEqual(response['from_device_datarate_byte_per_sec'], stats.device.comm_handler.rx_datarate_byte_per_sec)
         self.assertEqual(response['device_request_per_sec'], stats.device.comm_handler.request_per_sec)
 
+    def test_set_throttling(self):
+        req = {
+            'cmd': API.Command.Client2Api.SET_THROTTLING,
+            'update_rate': 1000
+        }
+
+        conn_id = self.connections[0].conn_id
+        self.assertFalse(self.api.streamer.throttling_enabled(conn_id))
+        self.assertIsNone(self.api.streamer.get_target_throttling_rate(conn_id))
+        self.send_request(req)
+        response = self.wait_and_load_response()
+        self.assert_no_error(response)
+        self.assertIn('enabled', response)
+        self.assertIn('update_rate', response)
+
+        self.assertEqual(response['enabled'], True)
+        self.assertEqual(response['update_rate'], 1000)
+
+        self.assertTrue(self.api.streamer.throttling_enabled(conn_id))
+        self.assertEqual(self.api.streamer.get_target_throttling_rate(conn_id), 1000)
+
+        req = {
+            'cmd': API.Command.Client2Api.SET_THROTTLING,
+            'update_rate': 0
+        }
+        self.send_request(req)
+        response = self.wait_and_load_response()
+        self.assert_no_error(response)
+        self.assertIn('enabled', response)
+        self.assertIn('update_rate', response)
+
+        self.assertEqual(response['enabled'], False)
+        self.assertEqual(response['update_rate'], None)
+
+        self.assertFalse(self.api.streamer.throttling_enabled(conn_id))
+        self.assertEqual(self.api.streamer.get_target_throttling_rate(conn_id), None)
+
+        req = {
+            'cmd': API.Command.Client2Api.SET_THROTTLING,
+            'update_rate': None
+        }
+        self.send_request(req)
+        response = self.wait_and_load_response()
+        self.assert_no_error(response)
+        self.assertIn('enabled', response)
+        self.assertIn('update_rate', response)
+        self.assertEqual(response['enabled'], False)
+        self.assertEqual(response['update_rate'], None)
+
+        rate_vals = [-1, 'aaa', True, math.nan]
+        for val in rate_vals:
+            req = {
+                'cmd': API.Command.Client2Api.SET_THROTTLING,
+                'update_rate': val
+            }
+            self.send_request(req)
+            response = self.wait_and_load_response()
+            self.assert_is_error(response, f'val = {val}')
+
+    def test_dont_stream_unwatched_when_in_transit(self):
+        entries = self.make_dummy_entries(10, entry_type=WatchableType.Variable, prefix='var')
+        self.datastore.add_entries(entries)
+        subscribed_entry = entries[2]
+        subscribe_cmd = {
+            'cmd': 'subscribe_watchable',
+            'watchables': [subscribed_entry.get_display_path()]
+        }
+
+        # Subscribe through conn 0
+        self.send_request(subscribe_cmd, 0)
+        response = self.wait_and_load_response(0)
+        self.assert_no_error(response)
+
+        self.datastore.start_batch('unittest')
+        subscribed_entry.set_value(123)
+
+        unsubscribe_cmd = {
+            'cmd': 'unsubscribe_watchable',
+            'watchables': [subscribed_entry.get_display_path()]
+        }
+
+        self.send_request(unsubscribe_cmd, 0)
+        response = self.wait_and_load_response(0)
+        self.assertEqual(response['cmd'], 'response_unsubscribe_watchable')
+        self.assert_no_error(response)
+
+        self.datastore.stop_batch('unittest')
+        self.process_all()
+
+        self.assertIsNone(self.wait_for_response(0, timeout=0.5))
+
 
 # endregion
 if __name__ == '__main__':

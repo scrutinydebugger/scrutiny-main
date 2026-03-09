@@ -10,10 +10,34 @@
 __all__ = ['ValueStreamer']
 
 from scrutiny.server.datastore.datastore_entry import DatastoreEntry
-from scrutiny.server.datastore.datastore import Datastore, BatchEditCallback, BatchState
+from scrutiny.server.datastore.datastore import Datastore, BatchState
 from scrutiny import tools
+from scrutiny.tools.throttler import Throttler
 
 from scrutiny.tools.typing import *
+from dataclasses import dataclass
+
+
+@dataclass(slots=True, init=False)
+class ConnectionData:
+    """State variable for each active connection"""
+    to_publish: Set[DatastoreEntry]
+    """Entries that are ready to publish"""
+    to_publish_on_batch_end: Set[DatastoreEntry]
+    """Temporary set of entries that will need to be flushed as soon as the active batch is closed."""
+    batch_state: BatchState
+    """The actual datastore batch state"""
+    stream_rate_throttler: Throttler
+    """A low pass filter to keep track of the stream rate in updates/sec"""
+
+    def __init__(self) -> None:
+        self.to_publish = set()
+        self.to_publish_on_batch_end = set()
+        self.batch_state = BatchState.INACTIVE
+        self.stream_rate_throttler = Throttler(estimation_window=0.005)
+
+    def process(self) -> None:
+        self.stream_rate_throttler.process()
 
 
 class ValueStreamer:
@@ -25,84 +49,96 @@ class ValueStreamer:
     It avoid duplicates updates and can also apply some rules such as throttling
     """
 
-    entry_to_publish: Dict[str, Set[DatastoreEntry]]
-    entry_to_publish_on_batch_end: Dict[str, Set[DatastoreEntry]]
-    batch_state_per_conn_id: Dict[str, BatchState]
-    frozen_connections: Set[str]
-    datastore: Datastore
+    _conn_data: Dict[str, ConnectionData]
 
     def __init__(self, datastore: Datastore) -> None:
-        self.entry_to_publish = {}
-        self.entry_to_publish_on_batch_end = {}
-        self.batch_state_per_conn_id = {}
-        self.frozen_connections = set()
-        self.datastore = datastore
+        self._conn_data = {}
 
-        self.datastore.add_batch_edit_callback(self._batch_edit_callback)
+        datastore.add_batch_edit_callback(self._batch_edit_callback)
 
     def _batch_edit_callback(self, source: str, state: BatchState) -> None:
+        for conn_data in self._conn_data.values():
+            if state == BatchState.INACTIVE:    # Flush  _entry_to_publish_on_batch_end --> _entry_to_publish
+                for entry in conn_data.to_publish_on_batch_end:
+                    conn_data.to_publish.add(entry)
+                conn_data.to_publish_on_batch_end.clear()
 
-        if state == BatchState.INACTIVE:    # Flush  entry_to_publish_on_batch_end --> entry_to_publish
-            for conn_id, entry_set in self.entry_to_publish_on_batch_end.items():
-                for entry in entry_set:
-                    self.entry_to_publish[conn_id].add(entry)
-                self.entry_to_publish_on_batch_end[conn_id].clear()
+            elif state == BatchState.ACTIVE:
+                conn_data.to_publish_on_batch_end.clear()
 
-        if state == BatchState.ACTIVE:
-            for conn_id in self.entry_to_publish_on_batch_end.keys():
-                self.entry_to_publish_on_batch_end[conn_id].clear()
+            conn_data.batch_state = state
 
-        for conn_id in self.batch_state_per_conn_id.keys():
-            self.batch_state_per_conn_id[conn_id] = state
+    def enable_throttling(self, conn_id: str, update_per_sec: float) -> None:
+        conn_data = self._conn_data[conn_id]
+        if update_per_sec > 0:
+            conn_data.stream_rate_throttler.set_rate(update_per_sec)
+            conn_data.stream_rate_throttler.enable()
+        else:
+            self.disable_throttling(conn_id)
+
+    def disable_throttling(self, conn_id: str) -> None:
+        self._conn_data[conn_id].stream_rate_throttler.disable()
+
+    def throttling_enabled(self, conn_id: str) -> bool:
+        return self._conn_data[conn_id].stream_rate_throttler.is_enabled()
+
+    def get_target_throttling_rate(self, conn_id: str) -> Optional[float]:
+        throttler = self._conn_data[conn_id].stream_rate_throttler
+        if not throttler.is_enabled():
+            return None
+        return throttler.get_rate()
+
+    def _set_actual_throttling_measurement(self, conn_id: str, rate: float) -> None:
+        """For unit testing"""
+        throttler = self._conn_data[conn_id].stream_rate_throttler
+        throttler.set_estimated_rate_for_testing(rate)
 
     def publish(self, entry: DatastoreEntry, conn_id: str) -> None:
-        # inform the value streamer that a new value should be published.
-        # This is called by the datastore set_value callback
+        """ inform the value streamer that a new value should be published.
+        This is called by the datastore set_value callback"""
         with tools.SuppressException():
-            if self.batch_state_per_conn_id[conn_id] == BatchState.ACTIVE:
-                self.entry_to_publish_on_batch_end[conn_id].add(entry)
+            conn_data = self._conn_data[conn_id]
+            if conn_data.batch_state == BatchState.ACTIVE:
+                conn_data.to_publish_on_batch_end.add(entry)
             else:
-                self.entry_to_publish[conn_id].add(entry)
+                conn_data.to_publish.add(entry)
+
+    def remove_entry_from_pending(self, conn_id: str, entry: DatastoreEntry) -> None:
+        """To be called when an entry is unsubscribed"""
+        conn_data = self._conn_data[conn_id]
+        with tools.SuppressException(KeyError):
+            conn_data.to_publish.remove(entry)
+        with tools.SuppressException(KeyError):
+            conn_data.to_publish_on_batch_end.remove(entry)
 
     def get_stream_chunk(self, conn_id: str) -> List[DatastoreEntry]:
-        # Returns a list of entry to be flushed per connection
-        chunk: List[DatastoreEntry] = []
-        if conn_id not in self.entry_to_publish:
-            return chunk
+        """Returns a list of entry to be flushed per connection.
+        Entries returned are removed from the internal "to stream" set """
 
-        if conn_id in self.frozen_connections:
-            return chunk
+        if conn_id not in self._conn_data:
+            return []
 
-        for entry in self.entry_to_publish[conn_id]:
-            chunk.append(entry)
+        conn_data = self._conn_data[conn_id]
 
-        for entry in chunk:
-            self.entry_to_publish[conn_id].remove(entry)
+        if not conn_data.stream_rate_throttler.allowed(len(conn_data.to_publish)):
+            return []
 
+        chunk = list(conn_data.to_publish)
+        conn_data.to_publish.clear()
+
+        conn_data.stream_rate_throttler.consume(len(chunk))
         return chunk
 
-    def is_still_waiting_stream(self, entry: DatastoreEntry) -> bool:
-        # Tells if an entry update is pending to be sent to a client
-        for conn_id in self.entry_to_publish:
-            if entry in self.entry_to_publish[conn_id]:
-                return True
-        return False
-
     def new_connection(self, conn_id: str) -> None:
-        # Called when the API gets a new connection
-        if conn_id not in self.entry_to_publish:
-            self.entry_to_publish[conn_id] = set()
-            self.entry_to_publish_on_batch_end[conn_id] = set()
-            self.batch_state_per_conn_id[conn_id] = BatchState.INACTIVE
+        """Called when the API gets a new connection"""
+        if conn_id not in self._conn_data:
+            self._conn_data[conn_id] = ConnectionData()
 
     def clear_connection(self, conn_id: str) -> None:
-        # Called when the API looses a connection
-        if conn_id in self.entry_to_publish:
-            del self.entry_to_publish[conn_id]
-        if conn_id in self.entry_to_publish_on_batch_end:
-            del self.entry_to_publish_on_batch_end[conn_id]
-        if conn_id in self.batch_state_per_conn_id:
-            del self.batch_state_per_conn_id[conn_id]
+        """Called when the API looses a connection"""
+        if conn_id in self._conn_data:
+            del self._conn_data[conn_id]
 
     def process(self) -> None:
-        pass
+        for conn_data in self._conn_data.values():
+            conn_data.process()
