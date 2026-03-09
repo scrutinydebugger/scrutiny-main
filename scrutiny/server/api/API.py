@@ -2027,7 +2027,7 @@ class API:
 
         self.client_handler.send(ClientHandlerMessage(conn_id=conn_id, obj=response))
 
-    def process_set_throttling(self, conn_id:str, req: api_typing.C2S.SetThrottling) -> None:
+    def process_set_throttling(self, conn_id: str, req: api_typing.C2S.SetThrottling) -> None:
         _check_request_dict(req, req, 'update_rate', (float, int, type(None)))
 
         update_rate = cast(Optional[Union[int, float]], req['update_rate'])
@@ -2035,6 +2035,9 @@ class API:
             self.streamer.disable_throttling(conn_id)
         else:
             update_rate = float(update_rate)
+            if update_rate < 0 or not math.isfinite(update_rate):
+                raise InvalidRequestException(req, "update rate is not a valid value")
+
             if update_rate == 0:
                 self.streamer.disable_throttling(conn_id)
             else:
@@ -2044,7 +2047,7 @@ class API:
             'cmd': API.Command.Api2Client.SET_THROTTLING_RESPONSE,
             'reqid': self.get_req_id(req),
             'enabled': self.streamer.throttling_enabled(conn_id),
-            'rate': self.streamer.get_target_throttling_rate(conn_id)
+            'update_rate': self.streamer.get_target_throttling_rate(conn_id)
         }
 
         self.client_handler.send(ClientHandlerMessage(conn_id=conn_id, obj=response))

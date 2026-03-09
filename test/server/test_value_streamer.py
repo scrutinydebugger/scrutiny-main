@@ -171,7 +171,7 @@ class TestValueStreamer(ScrutinyUnitTest):
         # Directly set the internal rate measurement above the target to simulate
         # a situation where the client is already receiving data too fast.
         TARGET = 10.0  # updates / s
-        self.streamer.set_throttling_target(conn_id, TARGET)
+        self.streamer.enable_throttling(conn_id, TARGET)
         self.streamer._set_actual_throttling_measurement(conn_id, TARGET + 1)  # above target
 
         self._publish_entries([entry], conn_id)

@@ -3535,6 +3535,65 @@ class TestAPI(ScrutinyUnitTest):
         self.assertEqual(response['from_device_datarate_byte_per_sec'], stats.device.comm_handler.rx_datarate_byte_per_sec)
         self.assertEqual(response['device_request_per_sec'], stats.device.comm_handler.request_per_sec)
 
+    def test_set_throttling(self):
+        req = {
+            'cmd': API.Command.Client2Api.SET_THROTTLING,
+            'update_rate': 1000
+        }
+
+        conn_id = self.connections[0].conn_id
+        self.assertFalse(self.api.streamer.throttling_enabled(conn_id))
+        self.assertIsNone(self.api.streamer.get_target_throttling_rate(conn_id))
+        self.send_request(req)
+        response = self.wait_and_load_response()
+        self.assert_no_error(response)
+        self.assertIn('enabled', response)
+        self.assertIn('update_rate', response)
+
+        self.assertEqual(response['enabled'], True)
+        self.assertEqual(response['update_rate'], 1000)
+
+        self.assertTrue(self.api.streamer.throttling_enabled(conn_id))
+        self.assertEqual(self.api.streamer.get_target_throttling_rate(conn_id), 1000)
+
+        req = {
+            'cmd': API.Command.Client2Api.SET_THROTTLING,
+            'update_rate': 0
+        }
+        self.send_request(req)
+        response = self.wait_and_load_response()
+        self.assert_no_error(response)
+        self.assertIn('enabled', response)
+        self.assertIn('update_rate', response)
+
+        self.assertEqual(response['enabled'], False)
+        self.assertEqual(response['update_rate'], None)
+
+        self.assertFalse(self.api.streamer.throttling_enabled(conn_id))
+        self.assertEqual(self.api.streamer.get_target_throttling_rate(conn_id), None)
+
+        req = {
+            'cmd': API.Command.Client2Api.SET_THROTTLING,
+            'update_rate': None
+        }
+        self.send_request(req)
+        response = self.wait_and_load_response()
+        self.assert_no_error(response)
+        self.assertIn('enabled', response)
+        self.assertIn('update_rate', response)
+        self.assertEqual(response['enabled'], False)
+        self.assertEqual(response['update_rate'], None)
+
+        rate_vals = [-1, 'aaa', True, math.nan]
+        for val in rate_vals:
+            req = {
+                'cmd': API.Command.Client2Api.SET_THROTTLING,
+                'update_rate': val
+            }
+            self.send_request(req)
+            response = self.wait_and_load_response()
+            self.assert_is_error(response, f'val = {val}')
+
 
 # endregion
 if __name__ == '__main__':

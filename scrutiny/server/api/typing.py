@@ -363,7 +363,7 @@ class C2S:
         pass
 
     class SetThrottling(BaseC2SMessage):
-        update_rate:Optional[float]
+        update_rate: Optional[float]
 
 
 class S2C:
@@ -521,7 +521,7 @@ class S2C:
 
     class SetThrottling(BaseS2CMessage):
         enabled: bool
-        rate:Optional[float]
+        update_rate: Optional[float]
 
 
 C2SMessage = Union[
