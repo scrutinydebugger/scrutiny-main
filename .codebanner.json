@@ -832,9 +832,6 @@
         "scripts/make_windows_installer_name.sh": {
             "docstring": "A script that compute the release name for a windows installer."
         },
-        "stubs/sortedcontainers.pyi": {
-            "docstring": "A stub file for 3rdparty sorted containers module"
-        },
         "test/server/links/test_canbus_link.py": {
             "docstring": "A test suite for testing the CAN bus communication"
         },

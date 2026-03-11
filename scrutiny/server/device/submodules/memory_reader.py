@@ -17,7 +17,6 @@ __all__ = [
 import logging
 import copy
 import enum
-from sortedcontainers import SortedSet
 
 from scrutiny.server.device.submodules.base_device_handler_submodule import BaseDeviceHandlerSubmodule
 from scrutiny.server.protocol import *
@@ -30,6 +29,7 @@ from scrutiny.server.datastore.datastore_entry import *
 from scrutiny.core.memory_content import MemoryContent, Cluster
 from scrutiny.core.basic_types import MemoryRegion
 from scrutiny.tools.queue import ScrutinyQueue
+from scrutiny.tools.sorted_set import SortedSet
 from scrutiny import tools
 
 from scrutiny.tools.typing import *
@@ -281,11 +281,11 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
         if len(self.datastore.get_watchers(entry_id)) == 0:
             entry = self.datastore.get_entry(entry_id)
             if isinstance(entry, DatastorePointedVariableEntry):
-                self.watched_pointed_var_entries.discard(DataStoreEntrySortableByAddress(entry))
+                self.watched_pointed_var_entries.remove(DataStoreEntrySortableByAddress(entry))
             elif isinstance(entry, DatastoreVariableEntry):
-                self.watched_var_entries_sorted_by_address.discard(DataStoreEntrySortableByAddress(entry))
+                self.watched_var_entries_sorted_by_address.remove(DataStoreEntrySortableByAddress(entry))
             elif isinstance(entry, DatastoreRPVEntry):
-                self.watched_rpv_entries_sorted_by_id.discard(DataStoreEntrySortableByRpvId(entry))
+                self.watched_rpv_entries_sorted_by_id.remove(DataStoreEntrySortableByRpvId(entry))
 
     def start(self) -> None:
         """Enable the memory reader to poll the devices"""

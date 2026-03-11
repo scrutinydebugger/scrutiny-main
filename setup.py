@@ -33,7 +33,6 @@ if ADD_ENTRY_POINTS:
 dependencies = [
     'appdirs==1.4.4',
     'pyelftools==0.32',
-    'sortedcontainers==2.4.0',
     'pyserial==3.5',
     'pylink-square==1.3.0',
     'PySide6-QtAds==4.4.0',

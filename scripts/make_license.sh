@@ -17,7 +17,6 @@ cd ${PROJECT_ROOT}
 packages=(
     appdirs
     pyelftools
-    sortedcontainers
     pyserial
     pylink-square
     PySide6-QtAds

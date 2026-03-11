@@ -9,7 +9,7 @@
 from scrutiny.tools import Throttler, SuppressException
 from scrutiny.tools.thread_enforcer import enforce_thread, register_thread, thread_func
 from scrutiny.tools.timebase import RelativeTimebase
-from sortedcontainers import SortedSet
+from scrutiny.tools.sorted_set import SortedSet
 import time
 import math
 from test import logger
@@ -285,6 +285,27 @@ class TestSortedSet(ScrutinyUnitTest):
         obj2_2 = TestContainer(2)
         s.add(obj2_2)
         self.assertEqual(len(s), 3)
+
+    def test_sorted_set_is_sorted(self):
+        s = SortedSet([10, 5, 3, 100])
+        self.assertEqual(list(s), [3, 5, 10, 100])
+
+    def test_sorted_set_can_remove(self):
+        s = SortedSet([10, 5, 3, 100])
+
+        with self.assertRaises(ValueError):
+            s.remove(123)
+
+        self.assertEqual(list(s), [3, 5, 10, 100])
+
+        s.remove(5)
+        self.assertEqual(list(s), [3, 10, 100])
+        s.remove(100)
+        self.assertEqual(list(s), [3, 10])
+        s.remove(3)
+        self.assertEqual(list(s), [10])
+        s.remove(10)
+        self.assertEqual(list(s), [])
 
 
 if __name__ == '__main__':

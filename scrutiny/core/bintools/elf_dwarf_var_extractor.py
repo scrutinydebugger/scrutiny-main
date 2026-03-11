@@ -13,7 +13,6 @@ from elftools.dwarf.die import DIE
 from elftools.dwarf.compileunit import CompileUnit
 from elftools.dwarf.dwarfinfo import DWARFInfo
 from elftools.elf.elffile import ELFFile
-from sortedcontainers import SortedSet
 
 import os
 import logging
@@ -569,7 +568,7 @@ class ElfDwarfVarExtractor:
     def make_unique_display_name(cls, fullpath_list: List[str]) -> Dict[str, str]:
         """Build a unique name for a CompileUnit. Do some extensive effort to keep a meaningful name, as short as possible
         and avoid collisions if 2 files has the same name."""
-        cuname_set = SortedSet([CuName(x) for x in sorted(fullpath_list)])
+        cuname_set = set([CuName(x) for x in sorted(fullpath_list)])
         outmap: Dict[str, str] = {}
 
         display_name_set: Set[str] = set()
