@@ -350,10 +350,10 @@ class Datastore:
         entry_id = self._get_entry_id(entry_or_entryid)
         entry = self.get_entry(entry_id)
 
-        with tools.SuppressException():
+        with tools.LogException(self._logger, Exception, f"Failed to remove watcher {watcher} from watcher_map of {entry.display_path}"):
             self._watcher_map[entry.get_type()][entry_id].remove(watcher)
 
-        with tools.SuppressException():
+        with tools.LogException(self._logger, Exception, f"Failed to delete the watcher_map for {entry.display_path} (no more watcher)"):
             if len(self._watcher_map[entry.get_type()][entry_id]) == 0:
                 del self._watcher_map[entry.get_type()][entry_id]
 
