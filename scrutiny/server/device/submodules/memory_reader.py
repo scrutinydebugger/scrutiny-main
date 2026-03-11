@@ -395,7 +395,8 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
                 request, var_entries_in_request, wrapped_to_beginning = self._make_next_var_entries_request(VarType.PointedAddress)
                 if request is not None:
                     if self.logger.isEnabledFor(logging.DEBUG):  # pragma: no cover
-                        self.logger.debug('Registering a MemoryRead request for %d datastore entries. %s' % (len(var_entries_in_request), request))
+                        self.logger.debug('Registering a MemoryRead request for %d pointed datastore entries. %s' %
+                                          (len(var_entries_in_request), request))
                     addresses = [x.get_address() for x in var_entries_in_request]
                     self._dispatch(request, success_params=addresses)  # sets pending_request
                     self.entries_in_pending_read_var_request = var_entries_in_request
@@ -655,7 +656,8 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
             entries_to_update = [entry for i, entry in enumerate(entries_to_update) if entry.get_address() == expected_addresses[i]]
             if self.logger.isEnabledFor(logging.DEBUG):
                 dropped = len(self.entries_in_pending_read_var_request) - len(entries_to_update)
-                self.logger.debug(f"Dropped {dropped} entries for update. Their address changed while reading.")
+                if dropped > 0:
+                    self.logger.debug(f"Dropped {dropped} entries for update. Their address changed while reading.")
         self.entries_in_pending_read_var_request = []
 
         try:

@@ -349,13 +349,14 @@ class Datastore:
         """
         entry_id = self._get_entry_id(entry_or_entryid)
         entry = self.get_entry(entry_id)
+        watchable_type = entry.get_type()
 
         with tools.SuppressException():
-            self._watcher_map[entry.get_type()][entry_id].remove(watcher)
+            self._watcher_map[watchable_type][entry_id].remove(watcher)
 
-        with tools.SuppressException():
-            if len(self._watcher_map[entry.get_type()][entry_id]) == 0:
-                del self._watcher_map[entry.get_type()][entry_id]
+        if entry_id in self._watcher_map[watchable_type]:
+            if len(self._watcher_map[watchable_type][entry_id]) == 0:
+                del self._watcher_map[watchable_type][entry_id]
 
                 # Special handling for Aliases and pointers.
                 # If nobody watches this alias/pointer, then we can remove the internal subscription to the referenced entry

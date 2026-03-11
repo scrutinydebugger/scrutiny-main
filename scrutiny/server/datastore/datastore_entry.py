@@ -118,11 +118,12 @@ class DatastoreEntry(abc.ABC):
     Represent an entry in the datastore that can be written and read.
     it has a unique ID and a display path used for GUI tree-like rendering.
 
-    An entry can also be requested to be updated on the target (write request). 
+    An entry can also be requested to be updated on the target (write request).
     When the value change or a write request is completed, a callback will be called.
     """
     __slots__ = (
         'entry_id',
+        'entry_id_monotonic_int',
         'value_change_callback',
         'target_update_callback',
         'display_path',
@@ -133,6 +134,7 @@ class DatastoreEntry(abc.ABC):
     )
 
     entry_id: str
+    entry_id_monotonic_int: int
     value_change_callback: Dict[str, Callable[["DatastoreEntry"], Any]]
     target_update_callback: Dict[str, Callable[["DatastoreEntry"], Any]]
     display_path: str
@@ -144,12 +146,16 @@ class DatastoreEntry(abc.ABC):
     def __init__(self, display_path: str):
         self.value_change_callback = {}
         self.target_update_callback = {}
-        self.entry_id = hex(global_i64_counter())[2:]    # unique ID. Remove 0x prefix
+        self.entry_id_monotonic_int = global_i64_counter()
+        self.entry_id = hex(self.entry_id_monotonic_int)[2:]    # unique ID. Remove 0x prefix
         self.display_path = self.clean_display_path(display_path)
         self.last_target_update_server_time_us = None
         self.last_value_update_server_time_us = server_timebase.get_micro()
         self.target_update_request_queue = queue.Queue()
         self.value = 0
+
+    def __hash__(self) -> int:
+        return self.entry_id_monotonic_int
 
     @classmethod
     def clean_display_path(cls, display_path: str) -> str:
@@ -179,7 +185,7 @@ class DatastoreEntry(abc.ABC):
 
     @abc.abstractmethod
     def encode(self, value: Encodable) -> Tuple[bytes, Optional[bytes]]:
-        """Encode the value to a stream of bytes and a data mask. 
+        """Encode the value to a stream of bytes and a data mask.
         Returns as tuple : (data, mask)"""
         raise NotImplementedError("Abstract method")
 
@@ -306,7 +312,7 @@ class DatastoreVariableEntry(DatastoreEntry):
         return self.variable_def.get_bitoffset()
 
     def encode(self, value: Encodable) -> Tuple[bytes, Optional[bytes]]:
-        """Encode the value to a stream of bytes and a data mask. 
+        """Encode the value to a stream of bytes and a data mask.
         Returns as tuple : (data, mask)"""
         return self.variable_def.encode(value)  # Returns a tuple of (data, mask)
 
@@ -345,7 +351,7 @@ class DatastoreAliasEntry(DatastoreEntry):
     """
     Represent a datastore entry of type Alias.
     It will points to another datastore entry of type != Alias and
-    route write/read request to them. 
+    route write/read request to them.
 
     It works by subscribing to them, just like the API would do.
     """
@@ -390,7 +396,7 @@ class DatastoreAliasEntry(DatastoreEntry):
         return self.refentry.get_enum()
 
     def encode(self, value: Encodable) -> Tuple[bytes, Optional[bytes]]:
-        """Encode the value to a stream of bytes and a data mask. 
+        """Encode the value to a stream of bytes and a data mask.
         Returns as tuple : (data, mask)"""
         return self.refentry.encode(value)
 
@@ -461,7 +467,7 @@ class DatastoreRPVEntry(DatastoreEntry):
         raise NotImplementedError('RuntimePublishedValues does not have enums')
 
     def encode(self, value: Encodable) -> Tuple[bytes, Optional[bytes]]:
-        """Encode the value to a stream of bytes and a data mask. 
+        """Encode the value to a stream of bytes and a data mask.
         Returns as tuple : (data, mask)"""
         value = Codecs.make_value_valid(self.get_data_type(), value)
         return self.codec.encode(value), None   # Not bitmask on RPV.
