@@ -39,6 +39,3 @@ class SortedSet(Generic[T]):
 
     def __getitem__(self, key:int) -> T:
         return self._storage[key]
-
-    def __setitem__(self, key:int, val:T) -> None:
-        self._storage[key] = val
