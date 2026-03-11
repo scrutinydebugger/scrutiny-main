@@ -269,14 +269,11 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
         """Callback called by the datastore whenever somebody starts watching an entry."""
         entry = self.datastore.get_entry(entry_id)
         if isinstance(entry, DatastorePointedVariableEntry):
-            print(f"aaa: {entry.display_path}", flush=True)
             self.watched_pointed_var_entries.add(DataStoreEntrySortableByAddress(entry))
         elif isinstance(entry, DatastoreVariableEntry):
             # Memory reader reads by address. Only Variables has that
-            print(f"bbb: {entry.display_path}", flush=True)
             self.watched_var_entries_sorted_by_address.add(DataStoreEntrySortableByAddress(entry))
         elif isinstance(entry, DatastoreRPVEntry):
-            print(f"ccc: {entry.display_path}", flush=True)
             self.watched_rpv_entries_sorted_by_id.add(DataStoreEntrySortableByRpvId(entry))
 
     def _the_unwatch_callback(self, entry_id: str) -> None:
