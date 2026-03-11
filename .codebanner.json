@@ -978,6 +978,9 @@
         },
         "scrutiny/gui/dialogs/chart_range_edit_dialog.py": {
             "docstring": "A dialog to configure a chart axes range"
+        },
+        "scrutiny/tools/sorted_set.py": {
+            "docstring": "A custom implementation of a sorted set"
         }
     },
     "authors": {}
