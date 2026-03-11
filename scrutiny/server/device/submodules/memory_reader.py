@@ -398,7 +398,8 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
                 request, var_entries_in_request, wrapped_to_beginning = self._make_next_var_entries_request(VarType.PointedAddress)
                 if request is not None:
                     if self.logger.isEnabledFor(logging.DEBUG):  # pragma: no cover
-                        self.logger.debug('Registering a MemoryRead request for %d pointed datastore entries. %s' % (len(var_entries_in_request), request))
+                        self.logger.debug('Registering a MemoryRead request for %d pointed datastore entries. %s' %
+                                          (len(var_entries_in_request), request))
                     addresses = [x.get_address() for x in var_entries_in_request]
                     self._dispatch(request, success_params=addresses)  # sets pending_request
                     self.entries_in_pending_read_var_request = var_entries_in_request

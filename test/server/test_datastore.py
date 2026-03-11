@@ -18,6 +18,7 @@ from scrutiny.core.basic_types import *
 from test import ScrutinyUnitTest
 from scrutiny.tools.typing import *
 from dataclasses import dataclass
+import gc
 
 dummy_callback = lambda *args, **kwargs: None
 
@@ -573,6 +574,20 @@ class TestDataStore(ScrutinyUnitTest):
         ds.start_batch('yyy')
         with self.assertRaises(Exception):
             ds.start_batch('yyy')
+
+    def test_unique_entry_hash_outside_lifetime(self):
+        hash_set = set()
+        entries = self.make_dummy_entries(100000, WatchableType.Variable)
+        for entry in entries:
+            self.assertNotIn(hash(entry), hash_set)
+            hash_set.add(hash(entry))
+        del entries
+        gc.collect()
+
+        entries = self.make_dummy_entries(100000, WatchableType.Variable)
+        for entry in entries:
+            self.assertNotIn(hash(entry), hash_set)
+            hash_set.add(hash(entry))
 
 
 if __name__ == '__main__':
