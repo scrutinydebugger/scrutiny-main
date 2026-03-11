@@ -495,6 +495,136 @@ class TestMemoryReaderBasicReadOperation(ScrutinyUnitTest):
         self.assertEqual(request_data['blocks_to_read'][0]['address'], 0x1000)
         self.assertEqual(request_data['blocks_to_read'][0]['length'], 8)    # ptr64
 
+    def test_unwatch_while_reading(self):
+        WATCHER='unittest'
+        INDEX_TO_UNWATCH=5
+        ds = Datastore()
+        var_entries = list(make_dummy_var_entries(address=0x2000, n=10, vartype=EmbeddedDataType.uint32))
+        ds.add_entries(var_entries)
+        dispatcher = RequestDispatcher()
+        protocol = Protocol(1, 0)
+        protocol.set_address_size_bits(32)
+        reader = UnitTestMemoryReader(protocol, dispatcher=dispatcher, datastore=ds, request_priority=0)
+        reader.set_max_request_payload_size(1024)  # big enough for all of them
+        reader.set_max_response_payload_size(1024)  # big enough for all of them
+        reader.start()
+
+        entries_updated = set()
+        def callback(watcher:str, entry:DatastoreEntry):
+            entries_updated.add(entry)
+
+        for entry in var_entries:
+            ds.start_watching(entry, WATCHER, callback)
+
+        reader.process()
+        dispatcher.process()
+        req_record = dispatcher.pop_next()
+        self.assertIsNotNone(req_record)
+
+        ds.stop_watching(var_entries[INDEX_TO_UNWATCH], WATCHER)
+
+        request_data = cast(protocol_typing.Request.MemoryControl.Read, protocol.parse_request(req_record.request))
+
+        block_list = []
+        for block in request_data['blocks_to_read']:
+            block_list.append((block['address'], b'\xAA' * block['length']))
+
+        response = protocol.respond_read_memory_blocks(block_list)
+        req_record.complete(success=True, response=response)
+
+        # Make sure no callback was to notify the user.
+        self.assertEqual(len(entries_updated), len(var_entries)-1)
+        for i, entry in enumerate(var_entries):
+            if i==INDEX_TO_UNWATCH:
+                continue
+            self.assertIn(entry, entries_updated)
+
+        # Do we really care about that?
+        # As long as the user doesn't get notified, we could allow updating the datastore without much consequences.
+        # Better be strict..
+        self.assertNotEqual(var_entries[INDEX_TO_UNWATCH].value, 0xAAAAAAAA)
+
+
+    def test_address_changed_while_reading(self):
+        WATCHER='unittest'
+        INDEX_TO_CHANGE=2
+        nuint32 = 10
+        npointers = 5
+        address = 0x1000
+        address2 = 0x2000
+        ptr_address = 0x3000
+
+        ds = Datastore()
+        entries = list(make_dummy_var_entries(address=address, n=nuint32, vartype=EmbeddedDataType.uint32, subpath=['entries_uint32']))
+        entries_after_change = list(make_dummy_var_entries(address=address2, n=nuint32, vartype=EmbeddedDataType.uint32, subpath=['entries2_uint32']))
+        pointers = list(make_dummy_var_entries(address=ptr_address, n=npointers, vartype=EmbeddedDataType.ptr64, subpath=['pointers']))
+        pointed = list(make_dummy_pointed_var_entries(pointers=pointers, vartype=EmbeddedDataType.uint32, subpath=['pointed_uint32']))
+        ds.add_entries(entries)
+        ds.add_entries(entries_after_change)
+        ds.add_entries(pointers)
+        ds.add_entries(pointed)
+
+        dispatcher = RequestDispatcher()
+        protocol = Protocol(1, 0)
+        protocol.set_address_size_bits(32)
+        reader = UnitTestMemoryReader(protocol, dispatcher=dispatcher, datastore=ds, request_priority=0)
+        reader.set_max_request_payload_size(1024)  # big enough for all of them
+        reader.set_max_response_payload_size(1024)  # big enough for all of them
+        reader.start()
+
+        entries_updated = set()
+        def callback(watcher:str, entry:DatastoreEntry):
+            entries_updated.add(entry)
+
+        for entry in pointed:
+            ds.start_watching(entry, WATCHER, callback)
+
+        reader.process()
+        dispatcher.process()
+        req_record = dispatcher.pop_next()
+        self.assertIsNotNone(req_record)
+
+        request_data = cast(protocol_typing.Request.MemoryControl.Read, protocol.parse_request(req_record.request))
+
+        block_list = []
+        for block in request_data['blocks_to_read']:
+            self.assertGreaterEqual(block['address'], 0x3000)
+            self.assertLessEqual(block['address'], 0x3000 + npointers*EmbeddedDataType.ptr64.get_size_byte())
+            vals = [entries[i].get_address() for i in range(npointers)]
+            block_list.append((block['address'], struct.pack(">" + "q"*len(vals), *vals)))
+
+        response = protocol.respond_read_memory_blocks(block_list)
+        req_record.complete(success=True, response=response)
+
+        self.assertEqual(len(entries_updated), 0)   # We didn't ask for it. Only the internal callback is triggered, the user does not see it
+
+        # Read pointed now
+        reader.process()
+        dispatcher.process()
+        req_record = dispatcher.pop_next()
+        self.assertIsNotNone(req_record)
+
+        pointers[INDEX_TO_CHANGE].value = entries_after_change[INDEX_TO_CHANGE].get_address()
+
+        request_data = cast(protocol_typing.Request.MemoryControl.Read, protocol.parse_request(req_record.request))
+        block_list = []
+        for block in request_data['blocks_to_read']:
+            block_list.append((block['address'], b'\xAA' * block['length']))
+
+        response = protocol.respond_read_memory_blocks(block_list)
+        req_record.complete(success=True, response=response)
+
+        # Make sure no callback was to notify the user.
+        self.assertEqual(len(entries_updated), len(pointed)-1)
+        for i, entry in enumerate(pointed):
+            if i==INDEX_TO_CHANGE:
+                continue
+            self.assertIn(entry, entries_updated)
+
+        # Do we really care about that?
+        # As long as the user doesn't get notified, we could allow updating the datastore without much consequences.
+        # Better be strict..
+        self.assertNotEqual(pointed[INDEX_TO_CHANGE].value, 0xAAAAAAAA)
 
 class TestMemoryReaderComplexReadOperation(ScrutinyUnitTest):
     """
