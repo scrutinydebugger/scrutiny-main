@@ -9,7 +9,7 @@
 
 import random
 from dataclasses import dataclass
-from sortedcontainers import SortedSet
+
 
 from scrutiny.server.datastore.datastore import Datastore
 from scrutiny.server.datastore.datastore_entry import *
@@ -26,6 +26,7 @@ from scrutiny.core.basic_types import *
 from test import ScrutinyUnitTest
 from scrutiny.core.codecs import Codecs, Encodable
 from scrutiny import tools
+from scrutiny.tools.sorted_set import SortedSet
 import math
 import functools
 import struct
@@ -114,7 +115,7 @@ class TestMemoryReaderBasicReadOperation(ScrutinyUnitTest):
         self.assertTrue(is_sorted)
 
         for entry in entries:
-            theset.discard(DataStoreEntrySortableByAddress(entry))
+            theset.remove(DataStoreEntrySortableByAddress(entry))
 
         self.assertEqual(len(theset), 0)
 
@@ -833,7 +834,7 @@ class TestRPVReaderBasicReadOperation(ScrutinyUnitTest):
         self.assertTrue(is_sorted)
 
         for entry in entries:
-            theset.discard(DataStoreEntrySortableByRpvId(entry))
+            theset.remove(DataStoreEntrySortableByRpvId(entry))
 
         self.assertEqual(len(theset), 0)
 

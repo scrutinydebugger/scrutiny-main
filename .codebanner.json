@@ -832,9 +832,6 @@
         "scripts/make_windows_installer_name.sh": {
             "docstring": "A script that compute the release name for a windows installer."
         },
-        "stubs/sortedcontainers.pyi": {
-            "docstring": "A stub file for 3rdparty sorted containers module"
-        },
         "test/server/links/test_canbus_link.py": {
             "docstring": "A test suite for testing the CAN bus communication"
         },
@@ -981,6 +978,9 @@
         },
         "scrutiny/gui/dialogs/chart_range_edit_dialog.py": {
             "docstring": "A dialog to configure a chart axes range"
+        },
+        "scrutiny/tools/sorted_set.py": {
+            "docstring": "A custom implementation of a sorted set"
         }
     },
     "authors": {}
