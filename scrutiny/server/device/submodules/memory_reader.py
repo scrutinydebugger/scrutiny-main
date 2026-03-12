@@ -164,7 +164,7 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
 
     def __init__(self, protocol: Protocol, dispatcher: RequestDispatcher, datastore: Datastore, request_priority: int):
         self.logger = logging.getLogger(self.__class__.__name__)
-        self._dispatcher = dispatcher
+        self.dispatcher = dispatcher
         self.protocol = protocol
         self.datastore = datastore
         self.request_priority = request_priority
@@ -402,7 +402,7 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
 
     def _dispatch(self, request: Request, success_params: Any = None, failure_params: Any = None) -> None:
         """Sends a request to the request dispatcher and assign the corrects completion callbacks"""
-        self._dispatcher.register_request(
+        self.dispatcher.register_request(
             request=request,
             success_callback=self._success_callback,
             failure_callback=self._failure_callback,
@@ -571,7 +571,8 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
 
         # We assume tha the device can accept a request with a single read block. Otherwise nothing would work.
 
-        size = min(self.max_response_payload_size, self.active_raw_read_request.size - self.active_raw_read_request_cursor)
+        overhead = self.protocol.read_memory_response_overhead_size_per_block()
+        size = min(self.max_response_payload_size - overhead, self.active_raw_read_request.size - self.active_raw_read_request_cursor)
         address = self.active_raw_read_request.address + self.active_raw_read_request_cursor
         device_request = self.protocol.read_single_memory_block(address=address, length=size)
         self.active_raw_read_request_cursor += size
