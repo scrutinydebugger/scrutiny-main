@@ -6,21 +6,13 @@ import logging
 from dataclasses import dataclass
 
 from PySide6.QtGui import QCloseEvent, QContextMenuEvent
-from PySide6.QtWidgets import (QDialog, QWidget, QProgressBar, QVBoxLayout, QFormLayout, QHBoxLayout, QMenu,
-                               QTableWidget, QTableWidgetItem, QPushButton, QLabel, QHeaderView)
+from PySide6.QtWidgets import (QDialog, QWidget, QProgressBar, QVBoxLayout)
 from PySide6.QtCore import Qt, QSize
 
 from scrutiny import sdk
 from scrutiny.gui.core.serializable_value_set import SerializableValueSet
-from scrutiny.gui.core.watchable_registry import WatchableRegistry, ParsedFullyQualifiedName, WatcherNotFoundError, RegistryValueUpdate
-from scrutiny.gui.core.server_manager import ServerManager
-from scrutiny.gui.widgets.watchable_tree import get_watchable_icon
+from scrutiny.gui.core.watchable_registry import WatchableRegistry, WatcherNotFoundError, RegistryValueUpdate
 from scrutiny.gui.tools.invoker import invoke_later
-from scrutiny.sdk.client import ScrutinyClient
-from scrutiny.gui.themes import scrutiny_get_theme
-from scrutiny.gui import assets
-from scrutiny.gui.widgets import mixins as gui_mixins
-from scrutiny.gui.widgets.feedback_label import FeedbackLabel
 
 from scrutiny.tools.typing import *
 from scrutiny import tools
@@ -108,8 +100,9 @@ class ValueExportDialog(QDialog):
 
     def _cleanup(self) -> None:
         print("cleanup")
-        # for state in self._state_dict.values():
-        #    print(state.fqn)
+        for state in self._state_dict.values():
+            if state.value is None:
+                print(state.fqn)
         with tools.SuppressException(WatcherNotFoundError):   # Suppress if not registered
             self._watchable_registry.unregister_watcher(self._watcher_id)
 
