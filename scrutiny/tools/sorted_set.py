@@ -6,24 +6,25 @@ import typing
 
 T = TypeVar("T")
 
-class SortedSet(Generic[T]):
-    _storage : List[T]
 
-    def __init__(self, data:Optional[Iterable[T]] = None) -> None:
+class SortedSet(Generic[T]):
+    _storage: List[T]
+
+    def __init__(self, data: Optional[Iterable[T]] = None) -> None:
         self._storage = list()
         if data is not None:
             for item in data:
                 self.add(item)
 
-    def add(self, item:T) -> None:
-        index = bisect_left(self._storage, item)    #type: ignore
+    def add(self, item: T) -> None:
+        index = bisect_left(self._storage, item)  # type: ignore
         if index < len(self._storage):
             if hash(self._storage[index]) == hash(item):
                 return
         self._storage.insert(index, item)
 
-    def remove(self, item:T) -> None:
-        index = bisect_left(self._storage, item)    #type: ignore
+    def remove(self, item: T) -> None:
+        index = bisect_left(self._storage, item)  # type: ignore
         if index < len(self._storage):
             if hash(self._storage[index]) == hash(item):
                 del self._storage[index]
@@ -37,5 +38,5 @@ class SortedSet(Generic[T]):
     def __len__(self) -> int:
         return len(self._storage)
 
-    def __getitem__(self, key:int) -> T:
+    def __getitem__(self, key: int) -> T:
         return self._storage[key]

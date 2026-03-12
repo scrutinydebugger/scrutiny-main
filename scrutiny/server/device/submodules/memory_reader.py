@@ -17,19 +17,19 @@ __all__ = [
 import logging
 import copy
 import enum
+from dataclasses import dataclass
 
 from scrutiny.server.device.submodules.base_device_handler_submodule import BaseDeviceHandlerSubmodule
-from scrutiny.server.protocol import *
+from scrutiny.server.protocol import Protocol, Request, Response, ResponseCode
 from scrutiny.server.timebase import server_timebase
 import scrutiny.server.protocol.commands as cmd
 import scrutiny.server.protocol.typing as protocol_typing
 from scrutiny.server.device.request_dispatcher import RequestDispatcher
 from scrutiny.server.datastore.datastore import Datastore
-from scrutiny.server.datastore.datastore_entry import *
+from scrutiny.server.datastore.datastore_entry import DatastoreVariableEntry, DatastorePointedVariableEntry, DatastoreRPVEntry
 from scrutiny.core.memory_content import MemoryContent, Cluster
 from scrutiny.core.basic_types import MemoryRegion
 from scrutiny.tools.queue import ScrutinyQueue
-from scrutiny.tools.sorted_set import SortedSet
 from scrutiny import tools
 
 from scrutiny.tools.typing import *
@@ -72,82 +72,6 @@ class RawMemoryReadRequest:
             self.completion_callback(self, success, self.completion_server_time_us, data, failure_reason)
 
 
-T = TypeVar("T", DatastoreVariableEntry, DatastorePointedVariableEntry)
-
-
-class DataStoreEntrySortableByAddress(Generic[T]):
-    """Wrapper around a DatastoreVariableEntry that can sort them by their address.
-    Used to feed a SortedSet"""
-    __slots__ = ('entry', )
-
-    entry: T
-
-    def __init__(self, entry: T):
-        self.entry = entry
-
-    def __hash__(self) -> int:
-        return self.entry.__hash__()  # For hash uniqueness
-
-    def __eq__(self, other: object) -> bool:
-        if isinstance(other, self.__class__):
-            return self.entry.get_address() == other.entry.get_address()
-        return False
-
-    def __ne__(self, other: object) -> bool:
-        if isinstance(other, self.__class__):
-            return self.entry.get_address() != other.entry.get_address()
-        return False
-
-    def __lt__(self, other: "DataStoreEntrySortableByAddress[T]") -> bool:
-        return self.entry.get_address() < other.entry.get_address()
-
-    def __le__(self, other: "DataStoreEntrySortableByAddress[T]") -> bool:
-        return self.entry.get_address() <= other.entry.get_address()
-
-    def __gt__(self, other: "DataStoreEntrySortableByAddress[T]") -> bool:
-        return self.entry.get_address() > other.entry.get_address()
-
-    def __ge__(self, other: "DataStoreEntrySortableByAddress[T]") -> bool:
-        return self.entry.get_address() >= other.entry.get_address()
-
-
-class DataStoreEntrySortableByRpvId:
-    """Wrapper around DatastoreRPVEntry that can be sorted by RPV ID.
-    Used to feed a SortedSet"""
-
-    __slots__ = ('entry', )
-
-    entry: DatastoreRPVEntry
-
-    def __init__(self, entry: DatastoreRPVEntry) -> None:
-        self.entry = entry
-
-    def __hash__(self) -> int:
-        return self.entry.__hash__()  # For hash uniqueness
-
-    def __eq__(self, other: object) -> bool:
-        if isinstance(other, self.__class__):
-            return self.entry.get_rpv().id == other.entry.get_rpv().id
-        return False
-
-    def __ne__(self, other: object) -> bool:
-        if isinstance(other, self.__class__):
-            return self.entry.get_rpv().id != other.entry.get_rpv().id
-        return False
-
-    def __lt__(self, other: "DataStoreEntrySortableByRpvId") -> bool:
-        return self.entry.get_rpv().id < other.entry.get_rpv().id
-
-    def __le__(self, other: "DataStoreEntrySortableByRpvId") -> bool:
-        return self.entry.get_rpv().id <= other.entry.get_rpv().id
-
-    def __gt__(self, other: "DataStoreEntrySortableByRpvId") -> bool:
-        return self.entry.get_rpv().id > other.entry.get_rpv().id
-
-    def __ge__(self, other: "DataStoreEntrySortableByRpvId") -> bool:
-        return self.entry.get_rpv().id >= other.entry.get_rpv().id
-
-
 class ReadType(enum.Enum):
     """Type of read request. Memory and RPV reads uses a different protocol commands"""
     Variable = enum.auto()
@@ -159,6 +83,12 @@ class ReadType(enum.Enum):
 class VarType(enum.Enum):
     AbsoluteAddress = enum.auto()
     PointedAddress = enum.auto()
+
+
+@dataclass(slots=True)
+class RequestSuccessParams:
+    read_type: ReadType
+    addresses_before_dispatch: Optional[List[int]]
 
 
 class MemoryReader(BaseDeviceHandlerSubmodule):
@@ -195,12 +125,18 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
     """Maximum size for a response payload gotten from the InfoPoller"""
     forbidden_regions: List[MemoryRegion]
     """List of memory regions to avoid. Gotten from InfoPoller"""
-    watched_var_entries_sorted_by_address: SortedSet[DataStoreEntrySortableByAddress[DatastoreVariableEntry]]
+    watched_var_entries: Set[DatastoreVariableEntry]
     """Set of entries referring variables sorted by address"""
-    watched_pointed_var_entries: SortedSet[DataStoreEntrySortableByAddress[DatastorePointedVariableEntry]]
+    watched_pointed_var_entries: Set[DatastorePointedVariableEntry]
     """List of entries with a variable base address that depends on another entry"""
-    watched_rpv_entries_sorted_by_id: SortedSet[DataStoreEntrySortableByRpvId]
+    watched_rpv_entries: Set[DatastoreRPVEntry]
     """Set of entries referring RuntimePublishedValues (RPV) sorted by ID"""
+    active_watched_var_entries: List[DatastoreVariableEntry]
+    """A snapshot of watched_var_entries taken when the read type changes to ``Variable``"""
+    active_watched_pointed_var_entries: List[DatastorePointedVariableEntry]
+    """A snapshot of watched_pointed_var_entries taken when the read type changes to ``PointedVariable``"""
+    active_watched_rpv_entries: List[DatastoreRPVEntry]
+    """A snapshot of watched_rpv_entries taken when the read type changes to ``RuntimePublishedValues``"""
     var_read_cursor: int
     """Cursor used for round-robin inside the SortedSet of Variables datastore entries with an absolute address"""
     pointed_var_read_cursor: int
@@ -222,10 +158,13 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
     active_raw_read_request_data: bytearray
     """A buffer to store the data of a raw read request while each chunk is being read"""
     unittest_crash_on_critical_error: bool
+    """Reraise errors that we normally hide to catch them in unit testing"""
+    read_type_changed: bool
+    """A flag that indicates if the read type change in the last process iteration"""
 
     def __init__(self, protocol: Protocol, dispatcher: RequestDispatcher, datastore: Datastore, request_priority: int):
         self.logger = logging.getLogger(self.__class__.__name__)
-        self._dispatcher = dispatcher
+        self.dispatcher = dispatcher
         self.protocol = protocol
         self.datastore = datastore
         self.request_priority = request_priority
@@ -269,27 +208,29 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
         """Callback called by the datastore whenever somebody starts watching an entry."""
         entry = self.datastore.get_entry(entry_id)
         if isinstance(entry, DatastorePointedVariableEntry):
-            self.watched_pointed_var_entries.add(DataStoreEntrySortableByAddress(entry))
+            self.watched_pointed_var_entries.add(entry)
         elif isinstance(entry, DatastoreVariableEntry):
             # Memory reader reads by address. Only Variables has that
-            self.watched_var_entries_sorted_by_address.add(DataStoreEntrySortableByAddress(entry))
+            self.watched_var_entries.add(entry)
         elif isinstance(entry, DatastoreRPVEntry):
-            self.watched_rpv_entries_sorted_by_id.add(DataStoreEntrySortableByRpvId(entry))
+            self.watched_rpv_entries.add(entry)
 
     def _the_unwatch_callback(self, entry_id: str) -> None:
         """Callback called by the datastore  whenever somebody stops watching an entry"""
         if len(self.datastore.get_watchers(entry_id)) == 0:
             entry = self.datastore.get_entry(entry_id)
             if isinstance(entry, DatastorePointedVariableEntry):
-                self.watched_pointed_var_entries.remove(DataStoreEntrySortableByAddress(entry))
+                self.watched_pointed_var_entries.remove(entry)
             elif isinstance(entry, DatastoreVariableEntry):
-                self.watched_var_entries_sorted_by_address.remove(DataStoreEntrySortableByAddress(entry))
+                self.watched_var_entries.remove(entry)
             elif isinstance(entry, DatastoreRPVEntry):
-                self.watched_rpv_entries_sorted_by_id.remove(DataStoreEntrySortableByRpvId(entry))
+                self.watched_rpv_entries.remove(entry)
 
     def start(self) -> None:
         """Enable the memory reader to poll the devices"""
         self.logger.debug("Start requested")
+        if not self.started:
+            self.read_type_changed = True
         self.started = True
 
     def stop(self) -> None:
@@ -317,14 +258,18 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
         self.started = False
         self.actual_read_type = ReadType.Variable    # Alternate between RPV and Mem
 
-        self.watched_var_entries_sorted_by_address = SortedSet()
-        self.watched_rpv_entries_sorted_by_id = SortedSet()
-        self.watched_pointed_var_entries = SortedSet()
+        self.watched_var_entries = set()
+        self.watched_rpv_entries = set()
+        self.watched_pointed_var_entries = set()
+        self.active_watched_var_entries = []
+        self.active_watched_pointed_var_entries = []
+        self.active_watched_rpv_entries = []
         self.var_read_cursor = 0
         self.pointed_var_read_cursor = 0
         self.rpv_read_cursor = 0
         self.entries_in_pending_read_var_request = []
         self.entries_in_pending_read_rpv_request = {}
+        self.read_type_changed = True
 
         if self.active_raw_read_request is not None:
             self.active_raw_read_request.set_completed(False, None, "Stopping communication with device")
@@ -354,8 +299,8 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
             return False
 
         return (
-            len(self.watched_var_entries_sorted_by_address) > 0
-            or len(self.watched_rpv_entries_sorted_by_id) > 0
+            len(self.watched_var_entries) > 0
+            or len(self.watched_rpv_entries) > 0
             or len(self.watched_pointed_var_entries) > 0
             or not self.raw_read_request_queue.empty()
         )
@@ -378,53 +323,78 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
             # Also, pointed var needs to be read after vars with addresses (they include pointers)
 
             if self.actual_read_type == ReadType.Variable:
+                if self.read_type_changed:
+                    self.active_watched_var_entries = sorted(self.watched_var_entries, key=lambda entry: entry.get_address())
+                    self.read_type_changed = False
+
                 request, var_entries_in_request, wrapped_to_beginning = self._make_next_var_entries_request(VarType.AbsoluteAddress)
                 if request is not None:
                     if self.logger.isEnabledFor(logging.DEBUG):  # pragma: no cover
                         self.logger.debug('Registering a MemoryRead request for %d datastore entries. %s' % (len(var_entries_in_request), request))
-                    self._dispatch(request)  # sets pending_request
+                    # No need for addresses_before_dispatch, they don't change like pointed var
+                    success_params = RequestSuccessParams(read_type=self.actual_read_type, addresses_before_dispatch=None)
+                    self._dispatch(request, success_params=success_params)  # sets pending_request
                     self.entries_in_pending_read_var_request = var_entries_in_request
 
                 # if there's nothing to send or that we completed one round
                 if wrapped_to_beginning or self.pending_request is None:
-                    # Re-sort because base address may have changed
-                    self.watched_pointed_var_entries = SortedSet(self.watched_pointed_var_entries)
+                    self.active_watched_var_entries.clear()
+                    self.read_type_changed = True
                     self.actual_read_type = ReadType.PointedVariable
 
             elif self.actual_read_type == ReadType.PointedVariable:
+                if self.read_type_changed:
+                    self.active_watched_pointed_var_entries = sorted(self.watched_pointed_var_entries, key=lambda entry: entry.get_address())
+                    self.read_type_changed = False
+
                 request, var_entries_in_request, wrapped_to_beginning = self._make_next_var_entries_request(VarType.PointedAddress)
                 if request is not None:
                     if self.logger.isEnabledFor(logging.DEBUG):  # pragma: no cover
                         self.logger.debug('Registering a MemoryRead request for %d pointed datastore entries. %s' %
                                           (len(var_entries_in_request), request))
-                    addresses = [x.get_address() for x in var_entries_in_request]
-                    self._dispatch(request, success_params=addresses)  # sets pending_request
+                    success_params = RequestSuccessParams(
+                        read_type=self.actual_read_type,
+                        addresses_before_dispatch=[x.get_address() for x in var_entries_in_request]
+                    )
+                    self._dispatch(request, success_params=success_params)  # sets pending_request
                     self.entries_in_pending_read_var_request = var_entries_in_request
 
                 if wrapped_to_beginning or self.pending_request is None:
+                    self.active_watched_pointed_var_entries.clear()
+                    self.read_type_changed = True
                     self.actual_read_type = ReadType.RuntimePublishedValues
 
             elif self.actual_read_type == ReadType.RuntimePublishedValues:
+                if self.read_type_changed:
+                    self.active_watched_rpv_entries = sorted(self.watched_rpv_entries, key=lambda entry: entry.get_rpv().id)
+                    self.read_type_changed = False
                 request, rpv_entries_in_request, wrapped_to_beginning = self._make_next_read_rpv_request()
                 if request is not None:
                     if self.logger.isEnabledFor(logging.DEBUG):  # pragma: no cover
                         self.logger.debug('Registering a ReadRPV request for %d datastore entries. %s' % (len(rpv_entries_in_request), request))
-                    self._dispatch(request)
+                    success_params = RequestSuccessParams(read_type=self.actual_read_type, addresses_before_dispatch=None)
+                    self._dispatch(request, success_params=success_params)
                     self.entries_in_pending_read_rpv_request = {}
                     for entry in rpv_entries_in_request:
                         self.entries_in_pending_read_rpv_request[entry.get_rpv().id] = entry
 
                 if wrapped_to_beginning or self.pending_request is None:
+                    self.read_type_changed = True
+                    self.active_watched_rpv_entries.clear()
                     self.actual_read_type = ReadType.RawMemRead
 
             elif self.actual_read_type == ReadType.RawMemRead:
+                if self.read_type_changed:
+                    self.read_type_changed = False
                 request, done = self._make_next_raw_mem_read_request()
                 if request is not None:
                     if self.logger.isEnabledFor(logging.DEBUG):  # pragma: no cover
                         self.logger.debug('Registering a MemoryRead request. %s' % (request))
-                    self._dispatch(request)
+                    success_params = RequestSuccessParams(read_type=self.actual_read_type, addresses_before_dispatch=None)
+                    self._dispatch(request, success_params=success_params)
 
                 if done or self.pending_request is None:
+                    self.read_type_changed = True
                     self.actual_read_type = ReadType.Variable  # Next type
 
             else:
@@ -432,7 +402,7 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
 
     def _dispatch(self, request: Request, success_params: Any = None, failure_params: Any = None) -> None:
         """Sends a request to the request dispatcher and assign the corrects completion callbacks"""
-        self._dispatcher.register_request(
+        self.dispatcher.register_request(
             request=request,
             success_callback=self._success_callback,
             failure_callback=self._failure_callback,
@@ -456,11 +426,11 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
         clusters_in_request: List[Cluster] = []
 
         if vartype == VarType.AbsoluteAddress:
-            total_size = len(self.watched_var_entries_sorted_by_address)
+            total_size = len(self.active_watched_var_entries)
             if self.var_read_cursor >= total_size:
                 self.var_read_cursor = 0
         elif vartype == VarType.PointedAddress:
-            total_size = len(self.watched_pointed_var_entries)
+            total_size = len(self.active_watched_pointed_var_entries)
             if self.pointed_var_read_cursor >= total_size:
                 self.pointed_var_read_cursor = 0
         else:
@@ -471,9 +441,9 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
             # .entry because we use a wrapper for SortedSet
             must_skip = False
             if vartype == VarType.AbsoluteAddress:
-                candidate_entry = self.watched_var_entries_sorted_by_address[self.var_read_cursor].entry
+                candidate_entry = self.active_watched_var_entries[self.var_read_cursor]
             elif vartype == VarType.PointedAddress:
-                candidate_entry = self.watched_pointed_var_entries[self.pointed_var_read_cursor].entry
+                candidate_entry = self.active_watched_pointed_var_entries[self.pointed_var_read_cursor]
                 if candidate_entry.pointer_entry.get_value() == 0:
                     must_skip = True  # We refuse to read anything from a pointer to null
             else:
@@ -516,12 +486,12 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
 
             if vartype == VarType.AbsoluteAddress:
                 self.var_read_cursor += 1
-                if self.var_read_cursor >= len(self.watched_var_entries_sorted_by_address):
+                if self.var_read_cursor >= len(self.active_watched_var_entries):
                     self.var_read_cursor = 0
                     cursor_wrapped = True   # Indicates that we completed 1 round of round-robin for variables. Time to process RPVs
             elif vartype == VarType.PointedAddress:
                 self.pointed_var_read_cursor += 1
-                if self.pointed_var_read_cursor >= len(self.watched_pointed_var_entries):
+                if self.pointed_var_read_cursor >= len(self.active_watched_pointed_var_entries):
                     self.pointed_var_read_cursor = 0
                     cursor_wrapped = True   # Indicates that we completed 1 round of round-robin for variables. Time to process RPVs
             else:
@@ -541,11 +511,11 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
         """
         cursor_wrapped = False
         entries_in_request: List[DatastoreRPVEntry] = []
-        if self.rpv_read_cursor >= len(self.watched_rpv_entries_sorted_by_id):
+        if self.rpv_read_cursor >= len(self.active_watched_rpv_entries):
             self.rpv_read_cursor = 0
 
-        while len(entries_in_request) < len(self.watched_rpv_entries_sorted_by_id):
-            next_entry = self.watched_rpv_entries_sorted_by_id[self.rpv_read_cursor].entry
+        while len(entries_in_request) < len(self.active_watched_rpv_entries):
+            next_entry = self.active_watched_rpv_entries[self.rpv_read_cursor]
 
             candidate_list = entries_in_request + [next_entry]
             rpv_candidate_list = [x.get_rpv() for x in candidate_list]
@@ -560,7 +530,7 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
             # We keep this entry.
             entries_in_request = candidate_list
             self.rpv_read_cursor += 1
-            if self.rpv_read_cursor >= len(self.watched_rpv_entries_sorted_by_id):
+            if self.rpv_read_cursor >= len(self.active_watched_rpv_entries):
                 cursor_wrapped = True   # Indicates that we finished one round of round-robin for RPV entries. Times to check the next category
                 self.rpv_read_cursor = 0
 
@@ -601,7 +571,8 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
 
         # We assume tha the device can accept a request with a single read block. Otherwise nothing would work.
 
-        size = min(self.max_response_payload_size, self.active_raw_read_request.size - self.active_raw_read_request_cursor)
+        overhead = self.protocol.read_memory_response_overhead_size_per_block()
+        size = min(self.max_response_payload_size - overhead, self.active_raw_read_request.size - self.active_raw_read_request_cursor)
         address = self.active_raw_read_request.address + self.active_raw_read_request_cursor
         device_request = self.protocol.read_single_memory_block(address=address, length=size)
         self.active_raw_read_request_cursor += size
@@ -648,17 +619,26 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
             return
 
         # Write request have higher priority. Pointed variables can change address between a dispatch and a response.
-        expected_addresses = cast(Optional[List[int]], params)
+        assert isinstance(params, RequestSuccessParams)
+
         entries_to_update = self.entries_in_pending_read_var_request
-        if expected_addresses is not None:  # Pointed Addresses only
-            assert len(expected_addresses) == len(entries_to_update)
+        if params.addresses_before_dispatch is not None:  # Pointed Addresses only
+            assert len(params.addresses_before_dispatch) == len(entries_to_update)
             # Drop entries that changed address during the read operation.
-            entries_to_update = [entry for i, entry in enumerate(entries_to_update) if entry.get_address() == expected_addresses[i]]
+            entries_to_update = [entry for i, entry in enumerate(entries_to_update) if entry.get_address() == params.addresses_before_dispatch[i]]
             if self.logger.isEnabledFor(logging.DEBUG):
                 dropped = len(self.entries_in_pending_read_var_request) - len(entries_to_update)
                 if dropped > 0:
                     self.logger.debug(f"Dropped {dropped} entries for update. Their address changed while reading.")
         self.entries_in_pending_read_var_request = []
+
+        set_to_check_for_watch: Union[Set[DatastoreVariableEntry], Set[DatastorePointedVariableEntry]]
+        if params.read_type == ReadType.PointedVariable:
+            set_to_check_for_watch = self.watched_pointed_var_entries
+        elif params.read_type == ReadType.Variable:
+            set_to_check_for_watch = self.watched_var_entries
+        else:
+            raise NotImplementedError("Impossible read type")
 
         try:
             temp_memory = MemoryContent()
@@ -670,6 +650,8 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
 
             try:
                 for entry in entries_to_update:
+                    if entry not in set_to_check_for_watch:
+                        continue
                     block_addr = self.protocol.get_truncated_address(entry.get_address())
                     raw_data = temp_memory.read(block_addr, entry.get_size())
                     entry.set_value_from_data(raw_data)
