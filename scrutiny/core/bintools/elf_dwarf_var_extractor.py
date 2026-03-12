@@ -14,6 +14,7 @@ from elftools.dwarf.compileunit import CompileUnit
 from elftools.dwarf.dwarfinfo import DWARFInfo
 from elftools.elf.elffile import ELFFile
 
+
 import os
 import logging
 import inspect
@@ -31,9 +32,10 @@ from scrutiny.core.array import TypedArray, Array
 from scrutiny.core.pointer import Pointer
 from scrutiny.core import path_tools
 from scrutiny.core.embedded_enum import *
+from scrutiny.core.logging import DUMPDATA_LOGLEVEL
 from scrutiny.exceptions import EnvionmentNotSetUpException
 from scrutiny import tools
-from scrutiny.core.logging import DUMPDATA_LOGLEVEL
+from scrutiny.tools.sorted_set import SortedSet
 
 from scrutiny.tools.typing import *
 
@@ -568,7 +570,7 @@ class ElfDwarfVarExtractor:
     def make_unique_display_name(cls, fullpath_list: List[str]) -> Dict[str, str]:
         """Build a unique name for a CompileUnit. Do some extensive effort to keep a meaningful name, as short as possible
         and avoid collisions if 2 files has the same name."""
-        cuname_set = set([CuName(x) for x in sorted(fullpath_list)])
+        cuname_set = SortedSet([CuName(x) for x in sorted(fullpath_list)])
         outmap: Dict[str, str] = {}
 
         display_name_set: Set[str] = set()
