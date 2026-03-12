@@ -752,19 +752,21 @@ class TestRawMemoryRead(ScrutinyUnitTest):
         self.reader.set_max_request_payload_size(256)
         self.reader.set_max_response_payload_size(128)
         self.reader.start()
+        self.MAX_BYTES_PER_READ = 128 - self.protocol.read_memory_response_overhead_size_per_block()
 
     def test_simple_read(self):
         for i in range(3):
             self.reader.process()
         self.assertIsNone(self.dispatcher.pop_next())
 
+        PAYLOAD_SIZE = 2 * self.MAX_BYTES_PER_READ + 1
         callback_data = self.CallbackDataContainer()
-        self.reader.request_memory_read(0x1000, 257, callback=functools.partial(self.the_callback, container=callback_data))
-        payload = bytes([random.randint(0, 255) for i in range(257)])
+        self.reader.request_memory_read(0x1000, PAYLOAD_SIZE, callback=functools.partial(self.the_callback, container=callback_data))
+        payload = bytes([random.randint(0, 255) for i in range(PAYLOAD_SIZE)])
 
         for i in range(3):
-            cursor = i * 128
-            size = 128 if i < 2 else 1
+            cursor = i * self.MAX_BYTES_PER_READ
+            size = self.MAX_BYTES_PER_READ if i < 2 else 1
 
             self.reader.process()
             record = self.dispatcher.pop_next()
@@ -775,7 +777,7 @@ class TestRawMemoryRead(ScrutinyUnitTest):
             self.assertEqual(len(request_data['blocks_to_read']), 1)
             self.assertEqual(request_data['blocks_to_read'][0]['address'], 0x1000 + cursor)
             self.assertEqual(request_data['blocks_to_read'][0]['length'], size)
-            response = self.protocol.respond_read_memory_blocks([(0x1000 + cursor, payload[cursor:cursor + 128])])
+            response = self.protocol.respond_read_memory_blocks([(0x1000 + cursor, payload[cursor:cursor + self.MAX_BYTES_PER_READ])])
             record.complete(True, response)
             if i < 2:
                 self.assertEqual(callback_data.call_count, 0)
@@ -787,17 +789,19 @@ class TestRawMemoryRead(ScrutinyUnitTest):
                 self.assertIsNotNone(callback_data.error)
 
     def test_read_failure(self):
+        self.MAX_BYTES_PER_READ = 128 - self.protocol.read_memory_response_overhead_size_per_block()
         for i in range(3):
             self.reader.process()
         self.assertIsNone(self.dispatcher.pop_next())
 
         callback_data = self.CallbackDataContainer()
-        self.reader.request_memory_read(0x1000, 257, callback=functools.partial(self.the_callback, container=callback_data))
-        payload = bytes([random.randint(0, 255) for i in range(257)])
+        payload_size = 2 * self.MAX_BYTES_PER_READ + 1
+        self.reader.request_memory_read(0x1000, payload_size, callback=functools.partial(self.the_callback, container=callback_data))
+        payload = bytes([random.randint(0, 255) for i in range(payload_size)])
 
         for i in range(2):
-            cursor = i * 128
-            size = 128 if i < 2 else 1
+            cursor = i * self.MAX_BYTES_PER_READ
+            size = self.MAX_BYTES_PER_READ if i < 2 else 1
 
             self.reader.process()
             record = self.dispatcher.pop_next()
@@ -808,7 +812,7 @@ class TestRawMemoryRead(ScrutinyUnitTest):
             self.assertEqual(len(request_data['blocks_to_read']), 1)
             self.assertEqual(request_data['blocks_to_read'][0]['address'], 0x1000 + cursor)
             self.assertEqual(request_data['blocks_to_read'][0]['length'], size)
-            response = self.protocol.respond_read_memory_blocks([(0x1000 + cursor, payload[cursor:cursor + 128])])
+            response = self.protocol.respond_read_memory_blocks([(0x1000 + cursor, payload[cursor:cursor + self.MAX_BYTES_PER_READ])])
 
             if i == 0:
                 record.complete(True, response)
@@ -827,13 +831,14 @@ class TestRawMemoryRead(ScrutinyUnitTest):
             self.reader.process()
         self.assertIsNone(self.dispatcher.pop_next())
 
+        PAYLOAD_SIZE = 2 * self.MAX_BYTES_PER_READ + 1
         callback_data = self.CallbackDataContainer()
-        self.reader.request_memory_read(0x1000, 257, callback=functools.partial(self.the_callback, container=callback_data))
-        payload = bytes([random.randint(0, 255) for i in range(257)])
+        self.reader.request_memory_read(0x1000, PAYLOAD_SIZE, callback=functools.partial(self.the_callback, container=callback_data))
+        payload = bytes([random.randint(0, 255) for i in range(PAYLOAD_SIZE)])
 
         for i in range(2):
-            cursor = i * 128
-            size = 128 if i < 2 else 1
+            cursor = i * self.MAX_BYTES_PER_READ
+            size = self.MAX_BYTES_PER_READ if i < 2 else 1
 
             self.reader.process()
             record = self.dispatcher.pop_next()
@@ -846,7 +851,7 @@ class TestRawMemoryRead(ScrutinyUnitTest):
             self.assertEqual(request_data['blocks_to_read'][0]['length'], size)
 
             if i == 0:
-                response = self.protocol.respond_read_memory_blocks([(0x1000 + cursor, payload[cursor:cursor + 128])])
+                response = self.protocol.respond_read_memory_blocks([(0x1000 + cursor, payload[cursor:cursor + self.MAX_BYTES_PER_READ])])
                 record.complete(True, response)
                 self.assertEqual(callback_data.call_count, 0)
             else:
@@ -864,9 +869,10 @@ class TestRawMemoryRead(ScrutinyUnitTest):
             self.reader.process()
         self.assertIsNone(self.dispatcher.pop_next())
 
+        PAYLOAD_SIZE = 2 * self.MAX_BYTES_PER_READ + 1
         callback_data = self.CallbackDataContainer()
         self.reader.add_forbidden_region(0x1000 - 10, 11)
-        self.reader.request_memory_read(0x1000, 257, callback=functools.partial(self.the_callback, container=callback_data))
+        self.reader.request_memory_read(0x1000, PAYLOAD_SIZE, callback=functools.partial(self.the_callback, container=callback_data))
         self.reader.process()
         self.assertEqual(callback_data.call_count, 1)
         self.assertFalse(callback_data.success)     # Failure detection
@@ -875,7 +881,6 @@ class TestRawMemoryRead(ScrutinyUnitTest):
         self.assertGreater(len(callback_data.error), 0)
 
     def test_read_multiple_blocks(self):
-        max_response_size = 128
         for i in range(3):
             self.reader.process()
         self.assertIsNone(self.dispatcher.pop_next())
@@ -899,10 +904,10 @@ class TestRawMemoryRead(ScrutinyUnitTest):
                 payload = payload3
                 address = 0x3000
 
-            nchunk = math.ceil(len(payload) / max_response_size)
+            nchunk = math.ceil(len(payload) / self.MAX_BYTES_PER_READ)
             for i in range(nchunk):
-                cursor = i * max_response_size
-                size = min(max_response_size, len(payload) - cursor)
+                cursor = i * self.MAX_BYTES_PER_READ
+                size = min(self.MAX_BYTES_PER_READ, len(payload) - cursor)
 
                 self.reader.process()
                 record = self.dispatcher.pop_next()
@@ -913,7 +918,7 @@ class TestRawMemoryRead(ScrutinyUnitTest):
                 self.assertEqual(len(request_data['blocks_to_read']), 1)
                 self.assertEqual(request_data['blocks_to_read'][0]['address'], address + cursor)
                 self.assertEqual(request_data['blocks_to_read'][0]['length'], size)
-                response = self.protocol.respond_read_memory_blocks([(address + cursor, payload[cursor:cursor + max_response_size])])
+                response = self.protocol.respond_read_memory_blocks([(address + cursor, payload[cursor:cursor + self.MAX_BYTES_PER_READ])])
                 record.complete(True, response)
                 if i < nchunk - 1:
                     self.assertEqual(callback_data.call_count, msg)
