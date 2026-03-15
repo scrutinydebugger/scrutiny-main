@@ -662,8 +662,8 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
                     addr = entry.get_address()
                     if addr is not None:    # Should always be True.
                         block_addr = self.protocol.get_truncated_address(addr)
-                    raw_data = temp_memory.read(block_addr, entry.get_size())
-                    entry.set_value_from_data(raw_data)
+                        raw_data = temp_memory.read(block_addr, entry.get_size())
+                        entry.set_value_from_data(raw_data)
                     else:
                         # Unset addresses or Nullptr are skipped. Changing addresses are also skipped.
                         # We should never reach this.

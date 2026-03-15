@@ -259,7 +259,7 @@ class DatastoreEntry(abc.ABC):
         self.invalid_reason = invalid_reason
         self.last_value_update_server_time_us = server_timebase.get_micro()
         if invalid_reason is None or invalid_reason != previous_invalid_reason:
-        self.execute_value_change_callback()
+            self.execute_value_change_callback()
 
     def get_value_change_server_time_us(self) -> float:
         """Returns the timestamp of the last value update made to this entry """

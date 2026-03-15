@@ -287,8 +287,8 @@ class CSVLogger:
 
             self._actual_vals[col_index] = update.value
             if update.value is not None:
-            if update.watchable.datatype == EmbeddedDataType.boolean and self._convert_bool_to_int:
-                self._actual_vals[col_index] = int(update.value)
+                if update.watchable.datatype == EmbeddedDataType.boolean and self._convert_bool_to_int:
+                    self._actual_vals[col_index] = int(update.value)
             self._new_val_flags[col_index] = True
 
     def _flush_row(self) -> None:

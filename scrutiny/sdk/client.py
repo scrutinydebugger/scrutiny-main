@@ -1056,7 +1056,7 @@ class ScrutinyClient:
             if update.value is None:
                 watchable._set_invalid(update.value_status, timestamp=update_dt)
             else:
-            watchable._update_value(update.value, timestamp=update_dt)
+                watchable._update_value(update.value, timestamp=update_dt)
             updated_watchables.append(watchable)
 
         for listener in self._listeners:

@@ -516,56 +516,56 @@ class TestListeners(ScrutinyUnitTest):
             self.assertFalse(os.path.exists(os.path.join(tempdir, 'my_file_0003.csv')))
             f1 = f2 = f3 = None
             try:
-            f1 = open(os.path.join(tempdir, 'my_file_0000.csv'), 'r', encoding=csv_config.encoding, newline=csv_config.newline)
-            f2 = open(os.path.join(tempdir, 'my_file_0001.csv'), 'r', encoding=csv_config.encoding, newline=csv_config.newline)
-            f3 = open(os.path.join(tempdir, 'my_file_0002.csv'), 'r', encoding=csv_config.encoding, newline=csv_config.newline)
-            for f in [f1, f2, f3]:
-                nrow = 100
-                start = 0
-                if f is f2:
-                    start = 100
-                if f is f3:
-                    start = 200
-                    nrow = 50
-                reader = csv.reader(f, delimiter=csv_config.delimiter, quotechar=csv_config.quotechar, quoting=csv_config.quoting)
-                rows = iter(reader)
-                fullpath_headers = next(rows)
-                headers = next(rows)
-                self.assertEqual(headers[0], 'Datetime')
-                self.assertEqual(headers[1], 'Time [s]')
-                self.assertEqual(headers[-1], 'update flags')
-                all_watchables = sorted([self.w1, self.w2, self.w3, self.w4, self.w5], key=lambda x: x.server_path)
-                index = 2
-                for watchable in all_watchables:
-                    self.assertEqual(fullpath_headers[index], watchable.server_path)
-                    self.assertEqual(headers[index], watchable.name)
-                    index += 1
+                f1 = open(os.path.join(tempdir, 'my_file_0000.csv'), 'r', encoding=csv_config.encoding, newline=csv_config.newline)
+                f2 = open(os.path.join(tempdir, 'my_file_0001.csv'), 'r', encoding=csv_config.encoding, newline=csv_config.newline)
+                f3 = open(os.path.join(tempdir, 'my_file_0002.csv'), 'r', encoding=csv_config.encoding, newline=csv_config.newline)
+                for f in [f1, f2, f3]:
+                    nrow = 100
+                    start = 0
+                    if f is f2:
+                        start = 100
+                    if f is f3:
+                        start = 200
+                        nrow = 50
+                    reader = csv.reader(f, delimiter=csv_config.delimiter, quotechar=csv_config.quotechar, quoting=csv_config.quoting)
+                    rows = iter(reader)
+                    fullpath_headers = next(rows)
+                    headers = next(rows)
+                    self.assertEqual(headers[0], 'Datetime')
+                    self.assertEqual(headers[1], 'Time [s]')
+                    self.assertEqual(headers[-1], 'update flags')
+                    all_watchables = sorted([self.w1, self.w2, self.w3, self.w4, self.w5], key=lambda x: x.server_path)
+                    index = 2
+                    for watchable in all_watchables:
+                        self.assertEqual(fullpath_headers[index], watchable.server_path)
+                        self.assertEqual(headers[index], watchable.name)
+                        index += 1
 
-                all_rows = list(rows)
-                self.assertEqual(len(all_rows), nrow)
-                for i in range(start, start + nrow):
-                    row = all_rows[i - start]
-                    datetime.strptime(row[0], r'%Y-%m-%d %H:%M:%S')    # check it can be parsed
-                    float(row[1])  # ensure it can be parsed
+                    all_rows = list(rows)
+                    self.assertEqual(len(all_rows), nrow)
+                    for i in range(start, start + nrow):
+                        row = all_rows[i - start]
+                        datetime.strptime(row[0], r'%Y-%m-%d %H:%M:%S')    # check it can be parsed
+                        float(row[1])  # ensure it can be parsed
 
-                    for col in range(2, len(headers) - 1):
-                        if headers[col] == self.w1.server_path:
-                            self.assertEqual(row[col], i * 1.1)
-                        elif headers[col] == self.w2.server_path:
-                            self.assertEqual(row[col], -2 * i)
-                        elif headers[col] == self.w3.server_path:
-                            self.assertEqual(row[col], 3 * i)
-                        elif headers[col] == self.w4.server_path:
-                            self.assertEqual(row[col], i * 4.4123)
-                        elif headers[col] == self.w5.server_path:
-                            self.assertEqual(row[col], 1 if i % 2 == 0 else 0)
+                        for col in range(2, len(headers) - 1):
+                            if headers[col] == self.w1.server_path:
+                                self.assertEqual(row[col], i * 1.1)
+                            elif headers[col] == self.w2.server_path:
+                                self.assertEqual(row[col], -2 * i)
+                            elif headers[col] == self.w3.server_path:
+                                self.assertEqual(row[col], 3 * i)
+                            elif headers[col] == self.w4.server_path:
+                                self.assertEqual(row[col], i * 4.4123)
+                            elif headers[col] == self.w5.server_path:
+                                self.assertEqual(row[col], 1 if i % 2 == 0 else 0)
             finally:
                 if f1 is not None:
-            f1.close()
+                    f1.close()
                 if f2 is not None:
-            f2.close()
+                    f2.close()
                 if f3 is not None:
-            f3.close()
+                    f3.close()
 
     def test_csv_writer_listener_bad_params(self):
         with TemporaryDirectory() as tempdir:

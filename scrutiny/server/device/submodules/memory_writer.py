@@ -326,17 +326,17 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
                     if address is None:
                         allowed = False
                     else:
-                    # We don't check for bitfield size because the device will access the whole word anyway
-                    size = update_request.entry.get_data_type().get_size_byte()
-                    candidate_region = MemoryRegion(start=address, size=size)
-                    for readonly_region in self.readonly_regions:
-                        if candidate_region.touches(readonly_region):
-                            allowed = False
-                            break
-                    for forbidden_region in self.forbidden_regions:
-                        if candidate_region.touches(forbidden_region):
-                            allowed = False
-                            break
+                        # We don't check for bitfield size because the device will access the whole word anyway
+                        size = update_request.entry.get_data_type().get_size_byte()
+                        candidate_region = MemoryRegion(start=address, size=size)
+                        for readonly_region in self.readonly_regions:
+                            if candidate_region.touches(readonly_region):
+                                allowed = False
+                                break
+                        for forbidden_region in self.forbidden_regions:
+                            if candidate_region.touches(forbidden_region):
+                                allowed = False
+                                break
 
                     if not allowed:
                         if self.logger.isEnabledFor(logging.DEBUG):  # pragma: no cover
