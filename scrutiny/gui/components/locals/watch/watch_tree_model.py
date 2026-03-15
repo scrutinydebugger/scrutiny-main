@@ -63,7 +63,11 @@ class ValueStandardItem(QStandardItem):
         value_enum = cast(Optional[EmbeddedEnum], self.data(ENUM_DATA_ROLE))
         display_txt = str(value_to_set)
         if value_to_set is None:
-            display_txt = f"N/A ({status.name})"
+            display_txt = f"N/A"
+            if status == ValueStatus.NullPtrDereferenced:
+                display_txt += " (null)"
+            elif status == ValueStatus.ForbiddenRegion:
+                display_txt += " (forbidden)"
         elif isinstance(value_to_set, float):
             display_txt = '%g' % value_to_set
         elif isinstance(value_to_set, int):
