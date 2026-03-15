@@ -31,7 +31,7 @@ class TextStreamListener(BaseListener):
         - <time> is the relative time in millisecond since the listener has been started
         - <type> is the watchable type : variable, alias or rpv
         - <datatype> is the value :class:`datatype<scrutiny.core.basic_types.EmbeddedDataType>`, such as : sint8, float32, uint16, etc.
-        - <path> is the tree path used to identify the watchable at the server level    
+        - <path> is the tree path used to identify the watchable at the server level
         - <value> Value converted to text
 
         Adding/removing subscriptions while running is allowed

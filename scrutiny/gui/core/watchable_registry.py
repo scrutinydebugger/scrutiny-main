@@ -373,7 +373,7 @@ class WatchableRegistry:
 
         :param watcher_id: A string identifying the watcher
         :param value_update_callback: The callback to be called when a ValueUpdate is received
-        :param unwatch_callback: A callback to be called when the watcher unwatch an element. Can be triggered by :meth:`unwatch<scrutiny.gui.core.watchable_registry.WatchableRegistry.unwatch>` 
+        :param unwatch_callback: A callback to be called when the watcher unwatch an element. Can be triggered by :meth:`unwatch<scrutiny.gui.core.watchable_registry.WatchableRegistry.unwatch>`
             or by the element being watched becoming unavailable
         :param ignore_duplicate: A string identifying the watcher
 
@@ -404,8 +404,8 @@ class WatchableRegistry:
         return len(self._watchers)
 
     def watch_fqn(self, watcher_id: WatcherIdType, fqn: str) -> int:
-        """Adds a watcher on the given watchable and register a callback to be 
-        invoked when its value is updated 
+        """Adds a watcher on the given watchable and register a callback to be
+        invoked when its value is updated
 
         :param watcher_id: A string/int that identifies the owner of the callback. Passed back when the callback is invoked
         :param fqn: The watchable fully qualified name
@@ -416,8 +416,8 @@ class WatchableRegistry:
 
     @enforce_thread(QT_THREAD_NAME)
     def watch(self, watcher_id: WatcherIdType, watchable_type: sdk.WatchableType, path: str) -> int:
-        """Adds a watcher on the given watchable and register a callback to be 
-        invoked when its value is updated 
+        """Adds a watcher on the given watchable and register a callback to be
+        invoked when its value is updated
 
         :param watcher_id: A string/int that identifies the owner of the callback. Passed back when the callback is invoked
         :param watchable_type: The watchable type
@@ -529,7 +529,7 @@ class WatchableRegistry:
         """Return the number of watcher on a node, identified by its registry_id
 
         :param registry_id: The watchable registry_id
-        :return: The number of watchers 
+        :return: The number of watchers
         """
         try:
             entry = self._watched_entries[registry_id]
@@ -658,7 +658,7 @@ class WatchableRegistry:
         """Write content of the given types.
         Triggers ``changed``.  May trigger ``filled`` if all types have data after calling this function.
 
-        :param data: The data to add. Classified in dict[watchable_type][path]. 
+        :param data: The data to add. Classified in dict[watchable_type][path].
         """
         touched: Dict[sdk.WatchableType, bool] = dict((wt, False) for wt in sdk.WatchableType.all())
 
@@ -678,7 +678,7 @@ class WatchableRegistry:
     @enforce_thread(QT_THREAD_NAME)
     def clear_content_by_type(self, watchable_types: Union[sdk.WatchableType, Iterable[sdk.WatchableType]]) -> bool:
         """
-        Clear the content of the given type from the registry. 
+        Clear the content of the given type from the registry.
         May triggers ``changed`` and ``cleared`` if data was actually removed.
 
         :return: ``True`` if data was removed. ``False`` if the nothing was removed (already empty)
@@ -729,7 +729,7 @@ class WatchableRegistry:
         """
         Clear all the content from the registry.
 
-        :return: ``True`` if data was removed. ``False`` if the nothing was removed (already empty) 
+        :return: ``True`` if data was removed. ``False`` if the nothing was removed (already empty)
         """
         had_data = False
         for wt in [sdk.WatchableType.Variable, sdk.WatchableType.Alias, sdk.WatchableType.RuntimePublishedValue]:
@@ -802,7 +802,7 @@ class WatchableRegistry:
         @staticmethod
         def make(watchable_type: sdk.WatchableType, path: str) -> str:
             """Create a string representation that conveys enough information to find a specific element in the registry.
-            Contains the type and the tree path. 
+            Contains the type and the tree path.
 
             :param watchable_type: The SDK watchable type
             :param path: The tree path

@@ -38,7 +38,7 @@ for offset in range(64):
 
 @dataclass(init=False, slots=True)
 class VariableLayout:
-    """Contain the information necessary to decode or encode a variable in memory. 
+    """Contain the information necessary to decode or encode a variable in memory.
     Does not contain it's location, just its bit format"""
 
     vartype: EmbeddedDataType
@@ -242,7 +242,7 @@ class Variable:
         return isinstance(self.location, AbsoluteLocation)
 
     def has_pointed_address(self) -> bool:
-        """Return ``True`` if the location is an pointed address, meaning it refers to another 
+        """Return ``True`` if the location is an pointed address, meaning it refers to another
         variable path + offset. Returns ``False`` otherwise"""
         return isinstance(self.location, ResolvedPathPointedLocation)
 

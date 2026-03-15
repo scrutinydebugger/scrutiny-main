@@ -21,7 +21,7 @@ void my_user_command_callback(
 {
     if (subfunction == 1){
         std::cout << "Hello" << std::endl;
-    } 
+    }
     else if (subfunction == 2) {
         std::cout << " World" << std::endl;
     }
@@ -45,7 +45,7 @@ int main(void){
     scrutiny::Config config;
     config.set_buffers(
         scrutiny_rx_buffer, sizeof(scrutiny_rx_buffer),     // Receive
-        scrutiny_tx_buffer, sizeof(scrutiny_tx_buffer)      // Transmit 
+        scrutiny_tx_buffer, sizeof(scrutiny_tx_buffer)      // Transmit
         );
 
     // ==== User Command callback! ======
@@ -54,11 +54,11 @@ int main(void){
 
     scrutiny::MainHandler scrutiny_main;
     scrutiny_main.init(&config);
-    
+
     uint32_t last_timestamp = get_timestamp_microsec();
     while(true){
         uint32_t const timestamp = get_timestamp_microsec();
-        // ... 
+        // ...
         // ...
         uint32_t const time_delta = (timestamp-last_timestamp);
         scrutiny_main.process( time_delta*10U );  // Timesteps are multiples of 100ns

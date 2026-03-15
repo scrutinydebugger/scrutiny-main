@@ -4,7 +4,7 @@ Accessing variables
 ===================
 
 In the SDK, Variables, Aliases, :abbr:`RPV (Runtime Published Values)` are presented to the client side through an interface called a ``watchable``, e.g. something you can watch.
-Some watchables are available only when the server has loaded the :abbr:`SFD (Scrutiny Firmware Description)` matching the device firmware (Aliases and Variable), others are available as 
+Some watchables are available only when the server has loaded the :abbr:`SFD (Scrutiny Firmware Description)` matching the device firmware (Aliases and Variable), others are available as
 soon as a device is connected (RPV)
 
 .. list-table:: Watchable types
@@ -30,25 +30,25 @@ Basics
 
 The first step to access a watchable, is to first tell the server that we want to subscribe to update event on that watchable.
 To do so, we use the :meth:`watch<scrutiny.sdk.client.ScrutinyClient.watch>` method and specify the watchable's path.
-The path is dependent on the firmware and is typically known beforehand. 
+The path is dependent on the firmware and is typically known beforehand.
 It's also possible to query the server for a list of available watchables, a feature utilized by the GUI.
 
-For scripts based on the :abbr:`SDK (Software Development Kit)`,  it is generally assumed that the elements to be accessed are predetermined 
+For scripts based on the :abbr:`SDK (Software Development Kit)`,  it is generally assumed that the elements to be accessed are predetermined
 and won't necessitate user input for selection.
 
 -----
 
 .. automethod:: scrutiny.sdk.client.ScrutinyClient.watch
 
-Once an element is being watched, the server begins polling for its value. 
-Each time the value is updated, the server broadcasts a value update to all subscribers, in this case, our client. 
-Concurrently, a background thread actively listens for these updates and 
+Once an element is being watched, the server begins polling for its value.
+Each time the value is updated, the server broadcasts a value update to all subscribers, in this case, our client.
+Concurrently, a background thread actively listens for these updates and
 modifies the value that the :class:`WatchableHandle<scrutiny.sdk.watchable_handle.WatchableHandle>` refers to accordingly.
 
 Calling :meth:`watch<scrutiny.sdk.client.ScrutinyClient.watch>` multiple times on the same element will always return the same handle.
-It is possible to query whether a handle already exists for a given element using 
-:meth:`try_get_existing_watch_handle<scrutiny.sdk.client.ScrutinyClient.try_get_existing_watch_handle>` and 
-:meth:`try_get_existing_watch_handle_by_server_id<scrutiny.sdk.client.ScrutinyClient.try_get_existing_watch_handle_by_server_id>`. 
+It is possible to query whether a handle already exists for a given element using
+:meth:`try_get_existing_watch_handle<scrutiny.sdk.client.ScrutinyClient.try_get_existing_watch_handle>` and
+:meth:`try_get_existing_watch_handle_by_server_id<scrutiny.sdk.client.ScrutinyClient.try_get_existing_watch_handle_by_server_id>`.
 A handle will exist if a previous call to  :meth:`watch<scrutiny.sdk.client.ScrutinyClient.watch>` has been done.
 
 .. automethod:: scrutiny.sdk.client.ScrutinyClient.try_get_existing_watch_handle
@@ -62,7 +62,7 @@ A handle will exist if a previous call to  :meth:`watch<scrutiny.sdk.client.Scru
 .. autoclass:: scrutiny.sdk.watchable_handle.WatchableHandle
     :exclude-members: __new__, __init__
     :member-order: bysource
-    :members: server_path, name, type, datatype, value, value_bool, value_int, value_float, 
+    :members: server_path, name, type, datatype, value, value_bool, value_int, value_float,
         value_enum, has_enum, get_enum, parse_enum_val,
         last_update_timestamp, last_write_timestamp, update_counter,
         var_details, alias_details, rpv_details, server_id, is_dead
@@ -76,15 +76,15 @@ A handle will exist if a previous call to  :meth:`watch<scrutiny.sdk.client.Scru
 -----
 
 After getting a handle to the watchable, the :attr:`value<scrutiny.sdk.watchable_handle.WatchableHandle.value>` property and its derivative (
-:attr:`value_int<scrutiny.sdk.watchable_handle.WatchableHandle.value_int>`, 
-:attr:`value_float<scrutiny.sdk.watchable_handle.WatchableHandle.value_float>`, 
+:attr:`value_int<scrutiny.sdk.watchable_handle.WatchableHandle.value_int>`,
+:attr:`value_float<scrutiny.sdk.watchable_handle.WatchableHandle.value_float>`,
 :attr:`value_bool<scrutiny.sdk.watchable_handle.WatchableHandle.value_bool>`,
-:attr:`value_enum<scrutiny.sdk.watchable_handle.WatchableHandle.value_enum>`) undergo automatic updates. These values are invalid until their initial update, 
-meaning that after the call to :meth:`watch<scrutiny.sdk.client.ScrutinyClient.watch>`, there is a period of time where accessing the 
+:attr:`value_enum<scrutiny.sdk.watchable_handle.WatchableHandle.value_enum>`) undergo automatic updates. These values are invalid until their initial update,
+meaning that after the call to :meth:`watch<scrutiny.sdk.client.ScrutinyClient.watch>`, there is a period of time where accessing the
 :attr:`value<scrutiny.sdk.watchable_handle.WatchableHandle.value>`
 property will raise a :class:`InvalidValueError<scrutiny.sdk.exceptions.InvalidValueError>`.
 
-To await a single value update from the watchable, one can utilize the :meth:`WatchableHandle.wait_update<scrutiny.sdk.watchable_handle.WatchableHandle.wait_update>` 
+To await a single value update from the watchable, one can utilize the :meth:`WatchableHandle.wait_update<scrutiny.sdk.watchable_handle.WatchableHandle.wait_update>`
 method. Alternatively, to wait for updates from all watched variables at once, the
 :meth:`ScrutinyClient.wait_new_value_for_all<scrutiny.sdk.client.ScrutinyClient.wait_new_value_for_all>` method can be invoked.
 
@@ -92,7 +92,7 @@ method. Alternatively, to wait for updates from all watched variables at once, t
 
     import time
     from scrutiny.sdk.client import ScrutinyClient
-    
+
     client = ScrutinyClient()
     with client.connect('localhost', 8765):
         w1 = client.watch('/alias/my_alias1')
@@ -100,29 +100,29 @@ method. Alternatively, to wait for updates from all watched variables at once, t
         w3 = client.watch('/var/main.cpp/some_func/some_var')
         client.wait_new_value_for_all() # Make sure all watchables have their first value available
 
-        while w1.value_bool:            # Value updated by a background thread 
+        while w1.value_bool:            # Value updated by a background thread
             print(f"w2 = {w2.value}")   # Value updated by a background thread
             time.sleep(0.1)
-        
+
         w3.value = 123  # Blocking write. This statement blocks until the device has confirmed that the variable is correctly written (or raise on failure).
         w3.value = 'floor(1.23e5*cos(radians(5^2)))' # The expression will be parsed by the server. The value written will be 111475
 
-.. note:: 
+.. note::
 
     Reading and writing a watchable may raise an exception.
 
-    - Reading : When value is unavailable. This will happen if 
+    - Reading : When value is unavailable. This will happen if
         a. The watchable has never been updated (small window of time after subscription)
         b. The server disconnects
         c. The device is disconnected
 
-    - Writing : When the value cannot be written. This will happen if 
+    - Writing : When the value cannot be written. This will happen if
         a. The server disconnects
         b. The device is disconnected
         c. Writing is actively denied by the device. (Communication error or protected memory region)
         d. Timeout: The write confirmation takes more time than the client ``write_timeout``
 
-As demonstrated in the preceding example, device access is executed in a fully synchronized manner. 
+As demonstrated in the preceding example, device access is executed in a fully synchronized manner.
 Consequently, a script utilizing the Scrutiny Python SDK can be perceived as a thread operating on the embedded device with a slower memory access time.
 
 -----
@@ -130,26 +130,26 @@ Consequently, a script utilizing the Scrutiny Python SDK can be perceived as a t
 Watchable metadata
 ------------------
 
-It is possible to query the server for the watchable metadata, without actually subscribing for value updates. 
+It is possible to query the server for the watchable metadata, without actually subscribing for value updates.
 The metadata content varies according to the watchable type.
 
 .. automethod:: scrutiny.sdk.client.ScrutinyClient.get_watchable_info
 
 -----
 
-For convenience, 3 specialization of :meth:`get_watchable_info<scrutiny.sdk.client.ScrutinyClient.get_watchable_info>` are available for the case only 
-one watchable of a given type is of interest. 
+For convenience, 3 specialization of :meth:`get_watchable_info<scrutiny.sdk.client.ScrutinyClient.get_watchable_info>` are available for the case only
+one watchable of a given type is of interest.
 
 
-.. automethod:: scrutiny.sdk.client.ScrutinyClient.get_var_watchable_info    
-
------
-
-.. automethod:: scrutiny.sdk.client.ScrutinyClient.get_alias_watchable_info    
+.. automethod:: scrutiny.sdk.client.ScrutinyClient.get_var_watchable_info
 
 -----
 
-.. automethod:: scrutiny.sdk.client.ScrutinyClient.get_rpv_watchable_info    
+.. automethod:: scrutiny.sdk.client.ScrutinyClient.get_alias_watchable_info
+
+-----
+
+.. automethod:: scrutiny.sdk.client.ScrutinyClient.get_rpv_watchable_info
 
 -----
 
@@ -160,14 +160,14 @@ The metadata structures are as follow
     :member-order: groupwise
     :members:
     :inherited-members:
-    
+
 -----
 
 .. autoclass:: scrutiny.sdk.DetailedAliasWatchableConfiguration
     :exclude-members: __new__, __init__
     :member-order: groupwise
     :members:
-    :inherited-members:    
+    :inherited-members:
 
 -----
 
@@ -175,11 +175,11 @@ The metadata structures are as follow
     :exclude-members: __new__, __init__
     :member-order: groupwise
     :members:
-    :inherited-members:    
+    :inherited-members:
 
 -----
 
-Example 
+Example
 #######
 
 .. code-block:: python
@@ -192,7 +192,7 @@ Example
 Detecting a value change
 ------------------------
 
-When developing a script that uses the SDK, it is common to have some back and forth between the device and the script. 
+When developing a script that uses the SDK, it is common to have some back and forth between the device and the script.
 A good example would be the case of a test sequence, one could write a sequence that looks like this.
 
 1. Write a GPIO
@@ -200,15 +200,15 @@ A good example would be the case of a test sequence, one could write a sequence 
 3. Start an EEPROM clear sequence
 4. Wait for the sequence to finish
 
-Each time the value is updated by the server, the :attr:`WatchableHandle.update_counter<scrutiny.sdk.watchable_handle.WatchableHandle.update_counter>` gets incremented. 
-Looking for this value is helpful to detect a change. 
-Two methods can help the user to wait for remote events. :meth:`WatchableHandle.wait_update<scrutiny.sdk.watchable_handle.WatchableHandle.wait_update>` and 
+Each time the value is updated by the server, the :attr:`WatchableHandle.update_counter<scrutiny.sdk.watchable_handle.WatchableHandle.update_counter>` gets incremented.
+Looking for this value is helpful to detect a change.
+Two methods can help the user to wait for remote events. :meth:`WatchableHandle.wait_update<scrutiny.sdk.watchable_handle.WatchableHandle.wait_update>` and
 :meth:`WatchableHandle.wait_value<scrutiny.sdk.watchable_handle.WatchableHandle.wait_value>`
 
-The server periodically broadcasts value updates, typically at a rapid pace. 
-The delay in updates is primarily dependent on the saturation level of the communication link with the device. 
-Factors such as the number of watchable subscriptions and the available bandwidth will influence the update rate. 
-The server polls the device for each watchable in a round-robin scheme. When value updates are available, they are aggregated and flushed to all clients. 
+The server periodically broadcasts value updates, typically at a rapid pace.
+The delay in updates is primarily dependent on the saturation level of the communication link with the device.
+Factors such as the number of watchable subscriptions and the available bandwidth will influence the update rate.
+The server polls the device for each watchable in a round-robin scheme. When value updates are available, they are aggregated and flushed to all clients.
 In most common scenarios, a value update can be expected within a few hundred milliseconds.
 
 
@@ -229,12 +229,12 @@ Batch writing
 
 Writing multiple values in a row is inefficient due to the latency associated with device access.
 To optimize speed, one can consolidate multiple write operations into a single batched request using the
-:meth:`ScrutinyClient.batch_write<scrutiny.sdk.client.ScrutinyClient.batch_write>` method. 
+:meth:`ScrutinyClient.batch_write<scrutiny.sdk.client.ScrutinyClient.batch_write>` method.
 
-In a batch write operation, multiple write requests are queued and dispatched to the server in a single API call. 
-The server then executes all write operations in the correct order and confirms the successful completion of the entire batch. 
+In a batch write operation, multiple write requests are queued and dispatched to the server in a single API call.
+The server then executes all write operations in the correct order and confirms the successful completion of the entire batch.
 
-It is permissible to perform multiple writes to the same watchable within the same batch. 
+It is permissible to perform multiple writes to the same watchable within the same batch.
 The server ensures that each write operation is completed and acknowledged by the device before proceeding to the next operation.
 
 -----
@@ -243,7 +243,7 @@ The server ensures that each write operation is completed and acknowledged by th
 
 -----
 
-Example 
+Example
 #######
 
 .. code-block:: python
@@ -270,8 +270,8 @@ Example
 Accessing the raw memory
 ------------------------
 
-In certain scenarios, it may be advantageous to directly access the device memory, 
-bypassing the server's interpretive layer that transforms the data into a meaningful value. 
+In certain scenarios, it may be advantageous to directly access the device memory,
+bypassing the server's interpretive layer that transforms the data into a meaningful value.
 Such scenarios could include:
 
 - Dumping a data buffer
@@ -296,7 +296,7 @@ Available watchables
 
 It is possible to query the server for the current number of available watchable items and to download their definition
 
-This feature is typically not required for automation scripts; however, it can be necessary for presenting users with selectable watchable items. 
+This feature is typically not required for automation scripts; however, it can be necessary for presenting users with selectable watchable items.
 It is currently used by the Scrutiny GUI to populate the Variable List widget
 
 .. automethod:: scrutiny.sdk.client.ScrutinyClient.get_watchable_count
@@ -342,4 +342,3 @@ Following is the object returned :meth:`download_watchable_list<scrutiny.sdk.cli
     :exclude-members: __new__, __init__
     :member-order: bysource
     :members:
-    

@@ -54,7 +54,7 @@ The inheritance hierarchy goes as follows.
 
 -----
 
-.. autoclass:: scrutiny.sdk.exceptions.BadTypeError 
+.. autoclass:: scrutiny.sdk.exceptions.BadTypeError
     :exclude-members: __init__, __new__
 
 -----

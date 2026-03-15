@@ -77,7 +77,7 @@ class VarListComponentTreeModel(WatchableTreeModel):
 
     def find_item_by_fqn(self, fqn: str) -> Optional[BaseWatchableRegistryTreeStandardItem]:
         """Find an item in the model using the Watchable registry.
-        In this model, each node has a Fully Qualified Name defined and data is organized 
+        In this model, each node has a Fully Qualified Name defined and data is organized
         following the registry structure.
 
         :param fqn: The Fully Qualified Name to search for

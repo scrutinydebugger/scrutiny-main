@@ -1,6 +1,6 @@
 // main.cpp
 
-#ifdef ENABLE_HIL_TESTING    
+#ifdef ENABLE_HIL_TESTING
 static volatile bool run_app = false; // Scrutiny will write that.
 #else
 constexpr bool run_app = true;

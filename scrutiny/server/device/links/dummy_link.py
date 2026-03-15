@@ -16,7 +16,7 @@ import logging
 
 class DummyLink(AbstractLink):
     """
-    Non-thread safe fake communication channel that implement the 
+    Non-thread safe fake communication channel that implement the
     required interface to talk with a device. Used for unit testing
     """
     to_device_data: "queue.Queue[bytes]"

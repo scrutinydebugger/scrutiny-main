@@ -17,7 +17,7 @@ void apply_comand(float cmd);   // Apply the command computed by the controller 
 void start_scheduler_task(void(*func)() , float freq);
 void idle_task();
 void init_scrutiny();
-void scrutiny_run_10khz_loop_handler(); 
+void scrutiny_run_10khz_loop_handler();
 
 void control_task_10khz()
 {
@@ -25,13 +25,13 @@ void control_task_10khz()
 #ifdef ENABLE_TUNNING
     static volatile bool manual_control = false;
     static volatile float manual_control_setpoint = 0.0f;
-    
+
     if (manual_control)
     {
         setpoint=manual_control_setpoint;
     }
     else
-#endif    
+#endif
     {
         setpoint = get_setpoint();
     }
@@ -41,7 +41,7 @@ void control_task_10khz()
     apply_comand(m_controller.out());
 
     // Scrutiny loop handler would be run here. Enables Datalogging
-    scrutiny_run_10khz_loop_handler();  
+    scrutiny_run_10khz_loop_handler();
 }
 
 int main(){

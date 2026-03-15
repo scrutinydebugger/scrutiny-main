@@ -23,7 +23,7 @@ ads--CTitleBarButton {
     image: none;
 }
 
-#tabsMenuButton {   
+#tabsMenuButton {
     /* Icon in light/dark specific */
     qproperty-iconSize: 16px;
 }
@@ -203,7 +203,7 @@ ads--CAutoHideDockContainer #dockAreaAutoHideButton {
 
 ads--CAutoHideDockContainer #dockAreaMinimizeButton {
 	/* icon is light/dark specific */
-	qproperty-iconSize: 16px;	
+	qproperty-iconSize: 16px;
 }
 
 ads--CAutoHideDockContainer ads--CTitleBarButton:hover {

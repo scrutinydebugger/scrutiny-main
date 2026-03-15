@@ -23,7 +23,7 @@ class CommControl(BaseCommand):
         """Request for a device to identify itself with his firmware ID and name"""
 
         Heartbeat = 2
-        """Keep a connection to a device alive. Meaning the device will refuse any other 
+        """Keep a connection to a device alive. Meaning the device will refuse any other
         incoming Connect request as long heartbeat are being sent """
 
         GetParams = 3

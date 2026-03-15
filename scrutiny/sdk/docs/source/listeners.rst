@@ -4,16 +4,16 @@ Listeners
 Introduction
 ------------
 
-Synchronous access to watchables (variables, aliases, and :abbr:`RPVs (Runtime Published Value)`), as outlined in the 
-:ref:`Accessing Variables<page_accessing_variables>` section, can be useful. 
+Synchronous access to watchables (variables, aliases, and :abbr:`RPVs (Runtime Published Value)`), as outlined in the
+:ref:`Accessing Variables<page_accessing_variables>` section, can be useful.
 However, it has certain limitations, especially when monitoring multiple values simultaneously.
 
-For example, if one wants to log a list of watchables, it would required to continuously loop and monitor the 
-:attr:`udpate_counter<scrutiny.sdk.watchable_handle.WatchableHandle.update_counter>` property to detect changes. 
+For example, if one wants to log a list of watchables, it would required to continuously loop and monitor the
+:attr:`udpate_counter<scrutiny.sdk.watchable_handle.WatchableHandle.update_counter>` property to detect changes.
 However, this approach does not guarantee that all changes will be noticed by the user thread.
 In addition to being unreliable, this technique will cause unnecessary CPU usage.
 
-To address this issue, the :class:`Client<scrutiny.sdk.client.ScrutinyClient>` object can function as a `Notifier`. 
+To address this issue, the :class:`Client<scrutiny.sdk.client.ScrutinyClient>` object can function as a `Notifier`.
 It informs a list of listeners when it receives a value update broadcast from the server.
 Registering a listener is done through :meth:`register_listener<scrutiny.sdk.client.ScrutinyClient.register_listener>`
 
@@ -24,7 +24,7 @@ Registering a listener is done through :meth:`register_listener<scrutiny.sdk.cli
 Using a listener
 ----------------
 
-In order to use a listener, one must create it, register it to the client, subscribe to watchables elements with 
+In order to use a listener, one must create it, register it to the client, subscribe to watchables elements with
 :meth:`subscribe()<scrutiny.sdk.listeners.BaseListener.subscribe>` and then start the listener.
 
 .. automethod:: scrutiny.sdk.listeners.BaseListener.subscribe
@@ -42,7 +42,7 @@ It is possible to unsubscribe to watchables with one of the following method
 .. automethod:: scrutiny.sdk.listeners.BaseListener.prune_subscriptions
 
 Each listener has a :meth:`start()<scrutiny.sdk.listeners.BaseListener.start>` and a :meth:`stop()<scrutiny.sdk.listeners.BaseListener.stop>` method.
-These methods launch an internal thread that will handle each new value updates. 
+These methods launch an internal thread that will handle each new value updates.
 
 .. automethod:: scrutiny.sdk.listeners.BaseListener.start
 
@@ -80,9 +80,9 @@ These methods launch an internal thread that will handle each new value updates.
 Listeners may or may not allow a user to add or remove watchables from their subscription list while the listener is active.
 This behavior is controlled by overriding :meth:`allow_subscription_changes_while_running()<scrutiny.sdk.listeners.BaseListener.allow_subscription_changes_while_running>`.
 
-Some listeners will allow it (like the :class:`TextStreamListener<scrutiny.sdk.listeners.text_stream_listener.TextStreamListener>` 
-or the :class:`BufferedReaderListener<scrutiny.sdk.listeners.buffered_reader_listener.BufferedReaderListener>`) 
-, but some does not (like the :class:`CSVFileListener<scrutiny.sdk.listeners.csv_file_listener.CSVFileListener>`). 
+Some listeners will allow it (like the :class:`TextStreamListener<scrutiny.sdk.listeners.text_stream_listener.TextStreamListener>`
+or the :class:`BufferedReaderListener<scrutiny.sdk.listeners.buffered_reader_listener.BufferedReaderListener>`)
+, but some does not (like the :class:`CSVFileListener<scrutiny.sdk.listeners.csv_file_listener.CSVFileListener>`).
 When not allowed, a :class:`NotAllowedError<scrutiny.sdk.exceptions.NotAllowedError>` will
 be raised if one of the following method is called after :meth:`start()<scrutiny.sdk.listeners.BaseListener.start>` has been called.
 
@@ -99,12 +99,12 @@ be raised if one of the following method is called after :meth:`start()<scrutiny
 Internal behavior
 -----------------
 
-A listener runs in a separate thread and awaits value updates by monitoring a python ``queue`` that is fed by the 
-:class:`client<scrutiny.sdk.client.ScrutinyClient>` object. 
-The Python ``queue`` object internally utilizes `condition variables`, which results in a scheduler switch between 
+A listener runs in a separate thread and awaits value updates by monitoring a python ``queue`` that is fed by the
+:class:`client<scrutiny.sdk.client.ScrutinyClient>` object.
+The Python ``queue`` object internally utilizes `condition variables`, which results in a scheduler switch between
 the notifier thread and the listener thread occurring in just microseconds.
 
-When the update notification reaches the listener, they are forwarded to the listener-specific 
+When the update notification reaches the listener, they are forwarded to the listener-specific
 :meth:`receive()<scrutiny.sdk.listeners.BaseListener.receive>` method.
 
 
@@ -116,8 +116,8 @@ When the update notification reaches the listener, they are forwarded to the lis
 Once the user thread invokes the :meth:`start()<scrutiny.sdk.listeners.BaseListener.start>` method, the listener thread is launched
 and the :meth:`setup()<scrutiny.sdk.listeners.BaseListener.setup>` method is called from within this new thread.
 
-If :meth:`start()<scrutiny.sdk.listeners.BaseListener.start>` succeeds and :meth:`setup()<scrutiny.sdk.listeners.BaseListener.setup>` 
-is correctly invoked, the :meth:`teardown()<scrutiny.sdk.listeners.BaseListener.teardown>` method is guaranteed to be invoked too, 
+If :meth:`start()<scrutiny.sdk.listeners.BaseListener.start>` succeeds and :meth:`setup()<scrutiny.sdk.listeners.BaseListener.setup>`
+is correctly invoked, the :meth:`teardown()<scrutiny.sdk.listeners.BaseListener.teardown>` method is guaranteed to be invoked too,
 irrespective of whether an exception has been raised within the :meth:`setup()<scrutiny.sdk.listeners.BaseListener.setup>` methods.
 or :meth:`receive()<scrutiny.sdk.listeners.BaseListener.receive>`.
 
@@ -131,12 +131,12 @@ Writing a Listener
 ------------------
 
 To write a listener, one must create a class that inherits the :class:`BaseListener<scrutiny.sdk.listeners.BaseListener>` class and implements
-the :meth:`receive()<scrutiny.sdk.listeners.BaseListener.receive>` method.  
+the :meth:`receive()<scrutiny.sdk.listeners.BaseListener.receive>` method.
 
 .. autoclass:: scrutiny.sdk.listeners.BaseListener
     :exclude-members: __new__, setup, teardown, start, stop, receive, subscribe
     :members:
-    :noindex: 
+    :noindex:
     :member-order: bysource
 
 -----
@@ -155,7 +155,7 @@ objects that represent the update content.
 
 -----
 
-Two optional methods can be overridden to perform a :meth:`setup<scrutiny.sdk.listeners.BaseListener.setup>` and/or 
+Two optional methods can be overridden to perform a :meth:`setup<scrutiny.sdk.listeners.BaseListener.setup>` and/or
 a :meth:`teardown<scrutiny.sdk.listeners.BaseListener.teardown>`. If not overridden, these 2 methods will do nothing by default.
 
 .. automethod:: scrutiny.sdk.listeners.BaseListener.setup
@@ -171,7 +171,7 @@ Performance statistics
 
 It is possible to get some interesting numbers about the performance of the listener using :meth:`get_stats()<scrutiny.sdk.listeners.BaseListener.get_stats>`
 
-.. automethod:: scrutiny.sdk.listeners.BaseListener.get_stats 
+.. automethod:: scrutiny.sdk.listeners.BaseListener.get_stats
 
 -----
 
@@ -211,7 +211,7 @@ CSVFileListener
 
 -----
 
-.. autoclass:: scrutiny.sdk.listeners.csv_file_listener.CSVConfig 
+.. autoclass:: scrutiny.sdk.listeners.csv_file_listener.CSVConfig
     :exclude-members: __new__, __init__
     :members:
     :member-order: bysource

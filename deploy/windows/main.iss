@@ -13,13 +13,13 @@
 ChangesEnvironment=true
 ;Name for display
 AppName=Scrutiny Debugger
-;The folder to install. Nuitka output. 
+;The folder to install. Nuitka output.
 SourceDir={#SOURCE_DIR}
 ;Version of the app A.B.C[.D].  No v prefix
 AppVersion={#VERSION}
 ;Styling
 WizardStyle=modern
-;Install dir.  autopf = Auto Program File.  Depends on privileged mode or not.  
+;Install dir.  autopf = Auto Program File.  Depends on privileged mode or not.
 DefaultDirName={autopf}\Scrutiny Debugger
 ;Group is used for the start menu icon
 DefaultGroupName=Scrutiny
@@ -34,7 +34,7 @@ OutputDir=installer
 OutputBaseFilename=scrutiny-v{#VERSION}-setup
 ;Privleged mode will be prompted to the user.
 PrivilegesRequiredOverridesAllowed=dialog
-;Icon for the installer software. Also included in the app 
+;Icon for the installer software. Also included in the app
 SetupIconFile=scrutiny.ico
 ;Icon for the uninstaller software. Also included in the app
 UninstallDisplayIcon={app}\scrutiny.ico
@@ -60,12 +60,12 @@ Name:"{group}\Uninstall Scrutiny";      Filename: "{uninstallexe}";
 [Code]
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
-    if (CurStep = ssPostInstall)  and WizardIsTaskSelected('envPath') then 
+    if (CurStep = ssPostInstall)  and WizardIsTaskSelected('envPath') then
         EnvAddPath(ExpandConstant('{app}'), IsAdminInstallMode());
 end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 begin
-    if CurUninstallStep = usPostUninstall then 
+    if CurUninstallStep = usPostUninstall then
         EnvRemovePath(ExpandConstant('{app}'), IsAdminInstallMode());
 end;
