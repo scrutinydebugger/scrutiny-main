@@ -6,11 +6,11 @@ Using Events
 The design of the :class:`client<scrutiny.sdk.client.ScrutinyClient>`, and the :abbr:`SDK (Software Development Kit)` in general, is synchronous.
 A synchronous design is generally preferred for automation scripts, but in some other cases, such as a user interface, an asynchronous design may be preferable.
 
-The :abbr:`SDK (Software Development Kit)` has no integration with any asynchronous library (such as asyncio or third-party libraries), 
-but an optional event queue is offered to allow for custom integration.  
+The :abbr:`SDK (Software Development Kit)` has no integration with any asynchronous library (such as asyncio or third-party libraries),
+but an optional event queue is offered to allow for custom integration.
 
-.. note:: The Scrutiny :abbr:`GUI (Graphical User Interface)` is built using QT. 
-    The :abbr:`SDK (Software Development Kit)` event queue is read in a thread and used to trigger QT signals, 
+.. note:: The Scrutiny :abbr:`GUI (Graphical User Interface)` is built using QT.
+    The :abbr:`SDK (Software Development Kit)` event queue is read in a thread and used to trigger QT signals,
     making the bridge between the synchronous and asynchronous worlds.
 
 

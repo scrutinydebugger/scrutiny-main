@@ -8,13 +8,13 @@ b. A Firmware ID, which is used to match the SFD with the corresponding firmware
 c. The metadata about the firmware, such as its name, project version, author, build date, etc.
 d. Aliases definitions
 
-The :abbr:`SFD (Scrutiny Firmware Description)` must be installed on the server using one of the following method : 
+The :abbr:`SFD (Scrutiny Firmware Description)` must be installed on the server using one of the following method :
 
 - Through the :abbr:`CLI (Command Line Interface)`, using the ``install-sfd`` command. The command must be run on the server. (Example: `scrutiny install-sfd my_file.sfd`)
 - Through the SDK, using :meth:`init_sfd_upload()<scrutiny.sdk.client.ScrutinyClient.init_sfd_upload>`
 - Through the GUI. The GUI uses the SDK to upload the SFD file to the server
 
-When a device connects, the server will automatically load the appropriate :abbr:`SFD (Scrutiny Firmware Description)` based on the 
+When a device connects, the server will automatically load the appropriate :abbr:`SFD (Scrutiny Firmware Description)` based on the
 firmware ID that the device broadcasts.
 
 -----
@@ -49,14 +49,14 @@ firmware ID that the device broadcasts.
 
 -----
 
-.. autoclass:: scrutiny.sdk.SFDGenerationInfo 
+.. autoclass:: scrutiny.sdk.SFDGenerationInfo
     :exclude-members: __new__, __init__
     :members:
     :member-order: bysource
 
 -----
 
-.. autoclass:: scrutiny.sdk.client.SFDDownloadRequest 
+.. autoclass:: scrutiny.sdk.client.SFDDownloadRequest
     :exclude-members: __new__, __init__
     :members:
     :inherited-members:
@@ -64,7 +64,7 @@ firmware ID that the device broadcasts.
 
 -----
 
-.. autoclass:: scrutiny.sdk.client.SFDUploadRequest 
+.. autoclass:: scrutiny.sdk.client.SFDUploadRequest
     :exclude-members: __new__, __init__
     :members:
     :member-order: bysource

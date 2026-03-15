@@ -31,14 +31,14 @@ Using the Scrutiny Python :abbr:`SDK (Software Development Kit)` starts by creat
         print("Connected to server")
         server_status = client.get_server_status()       # Status is dynamic and updated by a background thread. Get an immutable reference
         if server_status.device_comm_state == sdk.DeviceCommState.ConnectedReady:
-            print(f"Connected to device {server_status.device.display_name} ({server_status.device.session_id})")   
+            print(f"Connected to device {server_status.device.display_name} ({server_status.device.session_id})")
         else:
             print("No device connected to the server")
- 
-Most operations with the Python :abbr:`SDK (Software Development Kit)` are synchronized, meaning they will block until completion. When relevant for performance, some operations will return a reference to a ``future`` 
+
+Most operations with the Python :abbr:`SDK (Software Development Kit)` are synchronized, meaning they will block until completion. When relevant for performance, some operations will return a reference to a ``future``
 object that can be waited for when necessary.
 
-Operations that fail raise an exception. All exceptions defined in the Scrutiny SDK inherit the :class:`sdk.ScrutinySDKException<scrutiny.sdk.exceptions.ScrutinySDKException>`. 
+Operations that fail raise an exception. All exceptions defined in the Scrutiny SDK inherit the :class:`sdk.ScrutinySDKException<scrutiny.sdk.exceptions.ScrutinySDKException>`.
 
 See the :ref:`Exceptions page<page_exceptions>`
 

@@ -12,8 +12,8 @@
     margin-bottom: 0 !important;
   }
 
-  dl.py.class, 
-  dl.py.attribute, 
+  dl.py.class,
+  dl.py.attribute,
   dl.py.method {
     margin-bottom: 1rem !important;
   }

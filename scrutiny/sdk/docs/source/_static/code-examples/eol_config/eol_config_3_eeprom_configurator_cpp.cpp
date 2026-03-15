@@ -11,7 +11,7 @@ void EEPROMConfigurator::process()
     if (m_cmd == Command::WriteAssemblyHeader)
     {
         m_last_return_code = m_driver->write(reinterpret_cast<uint8_t*>(&m_assembly_header), m_addr, sizeof(m_assembly_header));
-    } 
+    }
     else if (m_cmd == Command::Write)
     {
         if (m_size < BUFFER_SIZE)

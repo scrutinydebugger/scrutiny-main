@@ -19,7 +19,7 @@ cd $EXAMPLES_ROOT/hil_testing
 outfile="$tempdir/hil_testing.cpp"
 cat *.cpp > $outfile
 g++ -c "$outfile" -o "$tempdir/hil_testing.o"
-g++ -c "$outfile" -o "$tempdir/hil_testing.o" -DENABLE_HIL_TESTING 
+g++ -c "$outfile" -o "$tempdir/hil_testing.o" -DENABLE_HIL_TESTING
 python3 -m mypy hil_testing_1_powerup_check.py $MYPY_OPTIONS
 
 # EOL Config

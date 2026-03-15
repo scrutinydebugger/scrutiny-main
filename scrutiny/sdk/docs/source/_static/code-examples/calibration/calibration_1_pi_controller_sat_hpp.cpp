@@ -17,12 +17,12 @@ inline float saturate(float const v, float const min, float const max){
 
 // PI controller system with saturated output
 class PIControllerSat{
-public:   
-    PIControllerSat(float const ts, 
-        float TUNABLE_CONST kp, 
-        float TUNABLE_CONST ki, 
-        float TUNABLE_CONST min, 
-        float TUNABLE_CONST max, 
+public:
+    PIControllerSat(float const ts,
+        float TUNABLE_CONST kp,
+        float TUNABLE_CONST ki,
+        float TUNABLE_CONST min,
+        float TUNABLE_CONST max,
         float TUNABLE_CONST sat_margin
     ):
         m_feedback{0.0f},
@@ -69,7 +69,7 @@ private:
     float TUNABLE m_ref;
     float TUNABLE m_out;
     float TUNABLE m_state;
-    
+
     // volatile when tuning is enabled. (calibration)
     // const when tuning is disabled (production)
     float TUNABLE_CONST m_kp;

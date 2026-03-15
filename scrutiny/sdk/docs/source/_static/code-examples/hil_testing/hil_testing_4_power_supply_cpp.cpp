@@ -43,7 +43,7 @@ void PowerSupply::process()
             break;  // Do something here.
         }
         case PowerUpSequenceState::FAILED:
-        {            
+        {
             break;  // Nothing to do, wait for a reset maybe?
         }
     }

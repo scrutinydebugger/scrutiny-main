@@ -18,7 +18,7 @@ public:
         uint32_t serial;
     };
 
-    EEPROMConfigurator(EEPROMDriver* const driver) : 
+    EEPROMConfigurator(EEPROMDriver* const driver) :
         m_buffer{},
         m_size{0},
         m_addr{0},
