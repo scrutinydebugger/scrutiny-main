@@ -102,7 +102,7 @@ class CSVLogger:
         :param folder: Folder in which to save the CSV file
         :param filename: Name of the file to create
         :param lines_per_file: Maximum number of lines per file, no limits if ``None``.  When this value is set to a valid integer, the file naming
-            pattern will be ``<filename>_XXXX.csv`` where ``XXXX`` is the the part number starting from 0. When no limit is specified, a single CSV file 
+            pattern will be ``<filename>_XXXX.csv`` where ``XXXX`` is the the part number starting from 0. When no limit is specified, a single CSV file
             will be created following with name ``<filename>.csv``
         :param datetime_format: Format string for the datetime printed in the CSV file
         :param convert_bool_to_int: When ``True``, boolean values will be printed as 0 and 1 instead of ``False`` and ``True``. Convenience for Excel
@@ -179,7 +179,7 @@ class CSVLogger:
         """Makes the inventory of all the files that already exist with a name pattern that may collide with the given folder and filename
 
         :param folder: The output folder
-        :param filename: The file basename where all files are named <basename>_nnnn.csv 
+        :param filename: The file basename where all files are named <basename>_nnnn.csv
 
         """
         regex_test = re.compile(f'{re.escape(filename)}_[0-9]+{cls.EXTENSION}')
@@ -251,10 +251,10 @@ class CSVLogger:
         return self._started
 
     def write(self, updates: List[ValueUpdate], signal_id_list: Optional[List[str]] = None) -> None:
-        """Write a sequence of :class:`ValueUpdate<scrutiny.sdk.listeners.ValueUpdate> to the CSV output. 
+        """Write a sequence of :class:`ValueUpdate<scrutiny.sdk.listeners.ValueUpdate> to the CSV output.
 
         :param updates: A list of :class:`ValueUpdate<scrutiny.sdk.listeners.ValueUpdate>` given by a listener
-        :param signal_id_list: A list of ID to map the value updates to the right column. If not specified, the watchable :attr:`server_id<scrutiny.sdk.watchable_handle.WatchableHandler.server_id>` will 
+        :param signal_id_list: A list of ID to map the value updates to the right column. If not specified, the watchable :attr:`server_id<scrutiny.sdk.watchable_handle.WatchableHandler.server_id>` will
             be used, assuming the columns were defined with :meth:`define_columns_from_handles()<scrutiny.sdk.csv_logger.CSVLogger.define_columns_from_handles>`
         """
 

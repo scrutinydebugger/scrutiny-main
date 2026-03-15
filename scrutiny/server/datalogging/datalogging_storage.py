@@ -224,7 +224,7 @@ class DataloggingStorageManager:
         """Creates the database into the file using CREATE TABLE IF NOT EXISTS"""
         cursor = conn.cursor()
 
-        cursor.execute(""" 
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS `acquisitions` (
             `id` INTEGER PRIMARY KEY AUTOINCREMENT,
             `reference_id` VARCHAR(32) UNIQUE NOT NULL,
@@ -233,20 +233,20 @@ class DataloggingStorageManager:
             `firmware_name` VARCHAR(255)  NULL,
             `timestamp` TIMESTAMP NOT NULL DEFAULT 'NOW()',
             `trigger_index` INTEGER NULL
-        ) 
+        )
         """)
 
-        cursor.execute(""" 
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS `axis` (
             `id` INTEGER PRIMARY KEY AUTOINCREMENT,
             `acquisition_id` INTEGER NOT NULL,
             `axis_id` INTEGER NOT NULL,
             `is_xaxis` INTEGER NOT NULL,
             `name` VARCHAR(255)
-        ) 
+        )
         """)
 
-        cursor.execute(""" 
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS `dataseries` (
             `id` INTEGER PRIMARY KEY AUTOINCREMENT,
             `name` VARCHAR(255),
@@ -255,21 +255,21 @@ class DataloggingStorageManager:
             `axis_id` INTEGER NULL,
             `position` INTEGER NOT NULL,
             `data` BLOB  NOT NULL
-        ) 
+        )
         """)
 
-        cursor.execute(""" 
-            CREATE INDEX IF NOT EXISTS `idx_axis_ref_axis_id` 
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS `idx_axis_ref_axis_id`
             ON `axis` (`acquisition_id`, `axis_id`)
         """)
 
-        cursor.execute(""" 
-            CREATE INDEX IF NOT EXISTS `idx_axis_acquisition_id` 
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS `idx_axis_acquisition_id`
             ON `axis` (`acquisition_id`)
         """)
 
-        cursor.execute(""" 
-            CREATE INDEX IF NOT EXISTS `idx_dataseries_axis_id` 
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS `idx_dataseries_axis_id`
             ON `dataseries` (`axis_id`)
         """)
 
@@ -295,7 +295,7 @@ class DataloggingStorageManager:
 
             cursor.execute(
                 """
-                INSERT INTO `acquisitions` 
+                INSERT INTO `acquisitions`
                     (`reference_id`, `name`, `firmware_id`, `firmware_name`, `timestamp`, `trigger_index`)
                 VALUES (?, ?, ?, ?, ?, ?)
                 """,
@@ -416,7 +416,7 @@ class DataloggingStorageManager:
         """Reads a datalogging acquisition form the storage"""
         with self.get_session() as conn:
             sql = """
-                SELECT 
+                SELECT
                     `acq`.`reference_id` AS `reference_id`,
                     `acq`.`firmware_id` AS `firmware_id`,
                     `acq`.`firmware_name` AS `firmware_name`,
@@ -558,7 +558,7 @@ class DataloggingStorageManager:
 
             cursor.execute("""
             UPDATE `axis` SET `name`=? WHERE `id` IN (
-                SELECT `axis`.`id` FROM `axis` 
+                SELECT `axis`.`id` FROM `axis`
                 INNER JOIN `acquisitions` AS `acq` ON `acq`.`id`=`axis`.`acquisition_id`
                 WHERE `acq`.`reference_id`=? AND `axis`.`axis_id`=?
             )
@@ -577,7 +577,7 @@ class DataloggingStorageManager:
             cursor = conn.cursor()
 
             cursor.execute("""
-                SELECT 
+                SELECT
                     MAX(`timestamp`) as newest,
                     MIN(`timestamp`) as oldest
                 FROM `acquisitions`

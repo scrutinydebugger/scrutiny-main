@@ -136,7 +136,7 @@ for (int i=0; i<(argc-1)/2;i++)
         base2 = 16;
     }
     memdump(
-        static_cast<uintptr_t>(strtoll(start_address.c_str(), NULL, base1)), 
+        static_cast<uintptr_t>(strtoll(start_address.c_str(), NULL, base1)),
         static_cast<uint32_t>(strtol(length.c_str(), NULL, base2))
         );
     region_index+=2;
@@ -279,7 +279,7 @@ int main(int argc, char* argv[])
     my_global_int32_array[2][3] = 0x12345678;
     my_static_int32_array[11][6] = 0x18293a4b;
     my_global_enum_array[7][6] = EnumA::BBB;
-    
+
     my_global_A.x = EnumA::BBB;
     my_global_A.y[1][2] = -0x2233;
 
@@ -302,14 +302,14 @@ int main(int argc, char* argv[])
 
     my_global_array_of_A[2].x = EnumA::CCC;
     my_global_array_of_A[2].y[1][1] = 0x4567;
-    
+
     my_static_array_of_A[1].x = EnumA::AAA;
     my_static_array_of_A[1].y[1][0] = 0x3322;
-    
+
     my_global_array_of_B[3].x2 = 0x77123456;
     my_global_array_of_B[3].y2[2][2].x = EnumA::BBB;
     my_global_array_of_B[3].y2[2][2].y[0][1] = 0x2378;
-    
+
     my_static_array_of_B[2].x2 = 0x6abcdef0;
     my_static_array_of_B[2].y2[1][2].x = EnumA::AAA;
     my_static_array_of_B[2].y2[1][2].y[0][2] = 0x1829;
@@ -844,7 +844,7 @@ int main(int argc, char* argv[])
     gu32 = 0xAABBCCDD;
     gStructA.gu32_ptr = &gu32;
     gStructA.i64 = 0x123456789abcdef;
-    
+
     gStructB.gStructAPtr = &gStructA;
 
     gStructC.i32 = 0x1a2b3c4d;
@@ -1204,8 +1204,8 @@ struct D
     C* c_ptr;
     C* c_ptr_array[2][5];
     C c_array[5];
-    uint32_t* u32_ptr_array[3][2]; 
-    EnumU32* u32_enum_ptr_array[4][5]; 
+    uint32_t* u32_ptr_array[3][2];
+    EnumU32* u32_enum_ptr_array[4][5];
 };
 
 uint32_t gu32;
@@ -1550,7 +1550,7 @@ namespace NamespaceA{
     };
 
     struct B {
-    
+
         int64_t _pad;
         A a;
     };
@@ -1566,7 +1566,7 @@ namespace NamespaceA{
             int16_t pad;
             C c_array[4];
         } anon_member;
-        
+
         int32_t _pad2;
     };
 

@@ -21,7 +21,7 @@ class BufferedReaderListener(BaseListener):
     _queue: "ScrutinyQueue[ValueUpdate]"
 
     def __init__(self, queue_max_size: int, *args: Any, **kwargs: Any):
-        """Creates a listener that makes a copy of every received :class:`ValueUpdate<scrutiny.sdk.listeners.ValueUpdate>` 
+        """Creates a listener that makes a copy of every received :class:`ValueUpdate<scrutiny.sdk.listeners.ValueUpdate>`
         object and push them into a queue, waiting for the user to read them.
 
         Adding/removing subscriptions while running is allowed

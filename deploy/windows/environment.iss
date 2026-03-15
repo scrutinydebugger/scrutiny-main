@@ -17,7 +17,7 @@ begin
         HKEY:=HKEY_LOCAL_MACHINE;
         EnvironmentKey:=SystemEnvironmentKey;
     end
-    else 
+    else
     begin
         HKEY:=HKEY_CURRENT_USER;
         EnvironmentKey:=UserEnvironmentKey;
@@ -32,7 +32,7 @@ begin
     if Pos(';' + Uppercase(Path) + ';', ';' + Uppercase(Paths) + ';') > 0 then exit;
 
     { App string to the end of the path variable }
-    Paths := Paths + ';'+ Path 
+    Paths := Paths + ';'+ Path
 
     { Overwrite (or create if missing) path environment variable }
     if RegWriteStringValue(HKEY, EnvironmentKey, 'Path', Paths)
@@ -52,7 +52,7 @@ begin
         HKEY:=HKEY_LOCAL_MACHINE;
         EnvironmentKey:=SystemEnvironmentKey;
     end
-    else 
+    else
     begin
         HKEY:=HKEY_CURRENT_USER;
         EnvironmentKey:=UserEnvironmentKey;

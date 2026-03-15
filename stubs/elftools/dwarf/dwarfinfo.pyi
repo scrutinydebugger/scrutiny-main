@@ -18,6 +18,6 @@ class DwarfConfig(NamedTuple):
 
 class DWARFInfo:
     config:DwarfConfig
-    
+
     def get_DIE_from_refaddr(self, addr: int) -> DIE: ...
     def iter_CUs(self) -> Iterable[CompileUnit]: ...

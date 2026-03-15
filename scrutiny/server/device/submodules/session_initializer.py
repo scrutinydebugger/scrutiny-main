@@ -92,7 +92,7 @@ class SessionInitializer(BaseDeviceHandlerSubmodule):
         return self.error
 
     def get_session_id(self) -> Optional[int]:
-        """Returns the session ID given by the device when the Connect request was accepted. 
+        """Returns the session ID given by the device when the Connect request was accepted.
         None if no request was accepted yet"""
         return self.session_id
 

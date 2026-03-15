@@ -17,7 +17,7 @@ class DatalogControl(BaseCommand):
 
     class Subfunction(Enum):
         GetSetup = 1
-        """Request the device for its datalogging setup. (word "configuration" 
+        """Request the device for its datalogging setup. (word "configuration"
         is purposely avoided here to avoid confusion). Includes encoding, buffer size, etc"""
 
         ConfigureDatalog = 2

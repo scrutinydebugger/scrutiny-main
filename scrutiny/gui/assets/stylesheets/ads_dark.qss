@@ -56,7 +56,7 @@ ads--CAutoHideSideBar[sideBarLocation="3"] {
     qproperty-icon: url(stylesheets:ads/close-button-white.svg), url(stylesheets:ads/close-button-disabled.svg) disabled;
 }
 
-#tabsMenuButton { 
+#tabsMenuButton {
     qproperty-icon: url(stylesheets:ads/tabs-menu-button-white.svg);
 }
 

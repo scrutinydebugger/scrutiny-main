@@ -35,7 +35,7 @@ class GetInfo(BaseCommand):
         """Request the device with the number of Runtime Published Values (RPV)"""
 
         GetRuntimePublishedValuesDefinition = 7
-        """Request the device with the definition of a Runtime Published Values (RPV). 
+        """Request the device with the definition of a Runtime Published Values (RPV).
         Definition include ID and type (size implied by data type)"""
 
         GetLoopCount = 8

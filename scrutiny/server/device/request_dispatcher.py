@@ -27,7 +27,7 @@ FailureCallback = Callable[[Request, Any], None]
 class RequestQueue:
     """
     Non-thread-safe Queue with priority.
-    Replace queue.PriorityQueue simply because I don't like that they compare data and don't want to introduce workarounds or 
+    Replace queue.PriorityQueue simply because I don't like that they compare data and don't want to introduce workarounds or
     dataclass from Python 3.7 just for not comparing the data when selecting priority.
     We will have all the flexibility we need with our own minimalist custom class
     """
@@ -96,7 +96,7 @@ class RequestQueue:
 
 
 class RequestRecord:
-    """Represents a request to dispatch a scrutiny protocol request. 
+    """Represents a request to dispatch a scrutiny protocol request.
     Completion callbacks are attached to this object alongside the protocol request"""
 
     __slots__ = ('request', 'success_callback', 'failure_callback', 'success_params', 'failure_params', 'completed', 'approximate_delta_bandwidth')
@@ -141,7 +141,7 @@ class RequestRecord:
 
 
 class RequestDispatcher:
-    """Uses a priority queue to buffer all pending Scrutiny Protocol requests and 
+    """Uses a priority queue to buffer all pending Scrutiny Protocol requests and
     decide which one is the next to go out."""
 
     request_queue: RequestQueue
@@ -165,7 +165,7 @@ class RequestDispatcher:
         self.request_queue.clear()
 
     def is_in_error(self) -> bool:
-        """Returns True if an error occurred. Will happen if a request has been enqueued that either 
+        """Returns True if an error occurred. Will happen if a request has been enqueued that either
         has a request or an expected response size bigger than what the device can handle"""
         return self.critical_error
 
