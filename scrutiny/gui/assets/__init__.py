@@ -127,6 +127,7 @@ class Icons(enum.Enum):
     Copy = "copy"
     Grid = "grid"
     YRange = "yrange"
+    FileSCVAL = "file_scval"
 
 
 _filename_cache: Dict[Tuple[Icons, IconFormat, IconSet], Path] = {}

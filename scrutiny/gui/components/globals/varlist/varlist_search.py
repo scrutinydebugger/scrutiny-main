@@ -18,6 +18,7 @@ from scrutiny.gui.core.watchable_registry import WatchableRegistry, WatchableReg
 from scrutiny.gui.themes import scrutiny_get_theme
 from scrutiny.gui import assets
 from scrutiny.core import path_tools
+from scrutiny.gui.widgets import mixins as gui_mixins
 
 from scrutiny import sdk
 
@@ -95,9 +96,6 @@ class SearchResultTreeWidget(WatchableTreeWidget):
         selected_items = [cast(WatchableStandardItem, self.model().itemFromIndex(index))
                           for index in selected_indexes if index.column() == nesting_col]
 
-        def copy_path_clipboard_slot() -> None:
-            self.copy_path_clipboard(selected_items)
-
         def reveal_in_varlist_slot() -> None:
             if len(selected_items) != 1:
                 return
@@ -108,9 +106,9 @@ class SearchResultTreeWidget(WatchableTreeWidget):
         reveal_in_varlist_action.setEnabled(len(selected_items) == 1)
         reveal_in_varlist_action.triggered.connect(reveal_in_varlist_slot)
 
-        copy_path_clipboard_action = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.Copy), "Copy path")
+        selected_paths = [WatchableRegistry.FQN.parse(item.fqn).path for item in selected_items]
+        copy_path_clipboard_action = gui_mixins.qmenu_add_copy_path_action(context_menu, selected_paths)
         copy_path_clipboard_action.setEnabled(False)
-        copy_path_clipboard_action.triggered.connect(copy_path_clipboard_slot)
         for index in selected_indexes:
             item = self.model().itemFromIndex(index)
             if isinstance(item, WatchableStandardItem):  # At least one watchable, enough to enable

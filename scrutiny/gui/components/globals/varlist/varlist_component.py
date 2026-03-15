@@ -22,6 +22,7 @@ from scrutiny.gui import assets
 from scrutiny.gui.themes import scrutiny_get_theme
 from scrutiny.gui.core.watchable_registry import WatchableRegistry
 from scrutiny.gui.widgets.watchable_tree import WatchableStandardItem
+from scrutiny.gui.widgets import mixins as gui_mixins
 from scrutiny.gui.components.globals.base_global_component import ScrutinyGUIBaseGlobalComponent
 from scrutiny.gui.components.globals.varlist.varlist_tree_model import VarListComponentTreeModel
 from scrutiny.gui.components.globals.varlist.varlist_search import SearchResultWidget, SearchControlWidget
@@ -57,11 +58,11 @@ class VarlistComponentTreeWidget(WatchableTreeWidget):
                 if isinstance(item, WatchableStandardItem):
                     selected_items.append(item)
 
-        def copy_path_clipboard_slot() -> None:
-            self.copy_path_clipboard(selected_items)
+        def get_selected_paths() -> Generator[str, None, None]:
+            for item in selected_items:
+                yield WatchableRegistry.FQN.parse(item.fqn).path
 
-        copy_path_clipboard_action = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.Copy), "Copy path")
-        copy_path_clipboard_action.triggered.connect(copy_path_clipboard_slot)
+        copy_path_clipboard_action = gui_mixins.qmenu_add_copy_path_action(context_menu, get_selected_paths())
         copy_path_clipboard_action.setEnabled(len(selected_items) > 0)
 
         self.display_context_menu(context_menu, e.pos())

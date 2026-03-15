@@ -135,6 +135,7 @@ class API:
             GET_DEVICE_INFO = 'get_device_info'
             SET_LINK_CONFIG = "set_link_config"
             WRITE_WATCHABLE = "write_watchable"
+            WRITE_SINGLE_WATCHABLE = "write_single_watchable"
             REQUEST_DATALOGGING_ACQUISITION = 'request_datalogging_acquisition'
             LIST_DATALOGGING_ACQUISITION = 'list_datalogging_acquisitions'
             READ_DATALOGGING_ACQUISITION_CONTENT = 'read_datalogging_acquisition_content'
@@ -169,6 +170,7 @@ class API:
             INFORM_SERVER_STATUS = 'inform_server_status'
             GET_DEVICE_INFO = 'response_get_device_info'
             WRITE_WATCHABLE_RESPONSE = 'response_write_watchable'
+            WRITE_SINGLE_WATCHABLE_RESPONSE = 'response_write_single_watchable'
             INFORM_WRITE_COMPLETION = 'inform_write_completion'
             INFORM_DATALOGGING_LIST_CHANGED = 'inform_datalogging_list_changed'
             LIST_DATALOGGING_ACQUISITION_RESPONSE = 'response_list_datalogging_acquisitions'
@@ -431,6 +433,7 @@ class API:
             self.Command.Client2Api.GET_DEVICE_INFO: self.process_get_device_info,
             self.Command.Client2Api.SET_LINK_CONFIG: self.process_set_link_config,
             self.Command.Client2Api.WRITE_WATCHABLE: self.process_write_value,
+            self.Command.Client2Api.WRITE_SINGLE_WATCHABLE: self.process_write_single_watchable,
             self.Command.Client2Api.REQUEST_DATALOGGING_ACQUISITION: self.process_datalogging_request_acquisition,
             self.Command.Client2Api.LIST_DATALOGGING_ACQUISITION: self.process_list_datalogging_acquisition,
             self.Command.Client2Api.UPDATE_DATALOGGING_ACQUISITION: self.process_update_datalogging_acquisition,
@@ -1354,6 +1357,26 @@ class API:
 
         self.send_server_status_to_all_clients()
 
+    def _parse_write_value(self, req: api_typing.C2SMessage, value: Optional[Union[str, bool, int, float]]) -> Union[bool, int, float]:
+        if isinstance(value, str):
+            valstr = value.lower().strip()
+            if valstr == "true":
+                value = True
+            elif valstr == "false":
+                value = False
+            else:
+                try:
+                    value = parse_math_expr(valstr)
+                except Exception:
+                    value = None
+
+        if value is None or not isinstance(value, (int, float, bool)):
+            raise InvalidRequestException(req, 'Invalid value')
+        if not math.isfinite(value):
+            raise InvalidRequestException(req, 'Invalid value')
+
+        return value
+
     #  ===  WRITE_WATCHABLE ===
     def process_write_value(self, conn_id: str, req: api_typing.C2S.WriteValue) -> None:
         # We first fetch the entries as it will raise an exception if the ID does not exist
@@ -1370,38 +1393,18 @@ class API:
             if 'value' not in update:
                 raise InvalidRequestException(req, 'Missing "value" field')
 
-            value = update['value']
-            if isinstance(value, str):
-                valstr = value.lower().strip()
-                if valstr == "true":
-                    value = True
-                elif valstr == "false":
-                    value = False
-                else:
-                    try:
-                        value = parse_math_expr(valstr)
-                    except Exception:
-                        value = None
-            if value is None or not isinstance(value, (int, float, bool)):
-                raise InvalidRequestException(req, 'Invalid value')
-            if not math.isfinite(value):
-                raise InvalidRequestException(req, 'Invalid value')
-            update['value'] = value
-
+            update['value'] = self._parse_write_value(req, update['value'])
             try:
                 entry = self.datastore.get_entry(update['watchable'])
             except KeyError:
                 raise InvalidRequestException(req, 'Unknown watchable ID %s' % update['watchable'])
-
-            if not self.datastore.is_watching(entry, conn_id):
-                raise InvalidRequestException(req, 'Cannot update entry %s without being subscribed to it' % entry.get_id())
 
         if len(set(update['batch_index'] for update in req['updates'])) != len(req['updates']):
             raise InvalidRequestException(req, "Duplicate batch_index in request")
 
         request_token = uuid4().hex
         for update in req['updates']:
-            callback = functools.partial(self.entry_target_update_callback, request_token, update['batch_index'])
+            callback = functools.partial(self.entry_target_update_callback, request_token, update['batch_index'], conn_id)
             self.datastore.update_target_value(update['watchable'], update['value'], callback=callback)
 
         response: api_typing.S2C.WriteValue = {
@@ -1412,6 +1415,34 @@ class API:
         }
 
         self.client_handler.send(ClientHandlerMessage(conn_id=conn_id, obj=response))
+
+    #  ===  WRITE_SINGLE_WATCHABLE ===
+    def process_write_single_watchable(self, conn_id: str, req: api_typing.C2S.WriteSingleWatchable) -> None:
+        """This API call gives a mean to write a single watchable by its path.
+        We only respond once this is complete, therefore, we allow 1 watchable per call. No write token
+
+        This is meant to accommodate the GUI that may want to write by reloading a value set file.
+        """
+        _check_request_dict(req, req, 'server_path', str)
+        if 'value' not in req:
+            raise InvalidRequestException(req, 'Missing "value" field')
+        value = self._parse_write_value(req, req['value'])
+
+        try:
+            entry = self.datastore.get_entry_by_display_path(req['server_path'])
+        except KeyError:
+            raise InvalidRequestException(req, f"Unknown watchable path {req['server_path']}")
+
+        def _callback(success: bool, entry: DatastoreEntry, timestamp: float) -> None:
+            response: api_typing.S2C.WriteSingleWatchable = {
+                'cmd': self.Command.Api2Client.WRITE_SINGLE_WATCHABLE_RESPONSE,
+                'reqid': self.get_req_id(req),
+                'success': success
+            }
+
+            self.client_handler.send(ClientHandlerMessage(conn_id=conn_id, obj=response))
+
+        self.datastore.update_target_value(entry, value, callback=_callback)
 
     def process_read_memory(self, conn_id: str, req: api_typing.C2S.ReadMemory) -> None:
 
@@ -2144,6 +2175,7 @@ class API:
     def entry_target_update_callback(self,
                                      request_token: str,
                                      batch_index: int,
+                                     initiator_conn_id: str,
                                      success: bool,
                                      datastore_entry: DatastoreEntry,
                                      completion_server_time_us: float) -> None:
@@ -2161,8 +2193,10 @@ class API:
             'completion_server_time_us': completion_server_time_us
         }
 
-        for watcher_conn_id in watchers:
-            self.client_handler.send(ClientHandlerMessage(conn_id=watcher_conn_id, obj=msg))
+        to_be_informed = set(watchers)
+        to_be_informed.add(initiator_conn_id)   # In case the user is not watching what he's writing
+        for conn_id in to_be_informed:
+            self.client_handler.send(ClientHandlerMessage(conn_id=conn_id, obj=msg))
 
     def make_datastore_entry_brief_definition(self,
                                               entry: DatastoreEntry,

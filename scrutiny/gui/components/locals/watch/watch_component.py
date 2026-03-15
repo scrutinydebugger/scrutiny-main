@@ -18,10 +18,13 @@ from scrutiny import sdk
 from scrutiny.gui import assets
 from scrutiny.gui.themes import scrutiny_get_theme
 from scrutiny.gui.widgets.watchable_tree import FolderItemSerializableData, WatchableItemSerializableData
+from scrutiny.gui.widgets.watchable_tree import WatchableTreeWidget, WatchableStandardItem, FolderStandardItem, BaseWatchableRegistryTreeStandardItem
+from scrutiny.gui.core.serializable_value_set import SerializableValueSet
 from scrutiny.gui.core.watchable_registry import WatchableRegistryNodeNotFoundError, WatcherNotFoundError, RegistryValueUpdate
 from scrutiny.gui.components.locals.base_local_component import ScrutinyGUIBaseLocalComponent
-from scrutiny.gui.widgets.watchable_tree import WatchableTreeWidget, WatchableStandardItem, FolderStandardItem, BaseWatchableRegistryTreeStandardItem
 from scrutiny.gui.components.locals.watch.watch_tree_model import WatchComponentTreeModel, ValueStandardItem, WatchComponentTreeWidget, SerializableTreeDescriptor
+from scrutiny.gui.dialogs.value_export_dialog import ValueExportDialog
+from scrutiny.gui.tools import prompt
 from scrutiny import tools
 
 from scrutiny.tools.typing import *
@@ -87,6 +90,7 @@ class WatchComponent(ScrutinyGUIBaseLocalComponent):
         self._tree_model.rowsMoved.connect(self._row_moved_slot)
         self._tree.signals.value_written.connect(self._value_written_slot)
         self._tree.signals.request_reveal_fqn.connect(self._request_reveal_fqn_slot)
+        self._tree.signals.export_val_to_file.connect(self._export_values_slot)
 
         self.update_all_watchable_state()
 
@@ -406,3 +410,25 @@ class WatchComponent(ScrutinyGUIBaseLocalComponent):
 
     def _request_reveal_fqn_slot(self, fqn: str) -> None:
         self.app.reveal_varlist_fqn(fqn)
+
+    def _export_values_slot(self, watchable_item_list: List[WatchableStandardItem]) -> None:
+        fqn_list = [ watchable_item.fqn for watchable_item in watchable_item_list]
+        if len(fqn_list) == 0:
+            prompt.error_msgbox(title="No values to save", message="There is no watchable values to save in this selection")
+            return
+
+        export_dialog = ValueExportDialog(watchable_registry=self.app.watchable_registry, export_fqn_list=fqn_list)
+        result = export_dialog.exec()
+        if result == ValueExportDialog.DialogCode.Accepted:
+            value_set = export_dialog.get_value_set()
+            filepath = prompt.get_save_filepath_from_last_save_dir(
+                extension_with_dot=SerializableValueSet.DEFAULT_EXTENSION,
+                title="Export values"
+            )
+
+            if filepath is not None:
+                try:
+                    value_set.to_file(filepath)
+                except Exception as e:
+                    tools.log_exception(self.logger, e, "Failed to save file")
+                    prompt.exception_msgbox(e, "Failed to save file", "Failed to save file")

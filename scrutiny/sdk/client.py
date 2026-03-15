@@ -141,11 +141,11 @@ class ApiResponseFuture:
         if self._error is not None:
             return str(self._error)
         elif self._state == CallbackState.Pending:
-            return 'Not processed yet'
+            return 'Request not sent yet'
         elif self._state == CallbackState.Cancelled:
-            return 'Cancelled'
+            return 'Request cancelled'
         elif self._state == CallbackState.TimedOut:
-            return 'Timed out'
+            return 'Request timed out'
         return ''
 
 
@@ -3409,6 +3409,27 @@ class ScrutinyClient:
 
         if future.state != CallbackState.OK:
             raise sdk.exceptions.OperationFailure(f"Failed to configure the server throttling. {future.error_str}")
+
+    def write_watchable(self, server_path: str, value: Union[int, float, bool, str]) -> None:
+        validation.assert_type(server_path, 'server_path', str)
+        validation.assert_type(value, 'value', (int, float, bool, str))
+
+        req = cast(api_typing.C2S.WriteSingleWatchable,
+                   self._make_request(API.Command.Client2Api.WRITE_SINGLE_WATCHABLE, {
+                       'server_path': server_path,
+                       'value': value,
+                   })
+                   )
+
+        def callback(state: CallbackState, response: Optional[api_typing.S2CMessage]) -> None:
+            pass
+
+        future = self._send(req, callback)
+        assert future is not None
+        future.wait(self._timeout)
+
+        if future.state != CallbackState.OK:
+            raise sdk.exceptions.OperationFailure(f"Failed to write the watchable {server_path}. {future.error_str}")
 
     @property
     def logger(self) -> logging.Logger:
