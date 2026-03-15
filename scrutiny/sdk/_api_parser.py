@@ -35,8 +35,9 @@ class WelcomeData:
 @dataclass(frozen=True, slots=True)
 class WatchableUpdate:
     server_id: str
-    value: Union[bool, int, float]
+    value: Optional[Union[bool, int, float]]
     server_time_us: float
+    value_status: sdk.ValueStatus
 
 
 @dataclass(frozen=True, slots=True)
@@ -391,7 +392,7 @@ def _read_map_of_detailed_watchable_info(
         watchable_type = read_watchable_type(v['type'])
         if watchable_type == WatchableType.Variable:
             v = cast(api_typing.VarDetailedDatastoreEntryDefinition, v)
-            _check_response_dict(cmd, v, 'address', int)
+            _check_response_dict(cmd, v, 'address', (int, type(None)))
             if 'bitoffset' in v:
                 _check_response_dict(cmd, v, 'bitoffset', (int, type(None)))
             if 'bitsize' in v:
@@ -905,12 +906,26 @@ def parse_watchable_update(response: api_typing.S2C.WatchableUpdate) -> List[Wat
 
     for element in response['updates']:
         _check_response_dict(cmd, element, 'id', str)
-        _check_response_dict(cmd, element, 'v', (float, int, bool))
+        _check_response_dict(cmd, element, 'v', (float, int, bool, type(None)))
         _check_response_dict(cmd, element, 't', (float, int))
+
+        v = element['v']
+        value_status = sdk.ValueStatus.Valid
+        if v is None:   # None means Invalid value
+            value_status = sdk.ValueStatus.ServerSetInvalidWithoutReason  # default
+            if 'r' in element:  # We are resilient if missing
+                _check_response_dict(cmd, element, 'r', str)
+                reason = element['r']
+                if reason == 'nullptr':
+                    value_status = sdk.ValueStatus.NullPtrDereferenced
+                elif reason == 'forbidden':
+                    value_status = sdk.ValueStatus.ForbiddenRegion
+
         outlist.append(WatchableUpdate(
             server_id=element['id'],
-            value=element['v'],
-            server_time_us=float(element['t'])
+            value=v,
+            server_time_us=float(element['t']),
+            value_status=value_status
         ))
 
     return outlist

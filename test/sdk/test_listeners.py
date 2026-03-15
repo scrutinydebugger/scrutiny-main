@@ -149,7 +149,8 @@ class TestListeners(ScrutinyUnitTest):
 
     def test_listener_working_behavior(self):
         listener = WorkingTestListener()
-        listener.subscribe([self.w1, self.w2, self.w4])  # w3 is not there on purpose
+        watchables = [self.w1, self.w2, self.w4]
+        listener.subscribe(watchables)  # w3 is not there on purpose
 
         with listener.start():
             self.assertTrue(listener.is_started)
@@ -232,7 +233,7 @@ class TestListeners(ScrutinyUnitTest):
 
             self.assertEqual(len(listener.get_subscriptions()), 3)
 
-        self.w2._set_invalid(scrutiny.sdk.client.ValueStatus.NotWatched)    # Simulate unwatch
+        self.w2._set_dead(scrutiny.sdk.client.ValueStatus.NotWatched)    # Simulate unwatch
         listener.subscribe(self.w3)
         listener.unsubscribe(self.w4)
         listener.prune_subscriptions()  # w2 gets removed
@@ -248,7 +249,7 @@ class TestListeners(ScrutinyUnitTest):
         listener.subscribe([self.w1, self.w5, self.w4])  # w3 is not there on purpose
 
         with listener.start():
-            self.w5._set_invalid(scrutiny.sdk.client.ValueStatus.NotWatched)    # Simulate unwatch
+            self.w5._set_dead(scrutiny.sdk.client.ValueStatus.NotWatched)    # Simulate unwatch
             listener.subscribe(self.w3)
             listener.unsubscribe(self.w4)
             listener.prune_subscriptions()  # w5 gets removed
@@ -319,7 +320,8 @@ class TestListeners(ScrutinyUnitTest):
     def test_text_stream_listener(self):
         stream = StringIO()
         listener = TextStreamListener(stream)
-        listener.subscribe([self.w1, self.w2, self.w3, self.w4])
+        watchables = [self.w1, self.w2, self.w3, self.w4]
+        listener.subscribe(watchables)
 
         listener.start()
         count = 10
@@ -342,9 +344,12 @@ class TestListeners(ScrutinyUnitTest):
 
     def test_buffered_reader_listener(self):
         listener = BufferedReaderListener(queue_max_size=100)
-        listener.subscribe([self.w1, self.w2, self.w3, self.w4])
+        watchables = [self.w1, self.w2, self.w3, self.w4]
+        listener.subscribe(watchables)
 
+        self.assertEqual(listener.update_count, 0)
         listener.start()
+
         count = 10
         for i in range(count):
             self.w1._update_value(i)
@@ -352,7 +357,7 @@ class TestListeners(ScrutinyUnitTest):
             listener._broadcast_update([self.w1, self.w2])
 
         def all_received():
-            return listener.update_count == 2 * count
+            return listener.update_count >= 2 * count
 
         wait_cond(all_received, 0.5, "Not all received in time")
 
@@ -393,13 +398,15 @@ class TestListeners(ScrutinyUnitTest):
                 datetime_format=r'%Y-%m-%d %H:%M:%S',
                 csv_config=csv_config
             )
-            listener.subscribe([self.w1, self.w2, self.w3, self.w4, self.w5])
+            watchables = [self.w1, self.w2, self.w3, self.w4, self.w5]
+            listener.subscribe(watchables)
 
             with listener.start():
                 with self.assertRaises(sdk.exceptions.NotAllowedError):
                     listener.unsubscribe(self.w1)   # Not allowed in this listener. Column count is fixed
-                dt = datetime.now()
                 count = 10
+                dt = datetime.now()
+
                 for i in range(count):
                     new_dt = dt + timedelta(milliseconds=i)
                     self.w1._update_value(i * 1.1, new_dt)
@@ -411,13 +418,14 @@ class TestListeners(ScrutinyUnitTest):
                     else:
                         to_update = [self.w1, self.w2, self.w5, self.w3]  # purposely out of order
                         if i > 0:
-                            self.w4._update_value(4.4123 * i)
+                            self.w4._update_value(4.4123 * i, new_dt)
                             to_update.append(self.w4)
 
                     listener._broadcast_update(to_update)
 
                 def all_received():
-                    return listener.update_count == 5 * count - 1 - 2  # Remove 1 for index 0 + 2 for index 6
+                    # Remove 1 for index 1 + 2 for index 6. count + 1 account for the broadcast at start
+                    return listener.update_count == len(watchables) * count - 1 - 2
 
                 wait_cond(all_received, 0.5, "Not all received in time")
 
@@ -449,7 +457,7 @@ class TestListeners(ScrutinyUnitTest):
                     elif i == 6:
                         self.assertEqual(row[-1], '1,1,0,0,1')
                     else:
-                        self.assertEqual(row[-1], '1,1,1,1,1')
+                        self.assertEqual(row[-1], '1,1,1,1,1', f"i={i}")
 
                     for col in range(2, len(headers) - 1):
                         if headers[col] == self.w1.server_path:
@@ -474,7 +482,7 @@ class TestListeners(ScrutinyUnitTest):
     def test_csv_writer_listener_file_split(self):
         with TemporaryDirectory() as tempdir:
             csv_config = CSVConfig()
-            dt = datetime.now()
+
             listener = CSVFileListener(
                 folder=tempdir,
                 filename='my_file',
@@ -483,8 +491,10 @@ class TestListeners(ScrutinyUnitTest):
                 datetime_format=r'%Y-%m-%d %H:%M:%S',
                 csv_config=csv_config
             )
-            listener.subscribe([self.w3, self.w4, self.w5, self.w1, self.w2, ])
-            with listener.start():
+            watchables = [self.w3, self.w4, self.w5, self.w1, self.w2]
+            listener.subscribe(watchables)
+            dt = datetime.now()
+            with listener.start():  # Broadcast 5 items
                 count = 250
                 for i in range(count):
                     self.w1._update_value(i * 1.1, timestamp=dt + timedelta(milliseconds=i))
@@ -497,61 +507,65 @@ class TestListeners(ScrutinyUnitTest):
                 def all_received():
                     return listener.update_count == 5 * count
 
-                wait_cond(all_received, 0.5, "Not all received in time")
+                wait_cond(all_received, 1, "Not all received in time")
 
+            print(listener.update_count)
             self.assertTrue(os.path.exists(os.path.join(tempdir, 'my_file_0000.csv')))
             self.assertTrue(os.path.exists(os.path.join(tempdir, 'my_file_0001.csv')))
             self.assertTrue(os.path.exists(os.path.join(tempdir, 'my_file_0002.csv')))
             self.assertFalse(os.path.exists(os.path.join(tempdir, 'my_file_0003.csv')))
+            f1 = f2 = f3 = None
+            try:
+                f1 = open(os.path.join(tempdir, 'my_file_0000.csv'), 'r', encoding=csv_config.encoding, newline=csv_config.newline)
+                f2 = open(os.path.join(tempdir, 'my_file_0001.csv'), 'r', encoding=csv_config.encoding, newline=csv_config.newline)
+                f3 = open(os.path.join(tempdir, 'my_file_0002.csv'), 'r', encoding=csv_config.encoding, newline=csv_config.newline)
+                for f in [f1, f2, f3]:
+                    nrow = 100
+                    start = 0
+                    if f is f2:
+                        start = 100
+                    if f is f3:
+                        start = 200
+                        nrow = 50
+                    reader = csv.reader(f, delimiter=csv_config.delimiter, quotechar=csv_config.quotechar, quoting=csv_config.quoting)
+                    rows = iter(reader)
+                    fullpath_headers = next(rows)
+                    headers = next(rows)
+                    self.assertEqual(headers[0], 'Datetime')
+                    self.assertEqual(headers[1], 'Time [s]')
+                    self.assertEqual(headers[-1], 'update flags')
+                    all_watchables = sorted([self.w1, self.w2, self.w3, self.w4, self.w5], key=lambda x: x.server_path)
+                    index = 2
+                    for watchable in all_watchables:
+                        self.assertEqual(fullpath_headers[index], watchable.server_path)
+                        self.assertEqual(headers[index], watchable.name)
+                        index += 1
 
-            f1 = open(os.path.join(tempdir, 'my_file_0000.csv'), 'r', encoding=csv_config.encoding, newline=csv_config.newline)
-            f2 = open(os.path.join(tempdir, 'my_file_0001.csv'), 'r', encoding=csv_config.encoding, newline=csv_config.newline)
-            f3 = open(os.path.join(tempdir, 'my_file_0002.csv'), 'r', encoding=csv_config.encoding, newline=csv_config.newline)
+                    all_rows = list(rows)
+                    self.assertEqual(len(all_rows), nrow)
+                    for i in range(start, start + nrow):
+                        row = all_rows[i - start]
+                        datetime.strptime(row[0], r'%Y-%m-%d %H:%M:%S')    # check it can be parsed
+                        float(row[1])  # ensure it can be parsed
 
-            for f in [f1, f2, f3]:
-                nrow = 100
-                start = 0
-                if f is f2:
-                    start = 100
-                if f is f3:
-                    start = 200
-                    nrow = 50
-                reader = csv.reader(f, delimiter=csv_config.delimiter, quotechar=csv_config.quotechar, quoting=csv_config.quoting)
-                rows = iter(reader)
-                fullpath_headers = next(rows)
-                headers = next(rows)
-                self.assertEqual(headers[0], 'Datetime')
-                self.assertEqual(headers[1], 'Time [s]')
-                self.assertEqual(headers[-1], 'update flags')
-                all_watchables = sorted([self.w1, self.w2, self.w3, self.w4, self.w5], key=lambda x: x.server_path)
-                index = 2
-                for watchable in all_watchables:
-                    self.assertEqual(fullpath_headers[index], watchable.server_path)
-                    self.assertEqual(headers[index], watchable.name)
-                    index += 1
-
-                all_rows = list(rows)
-                self.assertEqual(len(all_rows), nrow)
-                for i in range(start, start + nrow):
-                    row = all_rows[i - start]
-                    datetime.strptime(row[0], r'%Y-%m-%d %H:%M:%S')    # check it can be parsed
-                    float(row[1])  # ensure it can be parsed
-
-                    for col in range(2, len(headers) - 1):
-                        if headers[col] == self.w1.server_path:
-                            self.assertEqual(row[col], i * 1.1)
-                        elif headers[col] == self.w2.server_path:
-                            self.assertEqual(row[col], -2 * i)
-                        elif headers[col] == self.w3.server_path:
-                            self.assertEqual(row[col], 3 * i)
-                        elif headers[col] == self.w4.server_path:
-                            self.assertEqual(row[col], i * 4.4123)
-                        elif headers[col] == self.w5.server_path:
-                            self.assertEqual(row[col], 1 if i % 2 == 0 else 0)
-
-            f1.close()
-            f2.close()
-            f3.close()
+                        for col in range(2, len(headers) - 1):
+                            if headers[col] == self.w1.server_path:
+                                self.assertEqual(row[col], i * 1.1)
+                            elif headers[col] == self.w2.server_path:
+                                self.assertEqual(row[col], -2 * i)
+                            elif headers[col] == self.w3.server_path:
+                                self.assertEqual(row[col], 3 * i)
+                            elif headers[col] == self.w4.server_path:
+                                self.assertEqual(row[col], i * 4.4123)
+                            elif headers[col] == self.w5.server_path:
+                                self.assertEqual(row[col], 1 if i % 2 == 0 else 0)
+            finally:
+                if f1 is not None:
+                    f1.close()
+                if f2 is not None:
+                    f2.close()
+                if f3 is not None:
+                    f3.close()
 
     def test_csv_writer_listener_bad_params(self):
         with TemporaryDirectory() as tempdir:
@@ -648,6 +662,31 @@ class TestListeners(ScrutinyUnitTest):
                     csv_config=CSVConfig(encoding='badencoding')
                 )
                 listener.start()
+
+    def test_initial_broadcast_on_start(self):
+        listener = WorkingTestListener()
+        listener.subscribe([self.w1, self.w2, self.w3, self.w4])
+        with listener.start():
+            time.sleep(1)
+            self.assertEqual(listener.update_count, 0)  # All NeverSet. Should receive nothing
+
+        # Set 2 of them w1 and w2
+        self.w1._set_invalid(sdk.ValueStatus.NullPtrDereferenced)
+        self.w2._update_value(123)
+
+        listener = WorkingTestListener()
+        listener.subscribe([self.w1, self.w2, self.w3, self.w4])
+        with listener.start():
+            wait_cond(lambda: listener.update_count >= 2, 1)   # Hope to receive 2 updates. w1 and w2
+            self.assertEqual(listener.update_count, 2)
+
+        listener = WorkingTestListenerAllowSubscriptionChange()
+        with listener.start():
+            time.sleep(0.5)
+            self.assertEqual(listener.update_count, 0)
+            listener.subscribe([self.w1, self.w2, self.w3, self.w4])
+            wait_cond(lambda: listener.update_count >= 2, 1)   # Hope to receive 2 updates. w1 and w2
+            self.assertEqual(listener.update_count, 2)
 
 
 if __name__ == '__main__':

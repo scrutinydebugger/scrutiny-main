@@ -892,6 +892,8 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
 
         try:
             for value_update in value_updates:
+                if value_update.sdk_update.value is None:
+                    continue
                 xval = get_x(value_update)
                 yval = float(value_update.sdk_update.value)
 

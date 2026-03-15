@@ -13,6 +13,7 @@ import types
 import time
 
 from scrutiny.sdk.watchable_handle import WatchableHandle
+from scrutiny.sdk import ValueStatus
 from scrutiny.tools import validation
 from scrutiny.core.logging import DUMPDATA_LOGLEVEL
 from scrutiny.sdk import exceptions as sdk_exceptions
@@ -28,8 +29,12 @@ class ValueUpdate:
     watchable: WatchableHandle
     """A reference to the watchable object that generated the update"""
 
-    value: Union[int, float, bool]
-    """Value received in the update"""
+    value: Optional[Union[int, float, bool]]
+    """Value received in the update. If ``None``, refer to :attr:`status<ValueUpdate.status>` to know why.
+    Guaranteed to have a value if :attr:`status<ValueUpdate.status>`=:attr:`Valid<scrutiny.sdk.ValueStatus.Valid>` """
+
+    status: ValueStatus
+    """The status of the value. """
 
     update_timestamp: datetime
     """Timestamp of the update. Taken by the server right after reading the device. Precise to the microsecond"""
@@ -134,16 +139,18 @@ class BaseListener(abc.ABC):
                 timestamp = watchable.last_update_timestamp
                 if timestamp is None:
                     timestamp = datetime.now()
+                val, status = watchable.get_value_and_status()  # Atomic
                 update = ValueUpdate(
                     watchable=watchable,
-                    value=watchable.value,
+                    value=val,
+                    status=status,
                     update_timestamp=timestamp,
                 )
                 update_list.append(update)
 
             if len(update_list) > 0 and self._update_queue is not None:
                 if self._logger.isEnabledFor(DUMPDATA_LOGLEVEL):    # pragma: no cover
-                    self._logger.log(DUMPDATA_LOGLEVEL, f"Received {len(update_list)} updates")
+                    self._logger.log(DUMPDATA_LOGLEVEL, f"Received {len(update_list)} updates. {update_list}")
                 try:
                     self._update_queue.put_nowait(update_list)
                 except queue.Full:
@@ -206,7 +213,7 @@ class BaseListener(abc.ABC):
                 self.teardown()
             except Exception as e:
                 self._teardown_error = True
-                tools.log_exception(self._logger, e, "User teardown() function raise an exception")
+                tools.log_exception(self._logger, e, "User teardown() function raised an exception")
 
         self._logger.debug("Thread exit")
 
@@ -260,6 +267,11 @@ class BaseListener(abc.ABC):
             self._assert_can_change_subscriptions()
             for watchable in watchables:
                 self._subscriptions.add(watchable)
+
+        # Broadcast a first value upon subscription.
+        # Important: The server broadcast invalid values once, and it may have happened before the call to subscribe()
+        if self._started:
+            self._initial_broadcast(watchables)
 
     def unsubscribe(self, watchables: Union[WatchableHandle, Iterable[WatchableHandle]]) -> None:
         """Remove one or many watchables from the list of monitored watchables.
@@ -318,7 +330,14 @@ class BaseListener(abc.ABC):
             self._logger.debug("Started")
             self._started = True
 
+        # Initial value update on start. Will broadcast the last value received before the start() call.
+        self._initial_broadcast(self._subscriptions)
+
         return self
+
+    def _initial_broadcast(self, watchables: Iterable[WatchableHandle]) -> None:
+        filtered = [w for w in watchables if not w.is_dead and w.status != ValueStatus.NeverSet]
+        self._broadcast_update(filtered)
 
     def stop(self) -> None:
         """Stops the listener thread"""

@@ -47,7 +47,7 @@ class TestCSVLogger(ScrutinyUnitTest):
 
     def _make_update(self, watchable: WatchableHandle, value, dt: datetime) -> ValueUpdate:
         watchable._update_value(value, timestamp=dt)
-        return ValueUpdate(watchable=watchable, value=value, update_timestamp=dt)
+        return ValueUpdate(watchable=watchable, value=value, update_timestamp=dt, status=sdk.ValueStatus.Valid)
 
     def _make_logger(self, folder: str, **kwargs) -> CSVLogger:
         defaults = dict(

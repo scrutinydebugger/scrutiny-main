@@ -46,6 +46,7 @@ DataloggingState = Literal["unavailable", "standby", "waiting_for_trigger", "acq
 DataloggingCondition = Literal['true', 'eq', 'neq', 'get', 'gt', 'let', 'lt', 'within', 'cmt']
 DataloggingEncoding = Literal['raw']
 LoopType = Literal['fixed_freq', 'variable_freq']
+WatchableInvalidReason = Literal['nullptr', 'forbidden']
 
 
 class SFDInfo(TypedDict):
@@ -93,7 +94,7 @@ class BaseDatastoreEntryDetailedDefinition(DatastoreEntryBriefDefinition):
 
 class VarDetailedDatastoreEntryDefinition(BaseDatastoreEntryDetailedDefinition):
     """Given to the user when subscribing"""
-    address: int
+    address: Optional[int]
     bitoffset: Optional[int]
     bitsize: Optional[int]
 
@@ -193,11 +194,12 @@ class DataloggingOperand(TypedDict):
     value: Union[float, str]
 
 
-class WatchableUpdateRecord(TypedDict):
+class WatchableUpdateRecord(TypedDict, total=False):
     # We want compact key names to save some bandwidth
     id: str
     t: float
-    v: Union[bool, float, int]
+    v: Optional[Union[bool, float, int]]
+    r: WatchableInvalidReason
 
 
 class SupportedCondition(TypedDict):

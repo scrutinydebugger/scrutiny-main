@@ -32,6 +32,20 @@ ValType = Union[int, float, bool]
 class WatchableHandle:
     """A handle to a server watchable element (Variable / Alias / RuntimePublishedValue) that gets updated by the client thread."""
 
+    __slots__ = (
+        '_client',
+        '_server_path',
+        '_shortname',
+        '_configuration',
+        '_lock',
+        '_status',
+        '_value',
+        '_last_value_dt',
+        '_last_write_dt',
+        '_update_counter',
+        '_dead',
+    )
+
     _client: "ScrutinyClient"
     """The client that created this handle"""
     _server_path: str
@@ -54,6 +68,8 @@ class WatchableHandle:
     """Datetime of the last completed write on this element"""
     _update_counter: int
     """A counter that gets incremented each time the value is updated"""
+    _dead: bool
+    """A one-shot flag that indicates if the handle is dead forever"""
 
     def __init__(self, client: "ScrutinyClient", server_path: str) -> None:
         self._client = client
@@ -63,6 +79,7 @@ class WatchableHandle:
         self._lock = threading.Lock()
         self._update_counter = 0
         self._last_write_dt = None
+        self._dead = False
         self._set_invalid(ValueStatus.NeverSet)
 
     def __repr__(self) -> str:
@@ -98,7 +115,7 @@ class WatchableHandle:
         with self._lock:
             self._last_write_dt = dt
 
-    def _update_value(self, val: ValType, timestamp: Optional[datetime] = None) -> None:
+    def _update_value(self, val: Optional[ValType], timestamp: Optional[datetime] = None) -> None:
         """Update the cached value and mark the status as ``ValueStatus.Valid``.
 
         No-op if the status is ``ValueStatus.ServerGone``.
@@ -116,26 +133,33 @@ class WatchableHandle:
             else:
                 self._value = None
 
-    def _set_invalid(self, status: ValueStatus) -> None:
+    def _set_dead(self, status: ValueStatus) -> None:
+        """Set the handle as "dead". Meaning it cannot be used anymore. the value is also marked invalid
+
+        :param status: The new :class:`ValueStatus` to assign. Must not be ``ValueStatus.Valid``.
+        """
+        self._dead = True
+        self._set_invalid(status)
+
+    def _set_invalid(self, status: ValueStatus, timestamp: Optional[datetime] = None) -> None:
         """Clear the cached value and set a non-``Valid`` status.
 
         :param status: The new :class:`ValueStatus` to assign. Must not be ``ValueStatus.Valid``.
+        :param timestamp: Time at which the value as been set invalid.
         """
         assert status != ValueStatus.Valid
 
         with self._lock:
             self._value = None
             self._status = status
+            self._last_value_dt = timestamp if timestamp is not None else datetime.now()
 
     def _read(self) -> ValType:
         """Return the current cached value.
 
         :raises InvalidValueError: If the value is ``None`` or the status is not ``ValueStatus.Valid``.
         """
-        with self._lock:
-            val = self._value
-            val_status = self._status
-
+        val, val_status = self.get_value_and_status()   # Thread safe
         if val is None or val_status != ValueStatus.Valid:
             raise sdk_exceptions.InvalidValueError(f"Value of {self._shortname} is unusable. {val_status._get_error()}")
 
@@ -177,7 +201,8 @@ class WatchableHandle:
             raise sdk_exceptions.InvalidValueError("This watchable handle is not ready to be used")
 
     def unwatch(self) -> None:
-        """Stop watching this item by unsubscribing to the server
+        """Stop watching this item by unsubscribing to the server. Marks the handle as "dead".
+        See :attr:`is_dead<scrutiny.sdk.watchable_handle.WatchableHandle.is_dead>`
 
         :raises NameNotFoundError: If the required path is not presently being watched
         :raises OperationFailure: If the subscription cancellation failed in any way
@@ -284,6 +309,17 @@ class WatchableHandle:
         self._assert_configured()
         assert self._configuration is not None
         return self._configuration.parse_enum_val(val)
+
+    def get_value_and_status(self) -> Tuple[Optional[ValType], ValueStatus]:
+        """Returns a tuple with the value and the value status.
+        If the status is :attr:`Valid<scrutiny.sdk.ValueStatus.Valid>`, then the value is guaranteed to contain a value.
+        If status != :attr:`Valid<scrutiny.sdk.ValueStatus.Valid>`, the value will be ``None``. This method does not raise an exception on invalid values.
+        """
+        with self._lock:
+            val = self._value
+            val_status = self._status
+
+        return (val, val_status)
 
     @property
     @deprecated("Replaced by server_path")
@@ -400,10 +436,15 @@ class WatchableHandle:
 
     @property
     def is_dead(self) -> bool:
-        """Return ``True`` if the watchable handle has lost its validity, ``False`` otherwise.
-        If ``True``, the handle can be discarded. A new call to :meth:`watch()<scrutiny.sdk.client.ScrutinyClient.watch>` must be performed to get a new valid handle."""
-        status = ValueStatus(self._status)  # copy for atomicity
-        return status not in (ValueStatus.Valid, ValueStatus.NeverSet)
+        """Flag indicating if this handle is dead, meaning it will never be updated in the future. Once a handle is dead, it can be disposed of.
+        Unwatching a handle will mark it "dead". """
+        return self._dead
+
+    @property
+    def status(self) -> ValueStatus:
+        """Return the value status. Refer the :meth:`get_value_and_status()<scrutiny.sdk.watchable_handle.WatchableHandler.get_value_and_status>` to
+        read the value and the status together atomicly."""
+        return ValueStatus(self._status)
 
     @property
     def var_details(self) -> DetailedVarWatchableConfiguration:

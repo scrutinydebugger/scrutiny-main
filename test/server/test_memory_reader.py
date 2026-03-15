@@ -471,6 +471,7 @@ class TestMemoryReaderBasicReadOperation(ScrutinyUnitTest):
         self.assertIsNotNone(req_record)
 
         request_data = cast(protocol_typing.Request.MemoryControl.Read, protocol.parse_request(req_record.request))
+
         self.assertEqual(len(request_data['blocks_to_read']), 1)
         self.assertEqual(request_data['blocks_to_read'][0]['address'], 0x1000)
         self.assertEqual(request_data['blocks_to_read'][0]['length'], 8)    # ptr64
@@ -620,16 +621,19 @@ class TestMemoryReaderComplexReadOperation(ScrutinyUnitTest):
 
     def setUp(self):
         self.callback_count_map = {}
+        self.callback_received_val_map = {}
 
-    def init_count_map(self, all_entries):
+    def init_maps(self, all_entries):
         for entry in all_entries:
             self.callback_count_map[entry] = 0
+            self.callback_received_val_map[entry] = []
 
     def value_change_callback1(self, owner, entry):
         if entry not in self.callback_count_map:
             self.callback_count_map[entry] = 0
 
         self.callback_count_map[entry] += 1
+        self.callback_received_val_map[entry].append(entry.value)
 
     def get_callback_count_min_max(self, exclude_entries=[]):
         low = None
@@ -670,7 +674,7 @@ class TestMemoryReaderComplexReadOperation(ScrutinyUnitTest):
             entries += list(make_dummy_var_entries(address=0x10000 + i * 0x10, n=1, vartype=EmbeddedDataType.uint8))
 
         # This will count the number of time the value is changed in the datastore
-        self.init_count_map(entries)
+        self.init_maps(entries)
 
         # Setup everything
         ds = Datastore()
@@ -723,9 +727,11 @@ class TestMemoryReaderComplexReadOperation(ScrutinyUnitTest):
 
         self.assertLess(loop_count, max_loop)  # Make sure we haven't exited because nothing happens
 
-        # Make sure no entries touching the forbidden region is being updated
+        # Make sure we got a None for the forbidden entries
         for forbidden_entry in forbidden_entries:
-            self.assertEqual(self.callback_count_map[forbidden_entry], 0)
+            self.assertGreater(self.callback_count_map[forbidden_entry], 0)
+            for value in self.callback_received_val_map[forbidden_entry]:
+                self.assertIsNone(value)    # We receive None rather than 0 for every forbidden entries.
 
 
 class TestRawMemoryRead(ScrutinyUnitTest):

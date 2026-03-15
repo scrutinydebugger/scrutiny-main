@@ -1053,7 +1053,10 @@ class ScrutinyClient:
                     self._logger.log(DUMPDATA_LOGLEVEL, f"Updating value of {update.server_id} ({watchable.name})")
 
             update_dt = self._server_timebase.micro_to_dt(update.server_time_us)
-            watchable._update_value(update.value, timestamp=update_dt)
+            if update.value is None:
+                watchable._set_invalid(update.value_status, timestamp=update_dt)
+            else:
+                watchable._update_value(update.value, timestamp=update_dt)
             updated_watchables.append(watchable)
 
         for listener in self._listeners:
@@ -1623,7 +1626,7 @@ class ScrutinyClient:
         for server_id in server_ids:
             watchable = self._watchable_storage[server_id]
             if watchable.type in watchable_types:
-                watchable._set_invalid(new_status)
+                watchable._set_dead(new_status)
                 if watchable.server_path in self._watchable_path_to_id_map:
                     del self._watchable_path_to_id_map[watchable.server_path]
                 del self._watchable_storage[server_id]
@@ -2139,7 +2142,8 @@ class ScrutinyClient:
         return watchable
 
     def unwatch(self, watchable_ref: Union[str, WatchableHandle]) -> None:
-        """Stop watching a watchable element
+        """Stop watching a watchable element. Marks the handle as "dead".
+        See :attr:`is_dead<scrutiny.sdk.watchable_handle.WatchableHandle.is_dead>`
 
         :param watchable_ref: The tree-like path of the watchable element or the handle to it
 
@@ -2197,7 +2201,7 @@ class ScrutinyClient:
                 if watchable._configuration.server_id in self._watchable_storage:
                     del self._watchable_storage[watchable._configuration.server_id]
 
-        watchable._set_invalid(ValueStatus.NotWatched)
+        watchable._set_dead(ValueStatus.NotWatched)
         if self._logger.isEnabledFor(logging.DEBUG):
             self._logger.debug(f"Done watching {watchable.server_path}")
 
@@ -2207,7 +2211,7 @@ class ScrutinyClient:
         without actually subscribing to the server for updates.
 
         :param paths:  The server path of every watchable to query
-        :return: A dictionnary mapping server path and detailed info structure
+        :return: A dictionary mapping server path and detailed info structure
 
         :raises ValueError: If paths is not valid
         :raises TypeError: Given parameter not of the expected type

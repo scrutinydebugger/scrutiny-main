@@ -22,7 +22,7 @@ from PySide6.QtWidgets import QWidget, QMenu, QAbstractItemDelegate, QComboBox, 
 from PySide6.QtGui import (QStandardItem, QPalette, QContextMenuEvent, QDragMoveEvent, QDropEvent,
                            QDragEnterEvent, QKeyEvent)
 
-from scrutiny.sdk import BriefWatchableConfiguration, EmbeddedEnum
+from scrutiny.sdk import BriefWatchableConfiguration, EmbeddedEnum, ValueStatus
 from scrutiny.gui.core.scrutiny_drag_data import ScrutinyDragData, WatchableListDescriptor
 from scrutiny.gui.core.watchable_registry import WatchableRegistry
 from scrutiny.gui.widgets.watchable_tree import (
@@ -56,14 +56,18 @@ ENUM_DATA_ROLE = Qt.ItemDataRole.UserRole + 4
 class ValueStandardItem(QStandardItem):
     """The tree item that stores a watchable value."""
 
-    def set_value(self, value_to_set: Optional[ValType]) -> None:
+    def set_value(self, value_to_set: Optional[ValType], status: ValueStatus = ValueStatus.Valid) -> None:
         """Set the value of the item. Stores the real data + compute a text representation for the UI."""
         self.setData(value_to_set, REAL_DATA_ROLE)
 
         value_enum = cast(Optional[EmbeddedEnum], self.data(ENUM_DATA_ROLE))
         display_txt = str(value_to_set)
         if value_to_set is None:
-            display_txt = ""
+            display_txt = f"N/A"
+            if status == ValueStatus.NullPtrDereferenced:
+                display_txt += " (null)"
+            elif status == ValueStatus.ForbiddenRegion:
+                display_txt += " (forbidden)"
         elif isinstance(value_to_set, float):
             display_txt = '%g' % value_to_set
         elif isinstance(value_to_set, int):

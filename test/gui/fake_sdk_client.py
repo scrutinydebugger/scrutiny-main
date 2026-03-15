@@ -38,11 +38,15 @@ default_server_info = sdk.ServerInfo(
 )
 
 
+_ValueType = Union[int, bool, float, str]
+
+
 class StubbedWatchableHandle(tools.UnitTestStub):
     server_path: str
     configuration: sdk.BaseDetailedWatchableConfiguration
     _invalid: bool
-    _value: Union[int, str, float, bool]
+    _value: Optional[_ValueType]
+    _status: sdk.ValueStatus
 
     def __init__(self, server_path: str,
                  watchable_type: sdk.WatchableType,
@@ -62,6 +66,7 @@ class StubbedWatchableHandle(tools.UnitTestStub):
         self._invalid = False
         self._value = 0
         self._last_update_timestamp = None
+        self._status = sdk.ValueStatus.Valid
 
     def _assert_configured(self) -> None:
         pass
@@ -77,6 +82,11 @@ class StubbedWatchableHandle(tools.UnitTestStub):
         self._value = val
         self._last_update_timestamp = datetime.now()
 
+    def set_invalid(self, status: sdk.ValueStatus):
+        assert status != sdk.ValueStatus.Valid
+        self._value = None
+        self._status = status
+
     @property
     def server_id(self) -> str:
         return self.configuration.server_id
@@ -86,12 +96,19 @@ class StubbedWatchableHandle(tools.UnitTestStub):
         return self._last_update_timestamp
 
     @property
-    def value(self) -> Union[int, bool, float, str]:
+    def value(self) -> Optional[_ValueType]:
         return self._value
+
+    @property
+    def status(self) -> sdk.ValueStatus:
+        return self._status
 
     @property
     def type(self) -> sdk.WatchableType:
         return self.configuration.watchable_type
+
+    def get_value_and_status(self) -> Tuple[Optional[_ValueType], sdk.ValueStatus]:
+        return self._value, self._status
 
 
 @dataclass
@@ -484,3 +501,6 @@ class FakeSDKClient(tools.UnitTestStub):
                 )
 
         return None
+
+    def set_server_throttling(self, rate) -> None:
+        pass

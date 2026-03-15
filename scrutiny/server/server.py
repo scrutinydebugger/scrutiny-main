@@ -149,6 +149,7 @@ class ScrutinyServer:
     def process(self) -> None:
         self.api.process()
         self.datalogging_manager.process()
+        self.datastore.process()
         self.device_handler.process()
         self.sfd_handler.process()
 

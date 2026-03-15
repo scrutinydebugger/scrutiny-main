@@ -323,23 +323,27 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
                         if update_request.entry.pointer_entry.get_value() == 0:
                             allowed = False  # Do not write null pointers
                     address = update_request.entry.get_address()
-                    # We don't check for bitfield size because the device will access the whole word anyway
-                    size = update_request.entry.get_data_type().get_size_byte()
-                    candidate_region = MemoryRegion(start=address, size=size)
-                    for readonly_region in self.readonly_regions:
-                        if candidate_region.touches(readonly_region):
-                            allowed = False
-                            break
-                    for forbidden_region in self.forbidden_regions:
-                        if candidate_region.touches(forbidden_region):
-                            allowed = False
-                            break
+                    if address is None:
+                        allowed = False
+                    else:
+                        # We don't check for bitfield size because the device will access the whole word anyway
+                        size = update_request.entry.get_data_type().get_size_byte()
+                        candidate_region = MemoryRegion(start=address, size=size)
+                        for readonly_region in self.readonly_regions:
+                            if candidate_region.touches(readonly_region):
+                                allowed = False
+                                break
+                        for forbidden_region in self.forbidden_regions:
+                            if candidate_region.touches(forbidden_region):
+                                allowed = False
+                                break
 
                     if not allowed:
                         if self.logger.isEnabledFor(logging.DEBUG):  # pragma: no cover
-                            self.logger.debug("Refusing write request %s accessing address 0x%08x with size %d" %
+                            addr_str = "0x%08x" % address if address is not None else "<None>"
+                            self.logger.debug("Refusing write request %s accessing address %s with size %d" %
                                               (update_request.entry.display_path,
-                                               update_request.entry.get_address(),
+                                               addr_str,
                                                update_request.entry.get_size()))
                 if allowed:
                     self.target_update_request_being_processed = update_request
@@ -363,12 +367,13 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
                                                                  value_to_write, bitsize=self.entry_being_updated.get_bitsize())
                     except Exception:
                         encoding_succeeded = False
-
+                    address = self.entry_being_updated.get_address()    # Works with absolute and pointed address
+                    assert address is not None  # Validated above.
                     if encoding_succeeded:
                         self.target_update_value_written = value_to_write
                         encoded_value, write_mask = self.entry_being_updated.encode(value_to_write)
                         request = self.protocol.write_single_memory_block(
-                            address=self.entry_being_updated.get_address(),  # Works with absolute and pointed address
+                            address=address,
                             data=encoded_value,
                             write_mask=write_mask
                         )

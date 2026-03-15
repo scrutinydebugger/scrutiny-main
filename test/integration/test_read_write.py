@@ -420,7 +420,7 @@ class TestReadMemoryForbidden(ScrutinyIntegrationTestWithTestSFD1):
         self.assert_no_error(response)
 
         self.process_watchable_update(nbr=len(all_entries) * 2)
-        self.assert_value_never_received(self.entry_s8)  # Address of this entry is forbidden
+        self.assert_value_received(self.entry_s8, None)
         # The server should not have sent a request to the device. It knows about the forbidden region
         self.assertEqual(len(self.emulated_device.failed_read_request_list), 0)
 

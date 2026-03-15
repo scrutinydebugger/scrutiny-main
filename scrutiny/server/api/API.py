@@ -42,7 +42,7 @@ from scrutiny.server.timebase import server_timebase
 from scrutiny.server.datalogging.datalogging_storage import DataloggingStorage
 from scrutiny.server.datalogging.datalogging_manager import DataloggingManager
 from scrutiny.server.datastore.datastore import Datastore, BatchState
-from scrutiny.server.datastore.datastore_entry import DatastoreEntry, DatastoreVariableEntry, DatastoreAliasEntry, DatastoreRPVEntry
+from scrutiny.server.datastore.datastore_entry import DatastoreEntry, DatastoreVariableEntry, DatastoreAliasEntry, DatastoreRPVEntry, DatastoreEntryInvalidReason
 from scrutiny.server.device.device_handler import DeviceHandler, RawMemoryReadRequest, RawMemoryWriteRequest, UserCommandCallback
 from scrutiny.server.active_sfd_handler import ActiveSFDHandler
 from scrutiny.server.device.links import LinkConfig
@@ -564,16 +564,35 @@ class API:
     # Extract a chunk of data from the value streamer and send it to the clients.
     def stream_all_we_can(self) -> None:
         """Stream all available data to connected clients."""
+
+        def entry_to_update_dict(entry: DatastoreEntry) -> api_typing.WatchableUpdateRecord:
+            v = cast(Optional[Union[int, float, bool]], entry.get_value())
+            d: api_typing.WatchableUpdateRecord = {
+                'id': entry.get_id(),
+                'v': v,
+                't': entry.get_value_change_server_time_us(),
+            }
+            if v is None:
+                reason = entry.get_value_invalid_reason()
+                if reason is not None:
+                    if reason == DatastoreEntryInvalidReason.NullPtrDereference:
+                        d['r'] = 'nullptr'
+                    elif reason == DatastoreEntryInvalidReason.ForbiddenRegion:
+                        d['r'] = 'forbidden'
+                    elif reason == DatastoreEntryInvalidReason.NeverSet:
+                        raise RuntimeError("NeverSet state should never reach the clients.")    # Internal error. Should never happen
+                    else:
+                        raise NotImplementedError(f"Unsupported invalid reason {reason}")
+            return d
+
         for conn_id in self.connections:
             chunk = self.streamer.get_stream_chunk(conn_id)     # get a list of entry to send to this connection
-
             if len(chunk) == 0:
                 continue
-
             msg: api_typing.S2C.WatchableUpdate = {
                 'cmd': self.Command.Api2Client.WATCHABLE_UPDATE,
                 'reqid': None,
-                'updates': [dict(id=x.get_id(), v=x.get_value(), t=x.get_value_change_server_time_us()) for x in chunk]
+                'updates': list(entry_to_update_dict(entry) for entry in chunk)
             }
 
             self.client_handler.send(ClientHandlerMessage(conn_id=conn_id, obj=msg))

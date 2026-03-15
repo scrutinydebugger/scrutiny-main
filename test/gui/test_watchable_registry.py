@@ -49,6 +49,7 @@ All_DUMMY_DATA = {
 class StubbedWatchableHandle:
     server_path: str
     configuration: sdk.BaseDetailedWatchableConfiguration
+    _status: sdk.ValueStatus
 
     def __init__(self, server_path: str,
                  watchable_type: sdk.WatchableType,
@@ -65,6 +66,7 @@ class StubbedWatchableHandle:
             server_id=server_id,
             server_path=server_path
         )
+        self._status = sdk.ValueStatus.NeverSet
 
     @property
     def server_id(self):
@@ -73,6 +75,10 @@ class StubbedWatchableHandle:
     @property
     def type(self):
         return self.configuration.watchable_type
+
+    @property
+    def status(self) -> sdk.ValueStatus:
+        return self._status
 
 
 class TestWatchableRegistry(ScrutinyUnitTest):
@@ -331,9 +337,9 @@ class TestWatchableRegistry(ScrutinyUnitTest):
         self.assertEqual(len(update_val_callback_history['watcher2']), 0)
 
         # Check value updates broadcast
-        update1_1 = ValueUpdate(var1_sdk_handle, 123, datetime.now())
-        update1_2 = ValueUpdate(var1_sdk_handle, 456, datetime.now())
-        update2_1 = ValueUpdate(var2_sdk_handle, 789, datetime.now())
+        update1_1 = ValueUpdate(var1_sdk_handle, 123, status=sdk.ValueStatus.Valid, update_timestamp=datetime.now(),)
+        update1_2 = ValueUpdate(var1_sdk_handle, 456, status=sdk.ValueStatus.Valid, update_timestamp=datetime.now(),)
+        update2_1 = ValueUpdate(var2_sdk_handle, 789, status=sdk.ValueStatus.Valid, update_timestamp=datetime.now(),)
         self.registry.broadcast_value_updates_to_watchers([update1_1, update1_2])
         self.assertEqual(len(update_val_callback_history['watcher1']), 1)
         self.assertEqual(len(update_val_callback_history['watcher2']), 1)
@@ -349,7 +355,7 @@ class TestWatchableRegistry(ScrutinyUnitTest):
         self.assertEqual(self.registry.node_watcher_count_fqn(var1fqn), 1)
         self.assertEqual(self.registry.node_watcher_count_fqn(var2fqn), 1)
 
-        update1_3 = ValueUpdate(var1_sdk_handle, 666, datetime.now())
+        update1_3 = ValueUpdate(var1_sdk_handle, 666, status=sdk.ValueStatus.Valid, update_timestamp=datetime.now())
         self.registry.broadcast_value_updates_to_watchers([update1_3])
         self.assertEqual(len(update_val_callback_history['watcher1']), 2)
         self.assertEqual(len(update_val_callback_history['watcher2']), 2)  # Did not receive the latest update
@@ -360,8 +366,8 @@ class TestWatchableRegistry(ScrutinyUnitTest):
         self.assertEqual(self.registry.node_watcher_count_fqn(var1fqn), 0)
         self.assertEqual(self.registry.node_watcher_count_fqn(var2fqn), 0)
 
-        update1_4 = ValueUpdate(var1_sdk_handle, 777, datetime.now())
-        update2_3 = ValueUpdate(var2_sdk_handle, 888, datetime.now())
+        update1_4 = ValueUpdate(var1_sdk_handle, 777, status=sdk.ValueStatus.Valid, update_timestamp=datetime.now())
+        update2_3 = ValueUpdate(var2_sdk_handle, 888, status=sdk.ValueStatus.Valid, update_timestamp=datetime.now())
         self.registry.broadcast_value_updates_to_watchers([update1_4, update2_3])
         # Nothing updated, nobody watches
         self.assertEqual(len(update_val_callback_history['watcher1']), 2)
@@ -424,9 +430,9 @@ class TestWatchableRegistry(ScrutinyUnitTest):
         self.registry.watch_fqn('watcher2', var2fqn)
         self.registry.watch_fqn(123, var3fqn)
 
-        update1 = ValueUpdate(var1_sdk_handle, 123, datetime.now())
-        update2 = ValueUpdate(var2_sdk_handle, 456, datetime.now())
-        update3 = ValueUpdate(var3_sdk_handle, 1.5, datetime.now())
+        update1 = ValueUpdate(var1_sdk_handle, 123, sdk.ValueStatus.Valid, datetime.now())
+        update2 = ValueUpdate(var2_sdk_handle, 456, sdk.ValueStatus.Valid, datetime.now())
+        update3 = ValueUpdate(var3_sdk_handle, 1.5, sdk.ValueStatus.Valid, datetime.now())
         self.registry.broadcast_value_updates_to_watchers([update1, update2, update3])
         self.assertEqual(len(update_val_callback_history['watcher1']), 1)
         self.assertEqual(len(update_val_callback_history['watcher2']), 1)
