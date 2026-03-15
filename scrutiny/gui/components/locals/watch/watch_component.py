@@ -388,7 +388,8 @@ class WatchComponent(ScrutinyGUIBaseLocalComponent):
                 can_update = False  # Don't change the content. The user is writing something
 
         if can_update:
-            item.set_value(vals[-1].sdk_update.value)
+            last = vals[-1]
+            item.set_value(last.sdk_update.value, last.sdk_update.status)
 
     def _value_written_slot(self, fqn: str, value: Union[str, int, float, bool]) -> None:
         """The QT slot called when the user input a new value in a value field"""

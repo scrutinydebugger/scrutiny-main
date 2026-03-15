@@ -101,7 +101,7 @@ class ValueStatus(enum.Enum):
     """Value is valid"""
 
     NeverSet = 2
-    """Invalid - Never received a value"""
+    """Invalid - Never received a value from the server"""
 
     ServerGone = 3
     """Invalid - Server is gone and cannot provide updates anymore"""
@@ -114,6 +114,15 @@ class ValueStatus(enum.Enum):
 
     NotWatched = 6
     """Invalid - The watchable is not being watched"""
+
+    NullPtrDereferenced = 7
+    """Invalid (set by server) - Accessing this value require dereferencing a Null pointer"""
+
+    ForbiddenRegion = 8
+    """Invalid (set by server) - The memory region that contains this value is forbidden"""
+
+    ServerSetInvalidWithoutReason = 9
+    """Invalid (set by server) - Set invalid by the server without a detailed reason (fallback value)"""
 
     def _get_error(self) -> str:
         error = ""
@@ -129,6 +138,12 @@ class ValueStatus(enum.Enum):
             error = "Firmware Description File has been unloaded"
         elif self == ValueStatus.NotWatched:
             error = "Not watched"
+        elif self == ValueStatus.NullPtrDereferenced:
+            error = "Require nullptr dereferencing"
+        elif self == ValueStatus.ForbiddenRegion:
+            error = "Require access to a forbidden region"
+        elif self == ValueStatus.ServerSetInvalidWithoutReason:
+            error = "Set invalid by the server without details"
         else:
             raise RuntimeError(f"Unknown value status {self}")
 
@@ -886,8 +901,10 @@ class BaseDetailedWatchableConfiguration(BriefWatchableConfiguration):
 class DetailedVarWatchableConfiguration(BaseDetailedWatchableConfiguration):
     """Structure containing the metadata of a watchable of type :attr:`Variable<scrutiny.sdk.WatchableType.Variable>`"""
 
-    address: int
-    """Absolute memory address of the variable in the firmware"""
+    address: Optional[int]
+    """Absolute memory address of the variable in the firmware. This field will contain a value for static and global variables.
+    The address will be ``None`` if and only if the watchable element is a pointed
+    variable and the pointer element is either zero or unavailable (not read yet or part of a forbidden region) """
 
     bitoffset: Optional[int]
     """For bitfield, the startbit of the value. ``None`` if not a bitfield"""

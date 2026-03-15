@@ -507,6 +507,10 @@ class DataloggingManager:
 
         signal: device_datalogging.LoggableSignal
         if isinstance(watchable, DatastoreVariableEntry):
+            watchable_addr = watchable.get_address()
+            if watchable_addr is None:
+                raise ValueError("Variable address is unavailable")
+
             if watchable.is_bitfield():
                 bitoffset = watchable.get_bitoffset()
                 bitsize = watchable.get_bitsize()
@@ -515,13 +519,13 @@ class DataloggingManager:
 
                 size = math.ceil(bitsize / 8)
                 if watchable.variable_def.endianness == Endianness.Little:
-                    address = watchable.get_address() + bitoffset // 8
+                    address = watchable_addr + bitoffset // 8
                 else:
-                    address = (watchable.get_address() + watchable.get_data_type().get_size_byte()) - bitoffset // 8
+                    address = (watchable_addr + watchable.get_data_type().get_size_byte()) - bitoffset // 8
 
                 signal = device_datalogging.MemoryLoggableSignal(address, size)
             else:
-                signal = device_datalogging.MemoryLoggableSignal(watchable.get_address(), watchable.get_size())
+                signal = device_datalogging.MemoryLoggableSignal(watchable_addr, watchable.get_size())
         elif isinstance(watchable, DatastoreRPVEntry):
             signal = device_datalogging.RPVLoggableSignal(watchable.get_rpv().id)
         else:
@@ -537,6 +541,10 @@ class DataloggingManager:
 
         operand: device_datalogging.Operand
         if isinstance(watchable, DatastoreVariableEntry):
+            watchable_addr = watchable.get_address()
+            if watchable_addr is None:
+                raise ValueError("Variable address is unavailable")
+
             if watchable.is_bitfield():
                 bitoffset = watchable.get_bitoffset()
                 bitsize = watchable.get_bitsize()
@@ -544,12 +552,12 @@ class DataloggingManager:
                 assert bitsize is not None
 
                 operand = device_datalogging.VarBitOperand(
-                    watchable.get_address(),
+                    watchable_addr,
                     watchable.get_data_type(),
                     bitoffset,
                     bitsize)
             else:
-                operand = device_datalogging.VarOperand(watchable.get_address(), watchable.get_data_type())
+                operand = device_datalogging.VarOperand(watchable_addr, watchable.get_data_type())
         elif isinstance(watchable, DatastoreRPVEntry):
             operand = device_datalogging.RPVOperand(watchable.get_rpv().id)
         else:

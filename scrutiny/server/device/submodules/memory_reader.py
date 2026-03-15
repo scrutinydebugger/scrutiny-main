@@ -26,7 +26,7 @@ import scrutiny.server.protocol.commands as cmd
 import scrutiny.server.protocol.typing as protocol_typing
 from scrutiny.server.device.request_dispatcher import RequestDispatcher
 from scrutiny.server.datastore.datastore import Datastore
-from scrutiny.server.datastore.datastore_entry import DatastoreVariableEntry, DatastorePointedVariableEntry, DatastoreRPVEntry
+from scrutiny.server.datastore.datastore_entry import DatastoreVariableEntry, DatastorePointedVariableEntry, DatastoreRPVEntry, DatastoreEntryInvalidReason
 from scrutiny.core.memory_content import MemoryContent, Cluster
 from scrutiny.core.basic_types import MemoryRegion
 from scrutiny.tools.queue import ScrutinyQueue
@@ -210,7 +210,6 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
         if isinstance(entry, DatastorePointedVariableEntry):
             self.watched_pointed_var_entries.add(entry)
         elif isinstance(entry, DatastoreVariableEntry):
-            # Memory reader reads by address. Only Variables has that
             self.watched_var_entries.add(entry)
         elif isinstance(entry, DatastoreRPVEntry):
             self.watched_rpv_entries.add(entry)
@@ -324,7 +323,7 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
 
             if self.actual_read_type == ReadType.Variable:
                 if self.read_type_changed:
-                    self.active_watched_var_entries = sorted(self.watched_var_entries, key=lambda entry: entry.get_address())
+                    self.active_watched_var_entries = sorted(self.watched_var_entries, key=lambda entry: entry.get_address_or_zero())
                     self.read_type_changed = False
 
                 request, var_entries_in_request, wrapped_to_beginning = self._make_next_var_entries_request(VarType.AbsoluteAddress)
@@ -344,7 +343,7 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
 
             elif self.actual_read_type == ReadType.PointedVariable:
                 if self.read_type_changed:
-                    self.active_watched_pointed_var_entries = sorted(self.watched_pointed_var_entries, key=lambda entry: entry.get_address())
+                    self.active_watched_pointed_var_entries = sorted(self.watched_pointed_var_entries, key=lambda entry: entry.get_address_or_zero())
                     self.read_type_changed = False
 
                 request, var_entries_in_request, wrapped_to_beginning = self._make_next_var_entries_request(VarType.PointedAddress)
@@ -354,7 +353,8 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
                                           (len(var_entries_in_request), request))
                     success_params = RequestSuccessParams(
                         read_type=self.actual_read_type,
-                        addresses_before_dispatch=[x.get_address() for x in var_entries_in_request]
+                        # Address should never be zero here. _make_next_var_entries_request skips them
+                        addresses_before_dispatch=[x.get_address_or_zero() for x in var_entries_in_request]
                     )
                     self._dispatch(request, success_params=success_params)  # sets pending_request
                     self.entries_in_pending_read_var_request = var_entries_in_request
@@ -444,15 +444,20 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
                 candidate_entry = self.active_watched_var_entries[self.var_read_cursor]
             elif vartype == VarType.PointedAddress:
                 candidate_entry = self.active_watched_pointed_var_entries[self.pointed_var_read_cursor]
-                if candidate_entry.pointer_entry.get_value() == 0:
+                ptr_val = candidate_entry.pointer_entry.get_value()
+                if ptr_val is None or ptr_val == 0:
                     must_skip = True  # We refuse to read anything from a pointer to null
+                    candidate_entry.set_value(None, DatastoreEntryInvalidReason.NullPtrDereference)
             else:
                 raise NotImplementedError("Unsupported variable type")
 
+            candidate_start = candidate_entry.get_address()
+            candidate_size = candidate_entry.get_size()
             if not must_skip:
                 # Check for forbidden region. They disallow read and write
                 is_in_forbidden_region = False
-                candidate_region = MemoryRegion(start=candidate_entry.get_address(), size=candidate_entry.get_size())
+                assert candidate_start is not None
+                candidate_region = MemoryRegion(start=candidate_start, size=candidate_size)
                 for forbidden_region in self.forbidden_regions:
                     if candidate_region.touches(forbidden_region):
                         is_in_forbidden_region = True
@@ -460,12 +465,14 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
 
                 if is_in_forbidden_region:
                     must_skip = True
+                    candidate_entry.set_value(None, DatastoreEntryInvalidReason.ForbiddenRegion)
 
             # Check if must skip
             if must_skip:
                 skipped_entries_count += 1
             else:
-                memory_to_read.add_empty(candidate_entry.get_address(), candidate_entry.get_size())
+                assert candidate_start is not None
+                memory_to_read.add_empty(candidate_start, candidate_size)
                 clusters_candidate = memory_to_read.get_cluster_list_no_data_by_address()
 
                 if len(clusters_candidate) > max_block_per_request:
@@ -652,9 +659,15 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
                 for entry in entries_to_update:
                     if entry not in set_to_check_for_watch:
                         continue
-                    block_addr = self.protocol.get_truncated_address(entry.get_address())
+                    addr = entry.get_address()
+                    if addr is not None:    # Should always be True.
+                        block_addr = self.protocol.get_truncated_address(addr)
                     raw_data = temp_memory.read(block_addr, entry.get_size())
                     entry.set_value_from_data(raw_data)
+                    else:
+                        # Unset addresses or Nullptr are skipped. Changing addresses are also skipped.
+                        # We should never reach this.
+                        self.logger.critical("Got a read for an unset address. should never happen")
             finally:
                 self.datastore.stop_batch(batch_source)
         except Exception as e:

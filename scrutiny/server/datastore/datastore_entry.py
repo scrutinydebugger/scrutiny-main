@@ -14,11 +14,13 @@ __all__ = [
     'DatastorePointedVariableEntry',
     'UpdateTargetRequestCallback',
     'UpdateTargetRequest',
-    'UserValueChangeCallback'
+    'UserValueChangeCallback',
+    'DatastoreEntryInvalidReason'
 ]
 
 import abc
 import queue
+import enum
 
 from scrutiny.server.timebase import server_timebase
 from scrutiny.core import path_tools
@@ -34,6 +36,12 @@ from scrutiny.tools.typing import *
 
 UpdateTargetRequestCallback = Callable[[bool, 'DatastoreEntry', float], None]   # callback(success, entry, timestamp)
 UserValueChangeCallback = Callable[[str, "DatastoreEntry"], None]
+
+
+class DatastoreEntryInvalidReason(enum.Enum):
+    NeverSet = enum.auto()
+    NullPtrDereference = enum.auto()
+    ForbiddenRegion = enum.auto()
 
 
 class ValueChangeCallbackInstance:
@@ -128,6 +136,7 @@ class DatastoreEntry(abc.ABC):
         'target_update_callback',
         'display_path',
         'value',
+        'invalid_reason',
         'last_target_update_server_time_us',
         'target_update_request_queue',
         'last_value_update_server_time_us'
@@ -139,6 +148,7 @@ class DatastoreEntry(abc.ABC):
     target_update_callback: Dict[str, Callable[["DatastoreEntry"], Any]]
     display_path: str
     value: Any
+    invalid_reason: Optional[DatastoreEntryInvalidReason]
     last_target_update_server_time_us: Optional[float]
     target_update_request_queue: "queue.Queue[UpdateTargetRequest]"
     last_value_update_server_time_us: float
@@ -152,7 +162,8 @@ class DatastoreEntry(abc.ABC):
         self.last_target_update_server_time_us = None
         self.last_value_update_server_time_us = server_timebase.get_micro()
         self.target_update_request_queue = queue.Queue()
-        self.value = 0
+        self.value = None
+        self.invalid_reason = DatastoreEntryInvalidReason.NeverSet
 
     def __hash__(self) -> int:
         return self.entry_id_monotonic_int
@@ -206,6 +217,10 @@ class DatastoreEntry(abc.ABC):
         """Returns the current entry value"""
         return self.value
 
+    def get_value_invalid_reason(self) -> Optional[DatastoreEntryInvalidReason]:
+        """Return the reason of invalidity. ``None`` if valid"""
+        return self.invalid_reason
+
     def set_value_from_data(self, data: bytes) -> None:
         """Converts bytes gotten from memory to a value"""
         self.set_value(self.decode(data))
@@ -234,11 +249,16 @@ class DatastoreEntry(abc.ABC):
         else:
             return (owner in self.value_change_callback)
 
-    def set_value(self, value: Any) -> None:
+    def set_value(self, value: Any, invalid_reason: Optional[DatastoreEntryInvalidReason] = None) -> None:
         """ Change the value in the datastore. Should be done by the device side of
          the datastore as callbacks are meant to propagate the update to the user (API side)"""
+        if invalid_reason is not None:
+            assert value is None    # We require a value to be None to be invalid
+        previous_invalid_reason = self.invalid_reason
         self.value = value
+        self.invalid_reason = invalid_reason
         self.last_value_update_server_time_us = server_timebase.get_micro()
+        if invalid_reason is None or invalid_reason != previous_invalid_reason:
         self.execute_value_change_callback()
 
     def get_value_change_server_time_us(self) -> float:
@@ -281,9 +301,14 @@ class DatastoreVariableEntry(DatastoreEntry):
         """Return the referenced variable definition"""
         return self.variable_def
 
-    def get_address(self) -> int:
+    def get_address(self) -> Optional[int]:
         """Return the referenced variable address"""
         return self.variable_def.get_address()
+
+    def get_address_or_zero(self) -> int:
+        """Return the referenced variable address. Returns 0 if the address is unavailable"""
+        addr = self.get_address()   # Implementation is different for pointed entries
+        return addr if addr is not None else 0
 
     def get_size(self) -> int:
         """Return the variable data size"""
@@ -339,11 +364,11 @@ class DatastorePointedVariableEntry(DatastoreVariableEntry):
         """Return the offset to the pointer that must be accessed to read this variable"""
         return self.variable_def.get_pointer().pointer_offset
 
-    def get_address(self) -> int:
+    def get_address(self) -> Optional[int]:
         """Return the variable address. Perform the pointer dereferencing from the pointer value already inside the datastore"""
-        base = self.pointer_entry.value
+        base = self.pointer_entry.value  # Can be None if invalid
         if not isinstance(base, int):
-            raise ValueError("Pointer address is not an integer")
+            return None
         return base + self.get_pointer_offset()
 
 

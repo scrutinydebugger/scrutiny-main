@@ -326,7 +326,8 @@ class TestApiParser(ScrutinyUnitTest):
         check_vals('/a/b/c', 'dtype', [1, True, [], None, "asd", delete], expect_error=True)
         check_vals('/a/b/c', 'id', [1, True, [], None, {}, delete], expect_error=True)
         check_vals('/a/b/c', 'type', [1, True, [], None, {}, delete], expect_error=True)
-        check_vals('/a/b/c', 'address', [1.2, True, [], None, {}, delete], expect_error=True)
+        check_vals('/a/b/c', 'address', [1.2, True, [], {}, delete], expect_error=True)
+        check_vals('/a/b/c', 'address', [123, None], expect_error=False)
         check_vals('/a/b/c', 'bitoffset', [1.2, True, [], {}], expect_error=True)
         check_vals('/a/b/c', 'bitoffset', [None, delete], expect_error=False)
         check_vals('/a/b/c', 'bitsize', [1.2, True, [], {}], expect_error=True)
@@ -1746,7 +1747,10 @@ class TestApiParser(ScrutinyUnitTest):
                 'updates': [
                     dict(id='aaa', v=3.14159, t=1234.5),
                     dict(id='bbb', v=1, t=5555),
-                    dict(id='ccc', v=True, t=6666)
+                    dict(id='ccc', v=True, t=6666),
+                    dict(id='ddd', v=None, t=7777, r='nullptr'),
+                    dict(id='eee', v=None, t=8888, r='forbidden'),
+                    dict(id='fff', v=None, t=9999),
                 ]
             }
 
@@ -1758,27 +1762,45 @@ class TestApiParser(ScrutinyUnitTest):
         msg = base()
         updates = parser.parse_watchable_update(msg)
         self.assertIsInstance(updates, list)
-        self.assertEqual(len(updates), 3)
+        self.assertEqual(len(updates), 6)
         for update in updates:
             self.assertIsInstance(update, parser.WatchableUpdate)
             self.assertIsInstance(update.server_id, str)
-            self.assertIsInstance(update.value, (float, int, bool))
+            self.assertIsInstance(update.value, (float, int, bool, type(None)))
             self.assertIsInstance(update.server_time_us, float)
 
         self.assertEqual(updates[0].server_id, 'aaa')
         self.assertEqual(updates[0].value, 3.14159)
         self.assertIsInstance(updates[0].value, float)
         self.assertEqual(updates[0].server_time_us, 1234.5)
+        self.assertEqual(updates[0].value_status, ValueStatus.Valid)
 
         self.assertEqual(updates[1].server_id, 'bbb')
         self.assertEqual(updates[1].value, 1)
         self.assertIsInstance(updates[1].value, int)
         self.assertEqual(updates[1].server_time_us, 5555)
+        self.assertEqual(updates[1].value_status, ValueStatus.Valid)
 
         self.assertEqual(updates[2].server_id, 'ccc')
         self.assertEqual(updates[2].value, True)
         self.assertIsInstance(updates[2].value, bool)
         self.assertEqual(updates[2].server_time_us, 6666)
+        self.assertEqual(updates[2].value_status, ValueStatus.Valid)
+
+        self.assertEqual(updates[3].server_id, 'ddd')
+        self.assertEqual(updates[3].value, None)
+        self.assertEqual(updates[3].server_time_us, 7777)
+        self.assertEqual(updates[3].value_status, ValueStatus.NullPtrDereferenced)
+
+        self.assertEqual(updates[4].server_id, 'eee')
+        self.assertEqual(updates[4].value, None)
+        self.assertEqual(updates[4].server_time_us, 8888)
+        self.assertEqual(updates[4].value_status, ValueStatus.ForbiddenRegion)
+
+        self.assertEqual(updates[5].server_id, 'fff')
+        self.assertEqual(updates[5].value, None)
+        self.assertEqual(updates[5].server_time_us, 9999)
+        self.assertEqual(updates[5].value_status, ValueStatus.ServerSetInvalidWithoutReason)
 
         for v in [{}, None, 1, "asd", Delete]:
             msg = base()
@@ -1796,7 +1818,7 @@ class TestApiParser(ScrutinyUnitTest):
                 with self.assertRaises(sdk.exceptions.BadResponseError, msg=f"i={i}. v={v}"):
                     parser.parse_watchable_update(msg)
 
-        for v in [{}, [], None, "asd", Delete]:
+        for v in [{}, [], "asd", Delete]:
             msg = base()
             for i in range(len(msg['updates'])):
                 msg['updates'][i]['v'] = v

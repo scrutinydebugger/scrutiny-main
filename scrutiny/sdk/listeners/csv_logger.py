@@ -286,6 +286,7 @@ class CSVLogger:
                     self._switch_to_next_file()
 
             self._actual_vals[col_index] = update.value
+            if update.value is not None:
             if update.watchable.datatype == EmbeddedDataType.boolean and self._convert_bool_to_int:
                 self._actual_vals[col_index] = int(update.value)
             self._new_val_flags[col_index] = True
