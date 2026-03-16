@@ -190,11 +190,6 @@ class FakeServerManager:
             sdk.WatchableType.Alias: DUMMY_DATASET_ALIAS,
         })
 
-        for dataset in [DUMMY_DATASET_VAR, DUMMY_DATASET_ALIAS]:
-            for path, config in dataset.items():
-                handle = self._handles[path]
-                self._registry.assign_serverid_to_node(config.watchable_type, path, handle.server_id)
-
         self._signals.registry_changed.emit()
 
     def simulate_sfd_unloaded(self) -> None:
