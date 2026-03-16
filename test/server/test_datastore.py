@@ -589,7 +589,7 @@ class TestDataStore(ScrutinyUnitTest):
             self.assertNotIn(hash(entry), hash_set)
             hash_set.add(hash(entry))
 
-    def test_invoke_callback_on_invalid_change_only(self):
+    def test_invoke_callback_on_invalid_set(self):
         ds = Datastore()
         entries = list(self.make_dummy_entries(3, WatchableType.Variable))
         ds.add_entries(entries)
@@ -598,23 +598,21 @@ class TestDataStore(ScrutinyUnitTest):
         ds.start_watching(entries[0], 'unittest', value_change_callback=self.value_change_callback)
         ds.start_watching(entries[1], 'unittest', value_change_callback=self.value_change_callback)
         ds.start_watching(entries[2], 'unittest', value_change_callback=self.value_change_callback)
-        ds.process()
 
-        self.assertValueChangeCallbackCalled(entries[0].entry_id, 'unittest', 1)
-        self.assertValueChangeCallbackCalled(entries[1].entry_id, 'unittest', 1)
+        self.assertValueChangeCallbackCalled(entries[0].entry_id, 'unittest', 0)
+        self.assertValueChangeCallbackCalled(entries[1].entry_id, 'unittest', 0)
         self.assertValueChangeCallbackCalled(entries[2].entry_id, 'unittest', 0)
 
         entries[1].set_value(None, DatastoreEntryInvalidReason.ForbiddenRegion)
         entries[1].set_value(None, DatastoreEntryInvalidReason.ForbiddenRegion)
         entries[1].set_value(None, DatastoreEntryInvalidReason.ForbiddenRegion)
         entries[1].set_value(None, DatastoreEntryInvalidReason.ForbiddenRegion)
+        self.assertValueChangeCallbackCalled(entries[1].entry_id, 'unittest', 4)
 
-        self.assertValueChangeCallbackCalled(entries[1].entry_id, 'unittest', 1)
         entries[1].set_value(None, DatastoreEntryInvalidReason.NullPtrDereference)
         entries[1].set_value(None, DatastoreEntryInvalidReason.NullPtrDereference)
         entries[1].set_value(None, DatastoreEntryInvalidReason.NullPtrDereference)
-        entries[1].set_value(None, DatastoreEntryInvalidReason.NullPtrDereference)
-        self.assertValueChangeCallbackCalled(entries[1].entry_id, 'unittest', 2)
+        self.assertValueChangeCallbackCalled(entries[1].entry_id, 'unittest', 7)
 
 
 if __name__ == '__main__':

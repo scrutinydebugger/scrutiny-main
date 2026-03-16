@@ -268,11 +268,6 @@ class BaseListener(abc.ABC):
             for watchable in watchables:
                 self._subscriptions.add(watchable)
 
-        # Broadcast a first value upon subscription.
-        # Important: The server broadcast invalid values once, and it may have happened before the call to subscribe()
-        if self._started:
-            self._initial_broadcast(watchables)
-
     def unsubscribe(self, watchables: Union[WatchableHandle, Iterable[WatchableHandle]]) -> None:
         """Remove one or many watchables from the list of monitored watchables.
 
@@ -330,14 +325,7 @@ class BaseListener(abc.ABC):
             self._logger.debug("Started")
             self._started = True
 
-        # Initial value update on start. Will broadcast the last value received before the start() call.
-        self._initial_broadcast(self._subscriptions)
-
         return self
-
-    def _initial_broadcast(self, watchables: Iterable[WatchableHandle]) -> None:
-        filtered = [w for w in watchables if not w.is_dead and w.status != ValueStatus.NeverSet]
-        self._broadcast_update(filtered)
 
     def stop(self) -> None:
         """Stops the listener thread"""

@@ -759,7 +759,6 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
         watch_request.simulate_success(watch1_config)
 
         self.wait_true_with_events(lambda: self.fake_client.watch_handle_exists(varpath), 2)
-        self.wait_true_with_events(lambda: len(all_updates) == 1, timeout=2)
 
         watch1 = self.fake_client.try_get_existing_watch_handle(varpath)
         self.assertIsNotNone(watch1)
@@ -768,13 +767,11 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
 
         all_updates.clear()
         self.server_manager._listener.subscribe(watch1)                     # Will broadcast
-        self.wait_true_with_events(lambda: len(all_updates) == 1, timeout=2)
         self.server_manager._listener._broadcast_update([watch1])           # broadcast too
 
-        self.wait_true_with_events(lambda: len(all_updates) >= 2, timeout=2)
-        self.assertEqual(len(all_updates), 2)
+        self.wait_true_with_events(lambda: len(all_updates) >= 1, timeout=2)
+        self.assertEqual(len(all_updates), 1)
         self.assertEqual(all_updates[0].sdk_update.value, 1234)
-        self.assertEqual(all_updates[1].sdk_update.value, 1234)
 
     def test_server_id_association_maintained_properly(self):
         varpath = '/aaa/bbb/ccc'
@@ -867,9 +864,7 @@ class TestQtListener(ScrutinyBaseGuiTest):
         # Listener is started, these will trigger a broadcast
         self.listener.subscribe(self.watch1)
         self.listener.subscribe(self.watch3)
-        self.wait_true_with_events(lambda: len(data_received) >= 2, timeout=2)   # Wait for callback to be called through a QT signal
-        self.assertEqual(counter.count, 1)
-        data_received.clear()
+        self.assertEqual(counter.count, 0)
         self.listener.ready_for_next_update()
 
         # Simulate what the client does. Date comes in from the network
@@ -877,7 +872,7 @@ class TestQtListener(ScrutinyBaseGuiTest):
 
         self.wait_true_with_events(lambda: len(data_received) >= 2, timeout=2)   # Wait for callback to be called through a QT signal
         self.assertEqual(len(data_received), 2)
-        self.assertEqual(counter.count, 2)
+        self.assertEqual(counter.count, 1)
         self.assertIs(data_received[0].watchable, self.watch1)
         # watch2 was not subscribed
         self.assertIs(data_received[1].watchable, self.watch3)
@@ -889,13 +884,13 @@ class TestQtListener(ScrutinyBaseGuiTest):
         # We have not authorized the listener to emit a new QT signal. So no callback called.
         self.assertGreater(self.listener.gui_qsize, 0)  # Enqueued, waiting for callback to empty it
         self.assertEqual(len(data_received), 0)
-        self.assertEqual(counter.count, 2)
+        self.assertEqual(counter.count, 1)
         self.listener.ready_for_next_update()
 
         # Now that we authorized it, a new QT signal will be emitted so that we empty the gui_queue
         self.wait_true_with_events(lambda: len(data_received) >= 2, timeout=2)
         self.assertEqual(len(data_received), 2)
-        self.assertEqual(counter.count, 3)
+        self.assertEqual(counter.count, 2)
         self.assertIs(data_received[0].watchable, self.watch1)
         # watch2 was not subscribed
         self.assertIs(data_received[1].watchable, self.watch3)
