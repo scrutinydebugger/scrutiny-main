@@ -56,7 +56,6 @@ class Datastore:
     _batch_edit_callbacks: List[BatchEditCallback]
     _batch_edit_source_state: Dict[str, BatchState]
     _display_path_to_templated_entries_map: Dict[WatchableType, Dict[str, DatastoreEntry]]
-    _pending_call_queue: List[Callable[[], None]]
 
     MAX_ENTRY: int = 1000000
 
@@ -73,7 +72,6 @@ class Datastore:
         self._target_update_request_queue = []
         self._batch_edit_callbacks = []
         self._batch_edit_source_state = {}
-        self._pending_call_queue = []
         for watchable_type in WatchableType.all():
             self._entries[watchable_type] = {}
             self._watcher_map[watchable_type] = {}
@@ -305,17 +303,6 @@ class Datastore:
                     watcher=self._make_owner_from_entry(entry),
                     value_change_callback=pointer_value_change_callback
                 )
-
-        # If the value is already invalid, we tell the watcher right away.
-        # We do not stream an invalid value each time it is confirmed to be invalid.
-        # Only when the reason changes
-        if value_change_callback is not None:
-            invalid_reason = entry.get_value_invalid_reason()
-            if invalid_reason is None:  # Valid value
-                self._pending_call_queue.append(functools.partial(value_change_callback, watcher, entry))
-            elif invalid_reason != DatastoreEntryInvalidReason.NeverSet:    # Invalid, but set.
-                self._pending_call_queue.append(functools.partial(value_change_callback, watcher, entry))
-
         return entry
 
     def is_watching(self, entry_or_entryid: Union[DatastoreEntry, str], watcher: str) -> bool:
@@ -483,13 +470,6 @@ class Datastore:
     def get_all_variable_factory(self) -> Generator[VariableFactory, None, None]:
         for factory in self._var_factories.values():
             yield factory
-
-    def process(self) -> None:
-        # Callbacks that needs to eb executed outside of a callback.
-        # Equivalent to QT QueuedConnection
-        while len(self._pending_call_queue) > 0:
-            callback = self._pending_call_queue.pop()
-            callback()
 
 # region Private
 

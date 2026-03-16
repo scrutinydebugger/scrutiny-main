@@ -663,31 +663,6 @@ class TestListeners(ScrutinyUnitTest):
                 )
                 listener.start()
 
-    def test_initial_broadcast_on_start(self):
-        listener = WorkingTestListener()
-        listener.subscribe([self.w1, self.w2, self.w3, self.w4])
-        with listener.start():
-            time.sleep(1)
-            self.assertEqual(listener.update_count, 0)  # All NeverSet. Should receive nothing
-
-        # Set 2 of them w1 and w2
-        self.w1._set_invalid(sdk.ValueStatus.NullPtrDereferenced)
-        self.w2._update_value(123)
-
-        listener = WorkingTestListener()
-        listener.subscribe([self.w1, self.w2, self.w3, self.w4])
-        with listener.start():
-            wait_cond(lambda: listener.update_count >= 2, 1)   # Hope to receive 2 updates. w1 and w2
-            self.assertEqual(listener.update_count, 2)
-
-        listener = WorkingTestListenerAllowSubscriptionChange()
-        with listener.start():
-            time.sleep(0.5)
-            self.assertEqual(listener.update_count, 0)
-            listener.subscribe([self.w1, self.w2, self.w3, self.w4])
-            wait_cond(lambda: listener.update_count >= 2, 1)   # Hope to receive 2 updates. w1 and w2
-            self.assertEqual(listener.update_count, 2)
-
 
 if __name__ == '__main__':
     unittest.main()
