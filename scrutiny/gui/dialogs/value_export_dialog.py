@@ -29,9 +29,10 @@ class ProgressStats:
     """Number of watchable with a valid value received"""
     cancelled: int = 0
     """Number of watchable for which we gave up getting a value (timeout)"""
+    unavaialble: int = 0
 
     def total(self) -> int:
-        return self.received + self.cancelled
+        return self.received + self.cancelled + self.unavaialble
 
 
 @dataclass(slots=True, init=False)
@@ -98,6 +99,8 @@ class ValueExportDialog(QDialog):
     "A label to show the number of values we successfully have received"
     _lbl_cancelled_count: QLabel
     """A label to show how many values we failed to get. (timeout or user cancelled.)"""
+    _lbl_unavailable_count: QLabel
+    """A label to show how many values were simply unavailable for fetching (device gone or SFD unloaded)."""
     _lbl_total_count: QLabel
     """A label to show the total number of values requested"""
 
@@ -125,6 +128,7 @@ class ValueExportDialog(QDialog):
         self._btn_stop_save = QPushButton("Stop")
         self._lbl_received_count = QLabel()
         self._lbl_cancelled_count = QLabel()
+        self._lbl_unavailable_count = QLabel()
         self._lbl_total_count = QLabel()
 
         # remove duplicates and make a copy. sorting increase chance of agglomerated request on server side
@@ -149,6 +153,7 @@ class ValueExportDialog(QDialog):
         stat_label_container_layout = QFormLayout(stat_label_container)
         stat_label_container_layout.addRow("Received", self._lbl_received_count)
         stat_label_container_layout.addRow("Cancelled", self._lbl_cancelled_count)
+        stat_label_container_layout.addRow("Unavailable", self._lbl_unavailable_count)
         stat_label_container_layout.addRow("Total", self._lbl_total_count)
 
         layout = QVBoxLayout(self)
@@ -185,10 +190,15 @@ class ValueExportDialog(QDialog):
                 state.cancel()
 
         self._update_ui_feedback()
-        self._feedback_label.set_warning("Not all values were received")
+
         self._btn_stop_save.clicked.disconnect(self._btn_stop_slot)
         self._btn_stop_save.setText("Save")
         self._btn_stop_save.clicked.connect(self._btn_save_slot)
+        if self._progress_stats.received > 0:
+            self._feedback_label.set_warning("Not all values were received")
+        else:
+            self._feedback_label.set_error("No values could be fetched")
+            self._btn_stop_save.setDisabled(True)
 
     def _btn_save_slot(self) -> None:
         self.accept()
@@ -218,7 +228,8 @@ class ValueExportDialog(QDialog):
                 self._state_dict[registry_id] = WatchableState(fqn)
                 self._pending_states.add(self._state_dict[registry_id])
             except Exception as e:
-                tools.log_exception(self._logger, e, f"Failed to request a value for {fqn}")
+                self._progress_stats.unavaialble += 1
+                tools.log_exception(self._logger, e, f"Failed to request a value for {fqn}", str_level=logging.WARNING)
 
     def _value_update_callback(self, watcher_id: Union[str, int], updates: List[RegistryValueUpdate]) -> None:
         if self._finished_gathering:
@@ -248,17 +259,16 @@ class ValueExportDialog(QDialog):
         pass
 
     def _update_ui_feedback(self) -> None:
-        finished_count = self._progress_stats.cancelled + self._progress_stats.received
-        self._progress_bar.setValue(finished_count)
+        self._progress_bar.setValue(self._progress_stats.total())
         self._lbl_cancelled_count.setText(str(self._progress_stats.cancelled))
         self._lbl_received_count.setText(str(self._progress_stats.received))
+        self._lbl_unavailable_count.setText(str(self._progress_stats.unavaialble))
         self._lbl_total_count.setText(str(self._progress_stats.total()))
 
     def _check_completion(self) -> None:
         """Check if we are done gathering and either save or prompt the suer"""
-        total_processed = self._progress_stats.received + self._progress_stats.cancelled
-        if total_processed >= len(self._export_fqn_list):
-            if self._progress_stats.cancelled > 0:
+        if self._progress_stats.total() >= len(self._export_fqn_list):
+            if self._progress_stats.cancelled > 0 or self._progress_stats.unavaialble > 0:
                 # Let the user save or cancel since we don't have everything he wants
                 self._stop()
             else:
