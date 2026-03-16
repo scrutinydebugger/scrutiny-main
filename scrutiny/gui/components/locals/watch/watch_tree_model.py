@@ -173,6 +173,7 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
         export_val_to_file = Signal(object)  # set(QStandardItem)
 
     signals: _Signals
+    _allow_export_vals: bool
 
     def __init__(self, model: "WatchComponentTreeModel", parent: Optional[QWidget] = None) -> None:
         super().__init__(model, parent)
@@ -182,6 +183,10 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
         self.set_header_labels(['', 'Value', 'Type', 'Enum'])
         self.signals = self._Signals()
         self.setItemDelegateForColumn(self.model().value_col(), ValueEditDelegate())
+        self._allow_export_vals = False
+
+    def allow_export_vals(self, val: bool) -> None:
+        self._allow_export_vals = val
 
     def contextMenuEvent(self, event: QContextMenuEvent) -> None:
         context_menu = QMenu()
@@ -253,7 +258,8 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
             self.signals.export_val_to_file.emit(watchable_item_list)
         export_vals_action = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.FileSCVAL), "Export to file")
         export_vals_action.triggered.connect(export_slot)
-        export_vals_action.setEnabled(len(selected_items_no_nested_unordered) > 0)
+
+        export_vals_action.setEnabled(self._allow_export_vals and len(selected_items_no_nested_unordered) > 0)
 
         self.display_context_menu(context_menu, event.pos())
         event.accept()

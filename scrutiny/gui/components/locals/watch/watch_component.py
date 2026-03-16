@@ -84,6 +84,8 @@ class WatchComponent(ScrutinyGUIBaseLocalComponent):
         self._tree.collapsed.connect(self._node_collapsed_slot)
 
         self.app.server_manager.signals.registry_changed.connect(self._registry_changed_slot)
+        self.app.server_manager.signals.server_connected.connect(self._update_component_state)
+        self.app.server_manager.signals.server_disconnected.connect(self._update_component_state)
 
         self._tree_model.rowsInserted.connect(self._row_inserted_slot)
         self._tree_model.rowsAboutToBeRemoved.connect(self._row_about_to_be_removed_slot)
@@ -93,6 +95,7 @@ class WatchComponent(ScrutinyGUIBaseLocalComponent):
         self._tree.signals.export_val_to_file.connect(self._export_values_slot)
 
         self.update_all_watchable_state()
+        self._update_component_state()
 
     def teardown(self) -> None:
         for item in self._tree_model.get_all_watchable_items():
@@ -274,6 +277,10 @@ class WatchComponent(ScrutinyGUIBaseLocalComponent):
 
         return cast(Optional[BaseWatchableRegistryTreeStandardItem], self._tree_model.itemFromIndex(parent).child(row_index, nesting_col))
 
+    def _update_component_state(self) -> None:
+        server_info = self.app.server_manager.get_server_info()
+        self._tree.allow_export_vals(server_info is not None)   # Prevent "Export to file" menu when server is disconnected
+
     def _registry_changed_slot(self) -> None:
         self._resubscribe_all_rows_as_watcher()
         self.update_all_watchable_state()
@@ -412,7 +419,7 @@ class WatchComponent(ScrutinyGUIBaseLocalComponent):
         self.app.reveal_varlist_fqn(fqn)
 
     def _export_values_slot(self, watchable_item_list: List[WatchableStandardItem]) -> None:
-        fqn_list = [ watchable_item.fqn for watchable_item in watchable_item_list]
+        fqn_list = [watchable_item.fqn for watchable_item in watchable_item_list]
         if len(fqn_list) == 0:
             prompt.error_msgbox(title="No values to save", message="There is no watchable values to save in this selection")
             return
