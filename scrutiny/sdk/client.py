@@ -37,6 +37,7 @@ from scrutiny.tools.timebase import RelativeTimebase
 from scrutiny.tools.queue import ScrutinyQueue
 from scrutiny import tools
 import selectors
+import struct
 
 import os
 import logging
@@ -1990,6 +1991,8 @@ class ScrutinyClient:
                     self._server_state = ServerState.Connecting
                     self._stream_parser.reset()
                     self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    self._sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)                      # Disable Nagle's algorithm
+                    self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack('ii', 1, 0))   # Abortive close
                     self._selector = selectors.DefaultSelector()
                     self._selector.register(self._sock, selectors.EVENT_READ)
                     self._sock.connect((hostname, port))

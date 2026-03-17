@@ -401,7 +401,7 @@ class TCPClientHandler(AbstractClientHandler):
             self.sock2id_map[sock] = conn_id
         self.client_parser_map[conn_id] = StreamParser(
             mtu=self.STREAM_MTU,
-            
+
             interchunk_timeout=self.STREAM_INTERCHUNK_TIMEOUT,
         )
 
