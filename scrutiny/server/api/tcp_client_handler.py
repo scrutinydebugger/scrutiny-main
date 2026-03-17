@@ -20,7 +20,7 @@ import socket
 from dataclasses import dataclass
 import queue
 import selectors
-import time
+import struct
 
 from scrutiny.server.api.abstract_client_handler import AbstractClientHandler, ClientHandlerConfig, ClientHandlerMessage
 from scrutiny.core.logging import DUMPDATA_LOGLEVEL
@@ -393,12 +393,15 @@ class TCPClientHandler(AbstractClientHandler):
         :param sockaddr: The client address.
         :returns: The assigned connection ID.
         """
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)                      # Disable Nagle's algorithm
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack('ii', 1, 0))   # Abortive close
         conn_id = uuid.uuid4().hex
         with self.index_lock:
             self.id2sock_map[conn_id] = sock
             self.sock2id_map[sock] = conn_id
         self.client_parser_map[conn_id] = StreamParser(
             mtu=self.STREAM_MTU,
+            
             interchunk_timeout=self.STREAM_INTERCHUNK_TIMEOUT,
         )
 
