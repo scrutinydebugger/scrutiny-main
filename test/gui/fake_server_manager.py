@@ -165,9 +165,11 @@ class FakeServerManager:
         self.registry.write_content({
             sdk.WatchableType.RuntimePublishedValue: DUMMY_DATASET_RPV
         })
+
         for path, config in DUMMY_DATASET_RPV.items():
             handle = self._handles[path]
             self._registry.assign_serverid_to_node(config.watchable_type, path, handle.server_id)
+
         self._signals.registry_changed.emit()
 
     def simulate_device_disconnect(self) -> None:
@@ -189,6 +191,11 @@ class FakeServerManager:
             sdk.WatchableType.Variable: DUMMY_DATASET_VAR,
             sdk.WatchableType.Alias: DUMMY_DATASET_ALIAS,
         })
+
+        for dataset in [DUMMY_DATASET_VAR, DUMMY_DATASET_ALIAS]:
+            for path, config in dataset.items():
+                handle = self._handles[path]
+                self._registry.assign_serverid_to_node(config.watchable_type, path, handle.server_id)
 
         self._signals.registry_changed.emit()
 
@@ -257,4 +264,5 @@ class FakeServerManager:
 
             update = ValueUpdate(handle, value, status, datetime.now())
             updates.append(update)
+        #print(updates)
         self._registry.broadcast_value_updates_to_watchers(updates)
