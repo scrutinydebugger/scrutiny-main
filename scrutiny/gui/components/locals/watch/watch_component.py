@@ -424,7 +424,10 @@ class WatchComponent(ScrutinyGUIBaseLocalComponent):
             prompt.error_msgbox(title="No values to save", message="There is no watchable values to save in this selection")
             return
 
-        export_dialog = ValueExportDialog(watchable_registry=self.app.watchable_registry, export_fqn_list=fqn_list)
+        export_dialog = ValueExportDialog(
+            watchable_registry=self.app.watchable_registry,
+            server_manager=self.app.server_manager,
+            export_fqn_list=fqn_list)
         result = export_dialog.exec()
         if result == ValueExportDialog.DialogCode.Accepted:
             value_set = export_dialog.get_value_set()

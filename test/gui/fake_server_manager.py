@@ -264,5 +264,5 @@ class FakeServerManager:
 
             update = ValueUpdate(handle, value, status, datetime.now())
             updates.append(update)
-        #print(updates)
+        # print(updates)
         self._registry.broadcast_value_updates_to_watchers(updates)

@@ -137,7 +137,7 @@ class WatchableRegistryEntryNode:
         self.configuration = config
         self._watcher_count = 0
         self.registry_id = registry._make_node_id()
-        print(f"assign {self.registry_id}")
+
 
 @dataclass(frozen=True, slots=True)
 class WatchableRegistryIntermediateNode:
@@ -362,7 +362,6 @@ class WatchableRegistry:
                     filtered_updates.append(RegistryValueUpdate(update, registry_id))
             if len(filtered_updates) > 0:
                 watcher.value_update_callback(watcher_id, filtered_updates)
-                #print(filtered_updates)
 
     @enforce_thread(QT_THREAD_NAME)
     def register_watcher(self,

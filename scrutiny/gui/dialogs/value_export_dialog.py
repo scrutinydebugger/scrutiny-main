@@ -11,6 +11,7 @@ from PySide6.QtCore import Qt, QTimer, QObject, Signal
 from scrutiny import sdk
 from scrutiny.gui.core.serializable_value_set import SerializableValueSet
 from scrutiny.gui.core.watchable_registry import WatchableRegistry, WatcherNotFoundError, RegistryValueUpdate, WatchableRegistryError
+from scrutiny.gui.core.server_manager import ServerManager
 from scrutiny.gui.tools.invoker import invoke_later
 from scrutiny.gui.widgets.feedback_label import FeedbackLabel
 
@@ -30,13 +31,14 @@ class ValueDownloadResult(enum.Enum):
     CancelledByUser = enum.auto()
     Received = enum.auto()
 
+
 @dataclass(slots=True, init=False)
 class ValueDownloadState:
     fqn: str
     value: Optional[Union[float, bool, int]]
     result: Optional[ValueDownloadResult]
     started_timestamp: Optional[float]
-    in_progress:bool
+    in_progress: bool
 
     def __hash__(self) -> int:  # Hash function for pending set
         return hash(id(self)) ^ hash(self.fqn)
@@ -60,13 +62,13 @@ class ValueDownloadState:
         self.started_timestamp = time.monotonic()
         self.in_progress = True
 
-    def set_result(self, result:ValueDownloadResult) -> None:
+    def set_result(self, result: ValueDownloadResult) -> None:
         assert not self.is_finished()
         self.in_progress = False
         self.result = result
 
     def is_finished(self) -> bool:
-        return  self.result is not None
+        return self.result is not None
 
     def is_expired(self) -> bool:
         if self.started_timestamp is None:
@@ -78,30 +80,42 @@ class ExportLogic:
 
     class _Signals(QObject):
         stats_changed = Signal()
-        complete = Signal()
+        stopped = Signal()
 
-    _logger:logging.Logger
-    _fqn_list_in_order:List[str]
+    _logger: logging.Logger
+    """The logger"""
+    _fqn_list_in_order: List[str]
     """List of FQN given by the user, sorted alphabetically and without duplicates"""
-    _fqn_list_cursor:int
-    _fqn_to_state:Dict[str, ValueDownloadState]
-    _registry_id_to_fqn:Dict[Union[int, str], str ]
-    _result_count:Dict[ValueDownloadResult, int]
-    _inprogress_set:Set[ValueDownloadState]
-    _watchable_registry:WatchableRegistry
+    _fqn_list_cursor: int
+    """A cursor to iterate the list of FQN"""
+    _fqn_to_state: Dict[str, ValueDownloadState]
+    """A dict mapping FQN to state var"""
+    _registry_id_to_fqn: Dict[Union[int, str], str]
+    """A dict mapping registry ID to FQN"""
+    _result_count: Dict[ValueDownloadResult, int]
+    """Keep count by result"""
+    _inprogress_set: Set[ValueDownloadState]
+    """A set of state var that are actively waiting for a value."""
+    _watchable_registry: WatchableRegistry
+    """The app Watchable Registry"""
     _watcher_id: str
-    _finished_gathering:bool
+    """The watcher ID tha this class uses to watch an element"""
+    _finished_gathering: bool
     """The watcher Id this dialog will use to register to the registry"""
     _maintenance_timer: QTimer
     """A timer to detect timeouts and clear stalled elements"""
-    _signals:_Signals
+    _signals: _Signals
 
-    def __init__(self, fqn_list:List[str], watchable_registry:WatchableRegistry, logger:logging.Logger) -> None:
+    def __init__(self,
+                 fqn_list: List[str],
+                 server_manager: ServerManager,
+                 watchable_registry: WatchableRegistry,
+                 logger: logging.Logger) -> None:
         self._watcher_id = self.__class__.__name__ + str(global_i64_counter())
         self._logger = logger
         self._fqn_to_state = {}
         self._registry_id_to_fqn = {}
-        self._inprogress_set= set()
+        self._inprogress_set = set()
         self._watchable_registry = watchable_registry
         self._finished_gathering = False
         self._signals = self._Signals()
@@ -119,6 +133,9 @@ class ExportLogic:
         for fqn in self._fqn_list_in_order:
             if fqn not in self._fqn_to_state:
                 self._fqn_to_state[fqn] = ValueDownloadState(fqn)
+
+        # No clean handling if the content change while we are gathering. Just stop and report to the user.
+        server_manager.signals.registry_changed.connect(self.stop)
 
 # region Public
     @property
@@ -141,6 +158,7 @@ class ExportLogic:
                 self._set_finished(state, ValueDownloadResult.CancelledByUser)
         self._maintenance_timer.stop()
         self._finished_gathering = True
+        self._signals.stopped.emit()
 
     def is_finished(self) -> bool:
         return self._finished_gathering
@@ -153,11 +171,6 @@ class ExportLogic:
                 print(state.fqn)        # TEMP TEMP TEMP
         with tools.SuppressException(WatcherNotFoundError):   # Suppress if not registered
             self._watchable_registry.unregister_watcher(self._watcher_id)
-        self._fqn_to_state.clear()
-        self._registry_id_to_fqn.clear()
-        self._inprogress_set.clear()
-        self._fqn_list_in_order.clear()
-        self._fqn_list_cursor = 0
 
     def count_total(self) -> int:
         return len(self._fqn_list_in_order)
@@ -191,19 +204,20 @@ class ExportLogic:
                 value_set.add(state.fqn, state.value)
         return value_set
 
-#endregion
+# endregion
 
 
 # region Private
 
-    def _get_state_by_fqn(self, fqn:str) -> ValueDownloadState:
+
+    def _get_state_by_fqn(self, fqn: str) -> ValueDownloadState:
         return self._fqn_to_state[fqn]
 
-    def _get_state_by_registry_id(self, registry_id:Union[str, int]) -> ValueDownloadState:
+    def _get_state_by_registry_id(self, registry_id: Union[str, int]) -> ValueDownloadState:
         fqn = self._registry_id_to_fqn[registry_id]
         return self._fqn_to_state[fqn]
 
-    def _set_finished(self, state:ValueDownloadState, result:ValueDownloadResult) -> None:
+    def _set_finished(self, state: ValueDownloadState, result: ValueDownloadResult) -> None:
         if state.is_finished():
             raise RuntimeError(f"Watchable {state.fqn} already finished. Cannot change the status")
 
@@ -213,7 +227,7 @@ class ExportLogic:
             self._inprogress_set.remove(state)
             self._watchable_registry.unwatch_fqn(self._watcher_id, state.fqn)
 
-    def _set_inprogress(self, state:ValueDownloadState) -> None:
+    def _set_inprogress(self, state: ValueDownloadState) -> None:
         if state.is_finished():
             raise RuntimeError(f"Watchable {state.fqn} already finished. Cannot change the status")
 
@@ -241,12 +255,11 @@ class ExportLogic:
         for update in updates:
             state = self._get_state_by_registry_id(update.registry_id)
             if not state.is_finished():
-                if state.value is None:
+                if update.sdk_update.value is None:
                     self._set_finished(state, ValueDownloadResult.NotAvailable)
                 else:
                     state.value = update.sdk_update.value
                     self._set_finished(state, ValueDownloadResult.Received)
-
 
         for fqn in to_unwatch_fqn:
             self._watchable_registry.unwatch_fqn(self._watcher_id, fqn)
@@ -287,8 +300,7 @@ class ExportLogic:
             return
 
         if self.count_finished() >= len(self._fqn_list_in_order):
-            self._finished_gathering = True
-            self._signals.complete.emit()
+            self.stop()
 
     def _maintenance_timer_slot(self) -> None:
         for state in self._get_inprogress_states():
@@ -301,13 +313,13 @@ class ExportLogic:
         self._signals.stats_changed.emit()
 
 
-#endregion
+# endregion
 
 class ValueExportDialog(QDialog):
     """The watchable registry"""
     _logger: logging.Logger
     """The logger"""
-    _logic:ExportLogic
+    _logic: ExportLogic
     """The export logic decoupled from the UI"""
 
     _progress_bar: QProgressBar
@@ -326,17 +338,24 @@ class ValueExportDialog(QDialog):
     """A label to show how many values were simply unavailable for fetching (device gone or SFD unloaded)."""
     _lbl_count_total: QLabel
     """A label to show the total number of values requested"""
+    _finished_processed: bool
 
     def __init__(self,
                  watchable_registry: WatchableRegistry,
+                 server_manager: ServerManager,
                  export_fqn_list: List[str],
                  parent: Optional[QWidget] = None
                  ) -> None:
         super().__init__(parent)
         self._logger = logging.getLogger(self.__class__.__name__)
 
-        self._logic = ExportLogic(export_fqn_list, watchable_registry, self._logger)
+        self._logic = ExportLogic(
+            fqn_list=export_fqn_list,
+            watchable_registry=watchable_registry,
+            server_manager=server_manager,
+            logger=self._logger)
         self._feedback_label = FeedbackLabel()
+        self._finished_processed = False
 
         self._btn_cancel = QPushButton("Cancel")
         self._btn_stop_save = QPushButton("Stop")
@@ -363,7 +382,7 @@ class ValueExportDialog(QDialog):
         stat_label_container = QWidget()
         stat_label_container_layout = QFormLayout(stat_label_container)
         stat_label_container_layout.addRow("Received", self._lbl_count_received)
-        stat_label_container_layout.addRow("Timedout", self._lbl_timedout_count)
+        stat_label_container_layout.addRow("Timed Out", self._lbl_timedout_count)
         stat_label_container_layout.addRow("Unavailable", self._lbl_unavailable_count)
         stat_label_container_layout.addRow("Total", self._lbl_count_total)
 
@@ -378,15 +397,20 @@ class ValueExportDialog(QDialog):
         self._btn_cancel.clicked.connect(self._btn_cancel_slot)
 
         self._logic.signals.stats_changed.connect(self._update_ui_feedback)
-        self._logic.signals.complete.connect(self._complete_slot)
+        self._logic.signals.stopped.connect(self._stop_slot)
 
         invoke_later(self._logic.start)  # Start the process later to let the UI show correctly without freezing
 
-    def _stop_and_accept_if_ok(self) -> None:
-        self._logic.stop()
-        self._btn_stop_save.clicked.disconnect(self._btn_stop_slot)
-        self._btn_stop_save.setText("Save")
-        self._btn_stop_save.clicked.connect(self._btn_save_slot)
+    def _update_btn_stop_save(self) -> None:
+        if not self._finished_processed:
+            if self._logic.is_finished():
+                self._btn_stop_save.clicked.disconnect(self._btn_stop_slot)
+                self._btn_stop_save.setText("Save")
+                self._btn_stop_save.clicked.connect(self._btn_save_slot)
+            self._finished_processed = True
+
+    def _process_stop(self) -> None:
+        self._update_btn_stop_save()
 
         if self._logic.count_received() == 0:
             self._feedback_label.set_error("No values could be fetched")
@@ -396,21 +420,21 @@ class ValueExportDialog(QDialog):
         elif self._logic.count_received() == self._logic.count_total():
             self.accept()
 
-    def _complete_slot(self) -> None:
-        self._update_ui_feedback()
-        self._stop_and_accept_if_ok()
+    def _stop_slot(self) -> None:
+        self._process_stop()
 
     def _btn_stop_slot(self) -> None:
         """Stop gathering. Leave the window open. Leave the opportunity to the user to save partial results"""
-        self._update_ui_feedback()
-        self._stop_and_accept_if_ok()
+        self._logic.stop()
+        self._process_stop()
 
     def _btn_save_slot(self) -> None:
         self.accept()
 
     def _btn_cancel_slot(self) -> None:
         """Stops the gathering process and reject the window. Will cause a cleanup and exit"""
-        self._logic.stop()
+        if not self._logic.is_finished():
+            self._logic.stop()
         self.reject()
 
     def _update_ui_feedback(self) -> None:
