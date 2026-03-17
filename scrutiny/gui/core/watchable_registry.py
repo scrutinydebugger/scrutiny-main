@@ -138,7 +138,6 @@ class WatchableRegistryEntryNode:
         self._watcher_count = 0
         self.registry_id = registry._make_node_id()
 
-
 @dataclass(frozen=True, slots=True)
 class WatchableRegistryIntermediateNode:
     """An intermediate node that contains watchable and other subnodes"""
@@ -687,7 +686,7 @@ class WatchableRegistry:
             watchable_types = [watchable_types]
         self._logger.debug(f"Clearing content for types {watchable_types}")
         changed = False
-        total_remaining_data = 0
+
         for watchable_type in watchable_types:
             had_data = len(self._trees[watchable_type]) > 0
 
@@ -715,10 +714,12 @@ class WatchableRegistry:
             if had_data:
                 changed = True
                 self._tree_change_counters[watchable_type] += 1
-            total_remaining_data += self.get_watchable_count(watchable_type)
             self._trees[watchable_type] = {}
             self._watchable_count[watchable_type] = 0
 
+        total_remaining_data = 0
+        for t in sdk.WatchableType.all():
+            total_remaining_data += self.get_watchable_count(t)
         if total_remaining_data == 0:
             self._node_counter = 0  # Avoid growing forever
 
