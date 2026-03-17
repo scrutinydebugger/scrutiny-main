@@ -819,5 +819,30 @@ class TestWatchableRegistry(ScrutinyUnitTest):
         self.assertIsNone(m.get_registry_id_or_none('bbb'))
         self.assertIsNone(m.get_registry_id_or_none('ccc'))
 
+    def test_registry_id_unique(self):
+        content_var_alias = {
+            sdk.WatchableType.Variable: DUMMY_DATASET_VAR,
+            sdk.WatchableType.Alias: DUMMY_DATASET_ALIAS,
+        }
+        content_rpv = {
+            sdk.WatchableType.RuntimePublishedValue: DUMMY_DATASET_RPV
+        }
+
+        for i in range(2):
+            self.registry.write_content(content_rpv)
+            self.registry.write_content(content_var_alias)
+            self.registry.clear_content_by_type(sdk.WatchableType.RuntimePublishedValue)
+            self.registry.write_content(content_rpv)
+
+            seen_ids = set()
+            for watchable_type, content in All_DUMMY_DATA.items():
+                for path, config in content.items():
+                    node = self.registry.get_watchable_node(watchable_type, path)
+
+                    self.assertNotIn(node.registry_id, seen_ids, f"i={i}")
+                    seen_ids.add(node.registry_id)
+
+            self.registry.clear_content_by_type([sdk.WatchableType.RuntimePublishedValue, sdk.WatchableType.Alias, sdk.WatchableType.Variable])
+
     def tearDown(self):
         super().tearDown()
