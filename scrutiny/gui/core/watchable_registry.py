@@ -138,7 +138,6 @@ class WatchableRegistryEntryNode:
         self._watcher_count = 0
         self.registry_id = registry._make_node_id()
 
-
 @dataclass(frozen=True, slots=True)
 class WatchableRegistryIntermediateNode:
     """An intermediate node that contains watchable and other subnodes"""
@@ -721,8 +720,8 @@ class WatchableRegistry:
         total_remaining_data = 0
         for t in sdk.WatchableType.all():
             total_remaining_data += self.get_watchable_count(t)
-            if total_remaining_data == 0:
-                self._node_counter = 0  # Avoid growing forever
+        if total_remaining_data == 0:
+            self._node_counter = 0  # Avoid growing forever
 
         return changed
 

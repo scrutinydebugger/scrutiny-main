@@ -828,21 +828,27 @@ class TestWatchableRegistry(ScrutinyUnitTest):
             sdk.WatchableType.RuntimePublishedValue: DUMMY_DATASET_RPV
         }
 
-        for i in range(2):
-            self.registry.write_content(content_rpv)
-            self.registry.write_content(content_var_alias)
-            self.registry.clear_content_by_type(sdk.WatchableType.RuntimePublishedValue)
-            self.registry.write_content(content_rpv)
-
+        def validate_id_unique():
             seen_ids = set()
             for watchable_type, content in All_DUMMY_DATA.items():
                 for path, config in content.items():
                     node = self.registry.get_watchable_node(watchable_type, path)
+                    if node is not None:
+                        self.assertNotIn(node.registry_id, seen_ids)
+                        seen_ids.add(node.registry_id)
 
-                    self.assertNotIn(node.registry_id, seen_ids, f"i={i}")
-                    seen_ids.add(node.registry_id)
 
+        for i in range(2):
+            self.registry.write_content(content_rpv)
+            validate_id_unique()
+            self.registry.write_content(content_var_alias)
+            validate_id_unique()
+            self.registry.clear_content_by_type(sdk.WatchableType.RuntimePublishedValue)
+            validate_id_unique()
+            self.registry.write_content(content_rpv)
+            validate_id_unique()
             self.registry.clear_content_by_type([sdk.WatchableType.RuntimePublishedValue, sdk.WatchableType.Alias, sdk.WatchableType.Variable])
+            validate_id_unique()
 
     def tearDown(self):
         super().tearDown()
