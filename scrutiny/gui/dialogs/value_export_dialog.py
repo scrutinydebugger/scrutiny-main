@@ -50,12 +50,6 @@ class ValueDownloadState:
         self.in_progress = False
         self.started_timestamp = None
 
-    def value_available(self) -> bool:
-        if not self.is_finished():
-            return False
-
-        return self.value is not None
-
     def set_in_progress(self) -> None:
         assert not self.in_progress
         assert not self.is_finished()
@@ -98,6 +92,8 @@ class ExportLogic:
     """A set of state var that are actively waiting for a value."""
     _watchable_registry: WatchableRegistry
     """The app Watchable Registry"""
+    _server_manager: ServerManager
+    """the server manager"""
     _watcher_id: str
     """The watcher ID tha this class uses to watch an element"""
     _finished_gathering: bool
@@ -117,6 +113,7 @@ class ExportLogic:
         self._registry_id_to_fqn = {}
         self._inprogress_set = set()
         self._watchable_registry = watchable_registry
+        self._server_manager = server_manager
         self._finished_gathering = False
         self._signals = self._Signals()
 
@@ -153,6 +150,8 @@ class ExportLogic:
         self._maintenance_timer.start()
 
     def stop(self) -> None:
+        if self.is_finished():
+            return
         for state in self._fqn_to_state.values():
             if not state.is_finished():
                 self._set_finished(state, ValueDownloadResult.CancelledByUser)
@@ -166,11 +165,15 @@ class ExportLogic:
     def cleanup(self) -> None:
         self._maintenance_timer.stop()
 
+        unfinished_count = 0
         for state in self._fqn_to_state.values():
             if not state.is_finished():
-                print(state.fqn)        # TEMP TEMP TEMP
+                unfinished_count += 1
+        if unfinished_count > 0:
+            self._logger.error("Not all watchable we processed fully.")
         with tools.SuppressException(WatcherNotFoundError):   # Suppress if not registered
             self._watchable_registry.unregister_watcher(self._watcher_id)
+        self._server_manager.signals.registry_changed.disconnect(self.stop)
 
     def count_total(self) -> int:
         return len(self._fqn_list_in_order)
@@ -208,7 +211,6 @@ class ExportLogic:
 
 
 # region Private
-
 
     def _get_state_by_fqn(self, fqn: str) -> ValueDownloadState:
         return self._fqn_to_state[fqn]
@@ -251,7 +253,6 @@ class ExportLogic:
         if self.is_finished():
             return
 
-        to_unwatch_fqn: Set[str] = set()
         for update in updates:
             state = self._get_state_by_registry_id(update.registry_id)
             if not state.is_finished():
@@ -260,9 +261,6 @@ class ExportLogic:
                 else:
                     state.value = update.sdk_update.value
                     self._set_finished(state, ValueDownloadResult.Received)
-
-        for fqn in to_unwatch_fqn:
-            self._watchable_registry.unwatch_fqn(self._watcher_id, fqn)
 
         # This condition is not necessary since we check inside _maybe_start_next_batch
         # but avoid unnecessary work load
@@ -316,17 +314,16 @@ class ExportLogic:
 # endregion
 
 class ValueExportDialog(QDialog):
-    """The watchable registry"""
+
     _logger: logging.Logger
     """The logger"""
     _logic: ExportLogic
     """The export logic decoupled from the UI"""
-
     _progress_bar: QProgressBar
     """The UI progress bar"""
     _btn_cancel: QPushButton
     """Cancel button"""
-    _btn_stop: QPushButton
+    _btn_stop_save: QPushButton
     """Stop button"""
     _feedback_label: FeedbackLabel
     """A label to give feedback to the user about the state of the process"""
@@ -366,11 +363,10 @@ class ValueExportDialog(QDialog):
 
         self._progress_bar = QProgressBar(
             minimum=0,
-            maximum=len(export_fqn_list),
+            maximum=self._logic.count_total(),
             orientation=Qt.Orientation.Horizontal,
             textVisible=True
         )
-        self._progress_bar.setTextVisible(True)
 
         btn_container = QWidget()
         btn_container_layout = QHBoxLayout(btn_container)
@@ -393,7 +389,7 @@ class ValueExportDialog(QDialog):
         layout.addWidget(btn_container)
 
         self.finished.connect(self._logic.cleanup)
-        self._btn_stop_save.clicked.connect(self._btn_stop_slot)
+        self._btn_stop_save.clicked.connect(self._logic.stop)
         self._btn_cancel.clicked.connect(self._btn_cancel_slot)
 
         self._logic.signals.stats_changed.connect(self._update_ui_feedback)
@@ -404,10 +400,10 @@ class ValueExportDialog(QDialog):
     def _update_btn_stop_save(self) -> None:
         if not self._finished_processed:
             if self._logic.is_finished():
-                self._btn_stop_save.clicked.disconnect(self._btn_stop_slot)
+                self._btn_stop_save.clicked.disconnect(self._logic.stop)
                 self._btn_stop_save.setText("Save")
                 self._btn_stop_save.clicked.connect(self._btn_save_slot)
-            self._finished_processed = True
+                self._finished_processed = True
 
     def _process_stop(self) -> None:
         self._update_btn_stop_save()
@@ -417,15 +413,11 @@ class ValueExportDialog(QDialog):
             self._btn_stop_save.setDisabled(True)
         elif self._logic.count_received() != self._logic.count_total():
             self._feedback_label.set_warning("Not all values were received")
-        elif self._logic.count_received() == self._logic.count_total():
+        else:
+            # self._logic.count_received() == self._logic.count_total()
             self.accept()
 
     def _stop_slot(self) -> None:
-        self._process_stop()
-
-    def _btn_stop_slot(self) -> None:
-        """Stop gathering. Leave the window open. Leave the opportunity to the user to save partial results"""
-        self._logic.stop()
         self._process_stop()
 
     def _btn_save_slot(self) -> None:
