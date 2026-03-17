@@ -214,9 +214,7 @@ class TestTCPClientHandler(ScrutinyUnitTest):
         self.assertTrue(self.handler.rx_queue.empty())
 
         with self.assertRaises(OSError):
-            # Don't know why required twice :S
-            s1.send(b'123')
-            s1.send(b'123')
+            s1.send(b'123') # Validate that we are not using TCP lingering
 
     def test_rx_event(self):
         s1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
