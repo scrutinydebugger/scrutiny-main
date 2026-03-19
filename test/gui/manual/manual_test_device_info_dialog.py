@@ -98,7 +98,7 @@ layout.addWidget(btn_no_sampling_rate)
 def show_window(config):
     for dialog in dialogs:
         dialog.close()
-    dialog = DeviceInfoDialog(window, make_device_info(config))
+    dialog = DeviceInfoDialog(make_device_info(config))
     dialogs.append(dialog)
     dialog.show()
 
