@@ -1,6 +1,6 @@
-#    value_upload_status_dialog.py
-#        A dialog that makes the value import and gives the user a progress of each element
-#        individually
+#    value_import_dialog.py
+#        A dialog that can import a ValueSet file (.scval) and write the values to the server.
+#        Reports any failure and why
 #
 #   - License : MIT - See LICENSE file
 #   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from PySide6.QtGui import QCloseEvent, QContextMenuEvent
 from PySide6.QtWidgets import (QDialog, QWidget, QVBoxLayout, QFormLayout, QHBoxLayout, QMenu,
                                QTableWidget, QTableWidgetItem, QPushButton, QLabel, QHeaderView)
-from PySide6.QtCore import Qt, QSize
+from PySide6.QtCore import Qt
 
 from scrutiny.gui.core.serializable_value_set import SerializableValueSet
 from scrutiny.gui.core.watchable_registry import WatchableRegistry, ParsedFullyQualifiedName, WatchableRegistryError
@@ -236,7 +236,7 @@ class ValueImportDialog(QDialog):
 
     def _populate_table(self, value_set: SerializableValueSet) -> None:
         """Fill the table with one row per entry and immediately schedule each write.
-        Store the value to be written in the Path item because the valueset is unordered"""
+        Store the value to be written in the Path item because the ValueSet is unordered"""
         items = list(value_set.to_dict().items())
         self._table.setRowCount(len(items))
         skipped = 0

@@ -1,3 +1,13 @@
+#    value_export_dialog.py
+#        A dialog that start a value gathering process for all the watchable given. Successively
+#        watch them, wait for a value, report success/failure and unwatch them. Provides
+#        a ValueSet object to be saved to a .scval file
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
+
 __all__ = ['ValueExportDialog']
 
 import logging
@@ -5,40 +15,151 @@ from dataclasses import dataclass
 import time
 import enum
 
-from PySide6.QtWidgets import QDialog, QWidget, QProgressBar, QVBoxLayout, QPushButton, QHBoxLayout, QLabel, QFormLayout
+from PySide6.QtWidgets import (QDialog, QWidget, QProgressBar, QVBoxLayout, QPushButton, QHBoxLayout, QLabel,
+                               QFormLayout, QTableWidget, QTableWidgetItem, QHeaderView, QMenu, QGroupBox)
 from PySide6.QtCore import Qt, QTimer, QObject, Signal
+from PySide6.QtGui import QContextMenuEvent
+
 
 from scrutiny import sdk
 from scrutiny.gui.core.serializable_value_set import SerializableValueSet
-from scrutiny.gui.core.watchable_registry import WatchableRegistry, WatcherNotFoundError, RegistryValueUpdate, WatchableRegistryError
+from scrutiny.gui.core.watchable_registry import WatchableRegistry, WatcherNotFoundError, RegistryValueUpdate, WatchableRegistryError, ParsedFullyQualifiedName
+from scrutiny.gui.widgets.watchable_tree import get_watchable_icon
 from scrutiny.gui.core.server_manager import ServerManager
 from scrutiny.gui.tools.invoker import invoke_later
 from scrutiny.gui.widgets.feedback_label import FeedbackLabel
+from scrutiny.gui.themes import scrutiny_get_theme
+from scrutiny.gui import assets
+from scrutiny.gui.widgets import mixins as gui_mixins
 
 from scrutiny.tools.typing import *
 from scrutiny import tools
 from scrutiny.tools.global_counters import global_i64_counter
 
 _BATCH_SIZE = 50
+"""How many element we watch in parallel"""
 _EXPIRE_TIMEOUT_SEC = 5
+"""How long we wait before declaring a value as unavailable"""
 _MAINTENANCE_INTERVAL_MS = 300
+"""Rate at which we check for timeouts"""
 _BATCH_OVERLAP_SIZE = 10
+"""How many elements max can be in progress before we start the next batch. This being > 0 avoid blocking when a timeout occur."""
 
 
 class ValueDownloadResult(enum.Enum):
     NotAvailable = enum.auto()
+    """Value is not available. Either it is not in the registry, the server is not
+    available or the server explicitly says it cannot give it (forbidden region or nullptr dereference)"""
     TimedOut = enum.auto()
+    """We waited for too long. We gave up on getting a value"""
     CancelledByUser = enum.auto()
+    """USer hit the cancel button"""
     Received = enum.auto()
+    """Success: A value has been received."""
+
+
+class StatusItem(QTableWidgetItem):
+    """A TableViewItem that contains the upload status (pending / success / Failed)"""
+
+    def __init__(self, result: ValueDownloadResult) -> None:
+        super().__init__()
+
+        self.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        self.set_status(result)
+
+    def set_status(self, status: ValueDownloadResult, msg: str = "") -> None:
+        if len(msg) > 0:
+            msg = f" : {msg}"
+
+        if status == ValueDownloadResult.NotAvailable:
+            self.setIcon(scrutiny_get_theme().load_tiny_icon(assets.Icons.Error))
+            self.setText(f"Value not available")
+        elif status == ValueDownloadResult.TimedOut:
+            self.setIcon(scrutiny_get_theme().load_tiny_icon(assets.Icons.Error))
+            self.setText(f"Timed out")
+        elif status == ValueDownloadResult.CancelledByUser:
+            self.setIcon(scrutiny_get_theme().load_tiny_icon(assets.Icons.Error))
+            self.setText(f"Cancelled")
+        elif status == ValueDownloadResult.Received:
+            self.setIcon(scrutiny_get_theme().load_tiny_icon(assets.Icons.Success))
+            self.setText(f"Received")
+
+
+class PathItem(QTableWidgetItem):
+    """A TableViewItem that contains the watchable server path"""
+    _parsed_fqn: ParsedFullyQualifiedName
+
+    def __init__(self, fqn: str) -> None:
+        self._parsed_fqn = WatchableRegistry.FQN.parse(fqn)
+        super().__init__(get_watchable_icon(self._parsed_fqn.watchable_type), self._parsed_fqn.path)
+        self.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        self.setToolTip(self._parsed_fqn.path)
+
+    def get_path(self) -> str:
+        return self._parsed_fqn.path
+
+
+class ResultTableWidget(QTableWidget):
+
+    class Columns:
+        PATH = 0
+        STATUS = 1
+
+    _logger: logging.Logger
+
+    def __init__(self, logger: logging.Logger) -> None:
+        super().__init__()
+        self._logger = logger
+        self.setColumnCount(2)
+        self.setHorizontalHeaderLabels(["Element", "Status"])
+        self.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.setSelectionMode(QTableWidget.SelectionMode.ExtendedSelection)
+        self.verticalHeader().setVisible(False)
+        self.setShowGrid(True)
+        header = self.horizontalHeader()
+        header.setSectionResizeMode(self.Columns.PATH, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(self.Columns.STATUS, QHeaderView.ResizeMode.ResizeToContents)
+        self.setStyleSheet(r"QTableView::item {padding: 0 10 0 5; }")
+
+    def add_row(self, fqn: str, result: ValueDownloadResult) -> None:
+        self.setRowCount(self.rowCount() + 1)
+        row_index = self.rowCount() - 1
+
+        try:
+            path_item = PathItem(fqn)
+        except WatchableRegistryError as e:
+            tools.log_exception(self._logger, e, "Invalid element Fully Qualified Name")
+            return
+
+        status_item = StatusItem(result)
+
+        self.setItem(row_index, self.Columns.PATH, path_item)
+        self.setItem(row_index, self.Columns.STATUS, status_item)
+
+    def contextMenuEvent(self, e: QContextMenuEvent) -> None:
+        items = [cast(PathItem, item) for item in self.selectedItems() if item.column() == self.Columns.PATH]
+        paths = [item.get_path() for item in items]
+        menu = QMenu()
+        copy_path_action = gui_mixins.qmenu_add_copy_path_action(menu, paths)
+        copy_path_action.setEnabled(len(paths) > 0)
+
+        menu.exec(self.mapToGlobal(e.pos()), copy_path_action)
 
 
 @dataclass(slots=True, init=False)
 class ValueDownloadState:
+    """A class containing the state variable related to a single watchable value download"""
     fqn: str
+    """The Fully Qualified Name of the watchable"""
     value: Optional[Union[float, bool, int]]
+    """The value gotten. ``None`` means N/A"""
     result: Optional[ValueDownloadResult]
+    """The result (success or not) for this element. ``None`` means it is not finished yet. """
     started_timestamp: Optional[float]
+    """Indicate when this element passed to InProgress state"""
     in_progress: bool
+    """Tells if this watchable is actively being watched and waiting on a value from the server"""
 
     def __hash__(self) -> int:  # Hash function for pending set
         return hash(id(self)) ^ hash(self.fqn)
@@ -74,7 +195,11 @@ class ExportLogic:
 
     class _Signals(QObject):
         stats_changed = Signal()
+        """When there is something to show to the user"""
         stopped = Signal()
+        """Gathering process stopped. Either naturally or by an explicit call to ``stop()``"""
+        result_gotten = Signal(str, object)
+        """Emitted each time we get a result"""
 
     _logger: logging.Logger
     """The logger"""
@@ -101,6 +226,7 @@ class ExportLogic:
     _maintenance_timer: QTimer
     """A timer to detect timeouts and clear stalled elements"""
     _signals: _Signals
+    """The public signals"""
 
     def __init__(self,
                  fqn_list: List[str],
@@ -150,6 +276,8 @@ class ExportLogic:
         self._maintenance_timer.start()
 
     def stop(self) -> None:
+        """Request to stop the gathering process.
+        Any incomplete value download will be set as Finished with a result of ``CancelledByUser``"""
         if self.is_finished():
             return
         for state in self._fqn_to_state.values():
@@ -160,9 +288,11 @@ class ExportLogic:
         self._signals.stopped.emit()
 
     def is_finished(self) -> bool:
+        """Tells if the gathering prrocess is completed"""
         return self._finished_gathering
 
     def cleanup(self) -> None:
+        """Stop and unregister the watcher from the registry"""
         self._maintenance_timer.stop()
 
         unfinished_count = 0
@@ -197,6 +327,8 @@ class ExportLogic:
         return self._result_count[ValueDownloadResult.Received]
 
     def get_value_set(self) -> SerializableValueSet:
+        """Return the values gotten. Can be a partial result in case of failures.
+        Raise a RuntimeError if the gathering process is not finished. Stop Signal must be sent to signal it is finished"""
         if not self.is_finished():
             raise RuntimeError("No ValueSet available. Data did not finished gathering")
 
@@ -213,13 +345,16 @@ class ExportLogic:
 # region Private
 
     def _get_state_by_fqn(self, fqn: str) -> ValueDownloadState:
+        """Fetch the state object based on its fully Qualified Name"""
         return self._fqn_to_state[fqn]
 
     def _get_state_by_registry_id(self, registry_id: Union[str, int]) -> ValueDownloadState:
+        """Fetch the state object based on the Watchable Registry ID"""
         fqn = self._registry_id_to_fqn[registry_id]
         return self._fqn_to_state[fqn]
 
     def _set_finished(self, state: ValueDownloadState, result: ValueDownloadResult) -> None:
+        """Indicates that the value download process for a single element is finished, success or failure"""
         if state.is_finished():
             raise RuntimeError(f"Watchable {state.fqn} already finished. Cannot change the status")
 
@@ -228,8 +363,11 @@ class ExportLogic:
         if state in self._inprogress_set:
             self._inprogress_set.remove(state)
             self._watchable_registry.unwatch_fqn(self._watcher_id, state.fqn)
+        self._signals.result_gotten.emit(state.fqn, result)
 
     def _set_inprogress(self, state: ValueDownloadState) -> None:
+        """Sets an element in In Progress state. Starts watching this element and wait for the value.
+        Sets the elements as NotAvailable if watching is not possible."""
         if state.is_finished():
             raise RuntimeError(f"Watchable {state.fqn} already finished. Cannot change the status")
 
@@ -247,9 +385,11 @@ class ExportLogic:
         self._inprogress_set.add(state)
 
     def _get_inprogress_states(self) -> List[ValueDownloadState]:
+        """Get all the ValueDownloadState that are presently being watched and waiting on their value."""
         return list(self._inprogress_set)
 
     def _value_update_callback(self, watcher_id: Union[str, int], updates: List[RegistryValueUpdate]) -> None:
+        """Callback invoked by the registry when a value update is received from the server"""
         if self.is_finished():
             return
 
@@ -273,7 +413,7 @@ class ExportLogic:
         pass
 
     def _maybe_start_next_batch(self) -> None:
-        """Start a new batch"""
+        """Start a new batch if it's time. This method should be called again and again until all data is completed."""
         self._check_completion()    # will latch _finished_gathering=True if we're done
 
         if self.is_finished():    # Nothing to do anymore
@@ -301,6 +441,7 @@ class ExportLogic:
             self.stop()
 
     def _maintenance_timer_slot(self) -> None:
+        """Periodic task to verify a timeout"""
         for state in self._get_inprogress_states():
             if state.is_expired():
                 self._set_finished(state, ValueDownloadResult.TimedOut)
@@ -314,6 +455,15 @@ class ExportLogic:
 # endregion
 
 class ValueExportDialog(QDialog):
+    """A dialog that gather the values of a series of watchables.
+    Upon exec, it register a watcher to the registry, wait for every update then exits.
+    ValueExportDialog.get_value_set() can be called after exec to get the values gathered.
+
+    In case of gathering failures (value not available, or time out), the user is prompted with Save/cancel choice.
+
+    This dialog returns accept() if all the values are correctly received or if the user request to Save.
+    Return a reject() if the user hits "Cancel"
+    """
 
     _logger: logging.Logger
     """The logger"""
@@ -336,6 +486,9 @@ class ValueExportDialog(QDialog):
     _lbl_count_total: QLabel
     """A label to show the total number of values requested"""
     _finished_processed: bool
+    """A flag indicated if the download process is finished. Set once. Used to control the stop/save button state"""
+    _result_table: ResultTableWidget
+    """A table used to display failures"""
 
     def __init__(self,
                  watchable_registry: WatchableRegistry,
@@ -353,6 +506,9 @@ class ValueExportDialog(QDialog):
             logger=self._logger)
         self._feedback_label = FeedbackLabel()
         self._finished_processed = False
+
+        self._result_table = ResultTableWidget(self._logger)
+        self._logic.signals.result_gotten.connect(self._process_new_result)
 
         self._btn_cancel = QPushButton("Cancel")
         self._btn_stop_save = QPushButton("Stop")
@@ -375,15 +531,20 @@ class ValueExportDialog(QDialog):
         btn_container_layout.setContentsMargins(0, 0, 0, 0)
         btn_container_layout.setAlignment(Qt.AlignmentFlag.AlignRight)
 
-        stat_label_container = QWidget()
-        stat_label_container_layout = QFormLayout(stat_label_container)
-        stat_label_container_layout.addRow("Received", self._lbl_count_received)
-        stat_label_container_layout.addRow("Timed Out", self._lbl_timedout_count)
-        stat_label_container_layout.addRow("Unavailable", self._lbl_unavailable_count)
-        stat_label_container_layout.addRow("Total", self._lbl_count_total)
+        gb_result = QGroupBox("Failures")
+        gb_result_layout = QVBoxLayout(gb_result)
+        gb_result_layout.addWidget(self._result_table)
+
+        gb_stat_label_container = QGroupBox("Stats")
+        gb_stat_label_container_layout = QFormLayout(gb_stat_label_container)
+        gb_stat_label_container_layout.addRow("Received", self._lbl_count_received)
+        gb_stat_label_container_layout.addRow("Timed Out", self._lbl_timedout_count)
+        gb_stat_label_container_layout.addRow("Unavailable", self._lbl_unavailable_count)
+        gb_stat_label_container_layout.addRow("Total", self._lbl_count_total)
 
         layout = QVBoxLayout(self)
-        layout.addWidget(stat_label_container)
+        layout.addWidget(gb_result)
+        layout.addWidget(gb_stat_label_container)
         layout.addWidget(self._progress_bar)
         layout.addWidget(self._feedback_label)
         layout.addWidget(btn_container)
@@ -395,9 +556,20 @@ class ValueExportDialog(QDialog):
         self._logic.signals.stats_changed.connect(self._update_ui_feedback)
         self._logic.signals.stopped.connect(self._stop_slot)
 
+        self.setMinimumWidth(400)
+
         invoke_later(self._logic.start)  # Start the process later to let the UI show correctly without freezing
 
+    def _process_new_result(self, fqn: str, result: ValueDownloadResult) -> None:
+        """Called when the logic sets an element as "finished", success or failure"""
+        if result == ValueDownloadResult.Received:  # We don't report successes
+            return
+
+        # Add a failure case to the table
+        self._result_table.add_row(fqn, result)
+
     def _update_btn_stop_save(self) -> None:
+        """Transform the Stop button into a Save button once the gathering process is finished. One-shot"""
         if not self._finished_processed:
             if self._logic.is_finished():
                 self._btn_stop_save.clicked.disconnect(self._logic.stop)
@@ -405,7 +577,8 @@ class ValueExportDialog(QDialog):
                 self._btn_stop_save.clicked.connect(self._btn_save_slot)
                 self._finished_processed = True
 
-    def _process_stop(self) -> None:
+    def _stop_slot(self) -> None:
+        """Logic emitted a Stop signal. """
         self._update_btn_stop_save()
 
         if self._logic.count_received() == 0:
@@ -417,10 +590,8 @@ class ValueExportDialog(QDialog):
             # self._logic.count_received() == self._logic.count_total()
             self.accept()
 
-    def _stop_slot(self) -> None:
-        self._process_stop()
-
     def _btn_save_slot(self) -> None:
+        """UIser clicked on Save button"""
         self.accept()
 
     def _btn_cancel_slot(self) -> None:
@@ -430,6 +601,7 @@ class ValueExportDialog(QDialog):
         self.reject()
 
     def _update_ui_feedback(self) -> None:
+        """Update the visual component based on the actual logic state. Report to the user how we're doing so far"""
         self._progress_bar.setValue(self._logic.count_finished())
         self._lbl_count_received.setText(str(self._logic.count_received()))
         self._lbl_timedout_count.setText(str(self._logic.count_timedout()))
@@ -437,4 +609,7 @@ class ValueExportDialog(QDialog):
         self._lbl_count_total.setText(str(self._logic.count_total()))
 
     def get_value_set(self) -> SerializableValueSet:
+        """Extract the ValueSet from the logic. Raise if the logic is not finished gathering the data.
+        Need a Stop to happen first.
+        """
         return self._logic.get_value_set()
