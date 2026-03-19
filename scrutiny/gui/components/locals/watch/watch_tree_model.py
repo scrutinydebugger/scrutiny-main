@@ -35,6 +35,7 @@ from scrutiny.gui.widgets.watchable_tree import (
     item_from_serializable_data
 )
 from scrutiny.gui.widgets.base_tree import SerializableItemIndexDescriptor
+from scrutiny.gui.widgets import mixins as gui_mixins
 from scrutiny.gui.themes import scrutiny_get_theme
 from scrutiny.gui import assets
 from scrutiny.tools.global_counters import global_i64_counter
@@ -169,8 +170,10 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
     class _Signals(QObject):
         value_written = Signal(str, object)    # fqn, value
         request_reveal_fqn = Signal(str)
+        export_val_to_file = Signal(object)  # set(QStandardItem)
 
     signals: _Signals
+    _allow_export_vals: bool
 
     def __init__(self, model: "WatchComponentTreeModel", parent: Optional[QWidget] = None) -> None:
         super().__init__(model, parent)
@@ -180,6 +183,10 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
         self.set_header_labels(['', 'Value', 'Type', 'Enum'])
         self.signals = self._Signals()
         self.setItemDelegateForColumn(self.model().value_col(), ValueEditDelegate())
+        self._allow_export_vals = False
+
+    def allow_export_vals(self, val: bool) -> None:
+        self._allow_export_vals = val
 
     def contextMenuEvent(self, event: QContextMenuEvent) -> None:
         context_menu = QMenu()
@@ -199,14 +206,6 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
             for item in selected_items_no_nested_unordered:
                 self.model().removeRow(item.row(), item.index().parent())
 
-        def copy_path_clipboard_slot() -> None:
-            def iterate_items() -> Generator[WatchableStandardItem, None, None]:
-                for index in selected_indexes:
-                    item = self.model().itemFromIndex(index)
-                    if isinstance(item, WatchableStandardItem):
-                        yield item
-            self.copy_path_clipboard(iterate_items())
-
         allow_reveal_fqn = False
         if len(selected_watchable_items_unordered) == 1:
             if self._model._watchable_registry.is_watchable_fqn(selected_watchable_items_unordered[0].fqn):
@@ -223,18 +222,44 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
         remove_action.setEnabled(len(selected_items_no_nested_unordered) > 0)
         remove_action.triggered.connect(remove_action_slot)
 
-        copy_path_clipboard_action = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.Copy), "Copy path")
+        # Copy path
+        def iterate_items() -> Generator[str, None, None]:
+            for index in selected_indexes:
+                item = self.model().itemFromIndex(index)
+                if isinstance(item, WatchableStandardItem):
+                    yield WatchableRegistry.FQN.parse(item.fqn).path
+
+        copy_path_clipboard_action = gui_mixins.qmenu_add_copy_path_action(context_menu, iterate_items())
         copy_path_clipboard_action.setEnabled(False)
-        copy_path_clipboard_action.triggered.connect(copy_path_clipboard_slot)
         for index in selected_indexes:
             item = self.model().itemFromIndex(index)
             if isinstance(item, WatchableStandardItem):  # At least one watchable, enough to enable
                 copy_path_clipboard_action.setEnabled(True)
                 break
 
+        # Reveal in varlist
         reveal_in_varlist_action = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.Eye), "Reveal in Variable List")
         reveal_in_varlist_action.setEnabled(allow_reveal_fqn)
         reveal_in_varlist_action.triggered.connect(reveal_fqn_slot)
+
+        # Export to file
+        def export_slot() -> None:
+            # We send a list of watchable items
+            watchable_item_list: List[WatchableStandardItem] = []
+            for item in selected_items_no_nested_unordered:
+                if isinstance(item, FolderStandardItem):
+                    for watchable_item in self.model().get_all_watchable_items(parent=item):
+                        watchable_item_list.append(watchable_item)
+                elif isinstance(item, WatchableStandardItem):
+                    watchable_item_list.append(item)
+                else:
+                    raise NotImplementedError(f"Unknown item type {item.__class__.__name__}")
+
+            self.signals.export_val_to_file.emit(watchable_item_list)
+        export_vals_action = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.FileSCVAL), "Export to file")
+        export_vals_action.triggered.connect(export_slot)
+
+        export_vals_action.setEnabled(self._allow_export_vals and len(selected_items_no_nested_unordered) > 0)
 
         self.display_context_menu(context_menu, event.pos())
         event.accept()

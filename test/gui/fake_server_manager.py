@@ -7,10 +7,15 @@
 #    Copyright (c) 2024 Scrutiny Debugger
 
 import logging
-from PySide6.QtCore import Signal, QObject
+from PySide6.QtCore import Signal, QObject, QTimer
 from scrutiny.gui.core.watchable_registry import WatchableRegistry
 from scrutiny.gui.core.server_manager import ServerConfig
+from test.gui.fake_sdk_client import StubbedWatchableHandle, FakeSDKClient
 from scrutiny import sdk
+from uuid import uuid4
+from datetime import datetime
+from scrutiny.sdk.listeners import ValueUpdate, ValueStatus
+import random
 
 from scrutiny.tools.typing import *
 
@@ -66,6 +71,11 @@ class FakeServerManager:
     _device_connected: bool
     _sfd_loaded: bool
 
+    _client: FakeSDKClient
+    _handles: Dict[str, StubbedWatchableHandle]
+    _broadcast_timer: QTimer
+    _registrations: Dict[Union[str, int], Set[StubbedWatchableHandle]]
+
     def __init__(self, watchable_registry: WatchableRegistry):
         self._signals = self._Signals()
         self._registry = watchable_registry
@@ -75,6 +85,19 @@ class FakeServerManager:
         self._device_connected = False
         self._sfd_loaded = False
         self._logger = logging.getLogger(self.__class__.__name__)
+        self._broadcast_timer = QTimer()
+        self._broadcast_timer.setInterval(300)
+        self._broadcast_timer.timeout.connect(self._broadcast_timer_slot)
+        self._handles = {}
+
+        self._client = FakeSDKClient()
+
+        for dataset in [DUMMY_DATASET_RPV, DUMMY_DATASET_VAR, DUMMY_DATASET_ALIAS]:
+            for path, config in dataset.items():
+                server_id = uuid4().hex
+                handle = StubbedWatchableHandle(path, config.watchable_type, config.datatype, config.enum, server_id)
+                self._handles[path] = handle
+        self._broadcast_timer.start()
 
     @property
     def signals(self) -> _Signals:
@@ -142,6 +165,11 @@ class FakeServerManager:
         self.registry.write_content({
             sdk.WatchableType.RuntimePublishedValue: DUMMY_DATASET_RPV
         })
+
+        for path, config in DUMMY_DATASET_RPV.items():
+            handle = self._handles[path]
+            self._registry.assign_serverid_to_node(config.watchable_type, path, handle.server_id)
+
         self._signals.registry_changed.emit()
 
     def simulate_device_disconnect(self) -> None:
@@ -163,6 +191,12 @@ class FakeServerManager:
             sdk.WatchableType.Variable: DUMMY_DATASET_VAR,
             sdk.WatchableType.Alias: DUMMY_DATASET_ALIAS,
         })
+
+        for dataset in [DUMMY_DATASET_VAR, DUMMY_DATASET_ALIAS]:
+            for path, config in dataset.items():
+                handle = self._handles[path]
+                self._registry.assign_serverid_to_node(config.watchable_type, path, handle.server_id)
+
         self._signals.registry_changed.emit()
 
     def simulate_sfd_unloaded(self) -> None:
@@ -216,3 +250,19 @@ class FakeServerManager:
 
     def qt_write_watchable_value(self, fqn: str, value: Union[str, int, float, bool], callback: Callable[[Optional[Exception]], None]) -> None:
         pass
+
+    def _broadcast_timer_slot(self) -> None:
+        updates: List[updates] = []
+        for handle in self._handles.values():
+            value = random.randint(0, 100)
+            status = ValueStatus.Valid
+            if handle.server_path == '/rpv/rpv.a/rpv.a.a':
+                status = ValueStatus.NullPtrDereferenced
+                value = None
+            elif handle.server_path == '/rpv/rpv.b/rpv.b.a':
+                continue
+
+            update = ValueUpdate(handle, value, status, datetime.now())
+            updates.append(update)
+        # print(updates)
+        self._registry.broadcast_value_updates_to_watchers(updates)

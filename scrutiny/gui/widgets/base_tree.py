@@ -16,7 +16,7 @@ import functools
 import logging
 
 from PySide6.QtGui import QFocusEvent, QStandardItem, QKeyEvent, QStandardItemModel, QColor, QMouseEvent, QAction
-from PySide6.QtCore import Qt, QModelIndex, QPersistentModelIndex, QAbstractItemModel, QPoint
+from PySide6.QtCore import Qt, QModelIndex, QPersistentModelIndex, QAbstractItemModel, QPoint, QAbstractProxyModel
 from PySide6.QtWidgets import QTreeView, QWidget, QMenu
 
 from scrutiny.tools.typing import *

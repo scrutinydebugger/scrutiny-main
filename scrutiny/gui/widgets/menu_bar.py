@@ -13,7 +13,9 @@ import functools
 
 from PySide6.QtWidgets import QMenuBar, QMenu
 from PySide6.QtGui import QAction, QKeySequence
-from PySide6.QtCore import QObject, Signal
+from PySide6.QtCore import QObject, Signal, QKeyCombination, Qt
+
+from scrutiny import sdk
 
 from pathlib import Path
 from scrutiny.tools.typing import *
@@ -27,7 +29,8 @@ class MenuBar(QMenuBar):
         dashboard_clear_click = Signal()
         dashboard_recent_open = Signal(str)
 
-        firmwares_manage_click = Signal()
+        server_firmwares_manage_click = Signal()
+        server_upload_values_click = Signal()
 
         device_configure_click = Signal()
         info_about_click = Signal()
@@ -37,11 +40,13 @@ class MenuBar(QMenuBar):
     _action_dashboard_save: QAction
     _action_dashboard_save_as: QAction
     _action_dashboard_clear: QAction
-    _action_firmwares_manage: QAction
+    _action_server_manage_firmwares: QAction
+    _action_server_upload_values: QAction
     _action_server_launch_local: QAction
     _action_device_configure: QAction
     _action_info_about: QAction
     _recent_action: QAction
+    _server_menu: QMenu
 
     def __init__(self, ) -> None:
         super().__init__()
@@ -62,9 +67,13 @@ class MenuBar(QMenuBar):
         dashboard_menu.addSeparator()
         self._recent_action = dashboard_menu.addAction("Recent")
 
-        firmwares_menu = self.addMenu("Firmwares")
-        self._action_firmwares_manage = firmwares_menu.addAction("Manage")
-        self._action_firmwares_manage.triggered.connect(self._signals.firmwares_manage_click)
+        self._server_menu = self.addMenu("Server")
+        self._action_server_manage_firmwares = self._server_menu.addAction("Manage Firmwares")
+        self._action_server_manage_firmwares.triggered.connect(self._signals.server_firmwares_manage_click)
+
+        import_values_kshortcut = QKeyCombination(Qt.KeyboardModifier.ControlModifier, Qt.Key.Key_I)
+        self._action_server_upload_values = self._server_menu.addAction("Import values (.scval)", import_values_kshortcut)
+        self._action_server_upload_values.triggered.connect(self._signals.server_upload_values_click)
 
         info_menu = self.addMenu("Info")
         self._action_info_about = info_menu.addAction("About this software")
@@ -90,3 +99,16 @@ class MenuBar(QMenuBar):
 
         self._recent_action.setMenu(menu)
         self._recent_action.setEnabled(count > 0)
+
+    def update_enable_disable_state(self, server_state: sdk.ServerState, server_info: Optional[sdk.ServerInfo]) -> None:
+        if server_state != sdk.ServerState.Connected:
+            self._server_menu.setEnabled(False)
+            self._action_server_manage_firmwares.setEnabled(False)
+            self._action_server_upload_values.setEnabled(False)
+        else:
+            if server_info is not None:  # Should not be None generally. Protect against potential race condition since this comes from the client
+                self._server_menu.setEnabled(True)
+                self._action_server_manage_firmwares.setEnabled(True)
+
+                if server_info.device_comm_state == sdk.DeviceCommState.ConnectedReady:
+                    self._action_server_upload_values.setEnabled(True)

@@ -2956,6 +2956,24 @@ class TestClient(ScrutinyUnitTest):
         conn_id = list(self.api.connections)[0]
         self.assertEqual(self.api.streamer.get_target_throttling_rate(conn_id), 1234)
 
+    def test_write_single_watchable_no_handle(self):
+        entry = self.datastore.get_entry_by_display_path('/rpv/x1000')
+        entry.set_value(0)
+        self.client.write_watchable(entry.get_display_path(), 3.14)
+        self.assertAlmostEqual(entry.get_value(), d2f(3.14))
+
+        with self.assertRaises(Exception):
+            self.client.write_watchable('/i/dont/exist', 0)
+
+        with self.assertRaises(Exception):
+            self.client.write_watchable(entry.get_display_path(), None)
+
+        with self.assertRaises(Exception):
+            self.client.write_watchable(entry.get_display_path(), 'invalid_expr')
+
+        with self.assertRaises(Exception):
+            self.client.write_watchable([], 0)
+
 
 if __name__ == '__main__':
     unittest.main()

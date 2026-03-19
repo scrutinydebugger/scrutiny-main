@@ -68,6 +68,15 @@ class StubbedWatchableHandle(tools.UnitTestStub):
         self._last_update_timestamp = None
         self._status = sdk.ValueStatus.Valid
 
+    def __repr__(self) -> str:
+        return "<%s %s (%s) serverid=%s at 0x%08x>" % (
+            self.__class__.__name__,
+            self.configuration.watchable_type.name,
+            self.server_path,
+            self.configuration.server_id,
+            id(self)
+        )
+
     def _assert_configured(self) -> None:
         pass
 

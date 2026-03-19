@@ -41,6 +41,7 @@ btn_device_gone = QPushButton("Disconnect Device")
 btn_load_sfd = QPushButton("Load Sfd")
 btn_unload_sfd = QPushButton("Unload SFD")
 
+
 button_container = QWidget()
 component_container = QWidget()
 status_container = QWidget()
@@ -189,5 +190,6 @@ btn_load_sfd.clicked.connect(btn_load_sfd_slot)
 btn_unload_sfd.clicked.connect(btn_unload_sfd_slot)
 
 update_ui()
+
 
 sys.exit(app.exec())

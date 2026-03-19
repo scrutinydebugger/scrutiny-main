@@ -981,6 +981,21 @@
         },
         "scrutiny/tools/sorted_set.py": {
             "docstring": "A custom implementation of a sorted set"
+        },
+        "test/gui/test_serializable_value_set.py": {
+            "docstring": "A test suite for the value set fil"
+        },
+        "scrutiny/gui/core/serializable_value_set.py": {
+            "docstring": "A class that represent the content of a .scval file. It's a set of values tied to a server path."
+        },
+        "scrutiny/gui/widgets/mixins.py": {
+            "docstring": "Some mixins to use across the GUI to keep it consistent"
+        },
+        "scrutiny/gui/dialogs/value_export_dialog.py": {
+            "docstring": "A dialog that start a value gathering process for all the watchable given. Successively watch them, wait for a value, report success/failure and unwatch them. Provides a ValueSet object to be saved to a .scval file"
+        },
+        "scrutiny/gui/dialogs/value_import_dialog.py": {
+            "docstring": "A dialog that can import a ValueSet file (.scval) and write the values to the server. Reports any failure and why"
         }
     },
     "authors": {}

@@ -837,7 +837,6 @@ class TestWatchableRegistry(ScrutinyUnitTest):
                         self.assertNotIn(node.registry_id, seen_ids)
                         seen_ids.add(node.registry_id)
 
-
         for i in range(2):
             self.registry.write_content(content_rpv)
             validate_id_unique()

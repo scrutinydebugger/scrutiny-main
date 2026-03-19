@@ -138,6 +138,7 @@ class WatchableRegistryEntryNode:
         self._watcher_count = 0
         self.registry_id = registry._make_node_id()
 
+
 @dataclass(frozen=True, slots=True)
 class WatchableRegistryIntermediateNode:
     """An intermediate node that contains watchable and other subnodes"""
@@ -790,7 +791,7 @@ class WatchableRegistry:
             """
             colon_position = fqn.find(':')
             if colon_position == -1:
-                raise WatchableRegistryError("Bad fully qualified name")
+                raise WatchableRegistryError(f"Bad fully qualified name {fqn}")
             typestr = fqn[0:colon_position]
             if typestr not in TYPESTR_MAP_S2WT:
                 raise WatchableRegistryError(f"Unknown watchable type {typestr}")

@@ -479,12 +479,3 @@ class WatchableTreeWidget(BaseTreeView):
 
     def model(self) -> WatchableTreeModel:
         return self._model
-
-    def copy_path_clipboard(self, items: Iterable[WatchableStandardItem]) -> None:
-        paths: List[str] = []
-        for item in items:
-            path = WatchableRegistry.FQN.parse(item.fqn).path
-            paths.append(path)
-
-        if len(paths) > 0:
-            QApplication.clipboard().setText('\n'.join(paths))
