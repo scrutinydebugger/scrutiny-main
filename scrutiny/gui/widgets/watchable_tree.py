@@ -22,7 +22,7 @@ __all__ = [
 
 from scrutiny.sdk import WatchableType, BriefWatchableConfiguration
 from PySide6.QtGui import QStandardItem, QIcon, QKeyEvent
-from PySide6.QtWidgets import QWidget, QApplication
+from PySide6.QtWidgets import QWidget
 from PySide6.QtCore import Qt, QModelIndex
 from scrutiny.gui import assets
 from scrutiny.gui.core.watchable_registry import WatchableRegistry, WatchableRegistryIntermediateNode
@@ -246,8 +246,15 @@ class WatchableTreeModel(BaseTreeModel):
         """Overridable callback called each time a FolderStandardItem is created"""
         pass
 
-    @classmethod
-    def make_watchable_row_from_existing_item(cls,
+    def add_filer_cells(self, row: List[QStandardItem]) -> None:
+        """Add empty uneditable cell at the end of a row. QT default Tree behavior is to let add editable cell when some are missing"""
+        nb_col = len(row)
+        for i in range(nb_col, self.columnCount()):
+            filler = QStandardItem()
+            filler.setEditable(False)
+            row.append(filler)
+
+    def make_watchable_row_from_existing_item(self,
                                               item: WatchableStandardItem,
                                               editable: bool,
                                               extra_columns: Optional[List[QStandardItem]] = None) -> List[QStandardItem]:
@@ -265,7 +272,9 @@ class WatchableTreeModel(BaseTreeModel):
         item.setDragEnabled(True)
         for col in extra_columns:
             col.setDragEnabled(True)
-        return [item] + extra_columns
+        all_cols = [item] + extra_columns
+        self.add_filer_cells(all_cols)
+        return all_cols
 
     def make_watchable_row(self,
                            name: str,
@@ -287,8 +296,7 @@ class WatchableTreeModel(BaseTreeModel):
         self.watchable_item_created(item)
         return self.make_watchable_row_from_existing_item(item, editable, extra_columns)
 
-    @classmethod
-    def make_folder_row_existing_item(cls, item: FolderStandardItem, editable: bool) -> List[QStandardItem]:
+    def make_folder_row_existing_item(self, item: FolderStandardItem, editable: bool) -> List[QStandardItem]:
         """Creates a folder row from an already existing first column
 
         :item: The first column item
@@ -296,7 +304,10 @@ class WatchableTreeModel(BaseTreeModel):
         """
         item.setEditable(editable)
         item.setDragEnabled(True)
-        return [item]
+        row = [cast(QStandardItem, item)]
+        self.add_filer_cells(row)
+
+        return row
 
     def make_folder_row(self, name: str, fqn: Optional[str], editable: bool) -> List[QStandardItem]:
         """Creates a folder row
