@@ -22,7 +22,7 @@ __all__ = [
 
 from scrutiny.sdk import WatchableType, BriefWatchableConfiguration
 from PySide6.QtGui import QStandardItem, QIcon, QKeyEvent
-from PySide6.QtWidgets import QWidget, QApplication
+from PySide6.QtWidgets import QWidget
 from PySide6.QtCore import Qt, QModelIndex
 from scrutiny.gui import assets
 from scrutiny.gui.core.watchable_registry import WatchableRegistry, WatchableRegistryIntermediateNode
@@ -287,8 +287,7 @@ class WatchableTreeModel(BaseTreeModel):
         self.watchable_item_created(item)
         return self.make_watchable_row_from_existing_item(item, editable, extra_columns)
 
-    @classmethod
-    def make_folder_row_existing_item(cls, item: FolderStandardItem, editable: bool) -> List[QStandardItem]:
+    def make_folder_row_existing_item(self, item: FolderStandardItem, editable: bool) -> List[QStandardItem]:
         """Creates a folder row from an already existing first column
 
         :item: The first column item
@@ -296,7 +295,12 @@ class WatchableTreeModel(BaseTreeModel):
         """
         item.setEditable(editable)
         item.setDragEnabled(True)
-        return [item]
+        extra_col = max(self.columnCount() - 1, 0)
+        fillers = [QStandardItem() for i in range(extra_col)]
+        for filler in fillers:
+            filler.setEditable(False)
+
+        return [item] + fillers
 
     def make_folder_row(self, name: str, fqn: Optional[str], editable: bool) -> List[QStandardItem]:
         """Creates a folder row
