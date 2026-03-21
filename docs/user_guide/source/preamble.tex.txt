@@ -1,0 +1,5 @@
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyfoot[L]{\today}      % left footer: date
+\fancyfoot[R]{\thepage}    % right footer: page number

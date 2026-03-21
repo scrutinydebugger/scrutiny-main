@@ -12,15 +12,31 @@ import sys
 
 import scrutiny
 
+os.environ['LATEXOPTS'] = '-interaction=nonstopmode -halt-on-error' # Bail on error. don't ask user for input
+
 project = 'Scrutiny Debugger'
 copyright = '2021, scrutinydebugger'
-author = 'scrutinydebugger'
 release = f'v{scrutiny.__version__}'
+author=''
 
-# -- General configuration ---------------------------------------------------
-# https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
+latex_engine = "pdflatex"
+latex_elements = {
+    'preamble':  r'\input{preamble.tex.txt}'
+}
 
-extensions = []
 
-templates_path = []
-exclude_patterns = []
+latex_additional_files = ["preamble.tex.txt"]
+latex_show_urls = 'footnote'
+
+default_filename = 'scrutinydebugger_v{scrutiny.__version__}_user_guide'
+filename = os.environ.get('SCRUTINY_USER_GUIDE_FILENAME', default_filename)
+
+latex_documents = [
+    (
+        'index',                            # Start file
+        f'{filename}.tex',                  # File name
+        'Scrutiny Debugger User Guide',     # Title
+        '',                                 # Author name
+        'manual'                            # Document class
+        ),
+]
