@@ -56,18 +56,22 @@ pipeline {
                         }
                     }
                 }
-                stage("SDK Doc HTML"){
-                    steps {
-                        sh '''
-                        SPHINXOPTS=-W SCRUTINY_VENV_DIR=venv-3.13 scripts/with-venv.sh make -C scrutiny/docs/sdk html
-                        '''
-                    }
-                }
-                stage("User guide PDF"){
-                    steps {
-                        sh '''
-                        SPHINXOPTS=-W SCRUTINY_VENV_DIR=venv-3.13 scripts/with-venv.sh make -C scrutiny/docs/user_guide latexpdf
-                        '''
+                stage("Doc"){
+                    parallel{
+                        stage ('SDK HTML') {
+                            steps {
+                                sh '''
+                                SPHINXOPTS=-W SCRUTINY_VENV_DIR=venv-3.13 scripts/with-venv.sh make -C scrutiny/docs/sdk html
+                                '''
+                            }
+                        }
+                        stage("User guide PDF"){
+                            steps {
+                                sh '''
+                                SPHINXOPTS=-W SCRUTINY_VENV_DIR=venv-3.13 scripts/with-venv.sh make -C scrutiny/docs/user_guide latexpdf
+                                '''
+                            }
+                        }
                     }
                 }
             }
