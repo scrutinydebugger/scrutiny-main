@@ -61,14 +61,14 @@ pipeline {
                         stage ('SDK HTML') {
                             steps {
                                 sh '''
-                                SPHINXOPTS=-W SCRUTINY_VENV_DIR=venv-3.13 scripts/with-venv.sh make -C scrutiny/docs/sdk html
+                                SPHINXOPTS=-W SCRUTINY_VENV_DIR=venv-3.13 scripts/with-venv.sh make -C docs/sdk html
                                 '''
                             }
                         }
                         stage("User guide PDF"){
                             steps {
                                 sh '''
-                                SPHINXOPTS=-W SCRUTINY_VENV_DIR=venv-3.13 scripts/with-venv.sh make -C scrutiny/docs/user_guide latexpdf
+                                SPHINXOPTS=-W SCRUTINY_VENV_DIR=venv-3.13 scripts/with-venv.sh make -C docs/user_guide latexpdf
                                 '''
                             }
                         }

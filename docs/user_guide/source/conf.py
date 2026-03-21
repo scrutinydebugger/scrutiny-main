@@ -10,21 +10,6 @@ import os
 from pathlib import Path
 import sys
 
-conf_folder = Path(os.path.dirname(__file__))
-
-folder = conf_folder
-scrutiny_base = None
-while folder.parent != folder:
-    if folder.name == 'scrutiny':
-        scrutiny_base = folder
-        break
-    folder = folder.parent
-
-if scrutiny_base is None:
-    raise FileNotFoundError("Cannot find the parent scrutiny pacakge")
-
-sys.path.insert(0, str(scrutiny_base.parent.absolute()))
-
 import scrutiny
 
 project = 'Scrutiny Debugger'
@@ -37,13 +22,5 @@ release = f'v{scrutiny.__version__}'
 
 extensions = []
 
-templates_path = ['_templates']
+templates_path = []
 exclude_patterns = []
-
-
-
-# -- Options for HTML output -------------------------------------------------
-# https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
-
-html_theme = 'alabaster'
-html_static_path = ['_static']
