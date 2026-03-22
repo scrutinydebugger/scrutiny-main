@@ -7,7 +7,7 @@ Scrutiny Debugger User Guide
 ============================
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
    :caption: Table Of Contents:
 
    architecture

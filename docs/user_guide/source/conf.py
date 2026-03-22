@@ -21,10 +21,12 @@ author=''
 
 latex_engine = "pdflatex"
 latex_elements = {
-    'preamble':  r'\input{preamble.tex.txt}'
+    'preamble':  r'\input{preamble.tex.txt}',
+    'fncychap': r'\usepackage[Sonny]{fncychap}',
 }
 
 
+html_static_path = ['_static']
 latex_additional_files = ["preamble.tex.txt"]
 latex_show_urls = 'footnote'
 

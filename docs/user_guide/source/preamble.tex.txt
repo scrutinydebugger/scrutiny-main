@@ -1,5 +1,40 @@
-\usepackage{fancyhdr}
-\pagestyle{fancy}
-\fancyhf{}
-\fancyfoot[L]{\today}      % left footer: date
-\fancyfoot[R]{\thepage}    % right footer: page number
+\makeatletter
+
+% Override the fancy page style with our own head/foot note
+\fancypagestyle{normal}{
+    \fancyhf{}
+    \fancyfoot[LE,RO]{{\py@HeaderFamily\thepage}}
+    \fancyfoot[LO]{{\py@HeaderFamily\nouppercase{\rightmark}}}
+    \fancyfoot[RE]{{\py@HeaderFamily\nouppercase{\leftmark}}}
+    \fancyhead[LE,RO]{{\py@HeaderFamily \@title, \py@release}}
+    \renewcommand{\headrulewidth}{0.4pt}
+    \renewcommand{\footrulewidth}{0.4pt}
+}
+
+% Override the chapter head of fncychap module.
+\renewcommand{\@makechapterhead}[1]{
+
+  \fcolorbox{gray}{gray!20}{
+    \parbox{\dimexpr\textwidth-2\fboxsep}{
+      \vspace{20px}
+      \hspace{2em}
+      \Huge \bfseries \thechapter.\quad #1\par
+      \vspace{1ex}
+    }
+  }
+  \par\nobreak
+    \vskip 40\p@
+  }
+
+% Force the "plain" style to be "fancy".
+% Chapter pages uses plain style. Using fancy leaves the head/foot notes
+\let\ps@plain\ps@fancy
+
+
+% Override the hypref bookmark type to ahve numbered bookmarks in the PDF
+\usepackage{hyperref}
+    \hypersetup{
+        bookmarksnumbered
+    }
+
+\makeatother
