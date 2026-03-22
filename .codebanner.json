@@ -996,6 +996,18 @@
         },
         "scrutiny/gui/dialogs/value_import_dialog.py": {
             "docstring": "A dialog that can import a ValueSet file (.scval) and write the values to the server. Reports any failure and why"
+        },
+        "scrutiny/cli/commands/userguide.py": {
+            "docstring": "A command to open the Scrutiny user guide."
+        },
+        "scripts/build_sdk_doc.sh": {
+            "docstring": "A script that builds the Python SDK HTML documentation"
+        },
+        "scripts/ci_shell.sh": {
+            "docstring": "A script to get a shell like CI does"
+        },
+        "scripts/build_userguide.sh": {
+            "docstring": "A script that builds the user guide PDF and writes it into the python module where ``python -m scrutiny userguide location`` dictates"
         }
     },
     "authors": {}
