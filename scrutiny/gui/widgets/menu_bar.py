@@ -34,6 +34,7 @@ class MenuBar(QMenuBar):
 
         device_configure_click = Signal()
         info_about_click = Signal()
+        info_user_guide_click = Signal()
 
     _signals: _Signals
     _action_dashboard_open: QAction
@@ -45,6 +46,7 @@ class MenuBar(QMenuBar):
     _action_server_launch_local: QAction
     _action_device_configure: QAction
     _action_info_about: QAction
+    _action_user_guide: QAction
     _recent_action: QAction
     _server_menu: QMenu
 
@@ -78,6 +80,8 @@ class MenuBar(QMenuBar):
         info_menu = self.addMenu("Info")
         self._action_info_about = info_menu.addAction("About this software")
         self._action_info_about.triggered.connect(self._signals.info_about_click)
+        self._action_user_guide = info_menu.addAction("User guide")
+        self._action_user_guide.triggered.connect(self._signals.info_user_guide_click)
 
     @property
     def signals(self) -> _Signals:

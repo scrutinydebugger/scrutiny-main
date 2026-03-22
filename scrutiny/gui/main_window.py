@@ -11,6 +11,7 @@ __all__ = ['MainWindow']
 import logging
 from pathlib import Path
 
+import scrutiny
 from PySide6.QtWidgets import QWidget, QHBoxLayout
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtCore import Qt, QRect
@@ -100,6 +101,7 @@ class MainWindow(QMainWindow):
         self.setMenuBar(self._menu_bar)
 
         self._menu_bar.signals.info_about_click.connect(self.show_about)
+        self._menu_bar.signals.info_user_guide_click.connect(self.show_user_guide)
         self._menu_bar.signals.dashboard_clear_click.connect(self._dashboard_clear_click)
         self._menu_bar.signals.dashboard_save_click.connect(self._dashboard_save_click)
         self._menu_bar.signals.dashboard_save_as_click.connect(self._dashboard_save_as_click)
@@ -147,6 +149,12 @@ class MainWindow(QMainWindow):
         dialog = AboutDialog()  # Modal
         dialog.setGeometry(self.centered(400, 200))
         dialog.exec()
+
+    def show_user_guide(self) -> None:
+        try:
+            tools.open_file_or_raise(scrutiny.expected_user_guide_path())
+        except Exception as e:
+            prompt.exception_msgbox(e, "Cannot open manual", "Failed to open user guide")
 
     def show_server_sfd_manage_dialog(self) -> None:
         if not self._server_sfd_manage_dialog.isVisible():
