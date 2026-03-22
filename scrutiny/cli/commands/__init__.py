@@ -17,6 +17,7 @@ __all__ = [
     'DatalogInfo',
     'NoopCommand',
     'GUI',
+    'UserGuide',
     'Version',
     'get_all_commands',
     'get_commands_by_groups'
@@ -41,6 +42,7 @@ from .datalog_info import DatalogInfo
 from .noop import NoopCommand
 from .version import Version
 from .gui import GUI
+from .userguide import UserGuide
 
 from scrutiny.tools.typing import *
 

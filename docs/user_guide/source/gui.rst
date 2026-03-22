@@ -1,2 +1,2 @@
-Graphical User Interface (CLI)
+Graphical User Interface (GUI)
 ==============================

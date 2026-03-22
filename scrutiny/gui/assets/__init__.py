@@ -184,3 +184,6 @@ def load_stylesheet(name: str) -> str:
     if not name.endswith('.qss'):
         name += '.qss'
     return load_text(['stylesheets', name])
+
+
+def get_user_guide() -> Optional[Path]:

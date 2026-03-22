@@ -28,8 +28,7 @@ latex_elements = {
 latex_additional_files = ["preamble.tex.txt"]
 latex_show_urls = 'footnote'
 
-default_filename = 'scrutinydebugger_v{scrutiny.__version__}_user_guide'
-filename = os.environ.get('SCRUTINY_USER_GUIDE_FILENAME', default_filename)
+filename = os.path.splitext(scrutiny.expected_user_guide_filename())[0] # Name without extension
 
 latex_documents = [
     (

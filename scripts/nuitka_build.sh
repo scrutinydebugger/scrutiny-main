@@ -47,13 +47,8 @@ assert_file "$WHEEL_FILE_NOCLI"
 info "Embedding $(basename $WHEEL_FILE_NOCLI) inside Nuitka package"
 
 # User Guide
-info "Building User Guide"
-DOC_OUTPUT_FOLDER="$PROJECT_ROOT/docs/user_guide/build/latex"
-rm -rf "$DOC_OUTPUT_FOLDER"
-USERGUIDE_NAME="$(./scripts/make_userguide_name.sh)"
-./scripts/build_userguide.sh $USERGUIDE_NAME
-USERGUIDE_PDF="$DOC_OUTPUT_FOLDER/$USERGUIDE_NAME.pdf"
-assert_file "$USERGUIDE_PDF"
+info "Building user guide"
+./scripts/build_userguide.sh
 
 OUTPUT_FILENAME="scrutiny.bin"  # default. we manage with symlink on unix based platform
 if [ "$PLATFORM" = "win32" ]; then
