@@ -1,5 +1,6 @@
 FROM ubuntu:22.04 AS ci
 
+ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y \
     git \
