@@ -395,17 +395,15 @@ def is_documented_by(original: Callable[[Any], Any]) -> Callable[[Any], Any]:
     return wrapper
 
 
-def open_file_or_raise(filepath: str, extra_args: Optional[List[str]] = None) -> None:
-    if extra_args is None:
-        extra_args = []
+def open_file_or_raise(filepath: str) -> None:
     if sys.platform == 'darwin':
-        retcode = subprocess.call(['open', filepath] + extra_args)
+        retcode = subprocess.call(['open', filepath])
         if retcode != 0:
             raise RuntimeError(f"Failed to open file {filepath}")
     elif sys.platform == 'win32':
-        os.startfile(filepath, arguments=extra_args)
+        os.startfile(filepath)
     elif sys.platform in ['linux', 'freebsd']:
-        retcode = subprocess.call(['xdg-open', filepath] + extra_args)
+        retcode = subprocess.call(['xdg-open', filepath])
         if retcode != 0:
             raise RuntimeError(f"Failed to open file {filepath}")
     else:

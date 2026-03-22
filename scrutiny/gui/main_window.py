@@ -151,10 +151,13 @@ class MainWindow(QMainWindow):
         dialog.exec()
 
     def show_user_guide(self) -> None:
+        file = scrutiny.expected_user_guide_path()
         try:
-            tools.open_file_or_raise(scrutiny.expected_user_guide_path())
+            tools.open_file_or_raise(file)
+        except FileNotFoundError as e:
+            prompt.error_msgbox("File not found", f"User guide missing. Expected to be at {file}")
         except Exception as e:
-            prompt.exception_msgbox(e, "Cannot open manual", "Failed to open user guide")
+            prompt.exception_msgbox(e, "Failed to open user guide", "Unexpected error while opening the manual")
 
     def show_server_sfd_manage_dialog(self) -> None:
         if not self._server_sfd_manage_dialog.isVisible():
