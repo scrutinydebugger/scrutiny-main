@@ -33,8 +33,10 @@
 
 % Override the hypref bookmark type to ahve numbered bookmarks in the PDF
 \usepackage{hyperref}
-    \hypersetup{
-        bookmarksnumbered
-    }
+\hypersetup{
+    bookmarksnumbered
+}
+
+
 
 \makeatother

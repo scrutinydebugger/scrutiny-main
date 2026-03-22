@@ -7,8 +7,21 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 import os
-from pathlib import Path
-import sys
+
+#region Override code-block font<
+# https://stackoverflow.com/questions/9899283/how-do-you-change-the-code-example-font-size-in-latex-pdf-output-with-sphinx
+
+from sphinx.highlighting import PygmentsBridge
+from pygments.formatters.latex import LatexFormatter
+
+from typing import Any
+class CustomLatexFormatter(LatexFormatter):
+    def __init__(self, *args:Any, **options:Any) -> None:
+        super().__init__(*args, **options)
+        self.verboptions = r"formatcom=\scriptsize"
+
+PygmentsBridge.latex_formatter = CustomLatexFormatter
+# endregion
 
 import scrutiny
 

@@ -80,7 +80,7 @@ class MenuBar(QMenuBar):
         info_menu = self.addMenu("Info")
         self._action_info_about = info_menu.addAction("About this software")
         self._action_info_about.triggered.connect(self._signals.info_about_click)
-        self._action_user_guide = info_menu.addAction("User guide")
+        self._action_user_guide = info_menu.addAction("User Guide")
         self._action_user_guide.triggered.connect(self._signals.info_user_guide_click)
 
     @property

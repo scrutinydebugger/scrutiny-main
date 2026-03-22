@@ -155,7 +155,7 @@ class MainWindow(QMainWindow):
         try:
             tools.open_file_or_raise(file)
         except FileNotFoundError as e:
-            prompt.error_msgbox("File not found", f"User guide missing. Expected to be at {file}")
+            prompt.error_msgbox("File not found", f"User guide missing. Expected to be at \"{file}\"")
         except Exception as e:
             prompt.exception_msgbox(e, "Failed to open user guide", "Unexpected error while opening the manual")
 
