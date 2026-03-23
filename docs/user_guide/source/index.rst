@@ -12,6 +12,7 @@ Scrutiny Debugger User Guide
 
    architecture
    server
-   python_sdk
    gui
+   sfd
    cli
+   python_sdk

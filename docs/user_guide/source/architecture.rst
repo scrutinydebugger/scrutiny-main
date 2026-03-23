@@ -1,3 +1,5 @@
+.. _page_architecture:
+
 Architecture
 ============
 

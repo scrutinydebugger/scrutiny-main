@@ -27,7 +27,7 @@
   }
 
 % Force the "plain" style to be "fancy".
-% Chapter pages uses plain style. Using fancy leaves the head/foot notes
+% Chapter pages uses plain style. Using fancy leaves the head/foot notes on them
 \let\ps@plain\ps@fancy
 
 
@@ -37,6 +37,13 @@
     bookmarksnumbered
 }
 
-
+% Make inline code in backticks (``hello``) with a background and a small monospace font
+\renewcommand{\sphinxcode}[1]{
+    \mbox{
+        \colorbox{gray!10}{
+            {\ttfamily \footnotesize #1}
+        }
+    }
+}
 
 \makeatother
