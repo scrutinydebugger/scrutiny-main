@@ -1,7 +1,7 @@
 .. _page_sfd:
 
-Scrutiny Firmware Description files (SFD)
-=========================================
+SFD Files
+=========
 
 TODO
 

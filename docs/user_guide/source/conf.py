@@ -35,10 +35,10 @@ filename = os.path.splitext(scrutiny.expected_user_guide_filename())[0] # Name w
 
 latex_documents = [
     (
-        'index',                            # Start file
-        f'{filename}.tex',                  # File name
-        'Scrutiny Debugger User Guide',     # Title
-        '',                                 # Author name
-        'manual'                            # Document class
+        'index',                                    # Start file
+        f'{filename}.tex',                          # File name
+        'Scrutiny Debugger User Guide',             # Title
+        'https://github.com/scrutinydebugger',      # Author name
+        'manual'                                    # Document class
         ),
 ]

@@ -4,22 +4,22 @@ Command Line Interface (CLI)
 Basic Usage
 -----------
 
-The Scrutiny Command Line Interface (CLI) is the main entry point for every functionality accomplished by the host system.
+The Scrutiny Command Line Interface (CLI) is the primary entry point for all functionality provided by the host system.
 
-Every commands supports the following argument for log control :
+All commands support the following argument for controlling log output:
 
 .. list-table:: Logging options
   :header-rows: 0
   :align: left
 
   * - \-\-loglevel
-    - To control the loglevel, valid values are : critical, error, warning, info, debug, dumpdata
+    - Controls the logging level. Valid values are: critical, error, warning, info, debug, dumpdata.
   * - \-\-logfile
-    - To redirect the log output to a file rather than stdout
+    - Redirects log output to a file instead of standard output.
   * - \-\-disable-loggers
-    - Let the user hide some speecific loggers to reduce noise in the output
+    - Allows the user to hide specific loggers to reduce noise in the output.
 
-Here is an example of log from the command line
+Here is an example of log output produced from the command line:
 
 .. code-block::
 
@@ -47,30 +47,33 @@ A real command example could look like this:
 
     scrutiny server --loglevel debug --disable-loggers MemoryReader CommHandler --logfile output.log
 
-The scrutiny CLI expect the first positional arguments (without ``--`` prefix) to be the name of a command. Each command has its own help message
+The Scrutiny CLI expects the first positional argument (an argument without a ``--`` prefix) to be the name of a command.
+Each command provides its own dedicated help message.
 
 .. code-block:: bash
 
     scrutiny server --help
     scrutiny install-sfd --help
 
-The list of available command can be listed with
+The list of available commands can be displayed with:
 
 .. code-block:: bash
 
     scrutiny --help
 
-The main commands to use Scrutiny are ``gui`` to launch the Graphical User Interface and ``server`` to run a server. Note that a server can be launched from the GUI too.
+The main commands used to operate Scrutiny are ``gui``, which launches the Graphical User Interface, and ``server``, which starts a server instance.
+Note that a server can also be launched directly from within the GUI.
 
 Server commands
 ---------------
 
-Some commands are expected to be run on the machine that runs a server.
+Some commands are intended to be executed on the machine that is running the server.
 
 SFD manipulation
 ################
 
-A server has a local storage of Scrutiny Firmware Description files (SFD). This storage can be manipulated from the CLI using the following commands
+A server maintains a local storage area containing Scrutiny Firmware Description (SFD) files.
+This storage can be managed from the CLI using the following commands:
 
 .. _table_server_sfd_storage_command:
 
@@ -81,11 +84,11 @@ A server has a local storage of Scrutiny Firmware Description files (SFD). This 
   * - **Command**
     - **Description**
   * - **install-sfd**
-    - Install a .sfd file in the local storage
+    - Installs an .sfd file in the local storage.
   * - **uninstall-sfd**
-    - Remove a .sfd from the local storage
+    - Removes an .sfd from the local storage.
   * - **list-sfd**
-    - List all installed .sfd files
+    - Displays all installed .sfd files.
 
 Examples:
 
@@ -105,8 +108,10 @@ Examples:
 Datalogging manipulation
 ########################
 
-Datalogging acquisitions gotten from the "Embedded Graph" component in the GUI or through the SDK ``ScrutinyClient::start_datalog`` method are saved on
-the server into a SQLite database. Some commands are meant to interract with that database.
+Datalogging acquisitions obtained from the Embedded Graph component in the GUI, or through the SDK using the ``ScrutinyClient::start_datalog`` method,
+are stored on the server in a SQLite database.
+Several CLI commands are provided to interact with this database. See below:
+
 
 .. list-table:: Server datalogging commands
   :header-rows: 1
@@ -115,13 +120,13 @@ the server into a SQLite database. Some commands are meant to interract with tha
   * - **Command**
     - **Description**
   * - **delete-datalog**
-    - Delete one or all datalogging acquisitions
+    - Deletes one or all datalogging acquisitions.
   * - **list-datalog**
-    - List all the acquisition stored in the server database
+    - Lists all the acquisitions stored in the server database.
   * - **export-datalog**
-    - Export a datalogging acquisition to a file
+    - Export a datalogging acquisition to a file.
   * - **datalog-info**
-    - Show the actual status of the datalogging database
+    - Show the actual status of the datalogging database.
 
 
 **datalog-info**
@@ -168,21 +173,21 @@ the server into a SQLite database. Some commands are meant to interract with tha
 Build toolchain commands
 ------------------------
 
-When integrating the Scrutiny intrumentation library in a firmware, the build toolchain must be slightly modified to
-invoke the Scrutiny postbuild tools to accomplish 2 main functions
+When integrating the Scrutiny instrumentation library into a firmware project, the build toolchain must be slightly modified to
+invoke the Scrutiny post-build tools.
+These tools perform two essential functions:
 
- 1. Inject a unique hash in the firmware ELF file
- 2. Generate a Scrutiny Firmware Description (SFD) file
+ 1. Inject a unique hash in the firmware ELF file.
+ 2. Generate a Scrutiny Firmware Description (SFD) file.
 
-The commands listed in this sections are tools to accomplish these 2 steps.
+The commands described in this section are used to perform these two steps.
 
 .. note:: scrutiny-embedded library has a CMake functions calleds ``scrutiny_postbuild`` that invoke those commands automatically when required.
 
 .. image:: _static/build_toolchain.png
 
-For more details about how to integrate Scrutiny in a firmware and the postbuild process,
-see the `online instrumentation guide <https://scrutinydebugger.com/guide-instrumentation.html>`__
-
+For more information on integrating Scrutiny into a firmware project and on the post-build
+process, refer to the `online instrumentation guide <https://scrutinydebugger.com/guide-instrumentation.html>`__.
 
 .. list-table:: Build toolchain commands
   :header-rows: 1
@@ -191,22 +196,22 @@ see the `online instrumentation guide <https://scrutinydebugger.com/guide-instru
   * - **Command**
     - **Description**
   * - **get-firmware-id**
-    - Extract a unique hash from a .elf file used for device identification
+    - Extracts a unique hash from an untagged .elf file used for device identification.
   * - **tag-firmware-id**
-    - Writes the firmware id into a freshly compiled binary
+    - Writes the firmware ID into a freshly compiled binary (untaggedf).
   * - **elf2varmap**
-    - Extract the variables definition from an ELF file through DWARF debugging symbols
+    - Extracts variable definitions from an ELF file using DWARF debugging symbols.
   * - **add-alias**
-    - Append an alias to a SFD file or in-making SFD work folder. Definition can be passed with a file or command line arguments
+    - Appends an alias to an SFD file or to an in-progress SFD work directory. The alias definition can be provided through a file or via command-line arguments.
   * - **make-metadata**
-    - Generate a .json file containing the metadata used inside a SFD (Scrutiny Firmware Description)
+    - Generates a .json file containing the metadata used within a Scrutiny Firmware Description (SFD).
   * - **make-sfd**
-    - Generates a SFD file (Scrutiny Firmware Description) from a given folder containing the required files
+    - Produces an SFD file from a directory containing the required input files.
 
 
 **get-firmware-id**
 
-This command can print the Firmware ID (128 bits hash) to stdout or to a folder
+This command can print the Firmware ID (a 128 bits hash) either to standard output or to a specified folder.
 
 .. code-block::
 
@@ -219,7 +224,7 @@ This command can print the Firmware ID (128 bits hash) to stdout or to a folder
 
 **tag-firmware-id**
 
-This command can create a new .elf with the firmware ID injected or modify an existing .elf file.
+This command can either create a new .elf  file with the firmware ID injected or modify an existing .elf file to include it.
 
 .. code-block::
 
@@ -232,17 +237,22 @@ This command can create a new .elf with the firmware ID injected or modify an ex
 
 .. note::
 
-    ``get-firmware-id`` and ``tag-firmware-id`` only work on ELF files that were not previously tagged with ``tag-firmware-id`` as it search for a known 128bits pattern.
-    Tagging a binary replace that placeholder pattern with a new 128 hash
+    the ``get-firmware-id`` and ``tag-firmware-id`` commands only operate on ELF files that have **not** already been tagged with ``tag-firmware-id``
+    , since both tools search for a known 128 bits placeholder pattern.
+    Tagging a binary replaces this placeholder with the newly generated 128 bits hash.
 
 
 **elf2varmap**
 
-This command is one of the core feature of Scrutiny. It reads the debugging symbols (DWARF format) generated by a compiler and outputs a VarMap
-file that describe the memory layout of the firmware. The VarMap files expand every classes, structures, namespaces, unions into a flat list of
-readable/writable elements identified by a unique tree path. These elements have properties such as type, address, enum, etc.
+This command is one of the core features of Scrutiny.
+It reads the debugging symbols (in DWARF format) generated by the compiler and produces
+a VarMap file that describes the firmware's memory layout.
+VarMap files expand all classes, structures, namespaces, and unions into a flat list of readable and writable elements,
+each identified by a unique tree path.
+These elements include properties such as type, address, enumeration values, and more.
 
-The command either write to stdout or generate a file named ``varmap.json`` in a folder specified by the ``--output`` option.
+The command can either write its output to standard output or generate a file named  ``varmap.json`` in a directory
+specified with the ``--output`` option.
 
 Examples:
 
@@ -251,24 +261,27 @@ Examples:
     $ scrutiny elf2varmap stm32f4_demo.elf --cu_ignore_patterns "file1.cpp" "file2.cpp" > somefile.json
     $ scrutiny elf2varmap stm32f4_demo.elf --dereference-pointers --output some_folder   # Create ./some_folder/varmap.json
 
-``elf2varmap`` often needs to demangle C++ symbol names. To do so, it relies on ``c++filt``, a GNU utility that generally ships with
-GCC or Clang based compilers.
-By default, ``elf2varmap`` will search the system paths for a program named ``c++filt``. The path for a different binary can be specified with ``--cppfilt``
+The ``elf2varmap`` command often needs to demangle C++ symbol names.
+To do this, it relies on ``c++filt``, a GNU utility that is typically bundled with GCC or Clang based toolchains.
+By default, ``elf2varmap``  searches the system PATH for an executable named ``c++filt``.
+A different binary can be specified using the ``--cppfilt`` option.
 
 .. code-block:: bash
 
     $ scrutiny elf2varmap stm32f4_demo.elf --cppfilt /path/to/my/compiler/c++filt
 
-Two options allow the user to avoid bloating the output VarMap by giving "ignore" rules
+Two options allow the user to prevent the VarMap output from becoming unnecessarily large by defining "ignore" rules:
 
-- ``--cu_ignore_patterns`` : An ignore pattern that applies to Compile Unit names. essentially, the name of the source C++ file.
-  This can be useful to remove variables coming from content injected by the compiler (startup code, stndard library, etc.)
+- ``--cu_ignore_patterns`` : Applies ignore patterns to Compile Unit names (typically the names of the C++ source files).
+  This is useful for excluding variables originating from compiler‑injected content such as startup code or standard library internals.
   Examples: ``*main.cpp`` or ``*subfolder1/subfolder2/*``.
-- ``--path_ignore_patterns`` : An ignore pattern that applies to the variable tree path in the output. This can filter namespaces, classes, etc.
+- ``--path_ignore_patterns`` : Applies ignore patterns to the variable tree paths in the output.
+  This can be used to filter out specific namespaces, classes, or other hierarchical elements.
   Examples: ``/global/MyNamespace/*``
 
-Another option can affect greatly the content of the output is ``--dereference-pointers`` ask ``elf2varmap`` to create entries for what is pointed by a pointer.
-As an more concrete example, consider the C++ code:
+Another option that can significantly affect the content of the output is ``--dereference-pointers``,
+which instructs ``elf2varmap`` to create entries for the objects pointed to by pointer variables.
+As a more concrete example, consider the following C++ code:
 
 .. code-block:: c++
 
@@ -280,34 +293,37 @@ As an more concrete example, consider the C++ code:
     MyStruct TheStructInstance;
     MyStruct* TheStructPointer;
 
-Running ``elf2varmap`` on this piece of code will create 2 entries: One for the member and one for the pointer
+Running ``elf2varmap`` on this code will produce two entries: one for the structure member and one for the pointer itself:
 
 1. ``/global/TheStructInstance/member1`` of type ``int32_t``
-2. ``/global/TheStructPointer`` of type ``ptrXX`` where XX is the size that depends on the architecture
+2. ``/global/TheStructPointer`` of type ``ptrXX`` where XX is the pointer size for the target architecture
 
-But running ``elf2varmap`` with the ``--dereference-pointers`` will create an additional entry in the output varmap
+When ``elf2varmap`` is invoked with the ``--dereference-pointers`` option, an additional entry is generated:
 
-3. ``/global/TheStructPointer*/member1`` of type ``int32_t`` with a link to ``/global/TheStructPointer``
+3. ``/global/TheStructPointer*/member1`` of type ``int32_t`` linked to ``/global/TheStructPointer``
 
-The Scrutiny server is able to dereference pointed elements like this. It will first read the pointer value then adjust the offset of every variables pointed
-by that pointer before reading the memory.
-Only a single level of dereferencing is possible. Both the CLI and the Scrutiny server are designed to prevent double dereferencing.
+The Scrutiny server is capable of dereferencing such pointer-based entries.
+It first reads the pointer value, then adjusts the offsets of all variables referenced through that pointer before reading memory.
+Only a single level of dereferencing is supported. Both the CLI and the Scrutiny server are designed to prevent multi-level (double) dereferencing.
 
 See :ref:`The VarMap Format <varmap_file>` for more details about the VarMap file.
 
 .. note::
 
-    Every compiler has its own distinctive behavior when comes to generating debugging symbols. ``elf2varmap`` handles as many as possible, but a new compiler may
-    produce an unexpected DWARF sequence. In such event, the expected behavior is for ``elf2varmap`` to skip the variable and produce a warning.
+    Each compiler has its own distinctive behavior when generating debugging symbols.
+    While ``elf2varmap`` supports as many variations as possible, a new or unusual compiler may produce an unexpected DWARF sequence.
+    In such case, the expected behavior is for ``elf2varmap`` to skip the affected variable and produce a warning.
 
 
 **add-alias**
 
 As explained in the :ref:`Architecture section <page_architecture>`, a Scrutiny server can exposes Aliases when a device connect.
-These aliases comes from a file named ``alias.json`` embedded in the SFD file.
+These aliases come from a file named ``alias.json`` embedded in the SFD file.
 
-This command can add one or many aliases to a SFD, being in construction or already installed.on a server. the behavior will depend on the
-value of the destination. Let's look at examples
+This command can add one or more aliases to an SFD, whether the SFD is still being constructed or already installed on a server.
+The behavior will depend on the value of the destination argument.
+
+Let's look at examples:
 
 .. code-block:: bash
 
@@ -315,14 +331,17 @@ value of the destination. Let's look at examples
     $ scrutiny add-alias --file source1.json source2.json existing_file.sfd     # A zipped SFD
     $ scrutiny add-alias --file source1.json source2.json abcdef123456789       # The firmware ID of an installed SFD on this machine.
 
-Also, rather than specifying the input as a .json file, it is possible to define the a single alias from the command line by specifying all its properties one by one.
-When doing so, ``--fullpath`` and ``--target`` are mandatory. Optional parameter can be set such as ``--gain``, ``--offset``, ``--min``, ``--max``
+Instead of providing the input as a .json file, it is also possible to define a
+single alias directly from the command line by specifying each of its properties individually.
+
+When doing so, the ``--fullpath`` and ``--target`` options are mandatory.
+Optional parameter such as ``--gain``, ``--offset``, ``--min``, ``--max`` may also be provided.
 
 .. code-block:: bash
 
     $ scrutiny add-alias --fullpath "/path/to/my/new/alias" --target "/static/main.cpp/namespace1/var1" myfile.sfd
 
-See the :ref:`Alias file format <alias_file>` for more details
+See the :ref:`Alias file format <alias_file>` for more details.
 
 
 **make-metadata**
@@ -338,8 +357,8 @@ Example:
 
 **make-sfd**
 
-This is the last step to be exwecuted when generating the .sfd file. This command somply validate the content of the work folder and compresses it
-using the ZIP algorithm.
+This is the final step in generating the .sfd file.
+This command simply validates the contents of the work folder and compresses it using the ZIP algorithm.
 
 .. code-block::
 
@@ -349,7 +368,7 @@ using the ZIP algorithm.
 Misc commands
 -------------
 
-Few additional commands serves various purposes, generally for developpers.
+A few additional commands serve various purposes, generally intended for developers.
 
 .. list-table:: Developeprs command
   :header-rows: 1
@@ -358,16 +377,16 @@ Few additional commands serves various purposes, generally for developpers.
   * - **Command**
     - **Description**
   * - **runtest:**
-    - Run unit tests
+    - Runs unit tests
   * - **version**
-    - Display the Scrutiny version string
+    - Displays the Scrutiny version string
   * - **userguide**
-    - Open this User Guide
+    - Opens this User Guide
 
 
 **runtest**
 
-Scrutiny unit tests are based on the native ``unittest`` Python module. This command launches the unit tests with a custom runner
+Scrutiny's unit tests are built on PythonMs native ``unittest`` module. This command runs the test suite using a custom test runner.
 
 Example:
 
@@ -379,12 +398,13 @@ Example:
     $ python -m scrutiny runtest server.test_api.TestAPI # Runs all tests in the TestAPI class
     $ python -m scrutiny runtest server.test_api.TestAPI.test_stop_watching_on_disconnect # Runs a single test case
 
-The custom Scrutiny test runner does a little more than what the native unittest module would do.
+The custom Scrutiny test runner performs several additional checks and enhancements beyond what the native ``unittest`` module provides:
 
-1. It validates that the tests run comes from the Scrutiny package. Avoid confusing problem on a system where ``import test`` is a valid import.
-2. It allows loading a folder module
-3. It prints the execution time
-4. It sets the default logging level to ``critical`` because many tests are expected to test error cases.
+1. It validates that the tests being executed originate from the Scrutiny package,
+   preventing confusing situations on systems where ``import test`` resolves to an unrelated module.
+2. It supports loading tests from a folder module.
+3. It reports the execution time.
+4. It sets the default logging level to ``critical``, since many tests are designed to exercise error paths.
 
 **version**
 

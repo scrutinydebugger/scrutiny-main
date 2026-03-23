@@ -1,4 +1,5 @@
 \makeatletter
+\let\cleardoublepage\clearpage  % Remove extra white page after end of chapter
 
 % Override the fancy page style with our own head/foot note
 \fancypagestyle{normal}{
@@ -18,7 +19,7 @@
     \parbox{\dimexpr\textwidth-2\fboxsep}{
       \vspace{20px}
       \hspace{2em}
-      \Huge \bfseries \thechapter.\quad #1\par
+      \huge \bfseries \thechapter.\quad #1\par
       \vspace{1ex}
     }
   }

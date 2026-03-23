@@ -11,9 +11,10 @@ Scrutiny Debugger User Guide
    :caption: Table Of Contents:
 
    license
+   glossary
    architecture
    server
    gui
    sfd
    cli
-   python_sdk
+   sdk
