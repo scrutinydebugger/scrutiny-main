@@ -10,6 +10,7 @@ Scrutiny Debugger User Guide
    :maxdepth: 2
    :caption: Table Of Contents:
 
+   license
    architecture
    server
    gui
