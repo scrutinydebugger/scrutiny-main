@@ -42,3 +42,5 @@ latex_documents = [
         'manual'                                    # Document class
         ),
 ]
+
+extensions = ["sphinx_subfigure"]

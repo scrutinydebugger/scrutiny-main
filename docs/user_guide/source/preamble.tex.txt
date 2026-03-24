@@ -1,13 +1,14 @@
 \makeatletter
 \let\cleardoublepage\clearpage  % Remove extra white page after end of chapter
 
+\usepackage{lastpage}
+
 % Override the fancy page style with our own head/foot note
 \fancypagestyle{normal}{
     \fancyhf{}
-    \fancyfoot[LE,RO]{{\py@HeaderFamily\thepage}}
-    \fancyfoot[LO]{{\py@HeaderFamily\nouppercase{\rightmark}}}
-    \fancyfoot[RE]{{\py@HeaderFamily\nouppercase{\leftmark}}}
-    \fancyhead[LE,RO]{{\py@HeaderFamily \@title, \py@release}}
+    \fancyfoot[R]{{\py@HeaderFamily\thepage\ /\ \pageref{LastPage}}}
+    \fancyfoot[L]{{\py@HeaderFamily\nouppercase{\leftmark}}}
+    \fancyhead[R]{{\py@HeaderFamily\@title, \py@release}}
     \renewcommand{\headrulewidth}{0.4pt}
     \renewcommand{\footrulewidth}{0.4pt}
 }
@@ -23,8 +24,7 @@
       \vspace{1ex}
     }
   }
-  \par\nobreak
-    \vskip 40\p@
+  \par\nobreak\vskip 40\p@
   }
 
 % Force the "plain" style to be "fancy".

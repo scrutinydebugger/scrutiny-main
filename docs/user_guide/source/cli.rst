@@ -128,6 +128,7 @@ Several CLI commands are provided to interact with this database. See below:
   * - **datalog-info**
     - Show the actual status of the datalogging database.
 
+.. _cmd_datalog-info:
 
 **datalog-info**
 
@@ -142,6 +143,8 @@ Several CLI commands are provided to interact with this database. See below:
     Storage size:            164.0KiB
     Storage structure hash:  29f60b38c97215f8ac79d4fcc35f9b9cfa54840b
 
+.. _cmd_list-datalog:
+
 **list-datalog**
 
 .. code-block::
@@ -155,12 +158,16 @@ Several CLI commands are provided to interact with this database. See below:
     3     2025-06-08 23:31:44    Acquisition #1    e54a8fcb627144e9ae139a78ee5480a7    sinewave,sinewave_freq,sinewave_phase
     ....
 
+.. _cmd_delete-datalog:
+
 **delete-datalog**
 
 .. code-block::
 
     $ scrutiny delete-datalog --id 18184179c97b4c02bb843680d7e9cb15
     [INFO] <delete-datalog> Datalog 18184179c97b4c02bb843680d7e9cb15 deleted
+
+.. _cmd_export-datalog:
 
 **export-datalog**
 
@@ -208,6 +215,7 @@ process, refer to the `online instrumentation guide <https://scrutinydebugger.co
   * - **make-sfd**
     - Produces an SFD file from a directory containing the required input files.
 
+.. _cmd_get-firmware-id:
 
 **get-firmware-id**
 
@@ -221,6 +229,8 @@ This command can print the Firmware ID (a 128 bits hash) either to standard outp
     $ scrutiny get-firmware-id stm32f4_demo.elf --output some_folder
     [INFO] <get-firmware-id> Firmware ID c15e758da4efdcacc50b18220f92b33b written to some_folder/firmwareid
 
+
+.. _cmd_tag-firmware-id:
 
 **tag-firmware-id**
 
@@ -241,6 +251,8 @@ This command can either create a new .elf  file with the firmware ID injected or
     , since both tools search for a known 128 bits placeholder pattern.
     Tagging a binary replaces this placeholder with the newly generated 128 bits hash.
 
+
+.. _cmd_elf2varmap:
 
 **elf2varmap**
 
@@ -314,6 +326,7 @@ See :ref:`The VarMap Format <varmap_file>` for more details about the VarMap fil
     While ``elf2varmap`` supports as many variations as possible, a new or unusual compiler may produce an unexpected DWARF sequence.
     In such case, the expected behavior is for ``elf2varmap`` to skip the affected variable and produce a warning.
 
+.. _cmd_add-alias:
 
 **add-alias**
 
@@ -344,6 +357,8 @@ Optional parameter such as ``--gain``, ``--offset``, ``--min``, ``--max`` may al
 See the :ref:`Alias file format <alias_file>` for more details.
 
 
+.. _cmd_make-metadata:
+
 **make-metadata**
 
 This command generate the :ref:`metadata file <metadata_file>` that goes in a .sfd.
@@ -354,6 +369,8 @@ Example:
 
     $ scrutiny make-metadata --project-name "AcmeSoft" --version "2.0" --author "ACME" --output my_work_folder
     [INFO] <make-metadata> Metadata file my_work_folder/metadata.json written
+
+.. _cmd_make-sfd:
 
 **make-sfd**
 
