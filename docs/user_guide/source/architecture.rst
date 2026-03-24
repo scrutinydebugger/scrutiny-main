@@ -36,3 +36,32 @@ embedded firmware is the part that is instrumented.
 .. figure:: _static/debug_classical_vs_instrumentation.png
 
     Classical debugging V.S. debugging by instrumentation
+
+Both methods have pros and cons. Here is a comparison
+
+.. list-table:: Debugging method comparison
+  :header-rows: 1
+  :align: left
+  :width: 100%
+
+  * - Feature
+    - Classical debugging
+    - Instrumentation based
+  * - Code stepping
+    - Possible (+)
+    - Impossible (-)
+  * - Non-intrusive memory access
+    - Depends on debug module
+    - Yes (+)
+  * - Local variable access
+    - Possible (+)
+    - Impossible (-)
+  * - Global/Static variable access
+    - Possible (+)
+    - Possible (+)
+  * - Require a debug probe
+    - Yes (-)
+    - No (+)
+  * - Memory accesses
+    - Async with firmware
+    - Synchronous with firmware

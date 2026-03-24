@@ -3,7 +3,7 @@ Glossary
 
 .. _glossary:
 
-.. csv-table::
+.. csv-table:: Glossary
     :header: "Term", "Meaning", "Details"
     :align: center
     :widths: 10 20 70

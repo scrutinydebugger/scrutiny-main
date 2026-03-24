@@ -188,7 +188,7 @@ Aliases are defined inside a file named ``alias.json`` and has the following str
 
 The dictionary keys represent the path of the alias, and the dictionary content defines the element referenced by the alias. The available fields are:
 
-.. csv-table::
+.. csv-table:: alias.json fields
     :header: "Field", "Required", "Details"
     :align: center
     :widths: 15 15 70
@@ -233,7 +233,7 @@ The information in the metadata file exists solely to be queried by a client, an
         }
     }
 
-.. csv-table::
+.. csv-table:: metadata.json fields
     :header: "Field", "Description"
     :align: center
     :widths: 30 70
