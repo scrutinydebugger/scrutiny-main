@@ -26,6 +26,7 @@ author=''   # Leave empty
 latex_engine = "pdflatex"
 latex_elements = {
     'preamble':  r'\input{preamble.tex.txt}',
+    'figure_align' : 'H'
 }
 
 html_static_path = ['_static']

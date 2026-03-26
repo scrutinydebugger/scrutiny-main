@@ -14,22 +14,21 @@
 }
 
 % Override the chapter head of fncychap module.
-\renewcommand{\@makechapterhead}[1]{
-
-  \fcolorbox{gray}{gray!20}{
-    \parbox{\dimexpr\textwidth-2\fboxsep}{
-      \vspace{20px}
-      \hspace{2em}
-      \huge \bfseries \thechapter.\quad #1\par
-      \vspace{1ex}
-    }
-  }
-  \par\nobreak\vskip 40\p@
-  }
+\renewcommand{\@makechapterhead}[1]{%
+  \fcolorbox{gray}{gray!20}{%
+    \parbox{\dimexpr\textwidth-2\fboxsep}{%
+      \vspace{20px}%
+      \hspace{2em}%
+      \huge \bfseries \thechapter.\quad #1\par%
+      \vspace{1ex}%
+    }%
+  }%
+  \par\nobreak\vskip 40\p@%
+}
 
 % Force the "plain" style to be "fancy".
 % Chapter pages uses plain style. Using fancy leaves the head/foot notes on them
-\let\ps@plain\ps@fancy
+\let\ps@plain\ps@fancy{}
 
 
 % Override the hypref bookmark type to ahve numbered bookmarks in the PDF
@@ -39,12 +38,12 @@
 }
 
 % Make inline code in backticks (``hello``) with a background and a small monospace font
-\renewcommand{\sphinxcode}[1]{
-    \mbox{
-        \colorbox{gray!10}{
-            {\ttfamily \footnotesize #1}
-        }
-    }
+\renewcommand{\sphinxcode}[1]{%
+    \mbox{%
+        \colorbox{gray!10}{%
+            {\ttfamily \footnotesize #1}%
+        }%
+    }%
 }
 
 \makeatother

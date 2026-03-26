@@ -393,7 +393,7 @@ A few additional commands serve various purposes, generally intended for develop
 
   * - **Command**
     - **Description**
-  * - **runtest:**
+  * - **runtest**
     - Runs unit tests
   * - **version**
     - Displays the Scrutiny version string
@@ -409,9 +409,9 @@ Example:
 
 .. code-block:: bash
 
-    $ python -m scrutiny runtest            # Run all tests
-    $ python -m scrutiny runtest server     # Run only the tests in the server folder
-    $ python -m scrutiny runtest server.test_api # Runs all tests in the test_api.py file
+    $ python -m scrutiny runtest            # Runs all tests
+    $ python -m scrutiny runtest server     # Runs only the tests in test/server folder
+    $ python -m scrutiny runtest server.test_api # Runs all tests in the test/server/test_api.py file
     $ python -m scrutiny runtest server.test_api.TestAPI # Runs all tests in the TestAPI class
     $ python -m scrutiny runtest server.test_api.TestAPI.test_stop_watching_on_disconnect # Runs a single test case
 
@@ -440,5 +440,5 @@ Simply prints the version. Convenience for CI and deployment scripts.
 
 .. code-block:: bash
 
-    $ scrutiny userguide            # Open the guide in the default PDF viewer
+    $ scrutiny userguide            # Opens the guide in the default PDF viewer
     $ scrutiny userguide location   # Prints the file location
