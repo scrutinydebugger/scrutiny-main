@@ -119,3 +119,4 @@ Instead, a dedicated webpage has been created to present the information in a mo
 accessible and easy-to-navigate format.
 
 See `the device protocol page <https://scrutinydebugger.com/doc-device-protocol.html>`__
+
