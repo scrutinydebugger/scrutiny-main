@@ -1,13 +1,13 @@
 Graphical User Interface (GUI)
 ==============================
 
-The graphical user interface (GUI) is included in the Scrutiny package and can be launched with the command ``scrutiny gui``.
+The graphical user interface (GUI) is included in the Scrutiny package and can be launched using the command ``scrutiny gui``.
 
-The GUI is written in Python and built with the Qt framework via the PySide6 package.
+The GUI is implemented in Python and built with the Qt framework through the PySide6 package.
 It acts as a Scrutiny client and communicates with the server using the `Python SDK <page_sdk>`.
-Anything that can be done through the GUI can also be achieved programmatically with a script.
+Anything you can do in the GUI can also be performed programmatically through a script.
 
-Let's have a first look at the GUI
+Let’s take a first look at the GUI.
 
 .. figure:: _static/ui/scrutiny_light.png
 
@@ -88,7 +88,7 @@ The information provided in the dialog is passed to the SDK function  ``Scrutiny
 Once the communication channel is configured, the server opens it and begins polling for a device.
 
 The status indicator next to the "Link" label shows whether the server successfully initialized the communication channel.
-If initialization fails, the reason should be available in the server logs.
+If initialization fails, the cause should be available in the server logs.
 
 Example:
 
@@ -97,8 +97,8 @@ Example:
 
     Unavailable communication channel (inexistant COM port)
 
-If the port opens successfully, the indicator light will turn green, and the device-connection status will update
-to reflect the state of the communication with the device.
+If the port opens successfully, the indicator light turns green, and the device-connection status updates to reflect
+the state of the communication with the device.
 
 
 .. figure:: _static/ui/port_opened_no_device.png
@@ -106,11 +106,11 @@ to reflect the state of the communication with the device.
 
     Open port, no device responding
 
-Once again, if a device is expected to start reponding bu doe snot, the server logs will be the first place to look. Consider launching
-the server with a log level of ``debug`` or even ``dumpdata`` to inspect each payload.
+If a device is expected to start responding but does not, the server logs are the first place to check.
+Consider launching the server with a log level of ``debug`` or even ``dumpdata`` to inspect each payload.
 
-Once a device start reponding to the server, the 3rd light indicator should turn green.
-By clicking the "Device" label, we can read the configuration polled during the handshake phase of the server.
+Once a device starts responding to the server, the third indicator light should turn green.
+By clicking the "Device" label, you can view the configuration that was polled during the server's handshake phase.
 
 .. figure:: _static/ui/device_connected_details_menu.png
     :height: 1cm
@@ -135,7 +135,7 @@ When an SFD is loaded, the project name (taken from the SFD metadata) is display
 
     Actively Loaded SFD
 
-Clicking the label opens a dialog that shows the SFD metadata
+Clicking the label opens a dialog that displays the SFD metadata.
 
 .. figure:: _static/ui/sfd_details_dialog.png
     :height: 6cm
@@ -147,12 +147,12 @@ The dashboard
 -------------
 
 The dashboard is based of the excelent `QT Advanced Docking System <https://githubuser0xffff.github.io/Qt-Advanced-Docking-System/>`__ project.
-It consist of docking library allowing you to create a visual layout containing various kind of widgets.
+It consists of a docking library that allows you to create a visual layout containing various types of widgets.
 
-To avoid the confusion with the QT ``Widget`` terminology, we will refer to doackable elements as ``Dashboard Components``.
-The dashboard components that Scrutiny offers are available in the left Side Bar.
+To avoid confusion with Qt's own Widget terminology, we refer to dockable elements as  ``Dashboard Components``.
+The dashboard components provided by Scrutiny are available in the left sidebar.
 
-There is two types of dashboard components, those that can have only a single isntance (top) and those that can have multiple instances (bottom).
+There are two types of dashboard components: those that allow only a single instance (top section) and those that allow multiple instances (bottom section).
 
 .. |WatchIcon| image:: _static/ui/icons/watch.png
    :width: 32px
@@ -175,11 +175,11 @@ There is two types of dashboard components, those that can have only a single is
     :align: left
 
     "Icon",                 "Components Name",  "Instance", "Description"
-    "|VarListIcon|",        "Variable List",    "Single",   "Shows the available watchable elements (Variables, Aliases, :ref:`RPVs<glossary>`)"
-    "|InternalMetricIcon|", "Internal Metrics", "Single",   "Shows statistics about actual Scrutiny performances including polling data rates"
-    "|WatchIcon|",          "Watch Window",     "Multiple", "Display the real time values of watchables elements dropped through Drag&Drop. Can be reorganized at will"
-    "|ContinuousGraphIcon|", "Continuous Graph", "Multiple", "Make a graph of the real-time values of the selected watcahble elements. Sampling rate is variable, acquisition length is not limited."
-    "|EmbeddedGraphIcon|",  "Embedded Graph",   "Multiple", "Configure and display graphs obtained through the datalogging feature. Sampling rate depends on the device and can be stable. Acquisition length depends on the datalogging buffer size"
+    "|VarListIcon|",        "Variable List",    "Single",   "Displays the available watchable elements (Variables, Aliases, :ref:`RPVs<glossary>`)."
+    "|InternalMetricIcon|", "Internal Metrics", "Single",   "Displays statistics about current Scrutiny performances, including polling data rates."
+    "|WatchIcon|",          "Watch Window",     "Multiple", "Displays the real-time values of watchable elements dropped into it via drag & drop. The layout can be reorganized as needed."
+    "|ContinuousGraphIcon|", "Continuous Graph", "Multiple", "Creates a graph of the real-time values of the selected watchable elements. The sampling rate is configurable, and the acquisition length is unlimited."
+    "|EmbeddedGraphIcon|",  "Embedded Graph",   "Multiple", "Configures and displays graphs obtained through the datalogging feature. The sampling rate depends on the device and is typically stable. The acquisition length depends on the size of the datalogging buffer."
 
 
 Watch Window Component
@@ -190,29 +190,31 @@ Watch Window Component
 
     Watch Window Component
 
-In the screenshot above, we see a structure of variable, more precisely the ``htim2`` timer isntance coming from the STM32 demo.
-The tree structure can be edited at will once in the Watch window. Each row is tied to their server path
-and will keep their link to their data source even if renamed or reorganized.
+In the screenshot above, we see a variable structure, in this case, the  ``htim2`` timer instance from the STM32 demo.
+The tree structure can be edited freely once it is in the Watch window.
+Each row is tied to its server path and retains its link to the data source even if renamed or reorganized.
 
-When a folder is collapsed (making the variables invisible), the GUI unsubscribe immediately of the hidden variables to the server.
-This can free up bandwidth in the device communication channel, allowing the server to increase its refresh rate for the other visible variables.
-The same behavior happens when a whole watch window is made hidden behind another tab.
+When a folder is collapsed (hiding its variables), the GUI immediately unsubscribes the hidden variables from the server.
+This can free bandwidth on the device communication channel, allowing the server to increase the refresh rate for the remaining visible variables.
+The same behavior occurs when an entire watch window becomes hidden behind another tab.
 
-Values can be exported to file, in the ``.scval`` file format. When doing so, the a snapshot of the actual values are taken and
-exported to a file that can be reimported later. This can be useful to load a set of parameters to put a device into a known state.
+Values can be exported to a file in the ``.scval`` format. When exporting, a snapshot of the current
+values is taken and saved to a file that can be reimported later.
+This can be useful for loading a predefined set of parameters to bring a device into a known state.
 
 .. figure:: _static/ui/dashboard/import-values.png
     :height: 2cm
 
     Server value import
 
-Additionally, note that in the screen capture, we have a pointed variable, identifiable by the asterisk in the name.
-To know more about pointed variable, see the :ref:`elf2varmap <cmd_elf2varmap>` command.
+Additionally, note that in the screen capture we have a pointed variable, identifiable by the asterisk in its name.
+For more information about pointed variables, see the :ref:`elf2varmap <cmd_elf2varmap>` command.
 
-In this particular case, we have a pointer to a structure. The pointer is called ``Instance`` and is of type ``ptr32``.
-The pointed variable are nested under ``*Instance`` and are of any type. Any can be read or write, the server supports pointer dereferencing.
+In this example, the pointer refers to a structure. The pointer is named ``Instance`` and is of type ``ptr32``.
+The pointed variables are nested under ``*Instance`` and may be of any type.
+All of them can be read or written; the server supports pointer dereferencing.
 
-If a pointer is set to 0, the Scrutiny server will refuse to read it and will signal an invalid values
+If a pointer is set to ``0``, the Scrutiny server will refuse to read it and will report an invalid value.
 
 .. figure:: _static/ui/dashboard/watch-window-null-instance.png
     :height: 6cm
@@ -227,60 +229,150 @@ If a pointer is set to 0, the Scrutiny server will refuse to read it and will si
 Continuous Graph Component
 ##########################
 
-The continuous graph is a graph made by the GUI only. The server and the device have no knowledge of it's existence.
+The continuous graph is generated entirely by the GUI. The server and the device have no knowledge of its existence.
 
 .. figure:: _static/ui/dashboard/continuous-graph-window.png
     :height: 12cm
 
     Continuous Graph Component
 
-When an acquisition is started, the GUI subscribe to the requested watchable elements to the server and plot
-in real time the values broadcast by the server until the acquisition is stopped.
+When an acquisition is started, the GUI subscribes to the requested watchable elements on the server and plots,
+in real time, the values broadcast by the server until the acquisition is stopped.
 
-Watchable elements (Variables, Aliases and RPVs) can be dragged and dropped on the axes region.
-Axes and watchables can be renamed freely for the acquisition.
+Watchable elements (Variables, Aliases, and RPVs) can be dragged and dropped onto the axes region.
+Both axes and watchable elements can be renamed freely for the duration of the acquisition.
 
-Since the server broadcast rate is variable, the sampling rate of this graph is also variable and there is no guarantee
-of sample synchronization. This means, that even if two variables are plotted together, samples may arrive independently.
-Zooming close enough on a point will show that samples are not synchronized over the time axis.
+Because the server's broadcast rate is variable, the sampling rate of this graph is also variable,
+and sample synchronization is not guaranteed.
+This means that even when two variables are plotted together, their samples may arrive independently.
+Zooming in closely on the timeline will reveal that the samples are not aligned on the time axis.
 
 .. figure:: _static/ui/dashboard/unaligned-samples.png
     :height: 6cm
 
     Unaligned samples
 
-The continuous graph is designed to run continuously. The GUI only keep a limited amount of samples and display a moving window.
-To keep every values received, CSV logging can be activated.
+The continuous graph is designed to run indefinitely. The GUI retains only a limited number of samples and displays them in a moving window.
+To preserve all received values, CSV logging can be enabled.
 
 .. figure:: _static/ui/dashboard/continuous-graph-csv-logging.png
     :height: 6cm
 
     CSV Logging
 
-The CSV export is splitted in multiple files, with a numbered suffix that increment each time a new file is created.
+The CSV export is split into multiple files, each with a numbered suffix that increments whenever a new file is created.
 
-Each time a new value is received, a new row is inserted in the CSV file. Columns that received no new values
-will keep their previous value. An extra columns with the label ``New Values`` indicate with a boolean flag,
-which columns has been updated in this row.
+Each time a new value is received, a new row is appended to the CSV file.
+Columns that do not receive an updated value retain their previous value.
+An additional column labeled ``New Values`` indicates, using a boolean flag, which columns were updated in that row.
 
 .. figure:: _static/ui/dashboard/continuous_graph_round_robin.png
     :height: 6cm
 
     New Values column meaning
 
-In the screenshot above, we see how not all values are updated on each row. We can also observe the behavior of the server
-polling variables in a round-robin scheme.
+In the screenshot above, we can see that not all values are updated on every row.
+We can also observe the server's round-robin polling behavior across variables.
 
 
 Embedded Graph Component
 ########################
 
-The embedded graph component is an interface to configure the datalogging feature of the Scrutiny Embedded library.
+The embedded graph component provides an interface for configuring the datalogging feature of the Scrutiny Embedded library.
 
-When making an acquisition, both the server and the device plays a role. The GUI merely display the result.
-See the below timing diagram
+During an acquisition, both the server and the device participate in the process. The GUI simply displays the resulting data.
+See the timing diagram below.
 
 .. figure:: _static/ui/dashboard/embedded_graph_timing.png
     :width: 10cm
 
     Embedded graph acquisition order of events
+
+Rather than plotting the real-time value stream from the server, the embedded graph requires the device
+itself to monitor a software condition and log a set of variables.
+When the software condition is met, the logging process completes and the collected data is returned to the server.
+
+Unlike the continuous graph, the communication link between the device and the server is not a limiting factor for the embedded graph.
+Instead, the primary limitation is the size of the datalogging buffer. The sampling rate is steady and reliable
+(unless the firmware task responsible for logging is jittery) and the total acquisition length depends on both the amount of memory
+allocated to datalogging and the number of signals being recorded.
+
+Also, all samples in the embedded graph are aligned across all data series with respect to the X-axis (contrary to the Continuous Graph).
+
+The user can configure the sampling rate with optional decimation, the software trigger condition, the trigger position within the buffer,
+and a condition-debouncing delay called the "Hold time".
+
+.. figure:: _static/ui/dashboard/embedded-graph-meaning.png
+    :width: 12cm
+
+    Embedded graph parameters
+
+
+.. glossary::
+
+    my_var
+        Fictive embedded variable that evolves over time.
+
+    Trigger condition
+        A user defined condition that must evaluate to true for the given hold time to fires the trigger event.
+
+    Hold time
+        The amount of time that a trigger condition must evaluate to true before firing the trigger event.
+
+    Buffer length
+        Length of the acquisition defined by the datalogging buffer size and the number/type of the logged signals.
+
+    Trigger position
+        Position of the trigger event inside the acquisition window specified in percentage where 0% is leftmost, 50% center and 100% rightmost.
+        When on left, the user can see what happened after the event, and before the event when on right.
+
+The parameters described above can be configured as shown below:
+
+.. figure:: _static/ui/dashboard/embedded-graph-menu.png
+    :width: 10cm
+
+    Embedded graph configuration window
+
+The operands can be either a literal value or a watchable element that has been dragged and dropped into the text box.
+
+
+**X-Axis Type**
+
+The are four options for the X-Axis type.
+
+
+.. glossary::
+
+    Indexed
+        The X-axis values are unitless. Each sample is numbered from 0 to N-1, where N is the total number of samples.
+
+    Measured Time
+        The X-axis represents time, in seconds. The timestamps are generated by the device.
+        Using this type of axis reduces the total acquisition length, as it consumes additional space in the datalogging buffer.
+
+    Ideal Time
+        The X-axis represents time, in seconds. The timestamps are generated by the server by creating a linear time series based on the sampling‑rate frequency.
+        This mode does not consume space in the datalogging buffer and is available only when the sampling rate is fixed.
+        It is not available for variable-frequency sampling rates.
+
+    Signal
+        The X-axis is provided by a watchable element that is acquired by the device as part of the datalogging process.
+        It can be any watchable element that has been dragged and dropped into the appropriate field (visible only when this option is selected).
+
+
+Finally, the possible trigger conditions are listed below:
+
+.. csv-table::
+    :header-rows: 1
+    :align: left
+
+    "Condition",                "Number of Operands",   "Formula"
+    "Always True",              "0",                    "``true``"
+    "Equal (=)",                "2",                    "``x1 = x2``"
+    "Not Equal (!=)",           "2",                    "``x1 != x2``"
+    "Greater Than (>)",         "2",                    "``x1 > x2``"
+    "Greater or Equal (>=)",    "2",                    "``x1 >= x2``"
+    "Less Than (<)",            "2",                    "``x1 < x2``"
+    "Less or Equal (<=)",       "2",                    "``x1 <= x2``"
+    "Change More Than",         "2",                    "``|dx1| > |x2| & sign(dx1) = sign(x2)``"
+    "Is Within",                "3",                    "``|x1 - x2| < |x3|``"
