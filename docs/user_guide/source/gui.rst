@@ -360,7 +360,9 @@ The are four options for the X-Axis type.
         It can be any watchable element that has been dragged and dropped into the appropriate field (visible only when this option is selected).
 
 
-Finally, the possible trigger conditions are listed below:
+**Trigger condition**
+
+Moving on, the possible trigger conditions are listed below:
 
 .. csv-table::
     :header-rows: 1
@@ -376,3 +378,46 @@ Finally, the possible trigger conditions are listed below:
     "Less or Equal (<=)",       "2",                    "``x1 <= x2``"
     "Change More Than",         "2",                    "``|dx1| > |x2| & sign(dx1) = sign(x2)``"
     "Is Within",                "3",                    "``|x1 - x2| < |x3|``"
+
+Finally, every acquisition taken by the server can be reloaded from a database
+
+.. figure:: _static/ui/dashboard/embedded-graph-reload.png
+    :width: 10cm
+
+    Embedded graph storage navigation
+
+Stored acquisition can be loaded or delete. When checking the "Loaded firmware only", the list
+of displayed acquisition will be filtered to only show those with a Frimware ID matching the actually
+loaded :ref:`SFD <page_sfd>` file on the server.
+
+Editing, saving and reloading
+#############################
+
+The dashboard can be edited at will by drag & drop actions.
+Components can also be docked to any side of the dashbaord renamed or detached to make a whole new window.
+Each new window can itself be turned to a new docking zone by drag & dropping other components to them
+
+.. figure:: _static/ui/dashboard/dashboard-tab-menu.png
+    :height: 3cm
+
+    Dashboard tab menu
+
+Dashboards can be saved and reloaded to a JSON based file format
+
+.. figure:: _static/ui/dashboard/dashboard-save-reload.png
+    :height: 4cm
+
+    Dashboard save & reload menu
+
+
+SFD management management
+-------------------------
+
+Once connected to a server, it is possible to install remotely or download SFD files from the server.
+
+By clicking the menu bar menu : ``Server`` --> ``Manage Firmware``, the following dialog is shown.
+
+.. figure:: _static/ui/sfd-management-dialog.png
+    :height: 10cm
+
+    Managing the server SFDs
