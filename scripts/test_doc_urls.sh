@@ -1,5 +1,14 @@
 #!/bin/bash
 
+#    test_doc_urls.sh
+#        Script that checks the validaity of every .rst documentation external links found
+#        in the given folder
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
+
 set -euo pipefail
 
 source $(dirname ${BASH_SOURCE[0]})/common.sh

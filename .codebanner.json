@@ -1008,6 +1008,12 @@
         },
         "scripts/build_userguide.sh": {
             "docstring": "A script that builds the user guide PDF and writes it into the python module where ``python -m scrutiny userguide location`` dictates"
+        },
+        "scripts/extract_doc_external_links.py": {
+            "docstring": "Script that prints every .rst documentation external links found in the given folder"
+        },
+        "scripts/test_doc_urls.sh": {
+            "docstring": "Script that checks the validaity of every .rst documentation external links found in the given folder"
         }
     },
     "authors": {}

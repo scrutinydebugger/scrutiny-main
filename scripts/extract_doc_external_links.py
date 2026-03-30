@@ -1,3 +1,11 @@
+#    extract_doc_external_links.py
+#        Script that prints every .rst documentation external links found in the given folder
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
+
 import os
 import re
 from pathlib import Path
