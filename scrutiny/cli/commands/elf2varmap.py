@@ -30,7 +30,8 @@ class Elf2VarMap(BaseCommand):
         self.args = args
         self.parser = argparse.ArgumentParser(prog=self.get_prog())
         self.parser.add_argument('file', help='The ELF file to read')
-        self.parser.add_argument('--cppfilt', default=None, help='The path to the c++filt demangler used when parsing a binary produced by GCC or Clang')
+        self.parser.add_argument('--cppfilt', default=None,
+                                 help='The path to the c++filt demangler used when parsing a binary produced by GCC or Clang')
         self.parser.add_argument('--output', default=None, help='The varmap output file. Will go to STDOUT if not set')
         self.parser.add_argument('--indent', default='\t', type=str,
                                  help='Number of spaces for JSON indentation or the indentation character. "none" for no indentation')
