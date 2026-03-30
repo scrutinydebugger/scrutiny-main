@@ -7,6 +7,8 @@ __all__ = [
     '__status__',
     'compiled',
     'get_shell_entry_point',
+    'expected_user_guide_filename',
+    'expected_user_guide_path'
 ]
 
 
@@ -59,3 +61,11 @@ def get_shell_entry_point(env: Optional[Dict[str, str]] = None) -> Optional[List
             return [executable]
 
     return None
+
+
+def expected_user_guide_filename() -> str:
+    return f'scrutinydebugger_v{__version__}_user_guide.pdf'
+
+
+def expected_user_guide_path() -> str:
+    return os.path.join(os.path.dirname(__file__), expected_user_guide_filename())

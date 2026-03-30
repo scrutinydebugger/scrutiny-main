@@ -51,7 +51,7 @@ if (sys.version_info.major, sys.version_info.minor) >= (3, 9):
     ]
 
 def get_gui_assets():
-    asset_dir = os.path.abspath('scrutiny/gui/assets')
+    asset_dir = os.path.abspath(os.path.join('scrutiny', 'gui', 'assets'))
     if not os.path.isfile(os.path.join(asset_dir, '__init__.py')):
         raise RuntimeError(f"GUI asset path does not exists {asset_dir}")
 
@@ -73,7 +73,7 @@ setup(
 
     packages=find_packages(where='.', exclude=["test", "test.*"], include=['scrutiny', "scrutiny.*"]),
     package_data = {
-        'scrutiny': ['py.typed'] + get_gui_assets(),
+        'scrutiny': ['py.typed'] + get_gui_assets() + [scrutiny.expected_user_guide_path()],
     },
 
     setup_requires=[],
@@ -86,7 +86,7 @@ setup(
             'imageio==2.37.0',
             'build==1.2.2',
             'pip-licenses==5.0.0'
-            ]
+            ] + doc_dependencies
     },
     entry_points=entry_points,
 )

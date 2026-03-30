@@ -19,6 +19,9 @@ cd ${PROJECT_ROOT}
 SCRUTINY_VERSION=$(python -m scrutiny version --format short)
 assert_scrutiny_version_format "$SCRUTINY_VERSION"
 
+info "Building user guide"
+./scripts/build_userguide.sh
+
 rm -rf build dist *.egg-info
 python -m build -w -o "${OUTPUT_FOLDER}"
 

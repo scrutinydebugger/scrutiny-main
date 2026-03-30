@@ -1,0 +1,49 @@
+\makeatletter
+\let\cleardoublepage\clearpage  % Remove extra white page after end of chapter
+
+\usepackage{lastpage}
+
+% Override the fancy page style with our own head/foot note
+\fancypagestyle{normal}{
+    \fancyhf{}
+    \fancyfoot[R]{{\py@HeaderFamily\thepage\ /\ \pageref{LastPage}}}
+    \fancyfoot[L]{{\py@HeaderFamily\nouppercase{\leftmark}}}
+    \fancyhead[R]{{\py@HeaderFamily\@title, \py@release}}
+    \renewcommand{\headrulewidth}{0.4pt}
+    \renewcommand{\footrulewidth}{0.4pt}
+}
+
+% Override the chapter head of fncychap module.
+\renewcommand{\@makechapterhead}[1]{%
+  \fcolorbox{gray}{gray!20}{%
+    \parbox{\dimexpr\textwidth-2\fboxsep}{%
+      \vspace{20px}%
+      \hspace{2em}%
+      \huge \bfseries \thechapter.\quad #1\par%
+      \vspace{1ex}%
+    }%
+  }%
+  \par\nobreak\vskip 40\p@%
+}
+
+% Force the "plain" style to be "fancy".
+% Chapter pages uses plain style. Using fancy leaves the head/foot notes on them
+\let\ps@plain\ps@fancy{}
+
+
+% Override the hypref bookmark type to ahve numbered bookmarks in the PDF
+\usepackage{hyperref}
+\hypersetup{
+    bookmarksnumbered
+}
+
+% Make inline code in backticks (``hello``) with a background and a small monospace font
+\renewcommand{\sphinxcode}[1]{%
+    \mbox{%
+        \colorbox{gray!10}{%
+            {\ttfamily \small #1}%
+        }%
+    }%
+}
+
+\makeatother

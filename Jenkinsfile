@@ -7,7 +7,7 @@ pipeline {
             agent {
                 dockerfile {
                     args '-e HOME=/tmp -e BUILD_CONTEXT=ci'
-                    additionalBuildArgs '--target build-tests'
+                    additionalBuildArgs '--target ci'
                     reuseNode true
                 }
             }
@@ -57,10 +57,21 @@ pipeline {
                     }
                 }
                 stage("Doc"){
-                    steps {
-                        sh '''
-                        SPHINXOPTS=-W SCRUTINY_VENV_DIR=venv-3.13 scripts/with-venv.sh make -C scrutiny/sdk/docs html
-                        '''
+                    parallel{
+                        stage ('SDK HTML') {
+                            steps {
+                                sh '''
+                                SCRUTINY_VENV_DIR=venv-3.13 scripts/with-venv.sh scripts/build_sdk_doc.sh
+                                '''
+                            }
+                        }
+                        stage("User guide PDF"){
+                            steps {
+                                sh '''
+                                SCRUTINY_VENV_DIR=venv-3.13 scripts/with-venv.sh scripts/build_userguide.sh
+                                '''
+                            }
+                        }
                     }
                 }
             }
