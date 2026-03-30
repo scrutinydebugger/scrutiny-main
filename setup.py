@@ -86,7 +86,7 @@ setup(
             'imageio==2.37.0',
             'build==1.2.2',
             'pip-licenses==5.0.0'
-            ]
+            ] + doc_dependencies
     },
     entry_points=entry_points,
 )
