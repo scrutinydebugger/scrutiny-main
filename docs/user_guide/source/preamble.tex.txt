@@ -41,7 +41,7 @@
 \renewcommand{\sphinxcode}[1]{%
     \mbox{%
         \colorbox{gray!10}{%
-            {\ttfamily \footnotesize #1}%
+            {\ttfamily \small #1}%
         }%
     }%
 }

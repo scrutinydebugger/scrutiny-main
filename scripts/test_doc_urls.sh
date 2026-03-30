@@ -17,10 +17,20 @@ FOLDER=$1
 cd ${PROJECT_ROOT}
 
 ALL_URLS=$(python ./scripts/extract_doc_external_links.py "$FOLDER")
-
+pids=()
+USERAGENT="Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
 for url in $ALL_URLS; do
     info "Testing URL: $url"
-    wget "$url" --tries=3 --spider --no-dns-cache --quiet &
+    wget "${url}" \
+        --tries=3 \
+        --spider \
+        --no-dns-cache \
+        --quiet \
+        --user-agent="$USERAGENT" \
+         || fatal "The following URL does not return a success code: $url" &
+    pids+=($!)
 done
 
-wait
+for pid in "${pids[@]}"; do
+    wait $pid
+done
