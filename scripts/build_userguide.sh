@@ -16,11 +16,17 @@ cd "${PROJECT_ROOT}"
 
 export PYTHONPATH="$PROJECT_ROOT:${PYTHONPATH:-}"
 USER_GUIDE_PDF_DST=$(python -m scrutiny userguide location --nocheck)
+DOC_FOLDER=docs/user_guide
+
+info "Testing for dead links"
+./scripts/test_doc_urls.sh "$DOC_FOLDER"
+
+
 info "Building $(basename "$USER_GUIDE_PDF_DST").pdf"
 
-SPHINXOPTS=-W make -C docs/user_guide latexpdf
+SPHINXOPTS=-W make -C $DOC_FOLDER latexpdf
 
-OUTPUT_DIR="$PROJECT_ROOT/docs/user_guide/build/latex"
+OUTPUT_DIR="$DOC_FOLDER/build/latex"
 USER_GUIDE_PDF_SRC="$OUTPUT_DIR/$(basename "$USER_GUIDE_PDF_DST")"
 assert_file "$USER_GUIDE_PDF_SRC"
 rm -f $USER_GUIDE_PDF_DST

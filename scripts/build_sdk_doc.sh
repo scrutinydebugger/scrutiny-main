@@ -14,6 +14,11 @@ PROJECT_ROOT="$(get_project_root)"
 cd "${PROJECT_ROOT}"
 
 export PYTHONPATH="$PROJECT_ROOT:${PYTHONPATH:-}"
+DOC_FOLDER=docs/sdk
+
+info "Testing for dead links"
+./scripts/test_doc_urls.sh "$DOC_FOLDER"
+
 info "Building SDK documentation"
 
-SPHINXOPTS=-W make -C docs/sdk html
+SPHINXOPTS=-W make -C "$DOC_FOLDER" html
