@@ -1,4 +1,4 @@
-FROM ubuntu:22.04 as build-tests
+FROM ubuntu:22.04 AS ci
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -77,8 +77,6 @@ RUN wget $PYTHON_SRC \
     && rm "Python-${PYTHON_VERSION}.tgz" \
     && rm -rf "Python-${PYTHON_VERSION}"
 
-
-
 # Enable QT for Python inside Docker given that QT_QPA_PLATFORM='offscreen'
 RUN apt-get update && apt-get install -y \
     libgl1 \
@@ -86,4 +84,12 @@ RUN apt-get update && apt-get install -y \
     libxkbcommon-x11-0 \
     libfontconfig1 \
     libdbus-glib-1-dev  \
+    && rm -rf /var/lib/apt/lists/*
+
+# Enable Sphinx PDF
+RUN apt-get update && apt-get install -y \
+    latexmk \
+    texlive-latex-base  \
+    texlive-latex-extra     \
+    texlive-latex-recommended   \
     && rm -rf /var/lib/apt/lists/*

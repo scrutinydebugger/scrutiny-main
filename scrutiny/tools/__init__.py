@@ -17,7 +17,8 @@ __all__ = [
     'MutableNullableBool',
     'NullableMutable',
     'is_documented_by',
-    'f2g'
+    'f2g',
+    'open_file_or_raise',
 ]
 
 import tempfile
@@ -31,6 +32,8 @@ from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
 from uuid import uuid4
+import subprocess
+import sys
 
 from scrutiny.tools.throttler import Throttler
 from scrutiny.tools.timer import Timer
@@ -390,3 +393,18 @@ def is_documented_by(original: Callable[[Any], Any]) -> Callable[[Any], Any]:
         target.__doc__ = original.__doc__
         return target
     return wrapper
+
+
+def open_file_or_raise(filepath: str) -> None:
+    if sys.platform == 'darwin':
+        retcode = subprocess.call(['open', filepath])
+        if retcode != 0:
+            raise RuntimeError(f"Failed to open file {filepath}")
+    elif sys.platform == 'win32':
+        os.startfile(filepath)
+    elif sys.platform in ['linux', 'freebsd']:
+        retcode = subprocess.call(['xdg-open', filepath])
+        if retcode != 0:
+            raise RuntimeError(f"Failed to open file {filepath}")
+    else:
+        raise NotImplementedError(f"Do not know how to open a file on platform {sys.platform}")

@@ -35,7 +35,7 @@ class MakeMetadata(BaseCommand):
         self.parser = argparse.ArgumentParser(prog=self.get_prog())
 
         self.parser.add_argument('--output', default=None,
-                                 help='Output filename. If a directory is given, the file will defautly be name "%s" ' % self.DEFAULT_NAME)
+                                 help='Output filename. If a directory is given, the file will defautly be named "%s" ' % self.DEFAULT_NAME)
         self.parser.add_argument('--project-name', default='',
                                  help='A project name to be displayed in the GUI when connecting to a device that match the Firmware Info File that includes this metadata')
         self.parser.add_argument('--author', default='', help='The author of the project. For display in the GUI only.')

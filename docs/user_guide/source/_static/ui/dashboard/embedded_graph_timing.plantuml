@@ -1,0 +1,16 @@
+@startuml
+!theme vibrant
+GUI -> Server : Configure
+Server -> Device : Configure
+Server -> GUI : Confirm success
+Device -> Device : Wait for trigger
+Device -> Server : Update status
+Device -> Device : EVENT
+Device -> Device : Acquire
+Device -> Server : Send raw data
+Server -> Server : Save to database
+Server -> GUI : Inform complete
+GUI -> Server: Request download
+Server -> GUI : Send graph
+GUI -> GUI : Display graph
+@enduml
