@@ -24,6 +24,10 @@ jobs:
       - name: Install dependencies
         run: pip install -e .[build]
 
+      - name: Install Latex tools
+        run: sudo apt-get update && sudo apt-get install -y latexmk texlive-latex-base  texlive-latex-extra texlive-latex-recommended
+        shell: bash
+
       - name: User guide
         run: ./scripts/build_userguide.sh
         shell: bash
