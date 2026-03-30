@@ -7,9 +7,6 @@ on:
         - 'v*'
 
 jobs:
-
-jobs:
-
   build-user-guide:
     runs-on: ubuntu-22.04
     steps:
