@@ -39,32 +39,18 @@ embedded firmware is the part that is instrumented.
 
 Both methods have pros and cons. Here is a comparison
 
-.. list-table:: Debugging method comparison
+.. csv-table:: Debugging method comparison
   :header-rows: 1
-  :align: left
+  :align: center
   :width: 100%
 
-  * - Feature
-    - Classical debugging
-    - Instrumentation based
-  * - Code stepping
-    - Possible (+)
-    - Impossible (-)
-  * - Non-intrusive memory access
-    - Depends on debug module
-    - Yes (+)
-  * - Local variable access
-    - Possible (+)
-    - Impossible (-)
-  * - Global/Static variable access
-    - Possible (+)
-    - Possible (+)
-  * - Require a debug probe
-    - Yes (-)
-    - No (+)
-  * - Memory accesses
-    - Async with firmware (-)
-    - Synchronous with firmware (+)
+  "Feature",                        "Classical debugging",      "Instrumentation based"
+  "Code stepping",                  "Possible (+)",             "Impossible (-)"
+  "Non-intrusive memory access",    "Depends on debug module",  "Yes (+)"
+  "Local variable access",          "Possible (+)",             "Impossible (-)"
+  "Global/Static variable access",  "Possible (+)",             "Possible (+)"
+  "Require a debug probe",          "Yes (-)",                  "No (+)"
+  "Memory accesses",                "Async with firmware (-)",  "Synchronous with firmware (+)"
 
 Debugging by instrumentation is an ideal tool for debugging a real-time baremetal application while it is running,
 but it's not suited to do the initial bootup of a new platform as it require a firmware that boots and can make a transceiver work.
@@ -78,7 +64,7 @@ Below is a timing diagram that depicts 2 clients subscribing to variables and re
 .. figure:: _static/timing_diagram.png
     :height: 10cm
 
-    Overall timing diagram
+    Value streaming timing diagram
 
 .. note:: Altough central, subscribing to an update stream is only a one of many features supported by Scrutiny.
 
@@ -119,4 +105,3 @@ Instead, a dedicated webpage has been created to present the information in a mo
 accessible and easy-to-navigate format.
 
 See `the device protocol page <https://scrutinydebugger.com/doc-device-protocol.html>`__
-

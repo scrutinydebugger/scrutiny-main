@@ -8,16 +8,14 @@ The Scrutiny Command Line Interface (CLI) is the primary entry point for all fun
 
 All commands support the following argument for controlling log output:
 
-.. list-table:: Logging options
-  :header-rows: 0
-  :align: left
+\-\-loglevel
+    Controls the logging level. Valid values are: critical, error, warning, info, debug, dumpdata.
 
-  * - \-\-loglevel
-    - Controls the logging level. Valid values are: critical, error, warning, info, debug, dumpdata.
-  * - \-\-logfile
-    - Redirects log output to a file instead of standard output.
-  * - \-\-disable-loggers
-    - Allows the user to hide specific loggers to reduce noise in the output.
+\-\-logfile
+    Redirects log output to a file instead of standard output.
+
+\-\-disable-loggers
+    Allows the user to hide specific loggers to reduce noise in the output.
 
 Here is an example of log output produced from the command line:
 
@@ -387,7 +385,7 @@ Misc commands
 
 A few additional commands serve various purposes, generally intended for developers.
 
-.. list-table:: Developeprs command
+.. list-table:: Developers command
   :header-rows: 1
   :align: left
 
@@ -442,3 +440,45 @@ Simply prints the version. Convenience for CI and deployment scripts.
 
     $ scrutiny userguide            # Opens the guide in the default PDF viewer
     $ scrutiny userguide location   # Prints the file location
+
+
+
+GUI Commands
+------------
+
+.. _cmd_gui:
+
+There is a single command to launch the Graphical User Interface
+
+.. code-block:: bash
+
+    $ scrutiny gui
+
+This command support several options
+
+\-\-no-opengl
+    Runs the GUI and disables the use of OpenGL for graphical acceleration.
+    Disabling OpenGL can help work around compatibility issues, but it may reduce performance and increase CPU load in certain situations,
+    especially when plotting long graphs with large amounts of data.
+
+\-\-auto-connect
+    Try to connect to a server as soon as the GUI is ready.
+
+\-\-start-local-server
+    Starts a local server as soon as the GUI starts.
+
+\-\-local-server-port
+    When ``--start-local-server`` is specified, this option defines on what port the local server should listen on.
+
+\-\-debug-layout
+    For debugging the UI only. Prints a red border around every widget to expose how layouts are nested. Not meant for a user.
+
+\-\-theme
+    Define the QT theme to use. The ``default`` theme refers to the native Qt theme used in a vanilla application.
+    Scrutiny uses the Fusion theme as the default value for this parameter, as it is portable and works consistently across Linux, macOS, and Windows.
+
+As an example, the GUI can be launched with the following option to start already connected to a local server:
+
+.. code-block:: bash
+
+    $ scrutiny gui --start-local-server --auto-connect
