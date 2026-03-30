@@ -36,4 +36,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: User Guide ${{ github.ref_name }}
-          path: ./docs/user_guide/build/latex/installer/*.pdf
+          path: ./docs/user_guide/build/latex/*.pdf
