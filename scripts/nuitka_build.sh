@@ -82,9 +82,9 @@ python -m nuitka                                    \
     --noinclude-unittest-mode=allow                 \
     --include-package-data=scrutiny.gui.assets      \
     --include-data-file="${LICENSE_FILE}"="LICENSE" \
-    --include-data-file="${ICON_PNG}"=$(basename "${ICON_PNG}")     \
-    --include-data-file="${WHEEL_FILE_NOCLI}"=$(basename "${WHEEL_FILE_NOCLI}") \
-    --include-data-file="${USERGUIDE_PDF}"=$(basename "${USERGUIDE_PDF}")       \
+    --include-data-file="${ICON_PNG}"=$(basename "${ICON_PNG}")                         \
+    --include-data-file="${WHEEL_FILE_NOCLI}"=$(basename "${WHEEL_FILE_NOCLI}")         \
+    --include-data-file="${USERGUIDE_PDF}"=scrutiny/$(basename "${USERGUIDE_PDF}")      \
     --product-name="${PRODUCT_NAME}"                \
     --product-version="${SCRUTINY_VERSION}"         \
     --copyright="${COPYRIGHT_STRING}"               \
