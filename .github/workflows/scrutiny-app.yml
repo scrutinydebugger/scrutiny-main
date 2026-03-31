@@ -47,6 +47,7 @@ jobs:
       - name: Checkout Repo
         uses: actions/checkout@v4
 
+      # Download the user guide from previous job
       - name: Download User Guide
         uses: actions/download-artifact@v4
         with:
@@ -65,6 +66,8 @@ jobs:
 
       # Launch Nuitka
       - name: Nuitka build
+        env:
+          SCRUTINY_USER_GUIDE_PREBUILT=1  # Prevent trying to rebuild the user guide.
         run: ./scripts/nuitka_build.sh
         shell: bash
 
@@ -88,6 +91,7 @@ jobs:
       - name: Checkout Repo
         uses: actions/checkout@v4
 
+      # Download the user guide from previous job
       - name: Download User Guide
         uses: actions/download-artifact@v4
         with:
@@ -106,6 +110,8 @@ jobs:
 
       # Launch Nuitka
       - name: Nuitka build
+        env:
+          SCRUTINY_USER_GUIDE_PREBUILT=1  # Prevent trying to rebuild the user guide.
         run: ./scripts/nuitka_build.sh
         shell: bash
 
@@ -129,6 +135,7 @@ jobs:
       - name: Checkout Repo
         uses: actions/checkout@v4
 
+      # Download the user guide from previous job
       - name: Download User Guide
         uses: actions/download-artifact@v4
         with:
@@ -147,6 +154,8 @@ jobs:
 
       # Launch Nuitka
       - name: Nuitka build
+        env:
+          SCRUTINY_USER_GUIDE_PREBUILT=1  # Prevent trying to rebuild the user guide.
         run: ./scripts/nuitka_build.sh
         shell: bash
 
