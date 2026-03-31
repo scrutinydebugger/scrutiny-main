@@ -50,6 +50,7 @@ jobs:
         with:
           name: user_guide_${{ github.ref_name }}
           path: ${{ env.USER_GUIDE_LOCATION }}
+          if-no-files-found: error
 
 
   build-ubuntu:
@@ -94,6 +95,7 @@ jobs:
         with:
           name: Debian package ${{ github.ref_name }}
           path: ./nuitka_build/installer/*.deb
+          if-no-files-found: error
 
 
   build-mac-os:
@@ -138,6 +140,7 @@ jobs:
         with:
           name: Mac OS app ${{ github.ref_name }}
           path: ./nuitka_build/installer/*.dmg
+          if-no-files-found: error
 
 
   build-windows:
@@ -206,3 +209,4 @@ jobs:
         with:
           name: Windows installer ${{ github.ref_name }}
           path: ./nuitka_build/installer/${{ env.INSTALLER_NAME }}.exe
+          if-no-files-found: error
