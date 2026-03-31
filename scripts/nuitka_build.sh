@@ -46,6 +46,17 @@ WHEEL_FILE_NOCLI="$WHEEL_FOLDER/$(scripts/make_wheel_filename.sh NOCLI)"
 assert_file "$WHEEL_FILE_NOCLI"
 info "Embedding $(basename $WHEEL_FILE_NOCLI) inside Nuitka package"
 
+# User Guide
+if [ ! "${SCRUTINY_USER_GUIDE_PREBUILT:-0}" = "1" ]; then
+    info "Building user guide"
+    ./scripts/build_userguide.sh
+else
+    info "NOT building the user guide. SCRUTINY_USER_GUIDE_PREBUILT=1"
+fi
+
+python -m scrutiny userguide location > /dev/null || fatal "User guide not present"   # Check existence
+USERGUIDE_PDF=$(python -m scrutiny userguide location)
+
 OUTPUT_FILENAME="scrutiny.bin"  # default. we manage with symlink on unix based platform
 if [ "$PLATFORM" = "win32" ]; then
     PLATFORM_ARGS+=" --windows-icon-from-ico=${ICON_PNG}"
@@ -80,6 +91,7 @@ python -m nuitka                                    \
     --include-data-file="${LICENSE_FILE}"="LICENSE" \
     --include-data-file="${ICON_PNG}"=$(basename "${ICON_PNG}")     \
     --include-data-file="${WHEEL_FILE_NOCLI}"=$(basename "${WHEEL_FILE_NOCLI}") \
+    --include-data-file="${USERGUIDE_PDF}"=$(basename "${USERGUIDE_PDF}")       \
     --product-name="${PRODUCT_NAME}"                \
     --product-version="${SCRUTINY_VERSION}"         \
     --copyright="${COPYRIGHT_STRING}"               \

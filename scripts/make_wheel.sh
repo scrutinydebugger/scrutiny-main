@@ -19,7 +19,6 @@ cd ${PROJECT_ROOT}
 SCRUTINY_VERSION=$(python -m scrutiny version --format short)
 assert_scrutiny_version_format "$SCRUTINY_VERSION"
 
-set -x
 if [ ! "${SCRUTINY_USER_GUIDE_PREBUILT:-0}" = "1" ]; then
     info "Building user guide"
     ./scripts/build_userguide.sh
