@@ -47,8 +47,8 @@ assert_file "$WHEEL_FILE_NOCLI"
 info "Embedding $(basename $WHEEL_FILE_NOCLI) inside Nuitka package"
 
 # User Guide
-info "Building user guide"
-./scripts/build_userguide.sh
+./scripts/build_or_reuse_userguide.sh
+USERGUIDE_PDF=$(python -m scrutiny userguide location)
 
 OUTPUT_FILENAME="scrutiny.bin"  # default. we manage with symlink on unix based platform
 if [ "$PLATFORM" = "win32" ]; then
@@ -82,9 +82,9 @@ python -m nuitka                                    \
     --noinclude-unittest-mode=allow                 \
     --include-package-data=scrutiny.gui.assets      \
     --include-data-file="${LICENSE_FILE}"="LICENSE" \
-    --include-data-file="${ICON_PNG}"=$(basename "${ICON_PNG}")     \
-    --include-data-file="${WHEEL_FILE_NOCLI}"=$(basename "${WHEEL_FILE_NOCLI}") \
-    --include-data-file="${USERGUIDE_PDF}"=$(basename "${USERGUIDE_PDF}")       \
+    --include-data-file="${ICON_PNG}"=$(basename "${ICON_PNG}")                         \
+    --include-data-file="${WHEEL_FILE_NOCLI}"=$(basename "${WHEEL_FILE_NOCLI}")         \
+    --include-data-file="${USERGUIDE_PDF}"=scrutiny/$(basename "${USERGUIDE_PDF}")      \
     --product-name="${PRODUCT_NAME}"                \
     --product-version="${SCRUTINY_VERSION}"         \
     --copyright="${COPYRIGHT_STRING}"               \

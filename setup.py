@@ -81,6 +81,7 @@ setup(
     extras_require={
         'test': ['mypy', 'coverage'] + doc_dependencies,
         'dev': ['mypy', 'ipdb', 'autopep8', 'coverage'] + doc_dependencies,
+        'doc' : doc_dependencies,
         'build': [
             'nuitka==2.6.9',    # 2.7.3- is broken on Linux/Mac.
             'imageio==2.37.0',

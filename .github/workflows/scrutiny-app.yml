@@ -22,29 +22,51 @@ jobs:
 
       # Fetch all the build dependencies
       - name: Install dependencies
-        run: pip install -e .[build]
+        run: pip install -e .[doc]
 
+      # Latex packages
       - name: Install Latex tools
-        run: sudo apt-get update && sudo apt-get install -y latexmk texlive-latex-base  texlive-latex-extra texlive-latex-recommended
+        run: |
+          sudo apt-get update           \
+          && sudo apt-get install -y    \
+            latexmk texlive-latex-base  \
+            texlive-latex-extra         \
+            texlive-latex-recommended
         shell: bash
 
-      - name: User guide
+      # Build the user guide and give it to the scrutiny package. Enables ``scrutiny userguide`` command
+      - name: Build user guide
         run: ./scripts/build_userguide.sh
         shell: bash
 
+      # Request Scrutiny to give us the exact name of the .pdf file
+      - name: Get user guide path
+        run: echo "USER_GUIDE_LOCATION=$(python -m scrutiny userguide location)" >> $GITHUB_ENV
+        shell: bash
+
+      # Upload the .pdf
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: User Guide ${{ github.ref_name }}
-          path: ./docs/user_guide/build/latex/*.pdf
+          name: user_guide_${{ github.ref_name }}
+          path: ${{ env.USER_GUIDE_LOCATION }}
+          if-no-files-found: error
 
 
   build-ubuntu:
+    needs: build-user-guide
     runs-on: ubuntu-22.04
     steps:
       # Check-out repository
       - name: Checkout Repo
         uses: actions/checkout@v4
+
+      # Download the user guide from previous job
+      - name: Download User Guide
+        uses: actions/download-artifact@v4
+        with:
+          name: user_guide_${{ github.ref_name }}
+          path: ./scrutiny/
 
       # Setup Python
       - name: Setup Python
@@ -58,6 +80,8 @@ jobs:
 
       # Launch Nuitka
       - name: Nuitka build
+        env:
+          SCRUTINY_USER_GUIDE_PREBUILT: 1  # Prevent trying to rebuild the user guide.
         run: ./scripts/nuitka_build.sh
         shell: bash
 
@@ -71,14 +95,23 @@ jobs:
         with:
           name: Debian package ${{ github.ref_name }}
           path: ./nuitka_build/installer/*.deb
+          if-no-files-found: error
 
 
   build-mac-os:
+    needs: build-user-guide
     runs-on: macos-latest
     steps:
       # Check-out repository
       - name: Checkout Repo
         uses: actions/checkout@v4
+
+      # Download the user guide from previous job
+      - name: Download User Guide
+        uses: actions/download-artifact@v4
+        with:
+          name: user_guide_${{ github.ref_name }}
+          path: ./scrutiny/
 
       # Setup Python
       - name: Setup Python
@@ -92,6 +125,8 @@ jobs:
 
       # Launch Nuitka
       - name: Nuitka build
+        env:
+          SCRUTINY_USER_GUIDE_PREBUILT: 1  # Prevent trying to rebuild the user guide.
         run: ./scripts/nuitka_build.sh
         shell: bash
 
@@ -105,14 +140,23 @@ jobs:
         with:
           name: Mac OS app ${{ github.ref_name }}
           path: ./nuitka_build/installer/*.dmg
+          if-no-files-found: error
 
 
   build-windows:
+    needs: build-user-guide
     runs-on: windows-latest
     steps:
       # Check-out repository
       - name: Checkout Repo
         uses: actions/checkout@v4
+
+      # Download the user guide from previous job
+      - name: Download User Guide
+        uses: actions/download-artifact@v4
+        with:
+          name: user_guide_${{ github.ref_name }}
+          path: ./scrutiny/
 
       # Setup Python
       - name: Setup Python
@@ -126,6 +170,8 @@ jobs:
 
       # Launch Nuitka
       - name: Nuitka build
+        env:
+          SCRUTINY_USER_GUIDE_PREBUILT: 1  # Prevent trying to rebuild the user guide.
         run: ./scripts/nuitka_build.sh
         shell: bash
 
@@ -163,3 +209,4 @@ jobs:
         with:
           name: Windows installer ${{ github.ref_name }}
           path: ./nuitka_build/installer/${{ env.INSTALLER_NAME }}.exe
+          if-no-files-found: error
