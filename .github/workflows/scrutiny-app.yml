@@ -22,7 +22,7 @@ jobs:
 
       # Fetch all the build dependencies
       - name: Install dependencies
-        run: pip install -e .[build]
+        run: pip install -e .[doc]
 
       - name: Install Latex tools
         run: sudo apt-get update && sudo apt-get install -y latexmk texlive-latex-base  texlive-latex-extra texlive-latex-recommended
