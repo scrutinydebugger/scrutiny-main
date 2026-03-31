@@ -47,14 +47,7 @@ assert_file "$WHEEL_FILE_NOCLI"
 info "Embedding $(basename $WHEEL_FILE_NOCLI) inside Nuitka package"
 
 # User Guide
-if [ ! "${SCRUTINY_USER_GUIDE_PREBUILT:-0}" = "1" ]; then
-    info "Building user guide"
-    ./scripts/build_userguide.sh
-else
-    info "NOT building the user guide. SCRUTINY_USER_GUIDE_PREBUILT=1"
-fi
-
-python -m scrutiny userguide location > /dev/null || fatal "User guide not present"   # Check existence
+./scripts/build_or_reuse_userguide.sh
 USERGUIDE_PDF=$(python -m scrutiny userguide location)
 
 OUTPUT_FILENAME="scrutiny.bin"  # default. we manage with symlink on unix based platform

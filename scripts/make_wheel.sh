@@ -19,14 +19,7 @@ cd ${PROJECT_ROOT}
 SCRUTINY_VERSION=$(python -m scrutiny version --format short)
 assert_scrutiny_version_format "$SCRUTINY_VERSION"
 
-if [ ! "${SCRUTINY_USER_GUIDE_PREBUILT:-0}" = "1" ]; then
-    info "Building user guide"
-    ./scripts/build_userguide.sh
-else
-    info "NOT building the user guide. SCRUTINY_USER_GUIDE_PREBUILT=1"
-fi
-
-python -m scrutiny userguide location > /dev/null || fatal "User guide not present"   # Check existence
+./scripts/build_or_reuse_userguide.sh
 
 rm -rf build dist *.egg-info
 python -m build -w -o "${OUTPUT_FOLDER}"
