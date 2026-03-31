@@ -67,7 +67,7 @@ jobs:
       # Launch Nuitka
       - name: Nuitka build
         env:
-          SCRUTINY_USER_GUIDE_PREBUILT=1  # Prevent trying to rebuild the user guide.
+          SCRUTINY_USER_GUIDE_PREBUILT: 1  # Prevent trying to rebuild the user guide.
         run: ./scripts/nuitka_build.sh
         shell: bash
 
@@ -111,7 +111,7 @@ jobs:
       # Launch Nuitka
       - name: Nuitka build
         env:
-          SCRUTINY_USER_GUIDE_PREBUILT=1  # Prevent trying to rebuild the user guide.
+          SCRUTINY_USER_GUIDE_PREBUILT: 1  # Prevent trying to rebuild the user guide.
         run: ./scripts/nuitka_build.sh
         shell: bash
 
@@ -155,7 +155,7 @@ jobs:
       # Launch Nuitka
       - name: Nuitka build
         env:
-          SCRUTINY_USER_GUIDE_PREBUILT=1  # Prevent trying to rebuild the user guide.
+          SCRUTINY_USER_GUIDE_PREBUILT: 1  # Prevent trying to rebuild the user guide.
         run: ./scripts/nuitka_build.sh
         shell: bash
 
