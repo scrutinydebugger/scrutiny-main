@@ -24,19 +24,32 @@ jobs:
       - name: Install dependencies
         run: pip install -e .[doc]
 
+      # Latex packages
       - name: Install Latex tools
-        run: sudo apt-get update && sudo apt-get install -y latexmk texlive-latex-base  texlive-latex-extra texlive-latex-recommended
+        run: |
+          sudo apt-get update           \
+          && sudo apt-get install -y    \
+            latexmk texlive-latex-base  \
+            texlive-latex-extra         \
+            texlive-latex-recommended
         shell: bash
 
-      - name: User guide
+      # Build the user guide and give it to the scrutiny package. Enables ``scrutiny userguide`` command
+      - name: Build user guide
         run: ./scripts/build_userguide.sh
         shell: bash
 
+      # Request Scrutiny to give us the exact name of the .pdf file
+      - name: Get user guide path
+        run: echo "USER_GUIDE_LOCATION=$(python -m scrutiny userguide location)" >> $GITHUB_ENV
+        shell: bash
+
+      # Upload the .pdf
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: user_guide_${{ github.ref_name }}
-          path: ./docs/user_guide/build/latex/*.pdf
+          path: ${{ env.USER_GUIDE_LOCATION }}
 
 
   build-ubuntu:
