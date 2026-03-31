@@ -35,16 +35,23 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: User Guide ${{ github.ref_name }}
+          name: user_guide_${{ github.ref_name }}
           path: ./docs/user_guide/build/latex/*.pdf
 
 
   build-ubuntu:
+    needs: build-user-guide
     runs-on: ubuntu-22.04
     steps:
       # Check-out repository
       - name: Checkout Repo
         uses: actions/checkout@v4
+
+      - name: Download User Guide
+        uses: actions/download-artifact@v4
+        with:
+          name: user_guide_${{ github.ref_name }}
+          path: ./scrutiny/
 
       # Setup Python
       - name: Setup Python
@@ -74,11 +81,18 @@ jobs:
 
 
   build-mac-os:
+    needs: build-user-guide
     runs-on: macos-latest
     steps:
       # Check-out repository
       - name: Checkout Repo
         uses: actions/checkout@v4
+
+      - name: Download User Guide
+        uses: actions/download-artifact@v4
+        with:
+          name: user_guide_${{ github.ref_name }}
+          path: ./scrutiny/
 
       # Setup Python
       - name: Setup Python
@@ -108,11 +122,18 @@ jobs:
 
 
   build-windows:
+    needs: build-user-guide
     runs-on: windows-latest
     steps:
       # Check-out repository
       - name: Checkout Repo
         uses: actions/checkout@v4
+
+      - name: Download User Guide
+        uses: actions/download-artifact@v4
+        with:
+          name: user_guide_${{ github.ref_name }}
+          path: ./scrutiny/
 
       # Setup Python
       - name: Setup Python
