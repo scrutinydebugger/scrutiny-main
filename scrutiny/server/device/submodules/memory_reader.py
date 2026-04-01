@@ -18,7 +18,7 @@ import logging
 import copy
 import enum
 from dataclasses import dataclass
-from bisect import bisect_right
+from bisect import bisect_left
 
 from scrutiny.server.device.submodules.base_device_handler_submodule import BaseDeviceHandlerSubmodule
 from scrutiny.server.protocol import Protocol, Request, Response, ResponseCode
@@ -202,8 +202,9 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
     def get_closest_supported_rate(self, requested_rate: Optional[float]) -> Optional[int]:
         if requested_rate is None:
             return None
-        index = bisect_right(self.SUPPORTED_THROTTLING_RATES, requested_rate)
-        if index >= len(self.SUPPORTED_THROTTLING_RATES) - 1:
+        index = bisect_left(self.SUPPORTED_THROTTLING_RATES, requested_rate)
+
+        if index > len(self.SUPPORTED_THROTTLING_RATES) - 1:
             return None
 
         return self.SUPPORTED_THROTTLING_RATES[index]
@@ -368,6 +369,7 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
         while self.pending_request is None and len(read_type_considered) < len(ReadType):
             read_type_considered.add(self.actual_read_type)
 
+            print(self.actual_read_type)
             # We want to read everything in a round robin scheme. But we need to read memory and RPV as much without discrimination
             # So we need to do   ReadMem1, ReadMem2, ReadMem3, ReadRPV1, ReadRPV2  **WRAP**  ReadMem1, ReadMem2, etc
             # Also, pointed var needs to be read after vars with addresses (they include pointers)
@@ -460,6 +462,7 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
             if throttler.allowed(1):
                 self.round_enabled_rate.add(rate)
                 throttler.consume(1)
+            throttler.process()
 
     def _dispatch(self, request: Request, success_params: Any = None, failure_params: Any = None) -> None:
         """Sends a request to the request dispatcher and assign the corrects completion callbacks"""
