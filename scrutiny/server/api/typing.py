@@ -305,6 +305,7 @@ class C2S:
 
     class SubscribeWatchable(BaseC2SMessage):
         watchables: List[str]
+        rate: Optional[float]
 
     class UnsubscribeWatchable(BaseC2SMessage):
         watchables: List[str]

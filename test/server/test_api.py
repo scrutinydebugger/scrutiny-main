@@ -1032,7 +1032,7 @@ class TestAPI(ScrutinyUnitTest):
         req = {
             'cmd': 'subscribe_watchable',
             'watchables': [subscribed_entry.get_display_path()],
-            'rate' : 10
+            'rate': 10
         }
         assert isinstance(subscribed_entry, DatastoreVariableEntry)
 
@@ -1061,6 +1061,8 @@ class TestAPI(ScrutinyUnitTest):
         self.assertEqual(obj1['bitoffset'], subscribed_entry.get_bitoffset())
 
         self.assertIsNone(self.wait_for_response(timeout=0.2))
+
+        self.assertEqual(self.datastore.get_effective_update_rate(subscribed_entry.get_id()), 10)
 
         self.datastore.start_batch('unittest')
         self.datastore.set_value(subscribed_entry.get_id(), 1234)

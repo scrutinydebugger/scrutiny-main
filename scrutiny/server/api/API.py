@@ -933,14 +933,20 @@ class API:
         # datastore callback will write the new values in the API output queue (through the value streamer)
         _check_request_dict(req, req, 'watchables', list)
 
+        rate: Optional[float] = None
+        if 'rate' in req:
+            _check_request_dict(req, req, 'rate', (type(None), float, int))
+            if req['rate'] is not None:
+                rate = float(req['rate'])
+
         # this can throw. Check existence of all watchable before doing anything.
         subscribed = self._make_datastore_detailed_definition_by_display_path(req, req['watchables'])
-
         for path in req['watchables']:
             self.datastore.start_watching(
                 subscribed[path]['id'],
                 watcher=conn_id,    # We use the API connection ID as datastore watcher ID
-                value_change_callback=self.entry_value_change_callback
+                value_change_callback=self.entry_value_change_callback,
+                requested_rate=rate
             )
 
         response: api_typing.S2C.SubscribeWatchable = {

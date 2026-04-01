@@ -32,9 +32,10 @@ class BatchState(enum.Enum):
 WatchCallback: TypeAlias = Callable[[str], None]
 BatchEditCallback: TypeAlias = Callable[[str, BatchState], None]
 
+
 @dataclass(slots=True)
 class _WatcherParamSet:
-    update_rate:Optional[float] = None
+    update_rate: Optional[float] = None
 
 
 class Datastore:
@@ -270,7 +271,7 @@ class Datastore:
                        entry_or_entryid: Union[DatastoreEntry, str],
                        watcher: str,
                        value_change_callback: Optional[UserValueChangeCallback] = None,
-                        requested_rate:Optional[float] = None
+                       requested_rate: Optional[float] = None
                        ) -> DatastoreEntry:
         """
         Register a new callback on the entry identified by the given entry_id.
@@ -483,15 +484,18 @@ class Datastore:
         for factory in self._var_factories.values():
             yield factory
 
-    def get_effective_update_rate(self, entry_or_entryid:Union[DatastoreEntry, str]) -> Optional[float]:
+    def get_effective_update_rate(self, entry_or_entryid: Union[DatastoreEntry, str]) -> Optional[float]:
+        """Return the fastest update rate that applies to this entry"""
         entry_id = self._get_entry_id(entry_or_entryid)
         entry = self.get_entry(entry_id)
         watchable_type = entry.get_type()
 
+        if entry_id not in self._watcher_map[watchable_type]:
+            return None
         if len(self._watcher_map[watchable_type][entry_id]) == 0:
-            raise RuntimeError(f"No watcher on entry: {entry}")
+            return None
 
-        output_val:float = 0
+        output_val: float = 0
         for watcher_paramset in self._watcher_map[watchable_type][entry_id].values():
             if watcher_paramset.update_rate is None:
                 return None         # Highest priority. No need to search further

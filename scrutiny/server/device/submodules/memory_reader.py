@@ -18,6 +18,7 @@ import logging
 import copy
 import enum
 from dataclasses import dataclass
+from bisect import bisect_right
 
 from scrutiny.server.device.submodules.base_device_handler_submodule import BaseDeviceHandlerSubmodule
 from scrutiny.server.protocol import Protocol, Request, Response, ResponseCode
@@ -26,11 +27,13 @@ import scrutiny.server.protocol.commands as cmd
 import scrutiny.server.protocol.typing as protocol_typing
 from scrutiny.server.device.request_dispatcher import RequestDispatcher
 from scrutiny.server.datastore.datastore import Datastore
-from scrutiny.server.datastore.datastore_entry import DatastoreVariableEntry, DatastorePointedVariableEntry, DatastoreRPVEntry, DatastoreEntryInvalidReason
+from scrutiny.server.datastore.datastore_entry import (DatastoreVariableEntry, DatastorePointedVariableEntry,
+                                                       DatastoreRPVEntry, DatastoreEntryInvalidReason, DatastoreEntry)
 from scrutiny.core.memory_content import MemoryContent, Cluster
 from scrutiny.core.basic_types import MemoryRegion
 from scrutiny.tools.queue import ScrutinyQueue
 from scrutiny import tools
+from scrutiny.tools.throttler import Throttler
 
 from scrutiny.tools.typing import *
 
@@ -91,6 +94,17 @@ class RequestSuccessParams:
     addresses_before_dispatch: Optional[List[int]]
 
 
+class ThrottlingBucket:
+    __slots__ = ('throttler', 'members')
+
+    throttler: Throttler
+    members: Set[DatastoreEntry]
+
+    def __init__(self, rate: int) -> None:
+        self.throttler = Throttler(float(rate))
+        self.members = set()
+
+
 class MemoryReader(BaseDeviceHandlerSubmodule):
     """Class that poll the device for its memory content and update the datastore
     with new values when the content is received.
@@ -102,6 +116,7 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
     DEFAULT_MAX_REQUEST_PAYLOAD_SIZE: int = 1024
     DEFAULT_MAX_RESPONSE_PAYLOAD_SIZE: int = 1024
     MAX_RAW_READ_SIZE = 2**14 - 1
+    SUPPORTED_THROTTLING_RATES: List[int] = sorted([1, 2, 3, 5, 10, 20, 30, 50, 100, 200, 300])
 
     logger: logging.Logger
     """The class logger"""
@@ -161,6 +176,9 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
     """Reraise errors that we normally hide to catch them in unit testing"""
     read_type_changed: bool
     """A flag that indicates if the read type change in the last process iteration"""
+    throttlers: Dict[int, Throttler]
+    entry_to_rate_map: Dict[DatastoreEntry, int]
+    round_enabled_rate: Set[int]
 
     def __init__(self, protocol: Protocol, dispatcher: RequestDispatcher, datastore: Datastore, request_priority: int):
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -173,8 +191,22 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
         self.active_raw_read_request = None
         self.raw_read_request_queue = ScrutinyQueue()
         self.unittest_crash_on_critical_error = False
+        self.throttlers = {}
+        self.entry_to_rate_map = {}
+        self.round_enabled_rate = set()
+        for v in self.SUPPORTED_THROTTLING_RATES:
+            self.throttlers[v] = Throttler(float(v))
 
         self.reset()
+
+    def get_closest_supported_rate(self, requested_rate: Optional[float]) -> Optional[int]:
+        if requested_rate is None:
+            return None
+        index = bisect_right(self.SUPPORTED_THROTTLING_RATES, requested_rate)
+        if index >= len(self.SUPPORTED_THROTTLING_RATES) - 1:
+            return None
+
+        return self.SUPPORTED_THROTTLING_RATES[index]
 
     def set_max_request_payload_size(self, max_size: int) -> None:
         """Set the maximum payload size that can be sent in a request. Depends on device internal buffer size"""
@@ -204,6 +236,15 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
         self.raw_read_request_queue.put_nowait(request)
         return request
 
+    def _update_entry_update_rate(self, entry: DatastoreEntry) -> None:
+        requested_update_rate = self.datastore.get_effective_update_rate(entry)
+        selected_rate = self.get_closest_supported_rate(requested_update_rate)
+        if selected_rate is None:
+            with tools.SuppressException(KeyError):
+                del self.entry_to_rate_map[entry]
+        else:
+            self.entry_to_rate_map[entry] = selected_rate
+
     def _the_watch_callback(self, entry_id: str) -> None:
         """Callback called by the datastore whenever somebody starts watching an entry."""
         entry = self.datastore.get_entry(entry_id)
@@ -214,10 +255,12 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
         elif isinstance(entry, DatastoreRPVEntry):
             self.watched_rpv_entries.add(entry)
 
+        self._update_entry_update_rate(entry)
+
     def _the_unwatch_callback(self, entry_id: str) -> None:
         """Callback called by the datastore  whenever somebody stops watching an entry"""
+        entry = self.datastore.get_entry(entry_id)
         if len(self.datastore.get_watchers(entry_id)) == 0:
-            entry = self.datastore.get_entry(entry_id)
             if isinstance(entry, DatastorePointedVariableEntry):
                 self.watched_pointed_var_entries.remove(entry)
             elif isinstance(entry, DatastoreVariableEntry):
@@ -225,12 +268,17 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
             elif isinstance(entry, DatastoreRPVEntry):
                 self.watched_rpv_entries.remove(entry)
 
+        self._update_entry_update_rate(entry)
+
     def start(self) -> None:
         """Enable the memory reader to poll the devices"""
         self.logger.debug("Start requested")
         if not self.started:
             self.read_type_changed = True
         self.started = True
+
+        for throttler in self.throttlers.values():
+            throttler.enable()
 
     def stop(self) -> None:
         """Stops the memory readers from polling the device"""
@@ -269,6 +317,9 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
         self.entries_in_pending_read_var_request = []
         self.entries_in_pending_read_rpv_request = {}
         self.read_type_changed = True
+        self.round_enabled_rate.clear()
+        for throttler in self.throttlers.values():
+            throttler.disable()
 
         if self.active_raw_read_request is not None:
             self.active_raw_read_request.set_completed(False, None, "Stopping communication with device")
@@ -324,6 +375,7 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
             if self.actual_read_type == ReadType.Variable:
                 if self.read_type_changed:
                     self.active_watched_var_entries = sorted(self.watched_var_entries, key=lambda entry: entry.get_address_or_zero())
+                    self._update_rate_election()
                     self.read_type_changed = False
 
                 request, var_entries_in_request, wrapped_to_beginning = self._make_next_var_entries_request(VarType.AbsoluteAddress)
@@ -400,6 +452,15 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
             else:
                 raise Exception('Unknown read type.')
 
+    def _update_rate_election(self) -> None:
+        """At the start of a polling round, check which update rate bucket can be polled"""
+        self.round_enabled_rate.clear()
+
+        for rate, throttler in self.throttlers.items():
+            if throttler.allowed(1):
+                self.round_enabled_rate.add(rate)
+                throttler.consume(1)
+
     def _dispatch(self, request: Request, success_params: Any = None, failure_params: Any = None) -> None:
         """Sends a request to the request dispatcher and assign the corrects completion callbacks"""
         self.dispatcher.register_request(
@@ -450,6 +511,11 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
                     candidate_entry.set_value(None, DatastoreEntryInvalidReason.NullPtrDereference)
             else:
                 raise NotImplementedError("Unsupported variable type")
+
+            if candidate_entry in self.entry_to_rate_map:               # Throttling is applied.
+                entry_update_rate = self.entry_to_rate_map[candidate_entry]
+                if entry_update_rate not in self.round_enabled_rate:    # If we are not allowed by the throttler to poll this group.
+                    must_skip = True
 
             candidate_start = candidate_entry.get_address()
             candidate_size = candidate_entry.get_size()

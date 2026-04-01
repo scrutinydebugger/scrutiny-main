@@ -627,11 +627,10 @@ class TestDataStore(ScrutinyUnitTest):
         ds.start_watching(entries[2].get_id(), 'unittest2', requested_rate=20)
         self.assertEqual(ds.get_effective_update_rate(entries[0]), None)
         self.assertEqual(ds.get_effective_update_rate(entries[0].get_id()), None)
-        self.assertEqual(ds.get_effective_update_rate(entries[1]), None)
+        self.assertEqual(ds.get_effective_update_rate(entries[1]), None)    # None is faster than any int
         self.assertEqual(ds.get_effective_update_rate(entries[1].get_id()), None)
         self.assertEqual(ds.get_effective_update_rate(entries[2]), 20)
         self.assertEqual(ds.get_effective_update_rate(entries[2].get_id()), 20)
-
 
         with self.assertRaises(Exception):
             ds.start_watching(entries[3].get_id(), 'unittest1', requested_rate=0)
