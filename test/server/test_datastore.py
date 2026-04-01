@@ -614,6 +614,31 @@ class TestDataStore(ScrutinyUnitTest):
         entries[1].set_value(None, DatastoreEntryInvalidReason.NullPtrDereference)
         self.assertValueChangeCallbackCalled(entries[1].entry_id, 'unittest', 7)
 
+    def test_update_rate_logic(self):
+        entries = list(self.make_dummy_entries(4, WatchableType.Variable))
+        ds = Datastore()
+        ds.add_entries(entries)
+
+        ds.start_watching(entries[0].get_id(), 'unittest1', requested_rate=None)
+        ds.start_watching(entries[0].get_id(), 'unittest2', requested_rate=None)
+        ds.start_watching(entries[1].get_id(), 'unittest1', requested_rate=None)
+        ds.start_watching(entries[1].get_id(), 'unittest2', requested_rate=10)
+        ds.start_watching(entries[2].get_id(), 'unittest1', requested_rate=10)
+        ds.start_watching(entries[2].get_id(), 'unittest2', requested_rate=20)
+        self.assertEqual(ds.get_effective_update_rate(entries[0]), None)
+        self.assertEqual(ds.get_effective_update_rate(entries[0].get_id()), None)
+        self.assertEqual(ds.get_effective_update_rate(entries[1]), None)
+        self.assertEqual(ds.get_effective_update_rate(entries[1].get_id()), None)
+        self.assertEqual(ds.get_effective_update_rate(entries[2]), 20)
+        self.assertEqual(ds.get_effective_update_rate(entries[2].get_id()), 20)
+
+
+        with self.assertRaises(Exception):
+            ds.start_watching(entries[3].get_id(), 'unittest1', requested_rate=0)
+
+        with self.assertRaises(Exception):
+            ds.start_watching(entries[3].get_id(), 'unittest1', requested_rate=-1)
+
 
 if __name__ == '__main__':
     import unittest

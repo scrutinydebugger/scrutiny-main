@@ -1031,7 +1031,8 @@ class TestAPI(ScrutinyUnitTest):
         subscribed_entry = entries[2]
         req = {
             'cmd': 'subscribe_watchable',
-            'watchables': [subscribed_entry.get_display_path()]
+            'watchables': [subscribed_entry.get_display_path()],
+            'rate' : 10
         }
         assert isinstance(subscribed_entry, DatastoreVariableEntry)
 

@@ -13,6 +13,7 @@ __all__ = ['Datastore', 'BatchState', 'WatchCallback', 'BatchEditCallback']
 import logging
 import functools
 import enum
+from dataclasses import dataclass
 from scrutiny.core.basic_types import WatchableType
 from scrutiny.core.scrutiny_path import ScrutinyPath
 from scrutiny.server.datastore.datastore_entry import *
@@ -31,6 +32,10 @@ class BatchState(enum.Enum):
 WatchCallback: TypeAlias = Callable[[str], None]
 BatchEditCallback: TypeAlias = Callable[[str, BatchState], None]
 
+@dataclass(slots=True)
+class _WatcherParamSet:
+    update_rate:Optional[float] = None
+
 
 class Datastore:
     """
@@ -48,7 +53,7 @@ class Datastore:
     _logger: logging.Logger
     _entries: Dict[WatchableType, Dict[str, DatastoreEntry]]
     _displaypath2idmap: Dict[WatchableType, Dict[str, str]]
-    _watcher_map: Dict[WatchableType, Dict[str, Set[str]]]
+    _watcher_map: Dict[WatchableType, Dict[str, Dict[str, _WatcherParamSet]]]
     _global_watch_callbacks: List[WatchCallback]
     _global_unwatch_callbacks: List[WatchCallback]
     _target_update_request_queue: "List[UpdateTargetRequest]"
@@ -264,7 +269,8 @@ class Datastore:
     def start_watching(self,
                        entry_or_entryid: Union[DatastoreEntry, str],
                        watcher: str,
-                       value_change_callback: Optional[UserValueChangeCallback] = None
+                       value_change_callback: Optional[UserValueChangeCallback] = None,
+                        requested_rate:Optional[float] = None
                        ) -> DatastoreEntry:
         """
         Register a new callback on the entry identified by the given entry_id.
@@ -274,10 +280,16 @@ class Datastore:
 
         entry_id = self._get_entry_id(entry_or_entryid)
         entry = self.get_entry(entry_id)
+        if requested_rate is not None:
+            if requested_rate <= 0:
+                raise RuntimeError(f"Invalid update rate {requested_rate} for {entry}")
 
         if entry_id not in self._watcher_map[entry.get_type()]:
-            self._watcher_map[entry.get_type()][entry.get_id()] = set()
-        self._watcher_map[entry.get_type()][entry_id].add(watcher)
+            self._watcher_map[entry.get_type()][entry.get_id()] = {}
+
+        self._watcher_map[entry.get_type()][entry_id][watcher] = _WatcherParamSet(
+            update_rate=requested_rate
+        )
 
         if not entry.has_value_change_callback(watcher):
             if value_change_callback is not None:
@@ -351,7 +363,7 @@ class Datastore:
         watchable_type = entry.get_type()
 
         with tools.SuppressException():
-            self._watcher_map[watchable_type][entry_id].remove(watcher)
+            del self._watcher_map[watchable_type][entry_id][watcher]
 
         if entry_id in self._watcher_map[watchable_type]:
             if len(self._watcher_map[watchable_type][entry_id]) == 0:
@@ -470,6 +482,25 @@ class Datastore:
     def get_all_variable_factory(self) -> Generator[VariableFactory, None, None]:
         for factory in self._var_factories.values():
             yield factory
+
+    def get_effective_update_rate(self, entry_or_entryid:Union[DatastoreEntry, str]) -> Optional[float]:
+        entry_id = self._get_entry_id(entry_or_entryid)
+        entry = self.get_entry(entry_id)
+        watchable_type = entry.get_type()
+
+        if len(self._watcher_map[watchable_type][entry_id]) == 0:
+            raise RuntimeError(f"No watcher on entry: {entry}")
+
+        output_val:float = 0
+        for watcher_paramset in self._watcher_map[watchable_type][entry_id].values():
+            if watcher_paramset.update_rate is None:
+                return None         # Highest priority. No need to search further
+
+            if watcher_paramset.update_rate > output_val:
+                output_val = watcher_paramset.update_rate
+
+        return output_val
+
 
 # region Private
 
