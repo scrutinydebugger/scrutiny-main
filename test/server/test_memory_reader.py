@@ -1315,46 +1315,6 @@ class TestAllTypesOfReadMixed(ScrutinyUnitTest):
         self.assertIsInstance(raw_read_data_container.server_time_us, float)
         self.assertEqual(len(raw_read_data_container.data), raw_read_request_size)
 
-    def test_update_rate_logic(self):
-        var_entries = list(make_dummy_var_entries(address=0x2000, n=10, vartype=EmbeddedDataType.float32))
-
-        self.datastore.add_entries(var_entries)
-        dispatcher = RequestDispatcher()
-
-        self.protocol.set_address_size_bits(32)
-
-        for entry in self.datastore.get_all_entries():
-            self.callback_counter_per_type[entry.get_type()][entry.get_id()] = 0
-
-        reader = UnitTestMemoryReader(self.protocol, dispatcher=dispatcher, datastore=self.datastore, request_priority=0)
-        reader.set_max_request_payload_size(1024)
-        reader.set_max_response_payload_size(20 * 4 + 4 * 2)
-        reader.start()
-
-        supported_rate_tests = [
-            (0.99, 1),
-            (1.01, 2),
-            (2.99, 3),
-            (3, 3),
-            (3.01, 5),
-            (299, 300),
-            (300, 300),
-            (301, None),
-        ]
-
-        for requested, selected in supported_rate_tests:
-            self.assertEqual(reader.get_closest_supported_rate(requested), selected, f"requested={requested}")
-
-        self.datastore.start_watching(var_entries[0], 'unittest1')
-        # We check internal map. Hard tot est otherwise
-        self.assertNotIn(var_entries[0], reader.entry_to_rate_map)
-        self.datastore.start_watching(var_entries[0], 'unittest2', requested_rate=0.1)
-        self.assertNotIn(var_entries[0], reader.entry_to_rate_map)  # unittest1 wants full speed
-
-        self.datastore.stop_watching(var_entries[0], 'unittest1')
-        self.assertIn(var_entries[0], reader.entry_to_rate_map)  # We are left with unittest2 who wants slow
-        self.assertEqual(reader.entry_to_rate_map[var_entries[0]], 1)   # 1  is the closest faster
-
     def test_throttling_10sec(self):
 
         var_entries = list(make_dummy_var_entries(address=0x2000, n=10, vartype=EmbeddedDataType.float32))
@@ -1427,7 +1387,7 @@ class TestAllTypesOfReadMixed(ScrutinyUnitTest):
             checked_entry += 1
             measured_rate = rate_measurements[entry.get_id()].get_value()
             logger.debug(f"Entry: {entry.display_path}.  Measured={measured_rate:0.2f}. Target={rate:0.2f}")
-            msg = f"Entry={entry}"
+            msg = f"Entry={entry.get_display_path()}"
             self.assertGreater(measured_rate, rate * 0.5, msg)  # Margin is big because CI machine can be very slow
             self.assertLess(measured_rate, rate * 2, msg)
 
