@@ -25,17 +25,29 @@ class Throttler:
     :param estimation_window: Filters updated at this rate (default 0.1).
     """
 
+    __slots__ = (
+        "enabled",
+        "mean_rate",
+        "estimation_window_ns",
+        "slow_tau",
+        "fast_tau",
+        "last_process_timestamp_ns",
+        "estimated_rate_slow",
+        "estimated_rate_fast",
+        "consumed_since_last_estimation",
+    )
+
     enabled: bool
     """Whether the throttler is enabled."""
     mean_rate: float
     """Target mean rate."""
-    estimation_window: float
+    estimation_window_ns: int
     """Filters updated at this rate."""
     slow_tau: float
     """Time constant of first IIR filter (slow one)."""
     fast_tau: float
     """Time constant of second IIR filter (fast one)."""
-    last_process_timestamp: float
+    last_process_timestamp_ns: int
     """Timestamp of last process call."""
     estimated_rate_slow: float
     """Estimated rate using slow filter."""
@@ -47,11 +59,11 @@ class Throttler:
     def __init__(self, mean_rate: float = 0, estimation_window: float = 0.1):
         self.enabled = False
         self.mean_rate = mean_rate
-        self.estimation_window = estimation_window
+        self.estimation_window_ns = int(round(estimation_window * 1e9))
         # 1 sec time constant, but we can't be smaller than the window  (otherwise unstable)
-        self.slow_tau = max(1.0, self.estimation_window)
+        self.slow_tau = max(1.0, estimation_window)
         # 0.05 sec time constant, but we can't be smaller than the window (otherwise unstable)
-        self.fast_tau = max(0.05, self.estimation_window)
+        self.fast_tau = max(0.05, estimation_window)
         self.reset()
 
     def set_rate(self, mean_rate: float) -> None:
@@ -78,7 +90,7 @@ class Throttler:
 
     def reset(self) -> None:
         """ Sets the throttler to its initial state"""
-        self.last_process_timestamp = time.perf_counter()
+        self.last_process_timestamp_ns = time.perf_counter_ns()
         self.estimated_rate_slow = 0
         self.estimated_rate_fast = 0
         self.consumed_since_last_estimation = 0
@@ -93,27 +105,28 @@ class Throttler:
             self.reset()
             return
 
-        t = time.perf_counter()
-        dt = t - self.last_process_timestamp
-        if dt > self.estimation_window:
+        t = time.perf_counter_ns()
+        dt = t - self.last_process_timestamp_ns
+        if dt > self.estimation_window_ns:
+            dt_float = (float(dt) * 1e-9)
             # We need to update the filters, e.g. our estimation of the rate
             # The time delta (dT) is variable because of thread resolution. We need to recompute the
             # filters weights every time
-            instant_rate = self.consumed_since_last_estimation / dt  # Filters inputs
+            instant_rate = self.consumed_since_last_estimation / dt_float  # Filters inputs
 
             # Fast filter
-            b = min(1, dt / self.fast_tau)
+            b = min(1, dt_float / self.fast_tau)
             a = 1 - b
             self.estimated_rate_fast = b * instant_rate + a * self.estimated_rate_fast
 
             # Slow filter
-            b = min(1, dt / self.slow_tau)
+            b = min(1, dt_float / self.slow_tau)
             a = 1 - b
             self.estimated_rate_slow = b * instant_rate + a * self.estimated_rate_slow
 
             # Reset instant measurement
             self.consumed_since_last_estimation = 0     # Reset the data counter
-            self.last_process_timestamp = t             # Sets new timestamp
+            self.last_process_timestamp_ns = t             # Sets new timestamp
 
     def get_estimated_rate(self) -> float:
         """ Estimated rate is the long average. Fast average is only to avoid peak at startup."""

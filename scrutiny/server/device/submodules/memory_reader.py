@@ -179,7 +179,6 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
     throttlers: Dict[int, Throttler]
     entry_to_rate_map: Dict[DatastoreEntry, int]
     round_enabled_rate: Set[int]
-    nb_rpv_processed: int
 
     def __init__(self, protocol: Protocol, dispatcher: RequestDispatcher, datastore: Datastore, request_priority: int):
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -320,7 +319,6 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
         self.entries_in_pending_read_rpv_request = {}
         self.read_type_changed = True
         self.round_enabled_rate.clear()
-        self.nb_rpv_processed = 0
         for throttler in self.throttlers.values():
             throttler.disable()
 
@@ -423,7 +421,6 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
                 if self.read_type_changed:
                     self.active_watched_rpv_entries = sorted(self.watched_rpv_entries, key=lambda entry: entry.get_rpv().id)
                     self.read_type_changed = False
-                    self.nb_rpv_processed = 0
                 request, rpv_entries_in_request, wrapped_to_beginning = self._make_next_read_rpv_request()
                 if request is not None:
                     if self.logger.isEnabledFor(logging.DEBUG):  # pragma: no cover
@@ -592,9 +589,9 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
         if self.rpv_read_cursor >= len(self.active_watched_rpv_entries):
             self.rpv_read_cursor = 0
 
-        while self.nb_rpv_processed < len(self.active_watched_rpv_entries):
+        skipped_entries_count = 0
+        while skipped_entries_count + len(entries_in_request) < len(self.active_watched_rpv_entries):
             next_entry = self.active_watched_rpv_entries[self.rpv_read_cursor]
-            self.nb_rpv_processed += 1
             must_skip = False
 
             if next_entry in self.entry_to_rate_map:               # Throttling is applied.
@@ -602,7 +599,9 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
                 if entry_update_rate not in self.round_enabled_rate:    # If we are not allowed by the throttler to poll this group.
                     must_skip = True
 
-            if not must_skip:
+            if must_skip:
+                skipped_entries_count += 1
+            else:
                 candidate_list = entries_in_request + [next_entry]
                 rpv_candidate_list = [x.get_rpv() for x in candidate_list]
                 required_request_payload_size = self.protocol.read_rpv_request_required_size(rpv_candidate_list)
@@ -619,10 +618,13 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
             if self.rpv_read_cursor >= len(self.active_watched_rpv_entries):
                 cursor_wrapped = True   # Indicates that we finished one round of round-robin for RPV entries. Times to check the next category
                 self.rpv_read_cursor = 0
+                # We don't break here. If we're making wrapping and still have room in the request, why not
+                # ask again for RPVs at the beginning of the list
 
         ids = [x.get_rpv().id for x in entries_in_request]
         request = self.protocol.read_runtime_published_values(ids) if len(ids) > 0 else None
-        return (request, entries_in_request, cursor_wrapped)
+        return (request, entries_in_request,
+                cursor_wrapped)
 
     def _make_next_raw_mem_read_request(self) -> Tuple[Optional[Request], bool]:
         while self.active_raw_read_request is None:
