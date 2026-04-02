@@ -179,6 +179,7 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
     throttlers: Dict[int, Throttler]
     entry_to_rate_map: Dict[DatastoreEntry, int]
     round_enabled_rate: Set[int]
+    nb_rpv_processed: int
 
     def __init__(self, protocol: Protocol, dispatcher: RequestDispatcher, datastore: Datastore, request_priority: int):
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -319,6 +320,7 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
         self.entries_in_pending_read_rpv_request = {}
         self.read_type_changed = True
         self.round_enabled_rate.clear()
+        self.nb_rpv_processed = 0
         for throttler in self.throttlers.values():
             throttler.disable()
 
@@ -369,7 +371,6 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
         while self.pending_request is None and len(read_type_considered) < len(ReadType):
             read_type_considered.add(self.actual_read_type)
 
-            print(self.actual_read_type)
             # We want to read everything in a round robin scheme. But we need to read memory and RPV as much without discrimination
             # So we need to do   ReadMem1, ReadMem2, ReadMem3, ReadRPV1, ReadRPV2  **WRAP**  ReadMem1, ReadMem2, etc
             # Also, pointed var needs to be read after vars with addresses (they include pointers)
@@ -422,6 +423,7 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
                 if self.read_type_changed:
                     self.active_watched_rpv_entries = sorted(self.watched_rpv_entries, key=lambda entry: entry.get_rpv().id)
                     self.read_type_changed = False
+                    self.nb_rpv_processed = 0
                 request, rpv_entries_in_request, wrapped_to_beginning = self._make_next_read_rpv_request()
                 if request is not None:
                     if self.logger.isEnabledFor(logging.DEBUG):  # pragma: no cover
@@ -590,21 +592,29 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
         if self.rpv_read_cursor >= len(self.active_watched_rpv_entries):
             self.rpv_read_cursor = 0
 
-        while len(entries_in_request) < len(self.active_watched_rpv_entries):
+        while self.nb_rpv_processed < len(self.active_watched_rpv_entries):
             next_entry = self.active_watched_rpv_entries[self.rpv_read_cursor]
+            self.nb_rpv_processed += 1
+            must_skip = False
 
-            candidate_list = entries_in_request + [next_entry]
-            rpv_candidate_list = [x.get_rpv() for x in candidate_list]
-            required_request_payload_size = self.protocol.read_rpv_request_required_size(rpv_candidate_list)
-            required_response_payload_size = self.protocol.read_rpv_response_required_size(rpv_candidate_list)
+            if next_entry in self.entry_to_rate_map:               # Throttling is applied.
+                entry_update_rate = self.entry_to_rate_map[next_entry]
+                if entry_update_rate not in self.round_enabled_rate:    # If we are not allowed by the throttler to poll this group.
+                    must_skip = True
 
-            if required_request_payload_size > self.max_request_payload_size:
-                break
-            if required_response_payload_size > self.max_response_payload_size:
-                break
+            if not must_skip:
+                candidate_list = entries_in_request + [next_entry]
+                rpv_candidate_list = [x.get_rpv() for x in candidate_list]
+                required_request_payload_size = self.protocol.read_rpv_request_required_size(rpv_candidate_list)
+                required_response_payload_size = self.protocol.read_rpv_response_required_size(rpv_candidate_list)
 
-            # We keep this entry.
-            entries_in_request = candidate_list
+                if required_request_payload_size > self.max_request_payload_size:
+                    break
+                if required_response_payload_size > self.max_response_payload_size:
+                    break
+
+                # We keep this entry.
+                entries_in_request = candidate_list
             self.rpv_read_cursor += 1
             if self.rpv_read_cursor >= len(self.active_watched_rpv_entries):
                 cursor_wrapped = True   # Indicates that we finished one round of round-robin for RPV entries. Times to check the next category

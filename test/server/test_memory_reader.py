@@ -8,6 +8,7 @@
 #    Copyright (c) 2022 Scrutiny Debugger
 
 import random
+import time
 from dataclasses import dataclass
 
 
@@ -26,11 +27,11 @@ from scrutiny.core.basic_types import *
 from test import ScrutinyUnitTest
 from scrutiny.core.codecs import Codecs, Encodable
 from scrutiny import tools
-from scrutiny.tools.sorted_set import SortedSet
+from scrutiny.tools.profiling import VariableRateExponentialAverager
 import math
 import functools
 import struct
-
+from test import logger
 
 from scrutiny.tools.typing import *
 
@@ -1353,6 +1354,83 @@ class TestAllTypesOfReadMixed(ScrutinyUnitTest):
         self.datastore.stop_watching(var_entries[0], 'unittest1')
         self.assertIn(var_entries[0], reader.entry_to_rate_map)  # We are left with unittest2 who wants slow
         self.assertEqual(reader.entry_to_rate_map[var_entries[0]], 1)   # 1  is the closest faster
+
+    def test_throttling(self):
+
+        var_entries = list(make_dummy_var_entries(address=0x2000, n=10, vartype=EmbeddedDataType.float32))
+        rpv_entries = list(make_dummy_rpv_entries(start_id=0x100, n=5, vartype=EmbeddedDataType.float32))
+
+        self.datastore.add_entries(var_entries)
+        self.datastore.add_entries(rpv_entries)
+        dispatcher = RequestDispatcher()
+
+        self.protocol.set_address_size_bits(32)
+        self.protocol.configure_rpvs([entry.get_rpv() for entry in rpv_entries])
+
+        reader = UnitTestMemoryReader(self.protocol, dispatcher=dispatcher, datastore=self.datastore, request_priority=0)
+        reader.set_max_request_payload_size(1024)
+        reader.set_max_response_payload_size(1024)
+        reader.start()
+
+        rate_measurements: Dict[str, VariableRateExponentialAverager] = {}
+        for entry in var_entries + rpv_entries:
+            filter = VariableRateExponentialAverager(tau=0.1)
+            filter.enable()
+            rate_measurements[entry.get_id()] = filter
+
+        def callback(owner: str, entry: DatastoreEntry):
+            rate = rate_measurements[entry.get_id()]
+            rate.add_data(1)
+            rate.update()
+
+        self.datastore.start_watching(var_entries[0], 'unittest', callback, requested_rate=2)
+        self.datastore.start_watching(var_entries[1], 'unittest', callback, requested_rate=1)
+        self.datastore.start_watching(rpv_entries[0], 'unittest', callback, requested_rate=1)
+        self.datastore.start_watching(rpv_entries[1], 'unittest', callback, requested_rate=30)
+
+        t = time.perf_counter()
+        TIMEOUT = 10
+
+        while time.perf_counter() - t < TIMEOUT:
+            reader.process()
+            record = dispatcher.pop_next()
+            if record is not None:
+                req = record.request
+                if req.command == MemoryControl and req.subfn == MemoryControl.Subfunction.Read.value:
+                    request_data = cast(protocol_typing.Request.MemoryControl.Read, self.protocol.parse_request(req))
+                    response_blocks: List[Tuple[int, bytes]] = []
+                    for block in request_data['blocks_to_read']:
+                        response_block = (block['address'], b'\x00' * block['length'])
+                        response_blocks.append(response_block)
+                    response = self.protocol.respond_read_memory_blocks(block_list=response_blocks)
+                    record.complete(True, response)
+                elif req.command == MemoryControl and req.subfn == MemoryControl.Subfunction.ReadRPV.value:
+                    request_data = cast(protocol_typing.Request.MemoryControl.ReadRPV, self.protocol.parse_request(req))
+                    response_data = []
+                    for rpv_id in request_data['rpvs_id']:
+                        response_data.append((rpv_id, generate_random_value(EmbeddedDataType.float32)))
+                    response = self.protocol.respond_read_runtime_published_values(response_data)
+                    record.complete(True, response)
+                else:
+                    raise NotImplementedError(f"Unsupported command : {req}")
+
+            time.sleep(0.01)
+
+        checked_entry = 0
+        for entry in var_entries + rpv_entries:
+            if not self.datastore.has_watchers(entry):
+                continue
+            rate = self.datastore.get_effective_update_rate(entry)
+            if rate is None:
+                continue
+            checked_entry += 1
+            measured_rate = rate_measurements[entry.get_id()].get_value()
+            logger.debug(f"Entry: {entry.display_path}.  Measured={measured_rate:0.2f}. Target={rate:0.2f}")
+            msg = f"Entry={entry}"
+            self.assertGreater(measured_rate, rate * 0.8, msg)
+            self.assertLess(measured_rate, rate * 2, msg)
+
+        self.assertGreater(checked_entry, 0)
 
 
 if __name__ == '__main__':
