@@ -2986,7 +2986,7 @@ class ScrutinyClient:
 
         req = self._make_request(API.Command.Client2Api.SET_LINK_CONFIG, {
             'link_type': link_type_api_name,
-            'link_config': link_config._to_api_format()
+            'link_config': link_config._to_api_format() if link_config is not None else None
         })
 
         future = self._send(req, lambda *args, **kwargs: None)
