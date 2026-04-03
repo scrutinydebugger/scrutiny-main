@@ -1432,7 +1432,7 @@ def parse_change_update_rate_response(response: api_typing.S2C.ChangeSubscriptio
     assert cmd == API.Command.Api2Client.CHANGE_SUBSCRIPTION_UPDATE_RATE_RESPONSE
 
     _check_response_dict(cmd, response, 'effective_rates', dict)
-    out_dict = {}
+    out_dict: Dict[str, Optional[float]] = {}
     for k, v in response['effective_rates'].items():
         if not isinstance(k, str):
             raise sdk.exceptions.BadResponseError("Server ID given by the server is not a string")
