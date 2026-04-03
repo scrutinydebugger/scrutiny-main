@@ -307,7 +307,8 @@ class DeviceHandler:
 
     def _make_heartbeat_interval(self, timeout_value:Optional[float] = None) -> float:
         effective_timeout = self.config['heartbeat_timeout']
-        effective_timeout = min(timeout_value, effective_timeout)
+        if timeout_value is not None:
+            effective_timeout = min(timeout_value, effective_timeout)
         return max(0.5, effective_timeout * 0.75)
 
     def register_device_state_change_callback(self, callback: DeviceStateChangedCallback) -> None:
