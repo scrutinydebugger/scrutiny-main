@@ -124,6 +124,7 @@ class API:
             GET_WATCHABLE_INFO = 'get_watchable_info'
             SUBSCRIBE_WATCHABLE = 'subscribe_watchable'
             UNSUBSCRIBE_WATCHABLE = 'unsubscribe_watchable'
+            CHANGE_SUBSCRIPTION_UPDATE_RATE = 'change_subscription_update_rate'
             GET_INSTALLED_SFD = 'get_installed_sfd'
             GET_LOADED_SFD = 'get_loaded_sfd'
             UNINSTALL_SFD = 'uninstall_sfd'
@@ -159,6 +160,7 @@ class API:
             GET_WATCHABLE_INFO_RESPONSE = 'response_get_watchable_info'
             SUBSCRIBE_WATCHABLE_RESPONSE = 'response_subscribe_watchable'
             UNSUBSCRIBE_WATCHABLE_RESPONSE = 'response_unsubscribe_watchable'
+            CHANGE_SUBSCRIPTION_UPDATE_RATE_RESPONSE = 'response_change_subscription_update_rate'
             WATCHABLE_UPDATE = 'watchable_update'
             GET_INSTALLED_SFD_RESPONSE = 'response_get_installed_sfd'
             GET_LOADED_SFD_RESPONSE = 'response_get_loaded_sfd'
@@ -422,6 +424,7 @@ class API:
             self.Command.Client2Api.GET_WATCHABLE_INFO: self.process_get_watchable_info,
             self.Command.Client2Api.SUBSCRIBE_WATCHABLE: self.process_subscribe_watchable,
             self.Command.Client2Api.UNSUBSCRIBE_WATCHABLE: self.process_unsubscribe_watchable,
+            self.Command.Client2Api.CHANGE_SUBSCRIPTION_UPDATE_RATE: self.process_change_subscription_update_rate_change,
             self.Command.Client2Api.GET_INSTALLED_SFD: self.process_get_installed_sfd,
             self.Command.Client2Api.UNINSTALL_SFD: self.process_uninstall_sfd,
             self.Command.Client2Api.LOAD_SFD: self.process_load_sfd,
@@ -978,6 +981,34 @@ class API:
             'cmd': self.Command.Api2Client.UNSUBSCRIBE_WATCHABLE_RESPONSE,
             'reqid': self.get_req_id(req),
             'unsubscribed': req['watchables']
+        }
+
+        self.client_handler.send(ClientHandlerMessage(conn_id=conn_id, obj=response))
+
+    #  ===  CHANGE_SUBSCRIPTION_UPDATE_RATE ===
+    def process_change_subscription_update_rate_change(self, conn_id: str, req: api_typing.C2S.ChangeSubscriptionUpdateRate) -> None:
+        # Unsubscribe client from value update of the given datastore entries
+        _check_request_dict(req, req, 'changes', list)
+
+        effective_rates: Dict[str, Optional[float]] = {}
+        # Check existence of all entries before doing anything
+        for change in req['changes']:
+            _check_request_dict(req, change, f'id', str)
+            _check_request_dict(req, change, f'rate', (type(None), float, int))
+
+            rate: Optional[float] = None
+            if change['rate'] is not None:
+                rate = float(change['rate'])
+
+            try:
+                effective_rates[change['id']] = self.datastore.set_update_rate(conn_id, change['id'], rate)
+            except Exception as e:
+                raise InvalidRequestException(req, f'Cannot change update rate : {e}')
+
+        response: api_typing.S2C.ChangeSubscriptionUpdateRate = {
+            'cmd': self.Command.Api2Client.CHANGE_SUBSCRIPTION_UPDATE_RATE_RESPONSE,
+            'reqid': self.get_req_id(req),
+            'effective_rates': effective_rates
         }
 
         self.client_handler.send(ClientHandlerMessage(conn_id=conn_id, obj=response))

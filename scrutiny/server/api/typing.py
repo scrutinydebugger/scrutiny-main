@@ -258,6 +258,11 @@ class FileChunk(TypedDict):
     chunk_index: int
 
 
+class SubscriptionUpdateRateChange(TypedDict):
+    id: str
+    rate: Optional[float]
+
+
 class C2S:
     "Client To Server"
     class Echo(BaseC2SMessage):
@@ -309,6 +314,9 @@ class C2S:
 
     class UnsubscribeWatchable(BaseC2SMessage):
         watchables: List[str]
+
+    class ChangeSubscriptionUpdateRate(BaseC2SMessage):
+        changes: List[SubscriptionUpdateRateChange]
 
     class SetLinkConfig(BaseC2SMessage, DeviceCommLinkDef):
         pass
@@ -439,6 +447,9 @@ class S2C:
     class UnsubscribeWatchable(BaseS2CMessage):
         unsubscribed: List[str]
 
+    class ChangeSubscriptionUpdateRate(BaseS2CMessage):
+        effective_rates: Dict[str, Optional[float]]
+
     class WatchableUpdate(BaseS2CMessage):
         updates: List[WatchableUpdateRecord]
 
@@ -550,6 +561,7 @@ C2SMessage = Union[
     C2S.UninstallSFD,
     C2S.SubscribeWatchable,
     C2S.UnsubscribeWatchable,
+    C2S.ChangeSubscriptionUpdateRate,
     C2S.WriteValue,
     C2S.RequestDataloggingAcquisition,
     C2S.ReadDataloggingAcquisitionContent,
@@ -579,6 +591,7 @@ S2CMessage = Union[
     S2C.GetWatchableInfo,
     S2C.SubscribeWatchable,
     S2C.UnsubscribeWatchable,
+    S2C.ChangeSubscriptionUpdateRate,
     S2C.WatchableUpdate,
     S2C.WriteValue,
     S2C.WriteCompletion,

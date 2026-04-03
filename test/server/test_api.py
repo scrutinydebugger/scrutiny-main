@@ -3686,6 +3686,73 @@ class TestAPI(ScrutinyUnitTest):
 
         self.assertIsNone(self.wait_for_response(0, timeout=0.5))
 
+    def test_update_subscription_rate(self):
+        entries = self.make_dummy_entries(10, entry_type=WatchableType.Variable, prefix='var')
+        self.datastore.add_entries(entries)
+        INITIAL_RATE = 100
+
+        @dataclass
+        class Testcase:
+            entry: DatastoreEntry
+            updated_rate: Optional[float]
+
+        testcases = [
+            Testcase(entries[1], 10),  # slower
+            Testcase(entries[2], 200),  # Faster has priority
+            Testcase(entries[3], None)
+        ]
+        for testcase in testcases:
+            subscribe_cmd = {
+                'cmd': 'subscribe_watchable',
+                'watchables': [testcase.entry.get_display_path()],
+                'rate': INITIAL_RATE
+            }
+
+            # Subscribe through conn 0
+            self.send_request(subscribe_cmd, 0)
+            response = self.wait_and_load_response(0)
+            self.assert_no_error(response)
+
+        for testcase in testcases:
+            self.assertEqual(self.datastore.get_effective_update_rate(testcase.entry), INITIAL_RATE)
+
+        update_cmd = {
+            'cmd': 'change_subscription_update_rate',
+            'changes': [
+                {'id': testcase.entry.get_id(), 'rate': testcase.updated_rate} for testcase in testcases
+            ]
+        }
+
+        self.send_request(update_cmd, 0)
+        response = self.wait_and_load_response(0)
+        self.assert_no_error(response)
+
+        for testcase in testcases:
+            self.assertEqual(self.datastore.get_effective_update_rate(testcase.entry),
+                             testcase.updated_rate, msg=f"Entry:{testcase.entry.display_path}")
+
+        negative_cmd = {
+            'cmd': 'change_subscription_update_rate',
+            'changes': [{'id': 'idontexist', 'rate': 10}]
+        }
+        self.send_request(negative_cmd, 0)
+        self.assert_is_error(self.wait_and_load_response(0))
+
+        for v in [-1, 0, 'asd', {}, [], True]:
+            negative_cmd = {
+                'cmd': 'change_subscription_update_rate',
+                'changes': [{'id': entries[1].get_id(), 'rate': v}]     # Invalid rate
+            }
+            self.send_request(negative_cmd, 0)
+            self.assert_is_error(self.wait_and_load_response(0), f"v={v}")
+
+        negative_cmd = {
+            'cmd': 'change_subscription_update_rate',
+            'changes': [{'id': entries[5].get_id(), 'rate': 10}]  # Not watched
+        }
+        self.send_request(negative_cmd, 0)
+        self.assert_is_error(self.wait_and_load_response(0))
+
 
 # endregion
 if __name__ == '__main__':

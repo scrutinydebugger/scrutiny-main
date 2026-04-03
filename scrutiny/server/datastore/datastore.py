@@ -281,9 +281,7 @@ class Datastore:
 
         entry_id = self._get_entry_id(entry_or_entryid)
         entry = self.get_entry(entry_id)
-        if requested_rate is not None:
-            if requested_rate <= 0:
-                raise RuntimeError(f"Invalid update rate {requested_rate} for {entry}")
+        self._assert_update_rate_valid(entry, requested_rate)
 
         if entry_id not in self._watcher_map[entry.get_type()]:
             self._watcher_map[entry.get_type()][entry.get_id()] = {}
@@ -484,6 +482,21 @@ class Datastore:
         for factory in self._var_factories.values():
             yield factory
 
+    def set_update_rate(self, watcher: str, entry_or_entryid: Union[DatastoreEntry, str], rate: Optional[float]) -> Optional[float]:
+        """Change the update rate of an existing subscription."""
+        entry_id = self._get_entry_id(entry_or_entryid)
+        entry = self.get_entry(entry_id)
+        watchable_type = entry.get_type()
+
+        watcher_paramset = self._watcher_map[watchable_type].get(entry_id, {}).get(watcher, None)
+        if watcher_paramset is None:
+            raise RuntimeError(f"Not watching watching entry {entry.display_path} (ID: {entry.get_id()}")
+
+        self._assert_update_rate_valid(entry, rate)
+        watcher_paramset.update_rate = rate
+
+        return self.get_effective_update_rate(entry_id)
+
     def get_effective_update_rate(self, entry_or_entryid: Union[DatastoreEntry, str]) -> Optional[float]:
         """Return the fastest update rate that applies to this entry"""
         entry_id = self._get_entry_id(entry_or_entryid)
@@ -537,4 +550,10 @@ class Datastore:
         """Callback used by an alias to grab the result of the target update and apply it to its own"""
         # entry is a var or a RPV
         alias_request.complete(success=success)
+
+    def _assert_update_rate_valid(self, entry: DatastoreEntry, rate: Optional[float]) -> None:
+        if rate is not None:
+            if rate <= 0:
+                raise RuntimeError(f"Invalid update rate {rate} for {entry}")
+
 # endregion
