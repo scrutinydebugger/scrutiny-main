@@ -323,7 +323,7 @@ class WatchableHandle:
 
     def change_update_rate(self, update_rate: Optional[float]) -> Optional[float]:
         """Request the server to change the target update rate for this watchable (optionally set when
-        calling :meth:`watch()<scrutiny.sdk.clietn.ScrutinyClient.watch>`).
+        calling :meth:`watch()<scrutiny.sdk.client.ScrutinyClient.watch>`).
         When there are multiple clients watching the same watchable, the server applies the fastest required rate.
 
         :param update_rate: The new polling rate. A value of ``None`` indicates that updates should happen as fast as possible.
