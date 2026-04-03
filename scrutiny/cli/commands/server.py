@@ -27,7 +27,7 @@ class Server(BaseCommand):
         self.args = args
         self.parser = argparse.ArgumentParser(prog=self.get_prog())
         self.parser.add_argument('--config', default=None, help='Configuration file used by the server')
-        self.parser.add_argument('--port', default=None, required=False, help='TCP port used to listen or clients')
+        self.parser.add_argument('--port', default=None, required=False, help='TCP port used to listen for clients')
         self.parser.add_argument('--options', metavar='OPTION', nargs='*', help="Server configuration passed by the CLI."
                                  " Specified as a list of key=value where key can be a nested dict where the a dot (.) represent a nesting level. 'a.b.c=val'"
                                  "Overrides file configuration if specified.")

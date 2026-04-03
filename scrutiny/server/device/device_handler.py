@@ -186,7 +186,7 @@ class DeviceHandler:
 
     DEFAULT_PARAMS: DeviceHandlerConfig = {
         'response_timeout': 1.0,    # If a response take more than this delay to be received after a request is sent, drop the response.
-        'heartbeat_timeout': 4.0,
+        'heartbeat_timeout': 5.0,
         'default_address_size': 32,
         'default_protocol_version': '1.0',
         'max_request_size': 1024,
@@ -288,7 +288,7 @@ class DeviceHandler:
             self.comm_handler.set_rx_data_event(rx_event)
         self.comm_handler_open_restart_timer = Timer(1.0)
 
-        self.heartbeat_generator.set_interval(max(0.5, self.config['heartbeat_timeout'] * 0.75))
+        self.heartbeat_generator.set_interval(self._make_heartbeat_interval(timeout_value=None))
         self.comm_broken = False
         self.device_id = None
         self.operating_mode = self.OperatingMode.Normal
@@ -304,6 +304,11 @@ class DeviceHandler:
             self.configure_comm(self.config['link_type'], self.config['link_config'])
 
         self.reset_comm()
+
+    def _make_heartbeat_interval(self, timeout_value:Optional[float] = None) -> float:
+        effective_timeout = self.config['heartbeat_timeout']
+        effective_timeout = min(timeout_value, effective_timeout)
+        return max(0.5, effective_timeout * 0.75)
 
     def register_device_state_change_callback(self, callback: DeviceStateChangedCallback) -> None:
         """Register a callback to be called when the state of the device communication changes"""
@@ -483,7 +488,7 @@ class DeviceHandler:
         self.dispatcher.set_size_limits(max_request_payload_size=max_request_payload_size, max_response_payload_size=max_response_payload_size)
         self.datalogging_poller.set_max_response_payload_size(max_response_payload_size)
         self.protocol.set_address_size_bits(partial_device_info.address_size_bits)
-        self.heartbeat_generator.set_interval(max(0.5, float(partial_device_info.heartbeat_timeout_us) / 1000000.0 * 0.75))
+        self.heartbeat_generator.set_interval(self._make_heartbeat_interval( float(partial_device_info.heartbeat_timeout_us) / 1000000.0 ))
 
     def get_protocol_version_callback(self, major: int, minor: int) -> None:
         """Callback called by the InfoPoller whenever the protocol version is gotten after a GetProtocol command"""
