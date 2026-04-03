@@ -342,3 +342,28 @@ Following is the object returned :meth:`download_watchable_list<scrutiny.sdk.cli
     :exclude-members: __new__, __init__
     :member-order: bysource
     :members:
+
+
+Controlling the update rate
+---------------------------
+
+The server is can be instructed to poll a watchable at a reduced rate to avoid unnecessary bandwidth usage on the device link.
+This can be usefull if a comunication link is fast and the value does not ened to eb refreshed often (displayed on a screen for example).
+
+When calling :meth:`ScrutinyClient.watch()<scrutiny.sdk.client.ScrutinyClient.watch>`, one can specify an optional ``update_rate`` value.
+This update rate can also be set or changed after the initial call to :meth:`ScrutinyClient.watch()<scrutiny.sdk.client.ScrutinyClient.watch>`,
+by calling :meth:`WatchableHandle.change_update_rate()<scrutiny.sdk.watchable_handle.WatchableHandle.change_update_rate>`
+
+.. automethod:: scrutiny.sdk.watchable_handle.WatchableHandle.change_update_rate
+
+
+Example
+
+.. code-block:: python
+
+    from scrutiny.sdk.client import ScrutinyClient
+
+    client = ScrutinyClient()
+    with client.connect('localhost', 8765):
+        w1 = client.watch('/global/my_var', update_rate=30) # 30 update/sec maximum
+        w1.change_update_rate(None) # Go as fast as possible.

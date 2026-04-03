@@ -2483,6 +2483,38 @@ class TestApiParser(ScrutinyUnitTest):
         with self.assertRaises(sdk.exceptions.BadResponseError):
             parser.parse_upload_sfd_data_response(msg)
 
+    def test_parser_change_update_rate(self):
+        def base() -> api_typing.S2C.ChangeSubscriptionUpdateRate:
+            return {
+                'reqid': 0,
+                'cmd': 'response_change_subscription_update_rate',
+                "effective_rates": {
+                    "aaa": 123,
+                    "bbb": None
+                }
+            }
+
+        msg = base()
+        effective_rates = parser.parse_change_update_rate_response(msg)
+        self.assertEqual(effective_rates, {"aaa": 123, "bbb": None})
+
+        vals = [1, "xxx", None, [], Delete]
+        for v in vals:
+            with self.assertRaises(Exception, msg=f"v={v}"):
+                msg = base()
+                if v == Delete:
+                    del msg['effective_rates']
+                else:
+                    msg['effective_rates'] = v
+                parser.parse_change_update_rate_response(msg)
+
+        vals = ["xxx", [], {}, True]
+        for v in vals:
+            with self.assertRaises(Exception, msg=f"v={v}"):
+                msg = base()
+                msg['effective_rates']["aaa"] = v
+                parser.parse_change_update_rate_response(msg)
+
 
 if __name__ == '__main__':
     unittest.main()

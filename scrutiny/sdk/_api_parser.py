@@ -1423,3 +1423,25 @@ def parse_upload_sfd_data_response(response: api_typing.S2C.UploadSFDData) -> Up
         actual_size=response['actual_size'],
         sfd_info=sfd_info
     )
+
+
+def parse_change_update_rate_response(response: api_typing.S2C.ChangeSubscriptionUpdateRate) -> Dict[str, Optional[float]]:
+    assert isinstance(response, dict)
+    assert 'cmd' in response
+    cmd = response['cmd']
+    assert cmd == API.Command.Api2Client.CHANGE_SUBSCRIPTION_UPDATE_RATE_RESPONSE
+
+    _check_response_dict(cmd, response, 'effective_rates', dict)
+    out_dict = {}
+    for k, v in response['effective_rates'].items():
+        if not isinstance(k, str):
+            raise sdk.exceptions.BadResponseError("Server ID given by the server is not a string")
+        if not isinstance(v, (type(None), float, int)) or isinstance(v, bool):
+            raise sdk.exceptions.BadResponseError("Invalid effective rate given by the server")
+
+        if v is not None:
+            out_dict[k] = float(v)
+        else:
+            out_dict[k] = None
+
+    return out_dict

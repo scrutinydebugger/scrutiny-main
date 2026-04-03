@@ -995,6 +995,31 @@ class TestClient(ScrutinyUnitTest):
         self.assertEqual(alias_rpv1000.name, 'alias_rpv1000')
         self.assertEqual(alias_rpv1000.datatype, sdk.EmbeddedDataType.float32)
 
+    def test_update_rate_control(self):
+        # Make sure we can correctly read the information about a watchables
+        rpv1000 = self.client.watch('/rpv/x1000', update_rate=100)
+        var1 = self.client.watch('/a/b/var1', update_rate=None)
+        var2 = self.client.watch('/a/b/var2', update_rate=10)
+
+        self.assertEqual(self.datastore.get_effective_update_rate(rpv1000.server_id), 100)
+        self.assertEqual(self.datastore.get_effective_update_rate(var1.server_id), None)
+        self.assertEqual(self.datastore.get_effective_update_rate(var2.server_id), 10)
+
+        rpv1000.change_update_rate(200)
+        var1.change_update_rate(100)
+        var2.change_update_rate(None)
+
+        self.assertEqual(self.datastore.get_effective_update_rate(rpv1000.server_id), 200)
+        self.assertEqual(self.datastore.get_effective_update_rate(var1.server_id), 100)
+        self.assertEqual(self.datastore.get_effective_update_rate(var2.server_id), None)
+
+        self.datastore.start_watching(rpv1000.server_id, 'dummy_watcher', requested_rate=300)
+        effective_rate = rpv1000.change_update_rate(10)
+        self.assertEqual(effective_rate, 300)
+        self.assertEqual(self.datastore.get_effective_update_rate(rpv1000.server_id), 300)
+        self.datastore.stop_watching(rpv1000.server_id, 'dummy_watcher')
+        self.assertEqual(self.datastore.get_effective_update_rate(rpv1000.server_id), 10)
+
     def test_get_watchable_info(self):
         # Make sure we can correctly read the information about a watchables
         rpv1000 = self.client.get_rpv_watchable_info('/rpv/x1000')
