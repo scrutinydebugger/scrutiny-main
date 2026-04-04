@@ -20,6 +20,7 @@ from scrutiny.server.protocol import Protocol, Request, Response
 import scrutiny.server.protocol.typing as protocol_typing
 from scrutiny.server.protocol.commands import *
 from scrutiny.core.variable import *
+from scrutiny.core.alias import Alias
 from scrutiny.core.variable_location import ResolvedPathPointedLocation
 from scrutiny.core.variable_factory import VariableFactory
 from scrutiny.core.array import UntypedArray
@@ -1319,9 +1320,11 @@ class TestAllTypesOfReadMixed(ScrutinyUnitTest):
 
         var_entries = list(make_dummy_var_entries(address=0x2000, n=10, vartype=EmbeddedDataType.float32))
         rpv_entries = list(make_dummy_rpv_entries(start_id=0x100, n=5, vartype=EmbeddedDataType.float32))
-
-        self.datastore.add_entries(var_entries)
-        self.datastore.add_entries(rpv_entries)
+        alias_var2 = DatastoreAliasEntry(aliasdef=Alias('/alias1', target=var_entries[2].display_path), refentry=var_entries[2])
+        alias_rpv2 = DatastoreAliasEntry(aliasdef=Alias('/alias1', target=rpv_entries[2].display_path), refentry=rpv_entries[2])
+        alias_entries = [alias_var2, alias_rpv2]
+        all_entries = var_entries + rpv_entries + alias_entries
+        self.datastore.add_entries(all_entries)
         dispatcher = RequestDispatcher()
 
         self.protocol.set_address_size_bits(32)
@@ -1333,7 +1336,7 @@ class TestAllTypesOfReadMixed(ScrutinyUnitTest):
         reader.start()
 
         rate_measurements: Dict[str, VariableRateExponentialAverager] = {}
-        for entry in var_entries + rpv_entries:
+        for entry in all_entries:
             filter = VariableRateExponentialAverager(tau=0.1)
             filter.enable()
             rate_measurements[entry.get_id()] = filter
@@ -1348,6 +1351,8 @@ class TestAllTypesOfReadMixed(ScrutinyUnitTest):
         self.datastore.start_watching(var_entries[1], 'unittest', callback, requested_rate=1)
         self.datastore.start_watching(rpv_entries[0], 'unittest', callback, requested_rate=1)
         self.datastore.start_watching(rpv_entries[1], 'unittest', callback, requested_rate=3)
+        self.datastore.start_watching(alias_var2, 'unittest', callback, requested_rate=2)
+        self.datastore.start_watching(alias_rpv2, 'unittest', callback, requested_rate=1)
 
         t = time.perf_counter()
         TIMEOUT = 10
@@ -1378,8 +1383,9 @@ class TestAllTypesOfReadMixed(ScrutinyUnitTest):
             time.sleep(0.005)
 
         checked_entry = 0
-        for entry in var_entries + rpv_entries:
-            if not self.datastore.has_watchers(entry):
+
+        for entry in all_entries:
+            if not self.datastore.is_watching(entry, 'unittest'):
                 continue
             rate = self.datastore.get_effective_update_rate(entry)
             if rate is None:

@@ -310,7 +310,8 @@ class Datastore:
             self.start_watching(
                 entry_or_entryid=entry.resolve(),
                 watcher=self._make_owner_from_entry(entry),
-                value_change_callback=alias_value_change_callback
+                value_change_callback=alias_value_change_callback,
+                requested_rate=requested_rate
             )
         elif isinstance(entry, DatastorePointedVariableEntry):
             if entry.variable_def.has_pointed_address():
@@ -318,7 +319,8 @@ class Datastore:
                 self.start_watching(
                     entry_or_entryid=entry.get_pointer_entry(),
                     watcher=self._make_owner_from_entry(entry),
-                    value_change_callback=pointer_value_change_callback
+                    value_change_callback=pointer_value_change_callback,
+                    requested_rate=requested_rate
                 )
         return entry
 
@@ -504,6 +506,20 @@ class Datastore:
         effective_rate = self.get_effective_update_rate(entry_id)
         for callback in self._global_update_rate_change_callbacks:
             callback(entry, effective_rate)
+
+        if isinstance(entry, DatastoreAliasEntry):
+            self.set_update_rate(
+                entry_or_entryid=entry.resolve(),
+                watcher=self._make_owner_from_entry(entry),
+                rate=rate
+            )
+        elif isinstance(entry, DatastorePointedVariableEntry):
+            if entry.variable_def.has_pointed_address():
+                self.set_update_rate(
+                    entry_or_entryid=entry.get_pointer_entry(),
+                    watcher=self._make_owner_from_entry(entry),
+                    rate=rate   # Should we limit here? Would be safer to read faster. Doing it until proven a real problem.
+                )
 
         return effective_rate
 
