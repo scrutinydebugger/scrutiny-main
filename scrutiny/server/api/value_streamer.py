@@ -91,7 +91,7 @@ class ValueStreamer:
     def _set_actual_throttling_measurement(self, conn_id: str, rate: float) -> None:
         """For unit testing"""
         throttler = self._conn_data[conn_id].stream_rate_throttler
-        throttler.set_estimated_rate_for_testing(rate)
+        throttler.force_estimated_rate(rate)
 
     def publish(self, entry: DatastoreEntry, conn_id: str) -> None:
         """ inform the value streamer that a new value should be published.

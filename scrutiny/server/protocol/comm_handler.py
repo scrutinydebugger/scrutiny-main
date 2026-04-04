@@ -459,9 +459,6 @@ class CommHandler:
                     self._tx_datarate_measurement.add_data(len(data))
                     self._throttler.consume(len(data) * 8)
                     self._response_timer.start(self._params['response_timeout'])
-            elif not self._throttler.possible(approx_delta_bandwidth):
-                self._logger.critical("Throttling doesn't allow to send request. Dropping %s" % self._pending_request)
-                self._pending_request = None
             else:
                 if newrequest:  # Not sent right away
                     if self._logger.isEnabledFor(logging.DEBUG):    # pragma: no cover

@@ -1965,6 +1965,45 @@ class ScrutinyClient:
                 raise sdk.exceptions.TimeoutException(
                     f"Incomplete batch write. {incomplete_count} write requests not completed in {batch.timeout} sec. ")
 
+    def _change_update_rate(self, handle: WatchableHandle, update_rate: Optional[float] = None) -> Optional[float]:
+        validation.assert_type(handle, 'handle', WatchableHandle)
+        update_rate = validation.assert_float_range_if_not_none(update_rate, 'update_rate', 1)
+
+        @dataclass
+        class MutableContainer:
+            effective_rate: Optional[float]
+
+        mutable_ref = MutableContainer(effective_rate=None)
+
+        def wt_change_callback(state: CallbackState, response: Optional[api_typing.S2CMessage]) -> None:
+            if response is not None and state == CallbackState.OK:
+                response = cast(api_typing.S2C.ChangeSubscriptionUpdateRate, response)
+                changes = api_parser.parse_change_update_rate_response(response)
+
+                if len(changes) != 1:
+                    raise sdk.exceptions.BadResponseError(f"Expected 1 rate value in reposne, got {len(changes)}")
+
+                server_id, effective_rate = next(iter(changes.items()))
+                if server_id != handle.server_id:
+                    raise sdk.exceptions.BadResponseError(f"Received an effective update rate for the wrong watchable.")
+
+                mutable_ref.effective_rate = effective_rate
+
+        req = self._make_request(API.Command.Client2Api.CHANGE_SUBSCRIPTION_UPDATE_RATE, {
+            'changes': [
+                {'id': handle.server_id, 'rate': update_rate}  # Single element
+            ],
+        })
+
+        future = self._send(req, wt_change_callback)
+        assert future is not None
+        future.wait()
+
+        if future.state != CallbackState.OK:
+            raise sdk.exceptions.OperationFailure(f"Failed to change the watchable update rate. {future.error_str}")
+
+        return mutable_ref.effective_rate
+
     # === User API ====
 
     def connect(self, hostname: str, port: int, wait_status: bool = True) -> "ScrutinyClient":
@@ -2091,10 +2130,15 @@ class ScrutinyClient:
 
         return cached_watchable
 
-    def watch(self, path: str) -> WatchableHandle:
+    def watch(self, path: str, update_rate: Optional[float] = None) -> WatchableHandle:
         """Starts watching a watchable element identified by its display path (tree-like path)
 
         :param path: The path of the element to watch
+        :param update_rate: The update rate at which the server should update this value.
+            The actual rate may be faster if another client requires a higher update frequency
+            A value of ``None`` indicates that updates should occur as quickly as possible.
+            This rate applies to the server/device communication while :meth:`set_server_throttling<scrutiny.sdk.client.ScrutinyClient.set_server_throttling>`
+            controls the server/client communication
 
         :raises OperationFailure: If the watch request fails to complete
         :raises TypeError: Given parameter not of the expected type
@@ -2102,6 +2146,7 @@ class ScrutinyClient:
         :return: A handle that can read/write the watched element.
         """
         validation.assert_type(path, 'path', str)
+        update_rate = validation.assert_float_range_if_not_none(update_rate, 'update_rate', minval=1)
         cached_watchable = self.try_get_existing_watch_handle(path)
         if cached_watchable:
             return cached_watchable
@@ -2127,8 +2172,10 @@ class ScrutinyClient:
                     self._watchable_storage[watchable._configuration.server_id] = watchable
 
         req = self._make_request(API.Command.Client2Api.SUBSCRIBE_WATCHABLE, {
-            'watchables': [watchable.server_path]  # Single element
+            'watchables': [watchable.server_path],  # Single element
+            'rate': update_rate
         })
+
         future = self._send(req, wt_subscribe_callback)
         assert future is not None
         future.wait()
@@ -2986,7 +3033,7 @@ class ScrutinyClient:
 
         req = self._make_request(API.Command.Client2Api.SET_LINK_CONFIG, {
             'link_type': link_type_api_name,
-            'link_config': link_config._to_api_format()
+            'link_config': link_config._to_api_format() if link_config is not None else None
         })
 
         future = self._send(req, lambda *args, **kwargs: None)

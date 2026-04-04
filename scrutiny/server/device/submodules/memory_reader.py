@@ -26,11 +26,13 @@ import scrutiny.server.protocol.commands as cmd
 import scrutiny.server.protocol.typing as protocol_typing
 from scrutiny.server.device.request_dispatcher import RequestDispatcher
 from scrutiny.server.datastore.datastore import Datastore
-from scrutiny.server.datastore.datastore_entry import DatastoreVariableEntry, DatastorePointedVariableEntry, DatastoreRPVEntry, DatastoreEntryInvalidReason
+from scrutiny.server.datastore.datastore_entry import (DatastoreVariableEntry, DatastorePointedVariableEntry,
+                                                       DatastoreRPVEntry, DatastoreEntryInvalidReason, DatastoreEntry)
 from scrutiny.core.memory_content import MemoryContent, Cluster
 from scrutiny.core.basic_types import MemoryRegion
 from scrutiny.tools.queue import ScrutinyQueue
 from scrutiny import tools
+from scrutiny.tools.throttler import Throttler
 
 from scrutiny.tools.typing import *
 
@@ -161,6 +163,7 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
     """Reraise errors that we normally hide to catch them in unit testing"""
     read_type_changed: bool
     """A flag that indicates if the read type change in the last process iteration"""
+    entry_to_throttler_map: Dict[DatastoreEntry, Throttler]
 
     def __init__(self, protocol: Protocol, dispatcher: RequestDispatcher, datastore: Datastore, request_priority: int):
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -170,11 +173,19 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
         self.request_priority = request_priority
         self.datastore.add_watch_callback(self._the_watch_callback)
         self.datastore.add_unwatch_callback(self._the_unwatch_callback)
+        self.datastore.add_update_rate_change_callback(self._the_update_rate_changed_callback)
         self.active_raw_read_request = None
         self.raw_read_request_queue = ScrutinyQueue()
         self.unittest_crash_on_critical_error = False
+        self.entry_to_throttler_map = {}
 
         self.reset()
+
+    def get_throttler_rate(self, entry: DatastoreEntry) -> Optional[float]:
+        """Return the throttling rate of the given entry. Return ``None`` if not throttled (even if not watched)"""
+        if entry not in self.entry_to_throttler_map:
+            return None
+        return self.entry_to_throttler_map[entry].get_rate()
 
     def set_max_request_payload_size(self, max_size: int) -> None:
         """Set the maximum payload size that can be sent in a request. Depends on device internal buffer size"""
@@ -204,6 +215,20 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
         self.raw_read_request_queue.put_nowait(request)
         return request
 
+    def _update_entry_update_rate(self, entry: DatastoreEntry, rate: Optional[float]) -> None:
+        if rate is None:
+            with tools.SuppressException(KeyError):
+                del self.entry_to_throttler_map[entry]
+        else:
+            if entry not in self.entry_to_throttler_map:
+                self.entry_to_throttler_map[entry] = Throttler(rate, estimation_window=0.01)
+                self.entry_to_throttler_map[entry].enable()
+            throttler = self.entry_to_throttler_map[entry]
+            if throttler.get_estimated_rate() > rate:
+                # Avoid unnecessary wait period if we pass from fast to slow.
+                throttler.force_estimated_rate(rate)
+            self.entry_to_throttler_map[entry].set_rate(rate)
+
     def _the_watch_callback(self, entry_id: str) -> None:
         """Callback called by the datastore whenever somebody starts watching an entry."""
         entry = self.datastore.get_entry(entry_id)
@@ -214,10 +239,15 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
         elif isinstance(entry, DatastoreRPVEntry):
             self.watched_rpv_entries.add(entry)
 
+        self._update_entry_update_rate(entry, rate=self.datastore.get_effective_update_rate(entry))
+
+    def _the_update_rate_changed_callback(self, entry: DatastoreEntry, new_rate: Optional[float]) -> None:
+        self._update_entry_update_rate(entry, new_rate)
+
     def _the_unwatch_callback(self, entry_id: str) -> None:
         """Callback called by the datastore  whenever somebody stops watching an entry"""
+        entry = self.datastore.get_entry(entry_id)
         if len(self.datastore.get_watchers(entry_id)) == 0:
-            entry = self.datastore.get_entry(entry_id)
             if isinstance(entry, DatastorePointedVariableEntry):
                 self.watched_pointed_var_entries.remove(entry)
             elif isinstance(entry, DatastoreVariableEntry):
@@ -225,12 +255,17 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
             elif isinstance(entry, DatastoreRPVEntry):
                 self.watched_rpv_entries.remove(entry)
 
+        self._update_entry_update_rate(entry, rate=self.datastore.get_effective_update_rate(entry))
+
     def start(self) -> None:
         """Enable the memory reader to poll the devices"""
         self.logger.debug("Start requested")
         if not self.started:
             self.read_type_changed = True
         self.started = True
+
+        for throttler in self.entry_to_throttler_map.values():
+            throttler.reset()
 
     def stop(self) -> None:
         """Stops the memory readers from polling the device"""
@@ -269,6 +304,9 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
         self.entries_in_pending_read_var_request = []
         self.entries_in_pending_read_rpv_request = {}
         self.read_type_changed = True
+
+        for throttler in self.entry_to_throttler_map.values():
+            throttler.reset()
 
         if self.active_raw_read_request is not None:
             self.active_raw_read_request.set_completed(False, None, "Stopping communication with device")
@@ -451,6 +489,14 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
             else:
                 raise NotImplementedError("Unsupported variable type")
 
+            if candidate_entry in self.entry_to_throttler_map:               # Throttling is applied.
+                throttler = self.entry_to_throttler_map[candidate_entry]
+                throttler.process()
+                # if candidate_entry.display_path.endswith('y'):
+                #    print(f"Slow={throttler.estimated_rate_slow}. Fast={throttler.estimated_rate_fast}. since_last_estimation={throttler.consumed_since_last_estimation}")
+                if not throttler.allowed(1):
+                    must_skip = True
+
             candidate_start = candidate_entry.get_address()
             candidate_size = candidate_entry.get_size()
             if not must_skip:
@@ -491,6 +537,9 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
                 clusters_in_request = copy.copy(clusters_candidate)
                 entries_in_request.append(candidate_entry)   # Remember what entries is involved so we can update value once response is received
 
+                if candidate_entry in self.entry_to_throttler_map:
+                    self.entry_to_throttler_map[candidate_entry].consume(1)
+
             if vartype == VarType.AbsoluteAddress:
                 self.var_read_cursor += 1
                 if self.var_read_cursor >= len(self.active_watched_var_entries):
@@ -521,29 +570,45 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
         if self.rpv_read_cursor >= len(self.active_watched_rpv_entries):
             self.rpv_read_cursor = 0
 
-        while len(entries_in_request) < len(self.active_watched_rpv_entries):
+        skipped_entries_count = 0
+        while skipped_entries_count + len(entries_in_request) < len(self.active_watched_rpv_entries):
             next_entry = self.active_watched_rpv_entries[self.rpv_read_cursor]
+            must_skip = False
 
-            candidate_list = entries_in_request + [next_entry]
-            rpv_candidate_list = [x.get_rpv() for x in candidate_list]
-            required_request_payload_size = self.protocol.read_rpv_request_required_size(rpv_candidate_list)
-            required_response_payload_size = self.protocol.read_rpv_response_required_size(rpv_candidate_list)
+            if next_entry in self.entry_to_throttler_map:
+                throttler = self.entry_to_throttler_map[next_entry]
+                throttler.process()
+                if not throttler.allowed(1):
+                    must_skip = True
 
-            if required_request_payload_size > self.max_request_payload_size:
-                break
-            if required_response_payload_size > self.max_response_payload_size:
-                break
+            if must_skip:
+                skipped_entries_count += 1
+            else:
+                candidate_list = entries_in_request + [next_entry]
+                rpv_candidate_list = [x.get_rpv() for x in candidate_list]
+                required_request_payload_size = self.protocol.read_rpv_request_required_size(rpv_candidate_list)
+                required_response_payload_size = self.protocol.read_rpv_response_required_size(rpv_candidate_list)
 
-            # We keep this entry.
-            entries_in_request = candidate_list
+                if required_request_payload_size > self.max_request_payload_size:
+                    break
+                if required_response_payload_size > self.max_response_payload_size:
+                    break
+
+                # We keep this entry.
+                entries_in_request = candidate_list
+                if next_entry in self.entry_to_throttler_map:               # Throttling is applied.
+                    self.entry_to_throttler_map[next_entry].consume(1)
             self.rpv_read_cursor += 1
             if self.rpv_read_cursor >= len(self.active_watched_rpv_entries):
                 cursor_wrapped = True   # Indicates that we finished one round of round-robin for RPV entries. Times to check the next category
                 self.rpv_read_cursor = 0
+                # We don't break here. If we're making wrapping and still have room in the request, why not
+                # ask again for RPVs at the beginning of the list
 
         ids = [x.get_rpv().id for x in entries_in_request]
         request = self.protocol.read_runtime_published_values(ids) if len(ids) > 0 else None
-        return (request, entries_in_request, cursor_wrapped)
+        return (request, entries_in_request,
+                cursor_wrapped)
 
     def _make_next_raw_mem_read_request(self) -> Tuple[Optional[Request], bool]:
         while self.active_raw_read_request is None:

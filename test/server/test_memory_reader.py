@@ -8,6 +8,7 @@
 #    Copyright (c) 2022 Scrutiny Debugger
 
 import random
+import time
 from dataclasses import dataclass
 
 
@@ -19,6 +20,7 @@ from scrutiny.server.protocol import Protocol, Request, Response
 import scrutiny.server.protocol.typing as protocol_typing
 from scrutiny.server.protocol.commands import *
 from scrutiny.core.variable import *
+from scrutiny.core.alias import Alias
 from scrutiny.core.variable_location import ResolvedPathPointedLocation
 from scrutiny.core.variable_factory import VariableFactory
 from scrutiny.core.array import UntypedArray
@@ -26,11 +28,11 @@ from scrutiny.core.basic_types import *
 from test import ScrutinyUnitTest
 from scrutiny.core.codecs import Codecs, Encodable
 from scrutiny import tools
-from scrutiny.tools.sorted_set import SortedSet
+from scrutiny.tools.profiling import VariableRateExponentialAverager
 import math
 import functools
 import struct
-
+from test import logger
 
 from scrutiny.tools.typing import *
 
@@ -1313,6 +1315,109 @@ class TestAllTypesOfReadMixed(ScrutinyUnitTest):
         self.assertTrue(raw_read_data_container.success, 1)
         self.assertIsInstance(raw_read_data_container.server_time_us, float)
         self.assertEqual(len(raw_read_data_container.data), raw_read_request_size)
+
+    def test_throttling_10sec(self):
+
+        var_entries = list(make_dummy_var_entries(address=0x2000, n=10, vartype=EmbeddedDataType.float32))
+        rpv_entries = list(make_dummy_rpv_entries(start_id=0x100, n=5, vartype=EmbeddedDataType.float32))
+        alias_var2 = DatastoreAliasEntry(aliasdef=Alias('/alias1', target=var_entries[2].display_path), refentry=var_entries[2])
+        alias_rpv2 = DatastoreAliasEntry(aliasdef=Alias('/alias1', target=rpv_entries[2].display_path), refentry=rpv_entries[2])
+        alias_entries = [alias_var2, alias_rpv2]
+        all_entries = var_entries + rpv_entries + alias_entries
+        self.datastore.add_entries(all_entries)
+        dispatcher = RequestDispatcher()
+
+        self.protocol.set_address_size_bits(32)
+        self.protocol.configure_rpvs([entry.get_rpv() for entry in rpv_entries])
+
+        reader = UnitTestMemoryReader(self.protocol, dispatcher=dispatcher, datastore=self.datastore, request_priority=0)
+        reader.set_max_request_payload_size(1024)
+        reader.set_max_response_payload_size(1024)
+        reader.start()
+
+        rate_measurements: Dict[str, VariableRateExponentialAverager] = {}
+        for entry in all_entries:
+            filter = VariableRateExponentialAverager(tau=0.1)
+            filter.enable()
+            rate_measurements[entry.get_id()] = filter
+
+        def callback(owner: str, entry: DatastoreEntry):
+            rate = rate_measurements[entry.get_id()]
+            rate.add_data(1)
+            rate.update()
+
+        # Use small numbers to avoid having false negative on CI
+        self.datastore.start_watching(var_entries[0], 'unittest', callback, requested_rate=2)
+        self.datastore.start_watching(var_entries[1], 'unittest', callback, requested_rate=1)
+        self.datastore.start_watching(rpv_entries[0], 'unittest', callback, requested_rate=1)
+        self.datastore.start_watching(rpv_entries[1], 'unittest', callback, requested_rate=3)
+        self.datastore.start_watching(alias_var2, 'unittest', callback, requested_rate=2)
+        self.datastore.start_watching(alias_rpv2, 'unittest', callback, requested_rate=1)
+
+        t = time.perf_counter()
+        TIMEOUT = 10
+
+        while time.perf_counter() - t < TIMEOUT:
+            reader.process()
+            record = dispatcher.pop_next()
+            if record is not None:
+                req = record.request
+                if req.command == MemoryControl and req.subfn == MemoryControl.Subfunction.Read.value:
+                    request_data = cast(protocol_typing.Request.MemoryControl.Read, self.protocol.parse_request(req))
+                    response_blocks: List[Tuple[int, bytes]] = []
+                    for block in request_data['blocks_to_read']:
+                        response_block = (block['address'], b'\x00' * block['length'])
+                        response_blocks.append(response_block)
+                    response = self.protocol.respond_read_memory_blocks(block_list=response_blocks)
+                    record.complete(True, response)
+                elif req.command == MemoryControl and req.subfn == MemoryControl.Subfunction.ReadRPV.value:
+                    request_data = cast(protocol_typing.Request.MemoryControl.ReadRPV, self.protocol.parse_request(req))
+                    response_data = []
+                    for rpv_id in request_data['rpvs_id']:
+                        response_data.append((rpv_id, generate_random_value(EmbeddedDataType.float32)))
+                    response = self.protocol.respond_read_runtime_published_values(response_data)
+                    record.complete(True, response)
+                else:
+                    raise NotImplementedError(f"Unsupported command : {req}")
+
+            time.sleep(0.005)
+
+        checked_entry = 0
+
+        for entry in all_entries:
+            if not self.datastore.is_watching(entry, 'unittest'):
+                continue
+            rate = self.datastore.get_effective_update_rate(entry)
+            if rate is None:
+                continue
+            checked_entry += 1
+            measured_rate = rate_measurements[entry.get_id()].get_value()
+            logger.debug(f"Entry: {entry.display_path}.  Measured={measured_rate:0.2f}. Target={rate:0.2f}")
+            msg = f"Entry={entry.get_display_path()}"
+            self.assertGreater(measured_rate, rate * 0.5, msg)  # Margin is big because CI machine can be very slow
+            self.assertLess(measured_rate, rate * 2, msg)
+
+        self.assertGreater(checked_entry, 0)
+
+    def test_receive_update_rate_change(self):
+        var_entries = list(make_dummy_var_entries(address=0x2000, n=10, vartype=EmbeddedDataType.float32))
+        self.datastore.add_entries(var_entries)
+        dispatcher = RequestDispatcher()
+        reader = UnitTestMemoryReader(self.protocol, dispatcher=dispatcher, datastore=self.datastore, request_priority=0)
+        reader.start()
+
+        theentry = var_entries[0]
+        self.datastore.start_watching(theentry, 'unittest', requested_rate=2)
+
+        self.assertEqual(reader.get_throttler_rate(theentry), 2)
+        self.datastore.start_watching(theentry, 'unittest2', requested_rate=10)
+        self.assertEqual(reader.get_throttler_rate(theentry), 10)
+        self.datastore.set_update_rate('unittest2', theentry, 5)
+        self.assertEqual(reader.get_throttler_rate(theentry), 5)
+        self.datastore.stop_watching(theentry, 'unittest2')
+        self.assertEqual(reader.get_throttler_rate(theentry), 2)
+        self.datastore.stop_watching(theentry, 'unittest')
+        self.assertEqual(reader.get_throttler_rate(theentry), None)
 
 
 if __name__ == '__main__':

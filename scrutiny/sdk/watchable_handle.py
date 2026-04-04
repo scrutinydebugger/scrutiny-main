@@ -321,6 +321,22 @@ class WatchableHandle:
 
         return (val, val_status)
 
+    def change_update_rate(self, update_rate: Optional[float]) -> Optional[float]:
+        """Request the server to change the target update rate for this watchable (optionally set when
+        calling :meth:`watch()<scrutiny.sdk.client.ScrutinyClient.watch>`).
+        When there are multiple clients watching the same watchable, the server applies the fastest required rate.
+
+        :param update_rate: The new polling rate. A value of ``None`` indicates that updates should happen as fast as possible.
+            Must be ``None`` or  greater or equal to 1
+
+        :return: The effective update rate at the moment of change. May be higher or change later if another client requires it.
+
+        :raises TypeError: Given parameter not of the expected type
+        :raises ValueError: Given parameter has an invalid value
+        :raises OperationFailure: If the request fails to complete
+        """
+        return self._client._change_update_rate(self, update_rate)
+
     @property
     @deprecated("Replaced by server_path")
     def display_path(self) -> str:
