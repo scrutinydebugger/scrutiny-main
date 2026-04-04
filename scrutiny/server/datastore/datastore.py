@@ -31,6 +31,7 @@ class BatchState(enum.Enum):
 
 WatchCallback: TypeAlias = Callable[[str], None]
 BatchEditCallback: TypeAlias = Callable[[str, BatchState], None]
+UpdateRateChangeCallback: TypeAlias = Callable[[DatastoreEntry, Optional[float]], None]
 
 
 @dataclass(slots=True)
@@ -57,6 +58,7 @@ class Datastore:
     _watcher_map: Dict[WatchableType, Dict[str, Dict[str, _WatcherParamSet]]]
     _global_watch_callbacks: List[WatchCallback]
     _global_unwatch_callbacks: List[WatchCallback]
+    _global_update_rate_change_callbacks: List[UpdateRateChangeCallback]
     _target_update_request_queue: "List[UpdateTargetRequest]"
     _var_factories: Dict[str, VariableFactory]
     _batch_edit_callbacks: List[BatchEditCallback]
@@ -69,6 +71,7 @@ class Datastore:
         self._logger = logging.getLogger(self.__class__.__name__)
         self._global_watch_callbacks = []    # When somebody starts watching an entry,m these callbacks are called
         self._global_unwatch_callbacks = []  # When somebody stops watching an entry, these callbacks are called
+        self._global_update_rate_change_callbacks = []
 
         self._entries = {}
         self._watcher_map = {}
@@ -259,6 +262,9 @@ class Datastore:
 
     def add_unwatch_callback(self, callback: WatchCallback) -> None:
         self._global_unwatch_callbacks.append(callback)
+
+    def add_update_rate_change_callback(self, callback: UpdateRateChangeCallback) -> None:
+        self._global_update_rate_change_callbacks.append(callback)
 
     def start_watching_by_display_path(self,
                                        display_path: str,
@@ -495,7 +501,11 @@ class Datastore:
         self._assert_update_rate_valid(entry, rate)
         watcher_paramset.update_rate = rate
 
-        return self.get_effective_update_rate(entry_id)
+        effective_rate = self.get_effective_update_rate(entry_id)
+        for callback in self._global_update_rate_change_callbacks:
+            callback(entry, effective_rate)
+
+        return effective_rate
 
     def get_effective_update_rate(self, entry_or_entryid: Union[DatastoreEntry, str]) -> Optional[float]:
         """Return the fastest update rate that applies to this entry"""
@@ -520,6 +530,7 @@ class Datastore:
 
 
 # region Private
+
 
     def _prune_unwatched_templated_entries(self) -> None:
         for wt in WatchableType.all():

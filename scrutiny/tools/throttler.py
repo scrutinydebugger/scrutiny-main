@@ -9,6 +9,7 @@
 __all__ = ['Throttler']
 
 import time
+from scrutiny.tools.typing import *
 
 
 class Throttler:
@@ -95,7 +96,7 @@ class Throttler:
         self.estimated_rate_fast = 0
         self.consumed_since_last_estimation = 0
 
-    def set_estimated_rate_for_testing(self, rate: float) -> None:
+    def force_estimated_rate(self, rate: float) -> None:
         self.estimated_rate_fast = rate
         self.estimated_rate_slow = rate
 
@@ -140,7 +141,7 @@ class Throttler:
         allowed = True
         approx_rate = max(self.estimated_rate_slow, self.estimated_rate_fast)
 
-        # No need to check amount. We allow peak overshoot.
+        # rate + amount compared with rate. Units don't match, this is not a mistake.
         if approx_rate + self.consumed_since_last_estimation > self.mean_rate:
             allowed = False
 

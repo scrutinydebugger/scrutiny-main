@@ -1393,6 +1393,26 @@ class TestAllTypesOfReadMixed(ScrutinyUnitTest):
 
         self.assertGreater(checked_entry, 0)
 
+    def test_receive_update_rate_change(self):
+        var_entries = list(make_dummy_var_entries(address=0x2000, n=10, vartype=EmbeddedDataType.float32))
+        self.datastore.add_entries(var_entries)
+        dispatcher = RequestDispatcher()
+        reader = UnitTestMemoryReader(self.protocol, dispatcher=dispatcher, datastore=self.datastore, request_priority=0)
+        reader.start()
+
+        theentry = var_entries[0]
+        self.datastore.start_watching(theentry, 'unittest', requested_rate=2)
+
+        self.assertEqual(reader.get_throttler_rate(theentry), 2)
+        self.datastore.start_watching(theentry, 'unittest2', requested_rate=10)
+        self.assertEqual(reader.get_throttler_rate(theentry), 10)
+        self.datastore.set_update_rate('unittest2', theentry, 5)
+        self.assertEqual(reader.get_throttler_rate(theentry), 5)
+        self.datastore.stop_watching(theentry, 'unittest2')
+        self.assertEqual(reader.get_throttler_rate(theentry), 2)
+        self.datastore.stop_watching(theentry, 'unittest')
+        self.assertEqual(reader.get_throttler_rate(theentry), None)
+
 
 if __name__ == '__main__':
     import unittest
