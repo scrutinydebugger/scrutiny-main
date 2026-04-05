@@ -68,7 +68,7 @@ class WatchComponent(ScrutinyGUIBaseLocalComponent):
     _teared_down: bool
 
     expand_if_needed = Signal()
-    DEFAULT_WATCH_COMPONENT_UPDATE_RATE: float = 10
+    DEFAULT_WATCH_COMPONENT_UPDATE_RATE: float = 15
     WATCH_COMPONENT_UPDATE_RATE: Optional[float] = DEFAULT_WATCH_COMPONENT_UPDATE_RATE
 
     @classmethod
