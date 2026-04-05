@@ -195,7 +195,7 @@ In the screenshot above, we see a variable structure, in this case, the  ``htim2
 The tree structure can be edited freely once it is in the Watch window.
 Each row is tied to its server path and retains its link to the data source even if renamed or reorganized.
 
-When a watchable element is visible added to a Watch window, the GUI subscribes to the server for
+When a watchable element is added to a Watch window, the GUI subscribes to the server for
 updates at a rate defined by :ref:`SCRUTINY_GUI_WATCH_UPDATE_RATE<advanced_options>`.
 
 When a folder is collapsed (hiding its variables), the GUI immediately unsubscribes the hidden variables from the server.
