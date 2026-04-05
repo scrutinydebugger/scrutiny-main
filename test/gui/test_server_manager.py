@@ -883,9 +883,10 @@ class TestQtListener(ScrutinyBaseGuiTest):
         super().setUp()
         self.listener = QtBufferedListener()
         self.listener.start()
+        client = FakeSDKClient()
 
         self.watch1 = StubbedWatchableHandle(
-            client=None,
+            client=client,
             server_path='/aaa/bbb/ccc',
             datatype=sdk.EmbeddedDataType.float32,
             enum=None,
@@ -894,7 +895,7 @@ class TestQtListener(ScrutinyBaseGuiTest):
             requested_update_rate=None
         )
         self.watch2 = StubbedWatchableHandle(
-            client=None,
+            client=client,
             server_path='/aaa/bbb/ddd',
             datatype=sdk.EmbeddedDataType.float32,
             enum=None,
@@ -903,6 +904,7 @@ class TestQtListener(ScrutinyBaseGuiTest):
             requested_update_rate=None
         )
         self.watch3 = StubbedWatchableHandle(
+            client=client,
             server_path='/aaa/bbb/eee',
             datatype=sdk.EmbeddedDataType.float32,
             enum=None,

@@ -17,6 +17,7 @@ from scrutiny.tools.thread_enforcer import ThreadEnforcer
 from scrutiny.gui.core.threads import QT_THREAD_NAME
 
 from test import ScrutinyUnitTest
+from test.gui.fake_sdk_client import FakeSDKClient
 from datetime import datetime
 from scrutiny.tools.typing import *
 from uuid import uuid4
@@ -47,7 +48,7 @@ All_DUMMY_DATA = {
 }
 
 
-class StubbedWatchableHandle:
+class RegistryStubbedWatchableHandle:
     server_path: str
     configuration: sdk.BaseDetailedWatchableConfiguration
     _status: sdk.ValueStatus
@@ -88,11 +89,10 @@ class TestWatchableRegistry(ScrutinyUnitTest):
         self.registry = WatchableRegistry()
         ThreadEnforcer.register_thread(QT_THREAD_NAME)
 
-    def make_fake_watchable_from_registry(self, fqn: str) -> StubbedWatchableHandle:
+    def make_fake_watchable_from_registry(self, fqn: str) -> RegistryStubbedWatchableHandle:
         node = self.registry.read_fqn(fqn)
         assert isinstance(node, WatchableRegistryEntryNode)
-        return StubbedWatchableHandle(
-            client=None,    # unavailable
+        return RegistryStubbedWatchableHandle(
             server_path=WatchableRegistry.FQN.parse(fqn).path,
             watchable_type=node.configuration.watchable_type,
             datatype=node.configuration.datatype,
