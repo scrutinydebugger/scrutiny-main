@@ -18,7 +18,7 @@ import ctypes
 import logging
 import enum
 
-from PySide6.QtCore import QTimer, Qt, QLocale
+from PySide6.QtCore import QTimer, Qt
 
 import scrutiny
 from scrutiny.gui.main_window import MainWindow

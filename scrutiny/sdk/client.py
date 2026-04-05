@@ -2002,6 +2002,7 @@ class ScrutinyClient:
         if future.state != CallbackState.OK:
             raise sdk.exceptions.OperationFailure(f"Failed to change the watchable update rate. {future.error_str}")
 
+        handle._set_requested_update_rate(update_rate)  # Keep last value
         return mutable_ref.effective_rate
 
     # === User API ====
@@ -2151,7 +2152,7 @@ class ScrutinyClient:
         if cached_watchable:
             return cached_watchable
 
-        watchable = WatchableHandle(self, path)
+        watchable = WatchableHandle(self, path, update_rate)
 
         def wt_subscribe_callback(state: CallbackState, response: Optional[api_typing.S2CMessage]) -> None:
             if response is not None and state == CallbackState.OK:
