@@ -92,6 +92,7 @@ class TestWatchableRegistry(ScrutinyUnitTest):
         node = self.registry.read_fqn(fqn)
         assert isinstance(node, WatchableRegistryEntryNode)
         return StubbedWatchableHandle(
+            client=None,    # unavailable
             server_path=WatchableRegistry.FQN.parse(fqn).path,
             watchable_type=node.configuration.watchable_type,
             datatype=node.configuration.datatype,

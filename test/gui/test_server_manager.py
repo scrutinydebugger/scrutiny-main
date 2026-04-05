@@ -885,6 +885,7 @@ class TestQtListener(ScrutinyBaseGuiTest):
         self.listener.start()
 
         self.watch1 = StubbedWatchableHandle(
+            client=None,
             server_path='/aaa/bbb/ccc',
             datatype=sdk.EmbeddedDataType.float32,
             enum=None,
@@ -893,6 +894,7 @@ class TestQtListener(ScrutinyBaseGuiTest):
             requested_update_rate=None
         )
         self.watch2 = StubbedWatchableHandle(
+            client=None,
             server_path='/aaa/bbb/ddd',
             datatype=sdk.EmbeddedDataType.float32,
             enum=None,

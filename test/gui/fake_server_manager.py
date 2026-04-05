@@ -95,7 +95,7 @@ class FakeServerManager:
         for dataset in [DUMMY_DATASET_RPV, DUMMY_DATASET_VAR, DUMMY_DATASET_ALIAS]:
             for path, config in dataset.items():
                 server_id = uuid4().hex
-                handle = StubbedWatchableHandle(path, config.watchable_type, config.datatype, config.enum, server_id, None)
+                handle = StubbedWatchableHandle(self._client, path, config.watchable_type, config.datatype, config.enum, server_id, None)
                 self._handles[path] = handle
         self._broadcast_timer.start()
 
