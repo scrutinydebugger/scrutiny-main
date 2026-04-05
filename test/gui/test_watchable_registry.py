@@ -11,7 +11,8 @@ from scrutiny.core.basic_types import EmbeddedDataType
 from scrutiny.core.embedded_enum import EmbeddedEnum
 from scrutiny.gui.core.watchable_registry import (WatchableRegistry, WatchableRegistryError, WatchableRegistryEntryNode,
                                                   WatchableRegistryIntermediateNode, ValueUpdate, WatcherNotFoundError,
-                                                  WatchableRegistryNodeNotFoundError, ServerRegistryBidirectionalMap)
+                                                  WatchableRegistryNodeNotFoundError, ServerRegistryBidirectionalMap,
+                                                  GlobalWatchCallbackData)
 from scrutiny.tools.thread_enforcer import ThreadEnforcer
 from scrutiny.gui.core.threads import QT_THREAD_NAME
 
@@ -556,14 +557,14 @@ class TestWatchableRegistry(ScrutinyUnitTest):
     def test_global_watch_callbacks(self):
         self.registry.write_content(All_DUMMY_DATA)
 
-        watch_calls_history = []
-        unwatch_calls_history = []
+        watch_calls_history: List[GlobalWatchCallbackData] = []
+        unwatch_calls_history: List[GlobalWatchCallbackData] = []
 
-        def watch_callback(watcher_id, display_path, watchable_config, registry_id):
-            watch_calls_history.append((watcher_id, display_path, watchable_config, registry_id))
+        def watch_callback(data: GlobalWatchCallbackData):
+            watch_calls_history.append(data)
 
-        def unwatch_callback(watcher_id, display_path, watchable_config, registry_id):
-            unwatch_calls_history.append((watcher_id, display_path, watchable_config, registry_id))
+        def unwatch_callback(data: GlobalWatchCallbackData):
+            unwatch_calls_history.append(data)
 
         def dummy_callback(*args, **kwargs):
             pass
@@ -576,15 +577,24 @@ class TestWatchableRegistry(ScrutinyUnitTest):
 
         self.assertEqual(len(watch_calls_history), 0)
         self.assertEqual(len(unwatch_calls_history), 0)
-        self.registry.watch_fqn('watcher1', 'var:/var/xxx/var1')
+        self.registry.watch_fqn('watcher1', 'var:/var/xxx/var1', 100)
         self.assertEqual(len(watch_calls_history), 1)
         self.assertEqual(len(unwatch_calls_history), 0)
-        self.registry.watch_fqn('watcher2', 'var:/var/xxx/var1')
+        self.registry.watch_fqn('watcher2', 'var:/var/xxx/var1', None)  # None is faster than 100
         self.assertEqual(len(watch_calls_history), 2)
         self.assertEqual(len(unwatch_calls_history), 0)
 
-        self.assertEqual(watch_calls_history[0], ('watcher1', '/var/xxx/var1', var1.configuration, var1.registry_id))
-        self.assertEqual(watch_calls_history[1], ('watcher2', '/var/xxx/var1', var1.configuration, var1.registry_id))
+        self.assertEqual(watch_calls_history[0].watcher_id, 'watcher1')
+        self.assertEqual(watch_calls_history[0].server_path, '/var/xxx/var1')
+        self.assertEqual(watch_calls_history[0].watchable_config, var1.configuration)
+        self.assertEqual(watch_calls_history[0].registry_id, var1.registry_id)
+        self.assertEqual(watch_calls_history[0].highest_update_rate, 100)
+
+        self.assertEqual(watch_calls_history[1].watcher_id, 'watcher2')
+        self.assertEqual(watch_calls_history[1].server_path, '/var/xxx/var1')
+        self.assertEqual(watch_calls_history[1].watchable_config, var1.configuration)
+        self.assertEqual(watch_calls_history[1].registry_id, var1.registry_id)
+        self.assertEqual(watch_calls_history[1].highest_update_rate, None)
 
         self.registry.unwatch_fqn('watcher1', 'var:/var/xxx/var1')
         self.assertEqual(len(watch_calls_history), 2)
@@ -593,8 +603,17 @@ class TestWatchableRegistry(ScrutinyUnitTest):
         self.assertEqual(len(watch_calls_history), 2)
         self.assertEqual(len(unwatch_calls_history), 2)
 
-        self.assertEqual(unwatch_calls_history[0], ('watcher1', '/var/xxx/var1', var1.configuration, var1.registry_id))
-        self.assertEqual(unwatch_calls_history[1], ('watcher2', '/var/xxx/var1', var1.configuration, var1.registry_id))
+        self.assertEqual(unwatch_calls_history[0].watcher_id, 'watcher1')
+        self.assertEqual(unwatch_calls_history[0].server_path, '/var/xxx/var1')
+        self.assertEqual(unwatch_calls_history[0].watchable_config, var1.configuration)
+        self.assertEqual(unwatch_calls_history[0].registry_id, var1.registry_id)
+        self.assertEqual(unwatch_calls_history[0].highest_update_rate, None)
+
+        self.assertEqual(unwatch_calls_history[1].watcher_id, 'watcher2')
+        self.assertEqual(unwatch_calls_history[1].server_path, '/var/xxx/var1')
+        self.assertEqual(unwatch_calls_history[1].watchable_config, var1.configuration)
+        self.assertEqual(unwatch_calls_history[1].registry_id, var1.registry_id)
+        self.assertEqual(unwatch_calls_history[1].highest_update_rate, None)
 
     def test_change_counter(self):
         self.assertEqual(self.registry.get_change_counters(), {
@@ -688,11 +707,11 @@ class TestWatchableRegistry(ScrutinyUnitTest):
         global_watch_callback_list: List[Tuple[str, str]] = []
         global_unwatch_callback_list: List[Tuple[str, str]] = []
 
-        def watch_callback(watcher_id: str, server_path: str, watchable_config: sdk.BriefWatchableConfiguration, registry_id: int):
-            global_watch_callback_list.append((watcher_id, server_path))
+        def watch_callback(data: GlobalWatchCallbackData):
+            global_watch_callback_list.append((data.watcher_id, data.server_path))
 
-        def unwatch_callback(watcher_id: str, server_path: str, watchable_config: sdk.BriefWatchableConfiguration, registry_id: int):
-            global_unwatch_callback_list.append((watcher_id, server_path))
+        def unwatch_callback(data: GlobalWatchCallbackData):
+            global_unwatch_callback_list.append((data.watcher_id, data.server_path))
 
         self.registry.register_global_watch_callback(watch_callback, unwatch_callback)
 

@@ -42,19 +42,25 @@ _ValueType = Union[int, bool, float, str]
 
 
 class StubbedWatchableHandle(tools.UnitTestStub):
+    _client: "FakeSDKClient"
     server_path: str
     configuration: sdk.BaseDetailedWatchableConfiguration
     _invalid: bool
     _value: Optional[_ValueType]
     _status: sdk.ValueStatus
+    _requested_update_rate: Optional[float]
 
-    def __init__(self, server_path: str,
+    def __init__(self,
+                 client: "FakeSDKClient",
+                 server_path: str,
                  watchable_type: sdk.WatchableType,
                  datatype: EmbeddedDataType,
                  enum: Optional[EmbeddedEnum],
-                 server_id: str
+                 server_id: str,
+                 requested_update_rate: Optional[float]
                  ) -> None:
 
+        self._client = client
         self.server_path = server_path
         self.configuration = sdk.BaseDetailedWatchableConfiguration(
             watchable_type=watchable_type,
@@ -67,6 +73,13 @@ class StubbedWatchableHandle(tools.UnitTestStub):
         self._value = 0
         self._last_update_timestamp = None
         self._status = sdk.ValueStatus.Valid
+        self._requested_update_rate = requested_update_rate
+
+    def _set_requested_update_rate(self, update_rate: Optional[float]) -> None:
+        self._requested_update_rate = update_rate
+
+    def change_update_rate(self, update_rate: Optional[float]) -> None:
+        self._client._change_update_rate(self, update_rate)
 
     def __repr__(self) -> str:
         return "<%s %s (%s) serverid=%s at 0x%08x>" % (
@@ -119,6 +132,10 @@ class StubbedWatchableHandle(tools.UnitTestStub):
     def get_value_and_status(self) -> Tuple[Optional[_ValueType], sdk.ValueStatus]:
         return self._value, self._status
 
+    @property
+    def requested_update_rate(self) -> Optional[float]:
+        return self._requested_update_rate
+
 
 @dataclass
 class DownloadWatchableListFunctionCall:
@@ -169,10 +186,12 @@ class FakeSDKClient(tools.UnitTestStub):
     class FakeWatchRequest(FakeRequest):
         requested_path: str
         received_configuration: sdk.BaseDetailedWatchableConfiguration
+        update_rate: Optional[float]
 
-        def __init__(self, path: str) -> None:
+        def __init__(self, path: str, update_rate: Optional[float]) -> None:
             self.requested_path = path
             self.received_configuration = None
+            self.update_rate = update_rate
             super().__init__()
 
         def get_path(self) -> str:
@@ -197,6 +216,21 @@ class FakeSDKClient(tools.UnitTestStub):
         def get_path(self) -> str:
             return self.requested_path
 
+    class FakeChangeUpdateRateRequest(FakeRequest):
+        requested_id: str
+        requested_rate: Optional[float]
+
+        def __init__(self, handle_id: str, update_rate: Optional[float]) -> None:
+            self.requested_id = handle_id
+            self.requested_rate = update_rate
+            super().__init__()
+
+        def get_server_id(self) -> str:
+            return self.requested_id
+
+        def get_requested_rate(self) -> Optional[float]:
+            return self.requested_rate
+
     server_state: sdk.ServerState
     hostname: Optional[str]
     port: Optional[int]
@@ -211,6 +245,7 @@ class FakeSDKClient(tools.UnitTestStub):
     _listeners: List[BaseListener]
     _pending_watch_request: List[FakeWatchRequest]
     _pending_unwatch_request: List[FakeUnwatchRequest]
+    _pending_change_update_rate_request: List[FakeChangeUpdateRateRequest]
     _handle_cache: Dict[str, StubbedWatchableHandle]
 
     def __init__(self):
@@ -225,6 +260,7 @@ class FakeSDKClient(tools.UnitTestStub):
         self._listeners = []
         self._pending_watch_request = []
         self._pending_unwatch_request = []
+        self._pending_change_update_rate_request = []
         self._handle_cache = {}
 
     def get_call_count(self, funcname: str) -> int:
@@ -425,9 +461,9 @@ class FakeSDKClient(tools.UnitTestStub):
         )
         self.trigger_event(ScrutinyClient.Events.DataloggingStateChanged(datalogger_info))
 
-    def watch(self, path: str) -> StubbedWatchableHandle:
+    def watch(self, path: str, update_rate: Optional[float]) -> StubbedWatchableHandle:
         logger.debug(f"Fake call to watch({path})")
-        request = self.FakeWatchRequest(path)
+        request = self.FakeWatchRequest(path, update_rate)
         self._pending_watch_request.append(request)
         request.wait_completion(timeout=5)
         if not request.is_completed():
@@ -438,11 +474,13 @@ class FakeSDKClient(tools.UnitTestStub):
 
         wconfig = request.get_config()
         handle = StubbedWatchableHandle(
+            client=self,
             server_path=path,
             datatype=wconfig.datatype,
             enum=wconfig.enum,
             server_id=wconfig.server_id,
-            watchable_type=wconfig.watchable_type
+            watchable_type=wconfig.watchable_type,
+            requested_update_rate=update_rate
         )
 
         self._handle_cache[path] = handle
@@ -513,3 +551,13 @@ class FakeSDKClient(tools.UnitTestStub):
 
     def set_server_throttling(self, rate) -> None:
         pass
+
+    def _change_update_rate(self, handle: StubbedWatchableHandle, update_rate: Optional[float] = None) -> Optional[float]:
+        logger.debug(f"Fake call to _change_update_rate({handle.server_path})")
+        req = self.FakeChangeUpdateRateRequest(
+            handle_id=handle.server_id,
+            update_rate=update_rate
+        )
+        self._pending_change_update_rate_request.append(req)
+        handle._set_requested_update_rate(update_rate)
+        return update_rate
