@@ -683,6 +683,20 @@ class ServerManager:
     # endregion
 
     # region Private QT side methods
+
+    def _request_update_rate_change(self, handle: WatchableHandle, update_rate: Optional[float]) -> None:
+        def _ephemerous_thread_change(client: ScrutinyClient) -> Optional[float]:
+            return handle.change_update_rate(update_rate)
+
+        def _qt_thread_callback(effective_rate: Optional[float], error: Optional[Exception]) -> None:
+            if error is not None:
+                tools.log_exception(self._logger, error, "Failed to change the update rate")
+            # Nothing else to do. We don't try to recover from a failure.
+
+        if self._logger.isEnabledFor(logging.DEBUG):
+            self._logger.debug(f"Changing update rate of {handle.server_path} to {update_rate}")
+        self.schedule_client_request(_ephemerous_thread_change, _qt_thread_callback)
+
     def _qt_update_registration_from_watchable_handle(self,
                                                       registration_status: WatchableRegistrationStatus,
                                                       handle: Optional[WatchableHandle]) -> None:
@@ -732,7 +746,7 @@ class ServerManager:
             self._registry.clear_serverid_from_node(watchable_type, server_path)
         else:
             if registration_status.pending_action == self.WatchableRegistrationAction.SUBSCRIBE:
-                self._qt_maybe_request_watch(watchable_type, server_path)
+                self._qt_maybe_request_watch(watchable_type, server_path, registration_status.pending_update_rate)
             elif registration_status.pending_action == self.WatchableRegistrationAction.UNSUBSCRIBE:
                 self._qt_maybe_request_unwatch(watchable_type, server_path)
 
@@ -757,20 +771,37 @@ class ServerManager:
             self._qt_update_registration_from_watchable_handle(registration_status, client_handle)
 
         # Decide what to do based on active state and pending action
-        if registration_status.active_state in [self.WatchableRegistrationState.SUBSCRIBED, self.WatchableRegistrationState.SUBSCRIBING]:
+        if registration_status.active_state in (self.WatchableRegistrationState.SUBSCRIBED, self.WatchableRegistrationState.SUBSCRIBING):
             # Nothing to do. Ensure we do nothing
             registration_status.pending_action = self.WatchableRegistrationAction.NONE
+
+            if update_rate != registration_status.last_requested_rate:
+                client_handle = self._client.try_get_existing_watch_handle(server_path)
+                if client_handle is not None:
+                    self._request_update_rate_change(client_handle, update_rate)
+                    registration_status.last_requested_rate = update_rate
+                else:
+                    self._logger.warning(f"Cannot change the update rate of {server_path} to {update_rate}. Watch still pending.")
+                    # The UI made 2 request for watch for the same element, with different update rate.
+                    # The second came in before the watch is complete.
+                    # We don't have a clean way to manage this.  We need a subscription first.
+                    # Leave like this. This problem will not happen 99.999% of the time and will be a non-issue,
+                    # just performance being affected.
+
         elif registration_status.active_state == self.WatchableRegistrationState.UNSUBSCRIBING:
             # enqueue. Next callback will pick this up
             registration_status.pending_action = self.WatchableRegistrationAction.SUBSCRIBE
+            registration_status.pending_update_rate = update_rate
+
         elif registration_status.active_state == self.WatchableRegistrationState.UNSUBSCRIBED:
             # Proceed with subscription
             registration_status.pending_action = self.WatchableRegistrationAction.NONE
+            registration_status.pending_update_rate = None
             registration_status.active_state = self.WatchableRegistrationState.SUBSCRIBING
 
             def func(client: ScrutinyClient) -> Optional[Exception]:
                 try:
-                    client.watch(server_path)
+                    client.watch(server_path, update_rate=update_rate)
                 except sdk.exceptions.ScrutinySDKException as e:
                     return e   # Exception others than SDKException are not normal.
                 return None
@@ -787,6 +818,7 @@ class ServerManager:
                         error=expected_error)
 
             self.schedule_client_request(func, ui_callback)
+            registration_status.last_requested_rate = update_rate
         else:   # pragma: no cover
             raise NotImplementedError(f"Unsupported state: {registration_status.active_state}")
 
@@ -796,7 +828,9 @@ class ServerManager:
         if not server_path in self._registration_status_store[watchable_type]:
             self._registration_status_store[watchable_type][server_path] = self.WatchableRegistrationStatus(
                 active_state=self.WatchableRegistrationState.UNSUBSCRIBED,
-                pending_action=self.WatchableRegistrationAction.NONE
+                pending_action=self.WatchableRegistrationAction.NONE,
+                pending_update_rate=None,
+                last_requested_rate=None
             )
         registration_status = self._registration_status_store[watchable_type][server_path]
 
@@ -851,6 +885,12 @@ class ServerManager:
         # Runs from QT thread
         if data.watcher_count is not None and data.watcher_count == 0:
             self._qt_maybe_request_unwatch(data.watchable_config.watchable_type, data.server_path)
+        else:
+            handle = self._client.try_get_existing_watch_handle(data.server_path)
+            if handle is not None:
+                # Slow down the update rate if necessary
+                if data.highest_update_rate != handle.requested_update_rate:
+                    self._request_update_rate_change(handle, data.highest_update_rate)
 
     def _qt_value_update_received(self) -> None:
         # Called in the QT thread when a value update is received by the listener (the client)
