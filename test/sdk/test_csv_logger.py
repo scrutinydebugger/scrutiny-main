@@ -31,9 +31,9 @@ class TestCSVLogger(ScrutinyUnitTest):
         self.dt_zero = datetime.now()
         self.dt_format = r'%Y-%m-%d %H:%M:%S.%f'
 
-        self.w1 = WatchableHandle(self.dummy_client, '/var/speed')
-        self.w2 = WatchableHandle(self.dummy_client, '/var/temperature')
-        self.w3 = WatchableHandle(self.dummy_client, '/var/active')
+        self.w1 = WatchableHandle(self.dummy_client, '/var/speed', requested_update_rate=None)
+        self.w2 = WatchableHandle(self.dummy_client, '/var/temperature', requested_update_rate=None)
+        self.w3 = WatchableHandle(self.dummy_client, '/var/active', requested_update_rate=None)
 
         self.w1._configure(sdk.BaseDetailedWatchableConfiguration(
             watchable_type=WatchableType.Variable, datatype=EmbeddedDataType.float32,
