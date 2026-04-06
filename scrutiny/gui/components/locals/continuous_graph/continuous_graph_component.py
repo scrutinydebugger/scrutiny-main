@@ -550,7 +550,8 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
                 for signal_item in axis.signal_items:   # For each watchable under that axis
                     try:
                         # We will use that server ID to lookup the right chart series on value update broadcast by the server
-                        registry_id = self.app.watchable_registry.watch_fqn(self._watcher_id(), signal_item.fqn)
+                        # update_rate=None means as fast as possible
+                        registry_id = self.app.watchable_registry.watch_fqn(self._watcher_id(), signal_item.fqn, update_rate=None)
                     except WatchableRegistryNodeNotFoundError as e:
                         self._report_error(f"Signal {signal_item.text()} is not available.")
                         self.app.watchable_registry.unwatch_all(self._watcher_id())

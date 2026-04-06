@@ -25,7 +25,7 @@ from scrutiny.core.logging import DUMPDATA_LOGLEVEL
 from scrutiny.sdk.listeners import BaseListener, ValueUpdate
 from scrutiny.sdk.watchable_handle import WatchableHandle
 from scrutiny.sdk.client import ScrutinyClient, WatchableListDownloadRequest
-from scrutiny.gui.core.watchable_registry import WatchableRegistry
+from scrutiny.gui.core.watchable_registry import WatchableRegistry, GlobalWatchCallbackData
 from scrutiny.gui.core.user_messages_manager import UserMessagesManager
 from scrutiny.gui.core.threads import QT_THREAD_NAME, SERVER_MANAGER_THREAD_NAME
 from scrutiny.gui.tools.invoker import invoke_in_qt_thread_synchronized, invoke_later
@@ -48,8 +48,12 @@ class QtBufferedListener(BaseListener):
     """A listener that can plug into the SDK. This listener receives the updates from the server and buffers them in a queue.
     A signal is emitted when new data is received to tell the UI to come read the queue. The signal is only emitted when the
     UI is ready to receive it for natural derating on update speed if the CPU is overloaded"""
+
     MAX_SIGNALS_PER_SEC = 15
+    """Maximum number of ``data_received`` QT signals this listener is allowed to emit per seconds.
+    Prevent overflowing the event loop"""
     TARGET_PROCESS_INTERVAL = 0.2
+    """Delay between 2 calls to ``process()``. Override ``BaseListener`` value"""
 
     class _Signals(QObject):
         data_received = Signal()
@@ -156,7 +160,7 @@ class ClientRequestStore:
             self._next_id = 0
 
     def register(self, entry: ClientRequestEntry) -> int:
-        """Register a request in the storage and return a unique, growing ID"""
+        """Register a request in the storage and return a unique, monotonic ID"""
         with self._lock:
             while self._next_id in self._storage:
                 self._next_id += 1
@@ -206,6 +210,8 @@ class ServerManager:
     class WatchableRegistrationStatus:
         active_state: "ServerManager.WatchableRegistrationState"
         pending_action: "ServerManager.WatchableRegistrationAction"
+        last_requested_rate: Optional[float]
+        pending_update_rate: Optional[float]
 
     class ThreadState:
         """Data used by the server thread used to detect changes and emit events"""
@@ -677,6 +683,20 @@ class ServerManager:
     # endregion
 
     # region Private QT side methods
+
+    def _request_update_rate_change(self, handle: WatchableHandle, update_rate: Optional[float]) -> None:
+        def _ephemerous_thread_change(client: ScrutinyClient) -> Optional[float]:
+            return handle.change_update_rate(update_rate)
+
+        def _qt_thread_callback(effective_rate: Optional[float], error: Optional[Exception]) -> None:
+            if error is not None:
+                tools.log_exception(self._logger, error, "Failed to change the update rate")
+            # Nothing else to do. We don't try to recover from a failure.
+
+        if self._logger.isEnabledFor(logging.DEBUG):
+            self._logger.debug(f"Changing update rate of {handle.server_path} to {update_rate}")
+        self.schedule_client_request(_ephemerous_thread_change, _qt_thread_callback)
+
     def _qt_update_registration_from_watchable_handle(self,
                                                       registration_status: WatchableRegistrationStatus,
                                                       handle: Optional[WatchableHandle]) -> None:
@@ -685,10 +705,13 @@ class ServerManager:
         if handle is not None:
             if handle.is_dead:
                 registration_status.active_state = self.WatchableRegistrationState.UNSUBSCRIBED
+                registration_status.last_requested_rate = None
             else:
                 registration_status.active_state = self.WatchableRegistrationState.SUBSCRIBED
+                registration_status.last_requested_rate = handle.requested_update_rate
         else:
             registration_status.active_state = self.WatchableRegistrationState.UNSUBSCRIBED
+            registration_status.last_requested_rate = None
 
     def _qt_watch_unwatch_ui_callback(self,
                                       attempted_action: WatchableRegistrationAction,
@@ -723,7 +746,7 @@ class ServerManager:
             self._registry.clear_serverid_from_node(watchable_type, server_path)
         else:
             if registration_status.pending_action == self.WatchableRegistrationAction.SUBSCRIBE:
-                self._qt_maybe_request_watch(watchable_type, server_path)
+                self._qt_maybe_request_watch(watchable_type, server_path, registration_status.pending_update_rate)
             elif registration_status.pending_action == self.WatchableRegistrationAction.UNSUBSCRIBE:
                 self._qt_maybe_request_unwatch(watchable_type, server_path)
 
@@ -731,12 +754,14 @@ class ServerManager:
             self._qt_watch_unwatch_ui_callback_call_count += 1
 
     @enforce_thread(QT_THREAD_NAME)
-    def _qt_maybe_request_watch(self, watchable_type: sdk.WatchableType, server_path: str) -> None:
+    def _qt_maybe_request_watch(self, watchable_type: sdk.WatchableType, server_path: str, update_rate: Optional[float]) -> None:
         """Will request the server for a watch subscription if not already done or working on it."""
         if not server_path in self._registration_status_store[watchable_type]:
             self._registration_status_store[watchable_type][server_path] = self.WatchableRegistrationStatus(
                 active_state=self.WatchableRegistrationState.UNSUBSCRIBED,
-                pending_action=self.WatchableRegistrationAction.NONE
+                pending_action=self.WatchableRegistrationAction.NONE,
+                last_requested_rate=None,
+                pending_update_rate=None
             )
         registration_status = self._registration_status_store[watchable_type][server_path]
 
@@ -746,20 +771,37 @@ class ServerManager:
             self._qt_update_registration_from_watchable_handle(registration_status, client_handle)
 
         # Decide what to do based on active state and pending action
-        if registration_status.active_state in [self.WatchableRegistrationState.SUBSCRIBED, self.WatchableRegistrationState.SUBSCRIBING]:
+        if registration_status.active_state in (self.WatchableRegistrationState.SUBSCRIBED, self.WatchableRegistrationState.SUBSCRIBING):
             # Nothing to do. Ensure we do nothing
             registration_status.pending_action = self.WatchableRegistrationAction.NONE
+
+            if update_rate != registration_status.last_requested_rate:
+                client_handle = self._client.try_get_existing_watch_handle(server_path)
+                if client_handle is not None:
+                    self._request_update_rate_change(client_handle, update_rate)
+                    registration_status.last_requested_rate = update_rate
+                else:
+                    self._logger.warning(f"Cannot change the update rate of {server_path} to {update_rate}. Watch still pending.")
+                    # The UI made 2 request for watch for the same element, with different update rate.
+                    # The second came in before the watch is complete.
+                    # We don't have a clean way to manage this.  We need a subscription first.
+                    # Leave like this. This problem will not happen 99.999% of the time and will be a non-issue,
+                    # just performance being affected.
+
         elif registration_status.active_state == self.WatchableRegistrationState.UNSUBSCRIBING:
             # enqueue. Next callback will pick this up
             registration_status.pending_action = self.WatchableRegistrationAction.SUBSCRIBE
+            registration_status.pending_update_rate = update_rate
+
         elif registration_status.active_state == self.WatchableRegistrationState.UNSUBSCRIBED:
             # Proceed with subscription
             registration_status.pending_action = self.WatchableRegistrationAction.NONE
+            registration_status.pending_update_rate = None
             registration_status.active_state = self.WatchableRegistrationState.SUBSCRIBING
 
             def func(client: ScrutinyClient) -> Optional[Exception]:
                 try:
-                    client.watch(server_path)
+                    client.watch(server_path, update_rate=update_rate)
                 except sdk.exceptions.ScrutinySDKException as e:
                     return e   # Exception others than SDKException are not normal.
                 return None
@@ -776,6 +818,7 @@ class ServerManager:
                         error=expected_error)
 
             self.schedule_client_request(func, ui_callback)
+            registration_status.last_requested_rate = update_rate
         else:   # pragma: no cover
             raise NotImplementedError(f"Unsupported state: {registration_status.active_state}")
 
@@ -785,7 +828,9 @@ class ServerManager:
         if not server_path in self._registration_status_store[watchable_type]:
             self._registration_status_store[watchable_type][server_path] = self.WatchableRegistrationStatus(
                 active_state=self.WatchableRegistrationState.UNSUBSCRIBED,
-                pending_action=self.WatchableRegistrationAction.NONE
+                pending_action=self.WatchableRegistrationAction.NONE,
+                pending_update_rate=None,
+                last_requested_rate=None
             )
         registration_status = self._registration_status_store[watchable_type][server_path]
 
@@ -828,20 +873,24 @@ class ServerManager:
             raise NotImplementedError(f"Unsupported state: {registration_status.active_state}")
 
     @enforce_thread(QT_THREAD_NAME)
-    def _qt_registry_watch_callback(self, watcher_id: Union[str, int], server_path: str, watchable_config: sdk.BriefWatchableConfiguration, registry_id: int) -> None:
+    def _qt_registry_watch_callback(self, data: GlobalWatchCallbackData) -> None:
         """Called when a gui component register a watcher on the registry"""
         # Runs from QT thread
-        watcher_count = self._registry.node_watcher_count(watchable_config.watchable_type, server_path)
-        if watcher_count is not None and watcher_count > 0:
-            self._qt_maybe_request_watch(watchable_config.watchable_type, server_path)
+        if data.watcher_count is not None and data.watcher_count > 0:
+            self._qt_maybe_request_watch(data.watchable_config.watchable_type, data.server_path, data.highest_update_rate)
 
     @enforce_thread(QT_THREAD_NAME)
-    def _qt_registry_unwatch_callback(self, watcher_id: Union[str, int], server_path: str, watchable_config: sdk.BriefWatchableConfiguration, registry_id: int) -> None:
+    def _qt_registry_unwatch_callback(self, data: GlobalWatchCallbackData) -> None:
         """Called when a gui component unregister a watcher on the registry"""
         # Runs from QT thread
-        watcher_count = self._registry.node_watcher_count(watchable_config.watchable_type, server_path)
-        if watcher_count is not None and watcher_count == 0:
-            self._qt_maybe_request_unwatch(watchable_config.watchable_type, server_path)
+        if data.watcher_count is not None and data.watcher_count == 0:
+            self._qt_maybe_request_unwatch(data.watchable_config.watchable_type, data.server_path)
+        else:
+            handle = self._client.try_get_existing_watch_handle(data.server_path)
+            if handle is not None:
+                # Slow down the update rate if necessary
+                if data.highest_update_rate != handle.requested_update_rate:
+                    self._request_update_rate_change(handle, data.highest_update_rate)
 
     def _qt_value_update_received(self) -> None:
         # Called in the QT thread when a value update is received by the listener (the client)

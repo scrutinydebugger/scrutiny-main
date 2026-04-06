@@ -16,7 +16,8 @@ __all__ = [
     'WatcherValueUpdateCallback',
     'GlobalWatchCallback',
     'GlobalUnwatchCallback',
-    'ValueUpdate'
+    'ValueUpdate',
+    'GlobalWatchCallbackData'
 ]
 
 
@@ -85,6 +86,16 @@ class ServerRegistryBidirectionalMap:
         return len(self.s2r)
 
 
+@dataclass(slots=True)
+class GlobalWatchCallbackData:
+    watcher_id: WatcherIdType
+    server_path: str
+    watchable_config: sdk.BriefWatchableConfiguration
+    registry_id: int
+    watcher_count: int
+    highest_update_rate: Optional[float]
+
+
 @dataclass(frozen=True, slots=True)
 class RegistryValueUpdate:
     sdk_update: ValueUpdate
@@ -120,8 +131,13 @@ TYPESTR_MAP_WT2S: Dict[sdk.WatchableType, str] = {v: k for k, v in TYPESTR_MAP_S
 
 WatcherValueUpdateCallback = Callable[[WatcherIdType, List[RegistryValueUpdate]], None]
 UnwatchCallback = Callable[[WatcherIdType, str, sdk.BriefWatchableConfiguration, int], None]
-GlobalWatchCallback = Callable[[WatcherIdType, str, sdk.BriefWatchableConfiguration, int], None]
-GlobalUnwatchCallback = Callable[[WatcherIdType, str, sdk.BriefWatchableConfiguration, int], None]
+GlobalWatchCallback = Callable[[GlobalWatchCallbackData], None]
+GlobalUnwatchCallback = Callable[[GlobalWatchCallbackData], None]
+
+
+@dataclass(slots=True)
+class WatcherData:
+    update_rate: Optional[float]
 
 
 @dataclass(init=False, slots=True)
@@ -130,13 +146,36 @@ class WatchableRegistryEntryNode:
     configuration: sdk.BriefWatchableConfiguration
     server_path: str
     registry_id: int
-    _watcher_count: int
+    _watcher_data: Dict[WatcherIdType, WatcherData]
 
     def __init__(self, registry: "WatchableRegistry", server_path: str, config: sdk.BriefWatchableConfiguration) -> None:
         self.server_path = server_path
         self.configuration = config
-        self._watcher_count = 0
+        self._watcher_data = {}
         self.registry_id = registry._make_node_id()
+
+    def get_watcher_count(self) -> int:
+        return len(self._watcher_data)
+
+    def add_watcher(self, watcher_id: WatcherIdType, update_rate: Optional[float]) -> None:
+        if watcher_id in self._watcher_data:
+            raise WatchableRegistryError(f"Watcher {watcher_id} already added to node {self.server_path}")
+        self._watcher_data[watcher_id] = WatcherData(
+            update_rate=update_rate
+        )
+
+    def remove_watcher(self, watcher_id: WatcherIdType) -> None:
+        if watcher_id not in self._watcher_data:
+            raise WatchableRegistryError(f"Watcher {watcher_id} not watching node {self.server_path}")
+        del self._watcher_data[watcher_id]
+
+    def get_highest_update_rate(self) -> Optional[float]:
+        rates = [data.update_rate for data in self._watcher_data.values()]
+        if len(rates) == 0:
+            return None
+        if None in rates:
+            return None
+        return max(cast(Sequence[float], rates))
 
 
 @dataclass(frozen=True, slots=True)
@@ -403,25 +442,27 @@ class WatchableRegistry:
         """Return the number of active registered watchers"""
         return len(self._watchers)
 
-    def watch_fqn(self, watcher_id: WatcherIdType, fqn: str) -> int:
+    def watch_fqn(self, watcher_id: WatcherIdType, fqn: str, update_rate: Optional[float] = None) -> int:
         """Adds a watcher on the given watchable and register a callback to be
         invoked when its value is updated
 
         :param watcher_id: A string/int that identifies the owner of the callback. Passed back when the callback is invoked
         :param fqn: The watchable fully qualified name
+        :param update_rate: The update rate to request the server with. ``None`` means as fast as possible
         :return: The registry ID assigned to the value updates that will be broadcast for that item
         """
         parsed = self.FQN.parse(fqn)
-        return self.watch(watcher_id, parsed.watchable_type, parsed.path)
+        return self.watch(watcher_id, parsed.watchable_type, parsed.path, update_rate)
 
     @enforce_thread(QT_THREAD_NAME)
-    def watch(self, watcher_id: WatcherIdType, watchable_type: sdk.WatchableType, path: str) -> int:
+    def watch(self, watcher_id: WatcherIdType, watchable_type: sdk.WatchableType, path: str, update_rate: Optional[float] = None) -> int:
         """Adds a watcher on the given watchable and register a callback to be
         invoked when its value is updated
 
         :param watcher_id: A string/int that identifies the owner of the callback. Passed back when the callback is invoked
         :param watchable_type: The watchable type
         :param path: The watchable tree path
+        :param update_rate: The update rate to request the server with. ``None`` means as fast as possible
 
         :return: The registry ID assigned to the value updates that will be broadcast for that item
         """
@@ -440,11 +481,19 @@ class WatchableRegistry:
         added = False
         if node.registry_id not in watcher.subscribed_registry_id:
             watcher.subscribed_registry_id.add(node.registry_id)
-            node._watcher_count += 1
+            node.add_watcher(watcher.watcher_id, update_rate=update_rate)
             added = True
 
         if added and self._global_watch_callbacks is not None:
-            self._global_watch_callbacks(watcher_id, node.server_path, node.configuration, node.registry_id)
+            data = GlobalWatchCallbackData(
+                watcher_id=watcher_id,
+                server_path=node.server_path,
+                watchable_config=node.configuration,
+                registry_id=node.registry_id,
+                watcher_count=node.get_watcher_count(),
+                highest_update_rate=node.get_highest_update_rate()
+            )
+            self._global_watch_callbacks(data)
 
         return node.registry_id
 
@@ -467,16 +516,23 @@ class WatchableRegistry:
 
                 watcher.subscribed_registry_id.remove(node.registry_id)
                 removed_list.append(node)
-                node._watcher_count -= 1
-                node._watcher_count = max(node._watcher_count, 0)
-                if node._watcher_count == 0:
+                node.remove_watcher(watcher.watcher_id)
+                if node.get_watcher_count() == 0:
                     with tools.SuppressException(KeyError):
                         del self._watched_entries[node.registry_id]
 
         # Callback is outside of lock on purpose to allow it to access the registry too. Deadlock will happen otherwise
         if self._global_unwatch_callbacks is not None:
             for node in removed_list:
-                self._global_unwatch_callbacks(watcher.watcher_id, node.server_path, node.configuration, node.registry_id)
+                data = GlobalWatchCallbackData(
+                    watcher_id=watcher.watcher_id,
+                    server_path=node.server_path,
+                    watchable_config=node.configuration,
+                    registry_id=node.registry_id,
+                    watcher_count=node.get_watcher_count(),
+                    highest_update_rate=node.get_highest_update_rate()
+                )
+                self._global_unwatch_callbacks(data)
 
     @enforce_thread(QT_THREAD_NAME)
     def unwatch_all(self, watcher_id: WatcherIdType) -> None:
@@ -535,7 +591,7 @@ class WatchableRegistry:
             entry = self._watched_entries[registry_id]
         except KeyError:
             return 0
-        return entry._watcher_count
+        return entry.get_watcher_count()
 
     def node_watcher_count_fqn(self, fqn: str) -> Optional[int]:
         """Return the number of watcher on a node
@@ -557,7 +613,7 @@ class WatchableRegistry:
         if not isinstance(node, WatchableRegistryEntryNode):
             self._logger.debug("Cannot get the watcher count of something that is not a Watchable")
             return None
-        return node._watcher_count
+        return node.get_watcher_count()
 
     def watched_entries_count(self) -> int:
         """Return the total number of watchable being watched"""

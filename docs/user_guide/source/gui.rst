@@ -181,6 +181,7 @@ There are two types of dashboard components: those that allow only a single inst
     "|ContinuousGraphIcon|", "Continuous Graph", "Multiple", "Creates a graph of the real-time values of the selected watchable elements. The sampling rate is configurable, and the acquisition length is unlimited."
     "|EmbeddedGraphIcon|",  "Embedded Graph",   "Multiple", "Configures and displays graphs obtained through the datalogging feature. The sampling rate depends on the device and is typically stable. The acquisition length depends on the size of the datalogging buffer."
 
+.. _watch_window_component:
 
 Watch Window Component
 ######################
@@ -193,6 +194,9 @@ Watch Window Component
 In the screenshot above, we see a variable structure, in this case, the  ``htim2`` timer instance from the STM32 demo.
 The tree structure can be edited freely once it is in the Watch window.
 Each row is tied to its server path and retains its link to the data source even if renamed or reorganized.
+
+When a watchable element is added to a Watch window, the GUI subscribes to the server for
+updates at a rate defined by :ref:`SCRUTINY_GUI_WATCH_UPDATE_RATE<advanced_options>`.
 
 When a folder is collapsed (hiding its variables), the GUI immediately unsubscribes the hidden variables from the server.
 This can free bandwidth on the device communication channel, allowing the server to increase the refresh rate for the remaining visible variables.
@@ -226,6 +230,8 @@ If a pointer is set to ``0``, the Scrutiny server will refuse to read it and wil
     Be very careful when changing the value of a pointer as it can cause a runtime crash of your device.
 
 
+.. _continuous_graph_component:
+
 Continuous Graph Component
 ##########################
 
@@ -237,7 +243,8 @@ The continuous graph is generated entirely by the GUI. The server and the device
     Continuous Graph Component
 
 When an acquisition is started, the GUI subscribes to the requested watchable elements on the server and plots,
-in real time, the values broadcast by the server until the acquisition is stopped.
+in real time, the values broadcast by the server until the acquisition is stopped. The subscription to the server
+required the highest update rate possible.
 
 Watchable elements (Variables, Aliases, and RPVs) can be dragged and dropped onto the axes region.
 Both axes and watchable elements can be renamed freely for the duration of the acquisition.
@@ -274,6 +281,7 @@ An additional column labeled ``New Values`` indicates, using a boolean flag, whi
 In the screenshot above, we can see that not all values are updated on every row.
 We can also observe the server's round-robin polling behavior across variables.
 
+.. _embedded_graph_component:
 
 Embedded Graph Component
 ########################
@@ -418,6 +426,8 @@ By clicking the menu bar menu : ``Server`` --> ``Manage Firmware``, the followin
     Managing the server SFDs
 
 
+.. _advanced_options:
+
 Advanced Options
 -----------------
 
@@ -450,3 +460,8 @@ SCRUTINY_GUI_MAX_TOTAL_GENERATED_VAR (default : 65536)
 
     This serves as a fallback mechanism to prevent the GUI from hanging when the server connects to a device
     that exposes an unreasonable number of array elements.
+
+SCRUTINY_GUI_WATCH_UPDATE_RATE (default : 15)
+    Defines the update rate requested from the server when displaying a watchable in a
+    :ref:`Watch Window component<watch_window_component>`. A value of 0 requests the server to poll as quickly as possible.
+    This setting only takes effect if no other widgets or clients are monitoring the same watchable at a higher update rate.

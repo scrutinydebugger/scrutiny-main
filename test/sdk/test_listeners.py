@@ -130,11 +130,11 @@ class TestListeners(ScrutinyUnitTest):
 
     def setUp(self) -> None:
         dummy_client = ScrutinyClient()
-        self.w1 = WatchableHandle(dummy_client, '/aaa/bbb/ccc')
-        self.w2 = WatchableHandle(dummy_client, '/aaa/bbb/ccc2')
-        self.w3 = WatchableHandle(dummy_client, '/aaa/bbb/ccc3')
-        self.w4 = WatchableHandle(dummy_client, '/aaa/bbb/ccc4')
-        self.w5 = WatchableHandle(dummy_client, '/aaa/bbb/ccc5')
+        self.w1 = WatchableHandle(dummy_client, '/aaa/bbb/ccc', requested_update_rate=None)
+        self.w2 = WatchableHandle(dummy_client, '/aaa/bbb/ccc2', requested_update_rate=None)
+        self.w3 = WatchableHandle(dummy_client, '/aaa/bbb/ccc3', requested_update_rate=None)
+        self.w4 = WatchableHandle(dummy_client, '/aaa/bbb/ccc4', requested_update_rate=None)
+        self.w5 = WatchableHandle(dummy_client, '/aaa/bbb/ccc5', requested_update_rate=None)
 
         self.w1._configure(sdk.BaseDetailedWatchableConfiguration(watchable_type=WatchableType.Variable,
                            datatype=EmbeddedDataType.float32, server_id='w1', enum=None, server_path=self.w1.server_path))

@@ -44,6 +44,7 @@ class WatchableHandle:
         '_last_write_dt',
         '_update_counter',
         '_dead',
+        '_requested_update_rate'
     )
 
     _client: "ScrutinyClient"
@@ -70,8 +71,10 @@ class WatchableHandle:
     """A counter that gets incremented each time the value is updated"""
     _dead: bool
     """A one-shot flag that indicates if the handle is dead forever"""
+    _requested_update_rate: Optional[float]
+    """The update rate requested for this handle"""
 
-    def __init__(self, client: "ScrutinyClient", server_path: str) -> None:
+    def __init__(self, client: "ScrutinyClient", server_path: str, requested_update_rate: Optional[float]) -> None:
         self._client = client
         self._server_path = server_path
         self._shortname = path_tools.make_segments(server_path)[-1]
@@ -81,6 +84,10 @@ class WatchableHandle:
         self._last_write_dt = None
         self._dead = False
         self._set_invalid(ValueStatus.NeverSet)
+        self._requested_update_rate = requested_update_rate
+
+    def _set_requested_update_rate(self, update_rate: Optional[float]) -> None:
+        self._requested_update_rate = update_rate
 
     def __repr__(self) -> str:
         """Return a developer-friendly string representation including the name, datatype, and object address."""
@@ -494,3 +501,7 @@ class WatchableHandle:
         if not isinstance(self._configuration, DetailedRPVWatchableConfiguration):
             raise sdk_exceptions.BadTypeError(f"Watchable {self._shortname} is not a Runtime Published Value. Type={self.type.name}")
         return self._configuration
+
+    @property
+    def requested_update_rate(self) -> Optional[float]:
+        return self._requested_update_rate
