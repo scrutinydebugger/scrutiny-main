@@ -623,6 +623,10 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
         self.wait_true_with_events(lambda: len(self.fake_client._pending_unwatch_request) > 0, timeout=max_wait, no_assert=True)
         self.assertEqual(len(self.fake_client._pending_unwatch_request), 0)
 
+    def assert_no_change_update_rate_request(self, max_wait: float = 1):
+        self.wait_true_with_events(lambda: len(self.fake_client._pending_change_update_rate_request) > 0, timeout=max_wait, no_assert=True)
+        self.assertEqual(len(self.fake_client._pending_change_update_rate_request), 0)
+
     def assert_no_watch_or_unwatch_request(self, max_wait: float = 1):
         func = lambda: len(self.fake_client._pending_unwatch_request) > 0 or len(self.fake_client._pending_watch_request) > 0
         self.wait_true_with_events(func, timeout=max_wait, no_assert=True)
@@ -834,39 +838,44 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
 
         watcher1 = 'watcher1'
         watcher2 = 'watcher2'
+        watcher3 = 'watcher3'
         self.registry.register_watcher(watcher1, lambda *x, **y: None, lambda *x, **y: None)
         self.registry.register_watcher(watcher2, lambda *x, **y: None, lambda *x, **y: None)
-        self.registry.watch(watcher1, sdk.WatchableType.Variable, 'a/b/c', update_rate=10)
+        self.registry.register_watcher(watcher3, lambda *x, **y: None, lambda *x, **y: None)
 
-        request1 = self.get_watch_request(assert_single=True)
-        self.assertEqual(request1.update_rate, 10)
+        with self.subTest("Second watch uses change_update_rate"):
+            self.registry.watch(watcher1, sdk.WatchableType.Variable, 'a/b/c', update_rate=10)
 
-        call_count = self.server_manager._qt_watch_unwatch_ui_callback_call_count
-        request1.simulate_success(watchable_config)
-        self.wait_true_with_events(lambda: call_count != self.server_manager._qt_watch_unwatch_ui_callback_call_count, timeout=2)
+            request1 = self.get_watch_request(assert_single=True)
+            self.assertEqual(request1.update_rate, 10)
 
-        # Second watch does not cause a watch request, it cause an update rate change
-        self.registry.watch(watcher2, sdk.WatchableType.Variable, 'a/b/c', update_rate=20)
-        change_request = self.get_change_update_rate_request(assert_single=True)
-        self.assertEqual(change_request.requested_rate, 20)
-        change_request.simulate_success()
+            call_count = self.server_manager._qt_watch_unwatch_ui_callback_call_count
+            request1.simulate_success(watchable_config)
+            self.wait_true_with_events(lambda: call_count != self.server_manager._qt_watch_unwatch_ui_callback_call_count, timeout=2)
 
-        self.registry.unwatch(watcher2, sdk.WatchableType.Variable, 'a/b/c')
-        change_request = self.get_change_update_rate_request(assert_single=True)
-        self.assertEqual(change_request.requested_rate, 10)
-        change_request.simulate_success()
+            # Second watch does not cause a watch request, it cause an update rate change
+            self.registry.watch(watcher2, sdk.WatchableType.Variable, 'a/b/c', update_rate=20)
+            change_request = self.get_change_update_rate_request(assert_single=True)
+            self.assertEqual(change_request.requested_rate, 20)
+            change_request.simulate_success()
 
-        # Unwatch, then rewatch before unwatch complete with a new update rate. Expect we don't loose it
-        self.registry.unwatch(watcher1, sdk.WatchableType.Variable, 'a/b/c')
-        unwatch_request = self.get_unwatch_request(assert_single=True)
-        self.registry.watch(watcher1, sdk.WatchableType.Variable, 'a/b/c', update_rate=50)
-        self.assertEqual(len(self.fake_client._pending_watch_request), 0)  # The rewatch request is pending in the server manager
-        call_count = self.server_manager._qt_watch_unwatch_ui_callback_call_count
-        unwatch_request.simulate_success()
-        self.wait_true_with_events(lambda: call_count != self.server_manager._qt_watch_unwatch_ui_callback_call_count, timeout=2)
-        # Rewatch request should have been emitted
-        rewatch_request = self.get_watch_request(assert_single=True)
-        self.assertEqual(rewatch_request.update_rate, 50)
+            self.registry.unwatch(watcher2, sdk.WatchableType.Variable, 'a/b/c')
+            change_request = self.get_change_update_rate_request(assert_single=True)
+            self.assertEqual(change_request.requested_rate, 10)
+            change_request.simulate_success()
+
+        with self.subTest("Unwatch rewatch keep update rate"):
+            # Unwatch, then rewatch before unwatch complete with a new update rate. Expect we don't loose it
+            self.registry.unwatch(watcher1, sdk.WatchableType.Variable, 'a/b/c')
+            unwatch_request = self.get_unwatch_request(assert_single=True)
+            self.registry.watch(watcher1, sdk.WatchableType.Variable, 'a/b/c', update_rate=50)
+            self.assertEqual(len(self.fake_client._pending_watch_request), 0)  # The rewatch request is pending in the server manager
+            call_count = self.server_manager._qt_watch_unwatch_ui_callback_call_count
+            unwatch_request.simulate_success()
+            self.wait_true_with_events(lambda: call_count != self.server_manager._qt_watch_unwatch_ui_callback_call_count, timeout=2)
+            # Rewatch request should have been emitted
+            rewatch_request = self.get_watch_request(assert_single=True)
+            self.assertEqual(rewatch_request.update_rate, 50)
 
         call_count = self.server_manager._qt_watch_unwatch_ui_callback_call_count
         rewatch_request.simulate_success(watchable_config)
@@ -875,6 +884,44 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
         self.registry.unwatch(watcher1, sdk.WatchableType.Variable, 'a/b/c')
         unwatch_request = self.get_unwatch_request(assert_single=True)
         unwatch_request.simulate_success()
+
+    def test_update_rate_not_lost_with_fast_watches(self):
+        self.registry._add_watchable('a/b/c', sdk.BriefWatchableConfiguration(
+            datatype=sdk.EmbeddedDataType.float32,
+            enum=None,
+            watchable_type=sdk.WatchableType.Variable
+        ))
+
+        watchable_config = sdk.BaseDetailedWatchableConfiguration(
+            sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None, server_id='xxx', server_path='a/b/c')
+
+        watcher1 = 'watcher1'
+        watcher2 = 'watcher2'
+        watcher3 = 'watcher3'
+        watcher4 = 'watcher4'
+        self.registry.register_watcher(watcher1, lambda *x, **y: None, lambda *x, **y: None)
+        self.registry.register_watcher(watcher2, lambda *x, **y: None, lambda *x, **y: None)
+        self.registry.register_watcher(watcher3, lambda *x, **y: None, lambda *x, **y: None)
+        self.registry.register_watcher(watcher4, lambda *x, **y: None, lambda *x, **y: None)
+
+        # Now check that we can stack several subscribe without losing the update rates
+        with self.subTest("Stacked watch does not loose udpate rate"):
+            self.registry.watch(watcher1, sdk.WatchableType.Variable, 'a/b/c', update_rate=10)
+            self.registry.watch(watcher2, sdk.WatchableType.Variable, 'a/b/c', update_rate=20)
+            self.registry.watch(watcher3, sdk.WatchableType.Variable, 'a/b/c', update_rate=30)
+            self.registry.watch(watcher4, sdk.WatchableType.Variable, 'a/b/c', update_rate=25)
+
+            watch_request = self.get_watch_request(assert_single=True)
+            self.assertEqual(watch_request.update_rate, 10)
+            # Since we don't have the handle yet, expect the server manager to remember the update rate change and execute it later.
+            self.assert_no_change_update_rate_request()
+            call_count = self.server_manager._qt_watch_unwatch_ui_callback_call_count
+            watch_request.simulate_success(watchable_config)
+            self.wait_true_with_events(lambda: call_count != self.server_manager._qt_watch_unwatch_ui_callback_call_count, timeout=2)
+
+            update_rate_request = self.get_change_update_rate_request(assert_single=True)
+            self.assertEqual(update_rate_request.requested_rate, 30)   # Keep fastest
+            update_rate_request.simulate_success()
 
 
 class TestQtListener(ScrutinyBaseGuiTest):
