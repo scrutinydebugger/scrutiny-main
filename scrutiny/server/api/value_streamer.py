@@ -34,7 +34,7 @@ class ConnectionData:
         self.to_publish = set()
         self.to_publish_on_batch_end = set()
         self.batch_state = BatchState.INACTIVE
-        self.stream_rate_throttler = Throttler(estimation_window=0.005)
+        self.stream_rate_throttler = Throttler(mean_rate=0, estimation_window=0.005)
 
     def process(self) -> None:
         self.stream_rate_throttler.process()

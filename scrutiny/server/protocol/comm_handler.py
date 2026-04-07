@@ -143,7 +143,7 @@ class CommHandler:
         self._rx_data = self.RxData()    # Contains the response data while we read it.
         self._logger = logging.getLogger(self.__class__.__name__)
         self._opened = False     # True when communication channel is active and working.
-        self._throttler = Throttler()
+        self._throttler = Throttler(mean_rate=0)
         self._link_type = "none"
         self._last_open_error = None
         self._rx_data_event = None

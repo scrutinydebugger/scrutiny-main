@@ -731,7 +731,7 @@ class ServerManager:
         client_handle = self._client.try_get_existing_watch_handle(server_path)
         self._qt_update_registration_from_watchable_handle(registration_status, client_handle)
 
-        # Inform the listener
+        # We tried to subscribe and succeeded . Inform the listener
         if (attempted_action == self.WatchableRegistrationAction.SUBSCRIBE
                 and registration_status.active_state == self.WatchableRegistrationState.SUBSCRIBED):
             assert client_handle is not None
@@ -739,6 +739,7 @@ class ServerManager:
             self._listener.subscribe(client_handle)
         self._listener.prune_subscriptions()    # Delete dead handles
 
+        # We tried to unsubscribe, succeeded and nothing else to do. Cleanup
         if (registration_status.active_state == self.WatchableRegistrationState.UNSUBSCRIBED
                 and registration_status.pending_action == self.WatchableRegistrationAction.NONE):
             if server_path in self._registration_status_store[watchable_type]:
@@ -781,12 +782,8 @@ class ServerManager:
                     self._request_update_rate_change(client_handle, update_rate)
                     registration_status.last_requested_rate = update_rate
                 else:
-                    self._logger.warning(f"Cannot change the update rate of {server_path} to {update_rate}. Watch still pending.")
-                    # The UI made 2 request for watch for the same element, with different update rate.
-                    # The second came in before the watch is complete.
-                    # We don't have a clean way to manage this.  We need a subscription first.
-                    # Leave like this. This problem will not happen 99.999% of the time and will be a non-issue,
-                    # just performance being affected.
+                    registration_status.pending_action = self.WatchableRegistrationAction.SUBSCRIBE
+                    registration_status.pending_update_rate = update_rate
 
         elif registration_status.active_state == self.WatchableRegistrationState.UNSUBSCRIBING:
             # enqueue. Next callback will pick this up
