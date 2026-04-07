@@ -57,14 +57,14 @@ class Throttler:
     consumed_since_last_estimation: int
     """Amount consumed since last estimation."""
 
-    def __init__(self, mean_rate: float = 0, estimation_window: float = 0.1):
+    def __init__(self, mean_rate, estimation_window: float = 0.1, slow_tau: float = 1.0, fast_tau=0.05):
         self.enabled = False
         self.mean_rate = float(mean_rate)
         self.estimation_window_ns = int(round(estimation_window * 1e9))
         # 1 sec time constant, but we can't be smaller than the window  (otherwise unstable)
-        self.slow_tau = max(1.0, estimation_window)
+        self.slow_tau = max(slow_tau, fast_tau)
         # 0.05 sec time constant, but we can't be smaller than the window (otherwise unstable)
-        self.fast_tau = max(0.05, estimation_window)
+        self.fast_tau = fast_tau
         self.reset()
 
     def set_rate(self, mean_rate: float) -> None:

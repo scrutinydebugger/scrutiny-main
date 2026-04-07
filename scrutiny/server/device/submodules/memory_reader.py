@@ -221,7 +221,7 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
                 del self.entry_to_throttler_map[entry]
         else:
             if entry not in self.entry_to_throttler_map:
-                self.entry_to_throttler_map[entry] = Throttler(rate, estimation_window=0.01)
+                self.entry_to_throttler_map[entry] = Throttler(rate, estimation_window=0.01, slow_tau=0.5, fast_tau=0.1)
                 self.entry_to_throttler_map[entry].enable()
             throttler = self.entry_to_throttler_map[entry]
             if throttler.get_estimated_rate() > rate:
