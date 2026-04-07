@@ -408,3 +408,24 @@ def open_file_or_raise(filepath: str) -> None:
             raise RuntimeError(f"Failed to open file {filepath}")
     else:
         raise NotImplementedError(f"Do not know how to open a file on platform {sys.platform}")
+
+
+ENVT = TypeVar("ENVT", float, int)
+
+
+def read_env_numeric(name: str, vtype: Type[ENVT], default: ENVT, minval: Optional[ENVT], maxval: Optional[ENVT], logger: logging.Logger) -> ENVT:
+    if name not in os.environ:
+        return default
+    with LogException(logger, Exception, f"Invalid value for {name}", str_level=logging.WARNING, suppress_exception=True):
+        v = vtype(os.environ[name])
+
+        if minval is not None:
+            if v < minval:
+                raise ValueError(f"{name} cannot be smaller than {minval}")
+
+        if maxval is not None:
+            if v > maxval:
+                raise ValueError(f"{name} cannot be greater than {maxval}")
+        return v
+
+    return default

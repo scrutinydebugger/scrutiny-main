@@ -15,7 +15,6 @@ import time
 import logging
 import queue
 import enum
-import os
 from copy import copy
 from dataclasses import dataclass
 
@@ -33,6 +32,7 @@ from scrutiny import tools
 from scrutiny.tools.thread_enforcer import thread_func, enforce_thread
 from scrutiny.tools.profiling import VariableRateExponentialAverager
 from scrutiny.tools.typing import *
+from scrutiny.gui.app_settings import app_settings
 
 USER_MSG_ID_CONNECT_FAILED = "connect_failed"
 USER_MSG_UPDATE_OVERRUN = "listener_update_dropped"
@@ -269,9 +269,9 @@ class ServerManager:
         datalogging_storage_updated = Signal(sdk.DataloggingListChangeType, str)  # type, reference_id
 
     RECONNECT_DELAY = 1
-    VAR_FACTORY_MAX_WATCHABLE = 1024            # Arbitrary value
-    VAR_FACTORY_MAX_TOTAL_GENERATED_VAR = 65536  # Arbitrary value
-    SERVER_THROTTLING_RATE = 4000  # Arbitrary value
+    VAR_FACTORY_MAX_WATCHABLE: int
+    VAR_FACTORY_MAX_TOTAL_GENERATED_VAR: int
+    SERVER_THROTTLING_RATE: int
 
     _client: ScrutinyClient
     """The SDK client object that talks with the server"""
@@ -414,19 +414,9 @@ class ServerManager:
         self._signals.server_disconnected.connect(self._server_disconnected_callback)
         self._signals.server_connected.connect(self._server_connected_callback)
 
-        def read_env_positive_int(name: str, default: int) -> int:
-            if name in os.environ:
-                with tools.LogException(self._logger, Exception, f"Invalid value for {name}", str_level=logging.WARNING, suppress_exception=True):
-                    v = int(os.environ[name])
-                    if v < 0:
-                        raise ValueError(f"{name} cannot be negative")
-                    return v
-            return default
-
-        self.SERVER_THROTTLING_RATE = read_env_positive_int('SCRUTINY_GUI_SERVER_THROTTLING_RATE', self.SERVER_THROTTLING_RATE)
-        self.VAR_FACTORY_MAX_WATCHABLE = read_env_positive_int('SCRUTINY_GUI_MAX_GENERATED_VAR_PER_ELEMENT', self.VAR_FACTORY_MAX_WATCHABLE)
-        self.VAR_FACTORY_MAX_TOTAL_GENERATED_VAR = read_env_positive_int(
-            'SCRUTINY_GUI_MAX_TOTAL_GENERATED_VAR', self.VAR_FACTORY_MAX_TOTAL_GENERATED_VAR)
+        self.SERVER_THROTTLING_RATE = app_settings().SCRUTINY_GUI_SERVER_THROTTLING_RATE
+        self.VAR_FACTORY_MAX_WATCHABLE = app_settings().SCRUTINY_GUI_MAX_GENERATED_VAR_PER_ELEMENT
+        self.VAR_FACTORY_MAX_TOTAL_GENERATED_VAR = app_settings().SCRUTINY_GUI_MAX_TOTAL_GENERATED_VAR
 
     # region Private - internal thread
 
