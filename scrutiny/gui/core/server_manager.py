@@ -342,7 +342,6 @@ class ServerManager:
             sdk.WatchableType.Alias: {},
             sdk.WatchableType.RuntimePublishedValue: {}
         }
-        self._pending_update_rate_change = {}
 
         self._internal_signals.thread_exit_signal.connect(self._qt_thread_join_thread_and_emit_stopped)
         self._internal_signals.client_request_completed.connect(self._qt_client_request_completed)

@@ -57,7 +57,7 @@ class Throttler:
     consumed_since_last_estimation: int
     """Amount consumed since last estimation."""
 
-    def __init__(self, mean_rate, estimation_window: float = 0.1, slow_tau: float = 1.0, fast_tau=0.05):
+    def __init__(self, mean_rate, estimation_window: float = 0.1, slow_tau: float = 1.0, fast_tau=0.05) -> None:
         self.enabled = False
         self.mean_rate = float(mean_rate)
         self.estimation_window_ns = int(round(estimation_window * 1e9))
