@@ -20,15 +20,15 @@ The architecture of the Scrutiny ecosystem is depicted as below
 - On the right, we have the embedded firmware in the device we are debugging.
 - In the middle, a server that arbitrates the client requests and keep an active communication with the device.
 
-Classical vs intrumentation based debugging
--------------------------------------------
+Classical vs instrumentation based debugging
+--------------------------------------------
 
 Debugging by instrumentation is different from common classical debugging of embedded firwmares.
 
 In the traditional approach, the device is accessed through a dedicated debug port using a protocol such as
 :ref:`SWD<glossary>` or :ref:`JTAG<glossary>` using a debug probe.
 
-When debugging by intrumentation, the debug probe is not necessary. We use instead any peripheral capable of
+When debugging by instrumentation, the debug probe is not necessary. We use instead any peripheral capable of
 data transfer and use it to communicate with a debugging library. The presence of debugging library in the
 embedded firmware is the part that is instrumented.
 

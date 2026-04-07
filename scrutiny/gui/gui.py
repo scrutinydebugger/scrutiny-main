@@ -32,6 +32,7 @@ from scrutiny.tools.typing import *
 from scrutiny.tools.signals import SignalExitHandler
 
 from scrutiny.gui import DEFAULT_SERVER_PORT
+from scrutiny import tools
 
 
 class SupportedTheme(enum.Enum):
@@ -39,7 +40,14 @@ class SupportedTheme(enum.Enum):
     Fusion = enum.auto()
 
 
+_DEFAULT_SCRUTINY_GUI_WATCH_UPDATE_RATE = 15
+_DEFAULT_SCRUTINY_GUI_SERVER_THROTTLING_RATE = 4000
+_DEFAULT_SCRUTINY_GUI_MAX_GENERATED_VAR_PER_ELEMENT = 1024
+_DEFAULT_SCRUTINY_GUI_MAX_TOTAL_GENERATED_VAR = 65536
+
+
 class ScrutinyQtGUI:
+
     @dataclass(frozen=True)
     class Settings:
         debug_layout: bool = False
@@ -48,6 +56,11 @@ class ScrutinyQtGUI:
         start_local_server: bool = False
         local_server_port: int = DEFAULT_SERVER_PORT
         theme: SupportedTheme = SupportedTheme.Default
+
+        SCRUTINY_GUI_WATCH_UPDATE_RATE: Optional[float] = _DEFAULT_SCRUTINY_GUI_WATCH_UPDATE_RATE
+        SCRUTINY_GUI_SERVER_THROTTLING_RATE: int = _DEFAULT_SCRUTINY_GUI_SERVER_THROTTLING_RATE
+        SCRUTINY_GUI_MAX_GENERATED_VAR_PER_ELEMENT: int = _DEFAULT_SCRUTINY_GUI_MAX_GENERATED_VAR_PER_ELEMENT
+        SCRUTINY_GUI_MAX_TOTAL_GENERATED_VAR: int = _DEFAULT_SCRUTINY_GUI_MAX_TOTAL_GENERATED_VAR
 
     _instance: Optional["ScrutinyQtGUI"] = None
     _settings: Settings
@@ -76,6 +89,23 @@ class ScrutinyQtGUI:
 
         self.__class__._instance = self
         self._exit_handler = None
+        logger = logging.getLogger(self.__class__.__name__)
+
+        SCRUTINY_GUI_WATCH_UPDATE_RATE: Optional[float] = tools.read_env_numeric('SCRUTINY_GUI_WATCH_UPDATE_RATE', float,
+                                                                                 default=_DEFAULT_SCRUTINY_GUI_WATCH_UPDATE_RATE, minval=0, maxval=None, logger=logger)
+        assert SCRUTINY_GUI_WATCH_UPDATE_RATE is not None
+        if SCRUTINY_GUI_WATCH_UPDATE_RATE == 0:
+            SCRUTINY_GUI_WATCH_UPDATE_RATE = None
+        elif SCRUTINY_GUI_WATCH_UPDATE_RATE < 1:
+            SCRUTINY_GUI_WATCH_UPDATE_RATE = _DEFAULT_SCRUTINY_GUI_WATCH_UPDATE_RATE
+            logger.warning("Watch update rate too small, clipped to 1 update/sec")
+
+        SCRUTINY_GUI_SERVER_THROTTLING_RATE = tools.read_env_numeric(
+            'SCRUTINY_GUI_SERVER_THROTTLING_RATE', int, default=_DEFAULT_SCRUTINY_GUI_SERVER_THROTTLING_RATE, minval=0, maxval=None, logger=logger)
+        SCRUTINY_GUI_MAX_GENERATED_VAR_PER_ELEMENT = tools.read_env_numeric(
+            'SCRUTINY_GUI_MAX_GENERATED_VAR_PER_ELEMENT', int, default=_DEFAULT_SCRUTINY_GUI_MAX_GENERATED_VAR_PER_ELEMENT, minval=0, maxval=None, logger=logger)
+        SCRUTINY_GUI_MAX_TOTAL_GENERATED_VAR = tools.read_env_numeric(
+            'SCRUTINY_GUI_MAX_TOTAL_GENERATED_VAR', int, default=_DEFAULT_SCRUTINY_GUI_MAX_TOTAL_GENERATED_VAR, minval=0, maxval=None, logger=logger)
 
         self._settings = self.Settings(
             debug_layout=debug_layout,
@@ -83,7 +113,11 @@ class ScrutinyQtGUI:
             opengl_enabled=opengl_enabled,
             local_server_port=local_server_port,
             start_local_server=start_local_server,
-            theme=theme
+            theme=theme,
+            SCRUTINY_GUI_WATCH_UPDATE_RATE=SCRUTINY_GUI_WATCH_UPDATE_RATE,
+            SCRUTINY_GUI_SERVER_THROTTLING_RATE=SCRUTINY_GUI_SERVER_THROTTLING_RATE,
+            SCRUTINY_GUI_MAX_GENERATED_VAR_PER_ELEMENT=SCRUTINY_GUI_MAX_GENERATED_VAR_PER_ELEMENT,
+            SCRUTINY_GUI_MAX_TOTAL_GENERATED_VAR=SCRUTINY_GUI_MAX_TOTAL_GENERATED_VAR
         )
 
     def run(self, args: List[str]) -> int:

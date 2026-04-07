@@ -26,11 +26,10 @@ from scrutiny.gui.components.locals.base_local_component import ScrutinyGUIBaseL
 from scrutiny.gui.components.locals.watch.watch_tree_model import WatchComponentTreeModel, ValueStandardItem, WatchComponentTreeWidget, SerializableTreeDescriptor
 from scrutiny.gui.dialogs.value_export_dialog import ValueExportDialog
 from scrutiny.gui.tools import prompt
+from scrutiny.gui.app_settings import app_settings
 from scrutiny import tools
 
 from scrutiny.tools.typing import *
-
-_WATCH_UPDATE_RATE_ENV_VARIABLE_NAME = 'SCRUTINY_GUI_WATCH_UPDATE_RATE'
 
 
 class State:
@@ -68,15 +67,14 @@ class WatchComponent(ScrutinyGUIBaseLocalComponent):
     _teared_down: bool
 
     expand_if_needed = Signal()
-    DEFAULT_WATCH_COMPONENT_UPDATE_RATE: float = 15
-    WATCH_COMPONENT_UPDATE_RATE: Optional[float] = DEFAULT_WATCH_COMPONENT_UPDATE_RATE
+    WATCH_COMPONENT_UPDATE_RATE: Optional[float]
 
     @classmethod
     def get_icon(cls) -> QIcon:
         return scrutiny_get_theme().load_medium_icon(assets.Icons.Watch)
 
     def setup(self) -> None:
-        self._get_update_rate_from_environment()
+        self.WATCH_COMPONENT_UPDATE_RATE = app_settings().SCRUTINY_GUI_WATCH_UPDATE_RATE
 
         self._tree_model = WatchComponentTreeModel(watchable_registry=self.app.watchable_registry)
         self._tree = WatchComponentTreeWidget(self._tree_model)
@@ -190,18 +188,6 @@ class WatchComponent(ScrutinyGUIBaseLocalComponent):
             visual_dst += 1
 
         return fully_loaded
-
-    def _get_update_rate_from_environment(self) -> None:
-        try:
-            v = float(os.environ.get(_WATCH_UPDATE_RATE_ENV_VARIABLE_NAME, self.DEFAULT_WATCH_COMPONENT_UPDATE_RATE))
-            if v == 0:
-                self.WATCH_COMPONENT_UPDATE_RATE = None
-            elif v >= 1:    # Limit imposed by the server
-                self.WATCH_COMPONENT_UPDATE_RATE = v
-            else:
-                raise Exception("Invalid value")
-        except Exception:
-            self.logger.warning(f"Invalid environment variable value for {_WATCH_UPDATE_RATE_ENV_VARIABLE_NAME}")
 
     def visibilityChanged(self, visible: bool) -> None:
         """Called when the dashboard component is either hidden or showed"""

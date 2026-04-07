@@ -413,8 +413,8 @@ Dashboards can be saved and reloaded to a JSON based file format
     Dashboard save & reload menu
 
 
-SFD management management
--------------------------
+SFD management
+--------------
 
 Once connected to a server, it is possible to install remotely or download SFD files from the server.
 
@@ -429,7 +429,7 @@ By clicking the menu bar menu : ``Server`` --> ``Manage Firmware``, the followin
 .. _advanced_options:
 
 Advanced Options
------------------
+----------------
 
 To GUI can be launched with extra options, refers to the :ref:`GUI command line options<cmd_gui>`.
 
