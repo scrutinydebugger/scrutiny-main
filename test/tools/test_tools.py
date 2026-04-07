@@ -22,8 +22,7 @@ class TestThrottler(ScrutinyUnitTest):
 
     def test_throttler_measurement(self):
         bitrate = 5000
-        throttler = Throttler()
-        throttler.set_rate(bitrate)
+        throttler = Throttler(bitrate)
         throttler.enable()
 
         runtime = 5
