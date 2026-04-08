@@ -12,19 +12,22 @@ __all__ = ['TextLabelHMIWidget']
 from PySide6.QtGui import QPainter, QColor
 from PySide6.QtCore import QSize, QRect, QPoint, Qt
 
-from scrutiny.gui.component_app_interface import AbstractComponentAppInterface
+
 from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget
 from scrutiny.gui.themes import scrutiny_get_theme
 from scrutiny import tools
 from scrutiny.tools.typing import *
+
+if TYPE_CHECKING:
+    from scrutiny.gui.components.locals.hmi.hmi_component import HMIComponent
 
 
 class TextLabelHMIWidget(BaseHMIWidget):
 
     _text_color: QColor
 
-    def __init__(self, app_interface: AbstractComponentAppInterface) -> None:
-        super().__init__(app_interface)
+    def __init__(self, hmi_component: "HMIComponent") -> None:
+        super().__init__(hmi_component)
         self.declare_watchable_slot('val', 'Value', validator=None)
         self._text_color = scrutiny_get_theme().palette().text().color()
 
@@ -44,6 +47,9 @@ class TextLabelHMIWidget(BaseHMIWidget):
             else:
                 text = str(val)
 
-        painter.setPen(self._text_color)
+        painter.setPen(QColor(0, 0x66, 0))
+        painter.setBrush(QColor(0, 0x66, 0))
         text_rect = QRect(QPoint(0, 0), draw_zone_size)
+        painter.drawRect(text_rect)
+        painter.setPen(self._text_color)
         painter.drawText(text_rect, text, Qt.AlignmentFlag.AlignLeft)
