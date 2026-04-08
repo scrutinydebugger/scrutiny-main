@@ -1,3 +1,10 @@
+#    base_hmi_widget.py
+#        Base class for every widgets part of a HMI component.
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
 
 from dataclasses import dataclass
 import functools

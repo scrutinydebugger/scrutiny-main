@@ -1,3 +1,12 @@
+#    hmi_component.py
+#        Human Machine Interface component. Lets the user build a visual dashboard with graphical
+#        elements tied to a watchable.
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
+
 __all__ = ['HMIComponent']
 
 from PySide6.QtCore import QModelIndex, Qt, QModelIndex, Signal

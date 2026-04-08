@@ -1,3 +1,12 @@
+#    text_label_hmi_widget.py
+#        A HMI widget that displays a value in text form. Font size selected to fill the draw
+#        zone.
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
+
 __all__ = ['TextLabelHMIWidget']
 
 from PySide6.QtGui import QPainter, QColor

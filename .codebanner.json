@@ -1017,6 +1017,15 @@
         },
         "scripts/build_or_reuse_userguide.sh": {
             "docstring": "Script that either build the user guide or check for its existence if the proper environment variable is set. Meant to be called by a build process"
+        },
+        "scrutiny/gui/components/locals/hmi/hmi_component.py": {
+            "docstring": "Human Machine Interface component. Lets the user build a visual dashboard with graphical elements tied to a watchable."
+        },
+        "scrutiny/gui/components/locals/hmi/hmi_widgets/base_hmi_widget.py": {
+            "docstring": "Base class for every widgets part of a HMI component."
+        },
+        "scrutiny/gui/components/locals/hmi/hmi_widgets/text_label_hmi_widget.py": {
+            "docstring": "A HMI widget that displays a value in text form. Font size selected to fill the draw zone."
         }
     },
     "authors": {}
