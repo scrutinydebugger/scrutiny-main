@@ -13,7 +13,7 @@ from dataclasses import dataclass
 
 from PySide6.QtWidgets import QLineEdit
 from PySide6.QtGui import QDragEnterEvent, QDropEvent, QKeyEvent, QAction, QMouseEvent, QIcon, QPaintEvent, QPainter, QColor
-from PySide6.QtCore import Qt, QSize, QPoint, QRect
+from PySide6.QtCore import Qt, QSize, QPoint, QRect, QObject, Signal
 
 from scrutiny import tools
 from scrutiny.tools.typing import *
@@ -32,6 +32,9 @@ class WatchableFQNAndName:
 
 
 class WatchableLineEdit(QLineEdit):
+
+    class _Signals(QObject):
+        watchable_dropped = Signal(str)
 
     class DictState(TypedDict):
         mode: Literal['text', 'watchable']
@@ -53,6 +56,7 @@ class WatchableLineEdit(QLineEdit):
     _mouse_over_clear_button: bool
     _text_mode_enabled: bool
     _loaded_watchable: Optional[WatchableFQNAndName]
+    _signals: _Signals
 
     @tools.copy_type(QLineEdit.__init__)
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -64,8 +68,13 @@ class WatchableLineEdit(QLineEdit):
         self._mouse_over_clear_button = False
         self._text_mode_enabled = True
         self._loaded_watchable = None
+        self._signals = self._Signals()
         self.setAcceptDrops(True)
         self._update_cursor()
+
+    @property
+    def signals(self) -> _Signals:
+        return self._signals
 
     def set_text_mode_enabled(self, val: bool) -> None:
         self._text_mode_enabled = val
@@ -91,13 +100,18 @@ class WatchableLineEdit(QLineEdit):
         super().dragEnterEvent(event)
 
     def dropEvent(self, event: QDropEvent) -> None:
+        emit_drop_fqn: Optional[str] = None
         watchables = WatchableListDescriptor.from_mime(event.mimeData())
         if watchables is not None:
             if len(watchables.data) == 1:
                 watchable = watchables.data[0]
                 parsed_fqn = WatchableRegistry.FQN.parse(watchable.fqn)
                 self.set_watchable_mode(watchable_type=parsed_fqn.watchable_type, path=parsed_fqn.path, name=watchable.text)
+                emit_drop_fqn = watchable.fqn
         super().dropEvent(event)
+
+        if emit_drop_fqn is not None:
+            self._signals.watchable_dropped.emit(emit_drop_fqn)
 
     def set_watchable_mode(self, watchable_type: WatchableType, path: str, name: str) -> None:
         for action in list(self.actions()):  # Remove any previous left icon

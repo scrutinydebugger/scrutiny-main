@@ -39,6 +39,7 @@ from scrutiny.gui.components.globals.varlist.varlist_component import VarListCom
 from scrutiny.gui.components.locals.watch.watch_component import WatchComponent
 from scrutiny.gui.components.locals.continuous_graph.continuous_graph_component import ContinuousGraphComponent
 from scrutiny.gui.components.locals.embedded_graph.embedded_graph_component import EmbeddedGraphComponent
+from scrutiny.gui.components.locals.hmi.hmi_component import HMIComponent
 from scrutiny.gui.components.globals.metrics.metrics_component import MetricsComponent
 
 from scrutiny.gui.core.user_messages_manager import UserMessagesManager
@@ -61,7 +62,8 @@ class MainWindow(QMainWindow):
     ENABLED_LOCAL_COMPONENTS: List[Type[ScrutinyGUIBaseLocalComponent]] = [
         WatchComponent,
         ContinuousGraphComponent,
-        EmbeddedGraphComponent
+        EmbeddedGraphComponent,
+        HMIComponent
     ]
 
     _logger: logging.Logger
