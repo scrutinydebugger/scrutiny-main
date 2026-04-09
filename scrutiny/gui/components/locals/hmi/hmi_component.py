@@ -10,9 +10,10 @@
 __all__ = ['HMIComponent']
 
 from PySide6.QtCore import QRectF, Qt, Signal, QPointF, QRect, QPoint, QObject, QSize
-from PySide6.QtWidgets import QStyleOptionGraphicsItem, QVBoxLayout, QGraphicsScene, QGraphicsView, QGraphicsItem, QWidget, QGraphicsSceneMouseEvent
-from PySide6.QtGui import QIcon, QMouseEvent, QPainter, QResizeEvent
+from PySide6.QtWidgets import QStyleOptionGraphicsItem, QVBoxLayout, QGraphicsScene, QGraphicsView, QGraphicsItem, QWidget, QGraphicsSceneMouseEvent, QMenu
+from PySide6.QtGui import QIcon, QKeyEvent, QMouseEvent, QPainter, QResizeEvent
 import enum
+import functools
 from dataclasses import dataclass
 
 from scrutiny import sdk
@@ -75,8 +76,13 @@ class Grid(QGraphicsItem):
 
 
 class HMIView(QGraphicsView):
+
+    _mouse_down_widget: Optional[BaseHMIWidget]
+
     class _Signals(QObject):
         mouse_move = Signal(object)
+        mouse_down_void = Signal()
+        right_click_widget = Signal(object, object)
 
     _signals: _Signals
 
@@ -93,6 +99,27 @@ class HMIView(QGraphicsView):
         event.accept()
         self._signals.mouse_move.emit(event)
 
+    def mousePressEvent(self, event: QMouseEvent) -> None:
+        mouse_down_item = self.itemAt(event.pos())
+        if isinstance(mouse_down_item, BaseHMIWidget):
+            self._mouse_down_widget = mouse_down_item
+        else:
+            if event.button() == Qt.MouseButton.LeftButton:
+                self._signals.mouse_down_void.emit()
+            self._mouse_down_widget = None
+
+        super().mousePressEvent(event)  # Pass down to items
+
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
+        mouse_down_item = self.itemAt(event.pos())
+        if isinstance(mouse_down_item, BaseHMIWidget):
+            if self._mouse_down_widget is mouse_down_item:
+                if event.button() == Qt.MouseButton.RightButton:
+                    self._signals.right_click_widget.emit(mouse_down_item, event)
+
+        self._mouse_down_widget = None
+        return super().mouseReleaseEvent(event)
+
     @property
     def signals(self) -> _Signals:
         return self._signals
@@ -108,13 +135,17 @@ class WidgetMouseEditData:
     class ResizeData:
         original_pos: QPoint
         original_size: QSize
-        mousedown_start: QPoint
         handle_clicked: HandlePosition
+
+    @dataclass
+    class MoveData:
+        offset: QPoint
 
     widget: BaseHMIWidget
     action: Action
-    move_offset: Optional[QPoint] = None
+    mousedown_start: QPoint
     resize_data: Optional[ResizeData] = None
+    move_data: Optional[MoveData] = None
 
 
 class HMIComponent(ScrutinyGUIBaseLocalComponent):
@@ -129,6 +160,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
     _grid: Grid
 
     _mouse_edit_data: Optional[WidgetMouseEditData]
+    _selected_widget: Optional[BaseHMIWidget]
 
 # region inherited methods
     @classmethod
@@ -147,11 +179,14 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
 
         self.text_widget = TextLabelHMIWidget(self)
         self._mouse_edit_data = None
+        self._selected_widget = None
 
         layout = QVBoxLayout(self)
         layout.addWidget(self.text_widget._make_slot_config_widget())
         layout.addWidget(self._view)
         self._view.signals.mouse_move.connect(self._view_mouse_move_slot)
+        self._view.signals.mouse_down_void.connect(self._view_mouse_down_void_slot)
+        self._view.signals.right_click_widget.connect(self._view_right_click_slot)
         self.add(self.text_widget)
 
         self.set_mode(Mode.Edit)
@@ -178,6 +213,26 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         widget.signals.mousedown.connect(self._hmi_widget_mousedown_slot)
         widget.signals.mouseup.connect(self._hmi_widget_mouseup_slot)
 
+    def select_widget(self, widget: BaseHMIWidget) -> None:
+        for item in self._scene.items():
+            if isinstance(item, BaseHMIWidget) and item is not widget:
+                item.set_selected(False)
+
+        self._selected_widget = widget
+        widget.set_selected(True)
+
+    def toggle_select_widget(self, widget: BaseHMIWidget) -> None:
+        if self._selected_widget is widget:
+            self.deselect_all_widgets()
+        else:
+            self.select_widget(widget)
+
+    def deselect_all_widgets(self) -> None:
+        self._selected_widget = None
+        for item in self._scene.items():
+            if isinstance(item, BaseHMIWidget):
+                item.set_selected(False)
+
     def set_mode(self, mode: Mode) -> None:
         self._mode = mode
         self._mouse_edit_data = None
@@ -187,13 +242,28 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
                 item.show_resize_handles(edit_mode)
                 item.update()
 
+    def _view_mouse_down_void_slot(self) -> None:
+        self.deselect_all_widgets()
+
+    def _view_right_click_slot(self, widget: BaseHMIWidget, event: QMouseEvent) -> None:
+        if self._mode != Mode.Edit:
+            return
+
+        menu = QMenu()
+        remove_action = menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.RedX), "Remove")
+        edit_action = menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.TextEdit), "Edit")
+
+        remove_action.triggered.connect(functools.partial(self._delete_widget, widget))
+
+        menu.exec(self._view.mapToGlobal(event.pos()))
+
     def _view_mouse_move_slot(self, event: QMouseEvent) -> None:
         cursor = Qt.CursorShape.ArrowCursor
         if self._mode == Mode.Edit:
             if self._mouse_edit_data is not None:
                 if self._mouse_edit_data.action == WidgetMouseEditData.Action.Move:
-                    assert self._mouse_edit_data.move_offset is not None
-                    pos_offsetted = event.pos().toPointF() - self._mouse_edit_data.move_offset
+                    assert self._mouse_edit_data.move_data is not None
+                    pos_offsetted = event.pos().toPointF() - self._mouse_edit_data.move_data.offset
                     x = round(pos_offsetted.x() / self._grid.GRID_SPACING, 0) * self._grid.GRID_SPACING
                     y = round(pos_offsetted.y() / self._grid.GRID_SPACING, 0) * self._grid.GRID_SPACING
                     max_x = ((self._view.sceneRect().width() - self._mouse_edit_data.widget.boundingRect().width()) // Grid.GRID_SPACING) * Grid.GRID_SPACING
@@ -275,6 +345,9 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         self.setCursor(cursor)
 
     def _hmi_widget_mousedown_slot(self, widget: BaseHMIWidget, event: QGraphicsSceneMouseEvent) -> None:
+        if not event.button() == Qt.MouseButton.LeftButton:
+            return
+
         # event.pos() is relative to the widget pos
         if self._mode == Mode.Edit:
             pos = event.pos().toPoint()
@@ -285,13 +358,14 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
                     resize_handle = handle
                     break
 
+            mouse_down_start = widget.mapToScene(event.pos()).toPoint()
             if resize_handle:
                 self._mouse_edit_data = WidgetMouseEditData(
                     widget=widget,
                     action=WidgetMouseEditData.Action.Resize,
+                    mousedown_start=mouse_down_start,
                     resize_data=WidgetMouseEditData.ResizeData(
                         handle_clicked=resize_handle,
-                        mousedown_start=widget.mapToScene(event.pos()).toPoint(),
                         original_pos=QPoint(widget.pos().toPoint()),
                         original_size=QSize(widget.get_size())
                     )
@@ -300,11 +374,36 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
                 self._mouse_edit_data = WidgetMouseEditData(
                     widget=widget,
                     action=WidgetMouseEditData.Action.Move,
-                    move_offset=pos
+                    mousedown_start=mouse_down_start,
+                    move_data=WidgetMouseEditData.MoveData(
+                        offset=pos
+                    )
                 )
 
+        else:
+            self._mouse_edit_data = None
+
     def _hmi_widget_mouseup_slot(self, widget: BaseHMIWidget, event: QGraphicsSceneMouseEvent) -> None:
+        if not event.button() == Qt.MouseButton.LeftButton:
+            return
+        # event.pos is relative to the widget
+        if self._mouse_edit_data is not None:
+            if self._mouse_edit_data.widget is widget and widget.mapToScene(event.pos()).toPoint() == self._mouse_edit_data.mousedown_start:
+                self.toggle_select_widget(widget)
         self._mouse_edit_data = None
         self.setCursor(Qt.CursorShape.ArrowCursor)
+
+    def _delete_widget(self, widget: BaseHMIWidget) -> None:
+        if self._selected_widget is widget:
+            self._selected_widget = None
+        widget.destroy()
+        self._scene.removeItem(widget)
+
+    def keyPressEvent(self, event: QKeyEvent) -> None:
+        if event.key() == Qt.Key.Key_Delete:
+            if self._selected_widget is not None:
+                self._delete_widget(self._selected_widget)
+
+        return super().keyPressEvent(event)
 
 # endregion

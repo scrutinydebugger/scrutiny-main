@@ -14,7 +14,7 @@ import enum
 
 from PySide6.QtWidgets import QGraphicsSceneMouseEvent, QWidget, QFormLayout, QGraphicsItem, QStyleOptionGraphicsItem
 from PySide6.QtGui import QPainter, QColor
-from PySide6.QtCore import QSize, QRectF, QPointF, QObject, Signal
+from PySide6.QtCore import QSize, QRectF, QPointF, QObject, Signal, QRect, QPoint
 
 from scrutiny import sdk
 from scrutiny.gui.widgets.watchable_line_edit import WatchableLineEdit
@@ -85,6 +85,7 @@ class BaseHMIWidget(QGraphicsItem):
     _logger: logging.Logger
     _signals: _Signals
     _draw_resize_handles: bool
+    _selected: bool
 
     def __init__(self, hmi_component: "HMIComponent") -> None:
         super().__init__()
@@ -97,6 +98,7 @@ class BaseHMIWidget(QGraphicsItem):
         self._logger = logging.getLogger(self.__class__.__name__)
         self._signals = self._Signals()
         self._draw_resize_handles = False
+        self._selected = False
 
     @property
     def signals(self) -> _Signals:
@@ -112,6 +114,16 @@ class BaseHMIWidget(QGraphicsItem):
 
     def show_resize_handles(self, val: bool) -> None:
         self._draw_resize_handles = val
+
+    def set_selected(self, val: bool) -> None:
+        self._selected = val
+        self.update()
+
+    def toggle_selected(self) -> None:
+        self.set_selected(not self.is_selected())
+
+    def is_selected(self) -> bool:
+        return self._selected
 
     def declare_watchable_slot(self, name: str, display_name: str, validator: Optional[WatchableSlotValidator]) -> None:
         if not (hasattr(self, '_parent_constructor_called')):
@@ -144,6 +156,7 @@ class BaseHMIWidget(QGraphicsItem):
 
 
 # region Private
+
 
     def _val_update_callback(self, wslot: WatchableSlot, watcher_id: WatcherIdType, updates: List[RegistryValueUpdate]) -> None:
         wslot.last_value_received = updates[-1].sdk_update.value
@@ -243,6 +256,13 @@ class BaseHMIWidget(QGraphicsItem):
         values = {wslot.name: wslot.last_value_received for wslot in self._wslots}
 
         self.draw(configured, values, self._size, painter)
+        if self._selected:
+            highlight_color = scrutiny_get_theme().palette().highlight().color()
+            highlight_color.setAlpha(0x66)
+            painter.setPen(highlight_color)
+            painter.setBrush(highlight_color)
+            painter.drawRect(QRect(QPoint(0, 0), self._size))
+
         if self._draw_resize_handles:
             text_color = scrutiny_get_theme().palette().text().color()
             painter.setPen(text_color)

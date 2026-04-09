@@ -52,4 +52,6 @@ class TextLabelHMIWidget(BaseHMIWidget):
         text_rect = QRect(QPoint(0, 0), draw_zone_size)
         painter.drawRect(text_rect)
         painter.setPen(self._text_color)
+        painter.setPen(self._text_color)
+        painter.setBrush(QColor(0, 0, 0, 0))
         painter.drawText(text_rect, text, Qt.AlignmentFlag.AlignLeft)
