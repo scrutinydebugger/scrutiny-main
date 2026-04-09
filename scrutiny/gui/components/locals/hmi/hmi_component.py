@@ -66,7 +66,7 @@ class Grid(QGraphicsItem):
     def boundingRect(self) -> QRectF:
         return self.mapRectToScene(self._view.viewport().rect())
 
-    def paint(self, painter: QPainter, option: QStyleOptionGraphicsItem, /, widget: QWidget | None = ...) -> None:
+    def paint(self, painter: QPainter, option: QStyleOptionGraphicsItem, widget: Optional[QWidget] = None) -> None:
         painter.setPen(scrutiny_get_theme().palette().text().color())
         zone = self.boundingRect().toRect()
 
