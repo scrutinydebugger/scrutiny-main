@@ -13,7 +13,7 @@ import logging
 import enum
 
 from PySide6.QtWidgets import QGraphicsSceneMouseEvent, QWidget, QFormLayout, QGraphicsItem, QStyleOptionGraphicsItem
-from PySide6.QtGui import QPainter, QColor
+from PySide6.QtGui import QPainter, QColor, QPixmap
 from PySide6.QtCore import QSize, QRectF, QPointF, QObject, Signal, QRect, QPoint
 
 from scrutiny import sdk
@@ -23,11 +23,16 @@ from scrutiny.gui.tools.invoker import invoke_later
 from scrutiny.tools.typing import *
 from scrutiny.tools.global_counters import global_i64_counter
 from scrutiny.gui.themes import scrutiny_get_theme
+from scrutiny.gui import assets
+
+from scrutiny.gui.components.locals.hmi.hmi_library_category import LibraryCategory
 
 if TYPE_CHECKING:
     from scrutiny.gui.components.locals.hmi.hmi_component import HMIComponent
 
 WatchableSlotValidator: TypeAlias = Callable[[sdk.BriefWatchableConfiguration], bool]
+
+T = TypeVar('T')
 
 
 class HandlePosition(enum.Enum):
@@ -103,6 +108,28 @@ class BaseHMIWidget(QGraphicsItem):
     @property
     def signals(self) -> _Signals:
         return self._signals
+
+    @classmethod
+    def get_category(cls) -> LibraryCategory:
+        return cls._read_class_prop('_CATEGORY', LibraryCategory)
+
+    @classmethod
+    def get_name(cls) -> str:
+        return cls._read_class_prop('_NAME', str)
+
+    @classmethod
+    def get_icon_as_pixmap(cls) -> QPixmap:
+        icon = cls._read_class_prop('_ICON', assets.Icons)
+        return scrutiny_get_theme().load_medium_icon_as_pixmap(icon)
+
+    @classmethod
+    def _read_class_prop(cls, propname: str, t: Type[T]) -> T:
+        if not hasattr(cls, propname):
+            raise RuntimeError(f"Class {cls.__name__} has not defined \"{propname}\" ")
+        v = getattr(cls, propname)
+        if not isinstance(v, t):
+            raise RuntimeError(f"Class {cls.__name__} has defined \"{propname}\" of the wrong type. expected {t.__name__}")
+        return v
 
     def set_size(self, size: QSize) -> None:
         self.prepareGeometryChange()

@@ -15,14 +15,21 @@ from PySide6.QtCore import QSize, QRect, QPoint, Qt
 
 from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget
 from scrutiny.gui.themes import scrutiny_get_theme
+from scrutiny.gui import assets
 from scrutiny import tools
 from scrutiny.tools.typing import *
 
 if TYPE_CHECKING:
     from scrutiny.gui.components.locals.hmi.hmi_component import HMIComponent
 
+from scrutiny.gui.components.locals.hmi.hmi_library_category import LibraryCategory
+
 
 class TextLabelHMIWidget(BaseHMIWidget):
+
+    _CATEGORY = LibraryCategory.Basics
+    _NAME = 'Text Display'
+    _ICON = assets.Icons.CSV
 
     _text_color: QColor
 

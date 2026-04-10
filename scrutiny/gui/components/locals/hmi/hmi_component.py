@@ -9,11 +9,18 @@
 
 __all__ = ['HMIComponent']
 
-from PySide6.QtCore import QRectF, Qt, Signal, QPointF, QRect, QPoint, QObject, QSize
-from PySide6.QtWidgets import QStyleOptionGraphicsItem, QVBoxLayout, QGraphicsScene, QGraphicsView, QGraphicsItem, QWidget, QGraphicsSceneMouseEvent, QMenu
-from PySide6.QtGui import QIcon, QKeyEvent, QMouseEvent, QPainter, QResizeEvent
 import enum
 import functools
+import sys
+import json
+
+from scrutiny.gui.components.locals.hmi.hmi_library import HMILibrary
+
+from PySide6.QtCore import QRectF, Qt, Signal, QPointF, QRect, QPoint, QObject, QSize, QByteArray, QMimeData
+from PySide6.QtWidgets import (QStyleOptionGraphicsItem, QVBoxLayout, QGraphicsScene, QGraphicsView,
+                               QGraphicsItem, QWidget, QGraphicsSceneMouseEvent, QMenu, QSplitter)
+from PySide6.QtGui import QDragEnterEvent, QDragLeaveEvent, QDragMoveEvent, QDropEvent, QIcon, QKeyEvent, QMouseEvent, QPainter, QResizeEvent
+
 from dataclasses import dataclass
 
 from scrutiny import sdk
@@ -83,6 +90,7 @@ class HMIView(QGraphicsView):
         mouse_move = Signal(object)
         mouse_down_void = Signal()
         right_click_widget = Signal(object, object)
+        drop_widget_class = Signal(object, QPoint)
 
     _signals: _Signals
 
@@ -119,6 +127,48 @@ class HMIView(QGraphicsView):
 
         self._mouse_down_widget = None
         return super().mouseReleaseEvent(event)
+
+    def _read_drag_data(self, mime_data: QMimeData) -> Optional[Type[BaseHMIWidget]]:
+        if not mime_data.hasFormat('application/json'):
+            return
+        s = QByteArray(mime_data.data('application/json')).toStdString()
+
+        try:
+            d = json.loads(s)
+        except Exception:
+            return None
+
+        if 'class' not in d:
+            return None
+
+        widget_class = HMILibrary.load_from_name(d['class'])
+        if widget_class is None:
+            return None
+        return widget_class
+
+    def dragEnterEvent(self, event: QDragEnterEvent) -> None:
+        widget_class = self._read_drag_data(event.mimeData())
+        if widget_class is None:
+            return
+
+        event.accept()
+        event.setDropAction(Qt.DropAction.CopyAction)
+        event.acceptProposedAction()
+
+    def dragLeaveEvent(self, event: QDragLeaveEvent) -> None:
+        event.accept()
+
+    def dragMoveEvent(self, event: QDragMoveEvent) -> None:
+        event.accept()
+
+    def dropEvent(self, event: QDropEvent) -> None:
+        widget_class = self._read_drag_data(event.mimeData())
+        if widget_class is None:
+            return
+        event.accept()
+        event.setDropAction(Qt.DropAction.CopyAction)
+        scene_pos = self.mapToScene(event.position().toPoint()).toPoint()
+        self._signals.drop_widget_class.emit(widget_class, scene_pos)
 
     @property
     def signals(self) -> _Signals:
@@ -158,6 +208,8 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
     _scene: QGraphicsScene
     _view: HMIView
     _grid: Grid
+    _splitter: QSplitter
+    _library: HMILibrary
 
     _mouse_edit_data: Optional[WidgetMouseEditData]
     _selected_widget: Optional[BaseHMIWidget]
@@ -172,21 +224,31 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         self._scene = QGraphicsScene()
         self._view = HMIView(self._scene)
         self._view.setMouseTracking(True)
-
         self._grid = Grid(self._view)
-
         self._scene.addItem(self._grid)
+        self._library = HMILibrary()
+
+        self._splitter = QSplitter()
+        self._splitter.setOrientation(Qt.Orientation.Horizontal)
+        self._splitter.setContentsMargins(0, 0, 0, 0)
+        self._splitter.setHandleWidth(5)
+        self._splitter.addWidget(self._view)
+        self._splitter.addWidget(self._library)
+        self._splitter.setCollapsible(0, False)  # Cannot collapse the graph
+        self._splitter.setCollapsible(1, True)  # Can collapse the right menu
 
         self.text_widget = TextLabelHMIWidget(self)
         self._mouse_edit_data = None
         self._selected_widget = None
 
         layout = QVBoxLayout(self)
+        layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         layout.addWidget(self.text_widget._make_slot_config_widget())
-        layout.addWidget(self._view)
+        layout.addWidget(self._splitter, 1)  # Stretch
         self._view.signals.mouse_move.connect(self._view_mouse_move_slot)
         self._view.signals.mouse_down_void.connect(self._view_mouse_down_void_slot)
         self._view.signals.right_click_widget.connect(self._view_right_click_slot)
+        self._view.signals.drop_widget_class.connect(self._view_drop_widget_class_slot)
         self.add(self.text_widget)
 
         self.set_mode(Mode.Edit)
@@ -208,8 +270,10 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
     def visibilityChanged(self, visible: bool) -> None:
         pass
 
-    def add(self, widget: BaseHMIWidget) -> None:
+    def add(self, widget: BaseHMIWidget, scene_pos: Optional[QPoint] = None) -> None:
         self._scene.addItem(widget)
+        if scene_pos is not None:
+            widget.setPos(scene_pos)
         widget.signals.mousedown.connect(self._hmi_widget_mousedown_slot)
         widget.signals.mouseup.connect(self._hmi_widget_mouseup_slot)
 
@@ -241,6 +305,24 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
             if isinstance(item, BaseHMIWidget):
                 item.show_resize_handles(edit_mode)
                 item.update()
+
+        if self._mode == Mode.Edit:
+            self._splitter.handle(1).setEnabled(True)
+            self._splitter.setHandleWidth(5)
+            self._splitter.setSizes([400, 400])
+            self._grid.setVisible(True)
+            self._view.setAcceptDrops(True)
+        elif self._mode == Mode.Display:
+            self._splitter.handle(1).setEnabled(False)
+            self._splitter.setHandleWidth(0)
+            self._splitter.setSizes([1, 0])
+            self._grid.setVisible(False)
+            self._view.setAcceptDrops(False)
+
+    def _view_drop_widget_class_slot(self, widget_class: Type[BaseHMIWidget], scene_pos: QPoint) -> None:
+        instance = widget_class(self)
+        instance.show_resize_handles(self._mode == Mode.Edit)
+        self.add(instance, scene_pos)
 
     def _view_mouse_down_void_slot(self) -> None:
         self.deselect_all_widgets()
