@@ -1,20 +1,21 @@
 
 
 import math
-import json
 
-from PySide6.QtGui import QDragEnterEvent, QDragLeaveEvent, QDragMoveEvent, QMouseEvent, QResizeEvent, QDrag
-
-from .hmi_widgets.base_hmi_widget import BaseHMIWidget
+from PySide6.QtGui import QMouseEvent, QResizeEvent, QDrag
 from PySide6.QtWidgets import QWidget, QGridLayout, QVBoxLayout, QLabel, QGroupBox
-from PySide6.QtCore import Qt, QSize, QMimeData, QByteArray
-from scrutiny.tools.typing import *
+from PySide6.QtCore import Qt, QSize
 
+from scrutiny.gui.core.scrutiny_drag_data import ScrutinyDragData
 from scrutiny.gui.components.locals.hmi.hmi_library_category import HMI_LIBARY_CATEGORIES, LibraryCategory
+from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget
+
+from scrutiny.tools.typing import *
 
 # Do NOT remove those imports
 # They enable discovery by reflection.
 from .hmi_widgets.text_label_hmi_widget import TextLabelHMIWidget
+from .hmi_widgets.gauge_hmi_widget import GaugeHMIWidget
 #########################################
 
 
@@ -46,31 +47,21 @@ class HMILibraryEntryWidget(QWidget):
     def mousePressEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton and self._icon_label.geometry().contains(event.pos()):
             drag = QDrag(self)
-            mime_data = QMimeData()
 
-            class_data = {
-                'class': self._hmi_widget.__name__,
-                'module': self._hmi_widget.__module__
-            }
-            mime_data.setData("application/json", QByteArray.fromStdString(json.dumps(class_data)))
+            drag_data = ScrutinyDragData(
+                type=ScrutinyDragData.DataType.HMIWidgetClass,
+                data_copy={
+                    'class': self._hmi_widget.__name__,
+                }
+            )
+            mime_data = drag_data.to_mime()
+            assert mime_data is not None
             drag.setMimeData(mime_data)
             drag.setPixmap(self._icon_label.pixmap())
 
             drag.exec()
 
         return super().mousePressEvent(event)
-
-    def dragEnterEvent(self, event: QDragEnterEvent) -> None:
-        print("dragEnterEvent")
-        return super().dragEnterEvent(event)
-
-    def dragLeaveEvent(self, event: QDragLeaveEvent) -> None:
-        print("dragLeaveEvent")
-        return super().dragLeaveEvent(event)
-
-    def dragMoveEvent(self, event: QDragMoveEvent) -> None:
-        print("dragMoveEvent")
-        return super().dragMoveEvent(event)
 
 
 class HMILibraryCategoryWidget(QWidget):

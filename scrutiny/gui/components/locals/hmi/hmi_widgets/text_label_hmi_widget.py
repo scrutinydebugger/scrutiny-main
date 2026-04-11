@@ -35,7 +35,7 @@ class TextLabelHMIWidget(BaseHMIWidget):
 
     def __init__(self, hmi_component: "HMIComponent") -> None:
         super().__init__(hmi_component)
-        self.declare_watchable_slot('val', 'Value', validator=None)
+        self.declare_value_slot('val', 'Value')
         self._text_color = scrutiny_get_theme().palette().text().color()
 
     def draw(self,

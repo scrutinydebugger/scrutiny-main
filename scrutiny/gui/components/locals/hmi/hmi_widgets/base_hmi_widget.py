@@ -12,9 +12,9 @@ import time
 import logging
 import enum
 
-from PySide6.QtWidgets import QGraphicsSceneMouseEvent, QWidget, QFormLayout, QGraphicsItem, QStyleOptionGraphicsItem
-from PySide6.QtGui import QPainter, QColor, QPixmap
-from PySide6.QtCore import QSize, QRectF, QPointF, QObject, Signal, QRect, QPoint
+from PySide6.QtWidgets import QWidget, QFormLayout, QGraphicsItem, QStyleOptionGraphicsItem
+from PySide6.QtGui import QPainter, QPixmap, QValidator, QBrush
+from PySide6.QtCore import QSize, QRectF, QPointF, QObject, QRect, QPoint, Qt
 
 from scrutiny import sdk
 from scrutiny.gui.widgets.watchable_line_edit import WatchableLineEdit
@@ -30,7 +30,7 @@ from scrutiny.gui.components.locals.hmi.hmi_library_category import LibraryCateg
 if TYPE_CHECKING:
     from scrutiny.gui.components.locals.hmi.hmi_component import HMIComponent
 
-WatchableSlotValidator: TypeAlias = Callable[[sdk.BriefWatchableConfiguration], bool]
+ValueSlotValidationCallback: TypeAlias = Callable[[Union[sdk.BriefWatchableConfiguration, str]], bool]
 
 T = TypeVar('T')
 
@@ -47,27 +47,62 @@ class HandlePosition(enum.Enum):
 
 
 @dataclass(slots=True, init=False)
-class WatchableSlot:
+class ValueSlot:
+    class SlotType(enum.Enum):
+        Constant = enum.auto()
+        Watchable = enum.auto()
+        Both = enum.auto()
+
     name: str
     display_name: str
-    validator: Optional[WatchableSlotValidator]
-    drop_line_edit: WatchableLineEdit
+    watchable_line_edit: WatchableLineEdit
     watcher_id: str
     last_value_received: Optional[Union[float, int, bool]]
+    slot_type: SlotType
+    text_validator: QValidator
 
-    def __init__(self, name: str, display_name: str, validator: Optional[WatchableSlotValidator] = None) -> None:
+    def __init__(self,
+                 name: str,
+                 display_name: str,
+                 slot_type: SlotType = SlotType.Both
+                 ) -> None:
         self.name = name
         self.display_name = display_name
-        self.validator = validator
-        self.drop_line_edit = WatchableLineEdit()
-        self.drop_line_edit.set_text_mode_enabled(False)
+        self.watchable_line_edit = WatchableLineEdit()
         self.watcher_id = f'{name}{global_i64_counter()}'
         self.last_value_received = None
+        self.slot_type = slot_type
 
-    def validate(self, watchable_config: sdk.BriefWatchableConfiguration) -> bool:
-        if self.validator is not None:
-            return self.validator(watchable_config)
-        return True
+    def _read_text_val(self, textval: str) -> Optional[Union[float, int, bool]]:
+        textval = textval.lower().strip()
+        if textval == "true":
+            return True
+        if textval == "false":
+            return False
+
+        try:
+            return int(textval)
+        except ValueError:
+            pass
+
+        try:
+            return float(textval)
+        except ValueError:
+            pass
+
+        return None
+
+    def is_configured(self) -> bool:
+        if self.watchable_line_edit.is_text_mode():
+            return self._read_text_val(self.watchable_line_edit.text()) is not None
+        else:
+            return self.watchable_line_edit.get_watchable() is not None
+
+    def get_val(self) -> Optional[Union[int, float, bool]]:
+        if self.watchable_line_edit.is_text_mode():
+            return self._read_text_val(self.watchable_line_edit.text())
+        else:
+            return self.last_value_received
 
 
 class BaseHMIWidget(QGraphicsItem):
@@ -77,10 +112,9 @@ class BaseHMIWidget(QGraphicsItem):
     HALF_HANDLE_HW = HANDLE_HW / 2
 
     class _Signals(QObject):
-        mousedown = Signal(object, object)
-        mouseup = Signal(object, object)
+        pass
 
-    _wslots: List[WatchableSlot]
+    _wslots: List[ValueSlot]
     _hmi_component: "HMIComponent"
     _need_redraw: bool
     _pending_redraw: bool
@@ -152,17 +186,16 @@ class BaseHMIWidget(QGraphicsItem):
     def is_selected(self) -> bool:
         return self._selected
 
-    def declare_watchable_slot(self, name: str, display_name: str, validator: Optional[WatchableSlotValidator]) -> None:
+    def declare_value_slot(self, name: str, display_name: str) -> None:
         if not (hasattr(self, '_parent_constructor_called')):
             raise RuntimeError("Parent constructor not called")
         used_names = set([wslot.name for wslot in self._wslots])
         if name in used_names:
             raise ValueError(f"Duplicate watchable slot with name {name}")
 
-        wslot = WatchableSlot(
+        wslot = ValueSlot(
             name=name,
-            display_name=display_name,
-            validator=validator
+            display_name=display_name
         )
 
         self._wslots.append(wslot)
@@ -171,7 +204,7 @@ class BaseHMIWidget(QGraphicsItem):
         self._hmi_component.app.watchable_registry.register_watcher(wslot.watcher_id, val_update_lost, self._unwatch_callback)
 
         partial_slot = functools.partial(self._wslot_configured_slot, wslot)
-        wslot.drop_line_edit.signals.watchable_dropped.connect(partial_slot)
+        wslot.watchable_line_edit.signals.watchable_dropped.connect(partial_slot)
 
     def destroy(self) -> None:
         for wslots in self._wslots:
@@ -184,8 +217,7 @@ class BaseHMIWidget(QGraphicsItem):
 
 # region Private
 
-
-    def _val_update_callback(self, wslot: WatchableSlot, watcher_id: WatcherIdType, updates: List[RegistryValueUpdate]) -> None:
+    def _val_update_callback(self, wslot: ValueSlot, watcher_id: WatcherIdType, updates: List[RegistryValueUpdate]) -> None:
         wslot.last_value_received = updates[-1].sdk_update.value
         self._need_redraw = True
         invoke_later(self._redraw_if_allowed)
@@ -193,10 +225,10 @@ class BaseHMIWidget(QGraphicsItem):
     def _unwatch_callback(self, watcher_id: Union[str, int], server_path: str, watchable_config: sdk.BriefWatchableConfiguration, registry_id: int) -> None:
         pass
 
-    def _wslot_configured_slot(self, wslot: WatchableSlot, fqn: str) -> None:
+    def _wslot_configured_slot(self, wslot: ValueSlot, fqn: str) -> None:
         self._hmi_component.app.watchable_registry.watch_fqn(wslot.watcher_id, fqn)
 
-    def _get_slot_by_name(self, name: str) -> WatchableSlot:
+    def _get_slot_by_name(self, name: str) -> ValueSlot:
         for wslot in self._wslots:
             if wslot.name == name:
                 return wslot
@@ -208,19 +240,23 @@ class BaseHMIWidget(QGraphicsItem):
         container_layout = QFormLayout(container)
 
         for wslot in self._wslots:
-            container_layout.addRow(wslot.display_name, wslot.drop_line_edit)
+            container_layout.addRow(wslot.display_name, wslot.watchable_line_edit)
 
         return container
 
     def _all_wslots_filled(self) -> bool:
         for wslot in self._wslots:
-            watchable = wslot.drop_line_edit.get_watchable()
-            if watchable is None:
-                return False
+            if wslot.watchable_line_edit.is_text_mode():
+                if wslot.get_val() is None:
+                    return False
+            else:
+                watchable = wslot.watchable_line_edit.get_watchable()
+                if watchable is None:
+                    return False
 
-            node = self._hmi_component.app.watchable_registry.get_watchable_node_fqn(watchable.fqn)
-            if node is None:
-                return False
+                node = self._hmi_component.app.watchable_registry.get_watchable_node_fqn(watchable.fqn)
+                if node is None:
+                    return False
 
         return True
 
@@ -244,12 +280,6 @@ class BaseHMIWidget(QGraphicsItem):
 
         if not updated:
             self._redraw_later()
-
-    def mousePressEvent(self, event: QGraphicsSceneMouseEvent) -> None:
-        self._signals.mousedown.emit(self, event)
-
-    def mouseReleaseEvent(self, event: QGraphicsSceneMouseEvent) -> None:
-        self._signals.mouseup.emit(self, event)
 
     def resize_handles_coordinates(self) -> Dict[HandlePosition, QRectF]:
         handle_size = QSize(self.HANDLE_HW, self.HANDLE_HW)
@@ -280,7 +310,7 @@ class BaseHMIWidget(QGraphicsItem):
         self._pending_redraw = False
 
         configured = self._all_wslots_filled()
-        values = {wslot.name: wslot.last_value_received for wslot in self._wslots}
+        values = {wslot.name: wslot.get_val() for wslot in self._wslots}
 
         self.draw(configured, values, self._size, painter)
         if self._selected:
@@ -293,6 +323,7 @@ class BaseHMIWidget(QGraphicsItem):
         if self._draw_resize_handles:
             text_color = scrutiny_get_theme().palette().text().color()
             painter.setPen(text_color)
+            painter.setBrush(QBrush(Qt.BrushStyle.NoBrush))
             painter.drawRect(QRectF(QPointF(0, 0), self._size))
             painter.setBrush(text_color)
             handles = self.resize_handles_coordinates()

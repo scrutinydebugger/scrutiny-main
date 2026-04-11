@@ -29,6 +29,7 @@ class ScrutinyDragData:
         WatchableTreeNodesTiedToRegistry = 'watchable_tree_nodes_tied_to_index'
         WatchableFullTree = 'watchable_full_tree'
         WatchableList = 'watchable_list'
+        HMIWidgetClass = 'hmi_widget_class'
 
     type: DataType
     """The type of data being carried"""
