@@ -1,4 +1,10 @@
-
+#    hmi_library.py
+#        A library of all the HMI widgets avaialble
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
 
 import math
 

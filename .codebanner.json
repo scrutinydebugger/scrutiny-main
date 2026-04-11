@@ -1026,6 +1026,18 @@
         },
         "scrutiny/gui/components/locals/hmi/hmi_widgets/text_label_hmi_widget.py": {
             "docstring": "A HMI widget that displays a value in text form. Font size selected to fill the draw zone."
+        },
+        "scrutiny/gui/components/locals/hmi/hmi_library.py": {
+            "docstring": "A library of all the HMI widgets avaialble"
+        },
+        "scrutiny/gui/components/locals/hmi/hmi_library_category.py": {
+            "docstring": "A central place to define the different HMI widget categories used for display"
+        },
+        "scrutiny/gui/components/locals/hmi/hmi_graphic_view.py": {
+            "docstring": "An extensions of the QGraphicsView that display the HMI dashboard"
+        },
+        "scrutiny/gui/components/locals/hmi/hmi_widgets/gauge_hmi_widget.py": {
+            "docstring": "An HMI widget that display a dial gauge that goes from minimum to maximum"
         }
     },
     "authors": {}

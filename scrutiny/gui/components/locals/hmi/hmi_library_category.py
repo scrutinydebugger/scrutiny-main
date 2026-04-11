@@ -1,3 +1,11 @@
+#    hmi_library_category.py
+#        A central place to define the different HMI widget categories used for display
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
+
 import enum
 from dataclasses import dataclass
 

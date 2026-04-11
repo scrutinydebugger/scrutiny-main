@@ -1,3 +1,11 @@
+#    hmi_graphic_view.py
+#        An extensions of the QGraphicsView that display the HMI dashboard
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
+
 __all__ = ['Grid', 'HMIGraphicView']
 
 from dataclasses import dataclass
