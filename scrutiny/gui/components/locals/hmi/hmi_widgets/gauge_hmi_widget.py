@@ -9,9 +9,11 @@
 __all__ = ['GaugeHMIWidget']
 
 import math
+import enum
 
 from PySide6.QtGui import QPainter, QColor
 from PySide6.QtCore import QSize, QRect, QPoint, Qt, QPointF
+from PySide6.QtWidgets import QWidget, QFormLayout, QComboBox
 
 
 from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget
@@ -25,6 +27,9 @@ if TYPE_CHECKING:
 
 from scrutiny.gui.components.locals.hmi.hmi_library_category import LibraryCategory
 
+class OverflowBehavior(enum.Enum):
+    CLIP = enum.auto()
+    SHOW_NA = enum.auto()
 
 class GaugeHMIWidget(BaseHMIWidget):
 
@@ -35,6 +40,10 @@ class GaugeHMIWidget(BaseHMIWidget):
     _text_color: QColor
     _base_color: QColor
 
+    _config_widget:QWidget
+    _cmb_overflow_behavior:QWidget
+
+
     def __init__(self, hmi_component: "HMIComponent") -> None:
         super().__init__(hmi_component)
         self.declare_value_slot('val', 'Value')
@@ -42,6 +51,16 @@ class GaugeHMIWidget(BaseHMIWidget):
         self.declare_value_slot('max', 'Maximum')
         self._text_color = scrutiny_get_theme().palette().text().color()
         self._base_color = scrutiny_get_theme().palette().base().color()
+
+
+        self._cmb_overflow_behavior = QComboBox()
+        self._cmb_overflow_behavior.addItem("Clip", OverflowBehavior.CLIP)
+        self._cmb_overflow_behavior.addItem("Show Invalid", OverflowBehavior.SHOW_NA)
+
+        self._config_widget = QWidget()
+        layout = QFormLayout(self._config_widget)
+
+        layout.addRow("Overflow", self._cmb_overflow_behavior)
 
     def draw(self,
              configured: bool,
@@ -91,3 +110,7 @@ class GaugeHMIWidget(BaseHMIWidget):
             QPointF(pointer_tip_x, pointer_tip_y) + center,
             QPointF(p2_x, p2_y) + center,
         ])
+
+
+    def get_config_widget(self) -> Optional[QWidget]:
+        return None

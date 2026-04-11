@@ -18,19 +18,18 @@ from PySide6.QtCore import QSize, QRectF, QPointF, QObject, QRect, QPoint, Qt
 
 from scrutiny import sdk
 from scrutiny.gui.widgets.watchable_line_edit import WatchableLineEdit
+from scrutiny.gui.components.locals.hmi.hmi_library_category import LibraryCategory
+from scrutiny.gui.components.locals.hmi.hmi_graphic_view import Grid
 from scrutiny.gui.core.watchable_registry import WatcherIdType, RegistryValueUpdate
 from scrutiny.gui.tools.invoker import invoke_later
-from scrutiny.tools.typing import *
-from scrutiny.tools.global_counters import global_i64_counter
 from scrutiny.gui.themes import scrutiny_get_theme
 from scrutiny.gui import assets
+from scrutiny.tools.global_counters import global_i64_counter
+from scrutiny.tools.typing import *
 
-from scrutiny.gui.components.locals.hmi.hmi_library_category import LibraryCategory
 
 if TYPE_CHECKING:
     from scrutiny.gui.components.locals.hmi.hmi_component import HMIComponent
-
-ValueSlotValidationCallback: TypeAlias = Callable[[Union[sdk.BriefWatchableConfiguration, str]], bool]
 
 T = TypeVar('T')
 
@@ -343,5 +342,11 @@ class BaseHMIWidget(QGraphicsItem):
              painter: QPainter
              ) -> None:
         raise NotImplementedError("draw() must be overridden")
+
+    def valid_size(self, size:QSize) -> bool:
+        return size.width() >= Grid.GRID_SPACING and size.height() >= Grid.GRID_SPACING
+
+    def get_config_widget(self) -> Optional[QWidget]:
+        return None
 
 # endregion
