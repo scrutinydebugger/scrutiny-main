@@ -1038,6 +1038,9 @@
         },
         "scrutiny/gui/components/locals/hmi/hmi_widgets/gauge_hmi_widget.py": {
             "docstring": "An HMI widget that display a dial gauge that goes from minimum to maximum"
+        },
+        "scrutiny/gui/components/locals/hmi/hmi_edit_grid.py": {
+            "docstring": "The Grid used in Edit Mode"
         }
     },
     "authors": {}
