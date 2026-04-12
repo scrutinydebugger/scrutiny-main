@@ -12,8 +12,8 @@ import math
 import enum
 
 from PySide6.QtGui import QPainter, QColor
-from PySide6.QtCore import QSize, QRect, QPoint, Qt, QPointF
-from PySide6.QtWidgets import QWidget, QFormLayout, QComboBox
+from PySide6.QtCore import QSize, QRect, QPoint, Qt, QPointF, QRectF
+from PySide6.QtWidgets import QWidget, QFormLayout, QComboBox, QLineEdit
 
 
 from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget
@@ -27,9 +27,11 @@ if TYPE_CHECKING:
 
 from scrutiny.gui.components.locals.hmi.hmi_library_category import LibraryCategory
 
+
 class OverflowBehavior(enum.Enum):
     CLIP = enum.auto()
     SHOW_NA = enum.auto()
+
 
 class GaugeHMIWidget(BaseHMIWidget):
 
@@ -40,27 +42,33 @@ class GaugeHMIWidget(BaseHMIWidget):
     _text_color: QColor
     _base_color: QColor
 
-    _config_widget:QWidget
-    _cmb_overflow_behavior:QWidget
-
+    _cmb_overflow_behavior: QWidget
+    _txt_name: QLineEdit
 
     def __init__(self, hmi_component: "HMIComponent") -> None:
         super().__init__(hmi_component)
-        self.declare_value_slot('val', 'Value')
+        self.declare_value_slot('val', 'Value', require_redraw=False, value_update_callback=self._value_update)
         self.declare_value_slot('min', 'Minimum')
         self.declare_value_slot('max', 'Maximum')
         self._text_color = scrutiny_get_theme().palette().text().color()
         self._base_color = scrutiny_get_theme().palette().base().color()
 
-
         self._cmb_overflow_behavior = QComboBox()
         self._cmb_overflow_behavior.addItem("Clip", OverflowBehavior.CLIP)
         self._cmb_overflow_behavior.addItem("Show Invalid", OverflowBehavior.SHOW_NA)
 
+        self._txt_name = QLineEdit()
+        self._txt_name.textChanged.connect(lambda text: self.update())
+
         self._config_widget = QWidget()
         layout = QFormLayout(self._config_widget)
 
+        layout.addRow("Name", self._txt_name)
         layout.addRow("Overflow", self._cmb_overflow_behavior)
+
+    def _value_update(self, val: Optional[Union[bool, int, float]]) -> None:
+        self.update()
+        pass
 
     def draw(self,
              configured: bool,
@@ -74,6 +82,7 @@ class GaugeHMIWidget(BaseHMIWidget):
 
         aspect_ratio = draw_zone_size.height() / draw_zone_size.width()
 
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         painter.setPen(self._text_color)
         painter.setBrush(self._base_color)
         half_w = draw_zone_size.width() / 2
@@ -111,6 +120,16 @@ class GaugeHMIWidget(BaseHMIWidget):
             QPointF(p2_x, p2_y) + center,
         ])
 
+        painter.setPen(self._text_color)
+        text_zone_top = half_h + CENTER_SIZE + 2
+        text_zone_h = draw_zone_size.height() - text_zone_top
+        text_rect = QRectF(0, text_zone_top, draw_zone_size.width(), text_zone_h * 0.55)
+        painter.drawText(text_rect, Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter, f"{float(value):.4g}")
+
+        widget_name = self._txt_name.text()
+        if widget_name:
+            name_rect = QRectF(0, text_zone_top + text_zone_h * 0.55, draw_zone_size.width(), text_zone_h * 0.45)
+            painter.drawText(name_rect, Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter, widget_name)
 
     def get_config_widget(self) -> Optional[QWidget]:
-        return None
+        return self._config_widget

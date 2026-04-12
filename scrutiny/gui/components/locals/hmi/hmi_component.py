@@ -14,9 +14,8 @@ import functools
 
 from scrutiny.gui.components.locals.hmi.hmi_library import HMILibrary
 
-from PySide6.QtCore import Qt, QPoint, QSize
-from PySide6.QtWidgets import (QVBoxLayout, QGraphicsScene,
-                               QGraphicsSceneMouseEvent, QMenu, QSplitter)
+from PySide6.QtCore import Qt, QPoint
+from PySide6.QtWidgets import QVBoxLayout, QGraphicsScene, QMenu, QSplitter, QTabWidget, QWidget, QWidgetItem, QStackedLayout
 from PySide6.QtGui import QIcon, QKeyEvent, QMouseEvent
 
 from scrutiny.gui import assets
@@ -24,7 +23,6 @@ from scrutiny.gui.themes import scrutiny_get_theme
 from scrutiny.gui.components.locals.base_local_component import ScrutinyGUIBaseLocalComponent
 
 from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget
-from scrutiny.gui.components.locals.hmi.hmi_widgets.text_label_hmi_widget import TextLabelHMIWidget
 from scrutiny.gui.components.locals.hmi.hmi_widgets.gauge_hmi_widget import GaugeHMIWidget
 from scrutiny.gui.components.locals.hmi.hmi_graphic_view import HMIGraphicView
 
@@ -46,9 +44,12 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
     _scene: QGraphicsScene
     _view: HMIGraphicView
     _splitter: QSplitter
+    _config_widget_container: QWidget
+    _edit_tab_widget: QTabWidget
     _library: HMILibrary
-
     _selected_widgets: List[BaseHMIWidget]
+    _config_widgets: Dict[int, QWidget]
+    _config_widget_container_layout: QStackedLayout
 
 # region inherited methods
     @classmethod
@@ -60,13 +61,24 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         self._scene = QGraphicsScene()
         self._view = HMIGraphicView(self._scene)
         self._library = HMILibrary()
+        self._config_widget_container = QWidget()
+        self._config_widgets = {}
+
+        self._edit_tab_widget = QTabWidget()
+        self._edit_tab_widget.addTab(self._library, "Library")
+        self._edit_tab_widget.addTab(self._config_widget_container, "Configure")
+
+        self._config_widget_container_layout = QStackedLayout(self._config_widget_container)
+        self._config_widget_container_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        self._config_widget_container_layout.setStackingMode(QStackedLayout.StackingMode.StackOne)
+        self._config_widget_container_layout.addWidget(QWidget())   # Empty widget at index 0
 
         self._splitter = QSplitter()
         self._splitter.setOrientation(Qt.Orientation.Horizontal)
         self._splitter.setContentsMargins(0, 0, 0, 0)
         self._splitter.setHandleWidth(5)
         self._splitter.addWidget(self._view)
-        self._splitter.addWidget(self._library)
+        self._splitter.addWidget(self._edit_tab_widget)
         self._splitter.setCollapsible(0, False)  # Cannot collapse the graph
         self._splitter.setCollapsible(1, True)  # Can collapse the right menu
 
@@ -75,18 +87,17 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
 
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-        layout.addWidget(self.test_widget._make_slot_config_widget())
-        layout.addWidget(self._splitter, 1)  # Stretch
+        layout.addWidget(self._splitter, 1)  # 1=Stretch
         self._view.signals.right_click.connect(self._view_right_click_slot)
         self._view.signals.left_click.connect(self._view_left_click_slot)
         self._view.signals.drop_widget_class.connect(self._view_drop_widget_class_slot)
         self._view.signals.rubber_band_select_widgets.connect(self._view_rubberband_select_widgets_slot)
-        self.add(self.test_widget)
+        self._show_edit_menu(False)  # Necessary to set the menu to a size of 0, used for state checking
 
-        self.set_mode(HMIInteractionMode.Edit)
+        self._show_config_of(None)
 
     def ready(self) -> None:
-        pass
+        self.set_mode(HMIInteractionMode.Edit)
 
     def teardown(self) -> None:
         for item in self._scene.items():
@@ -107,6 +118,9 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         if scene_pos is not None:
             widget.setPos(scene_pos)
 
+        self._create_config_widget_of(widget)
+        self._show_config_of(widget)    # Show the config just created
+
         self.update_hmi_widget_state(widget)
 
     def select_widgets(self, widgets: List[BaseHMIWidget]) -> None:
@@ -120,6 +134,9 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         for widget in self._selected_widgets:
             widget.set_selected(True)
 
+        if len(self._selected_widgets) == 1:
+            self._show_config_of(self._selected_widgets[0])
+
     def toggle_select_widget(self, widget: BaseHMIWidget) -> None:
         if widget in self._selected_widgets:
             self.deselect_all_widgets()
@@ -130,6 +147,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         for widget in self._selected_widgets:
             widget.set_selected(False)
         self._selected_widgets.clear()
+        self._show_config_of(None)
 
     def is_edit_mode(self) -> bool:
         return self._mode == HMIInteractionMode.Edit
@@ -140,18 +158,15 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
 
     def set_mode(self, mode: HMIInteractionMode) -> None:
         self._mode = mode
+        self.deselect_all_widgets()
 
         if self._mode == HMIInteractionMode.Edit:
-            self._splitter.handle(1).setEnabled(True)
-            self._splitter.setHandleWidth(5)
-            self._splitter.setSizes([400, 400])
+            self._show_edit_menu(True)
             self._view.show_grid(True)
             self._view.setAcceptDrops(True)
             self._view.set_allow_edit_widgets(True)
         elif self._mode == HMIInteractionMode.Display:
-            self._splitter.handle(1).setEnabled(False)
-            self._splitter.setHandleWidth(0)
-            self._splitter.setSizes([1, 0])
+            self._show_edit_menu(False)
             self._view.show_grid(False)
             self._view.setAcceptDrops(False)
             self._view.set_allow_edit_widgets(False)
@@ -159,6 +174,37 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         for item in self._scene.items():
             if isinstance(item, BaseHMIWidget):
                 self.update_hmi_widget_state(item)
+
+    def _show_edit_menu(self, val: bool) -> None:
+        if val:
+            self._splitter.handle(1).setEnabled(True)
+            self._splitter.setHandleWidth(5)
+            if self._splitter.sizes()[1] == 0:
+                menu_width = self._edit_tab_widget.sizeHint().width()
+                print(menu_width)
+                print(self.width() - menu_width)
+                self._splitter.setSizes([self.width() - menu_width, menu_width])
+        else:
+            self._splitter.handle(1).setEnabled(False)
+            self._splitter.setHandleWidth(0)
+            self._splitter.setSizes([1, 0])
+
+    def _create_config_widget_of(self, widget: BaseHMIWidget) -> None:
+        """Create the widget shown in the "configure" tabs for the given HMI Widget"""
+        config_container = QWidget()
+        layout = QVBoxLayout(config_container)
+        layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+
+        wslot_config = widget.make_slot_config_widget()
+        if wslot_config is not None:
+            layout.addWidget(wslot_config)
+
+        specific_config = widget.get_config_widget()
+        if specific_config is not None:
+            layout.addWidget(specific_config)
+
+        self._config_widgets[id(widget)] = config_container
+        self._config_widget_container_layout.addWidget(config_container)
 
     def _view_drop_widget_class_slot(self, widget_class: Type[BaseHMIWidget], scene_pos: QPoint) -> None:
         instance = widget_class(self)
@@ -177,9 +223,23 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
             remove_action = menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.RedX), "Remove")
             edit_action = menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.TextEdit), "Edit")
 
+            def edit_action_slot() -> None:
+                self._edit_tab_widget.setCurrentWidget(self._config_widget_container)
+                self._show_config_of(widget)
+                self._show_edit_menu(True)
+            edit_action.triggered.connect(edit_action_slot)
+
             remove_action.triggered.connect(functools.partial(self._delete_widget, widget))
 
             menu.exec(self._view.mapToGlobal(event.pos()))
+
+    def _show_config_of(self, widget: Optional[BaseHMIWidget]) -> None:
+        """Make the HMI Widget configuration pane visible by swapping the QStackedLayout index. show an empty widget if None"""
+        if widget is None:
+            self._config_widget_container_layout.setCurrentIndex(0)  # Empty widget
+        else:
+            config_container = self._config_widgets[id(widget)]
+            self._config_widget_container_layout.setCurrentWidget(config_container)
 
     def _view_left_click_slot(self, widget: Optional[BaseHMIWidget]) -> None:
         if widget is None:
@@ -188,11 +248,19 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
             self.select_widgets([widget])
 
     def _delete_widget(self, widget: BaseHMIWidget) -> None:
+        """Delete an HMI widget from the view."""
+
+        # Deselect it
         if widget in self._selected_widgets:
             self._selected_widgets.remove(widget)
 
         widget.destroy()
         self._scene.removeItem(widget)
+
+        # Remove the config pane
+        if self._config_widget_container_layout.currentWidget() is self._config_widgets[id(widget)]:
+            self._config_widget_container_layout.setCurrentIndex(0)
+        del self._config_widgets[id(widget)]    # Should never fail
 
     def keyPressEvent(self, event: QKeyEvent) -> None:
         if event.key() == Qt.Key.Key_Delete:
