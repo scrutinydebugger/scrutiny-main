@@ -1041,6 +1041,9 @@
         },
         "scrutiny/gui/components/locals/hmi/hmi_edit_grid.py": {
             "docstring": "The Grid used in Edit Mode"
+        },
+        "scrutiny/gui/components/locals/hmi/common/numerical_text_display.py": {
+            "docstring": "A graphic item able to display a numerical value in a graphicScene. Offers parameters to control the font size and avoid display glitches"
         }
     },
     "authors": {}

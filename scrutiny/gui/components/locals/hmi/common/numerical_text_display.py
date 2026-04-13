@@ -1,3 +1,11 @@
+#    numerical_text_display.py
+#        A graphic item able to display a numerical value in a graphicScene. Offers parameters
+#        to control the font size and avoid display glitches
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
 
 __all__ = ['NumericalTextDisplay']
 
