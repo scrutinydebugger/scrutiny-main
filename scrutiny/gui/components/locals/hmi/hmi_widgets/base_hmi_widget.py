@@ -18,6 +18,7 @@ from PySide6.QtCore import QSize, QRectF, QPointF, QObject, QRect, QPoint, Qt, S
 
 from scrutiny import sdk
 from scrutiny.gui.widgets.watchable_line_edit import WatchableLineEdit
+from scrutiny.gui.core.watchable_registry import WatchableRegistryNodeNotFoundError
 from scrutiny.gui.components.locals.hmi.hmi_library_category import LibraryCategory
 from scrutiny.gui.components.locals.hmi.hmi_edit_grid import HMIEditGrid
 from scrutiny.gui.core.watchable_registry import WatcherIdType, RegistryValueUpdate
@@ -239,6 +240,11 @@ class BaseHMIWidget(QGraphicsItem):
     def boundingRect(self) -> QRectF:
         return QRectF(QPointF(0, 0), self._size)
 
+    def try_watch_all_wslots(self) -> None:
+        for wslot in self._wslots:
+            watchable = wslot.watchable_line_edit.get_watchable()
+            if watchable is not None:
+                self._try_watch(wslot, watchable.fqn)
 
 # region Private
 
@@ -266,7 +272,13 @@ class BaseHMIWidget(QGraphicsItem):
         pass
 
     def _wslot_configured_slot(self, wslot: ValueSlot, fqn: str) -> None:
-        self._hmi_component.app.watchable_registry.watch_fqn(wslot.watcher_id, fqn)
+        self._try_watch(wslot, fqn)
+
+    def _try_watch(self, wslot: ValueSlot, fqn: str) -> None:
+        try:
+            self._hmi_component.app.watchable_registry.watch_fqn(wslot.watcher_id, fqn)
+        except WatchableRegistryNodeNotFoundError:
+            pass
 
     def _get_slot_by_name(self, name: str) -> ValueSlot:
         for wslot in self._wslots:

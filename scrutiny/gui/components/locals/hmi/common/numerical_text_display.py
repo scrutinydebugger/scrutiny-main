@@ -186,12 +186,9 @@ class NumericalTextDisplay(QGraphicsItem):
             decimal_part = 1 + self._config_widget.spn_decimals.value()   # 1 is for dot
 
         if self._config_widget.chk_eng_notation.isChecked():
-            return 3 + decimal_part + unit_part
+            return 3 + decimal_part + unit_part + 1     # +1 for sign
 
-        count = self._config_widget.spn_ints.value() + unit_part + 1  # +1 for sign
-        if decimal_part > 0:
-            count += 1
-
+        count = self._config_widget.spn_ints.value() + decimal_part + unit_part + 1  # +1 for sign
         return count
 
     def _compute_font_size(self, text: str) -> None:

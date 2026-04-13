@@ -96,13 +96,14 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
 
         self._show_config_of(None)
 
+        self.app.server_manager.signals.registry_changed.connect(self._registry_changed_slot)
+
     def ready(self) -> None:
         self.set_mode(HMIInteractionMode.Edit)
 
     def teardown(self) -> None:
-        for item in self._scene.items():
-            if isinstance(item, BaseHMIWidget):
-                item.destroy()
+        for hmi_widget in self.iterate_hmi_widgets():
+            hmi_widget.destroy()
 
     def get_state(self) -> Dict[Any, Any]:
         return {}
@@ -112,6 +113,11 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
 
     def visibilityChanged(self, visible: bool) -> None:
         pass
+
+    def iterate_hmi_widgets(self) -> Generator[BaseHMIWidget, None, None]:
+        for item in self._scene.items():
+            if isinstance(item, BaseHMIWidget):
+                yield item
 
     def add(self, widget: BaseHMIWidget, scene_pos: Optional[QPoint] = None) -> None:
         self._scene.addItem(widget)
@@ -124,9 +130,8 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         self.update_hmi_widget_state(widget)
 
     def select_widgets(self, widgets: List[BaseHMIWidget]) -> None:
-        for item in self._scene.items():
-            if isinstance(item, BaseHMIWidget) and item not in widgets:
-                item.set_selected(False)
+        for hmi_widget in self.iterate_hmi_widgets():
+            hmi_widget.set_selected(False)
 
         self._selected_widgets.clear()
         self._selected_widgets.extend(widgets)
@@ -171,9 +176,16 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
             self._view.setAcceptDrops(False)
             self._view.set_allow_edit_widgets(False)
 
-        for item in self._scene.items():
-            if isinstance(item, BaseHMIWidget):
-                self.update_hmi_widget_state(item)
+        for hmi_widget in self.iterate_hmi_widgets():
+            self.update_hmi_widget_state(hmi_widget)
+
+# region Private
+    def _registry_changed_slot(self) -> None:
+        self._resubscribe_all_hmi_widgets()
+
+    def _resubscribe_all_hmi_widgets(self) -> None:
+        for hmi_widget in self.iterate_hmi_widgets():
+            hmi_widget.try_watch_all_wslots()
 
     def _show_edit_menu(self, val: bool) -> None:
         if val:
@@ -259,6 +271,8 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         if self._config_widget_container_layout.currentWidget() is self._config_widgets[id(widget)]:
             self._config_widget_container_layout.setCurrentIndex(0)
         del self._config_widgets[id(widget)]    # Should never fail
+
+# endregion
 
     def keyPressEvent(self, event: QKeyEvent) -> None:
         if event.key() == Qt.Key.Key_Delete:

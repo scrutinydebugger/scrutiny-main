@@ -48,7 +48,6 @@ class TextLabelHMIWidget(BaseHMIWidget):
         layout = QVBoxLayout(self._config_widget)
         layout.addWidget(self._numerical_display.get_config_widget())
         self._numerical_display.set_text_color(scrutiny_get_theme().palette().text().color())
-        self._numerical_display.set_alignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignHCenter)
 
         self._numerical_display.signals.config_changed.connect(self.update)
 
@@ -65,10 +64,13 @@ class TextLabelHMIWidget(BaseHMIWidget):
         val = None
         if configured:
             val = values['val']
-        val_or_text: Union[str, bool, int, float] = "N/A"
-        if val is not None:
-            val_or_text = val
+
+        if val is None:
+            self._numerical_display.set_val("N/A")
+            self._numerical_display.set_alignment(Qt.AlignmentFlag.AlignCenter)
+        else:
+            self._numerical_display.set_val(val)
+            self._numerical_display.set_alignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight)
 
         self._numerical_display.set_size(draw_zone_size)
-        self._numerical_display.set_val(val_or_text)
         self._numerical_display.update()
