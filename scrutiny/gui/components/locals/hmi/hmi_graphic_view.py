@@ -118,6 +118,7 @@ class HMIGraphicView(QGraphicsView):
         for item in self.items(pos):
             if isinstance(item, BaseHMIWidget):
                 return item
+        return None
 
     def resizeEvent(self, event: QResizeEvent) -> None:
         super().resizeEvent(event)
