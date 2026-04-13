@@ -13,7 +13,7 @@ __all__ = [
 import os
 from scrutiny.gui.core.exceptions import GuiError
 from pathlib import Path
-from PySide6.QtGui import QPixmap, QIcon
+from PySide6.QtGui import QPixmap, QIcon, QFont, QFontDatabase
 from PySide6.QtCore import QDir
 import enum
 
@@ -75,6 +75,10 @@ class IconFormat(enum.Enum):
     Large = enum.auto()
 
 
+class ScrutinyFont(enum.Enum):
+    Monospaced = enum.auto()
+
+
 class Icons(enum.Enum):
     Folder = "folder"
     Var = "var"
@@ -132,6 +136,12 @@ class Icons(enum.Enum):
 
 _filename_cache: Dict[Tuple[Icons, IconFormat, IconSet], Path] = {}
 
+_FONTS_FILES = {
+    ScrutinyFont.Monospaced: os.path.join('fonts', 'JetBrains_Mono', 'JetBrainsMono-VariableFont_wght.ttf')
+}
+
+_FONT_ID_FAMILY_LOOKUP: Dict[ScrutinyFont, str] = {}
+
 
 def icon_filename(name: Icons, format: IconFormat, iconset: IconSet) -> Path:
     global _filename_cache
@@ -184,3 +194,14 @@ def load_stylesheet(name: str) -> str:
     if not name.endswith('.qss'):
         name += '.qss'
     return load_text(['stylesheets', name])
+
+
+def initialize_fonts() -> None:
+    for font_type in ScrutinyFont:
+        font_id = QFontDatabase.addApplicationFont(str(get(_FONTS_FILES[font_type])))
+        family = QFontDatabase.applicationFontFamilies(font_id)[0]
+        _FONT_ID_FAMILY_LOOKUP[font_type] = family
+
+
+def get_font(font: ScrutinyFont) -> QFont:
+    return QFont(_FONT_ID_FAMILY_LOOKUP[font])

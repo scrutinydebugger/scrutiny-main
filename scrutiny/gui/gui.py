@@ -168,6 +168,7 @@ class ScrutinyQtGUI:
         app.setWindowIcon(scrutiny_get_theme().load_medium_icon(assets.Icons.ScrutinyLogo))
         app.setApplicationDisplayName("Scrutiny Debugger")
         app.setApplicationVersion(scrutiny.__version__)
+        assets.initialize_fonts()
 
         window = MainWindow()
 

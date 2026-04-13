@@ -181,8 +181,6 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
             self._splitter.setHandleWidth(5)
             if self._splitter.sizes()[1] == 0:
                 menu_width = self._edit_tab_widget.sizeHint().width()
-                print(menu_width)
-                print(self.width() - menu_width)
                 self._splitter.setSizes([self.width() - menu_width, menu_width])
         else:
             self._splitter.handle(1).setEnabled(False)

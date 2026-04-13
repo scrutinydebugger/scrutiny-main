@@ -87,6 +87,8 @@ def format_eng_unit(val: float, decimal: int = 0, unit: str = "", binary: bool =
     if val == 0:    # Special case to avoid writing : 0piB instead of 0B
         return (format_string % val) + unit
 
+    valabs = abs(val)
+
     prefixes: List[Tuple[float, str]]
     if binary:
         prefixes = [
@@ -118,7 +120,7 @@ def format_eng_unit(val: float, decimal: int = 0, unit: str = "", binary: bool =
     for i in range(len(prefixes)):
         if i < len(prefixes) - 1:
             next_base, _ = prefixes[i + 1]
-            if val < next_base:
+            if valabs < next_base:
                 base, prefix = prefixes[i]
                 break
         else:

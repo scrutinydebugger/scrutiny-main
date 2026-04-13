@@ -114,6 +114,11 @@ class HMIGraphicView(QGraphicsView):
         right = max(start.x(), end.x())
         return QRect(QPoint(left, top), QPoint(right, bottom))
 
+    def hmi_widget_at(self, pos: QPoint) -> Optional[BaseHMIWidget]:
+        for item in self.items(pos):
+            if isinstance(item, BaseHMIWidget):
+                return item
+
     def resizeEvent(self, event: QResizeEvent) -> None:
         super().resizeEvent(event)
         self.setSceneRect(QRect(QPoint(0, 0), event.size()))
@@ -135,8 +140,8 @@ class HMIGraphicView(QGraphicsView):
                         cursor = self._view_mousemove_resize_widget(event)
                 else:
                     # Check if we should display a resize cursor if use hover a resize handle
-                    item = self.itemAt(event.pos())
-                    if isinstance(item, BaseHMIWidget):
+                    item = self.hmi_widget_at(event.pos())
+                    if item is not None:
                         local_pos = item.mapFromScene(self.mapFromScene(event.pos()))
                         for handle, rect in item.resize_handles_coordinates().items():
                             if rect.contains(local_pos):
@@ -230,7 +235,7 @@ class HMIGraphicView(QGraphicsView):
         event.accept()
 
         self._mouse_down_start = event.pos()
-        mouse_down_item = self.itemAt(event.pos())
+        mouse_down_item = self.hmi_widget_at(event.pos())
         self._mouse_down_widget = None
 
         if isinstance(mouse_down_item, BaseHMIWidget):
@@ -275,7 +280,7 @@ class HMIGraphicView(QGraphicsView):
         if self._mouse_down_start is None:
             return
 
-        mouse_release_widget: Optional[QGraphicsItem] = self.itemAt(event.pos())
+        mouse_release_widget: Optional[QGraphicsItem] = self.hmi_widget_at(event.pos())
         if not isinstance(mouse_release_widget, BaseHMIWidget):
             mouse_release_widget = None
 
