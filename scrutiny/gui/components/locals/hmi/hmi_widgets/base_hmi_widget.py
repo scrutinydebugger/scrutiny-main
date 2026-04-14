@@ -13,7 +13,7 @@ import logging
 import enum
 
 from PySide6.QtWidgets import QWidget, QFormLayout, QGraphicsItem, QStyleOptionGraphicsItem
-from PySide6.QtGui import QPainter, QPixmap, QBrush
+from PySide6.QtGui import QPainter, QPixmap, QBrush, QIcon
 from PySide6.QtCore import QSize, QRectF, QPointF, QObject, QRect, QPoint, Qt, Signal
 
 from scrutiny import sdk
@@ -180,6 +180,11 @@ class BaseHMIWidget(QGraphicsItem):
     def get_icon_as_pixmap(cls) -> QPixmap:
         icon = cls._read_class_prop('_ICON', assets.Icons)
         return scrutiny_get_theme().load_medium_icon_as_pixmap(icon)
+
+    @classmethod
+    def get_icon(cls) -> QIcon:
+        icon = cls._read_class_prop('_ICON', assets.Icons)
+        return scrutiny_get_theme().load_medium_icon(icon)
 
     @classmethod
     def _read_class_prop(cls, propname: str, t: Type[T]) -> T:
@@ -384,6 +389,7 @@ class BaseHMIWidget(QGraphicsItem):
         values = {vslot.name: vslot.get_val() for vslot in self._vslots}
 
         self.draw(configured, values, self._size, painter)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
         if self._selected:
             highlight_color = scrutiny_get_theme().palette().highlight().color()
             highlight_color.setAlpha(0x66)

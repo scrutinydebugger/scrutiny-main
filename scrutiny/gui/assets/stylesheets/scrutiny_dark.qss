@@ -23,3 +23,7 @@ QLabel[feature_enable=true] {
 QLabel[feature_enable=false] {
     color: #ff6060;
 }
+
+ScrutinyHoverableWidget:hover {
+    background-color:palette(light);
+}

@@ -9,9 +9,10 @@
 import math
 
 from PySide6.QtGui import QMouseEvent, QResizeEvent, QDrag
-from PySide6.QtWidgets import QWidget, QGridLayout, QVBoxLayout, QLabel, QGroupBox
-from PySide6.QtCore import Qt, QSize
+from PySide6.QtWidgets import QWidget, QGridLayout, QVBoxLayout, QLabel, QGroupBox, QFrame
+from PySide6.QtCore import  Qt, QSize
 
+from scrutiny.gui.widgets.scrutiny_hoverable_widget import ScrutinyHoverableWidget
 from scrutiny.gui.core.scrutiny_drag_data import ScrutinyDragData
 from scrutiny.gui.components.locals.hmi.hmi_library_category import HMI_LIBARY_CATEGORIES, LibraryCategory
 from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget
@@ -25,7 +26,7 @@ from .hmi_widgets.gauge_hmi_widget import GaugeHMIWidget
 #########################################
 
 
-class HMILibraryEntryWidget(QWidget):
+class HMILibraryEntryWidget(ScrutinyHoverableWidget):
     """A widget that display the icon of a single HMI widget"""
     ICON_SIZE = 64
 
@@ -41,6 +42,7 @@ class HMILibraryEntryWidget(QWidget):
         pixmap = hmi_widget.get_icon_as_pixmap()
         self._icon_label.setPixmap(pixmap.scaled(QSize(self.ICON_SIZE, self.ICON_SIZE)))
         self._text_label = QLabel(hmi_widget.get_name())
+        self._text_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignCenter)
@@ -69,7 +71,6 @@ class HMILibraryEntryWidget(QWidget):
 
         return super().mousePressEvent(event)
 
-
 class HMILibraryCategoryWidget(QWidget):
     """A widget that display every HMI widgets in a category"""
     _category: LibraryCategory
@@ -85,11 +86,14 @@ class HMILibraryCategoryWidget(QWidget):
         self._display_name = category_info.display_name
         self._entries = sorted((HMILibraryEntryWidget(hmiw) for hmiw in hmi_widgets), key=lambda x: x.get_widget_name())
         self._grid_container = QWidget()
+        #self._grid_container.setAutoFillBackground(True)
+        #self._grid_container.setBackgroundRole(QPalette.ColorRole.Base)
 
         layout = QVBoxLayout(self)
         gb = QGroupBox(self._display_name)
         layout.addWidget(gb)
         gb_layout = QVBoxLayout(gb)
+        gb_layout.setContentsMargins(0,0,0,0)
         gb_layout.addWidget(self._grid_container)
 
         self.rebuild_grid_layout()
@@ -115,6 +119,7 @@ class HMILibraryCategoryWidget(QWidget):
                 index = row * nb_col + col
                 if index < len(self._entries):
                     layout.addWidget(self._entries[index], row, col, Qt.AlignmentFlag.AlignTop)
+        self._grid_container.setMaximumWidth(nb_col * HMILibraryEntryWidget.ICON_SIZE)
 
     def get_display_name(self) -> str:
         return self._display_name

@@ -524,11 +524,14 @@ class ServerManager:
             elif isinstance(event, ScrutinyClient.Events.SFDUnLoadedEvent):
                 self._thread_event_sfd_unloaded()
             elif isinstance(event, ScrutinyClient.Events.DataloggingStateChanged):
-                self._signals.datalogging_state_changed.emit()
+                if not self._exit_in_progress:
+                    self._signals.datalogging_state_changed.emit()
             elif isinstance(event, ScrutinyClient.Events.StatusUpdateEvent):
-                self._signals.status_received.emit()
+                if not self._exit_in_progress:
+                    self._signals.status_received.emit()
             elif isinstance(event, ScrutinyClient.Events.DataloggingListChanged):
-                self._signals.datalogging_storage_updated.emit(event.change_type, event.acquisition_reference_id)
+                if not self._exit_in_progress:
+                    self._signals.datalogging_storage_updated.emit(event.change_type, event.acquisition_reference_id)
             else:
                 self._logger.error(f"Unsupported event type : {event.__class__.__name__}")
 
@@ -583,7 +586,8 @@ class ServerManager:
             req.cancel()
 
         self._thread_state.runtime_watchables_download_request = self._client.download_watchable_list([sdk.WatchableType.RuntimePublishedValue])
-        self._signals.device_ready.emit()
+        if not self._exit_in_progress:
+            self._signals.device_ready.emit()
 
     def _thread_event_sfd_loaded(self) -> None:
         """To be called once when a SFD is loaded"""
@@ -593,7 +597,8 @@ class ServerManager:
             req.cancel()
         self._thread_state.sfd_watchables_download_request = self._client.download_watchable_list(
             [sdk.WatchableType.Variable, sdk.WatchableType.Alias])
-        self.signals.sfd_loaded.emit()
+        if not self._exit_in_progress:
+            self.signals.sfd_loaded.emit()
 
     def _thread_event_sfd_unloaded(self) -> None:
         """To be called once when a SFD is unloaded"""
@@ -603,7 +608,8 @@ class ServerManager:
             req.cancel()
         self._thread_state.sfd_watchables_download_request = None
         self._thread_clear_registry_synchronized([sdk.WatchableType.Alias, sdk.WatchableType.Variable])
-        self.signals.sfd_unloaded.emit()
+        if not self._exit_in_progress:
+            self.signals.sfd_unloaded.emit()
 
     def _thread_event_device_disconnected(self) -> None:
         """To be called once when a device disconnect"""
@@ -613,7 +619,8 @@ class ServerManager:
             req.cancel()
         self._thread_state.runtime_watchables_download_request = None
         self._thread_clear_registry_synchronized([sdk.WatchableType.RuntimePublishedValue])
-        self.signals.device_disconnected.emit()
+        if not self._exit_in_progress:
+            self.signals.device_disconnected.emit()
 
     def _thread_clear_registry_synchronized(self, type_list: List[sdk.WatchableType]) -> None:
         @dataclass(slots=True)
