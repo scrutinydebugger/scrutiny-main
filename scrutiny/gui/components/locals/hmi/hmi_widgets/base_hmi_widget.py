@@ -17,6 +17,7 @@ from PySide6.QtGui import QPainter, QPixmap, QBrush
 from PySide6.QtCore import QSize, QRectF, QPointF, QObject, QRect, QPoint, Qt, Signal
 
 from scrutiny import sdk
+from scrutiny.gui.app_settings import app_settings
 from scrutiny.gui.widgets.watchable_line_edit import WatchableLineEdit
 from scrutiny.gui.core.watchable_registry import WatchableRegistryNodeNotFoundError
 from scrutiny.gui.components.locals.hmi.hmi_library_category import LibraryCategory
@@ -130,6 +131,8 @@ class BaseHMIWidget(QGraphicsItem):
     MAX_DRAW_RATE_NANOSEC = int(round((1 / MAX_DRAW_RATE) * 1e9))
     HALF_HANDLE_HW = HANDLE_HW / 2
 
+    HMI_COMPONENT_UPDATE_RATE: Optional[float]
+
     class _Signals(QObject):
         pass
 
@@ -147,6 +150,8 @@ class BaseHMIWidget(QGraphicsItem):
 
     def __init__(self, hmi_component: "HMIComponent") -> None:
         super().__init__()
+        self.HMI_COMPONENT_UPDATE_RATE = app_settings().SCRUTINY_GUI_HMI_UPDATE_RATE
+
         self._vslots = []
         self._hmi_component = hmi_component
         self._need_redraw = False
@@ -284,7 +289,7 @@ class BaseHMIWidget(QGraphicsItem):
 
     def _try_watch(self, vslot: ValueSlot, fqn: str) -> None:
         try:
-            self._hmi_component.app.watchable_registry.watch_fqn(vslot.watcher_id, fqn)
+            self._hmi_component.app.watchable_registry.watch_fqn(vslot.watcher_id, fqn, self.HMI_COMPONENT_UPDATE_RATE)
         except WatchableRegistryNodeNotFoundError:
             pass
 

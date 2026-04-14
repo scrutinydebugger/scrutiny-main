@@ -105,6 +105,12 @@ class HMIWorkZone(QGraphicsView):
     def show_grid(self, val: bool) -> None:
         self._grid.setVisible(val)
 
+    def add_widgets_to_selection(self, widgets: List[BaseHMIWidget]) -> None:
+        self._selected_widgets.extend(widgets)
+        for widget in self._selected_widgets:
+            widget.set_selected(True)
+        self._signals.selection_changed.emit(self._selected_widgets.copy())
+
     def select_widgets(self, widgets: List[BaseHMIWidget]) -> None:
         for hmi_widget in self.iterate_hmi_widgets():
             hmi_widget.set_selected(False)
@@ -323,7 +329,10 @@ class HMIWorkZone(QGraphicsView):
                         )
                     else:
                         if self._mouse_down_widget not in self._selected_widgets:
-                            self.select_widgets([self._mouse_down_widget])
+                            if event.modifiers() == Qt.KeyboardModifier.ControlModifier:
+                                self.add_widgets_to_selection([self._mouse_down_widget])
+                            else:
+                                self.select_widgets([self._mouse_down_widget])
 
                         selection_bounding_rect = self._mouse_down_widget.mapToScene(self._mouse_down_widget.boundingRect().toRect()).boundingRect()
                         for widget in self._selected_widgets:
@@ -389,8 +398,6 @@ class HMIWorkZone(QGraphicsView):
 
                         if mouse_release_widget is None:
                             self.deselect_all_widgets()  # Will emit selection_changed
-                        else:
-                            self.select_widgets([mouse_release_widget])  # Will emit selection_changed
 
         self._mouse_down_widget = None
         self._mouse_down_start = None

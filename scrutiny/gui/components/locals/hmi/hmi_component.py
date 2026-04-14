@@ -149,7 +149,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
 
     def _resubscribe_all_hmi_widgets(self) -> None:
         for hmi_widget in self._workzone.iterate_hmi_widgets():
-            hmi_widget.try_watch_all_wslots()
+            hmi_widget.try_watch_all_vslots()
 
     def _show_edit_menu(self, val: bool) -> None:
         if val:

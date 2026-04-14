@@ -41,6 +41,7 @@ class SupportedTheme(enum.Enum):
 
 
 _DEFAULT_SCRUTINY_GUI_WATCH_UPDATE_RATE = 15
+_DEFAULT_SCRUTINY_GUI_HMI_UPDATE_RATE = 15
 _DEFAULT_SCRUTINY_GUI_SERVER_THROTTLING_RATE = 4000
 _DEFAULT_SCRUTINY_GUI_MAX_GENERATED_VAR_PER_ELEMENT = 1024
 _DEFAULT_SCRUTINY_GUI_MAX_TOTAL_GENERATED_VAR = 65536
@@ -58,6 +59,7 @@ class ScrutinyQtGUI:
         theme: SupportedTheme = SupportedTheme.Default
 
         SCRUTINY_GUI_WATCH_UPDATE_RATE: Optional[float] = _DEFAULT_SCRUTINY_GUI_WATCH_UPDATE_RATE
+        SCRUTINY_GUI_HMI_UPDATE_RATE: Optional[float] = _DEFAULT_SCRUTINY_GUI_HMI_UPDATE_RATE
         SCRUTINY_GUI_SERVER_THROTTLING_RATE: int = _DEFAULT_SCRUTINY_GUI_SERVER_THROTTLING_RATE
         SCRUTINY_GUI_MAX_GENERATED_VAR_PER_ELEMENT: int = _DEFAULT_SCRUTINY_GUI_MAX_GENERATED_VAR_PER_ELEMENT
         SCRUTINY_GUI_MAX_TOTAL_GENERATED_VAR: int = _DEFAULT_SCRUTINY_GUI_MAX_TOTAL_GENERATED_VAR
@@ -91,21 +93,42 @@ class ScrutinyQtGUI:
         self._exit_handler = None
         logger = logging.getLogger(self.__class__.__name__)
 
-        SCRUTINY_GUI_WATCH_UPDATE_RATE: Optional[float] = tools.read_env_numeric('SCRUTINY_GUI_WATCH_UPDATE_RATE', float,
-                                                                                 default=_DEFAULT_SCRUTINY_GUI_WATCH_UPDATE_RATE, minval=0, maxval=None, logger=logger)
-        assert SCRUTINY_GUI_WATCH_UPDATE_RATE is not None
-        if SCRUTINY_GUI_WATCH_UPDATE_RATE == 0:
-            SCRUTINY_GUI_WATCH_UPDATE_RATE = None
-        elif SCRUTINY_GUI_WATCH_UPDATE_RATE < 1:
-            SCRUTINY_GUI_WATCH_UPDATE_RATE = _DEFAULT_SCRUTINY_GUI_WATCH_UPDATE_RATE
-            logger.warning("Watch update rate too small, clipped to 1 update/sec")
+        def read_update_rate_from_env(name: str, default_val: float) -> Optional[float]:
+            val = tools.read_env_numeric(name, float, default=default_val, minval=0, maxval=None, logger=logger)
+            assert val is not None
+            if val == 0:
+                return None
+            elif val < 1:
+                logger.warning(f"[{name}]: Update rate too small, clipped to 1 update/sec")
+                return default_val
+            return val
+
+        SCRUTINY_GUI_WATCH_UPDATE_RATE = read_update_rate_from_env('SCRUTINY_GUI_WATCH_UPDATE_RATE', _DEFAULT_SCRUTINY_GUI_WATCH_UPDATE_RATE)
+        SCRUTINY_GUI_HMI_UPDATE_RATE = read_update_rate_from_env('SCRUTINY_GUI_HMI_UPDATE_RATE', _DEFAULT_SCRUTINY_GUI_HMI_UPDATE_RATE)
 
         SCRUTINY_GUI_SERVER_THROTTLING_RATE = tools.read_env_numeric(
-            'SCRUTINY_GUI_SERVER_THROTTLING_RATE', int, default=_DEFAULT_SCRUTINY_GUI_SERVER_THROTTLING_RATE, minval=0, maxval=None, logger=logger)
+            name='SCRUTINY_GUI_SERVER_THROTTLING_RATE',
+            vtype=int,
+            default=_DEFAULT_SCRUTINY_GUI_SERVER_THROTTLING_RATE,
+            minval=0,
+            maxval=None,
+            logger=logger)
+
         SCRUTINY_GUI_MAX_GENERATED_VAR_PER_ELEMENT = tools.read_env_numeric(
-            'SCRUTINY_GUI_MAX_GENERATED_VAR_PER_ELEMENT', int, default=_DEFAULT_SCRUTINY_GUI_MAX_GENERATED_VAR_PER_ELEMENT, minval=0, maxval=None, logger=logger)
+            name='SCRUTINY_GUI_MAX_GENERATED_VAR_PER_ELEMENT',
+            vtype=int,
+            default=_DEFAULT_SCRUTINY_GUI_MAX_GENERATED_VAR_PER_ELEMENT,
+            minval=0,
+            maxval=None,
+            logger=logger)
+
         SCRUTINY_GUI_MAX_TOTAL_GENERATED_VAR = tools.read_env_numeric(
-            'SCRUTINY_GUI_MAX_TOTAL_GENERATED_VAR', int, default=_DEFAULT_SCRUTINY_GUI_MAX_TOTAL_GENERATED_VAR, minval=0, maxval=None, logger=logger)
+            name='SCRUTINY_GUI_MAX_TOTAL_GENERATED_VAR',
+            vtype=int,
+            default=_DEFAULT_SCRUTINY_GUI_MAX_TOTAL_GENERATED_VAR,
+            minval=0,
+            maxval=None,
+            logger=logger)
 
         self._settings = self.Settings(
             debug_layout=debug_layout,
@@ -115,6 +138,7 @@ class ScrutinyQtGUI:
             start_local_server=start_local_server,
             theme=theme,
             SCRUTINY_GUI_WATCH_UPDATE_RATE=SCRUTINY_GUI_WATCH_UPDATE_RATE,
+            SCRUTINY_GUI_HMI_UPDATE_RATE=SCRUTINY_GUI_HMI_UPDATE_RATE,
             SCRUTINY_GUI_SERVER_THROTTLING_RATE=SCRUTINY_GUI_SERVER_THROTTLING_RATE,
             SCRUTINY_GUI_MAX_GENERATED_VAR_PER_ELEMENT=SCRUTINY_GUI_MAX_GENERATED_VAR_PER_ELEMENT,
             SCRUTINY_GUI_MAX_TOTAL_GENERATED_VAR=SCRUTINY_GUI_MAX_TOTAL_GENERATED_VAR
