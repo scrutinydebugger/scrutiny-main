@@ -107,7 +107,7 @@ class HMIWorkZone(QGraphicsView):
 
     def add_widgets_to_selection(self, widgets: List[BaseHMIWidget]) -> None:
         self._selected_widgets.extend(widgets)
-        for widget in self._selected_widgets:
+        for widget in widgets:
             widget.set_selected(True)
         self._signals.selection_changed.emit(self._selected_widgets.copy())
 
@@ -188,7 +188,7 @@ class HMIWorkZone(QGraphicsView):
                     # Check if we should display a resize cursor if use hover a resize handle
                     item = self.hmi_widget_at(event.pos())
                     if item is not None:
-                        local_pos = item.mapFromScene(self.mapFromScene(event.pos()))
+                        local_pos = item.mapFromScene(self.mapToScene(event.pos()))
                         for handle, rect in item.resize_handles_coordinates().items():
                             if rect.contains(local_pos):
                                 cursor = RESIZE_CURSOR_MAP[handle]
@@ -306,8 +306,7 @@ class HMIWorkZone(QGraphicsView):
             self._mouse_edit_data = None
             if self._allow_edit_widgets:
                 if self._mouse_down_widget is None:
-                    if self._allow_edit_widgets:    # Clicked empty region. Create a rubber band
-                        self._rubberband_active = True
+                    self._rubberband_active = True
                 else:
                     resize_handles = self._mouse_down_widget.resize_handles_coordinates()
                     resize_handle: Optional[HandlePosition] = None

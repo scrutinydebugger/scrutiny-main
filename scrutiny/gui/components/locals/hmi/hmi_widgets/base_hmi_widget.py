@@ -155,6 +155,7 @@ class BaseHMIWidget(QGraphicsItem):
         self._vslots = []
         self._hmi_component = hmi_component
         self._need_redraw = False
+        self._pending_redraw = False
         self._last_draw_timestamp_ns = time.perf_counter_ns()
         self._parent_constructor_called = True
         self._size = QSize(128, 128)
@@ -199,6 +200,7 @@ class BaseHMIWidget(QGraphicsItem):
 
     def show_resize_handles(self, val: bool) -> None:
         self._draw_resize_handles = val
+        self.update()
 
     def set_selected(self, val: bool) -> None:
         self._selected = val
@@ -376,6 +378,7 @@ class BaseHMIWidget(QGraphicsItem):
 
     def paint(self, painter: QPainter, option: QStyleOptionGraphicsItem, widget: Optional[QWidget] = None) -> None:
         self._pending_redraw = False
+        self._need_redraw = False
 
         configured = self._all_vslots_filled()
         values = {vslot.name: vslot.get_val() for vslot in self._vslots}

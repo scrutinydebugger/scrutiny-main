@@ -33,8 +33,6 @@ class TextLabelHMIWidget(BaseHMIWidget):
     _NAME = 'Text Display'
     _ICON = assets.Icons.CSV
 
-    _MARGIN = 4
-
     _numerical_display: NumericalTextDisplay
     _config_widget: QWidget
 
