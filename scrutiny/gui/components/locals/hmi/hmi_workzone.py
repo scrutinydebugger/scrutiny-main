@@ -1,8 +1,16 @@
+#    hmi_workzone.py
+#        A workzone where HMI widgets lives visually. Can be shown in display mode or dragged/edited
+#        in Edit mode
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
+
 __all__ = ['HMIWorkZone']
 
 from dataclasses import dataclass
 import enum
-import math
 
 from PySide6.QtCore import Qt, Signal, QRect, QPoint, QObject, QMimeData, QSize, QPointF, QSizeF
 from PySide6.QtWidgets import QGraphicsView, QGraphicsItem, QWidget, QRubberBand, QGraphicsScene
