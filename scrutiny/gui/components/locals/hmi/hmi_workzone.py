@@ -1,19 +1,12 @@
-#    hmi_graphic_view.py
-#        An extensions of the QGraphicsView that display the HMI dashboard
-#
-#   - License : MIT - See LICENSE file
-#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
-#
-#    Copyright (c) 2026 Scrutiny Debugger
-
-__all__ = ['HMIGraphicView']
+__all__ = ['HMIWorkZone']
 
 from dataclasses import dataclass
 import enum
+import math
 
-from PySide6.QtCore import Qt, Signal, QRect, QPoint, QObject, QMimeData, QSize
-from PySide6.QtWidgets import (QGraphicsView, QGraphicsItem, QWidget, QRubberBand)
-from PySide6.QtGui import QDragEnterEvent, QDragLeaveEvent, QDragMoveEvent, QDropEvent, QMouseEvent, QPainter, QResizeEvent
+from PySide6.QtCore import Qt, Signal, QRect, QPoint, QObject, QMimeData, QSize, QPointF, QSizeF
+from PySide6.QtWidgets import QGraphicsView, QGraphicsItem, QWidget, QRubberBand, QGraphicsScene
+from PySide6.QtGui import QDragEnterEvent, QDragLeaveEvent, QDragMoveEvent, QDropEvent, QMouseEvent, QResizeEvent
 
 from scrutiny.gui.core.scrutiny_drag_data import ScrutinyDragData
 from scrutiny.gui.components.locals.hmi.hmi_library import HMILibrary
@@ -47,26 +40,28 @@ class WidgetMouseEditData:
         original_pos: QPoint
         original_size: QSize
         handle_clicked: HandlePosition
+        widget: BaseHMIWidget
 
     @dataclass
     class MoveData:
-        offset: QPoint
+        cursor_start: QPoint
+        widget_offset_to_bounding_rect: Dict[int, QPoint]
+        selection_bouding_rect: QRect
 
-    widget: BaseHMIWidget
     action: Action
     resize_data: Optional[ResizeData] = None
     move_data: Optional[MoveData] = None
 
 
-class HMIGraphicView(QGraphicsView):
+class HMIWorkZone(QGraphicsView):
 
     MIN_RUBBERBAND_AREA = 5 * 5
 
     class _Signals(QObject):
-        rubber_band_select_widgets = Signal(list)   # List[BaseHMIWidget]
         right_click = Signal(object, QMouseEvent)    # Optional[BaseHMIWidget], QMouseEvent
         left_click = Signal(object, QMouseEvent)    # Optional[BaseHMIWidget], QMouseEvent
         drop_widget_class = Signal(type, QPoint)
+        selection_changed = Signal(list)
 
     _signals: _Signals
 
@@ -77,10 +72,13 @@ class HMIGraphicView(QGraphicsView):
     _allow_edit_widgets: bool
     _mouse_edit_data: Optional[WidgetMouseEditData]
     _grid: HMIEditGrid
+    _selected_widgets: List[BaseHMIWidget]
+    _scene: QGraphicsScene
 
     @tools.copy_type(QGraphicsView.__init__)
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
+    def __init__(self) -> None:
+        self._scene = QGraphicsScene()
+        super().__init__(self._scene)
         self._signals = self._Signals()
 
         self._mouse_down_start = None
@@ -93,10 +91,43 @@ class HMIGraphicView(QGraphicsView):
         self._allow_edit_widgets = False
         self._mouse_edit_data = None
         self._grid = HMIEditGrid(self)
+        self._selected_widgets = []
         self.scene().addItem(self._grid)
 
     def show_grid(self, val: bool) -> None:
         self._grid.setVisible(val)
+
+    def select_widgets(self, widgets: List[BaseHMIWidget]) -> None:
+        for hmi_widget in self.iterate_hmi_widgets():
+            hmi_widget.set_selected(False)
+
+        self._selected_widgets.clear()
+        self._selected_widgets.extend(widgets)
+
+        for widget in self._selected_widgets:
+            widget.set_selected(True)
+
+        self._signals.selection_changed.emit(self._selected_widgets.copy())
+
+    def deselect_all_widgets(self) -> None:
+        for widget in self._selected_widgets:
+            widget.set_selected(False)
+        self._selected_widgets.clear()
+        self._signals.selection_changed.emit(self._selected_widgets.copy())
+
+    def remove_widget(self, widget: BaseHMIWidget) -> None:
+        if widget in self._selected_widgets:
+            self._selected_widgets.remove(widget)
+
+        self.scene().removeItem(widget)
+
+    def add_widget(self, widget: BaseHMIWidget, scene_pos: Optional[QPoint] = None) -> None:
+        self.scene().addItem(widget)
+        if scene_pos is not None:
+            widget.setPos(self._snap_to_grid(scene_pos, widget.get_size()))
+
+    def selected_widgets(self) -> List[BaseHMIWidget]:
+        return self._selected_widgets.copy()
 
     def set_allow_edit_widgets(self, val: bool) -> None:
         self._allow_edit_widgets = val
@@ -151,18 +182,33 @@ class HMIGraphicView(QGraphicsView):
 
         self.setCursor(cursor)
 
+    def _snap_to_grid(self, p: Union[QPoint, QPointF], size: Optional[Union[QSizeF, QSize]] = None) -> QPoint:
+        if size is None:
+            size = QSize(0, 0)
+        max_x = int(((self.sceneRect().right() - size.width()) // self._grid.GRID_SPACING) * self._grid.GRID_SPACING)
+        max_y = int(((self.sceneRect().bottom() - size.height()) // self._grid.GRID_SPACING) * self._grid.GRID_SPACING)
+
+        return QPoint(
+            int(max(min(round(p.x() / self._grid.GRID_SPACING, 0) * self._grid.GRID_SPACING, max_x), 0)),
+            int(max(min(round(p.y() / self._grid.GRID_SPACING, 0) * self._grid.GRID_SPACING, max_y), 0))
+        )
+
     def _view_mousemove_move_widget(self, event: QMouseEvent) -> Qt.CursorShape:
         assert self._mouse_edit_data is not None
         assert self._mouse_edit_data.move_data is not None
-        pos_offsetted = event.pos().toPointF() - self._mouse_edit_data.move_data.offset
-        x = round(pos_offsetted.x() / self._grid.GRID_SPACING, 0) * self._grid.GRID_SPACING
-        y = round(pos_offsetted.y() / self._grid.GRID_SPACING, 0) * self._grid.GRID_SPACING
-        max_x = ((self.sceneRect().width() - self._mouse_edit_data.widget.boundingRect().width()) // HMIEditGrid.GRID_SPACING) * HMIEditGrid.GRID_SPACING
-        max_y = ((self.sceneRect().height() - self._mouse_edit_data.widget.boundingRect().height()) //
-                 HMIEditGrid.GRID_SPACING) * HMIEditGrid.GRID_SPACING
-        x = min(max(x, 0), max_x)
-        y = min(max(y, 0), max_y)
-        self._mouse_edit_data.widget.setPos(x, y)
+
+        delta_since_start = self.mapToScene(event.pos()).toPoint() - self._mouse_edit_data.move_data.cursor_start
+
+        new_bounding_rect = self._mouse_edit_data.move_data.selection_bouding_rect.translated(delta_since_start)
+        new_bounding_rect_top_left = self._snap_to_grid(new_bounding_rect.topLeft(), new_bounding_rect.size())
+
+        for widget in self._selected_widgets:
+            offset_to_bounding_rect = self._mouse_edit_data.move_data.widget_offset_to_bounding_rect[id(widget)]
+            new_pos = QPoint(
+                new_bounding_rect_top_left.x() + offset_to_bounding_rect.x(),
+                new_bounding_rect_top_left.y() + offset_to_bounding_rect.y()
+            )
+            widget.setPos(self._snap_to_grid(new_pos))
 
         return Qt.CursorShape.DragMoveCursor
 
@@ -170,8 +216,8 @@ class HMIGraphicView(QGraphicsView):
         assert self._mouse_edit_data is not None
         assert self._mouse_edit_data.resize_data is not None
 
-        previous_pos = self._mouse_edit_data.widget.pos().toPoint()
-        previous_size = self._mouse_edit_data.widget.get_size()
+        previous_pos = self._mouse_edit_data.resize_data.widget.pos().toPoint()
+        previous_size = self._mouse_edit_data.resize_data.widget.get_size()
         new_pos = QPoint(previous_pos)
         new_size = QSize(previous_size)
         handle = self._mouse_edit_data.resize_data.handle_clicked
@@ -219,14 +265,14 @@ class HMIGraphicView(QGraphicsView):
 
         # Apply only on dimensions that are allowed to change
         if new_size.width() >= HMIEditGrid.GRID_SPACING and new_size.height() >= HMIEditGrid.GRID_SPACING:
-            self._mouse_edit_data.widget.setPos(new_pos)
-            self._mouse_edit_data.widget.set_size(new_size)
+            self._mouse_edit_data.resize_data.widget.setPos(new_pos)
+            self._mouse_edit_data.resize_data.widget.set_size(new_size)
         elif new_size.width() >= HMIEditGrid.GRID_SPACING:
-            self._mouse_edit_data.widget.setPos(QPoint(new_pos.x(), previous_pos.y()))
-            self._mouse_edit_data.widget.set_size(QSize(new_size.width(), previous_size.height()))
+            self._mouse_edit_data.resize_data.widget.setPos(QPoint(new_pos.x(), previous_pos.y()))
+            self._mouse_edit_data.resize_data.widget.set_size(QSize(new_size.width(), previous_size.height()))
         elif new_size.height() >= HMIEditGrid.GRID_SPACING:
-            self._mouse_edit_data.widget.setPos(QPoint(previous_pos.x(), new_pos.y()))
-            self._mouse_edit_data.widget.set_size(QSize(previous_size.width(), new_size.height()))
+            self._mouse_edit_data.resize_data.widget.setPos(QPoint(previous_pos.x(), new_pos.y()))
+            self._mouse_edit_data.resize_data.widget.set_size(QSize(previous_size.width(), new_size.height()))
         else:
             pass    # Leave untouched
 
@@ -259,20 +305,36 @@ class HMIGraphicView(QGraphicsView):
 
                     if resize_handle:
                         self._mouse_edit_data = WidgetMouseEditData(
-                            widget=self._mouse_down_widget,
                             action=WidgetMouseEditData.Action.Resize,
                             resize_data=WidgetMouseEditData.ResizeData(
+                                widget=self._mouse_down_widget,
                                 handle_clicked=resize_handle,
                                 original_pos=QPoint(self._mouse_down_widget.pos().toPoint()),
                                 original_size=QSize(self._mouse_down_widget.get_size())
                             )
                         )
                     else:
+                        if self._mouse_down_widget not in self._selected_widgets:
+                            self.select_widgets([self._mouse_down_widget])
+
+                        selection_bounding_rect = self._mouse_down_widget.mapToScene(self._mouse_down_widget.boundingRect().toRect()).boundingRect()
+                        for widget in self._selected_widgets:
+                            bounding_rect = widget.mapToScene(widget.boundingRect().toRect()).boundingRect()
+                            selection_bounding_rect.setTop(min(selection_bounding_rect.top(), bounding_rect.top()))
+                            selection_bounding_rect.setLeft(min(selection_bounding_rect.left(), bounding_rect.left()))
+                            selection_bounding_rect.setBottom(max(selection_bounding_rect.bottom(), bounding_rect.bottom()))
+                            selection_bounding_rect.setRight(max(selection_bounding_rect.right(), bounding_rect.right()))
+
+                        widget_offset: Dict[int, QPoint] = {}
+                        for widget in self._selected_widgets:
+                            widget_offset[id(widget)] = (widget.mapToScene(QPoint(0, 0)) - selection_bounding_rect.topLeft()).toPoint()
+
                         self._mouse_edit_data = WidgetMouseEditData(
-                            widget=self._mouse_down_widget,
                             action=WidgetMouseEditData.Action.Move,
                             move_data=WidgetMouseEditData.MoveData(
-                                offset=pos_mapped_to_widget
+                                cursor_start=self.mapToScene(event.pos()).toPoint(),
+                                widget_offset_to_bounding_rect=widget_offset,
+                                selection_bouding_rect=selection_bounding_rect.toRect()
                             )
                         )
 
@@ -301,11 +363,11 @@ class HMIGraphicView(QGraphicsView):
                 if area > self.MIN_RUBBERBAND_AREA:
                     selected: List[BaseHMIWidget] = []
                     rubberband_rect_mapped_to_scene = self.mapToScene(rubberband_rect).boundingRect().toRect()
-                    for widget in self._iterate_hmi_wdgets():
+                    for widget in self.iterate_hmi_widgets():
                         widget_rect = widget.mapToScene(widget.boundingRect()).boundingRect().toRect()
                         if rubberband_rect_mapped_to_scene.contains(widget_rect):
                             selected.append(widget)
-                    self._signals.rubber_band_select_widgets.emit(selected)
+                    self.select_widgets(selected)
             else:
                 if self._mouse_down_widget is mouse_release_widget:
                     has_moved = False
@@ -317,6 +379,11 @@ class HMIGraphicView(QGraphicsView):
                     if not has_moved:
                         self._signals.left_click.emit(mouse_release_widget, event)
 
+                        if mouse_release_widget is None:
+                            self.deselect_all_widgets()  # Will emit selection_changed
+                        else:
+                            self.select_widgets([mouse_release_widget])  # Will emit selection_changed
+
         self._mouse_down_widget = None
         self._mouse_down_start = None
         self._rubberband.setVisible(False)
@@ -324,7 +391,7 @@ class HMIGraphicView(QGraphicsView):
         self._mouse_edit_data = None
         self.setCursor(Qt.CursorShape.ArrowCursor)
 
-    def _iterate_hmi_wdgets(self) -> Generator[BaseHMIWidget, None, None]:
+    def iterate_hmi_widgets(self) -> Generator[BaseHMIWidget, None, None]:
         for item in self.scene().items():
             if isinstance(item, BaseHMIWidget):
                 yield item

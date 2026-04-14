@@ -1033,9 +1033,6 @@
         "scrutiny/gui/components/locals/hmi/hmi_library_category.py": {
             "docstring": "A central place to define the different HMI widget categories used for display"
         },
-        "scrutiny/gui/components/locals/hmi/hmi_graphic_view.py": {
-            "docstring": "An extensions of the QGraphicsView that display the HMI dashboard"
-        },
         "scrutiny/gui/components/locals/hmi/hmi_widgets/gauge_hmi_widget.py": {
             "docstring": "An HMI widget that display a dial gauge that goes from minimum to maximum"
         },
@@ -1044,6 +1041,9 @@
         },
         "scrutiny/gui/components/locals/hmi/common/numerical_text_display.py": {
             "docstring": "A graphic item able to display a numerical value in a graphicScene. Offers parameters to control the font size and avoid display glitches"
+        },
+        "scrutiny/gui/components/locals/hmi/hmi_workzone.py": {
+            "docstring": "A workzone where HMI widgets lives visually. Can be shown in display mode or dragged/edited in Edit mode"
         }
     },
     "authors": {}

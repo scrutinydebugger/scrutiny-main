@@ -63,6 +63,7 @@ class ValueSlot:
     require_redraw: bool
     value_update_callback: Optional[HMIWidgetValueUpdateCallback]
     _signals: _Signals
+    _logger: logging.Logger
 
     def __init__(self,
                  name: str,
@@ -78,6 +79,7 @@ class ValueSlot:
         self.value_update_callback = value_update_callback
         self.require_redraw = require_redraw
         self._signals = self._Signals()
+        self._logger = logging.getLogger(self.__class__.__name__)
 
         self.watchable_line_edit.textChanged.connect(self._text_changed_slot)
 
@@ -131,7 +133,7 @@ class BaseHMIWidget(QGraphicsItem):
     class _Signals(QObject):
         pass
 
-    _wslots: List[ValueSlot]
+    _vslots: List[ValueSlot]
     _hmi_component: "HMIComponent"
     _need_redraw: bool
     _pending_redraw: bool
@@ -145,7 +147,7 @@ class BaseHMIWidget(QGraphicsItem):
 
     def __init__(self, hmi_component: "HMIComponent") -> None:
         super().__init__()
-        self._wslots = []
+        self._vslots = []
         self._hmi_component = hmi_component
         self._need_redraw = False
         self._last_draw_timestamp_ns = time.perf_counter_ns()
@@ -210,102 +212,108 @@ class BaseHMIWidget(QGraphicsItem):
                            require_redraw: bool = True) -> None:
         if not (hasattr(self, '_parent_constructor_called')):
             raise RuntimeError("Parent constructor not called")
-        used_names = set([wslot.name for wslot in self._wslots])
+        used_names = set([vslot.name for vslot in self._vslots])
         if name in used_names:
             raise ValueError(f"Duplicate watchable slot with name {name}")
 
-        wslot = ValueSlot(
+        vslot = ValueSlot(
             name=name,
             display_name=display_name,
             value_update_callback=value_update_callback,
             require_redraw=require_redraw
         )
 
-        self._wslots.append(wslot)
+        self._vslots.append(vslot)
 
-        watchable_val_update_slot = functools.partial(self._watchable_update_callback, wslot)
-        self._hmi_component.app.watchable_registry.register_watcher(wslot.watcher_id, watchable_val_update_slot, self._unwatch_callback)
+        watchable_val_update_slot = functools.partial(self._watchable_update_callback, vslot)
+        self._hmi_component.app.watchable_registry.register_watcher(vslot.watcher_id, watchable_val_update_slot, self._unwatch_callback)
 
-        configured_slot = functools.partial(self._wslot_configured_slot, wslot)
-        wslot.watchable_line_edit.signals.watchable_dropped.connect(configured_slot)
+        configured_slot = functools.partial(self._vslot_configured_slot, vslot)
+        vslot.watchable_line_edit.signals.watchable_dropped.connect(configured_slot)
 
-        text_val_update_slot = functools.partial(self._text_update_callback, wslot)
-        wslot.signals.text_value_changed.connect(text_val_update_slot)
+        text_val_update_slot = functools.partial(self._text_update_callback, vslot)
+        vslot.signals.text_value_changed.connect(text_val_update_slot)
 
     def destroy(self) -> None:
-        for wslots in self._wslots:
-            self._hmi_component.app.watchable_registry.unregister_watcher(wslots.watcher_id)    # Will unwatch all
-        self._wslots.clear()
+        for vslots in self._vslots:
+            self._hmi_component.app.watchable_registry.unregister_watcher(vslots.watcher_id)    # Will unwatch all
+
+        for vslot in self._vslots:
+            vslot.signals.text_value_changed.disconnect()
+            vslot.watchable_line_edit.textChanged.disconnect()
+            vslot.watchable_line_edit.signals.watchable_dropped.disconnect()
+
+        self._vslots.clear()
 
     def boundingRect(self) -> QRectF:
         return QRectF(QPointF(0, 0), self._size)
 
-    def try_watch_all_wslots(self) -> None:
-        for wslot in self._wslots:
-            watchable = wslot.watchable_line_edit.get_watchable()
+    def try_watch_all_vslots(self) -> None:
+        for vslot in self._vslots:
+            watchable = vslot.watchable_line_edit.get_watchable()
             if watchable is not None:
-                self._try_watch(wslot, watchable.fqn)
+                self._try_watch(vslot, watchable.fqn)
 
 # region Private
 
-    def _slot_value_update_callback(self, wslot: ValueSlot, val: WatchableValueType) -> None:
-        value_changed = (wslot.last_value_received != val)
+    def _slot_value_update_callback(self, vslot: ValueSlot, val: WatchableValueType) -> None:
+        value_changed = (vslot.last_value_received != val)
 
         if value_changed:   # Avoid redrawing when not necessary
-            if wslot.value_update_callback is not None:
-                wslot.value_update_callback(val)
+            if vslot.value_update_callback is not None:
+                vslot.value_update_callback(val)
 
-            if wslot.require_redraw:
+            if vslot.require_redraw:
                 invoke_later(self._redraw_if_allowed)
 
-        wslot.last_value_received = val
+        vslot.last_value_received = val
 
-    def _text_update_callback(self, wslot: ValueSlot, value: WatchableValueType) -> None:
+    def _text_update_callback(self, vslot: ValueSlot, value: WatchableValueType) -> None:
         """When the WatchableSlot is assigned a text value"""
-        self._slot_value_update_callback(wslot, value)
+        self._slot_value_update_callback(vslot, value)
 
-    def _watchable_update_callback(self, wslot: ValueSlot, watcher_id: WatcherIdType, updates: List[RegistryValueUpdate]) -> None:
+    def _watchable_update_callback(self, vslot: ValueSlot, watcher_id: WatcherIdType, updates: List[RegistryValueUpdate]) -> None:
         """When the WatchableSlot is assigned a value from the server stream"""
-        self._slot_value_update_callback(wslot, updates[-1].sdk_update.value)
+        self._slot_value_update_callback(vslot, updates[-1].sdk_update.value)
 
     def _unwatch_callback(self, watcher_id: Union[str, int], server_path: str, watchable_config: sdk.BriefWatchableConfiguration, registry_id: int) -> None:
         pass
 
-    def _wslot_configured_slot(self, wslot: ValueSlot, fqn: str) -> None:
-        self._try_watch(wslot, fqn)
+    def _vslot_configured_slot(self, vslot: ValueSlot, fqn: str) -> None:
+        self._try_watch(vslot, fqn)
 
-    def _try_watch(self, wslot: ValueSlot, fqn: str) -> None:
+    def _try_watch(self, vslot: ValueSlot, fqn: str) -> None:
         try:
-            self._hmi_component.app.watchable_registry.watch_fqn(wslot.watcher_id, fqn)
+            self._hmi_component.app.watchable_registry.watch_fqn(vslot.watcher_id, fqn)
         except WatchableRegistryNodeNotFoundError:
             pass
 
     def _get_slot_by_name(self, name: str) -> ValueSlot:
-        for wslot in self._wslots:
-            if wslot.name == name:
-                return wslot
+        for vslot in self._vslots:
+            if vslot.name == name:
+                return vslot
 
         raise ValueError(f"No watchable slot with name {name}")
 
     def make_slot_config_widget(self) -> Optional[QWidget]:
-        if len(self._wslots) == 0:
+        if len(self._vslots) == 0:
             return None
 
         container = QWidget()
         container_layout = QFormLayout(container)
 
-        for wslot in self._wslots:
-            container_layout.addRow(wslot.display_name, wslot.watchable_line_edit)
+        for vslot in self._vslots:
+            container_layout.addRow(vslot.display_name, vslot.watchable_line_edit)
 
         return container
 
-    def _all_wslots_filled(self) -> bool:
-        for wslot in self._wslots:
-            if wslot.watchable_line_edit.is_text_mode():
-                if wslot.get_val() is None:
+    def _all_vslots_filled(self) -> bool:
+        for vslot in self._vslots:
+            if vslot.watchable_line_edit.is_text_mode():
+                if vslot.get_val() is None:
                     return False
             else:
-                watchable = wslot.watchable_line_edit.get_watchable()
+                watchable = vslot.watchable_line_edit.get_watchable()
                 if watchable is None:
                     return False
 
@@ -364,8 +372,8 @@ class BaseHMIWidget(QGraphicsItem):
     def paint(self, painter: QPainter, option: QStyleOptionGraphicsItem, widget: Optional[QWidget] = None) -> None:
         self._pending_redraw = False
 
-        configured = self._all_wslots_filled()
-        values = {wslot.name: wslot.get_val() for wslot in self._wslots}
+        configured = self._all_vslots_filled()
+        values = {vslot.name: vslot.get_val() for vslot in self._vslots}
 
         self.draw(configured, values, self._size, painter)
         if self._selected:
@@ -390,7 +398,6 @@ class BaseHMIWidget(QGraphicsItem):
 
 # region Abstracts methods
 
-
     def draw(self,
              configured: bool,
              values: Dict[str, WatchableValueType],
@@ -406,3 +413,6 @@ class BaseHMIWidget(QGraphicsItem):
         return None
 
 # endregion
+
+    def __del__(self) -> None:
+        self._logger.debug(f"Deleting HMI widget of type {self.get_name()}")

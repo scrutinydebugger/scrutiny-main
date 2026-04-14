@@ -49,7 +49,10 @@ class TextLabelHMIWidget(BaseHMIWidget):
         layout.addWidget(self._numerical_display.get_config_widget())
         self._numerical_display.set_text_color(scrutiny_get_theme().palette().text().color())
 
-        self._numerical_display.signals.config_changed.connect(self.update)
+        self._numerical_display.signals.config_changed.connect(self._config_changed_slot)
+
+    def _config_changed_slot(self) -> None:
+        self.update()
 
     def get_config_widget(self) -> QWidget | None:
         return self._config_widget

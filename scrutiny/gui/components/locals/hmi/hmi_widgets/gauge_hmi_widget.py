@@ -58,13 +58,17 @@ class GaugeHMIWidget(BaseHMIWidget):
         self._cmb_overflow_behavior.addItem("Show Invalid", OverflowBehavior.SHOW_NA)
 
         self._txt_name = QLineEdit()
-        self._txt_name.textChanged.connect(lambda text: self.update())
+        self._txt_name.textChanged.connect(self.update)
 
         self._config_widget = QWidget()
         layout = QFormLayout(self._config_widget)
 
         layout.addRow("Name", self._txt_name)
         layout.addRow("Overflow", self._cmb_overflow_behavior)
+
+    def destroy(self) -> None:
+        self._txt_name.textChanged.disconnect()
+        super().destroy()
 
     def _value_update(self, val: Optional[Union[bool, int, float]]) -> None:
         self.update()
