@@ -70,13 +70,18 @@ class WatchableLineEdit(QLineEdit):
         self._loaded_watchable = None
         self._signals = self._Signals()
         self.setAcceptDrops(True)
-        self._update_cursor()
+        self.set_text_mode_enabled(True)
 
     @property
     def signals(self) -> _Signals:
         return self._signals
 
     def set_text_mode_enabled(self, val: bool) -> None:
+        if val:
+            self.setPlaceholderText("Drag or Value")
+        else:
+            self.setPlaceholderText("Drag")
+
         self._text_mode_enabled = val
         if self._mode == self.Mode.TEXT:
             readonly = not self._text_mode_enabled

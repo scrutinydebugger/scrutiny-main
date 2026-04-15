@@ -75,7 +75,6 @@ class ValueSlot:
         self.name = name
         self.display_name = display_name
         self.watchable_line_edit = WatchableLineEdit()
-        self.watchable_line_edit.setPlaceholderText("Drag / Value")
         self.watcher_id = f'{name}{global_i64_counter()}'
         self.last_value_received = None
         self.value_update_callback = value_update_callback
