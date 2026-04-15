@@ -29,9 +29,9 @@ if TYPE_CHECKING:
 
 class TextLabelHMIWidget(BaseHMIWidget):
 
-    _CATEGORY = LibraryCategory.Basics
+    _CATEGORY = LibraryCategory.Display
     _NAME = 'Text Display'
-    _ICON = assets.Icons.CSV
+    _ICON = assets.Icons.HMITextDisplay
 
     _numerical_display: NumericalTextDisplay
     _config_widget: QWidget

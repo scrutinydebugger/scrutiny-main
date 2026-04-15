@@ -17,7 +17,7 @@ import logging
 from scrutiny.gui.components.locals.hmi.hmi_library import HMILibrary
 
 from PySide6.QtCore import Qt, QPoint
-from PySide6.QtWidgets import QVBoxLayout, QMenu, QSplitter, QTabWidget, QWidget, QWidgetItem, QStackedLayout
+from PySide6.QtWidgets import QVBoxLayout, QMenu, QSplitter, QTabWidget, QWidget, QStackedLayout
 from PySide6.QtGui import QIcon, QKeyEvent, QMouseEvent
 
 from scrutiny.gui import assets
@@ -39,6 +39,9 @@ class HMIInteractionMode(enum.Enum):
 class HMIComponent(ScrutinyGUIBaseLocalComponent):
     instance_name: str
 
+    SPLITTER_EDIT_MENU = 0
+    SPLITTER_WORKZONE = 1
+
     _NAME = "Human Machine Interface"
     _TYPE_ID = "hmi"
 
@@ -54,7 +57,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
 # region inherited methods
     @classmethod
     def get_icon(cls) -> QIcon:
-        return scrutiny_get_theme().load_medium_icon(assets.Icons.TestSquare)
+        return scrutiny_get_theme().load_medium_icon(assets.Icons.GaugeLean)
 
     def setup(self) -> None:
         self._mode = HMIInteractionMode.Display
@@ -76,10 +79,10 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         self._splitter.setOrientation(Qt.Orientation.Horizontal)
         self._splitter.setContentsMargins(0, 0, 0, 0)
         self._splitter.setHandleWidth(5)
-        self._splitter.addWidget(self._workzone)
         self._splitter.addWidget(self._edit_tab_widget)
-        self._splitter.setCollapsible(0, False)  # Cannot collapse the graph
-        self._splitter.setCollapsible(1, True)  # Can collapse the right menu
+        self._splitter.addWidget(self._workzone)
+        self._splitter.setCollapsible(self.SPLITTER_EDIT_MENU, True)
+        self._splitter.setCollapsible(self.SPLITTER_WORKZONE, False)
 
         self.test_widget = GaugeHMIWidget(self)
 
@@ -112,11 +115,15 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         pass
 
     def add(self, widget: BaseHMIWidget, scene_pos: Optional[QPoint] = None) -> None:
+        existing_widgets = list(self._workzone.iterate_hmi_widgets())
         self._workzone.add_widget(widget, scene_pos)
         self._create_config_widget_of(widget)
         self._show_config_of(widget)    # Show the config just created
 
         self.update_hmi_widget_state(widget)
+
+        if len(existing_widgets) > 0:
+            widget.setZValue(existing_widgets[-1].zValue() + 1)
 
     def is_edit_mode(self) -> bool:
         return self._mode == HMIInteractionMode.Edit
@@ -155,13 +162,13 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         if val:
             self._splitter.handle(1).setEnabled(True)
             self._splitter.setHandleWidth(5)
-            if self._splitter.sizes()[1] == 0:
+            if self._splitter.sizes()[0] == 0:
                 menu_width = self._edit_tab_widget.sizeHint().width()
-                self._splitter.setSizes([self.width() - menu_width, menu_width])
+                self._splitter.setSizes([menu_width, self.width() - menu_width])
         else:
             self._splitter.handle(1).setEnabled(False)
             self._splitter.setHandleWidth(0)
-            self._splitter.setSizes([1, 0])
+            self._splitter.setSizes([0, 1])
 
     def _create_config_widget_of(self, widget: BaseHMIWidget) -> None:
         """Create the widget shown in the "configure" tabs for the given HMI Widget"""
@@ -169,9 +176,9 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         layout = QVBoxLayout(config_container)
         layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
-        wslot_config = widget.make_slot_config_widget()
-        if wslot_config is not None:
-            layout.addWidget(wslot_config)
+        vslot_config = widget.make_slot_config_widget()
+        if vslot_config is not None:
+            layout.addWidget(vslot_config)
 
         specific_config = widget.get_config_widget()
         if specific_config is not None:
@@ -193,11 +200,51 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
             menu = QMenu()
             remove_action = menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.RedX), "Remove")
             edit_action = menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.TextEdit), "Edit")
+            move_to_action = menu.addAction("Move")
+
+            move_to_menu = QMenu()
+            move_to_back_action = move_to_menu.addAction("To Back")
+            move_backward_action = move_to_menu.addAction("Backward")
+            move_forward_action = move_to_menu.addAction("Forward")
+            move_to_front_action = move_to_menu.addAction("To Front")
+            move_to_action.setMenu(move_to_menu)
+
+            def move_to_back_slot() -> None:
+                all_z = [w.zValue() for w in self._workzone.iterate_hmi_widgets()]
+                if len(all_z) > 0:
+                    widget.setZValue(min(all_z) - 1)
+                self._reassign_packed_zvalues()
+
+            def move_to_front_slot() -> None:
+                all_z = [w.zValue() for w in self._workzone.iterate_hmi_widgets()]
+                if len(all_z) > 0:
+                    widget.setZValue(max(all_z) + 1)
+                self._reassign_packed_zvalues()
+
+            def move_backward_slot() -> None:
+                previous = sorted([w for w in self._workzone.iterate_hmi_widgets() if w.zValue() < widget.zValue()], key=lambda w: w.zValue())
+                if len(previous) > 0:   # swap
+                    temp = previous[-1].zValue()
+                    previous[-1].setZValue(widget.zValue())
+                    widget.setZValue(temp)
+
+            def move_forward_slot() -> None:
+                nexts = sorted([w for w in self._workzone.iterate_hmi_widgets() if w.zValue() > widget.zValue()], key=lambda w: w.zValue())
+                if len(nexts) > 0:   # swap
+                    temp = nexts[0].zValue()
+                    nexts[0].setZValue(widget.zValue())
+                    widget.setZValue(temp)
+
+            move_to_back_action.triggered.connect(move_to_back_slot)
+            move_backward_action.triggered.connect(move_backward_slot)
+            move_forward_action.triggered.connect(move_forward_slot)
+            move_to_front_action.triggered.connect(move_to_front_slot)
 
             def edit_action_slot() -> None:
                 self._edit_tab_widget.setCurrentWidget(self._config_widget_container)
                 self._show_config_of(widget)
                 self._show_edit_menu(True)
+
             edit_action.triggered.connect(edit_action_slot)
 
             remove_action.triggered.connect(functools.partial(self._delete_widget, widget))
@@ -215,6 +262,11 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
     def _workzone_left_click_slot(self, widget: Optional[BaseHMIWidget]) -> None:
         pass
 
+    def _reassign_packed_zvalues(self) -> None:
+        w = sorted(self._workzone.iterate_hmi_widgets(), key=lambda w: w.zValue())
+        for i in range(len(w)):
+            w[i].setZValue(i)    # Reassign packed values
+
     def _delete_widget(self, widget: BaseHMIWidget) -> None:
         """Delete an HMI widget from the view."""
         self._workzone.remove_widget(widget)
@@ -224,6 +276,8 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         if self._config_widget_container_layout.currentWidget() is self._config_widgets[id(widget)]:
             self._config_widget_container_layout.setCurrentIndex(0)
         del self._config_widgets[id(widget)]    # Should never fail
+
+        self._reassign_packed_zvalues()
 
         if self.logger.isEnabledFor(logging.DEBUG):
             ref_count = len(gc.get_referrers(widget))

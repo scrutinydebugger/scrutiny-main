@@ -75,6 +75,7 @@ class ValueSlot:
         self.name = name
         self.display_name = display_name
         self.watchable_line_edit = WatchableLineEdit()
+        self.watchable_line_edit.setPlaceholderText("Drag / Value")
         self.watcher_id = f'{name}{global_i64_counter()}'
         self.last_value_received = None
         self.value_update_callback = value_update_callback
@@ -127,9 +128,9 @@ class ValueSlot:
 
 class BaseHMIWidget(QGraphicsItem):
     MAX_DRAW_RATE = 15
-    HANDLE_HW = 6
+    RESIZE_HANDLE_HW = 6
     MAX_DRAW_RATE_NANOSEC = int(round((1 / MAX_DRAW_RATE) * 1e9))
-    HALF_HANDLE_HW = HANDLE_HW / 2
+    HALF_RESIZE_HANDLE_HW = RESIZE_HANDLE_HW / 2
 
     HMI_COMPONENT_UPDATE_RATE: Optional[float]
 
@@ -358,15 +359,15 @@ class BaseHMIWidget(QGraphicsItem):
             self._redraw_later()
 
     def resize_handles_coordinates(self) -> Dict[HandlePosition, QRectF]:
-        handle_size = QSize(self.HANDLE_HW, self.HANDLE_HW)
+        handle_size = QSize(self.RESIZE_HANDLE_HW, self.RESIZE_HANDLE_HW)
         w = self._size.width()
         h = self._size.height()
         left_x = 0
-        mid_x = w / 2 - self.HALF_HANDLE_HW
-        right_x = w - self.HANDLE_HW
+        mid_x = w / 2 - self.HALF_RESIZE_HANDLE_HW
+        right_x = w - self.RESIZE_HANDLE_HW
         top_y = 0
-        mid_y = h / 2 - self.HALF_HANDLE_HW
-        bottom_y = h - self.HANDLE_HW
+        mid_y = h / 2 - self.HALF_RESIZE_HANDLE_HW
+        bottom_y = h - self.RESIZE_HANDLE_HW
 
         return {
             HandlePosition.TOPLEFT: QRectF(QPointF(left_x, top_y), handle_size),

@@ -35,9 +35,9 @@ class OverflowBehavior(enum.Enum):
 
 class GaugeHMIWidget(BaseHMIWidget):
 
-    _CATEGORY = LibraryCategory.Basics
+    _CATEGORY = LibraryCategory.Display
     _NAME = 'Gauge'
-    _ICON = assets.Icons.Copy
+    _ICON = assets.Icons.HMIGauge
 
     _text_color: QColor
     _base_color: QColor

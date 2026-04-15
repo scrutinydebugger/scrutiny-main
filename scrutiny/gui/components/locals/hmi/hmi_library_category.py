@@ -11,7 +11,9 @@ from dataclasses import dataclass
 
 
 class LibraryCategory(enum.Enum):
-    Basics = enum.auto()
+    Display = enum.auto()
+    Control = enum.auto()
+    Graphic = enum.auto()
 
 
 @dataclass
@@ -20,7 +22,9 @@ class CategoryInfo:
 
 
 HMI_LIBARY_CATEGORIES = {
-    LibraryCategory.Basics: CategoryInfo(display_name='Basics')
+    LibraryCategory.Display: CategoryInfo(display_name='Display'),
+    LibraryCategory.Control: CategoryInfo(display_name='Control'),
+    LibraryCategory.Graphic: CategoryInfo(display_name='Graphic')
 }
 
 assert len(HMI_LIBARY_CATEGORIES) == len(LibraryCategory)

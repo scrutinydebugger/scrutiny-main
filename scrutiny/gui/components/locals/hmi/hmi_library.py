@@ -10,7 +10,7 @@ import math
 
 from PySide6.QtGui import QMouseEvent, QResizeEvent, QDrag
 from PySide6.QtWidgets import QWidget, QGridLayout, QVBoxLayout, QLabel, QGroupBox, QFrame
-from PySide6.QtCore import  Qt, QSize
+from PySide6.QtCore import Qt, QSize
 
 from scrutiny.gui.widgets.scrutiny_hoverable_widget import ScrutinyHoverableWidget
 from scrutiny.gui.core.scrutiny_drag_data import ScrutinyDragData
@@ -40,7 +40,8 @@ class HMILibraryEntryWidget(ScrutinyHoverableWidget):
 
         self._icon_label = QLabel()
         pixmap = hmi_widget.get_icon_as_pixmap()
-        self._icon_label.setPixmap(pixmap.scaled(QSize(self.ICON_SIZE, self.ICON_SIZE)))
+        self._icon_label.setPixmap(pixmap.scaled(QSize(self.ICON_SIZE, self.ICON_SIZE), Qt.AspectRatioMode.KeepAspectRatio))
+        self._icon_label.setFixedSize(QSize(self.ICON_SIZE, self.ICON_SIZE))
         self._text_label = QLabel(hmi_widget.get_name())
         self._text_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
@@ -71,6 +72,7 @@ class HMILibraryEntryWidget(ScrutinyHoverableWidget):
 
         return super().mousePressEvent(event)
 
+
 class HMILibraryCategoryWidget(QWidget):
     """A widget that display every HMI widgets in a category"""
     _category: LibraryCategory
@@ -86,14 +88,14 @@ class HMILibraryCategoryWidget(QWidget):
         self._display_name = category_info.display_name
         self._entries = sorted((HMILibraryEntryWidget(hmiw) for hmiw in hmi_widgets), key=lambda x: x.get_widget_name())
         self._grid_container = QWidget()
-        #self._grid_container.setAutoFillBackground(True)
-        #self._grid_container.setBackgroundRole(QPalette.ColorRole.Base)
+        # self._grid_container.setAutoFillBackground(True)
+        # self._grid_container.setBackgroundRole(QPalette.ColorRole.Base)
 
         layout = QVBoxLayout(self)
         gb = QGroupBox(self._display_name)
         layout.addWidget(gb)
         gb_layout = QVBoxLayout(gb)
-        gb_layout.setContentsMargins(0,0,0,0)
+        gb_layout.setContentsMargins(0, 0, 0, 0)
         gb_layout.addWidget(self._grid_container)
 
         self.rebuild_grid_layout()

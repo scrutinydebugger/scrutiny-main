@@ -99,6 +99,7 @@ class HMIWorkZone(QGraphicsView):
         self._allow_edit_widgets = False
         self._mouse_edit_data = None
         self._grid = HMIEditGrid(self)
+        self._grid.set_size(self.viewport().size())
         self._selected_widgets = []
         self.scene().addItem(self._grid)
 
@@ -166,8 +167,18 @@ class HMIWorkZone(QGraphicsView):
         return None
 
     def resizeEvent(self, event: QResizeEvent) -> None:
-        super().resizeEvent(event)
-        self.setSceneRect(QRect(QPoint(0, 0), event.size()))
+        self._resize_scene()
+
+    def _resize_scene(self) -> None:
+        self.viewport().size()
+        width = self.viewport().size().width()
+        height = self.viewport().size().height()
+        for widget in self.iterate_hmi_widgets():
+            width = max(width, int(widget.x()) + widget.get_size().width())
+            height = max(height, int(widget.y()) + widget.get_size().height())
+        new_size = QSize(width, height)
+        self.setSceneRect(QRect(QPoint(0, 0), new_size))
+        self._grid.set_size(new_size)
 
     def mouseMoveEvent(self, event: QMouseEvent) -> None:
         event.accept()
@@ -397,6 +408,8 @@ class HMIWorkZone(QGraphicsView):
 
                         if mouse_release_widget is None:
                             self.deselect_all_widgets()  # Will emit selection_changed
+                    else:
+                        self._resize_scene()
 
         self._mouse_down_widget = None
         self._mouse_down_start = None

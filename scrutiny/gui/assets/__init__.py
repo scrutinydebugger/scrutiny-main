@@ -132,6 +132,10 @@ class Icons(enum.Enum):
     Grid = "grid"
     YRange = "yrange"
     FileSCVAL = "file_scval"
+    GaugeLean = "gauge_lean"
+
+    HMIGauge = "hmi_gauge"
+    HMITextDisplay = "hmi_text_display"
 
 
 _filename_cache: Dict[Tuple[Icons, IconFormat, IconSet], Path] = {}
