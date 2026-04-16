@@ -1,6 +1,6 @@
 #    server_manager.py
 #        Object that handles the communication with the server and inform the rest of the
-#         GUI about what's happening on the other side of the socket. Based on the SDK ScrutinyClient
+#        GUI about what's happening on the other side of the socket. Based on the SDK ScrutinyClient
 #
 #   - License : MIT - See LICENSE file
 #   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
