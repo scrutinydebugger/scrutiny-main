@@ -56,6 +56,10 @@ class TextLabelHMIWidget(BaseHMIWidget):
     def get_config_widget(self) -> QWidget | None:
         return self._config_widget
 
+    @classmethod
+    def default_size(cls) -> QSize:
+        return QSize(128, 64)
+
     def draw(self,
              configured: bool,
              values: Dict[str, Union[float, int, bool, None]],

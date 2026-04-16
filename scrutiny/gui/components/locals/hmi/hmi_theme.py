@@ -42,6 +42,14 @@ class HMITheme:
             return scrutiny_get_theme().palette().text().color()
 
         @staticmethod
+        def select_frame_border() -> QColor:
+            return scrutiny_get_theme().palette().text().color()
+
+        @staticmethod
+        def highlight_overlay() -> QColor:
+            return scrutiny_get_theme().palette().highlight().color()
+
+        @staticmethod
         def frame_border() -> QColor:
             return scrutiny_get_theme().palette().light().color()
 

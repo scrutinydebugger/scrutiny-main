@@ -74,6 +74,10 @@ class GaugeHMIWidget(BaseHMIWidget):
         self.update()
         pass
 
+    @classmethod
+    def default_size(cls) -> QSize:
+        return QSize(128, 128)
+
     def draw(self,
              configured: bool,
              values: Dict[str, Union[float, int, bool, None]],

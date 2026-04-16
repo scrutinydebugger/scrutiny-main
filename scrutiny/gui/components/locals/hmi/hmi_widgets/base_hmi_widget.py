@@ -22,6 +22,7 @@ from scrutiny.gui.widgets.watchable_line_edit import WatchableLineEdit
 from scrutiny.gui.core.watchable_registry import WatchableRegistryNodeNotFoundError
 from scrutiny.gui.components.locals.hmi.hmi_library_category import LibraryCategory
 from scrutiny.gui.components.locals.hmi.hmi_edit_grid import HMIEditGrid
+from scrutiny.gui.components.locals.hmi.hmi_theme import HMITheme
 from scrutiny.gui.core.watchable_registry import WatcherIdType, RegistryValueUpdate
 from scrutiny.gui.tools.invoker import invoke_later
 from scrutiny.gui.themes import scrutiny_get_theme
@@ -156,7 +157,7 @@ class EditSelectFrame(QGraphicsItem):
         }
 
     def paint(self, painter: QPainter, option: QStyleOptionGraphicsItem, widget: Optional[QWidget] = None) -> None:
-        text_color = scrutiny_get_theme().palette().text().color()
+        text_color = HMITheme.Color.select_frame_border()
         painter.setPen(text_color)
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.drawRect(self.boundingRect())
@@ -171,8 +172,9 @@ class SelectionOverlay(QGraphicsItem):
         return self.parentItem().boundingRect()
 
     def paint(self, painter: QPainter, option: QStyleOptionGraphicsItem, widget: Optional[QWidget] = None) -> None:
-        highlight_color = scrutiny_get_theme().palette().highlight().color()
+        highlight_color = HMITheme.Color.highlight_overlay()
         highlight_color.setAlpha(0x66)
+
         painter.setPen(highlight_color)
         painter.setBrush(highlight_color)
         painter.drawRect(self.boundingRect())
@@ -221,6 +223,8 @@ class BaseHMIWidget(QGraphicsItem):
         self.set_selected(False)
         self.show_resize_handles(False)
 
+        self.set_size(self.default_size())
+
     @property
     def signals(self) -> _Signals:
         return self._signals
@@ -257,6 +261,10 @@ class BaseHMIWidget(QGraphicsItem):
 
     def min_height(self) -> int:
         return HMIEditGrid.GRID_SPACING
+
+    @classmethod
+    def default_size(cls) -> QSize:
+        return QSize(128, 128)
 
     def set_size(self, size: QSize) -> None:
         self.prepareGeometryChange()

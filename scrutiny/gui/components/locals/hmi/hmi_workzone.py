@@ -12,14 +12,15 @@ __all__ = ['HMIWorkZone']
 import enum
 from dataclasses import dataclass
 
-from PySide6.QtCore import Qt, Signal, QRect, QPoint, QObject, QMimeData, QSize, QPointF, QSizeF
-from PySide6.QtWidgets import QGraphicsView, QGraphicsItem, QRubberBand, QGraphicsScene
-from PySide6.QtGui import QDragEnterEvent, QDragLeaveEvent, QDragMoveEvent, QDropEvent, QMouseEvent, QResizeEvent
+from PySide6.QtCore import QRectF, Qt, Signal, QRect, QPoint, QObject, QMimeData, QSize, QPointF, QSizeF
+from PySide6.QtWidgets import QGraphicsView, QGraphicsItem, QRubberBand, QGraphicsScene, QStyleOptionGraphicsItem, QWidget
+from PySide6.QtGui import QDragEnterEvent, QDragLeaveEvent, QDragMoveEvent, QDropEvent, QMouseEvent, QPainter, QResizeEvent
 
 from scrutiny.gui.core.scrutiny_drag_data import ScrutinyDragData
 from scrutiny.gui.components.locals.hmi.hmi_library import HMILibrary
 from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget, HandlePosition
 from scrutiny.gui.components.locals.hmi.hmi_edit_grid import HMIEditGrid
+from scrutiny.gui.components.locals.hmi.hmi_theme import HMITheme
 
 
 from scrutiny import tools
@@ -61,6 +62,29 @@ class WidgetMouseEditData:
     move_data: Optional[MoveData] = None
 
 
+class DropPlaceholder(QGraphicsItem):
+    _size: QSize
+
+    @tools.copy_type(QGraphicsItem.__init__)
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self._size = QSize()
+
+    def set_size(self, size: QSize) -> None:
+        self._size = size
+
+    def get_size(self) -> QSize:
+        return self._size
+
+    def boundingRect(self) -> QRectF:
+        return QRectF(QPointF(0, 0), self._size)
+
+    def paint(self, painter: QPainter, option: QStyleOptionGraphicsItem, /, widget: QWidget | None = ...) -> None:
+        painter.setPen(HMITheme.Color.select_frame_border())
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawRect(self.boundingRect())
+
+
 class HMIWorkZone(QGraphicsView):
 
     MIN_RUBBERBAND_AREA = 5 * 5
@@ -82,6 +106,7 @@ class HMIWorkZone(QGraphicsView):
     _grid: HMIEditGrid
     _selected_widgets: List[BaseHMIWidget]
     _scene: QGraphicsScene
+    _drop_placeholder: DropPlaceholder
 
     @tools.copy_type(QGraphicsView.__init__)
     def __init__(self) -> None:
@@ -101,7 +126,11 @@ class HMIWorkZone(QGraphicsView):
         self._grid = HMIEditGrid(self)
         self._grid.set_size(self.viewport().size())
         self._selected_widgets = []
+        self._drop_placeholder = DropPlaceholder()
+        self._drop_placeholder.setVisible(False)
+        self._drop_placeholder.setZValue(10000)
         self.scene().addItem(self._grid)
+        self.scene().addItem(self._drop_placeholder)
 
     def show_grid(self, val: bool) -> None:
         self._grid.setVisible(val)
@@ -436,29 +465,41 @@ class HMIWorkZone(QGraphicsView):
             return None
         return widget_class
 
+    def _set_drop_placeholder_pos(self, scene_pos: QPointF) -> None:
+        size = self._drop_placeholder.get_size()
+        mapped_pos = scene_pos - QPointF(size.width() / 2, size.height() / 2)
+        snapped_pos = self._snap_to_grid(self.mapToScene(mapped_pos.toPoint()), size)
+        self._drop_placeholder.setPos(snapped_pos)
+
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:
         widget_class = self._read_drag_data(event.mimeData())
         if widget_class is None:
             return
 
+        self._drop_placeholder.set_size(widget_class.default_size())
+        self._drop_placeholder.setVisible(True)
+        self._set_drop_placeholder_pos(self.mapToScene(event.pos()))
         event.accept()
         event.setDropAction(Qt.DropAction.CopyAction)
         event.acceptProposedAction()
 
     def dragLeaveEvent(self, event: QDragLeaveEvent) -> None:
+        self._drop_placeholder.setVisible(False)
         event.accept()
 
     def dragMoveEvent(self, event: QDragMoveEvent) -> None:
+        self._set_drop_placeholder_pos(self.mapToScene(event.pos()))
         event.accept()
 
     def dropEvent(self, event: QDropEvent) -> None:
+        self._drop_placeholder.setVisible(False)
+        self._set_drop_placeholder_pos(self.mapToScene(event.pos()))
         widget_class = self._read_drag_data(event.mimeData())
         if widget_class is None:
             return
         event.accept()
         event.setDropAction(Qt.DropAction.CopyAction)
-        scene_pos = self.mapToScene(event.position().toPoint()).toPoint()
-        self._signals.drop_widget_class.emit(widget_class, scene_pos)
+        self._signals.drop_widget_class.emit(widget_class, self._drop_placeholder.pos().toPoint())
 
     @property
     def signals(self) -> _Signals:

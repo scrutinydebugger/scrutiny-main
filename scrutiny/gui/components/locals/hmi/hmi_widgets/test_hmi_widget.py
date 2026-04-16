@@ -64,7 +64,7 @@ class TestHMIWidget(BaseHMIWidget):
         cmb.addItem("window", palette.window())
         cmb.addItem("windowText", palette.windowText())
 
-        cmb.currentIndexChanged.connect(self.update)
+        cmb.currentIndexChanged.connect(lambda _: self.update())
 
         self._cmb_color = cmb
 
