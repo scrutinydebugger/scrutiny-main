@@ -79,7 +79,7 @@ class DropPlaceholder(QGraphicsItem):
     def boundingRect(self) -> QRectF:
         return QRectF(QPointF(0, 0), self._size)
 
-    def paint(self, painter: QPainter, option: QStyleOptionGraphicsItem, /, widget: QWidget | None = ...) -> None:
+    def paint(self, painter: QPainter, option: QStyleOptionGraphicsItem, widget: Optional[QWidget] = None) -> None:
         painter.setPen(HMITheme.Color.select_frame_border())
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.drawRect(self.boundingRect())
