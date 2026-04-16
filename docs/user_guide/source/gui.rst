@@ -465,8 +465,3 @@ SCRUTINY_GUI_WATCH_UPDATE_RATE (default : 15)
     Defines the update rate requested from the server when displaying a watchable in a
     :ref:`Watch Window component<watch_window_component>`. A value of 0 requests the server to poll as quickly as possible.
     This setting only takes effect if no other widgets or clients are monitoring the same watchable at a higher update rate.
-..
-    SCRUTINY_GUI_HMI_UPDATE_RATE (default : 15)
-        Defines the update rate requested from the server when displaying a watchable in a
-        :ref:`HMI component<hmi_component>`. A value of 0 requests the server to poll as quickly as possible.
-        This setting only takes effect if no other widgets or clients are monitoring the same watchable at a higher update rate.
