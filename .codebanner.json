@@ -1044,6 +1044,15 @@
         },
         "scrutiny/gui/components/locals/hmi/hmi_workzone.py": {
             "docstring": "A workzone where HMI widgets lives visually. Can be shown in display mode or dragged/edited in Edit mode"
+        },
+        "scrutiny/gui/components/locals/hmi/hmi_theme.py": {
+            "docstring": "An abstraction layer to get the theming proeprties of the dashboard. Reduce possibilities, ensure higher changes of uniformization"
+        },
+        "scrutiny/gui/components/locals/hmi/hmi_widgets/test_hmi_widget.py": {
+            "docstring": "temp file"
+        },
+        "scrutiny/gui/widgets/scrutiny_hoverable_widget.py": {
+            "docstring": "A widget that can be hovered and style according to the stylesheets"
         }
     },
     "authors": {}

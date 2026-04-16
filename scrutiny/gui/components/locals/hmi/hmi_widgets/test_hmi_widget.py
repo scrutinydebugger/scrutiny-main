@@ -1,3 +1,11 @@
+#    test_hmi_widget.py
+#        temp file
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
+
 __all__ = ['TestHMIWidget']
 
 from PySide6.QtGui import QPainter

@@ -1,3 +1,12 @@
+#    hmi_theme.py
+#        An abstraction layer to get the theming proeprties of the dashboard. Reduce possibilities,
+#        ensure higher changes of uniformization
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
+
 from scrutiny.gui.themes import scrutiny_get_theme, ScrutinyThemeProperties, scrutiny_get_theme_prop
 
 from PySide6.QtGui import QColor
