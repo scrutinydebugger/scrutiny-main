@@ -9,11 +9,11 @@
 
 __all__ = ['HMIWorkZone']
 
-from dataclasses import dataclass
 import enum
+from dataclasses import dataclass
 
 from PySide6.QtCore import Qt, Signal, QRect, QPoint, QObject, QMimeData, QSize, QPointF, QSizeF
-from PySide6.QtWidgets import QGraphicsView, QGraphicsItem, QWidget, QRubberBand, QGraphicsScene
+from PySide6.QtWidgets import QGraphicsView, QGraphicsItem, QRubberBand, QGraphicsScene
 from PySide6.QtGui import QDragEnterEvent, QDragLeaveEvent, QDragMoveEvent, QDropEvent, QMouseEvent, QResizeEvent
 
 from scrutiny.gui.core.scrutiny_drag_data import ScrutinyDragData
@@ -289,13 +289,14 @@ class HMIWorkZone(QGraphicsView):
             new_pos = QPoint(self._mouse_edit_data.resize_data.original_pos.x() + diff_size.width(), previous_pos.y())
 
         # Apply only on dimensions that are allowed to change
-        if new_size.width() >= HMIEditGrid.GRID_SPACING and new_size.height() >= HMIEditGrid.GRID_SPACING:
+        widget = self._mouse_edit_data.resize_data.widget
+        if new_size.width() >= widget.min_width() and new_size.height() >= widget.min_height():
             self._mouse_edit_data.resize_data.widget.setPos(new_pos)
             self._mouse_edit_data.resize_data.widget.set_size(new_size)
-        elif new_size.width() >= HMIEditGrid.GRID_SPACING:
+        elif new_size.width() >= widget.min_width():
             self._mouse_edit_data.resize_data.widget.setPos(QPoint(new_pos.x(), previous_pos.y()))
             self._mouse_edit_data.resize_data.widget.set_size(QSize(new_size.width(), previous_size.height()))
-        elif new_size.height() >= HMIEditGrid.GRID_SPACING:
+        elif new_size.height() >= widget.min_height():
             self._mouse_edit_data.resize_data.widget.setPos(QPoint(previous_pos.x(), new_pos.y()))
             self._mouse_edit_data.resize_data.widget.set_size(QSize(previous_size.width(), new_size.height()))
         else:

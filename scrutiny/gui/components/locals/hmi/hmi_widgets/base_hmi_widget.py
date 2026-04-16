@@ -125,11 +125,62 @@ class ValueSlot:
             return self.last_value_received
 
 
+class EditSelectFrame(QGraphicsItem):
+    RESIZE_HANDLE_HW = 6
+    HALF_RESIZE_HANDLE_HW = RESIZE_HANDLE_HW / 2
+
+    def boundingRect(self) -> QRectF:
+        return self.parentItem().boundingRect()
+
+    def resize_handles_coordinates(self) -> Dict[HandlePosition, QRectF]:
+        handle_size = QSize(self.RESIZE_HANDLE_HW, self.RESIZE_HANDLE_HW)
+        size = self.parentItem().boundingRect().size()
+        w = size.width()
+        h = size.height()
+        left_x = 0
+        mid_x = w / 2 - self.HALF_RESIZE_HANDLE_HW
+        right_x = w - self.RESIZE_HANDLE_HW
+        top_y = 0
+        mid_y = h / 2 - self.HALF_RESIZE_HANDLE_HW
+        bottom_y = h - self.RESIZE_HANDLE_HW
+
+        return {
+            HandlePosition.TOPLEFT: QRectF(QPointF(left_x, top_y), handle_size),
+            HandlePosition.TOPMID: QRectF(QPointF(mid_x, top_y), handle_size),
+            HandlePosition.TOPRIGHT: QRectF(QPointF(right_x, top_y), handle_size),
+            HandlePosition.MIDLEFT: QRectF(QPointF(left_x, mid_y), handle_size),
+            HandlePosition.MIDRIGHT: QRectF(QPointF(right_x, mid_y), handle_size),
+            HandlePosition.BOTTOMLEFT: QRectF(QPointF(left_x, bottom_y), handle_size),
+            HandlePosition.BOTTOMMID: QRectF(QPointF(mid_x, bottom_y), handle_size),
+            HandlePosition.BOTTOMRIGHT: QRectF(QPointF(right_x, bottom_y), handle_size),
+        }
+
+    def paint(self, painter: QPainter, option: QStyleOptionGraphicsItem, widget: Optional[QWidget] = None) -> None:
+        text_color = scrutiny_get_theme().palette().text().color()
+        painter.setPen(text_color)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawRect(self.boundingRect())
+        painter.setBrush(text_color)
+        handles = self.resize_handles_coordinates()
+        for handle in handles.values():
+            painter.drawRect(handle)
+
+
+class SelectionOverlay(QGraphicsItem):
+    def boundingRect(self) -> QRectF:
+        return self.parentItem().boundingRect()
+
+    def paint(self, painter: QPainter, option: QStyleOptionGraphicsItem, widget: Optional[QWidget] = None) -> None:
+        highlight_color = scrutiny_get_theme().palette().highlight().color()
+        highlight_color.setAlpha(0x66)
+        painter.setPen(highlight_color)
+        painter.setBrush(highlight_color)
+        painter.drawRect(self.boundingRect())
+
+
 class BaseHMIWidget(QGraphicsItem):
     MAX_DRAW_RATE = 15
-    RESIZE_HANDLE_HW = 6
     MAX_DRAW_RATE_NANOSEC = int(round((1 / MAX_DRAW_RATE) * 1e9))
-    HALF_RESIZE_HANDLE_HW = RESIZE_HANDLE_HW / 2
 
     HMI_COMPONENT_UPDATE_RATE: Optional[float]
 
@@ -145,8 +196,9 @@ class BaseHMIWidget(QGraphicsItem):
     _size: QSize
     _logger: logging.Logger
     _signals: _Signals
-    _draw_resize_handles: bool
+    _selection_overlay: SelectionOverlay
     _selected: bool
+    _edit_select_frame: EditSelectFrame
 
     def __init__(self, hmi_component: "HMIComponent") -> None:
         super().__init__()
@@ -161,8 +213,13 @@ class BaseHMIWidget(QGraphicsItem):
         self._size = QSize(128, 128)
         self._logger = logging.getLogger(self.__class__.__name__)
         self._signals = self._Signals()
-        self._draw_resize_handles = False
         self._selected = False
+        self._selection_overlay = SelectionOverlay(self)
+        self._edit_select_frame = EditSelectFrame(self)
+        self._edit_select_frame.setZValue(100000)
+        self._selection_overlay.setZValue(self._edit_select_frame.zValue() - 1)
+        self.set_selected(False)
+        self.show_resize_handles(False)
 
     @property
     def signals(self) -> _Signals:
@@ -195,6 +252,12 @@ class BaseHMIWidget(QGraphicsItem):
             raise RuntimeError(f"Class {cls.__name__} has defined \"{propname}\" of the wrong type. expected {t.__name__}")
         return v
 
+    def min_width(self) -> int:
+        return HMIEditGrid.GRID_SPACING
+
+    def min_height(self) -> int:
+        return HMIEditGrid.GRID_SPACING
+
     def set_size(self, size: QSize) -> None:
         self.prepareGeometryChange()
         self._size = size
@@ -204,11 +267,12 @@ class BaseHMIWidget(QGraphicsItem):
         return self._size
 
     def show_resize_handles(self, val: bool) -> None:
-        self._draw_resize_handles = val
+        self._edit_select_frame.setVisible(val)
         self.update()
 
     def set_selected(self, val: bool) -> None:
         self._selected = val
+        self._selection_overlay.setVisible(val)
         self.update()
 
     def toggle_selected(self) -> None:
@@ -358,26 +422,7 @@ class BaseHMIWidget(QGraphicsItem):
             self._redraw_later()
 
     def resize_handles_coordinates(self) -> Dict[HandlePosition, QRectF]:
-        handle_size = QSize(self.RESIZE_HANDLE_HW, self.RESIZE_HANDLE_HW)
-        w = self._size.width()
-        h = self._size.height()
-        left_x = 0
-        mid_x = w / 2 - self.HALF_RESIZE_HANDLE_HW
-        right_x = w - self.RESIZE_HANDLE_HW
-        top_y = 0
-        mid_y = h / 2 - self.HALF_RESIZE_HANDLE_HW
-        bottom_y = h - self.RESIZE_HANDLE_HW
-
-        return {
-            HandlePosition.TOPLEFT: QRectF(QPointF(left_x, top_y), handle_size),
-            HandlePosition.TOPMID: QRectF(QPointF(mid_x, top_y), handle_size),
-            HandlePosition.TOPRIGHT: QRectF(QPointF(right_x, top_y), handle_size),
-            HandlePosition.MIDLEFT: QRectF(QPointF(left_x, mid_y), handle_size),
-            HandlePosition.MIDRIGHT: QRectF(QPointF(right_x, mid_y), handle_size),
-            HandlePosition.BOTTOMLEFT: QRectF(QPointF(left_x, bottom_y), handle_size),
-            HandlePosition.BOTTOMMID: QRectF(QPointF(mid_x, bottom_y), handle_size),
-            HandlePosition.BOTTOMRIGHT: QRectF(QPointF(right_x, bottom_y), handle_size),
-        }
+        return self._edit_select_frame.resize_handles_coordinates()
 
 # endregion
 
@@ -389,23 +434,6 @@ class BaseHMIWidget(QGraphicsItem):
         values = {vslot.name: vslot.get_val() for vslot in self._vslots}
 
         self.draw(configured, values, self._size, painter)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
-        if self._selected:
-            highlight_color = scrutiny_get_theme().palette().highlight().color()
-            highlight_color.setAlpha(0x66)
-            painter.setPen(highlight_color)
-            painter.setBrush(highlight_color)
-            painter.drawRect(QRect(QPoint(0, 0), self._size))
-
-        if self._draw_resize_handles:
-            text_color = scrutiny_get_theme().palette().text().color()
-            painter.setPen(text_color)
-            painter.setBrush(QBrush(Qt.BrushStyle.NoBrush))
-            painter.drawRect(QRectF(QPointF(0, 0), self._size))
-            painter.setBrush(text_color)
-            handles = self.resize_handles_coordinates()
-            for handle in handles.values():
-                painter.drawRect(handle)
 
         self._last_draw_timestamp_ns = time.perf_counter_ns()
 

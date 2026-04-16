@@ -35,6 +35,11 @@ class ScrutinyThemeProperties(enum.Enum):
 
     EMBEDDED_GRAPH_CHART_TRIGGER_COLOR = enum.auto()
 
+    HMI_FRAME_BORDER = enum.auto()
+    HMI_GREEN_GOOD = enum.auto()
+    HMI_YELLOW_WARNING = enum.auto()
+    HMI_RED_DANGER = enum.auto()
+
 
 class ScrutinyTheme(abc.ABC):
     STATE_PROPERTY = "state"

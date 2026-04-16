@@ -9,10 +9,11 @@
 
 __all__ = ['NumericalTextDisplay']
 
-from PySide6.QtGui import QPainter, QFont, QFontMetrics, QColor
+from PySide6.QtGui import QPainter, QFont, QFontMetrics, QColor, QPen
 from PySide6.QtWidgets import QStyleOptionGraphicsItem, QWidget, QFormLayout, QLineEdit, QCheckBox, QSpinBox, QGraphicsItem
-from PySide6.QtCore import QObject, QRectF, Signal, QRect, QSize, QPoint, Qt
+from PySide6.QtCore import QObject, QRectF, QRect, Signal, QSize, QPoint, Qt
 
+from scrutiny.gui.components.locals.hmi.hmi_theme import HMITheme
 from scrutiny import tools
 from scrutiny.gui import assets
 from scrutiny.tools.typing import *
@@ -133,6 +134,7 @@ class NumericalTextDisplay(QGraphicsItem):
     _text_color: QColor
     _alignement: Qt.AlignmentFlag
     _size: QSize
+    _border_width: int
 
     def __init__(self, parent: Optional[QGraphicsItem]) -> None:
         super().__init__(parent)
@@ -142,6 +144,7 @@ class NumericalTextDisplay(QGraphicsItem):
         self._alignement = Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
         self._text_color = QColor()
         self._size = QSize()
+        self._border_width = 1
 
         self._config_widget.signals.changed.connect(self._signals.config_changed)
         self._config_widget.signals.changed.connect(self.update)
@@ -153,6 +156,9 @@ class NumericalTextDisplay(QGraphicsItem):
 
     def set_size(self, size: QSize) -> None:
         self._size = size
+
+    def set_border_width(self, width: int) -> None:
+        self._border_width = width
 
     def set_text_color(self, color: QColor) -> None:
         self._text_color = color
@@ -199,13 +205,13 @@ class NumericalTextDisplay(QGraphicsItem):
         count = self._config_widget.spn_ints.value() + decimal_part + unit_part + 1  # +1 for sign
         return count
 
-    def _compute_font_size(self, text: str) -> None:
+    def _set_font_size(self, text: str, rect: QRect) -> None:
         text_len = max(len(text), self._max_char_count())
 
-        self._font.setPixelSize(self._size.height())
+        self._font.setPixelSize(rect.size().height())
         text_width = QFontMetrics(self._font).averageCharWidth() * text_len
-        if text_width > self._size.width():
-            self._font.setPixelSize(int(self._size.height() * self._size.width() / text_width))
+        if text_width > rect.size().width():
+            self._font.setPixelSize(int(rect.size().height() * rect.size().width() / text_width))
 
 # endregion
 
@@ -217,9 +223,36 @@ class NumericalTextDisplay(QGraphicsItem):
         else:
             text = self._format_value(float(self._val))
 
-        self._compute_font_size(text)
+        bounding_rect = self.boundingRect()
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(HMITheme.Color.widget_background())
+        painter.drawRect(bounding_rect)
 
+        if bounding_rect.width() > 2 * self._border_width and bounding_rect.height() > 2 * self._border_width:
+            frame_rect = QRectF(
+                self._border_width / 2,
+                self._border_width / 2,
+                bounding_rect.width() - self._border_width,
+                bounding_rect.height() - self._border_width
+            )
+            inner_frame_rect = QRectF(
+                self._border_width,
+                self._border_width,
+                bounding_rect.width() - 2 * self._border_width,
+                bounding_rect.height() - 2 * self._border_width
+            )
+            pen = QPen()
+            pen.setWidth(self._border_width)
+            pen.setColor(HMITheme.Color.frame_border())
+            painter.setPen(pen)
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+
+            painter.drawRect(frame_rect)
+        else:
+            inner_frame_rect = bounding_rect
+
+        self._set_font_size(text, inner_frame_rect.toRect())
         painter.setFont(self._font)
-        painter.setPen(self._text_color)
+        painter.setPen(HMITheme.Color.text())
         painter.setBrush(Qt.BrushStyle.NoBrush)
-        painter.drawText(self.boundingRect(), self._alignement, text)
+        painter.drawText(inner_frame_rect, self._alignement, text)

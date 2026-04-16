@@ -15,13 +15,13 @@ from PySide6.QtWidgets import QVBoxLayout, QWidget
 
 
 from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget
-from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget
 from scrutiny.gui.themes import scrutiny_get_theme
 from scrutiny.gui import assets
 from scrutiny.tools.typing import *
 
 from scrutiny.gui.components.locals.hmi.hmi_library_category import LibraryCategory
 from scrutiny.gui.components.locals.hmi.common.numerical_text_display import NumericalTextDisplay
+from scrutiny.gui.components.locals.hmi.hmi_theme import HMITheme
 
 if TYPE_CHECKING:
     from scrutiny.gui.components.locals.hmi.hmi_component import HMIComponent
@@ -43,6 +43,7 @@ class TextLabelHMIWidget(BaseHMIWidget):
 
         self._config_widget = QWidget()
         self._numerical_display = NumericalTextDisplay(self)
+        self._numerical_display.set_border_width(4)
         layout = QVBoxLayout(self._config_widget)
         layout.addWidget(self._numerical_display.get_config_widget())
         self._numerical_display.set_text_color(scrutiny_get_theme().palette().text().color())

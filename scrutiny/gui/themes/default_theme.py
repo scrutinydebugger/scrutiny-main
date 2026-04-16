@@ -42,7 +42,12 @@ class DefaultTheme(ScrutinyTheme):
         ScrutinyThemeProperties.WATCHABLE_LINE_EDIT_CLEAR_BTN_PRESSED_COLOR: PRESSED_COLOR,
 
         ScrutinyThemeProperties.WIDGET_ERROR_BACKGROUND_COLOR: RED_ERROR,
-        ScrutinyThemeProperties.EMBEDDED_GRAPH_CHART_TRIGGER_COLOR: QColor(0, 0, 0)
+        ScrutinyThemeProperties.EMBEDDED_GRAPH_CHART_TRIGGER_COLOR: QColor(0, 0, 0),
+
+        ScrutinyThemeProperties.HMI_GREEN_GOOD: QColor("#92D050"),
+        ScrutinyThemeProperties.HMI_YELLOW_WARNING: QColor("#FFFF00"),
+        ScrutinyThemeProperties.HMI_RED_DANGER: QColor("#FF0000"),
+
 
     }
 

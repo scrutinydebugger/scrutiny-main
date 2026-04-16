@@ -90,8 +90,8 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         layout.addWidget(self._splitter, 1)  # 1=Stretch
         self._workzone.signals.right_click.connect(self._workzone_right_click_slot)
-        self._workzone.signals.left_click.connect(self._workzone_left_click_slot)
         self._workzone.signals.drop_widget_class.connect(self._workzone_drop_widget_class_slot)
+        self._workzone.signals.selection_changed.connect(self._workzone_selection_changed_slot)
         self._show_edit_menu(False)  # Necessary to set the menu to a size of 0, used for state checking
 
         self._show_config_of(None)
@@ -191,6 +191,12 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         instance = widget_class(self)
         self.add(instance, scene_pos)
 
+    def _workzone_selection_changed_slot(self, widgets: List[BaseHMIWidget]) -> None:
+        if len(widgets) == 1:
+            self._show_config_of(widgets[0])
+        else:
+            self._show_config_of(None)
+
     def _workzone_right_click_slot(self, widget: Optional[BaseHMIWidget], event: QMouseEvent) -> None:
         if self._mode != HMIInteractionMode.Edit:
             return
@@ -258,9 +264,6 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         else:
             config_container = self._config_widgets[id(widget)]
             self._config_widget_container_layout.setCurrentWidget(config_container)
-
-    def _workzone_left_click_slot(self, widget: Optional[BaseHMIWidget]) -> None:
-        pass
 
     def _reassign_packed_zvalues(self) -> None:
         w = sorted(self._workzone.iterate_hmi_widgets(), key=lambda w: w.zValue())
