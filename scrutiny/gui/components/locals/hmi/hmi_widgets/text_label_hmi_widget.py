@@ -15,7 +15,6 @@ from PySide6.QtWidgets import QVBoxLayout, QWidget
 
 
 from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget
-from scrutiny.gui.themes import scrutiny_get_theme
 from scrutiny.gui import assets
 from scrutiny.tools.typing import *
 
@@ -39,14 +38,13 @@ class TextLabelHMIWidget(BaseHMIWidget):
     def __init__(self, hmi_component: "HMIComponent") -> None:
         super().__init__(hmi_component)
         self.declare_value_slot('val', 'Value')
-        self._text_color = scrutiny_get_theme().palette().text().color()
 
         self._config_widget = QWidget()
         self._numerical_display = NumericalTextDisplay(self)
         self._numerical_display.set_border_width(4)
         layout = QVBoxLayout(self._config_widget)
         layout.addWidget(self._numerical_display.get_config_widget())
-        self._numerical_display.set_text_color(scrutiny_get_theme().palette().text().color())
+        self._numerical_display.set_text_color(HMITheme.Color.text())
 
         self._numerical_display.signals.config_changed.connect(self._config_changed_slot)
 
@@ -59,6 +57,12 @@ class TextLabelHMIWidget(BaseHMIWidget):
     @classmethod
     def default_size(cls) -> QSize:
         return QSize(128, 64)
+
+    def min_height(self) -> int:
+        return 32
+
+    def min_width(self) -> int:
+        return 64
 
     def draw(self,
              configured: bool,

@@ -208,10 +208,10 @@ class NumericalTextDisplay(QGraphicsItem):
     def _set_font_size(self, text: str, rect: QRect) -> None:
         text_len = max(len(text), self._max_char_count())
 
-        self._font.setPixelSize(rect.size().height())
+        self._font.setPixelSize(max(1, rect.size().height()))
         text_width = QFontMetrics(self._font).averageCharWidth() * text_len
         if text_width > rect.size().width():
-            self._font.setPixelSize(int(rect.size().height() * rect.size().width() / text_width))
+            self._font.setPixelSize(max(1, int(rect.size().height() * rect.size().width() / text_width)))
 
 # endregion
 

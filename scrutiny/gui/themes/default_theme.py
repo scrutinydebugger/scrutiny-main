@@ -46,7 +46,9 @@ class DefaultTheme(ScrutinyTheme):
 
         ScrutinyThemeProperties.HMI_GREEN_GOOD: QColor("#92D050"),
         ScrutinyThemeProperties.HMI_YELLOW_WARNING: QColor("#FFFF00"),
-        ScrutinyThemeProperties.HMI_RED_DANGER: QColor("#FF0000")
+        ScrutinyThemeProperties.HMI_RED_DANGER: QColor("#FF0000"),
+        ScrutinyThemeProperties.HMI_POINTER_BORDER: QColor("#643010"),
+        ScrutinyThemeProperties.HMI_POINTER_FILL: QColor("#F08030")
 
 
     }

@@ -1,5 +1,3 @@
 TODO:
-    drag show shadow
-    handle default size of widget
     styling of HMI widgets
     fix prevent redraw

@@ -198,63 +198,74 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
             self._show_config_of(None)
 
     def _workzone_right_click_slot(self, widget: Optional[BaseHMIWidget], event: QMouseEvent) -> None:
-        if self._mode != HMIInteractionMode.Edit:
-            return
+        menu: Optional[QMenu] = None
 
-        if widget is not None:
-            self._workzone.select_widgets([widget])
+        if self._mode == HMIInteractionMode.Display:
             menu = QMenu()
-            remove_action = menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.RedX), "Remove")
-            edit_action = menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.TextEdit), "Edit")
-            move_to_action = menu.addAction("Move")
+            edit_mode_action = menu.addAction("Edit HMI dashboard")
+            edit_mode_action.triggered.connect(lambda: self.set_mode(HMIInteractionMode.Edit))
 
-            move_to_menu = QMenu()
-            move_to_back_action = move_to_menu.addAction("To Back")
-            move_backward_action = move_to_menu.addAction("Backward")
-            move_forward_action = move_to_menu.addAction("Forward")
-            move_to_front_action = move_to_menu.addAction("To Front")
-            move_to_action.setMenu(move_to_menu)
+        elif self._mode == HMIInteractionMode.Edit:
+            if widget is None:
+                menu = QMenu()
+                display_mode_action = menu.addAction("Display mode")
+                display_mode_action.triggered.connect(lambda: self.set_mode(HMIInteractionMode.Display))
 
-            def move_to_back_slot() -> None:
-                all_z = [w.zValue() for w in self._workzone.iterate_hmi_widgets()]
-                if len(all_z) > 0:
-                    widget.setZValue(min(all_z) - 1)
-                self._reassign_packed_zvalues()
+            else:
+                self._workzone.select_widgets([widget])
+                menu = QMenu()
+                remove_action = menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.RedX), "Remove")
+                edit_action = menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.TextEdit), "Edit")
+                move_to_action = menu.addAction("Move")
 
-            def move_to_front_slot() -> None:
-                all_z = [w.zValue() for w in self._workzone.iterate_hmi_widgets()]
-                if len(all_z) > 0:
-                    widget.setZValue(max(all_z) + 1)
-                self._reassign_packed_zvalues()
+                move_to_menu = QMenu()
+                move_to_back_action = move_to_menu.addAction("To Back")
+                move_backward_action = move_to_menu.addAction("Backward")
+                move_forward_action = move_to_menu.addAction("Forward")
+                move_to_front_action = move_to_menu.addAction("To Front")
+                move_to_action.setMenu(move_to_menu)
 
-            def move_backward_slot() -> None:
-                previous = sorted([w for w in self._workzone.iterate_hmi_widgets() if w.zValue() < widget.zValue()], key=lambda w: w.zValue())
-                if len(previous) > 0:   # swap
-                    temp = previous[-1].zValue()
-                    previous[-1].setZValue(widget.zValue())
-                    widget.setZValue(temp)
+                def move_to_back_slot() -> None:
+                    all_z = [w.zValue() for w in self._workzone.iterate_hmi_widgets()]
+                    if len(all_z) > 0:
+                        widget.setZValue(min(all_z) - 1)
+                    self._reassign_packed_zvalues()
 
-            def move_forward_slot() -> None:
-                nexts = sorted([w for w in self._workzone.iterate_hmi_widgets() if w.zValue() > widget.zValue()], key=lambda w: w.zValue())
-                if len(nexts) > 0:   # swap
-                    temp = nexts[0].zValue()
-                    nexts[0].setZValue(widget.zValue())
-                    widget.setZValue(temp)
+                def move_to_front_slot() -> None:
+                    all_z = [w.zValue() for w in self._workzone.iterate_hmi_widgets()]
+                    if len(all_z) > 0:
+                        widget.setZValue(max(all_z) + 1)
+                    self._reassign_packed_zvalues()
 
-            move_to_back_action.triggered.connect(move_to_back_slot)
-            move_backward_action.triggered.connect(move_backward_slot)
-            move_forward_action.triggered.connect(move_forward_slot)
-            move_to_front_action.triggered.connect(move_to_front_slot)
+                def move_backward_slot() -> None:
+                    previous = sorted([w for w in self._workzone.iterate_hmi_widgets() if w.zValue() < widget.zValue()], key=lambda w: w.zValue())
+                    if len(previous) > 0:   # swap
+                        temp = previous[-1].zValue()
+                        previous[-1].setZValue(widget.zValue())
+                        widget.setZValue(temp)
 
-            def edit_action_slot() -> None:
-                self._edit_tab_widget.setCurrentWidget(self._config_widget_container)
-                self._show_config_of(widget)
-                self._show_edit_menu(True)
+                def move_forward_slot() -> None:
+                    nexts = sorted([w for w in self._workzone.iterate_hmi_widgets() if w.zValue() > widget.zValue()], key=lambda w: w.zValue())
+                    if len(nexts) > 0:   # swap
+                        temp = nexts[0].zValue()
+                        nexts[0].setZValue(widget.zValue())
+                        widget.setZValue(temp)
 
-            edit_action.triggered.connect(edit_action_slot)
+                move_to_back_action.triggered.connect(move_to_back_slot)
+                move_backward_action.triggered.connect(move_backward_slot)
+                move_forward_action.triggered.connect(move_forward_slot)
+                move_to_front_action.triggered.connect(move_to_front_slot)
 
-            remove_action.triggered.connect(functools.partial(self._delete_widget, widget))
+                def edit_action_slot() -> None:
+                    self._edit_tab_widget.setCurrentWidget(self._config_widget_container)
+                    self._show_config_of(widget)
+                    self._show_edit_menu(True)
 
+                edit_action.triggered.connect(edit_action_slot)
+
+                remove_action.triggered.connect(functools.partial(self._delete_widget, widget))
+
+        if menu is not None:
             menu.exec(self._workzone.mapToGlobal(event.pos()))
 
     def _show_config_of(self, widget: Optional[BaseHMIWidget]) -> None:

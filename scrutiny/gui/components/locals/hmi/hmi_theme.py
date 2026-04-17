@@ -56,3 +56,11 @@ class HMITheme:
         @staticmethod
         def dark() -> QColor:
             return scrutiny_get_theme().palette().dark().color()
+
+        @staticmethod
+        def pointer_border() -> QColor:
+            return cast(QColor, scrutiny_get_theme_prop(ScrutinyThemeProperties.HMI_POINTER_BORDER))
+
+        @staticmethod
+        def pointer_fill() -> QColor:
+            return cast(QColor, scrutiny_get_theme_prop(ScrutinyThemeProperties.HMI_POINTER_FILL))
