@@ -225,7 +225,7 @@ class NumericalTextDisplay(QGraphicsItem):
 
         bounding_rect = self.boundingRect()
         painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(HMITheme.Color.widget_background())
+        painter.setBrush(HMITheme.Color.text_display_background())
         painter.drawRect(bounding_rect)
 
         if bounding_rect.width() > 2 * self._border_width and bounding_rect.height() > 2 * self._border_width:

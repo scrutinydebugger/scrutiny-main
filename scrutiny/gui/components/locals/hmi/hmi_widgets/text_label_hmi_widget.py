@@ -14,7 +14,7 @@ from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import QVBoxLayout, QWidget
 
 
-from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget
+from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget, WatchableValueType
 from scrutiny.gui import assets
 from scrutiny.tools.typing import *
 
@@ -65,15 +65,11 @@ class TextLabelHMIWidget(BaseHMIWidget):
         return 64
 
     def draw(self,
-             configured: bool,
-             values: Dict[str, Union[float, int, bool, None]],
-             draw_zone_size: QSize,
+             values: Dict[str, Optional[WatchableValueType]],
              painter: QPainter
              ) -> None:
 
-        val = None
-        if configured:
-            val = values['val']
+        val = values['val']
 
         if val is None:
             self._numerical_display.set_val("N/A")
@@ -82,5 +78,5 @@ class TextLabelHMIWidget(BaseHMIWidget):
             self._numerical_display.set_val(val)
             self._numerical_display.set_alignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight)
 
-        self._numerical_display.set_size(draw_zone_size)
+        self._numerical_display.set_size(self.boundingRect().size().toSize())
         self._numerical_display.update()

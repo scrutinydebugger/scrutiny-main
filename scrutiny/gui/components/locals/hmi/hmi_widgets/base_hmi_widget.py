@@ -6,6 +6,8 @@
 #
 #    Copyright (c) 2026 Scrutiny Debugger
 
+__all__ = ['BaseHMIWidget', 'WatchableValueType', 'HMIWidgetValueUpdateCallback']
+
 from dataclasses import dataclass
 import functools
 import time
@@ -326,6 +328,7 @@ class BaseHMIWidget(QGraphicsItem):
             vslot.signals.text_value_changed.disconnect()
             vslot.watchable_line_edit.textChanged.disconnect()
             vslot.watchable_line_edit.signals.watchable_dropped.disconnect()
+            vslot.value_update_callback = None
 
         self._vslots.clear()
 
@@ -391,21 +394,23 @@ class BaseHMIWidget(QGraphicsItem):
 
         return container
 
-    def _all_vslots_filled(self) -> bool:
-        for vslot in self._vslots:
+    def _get_vslot_vals(self) -> Dict[str, Optional[WatchableValueType]]:
+
+        def compute_single(vslot: ValueSlot) -> Optional[WatchableValueType]:
             if vslot.watchable_line_edit.is_text_mode():
-                if vslot.get_val() is None:
-                    return False
+                return vslot.get_val()
             else:
                 watchable = vslot.watchable_line_edit.get_watchable()
                 if watchable is None:
-                    return False
+                    return None
 
                 node = self._hmi_component.app.watchable_registry.get_watchable_node_fqn(watchable.fqn)
                 if node is None:
-                    return False
+                    return None
 
-        return True
+                return vslot.get_val()
+
+        return {vslot.name: compute_single(vslot) for vslot in self._vslots}
 
     def _redraw_later(self) -> None:
         def callback() -> None:
@@ -438,20 +443,18 @@ class BaseHMIWidget(QGraphicsItem):
         self._pending_redraw = False
         self._need_redraw = False
 
-        configured = self._all_vslots_filled()
-        values = {vslot.name: vslot.get_val() for vslot in self._vslots}
+        values = self._get_vslot_vals()
 
-        self.draw(configured, values, self._size, painter)
+        self.draw(values, painter)
 
         self._last_draw_timestamp_ns = time.perf_counter_ns()
 
 
 # region Abstracts methods
 
+
     def draw(self,
-             configured: bool,
              values: Dict[str, WatchableValueType],
-             draw_zone_size: QSize,
              painter: QPainter
              ) -> None:
         raise NotImplementedError("draw() must be overridden")

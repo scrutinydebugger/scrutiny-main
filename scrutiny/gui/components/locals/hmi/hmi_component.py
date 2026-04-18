@@ -130,7 +130,6 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
 
     def update_hmi_widget_state(self, widget: BaseHMIWidget) -> None:
         widget.show_resize_handles(self.is_edit_mode())
-        widget.update()
 
     def set_mode(self, mode: HMIInteractionMode) -> None:
         self._mode = mode
@@ -297,6 +296,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
             ref_count = len(gc.get_referrers(widget))
             if ref_count > 1:
                 self.logger.warning(f"Dangling reference to widget {widget.get_name()} after deletion")
+                print(gc.get_referrers(widget))
 
 # endregion
 

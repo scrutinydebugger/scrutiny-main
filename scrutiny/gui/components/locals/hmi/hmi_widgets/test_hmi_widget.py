@@ -13,7 +13,7 @@ from PySide6.QtCore import QSize, QRect, QPoint, Qt
 from PySide6.QtWidgets import QVBoxLayout, QWidget, QComboBox
 
 
-from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget
+from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget, WatchableValueType
 from scrutiny.gui.themes import scrutiny_get_theme
 from scrutiny.gui import assets
 from scrutiny.tools.typing import *
@@ -72,18 +72,16 @@ class TestHMIWidget(BaseHMIWidget):
         return self._config_widget
 
     def draw(self,
-             configured: bool,
-             values: Dict[str, Union[float, int, bool, None]],
-             draw_zone_size: QSize,
+             values: Dict[str, Optional[WatchableValueType]],
              painter: QPainter
              ) -> None:
         color_name = self._cmb_color.currentText()
         brush = self._cmb_color.currentData()
-        square = QRect(QPoint(0, 0), draw_zone_size)
+        bounding_rect = self.boundingRect()
 
         painter.setBrush(brush)
         painter.setPen(Qt.PenStyle.NoPen)
-        painter.drawRect(square)
+        painter.drawRect(bounding_rect)
 
         painter.setPen(scrutiny_get_theme().palette().text().color())
-        painter.drawText(square, Qt.AlignmentFlag.AlignCenter, color_name)
+        painter.drawText(bounding_rect, Qt.AlignmentFlag.AlignCenter, color_name)
