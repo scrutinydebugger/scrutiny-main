@@ -47,9 +47,6 @@ class OverflowBehavior(enum.Enum):
     SHOW_NA = enum.auto()
 
 
-import logging
-
-
 class GaugePointer(QGraphicsItem):
 
     _angle: float
@@ -60,7 +57,6 @@ class GaugePointer(QGraphicsItem):
         super().__init__(*args, **kwargs)
         self._angle = 0
         self._valid = True
-        self._logging = logging.getLogger(self.__class__.__name__)
 
     def set_angle(self, angle: float) -> None:
         self._angle = angle
@@ -72,7 +68,6 @@ class GaugePointer(QGraphicsItem):
         return self.parentItem().boundingRect()
 
     def paint(self, painter: QPainter, option: QStyleOptionGraphicsItem, widget: Optional[QWidget] = None) -> None:
-        self._logging.info("paint pointer")
         bounding_rect = self.boundingRect()
         ref_size = bounding_rect.width() / 2
         knob_radius = ref_size * Dims.KNOB
@@ -134,8 +129,8 @@ class GaugeHMIWidget(BaseHMIWidget):
         self.declare_value_slot('min', 'Minimum')
         self.declare_value_slot('max', 'Maximum')
 
-        self._minval = 0
-        self._maxval = 0
+        self._minval = None
+        self._maxval = None
 
         self._numerical_display = NumericalTextDisplay(self)
         self._pointer = GaugePointer(self)
@@ -235,8 +230,6 @@ class GaugeHMIWidget(BaseHMIWidget):
              values: Dict[str, Optional[WatchableValueType]],
              painter: QPainter
              ) -> None:
-        self._logger.info("draw parent")
-
         bounding_rect = self.boundingRect()
         aspect_ratio = bounding_rect.height() / bounding_rect.width()
         ref_size = bounding_rect.width() / 2

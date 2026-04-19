@@ -35,6 +35,7 @@ class WatchableLineEdit(QLineEdit):
 
     class _Signals(QObject):
         watchable_dropped = Signal(str)
+        watchable_cleared = Signal(str)
 
     class DictState(TypedDict):
         mode: Literal['text', 'watchable']
@@ -155,6 +156,7 @@ class WatchableLineEdit(QLineEdit):
     def set_text_mode(self) -> None:
         """Sets this widget in text mode. In this mode, this widget behaves like a normal QLineEdit (if text_mode is allowed)"""
         if self._mode == self.Mode.WATCHABLE:
+            watchable = self.get_watchable()
             assert self._watchable_icon_action is not None
             self.removeAction(self._watchable_icon_action)
             self.setText("")
@@ -168,6 +170,9 @@ class WatchableLineEdit(QLineEdit):
             self._clear_being_clicked = False
             self._loaded_watchable = None
             self._update_cursor()
+
+            if watchable is not None:
+                self._signals.watchable_cleared.emit(watchable.fqn)
 
     def keyPressEvent(self, event: QKeyEvent) -> None:
         if self._mode == self.Mode.WATCHABLE:

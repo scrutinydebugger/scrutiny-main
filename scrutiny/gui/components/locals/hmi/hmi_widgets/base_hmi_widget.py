@@ -203,6 +203,8 @@ class BaseHMIWidget(QGraphicsItem):
     _selection_overlay: SelectionOverlay
     _selected: bool
     _edit_select_frame: EditSelectFrame
+    _vslot_config_widget: QWidget
+    _vslot_config_widget_layout: QFormLayout
 
     def __init__(self, hmi_component: "HMIComponent") -> None:
         super().__init__()
@@ -224,6 +226,9 @@ class BaseHMIWidget(QGraphicsItem):
         self._selection_overlay.setZValue(self._edit_select_frame.zValue() - 1)
         self.set_selected(False)
         self.show_resize_handles(False)
+
+        self._vslot_config_widget = QWidget()
+        self._vslot_config_widget_layout = QFormLayout(self._vslot_config_widget)
 
         self.set_size(self.default_size())
 
@@ -310,6 +315,7 @@ class BaseHMIWidget(QGraphicsItem):
         )
 
         self._vslots.append(vslot)
+        self._vslot_config_widget_layout.addRow(vslot.display_name, vslot.watchable_line_edit)
 
         watchable_val_update_slot = functools.partial(self._watchable_update_callback, vslot)
         self._hmi_component.app.watchable_registry.register_watcher(vslot.watcher_id, watchable_val_update_slot, self._unwatch_callback)
@@ -317,20 +323,31 @@ class BaseHMIWidget(QGraphicsItem):
         configured_slot = functools.partial(self._vslot_configured_slot, vslot)
         vslot.watchable_line_edit.signals.watchable_dropped.connect(configured_slot)
 
+        config_cleared_slot = functools.partial(self._vslot_config_cleared_slot, vslot)
+        vslot.watchable_line_edit.signals.watchable_cleared.connect(config_cleared_slot)
+
         text_val_update_slot = functools.partial(self._text_update_callback, vslot)
         vslot.signals.text_value_changed.connect(text_val_update_slot)
 
     def destroy(self) -> None:
-        for vslots in self._vslots:
-            self._hmi_component.app.watchable_registry.unregister_watcher(vslots.watcher_id)    # Will unwatch all
-
         for vslot in self._vslots:
+            self._hmi_component.app.watchable_registry.unregister_watcher(vslot.watcher_id)    # Will unwatch all
             vslot.signals.text_value_changed.disconnect()
             vslot.watchable_line_edit.textChanged.disconnect()
             vslot.watchable_line_edit.signals.watchable_dropped.disconnect()
+            vslot.watchable_line_edit.signals.watchable_cleared.disconnect()
+            vslot.watchable_line_edit.setParent(None)
             vslot.value_update_callback = None
 
         self._vslots.clear()
+
+        for obj in self._vslot_config_widget.children():
+            if isinstance(obj, QWidget):
+                obj.setParent(None)
+
+        self._vslot_config_widget.setParent(None)
+
+        self._need_redraw = False
 
     def boundingRect(self) -> QRectF:
         return QRectF(QPointF(0, 0), self._size)
@@ -364,16 +381,26 @@ class BaseHMIWidget(QGraphicsItem):
         self._slot_value_update_callback(vslot, updates[-1].sdk_update.value)
 
     def _unwatch_callback(self, watcher_id: Union[str, int], server_path: str, watchable_config: sdk.BriefWatchableConfiguration, registry_id: int) -> None:
-        pass
+        for vslot in self._vslots:
+            if vslot.watcher_id == watcher_id:
+                vslot.last_value_received = None
+                break
 
     def _vslot_configured_slot(self, vslot: ValueSlot, fqn: str) -> None:
         self._try_watch(vslot, fqn)
+
+    def _vslot_config_cleared_slot(self, vslot: ValueSlot, fqn: str) -> None:
+        self._try_unwatch(vslot, fqn)
 
     def _try_watch(self, vslot: ValueSlot, fqn: str) -> None:
         try:
             self._hmi_component.app.watchable_registry.watch_fqn(vslot.watcher_id, fqn, self.HMI_COMPONENT_UPDATE_RATE)
         except WatchableRegistryNodeNotFoundError:
             pass
+
+    def _try_unwatch(self, vslot: ValueSlot, fqn: str) -> None:
+        # We have a watcher per ValueSlot. No need to cherry pick the unwatch. Just unwatch all
+        self._hmi_component.app.watchable_registry.unwatch_all(vslot.watcher_id)
 
     def _get_slot_by_name(self, name: str) -> ValueSlot:
         for vslot in self._vslots:
@@ -382,17 +409,11 @@ class BaseHMIWidget(QGraphicsItem):
 
         raise ValueError(f"No watchable slot with name {name}")
 
-    def make_slot_config_widget(self) -> Optional[QWidget]:
+    def get_slot_config_widget(self) -> Optional[QWidget]:
         if len(self._vslots) == 0:
             return None
 
-        container = QWidget()
-        container_layout = QFormLayout(container)
-
-        for vslot in self._vslots:
-            container_layout.addRow(vslot.display_name, vslot.watchable_line_edit)
-
-        return container
+        return self._vslot_config_widget
 
     def _get_vslot_vals(self) -> Dict[str, Optional[WatchableValueType]]:
 
@@ -451,7 +472,6 @@ class BaseHMIWidget(QGraphicsItem):
 
 
 # region Abstracts methods
-
 
     def draw(self,
              values: Dict[str, WatchableValueType],

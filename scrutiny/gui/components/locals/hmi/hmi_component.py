@@ -25,7 +25,6 @@ from scrutiny.gui.themes import scrutiny_get_theme
 from scrutiny.gui.components.locals.base_local_component import ScrutinyGUIBaseLocalComponent
 
 from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget
-from scrutiny.gui.components.locals.hmi.hmi_widgets.gauge_hmi_widget import GaugeHMIWidget
 from scrutiny.gui.components.locals.hmi.hmi_workzone import HMIWorkZone
 
 from scrutiny.tools.typing import *
@@ -83,8 +82,6 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         self._splitter.addWidget(self._workzone)
         self._splitter.setCollapsible(self.SPLITTER_EDIT_MENU, True)
         self._splitter.setCollapsible(self.SPLITTER_WORKZONE, False)
-
-        self.test_widget = GaugeHMIWidget(self)
 
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignmentFlag.AlignTop)
@@ -175,7 +172,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         layout = QVBoxLayout(config_container)
         layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
-        vslot_config = widget.make_slot_config_widget()
+        vslot_config = widget.get_slot_config_widget()
         if vslot_config is not None:
             layout.addWidget(vslot_config)
 

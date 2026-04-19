@@ -89,8 +89,6 @@ class HMILibraryCategoryWidget(QWidget):
         self._display_name = category_info.display_name
         self._entries = sorted((HMILibraryEntryWidget(hmiw) for hmiw in hmi_widgets), key=lambda x: x.get_widget_name())
         self._grid_container = QWidget()
-        # self._grid_container.setAutoFillBackground(True)
-        # self._grid_container.setBackgroundRole(QPalette.ColorRole.Base)
 
         layout = QVBoxLayout(self)
         gb = QGroupBox(self._display_name)

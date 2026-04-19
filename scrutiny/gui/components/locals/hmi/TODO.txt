@@ -1,3 +1,5 @@
 TODO:
     styling of HMI widgets
-    fix prevent redraw
+
+    overflow behavior
+    name display
