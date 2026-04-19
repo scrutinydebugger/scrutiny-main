@@ -17,11 +17,12 @@ import logging
 from scrutiny.gui.components.locals.hmi.hmi_library import HMILibrary
 
 from PySide6.QtCore import Qt, QPoint
-from PySide6.QtWidgets import QVBoxLayout, QMenu, QSplitter, QTabWidget, QWidget, QStackedLayout
+from PySide6.QtWidgets import QVBoxLayout, QSplitter, QTabWidget, QWidget, QStackedLayout
 from PySide6.QtGui import QIcon, QKeyEvent, QMouseEvent
 
 from scrutiny.gui import assets
 from scrutiny.gui.themes import scrutiny_get_theme
+from scrutiny.gui.widgets.scrutiny_qmenu import ScrutinyQMenu
 from scrutiny.gui.components.locals.base_local_component import ScrutinyGUIBaseLocalComponent
 
 from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget
@@ -194,27 +195,27 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
             self._show_config_of(None)
 
     def _workzone_right_click_slot(self, widget: Optional[BaseHMIWidget], event: QMouseEvent) -> None:
-        menu: Optional[QMenu] = None
+        menu: Optional[ScrutinyQMenu] = None
 
         if self._mode == HMIInteractionMode.Display:
-            menu = QMenu()
+            menu = ScrutinyQMenu()
             edit_mode_action = menu.addAction("Edit HMI dashboard")
             edit_mode_action.triggered.connect(lambda: self.set_mode(HMIInteractionMode.Edit))
 
         elif self._mode == HMIInteractionMode.Edit:
             if widget is None:
-                menu = QMenu()
+                menu = ScrutinyQMenu()
                 display_mode_action = menu.addAction("Display mode")
                 display_mode_action.triggered.connect(lambda: self.set_mode(HMIInteractionMode.Display))
 
             else:
                 self._workzone.select_widgets([widget])
-                menu = QMenu()
+                menu = ScrutinyQMenu()
                 remove_action = menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.RedX), "Remove")
                 edit_action = menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.TextEdit), "Edit")
                 move_to_action = menu.addAction("Move")
 
-                move_to_menu = QMenu()
+                move_to_menu = ScrutinyQMenu()
                 move_to_back_action = move_to_menu.addAction("To Back")
                 move_backward_action = move_to_menu.addAction("Backward")
                 move_forward_action = move_to_menu.addAction("Forward")
@@ -262,7 +263,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
                 remove_action.triggered.connect(functools.partial(self._delete_widget, widget))
 
         if menu is not None:
-            menu.exec(self._workzone.mapToGlobal(event.pos()))
+            menu.exec_and_disconnect_triggered(self._workzone.mapToGlobal(event.pos()))
 
     def _show_config_of(self, widget: Optional[BaseHMIWidget]) -> None:
         """Make the HMI Widget configuration pane visible by swapping the QStackedLayout index. show an empty widget if None"""

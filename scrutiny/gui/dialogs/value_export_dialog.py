@@ -16,7 +16,7 @@ import time
 import enum
 
 from PySide6.QtWidgets import (QDialog, QWidget, QProgressBar, QVBoxLayout, QPushButton, QHBoxLayout, QLabel,
-                               QFormLayout, QTableWidget, QTableWidgetItem, QHeaderView, QMenu, QGroupBox)
+                               QFormLayout, QTableWidget, QTableWidgetItem, QHeaderView, QGroupBox)
 from PySide6.QtCore import Qt, QTimer, QObject, Signal
 from PySide6.QtGui import QContextMenuEvent
 
@@ -25,6 +25,7 @@ from scrutiny import sdk
 from scrutiny.gui.core.serializable_value_set import SerializableValueSet
 from scrutiny.gui.core.watchable_registry import WatchableRegistry, WatcherNotFoundError, RegistryValueUpdate, WatchableRegistryError, ParsedFullyQualifiedName
 from scrutiny.gui.widgets.watchable_tree import get_watchable_icon
+from scrutiny.gui.widgets.scrutiny_qmenu import ScrutinyQMenu
 from scrutiny.gui.core.server_manager import ServerManager
 from scrutiny.gui.tools.invoker import invoke_later
 from scrutiny.gui.widgets.feedback_label import FeedbackLabel
@@ -140,11 +141,11 @@ class ResultTableWidget(QTableWidget):
     def contextMenuEvent(self, e: QContextMenuEvent) -> None:
         items = [cast(PathItem, item) for item in self.selectedItems() if item.column() == self.Columns.PATH]
         paths = [item.get_path() for item in items]
-        menu = QMenu()
+        menu = ScrutinyQMenu()
         copy_path_action = gui_mixins.qmenu_add_copy_path_action(menu, paths)
         copy_path_action.setEnabled(len(paths) > 0)
 
-        menu.exec(self.mapToGlobal(e.pos()), copy_path_action)
+        menu.exec_and_disconnect_triggered(self.mapToGlobal(e.pos()), copy_path_action)
 
 
 @dataclass(slots=True, init=False)

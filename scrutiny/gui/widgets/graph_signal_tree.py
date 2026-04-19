@@ -18,7 +18,7 @@ __all__ = [
 
 from dataclasses import dataclass
 
-from PySide6.QtWidgets import QAbstractItemDelegate, QWidget, QMenu
+from PySide6.QtWidgets import QAbstractItemDelegate, QWidget
 from PySide6.QtGui import (QStandardItem, QDropEvent, QDragEnterEvent, QDragMoveEvent,
                            QContextMenuEvent, QKeyEvent, QPixmap, QPalette)
 from PySide6.QtCore import QItemSelectionModel, QMimeData, QModelIndex, Qt, QPersistentModelIndex, QItemSelection, QObject, Signal, QSortFilterProxyModel
@@ -30,7 +30,7 @@ from scrutiny.gui.core.watchable_registry import WatchableRegistry
 from scrutiny.gui.core.scrutiny_drag_data import ScrutinyDragData, WatchableListDescriptor, SingleWatchableDescriptor
 from scrutiny.gui.widgets.watchable_tree import WatchableStandardItem, get_watchable_icon
 from scrutiny.gui.widgets.base_tree import BaseTreeModel, BaseTreeView, SerializableItemIndexDescriptor
-from scrutiny.gui.dialogs.chart_range_edit_dialog import ChartRangeEditDialog
+from scrutiny.gui.widgets.scrutiny_qmenu import ScrutinyQMenu
 from scrutiny import tools
 
 from scrutiny.tools.typing import *
@@ -592,7 +592,7 @@ class GraphSignalTree(BaseTreeView):
         return super().dropEvent(event)
 
     def contextMenuEvent(self, event: QContextMenuEvent) -> None:
-        context_menu = QMenu()
+        context_menu = ScrutinyQMenu()
         selected_indexes_no_nested_unordered = self._model.remove_nested_indexes_unordered(self._real_model_selected_indexes())
         nesting_col = self._model.nesting_col()
         selected_items_no_nested_unordered = [self._model.itemFromIndex(index)
@@ -644,8 +644,8 @@ class GraphSignalTree(BaseTreeView):
             new_axis_action.setDisabled(True)
             remove_action.setDisabled(True)
 
-        context_menu.exec(self.mapToGlobal(event.pos()))
         event.accept()
+        context_menu.exec_and_disconnect_triggered(self.mapToGlobal(event.pos()))
 
     def keyPressEvent(self, event: QKeyEvent) -> None:
         if event.key() == Qt.Key.Key_Delete and not self._locked:

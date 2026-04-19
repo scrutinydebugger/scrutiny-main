@@ -20,10 +20,11 @@ app = make_manual_test_app()
 
 
 import logging
-from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QSplitter, QLabel, QMenu
+from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QSplitter, QLabel
 from PySide6.QtCore import Qt, QPointF, QRectF
 from scrutiny import sdk
 from scrutiny.gui.widgets.base_chart import *
+from scrutiny.gui.widgets.scrutiny_qmenu import ScrutinyQMenu
 from scrutiny.gui.widgets.graph_signal_tree import GraphSignalTree, ChartSeriesWatchableStandardItem
 from scrutiny.gui.core.watchable_registry import WatchableRegistry
 from test.gui.fake_server_manager import FakeServerManager, ServerConfig
@@ -187,10 +188,10 @@ def build_chart():
 
 
 def make_context_menu(e: QContextMenuEvent) -> None:
-    menu = QMenu()
+    menu = ScrutinyQMenu()
     chart_mixins.add_grid_config_action(chartview.chart(), menu=menu, parent=window)
 
-    menu.exec(chartview.mapToGlobal(e.pos()))
+    menu.exec_and_disconnect_triggered(chartview.mapToGlobal(e.pos()))
 
 
 chartview.signals.context_menu_event.connect(make_context_menu)

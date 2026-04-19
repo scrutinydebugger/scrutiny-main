@@ -13,13 +13,14 @@ __all__ = [
     'GraphBrowseListWidget',
 ]
 
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QMenu, QAbstractItemDelegate, QLineEdit
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QAbstractItemDelegate, QLineEdit
 from PySide6.QtGui import QStandardItem, QContextMenuEvent, QKeyEvent, QMouseEvent
 from PySide6.QtCore import Signal, QObject, Qt, QModelIndex
 
 from scrutiny.sdk import datalogging
 from scrutiny.gui.core.persistent_data import gui_persistent_data
 from scrutiny.gui.widgets.base_tree import BaseTreeModel, BaseTreeView
+from scrutiny.gui.widgets.scrutiny_qmenu import ScrutinyQMenu
 from scrutiny.gui import assets
 from scrutiny.gui.themes import scrutiny_get_theme
 
@@ -142,7 +143,7 @@ class AcquisitionStorageEntryTreeView(BaseTreeView):
         return cast(AcquisitionStorageEntryTreeModel, super().model())
 
     def contextMenuEvent(self, event: QContextMenuEvent) -> None:
-        context_menu = QMenu()
+        context_menu = ScrutinyQMenu()
         action_display = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.Eye), "Display")
         action_delete = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.RedX), "Delete")
         action_rename = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.TextEdit), "Rename")
@@ -158,7 +159,7 @@ class AcquisitionStorageEntryTreeView(BaseTreeView):
         action_delete.triggered.connect(self._signals.delete)
         action_rename.triggered.connect(self._rename_selected_acquisition)
 
-        self.display_context_menu(context_menu, event.pos())
+        self.display_context_menu_and_disconnect_triggered(context_menu, event.pos())
 
     def _rename_selected_acquisition(self) -> None:
         """Makes an item in the treeview editable by the user"""

@@ -14,6 +14,7 @@ from PySide6.QtGui import QContextMenuEvent, QStandardItem
 from PySide6.QtCore import Qt, QObject, Signal, QTimer
 from scrutiny.gui.components.globals.varlist.varlist_tree_model import VarListComponentTreeModel
 from scrutiny.gui.widgets.watchable_tree import WatchableStandardItem, WatchableTreeWidget
+from scrutiny.gui.widgets.scrutiny_qmenu import ScrutinyQMenu
 from scrutiny.gui.core.watchable_registry import WatchableRegistry, WatchableRegistryIntermediateNode
 from scrutiny.gui.themes import scrutiny_get_theme
 from scrutiny.gui import assets
@@ -89,7 +90,7 @@ class SearchResultTreeWidget(WatchableTreeWidget):
         return self._signals
 
     def contextMenuEvent(self, event: QContextMenuEvent) -> None:
-        context_menu = QMenu()
+        context_menu = ScrutinyQMenu()
         selected_indexes = self.selectedIndexes()
         nesting_col = self.model().nesting_col()
         # Assumes that the tree only contains watchable. No folder.
@@ -115,8 +116,8 @@ class SearchResultTreeWidget(WatchableTreeWidget):
                 copy_path_clipboard_action.setEnabled(True)
                 break
 
-        self.display_context_menu(context_menu, event.pos())
         event.accept()
+        self.display_context_menu_and_disconnect_triggered(context_menu, event.pos())
 
     def model(self) -> SearchResultTreeModel:
         return cast(SearchResultTreeModel, super().model())

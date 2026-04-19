@@ -15,7 +15,7 @@ import logging
 from dataclasses import dataclass
 
 from PySide6.QtGui import QCloseEvent, QContextMenuEvent
-from PySide6.QtWidgets import (QDialog, QWidget, QVBoxLayout, QFormLayout, QHBoxLayout, QMenu,
+from PySide6.QtWidgets import (QDialog, QWidget, QVBoxLayout, QFormLayout, QHBoxLayout,
                                QTableWidget, QTableWidgetItem, QPushButton, QLabel, QHeaderView)
 from PySide6.QtCore import Qt
 
@@ -23,6 +23,7 @@ from scrutiny.gui.core.serializable_value_set import SerializableValueSet
 from scrutiny.gui.core.watchable_registry import WatchableRegistry, ParsedFullyQualifiedName, WatchableRegistryError
 from scrutiny.gui.core.server_manager import ServerManager
 from scrutiny.gui.widgets.watchable_tree import get_watchable_icon
+from scrutiny.gui.widgets.scrutiny_qmenu import ScrutinyQMenu
 from scrutiny.gui.tools.invoker import invoke_later
 from scrutiny.sdk.client import ScrutinyClient
 from scrutiny.gui.themes import scrutiny_get_theme
@@ -153,11 +154,11 @@ class UploadTable(QTableWidget):
     def contextMenuEvent(self, e: QContextMenuEvent) -> None:
         items = [cast(PathItem, item) for item in self.selectedItems() if item.column() == Columns.PATH]
         paths = [item.get_path() for item in items]
-        menu = QMenu()
+        menu = ScrutinyQMenu()
         copy_path_action = gui_mixins.qmenu_add_copy_path_action(menu, paths)
         copy_path_action.setEnabled(len(paths) > 0)
 
-        menu.exec(self.mapToGlobal(e.pos()), copy_path_action)
+        menu.exec_and_disconnect_triggered(self.mapToGlobal(e.pos()), copy_path_action)
 
 
 class ValueImportDialog(QDialog):

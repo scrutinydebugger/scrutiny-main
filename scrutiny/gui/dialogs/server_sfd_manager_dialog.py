@@ -12,7 +12,7 @@ __all__ = ['ServerSFDManagerDialog']
 import logging
 import os
 
-from PySide6.QtWidgets import QDialog, QWidget, QTableView, QVBoxLayout, QMenu, QMenuBar, QProgressBar, QPushButton, QHBoxLayout
+from PySide6.QtWidgets import QDialog, QWidget, QTableView, QVBoxLayout, QMenuBar, QProgressBar, QPushButton, QHBoxLayout
 from PySide6.QtCore import Qt, QAbstractItemModel, Signal, QObject, QPoint, QTimer
 from PySide6.QtGui import QCloseEvent, QKeyEvent, QShowEvent, QStandardItemModel, QStandardItem, QContextMenuEvent, QAction
 
@@ -22,6 +22,7 @@ from scrutiny.gui.core.server_manager import ServerManager
 from scrutiny.gui.core.persistent_data import gui_persistent_data
 from scrutiny.gui.themes import scrutiny_get_theme
 from scrutiny.gui.widgets.feedback_label import FeedbackLabel
+from scrutiny.gui.widgets.scrutiny_qmenu import ScrutinyQMenu
 from scrutiny.gui.dialogs.sfd_content_dialog import SFDContentDialog
 from scrutiny.gui.tools import prompt
 from scrutiny.gui import assets
@@ -143,7 +144,7 @@ class SFDTableView(QTableView):
 
     def contextMenuEvent(self, event: QContextMenuEvent) -> None:
 
-        menu = QMenu()
+        menu = ScrutinyQMenu()
         uninstall_action = menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.RedX), "Uninstall")
         save_action = menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.Download), "Save")
         details_action = menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.Info), "Details")
@@ -183,7 +184,7 @@ class SFDTableView(QTableView):
         if not self._allow_save:
             save_action.setDisabled(True)
 
-        self.display_context_menu(menu, event.pos())
+        self.display_context_menu_and_disconnect(menu, event.pos())
 
     def keyPressEvent(self, event: QKeyEvent) -> None:
         if event.key() == Qt.Key.Key_Delete:
@@ -194,14 +195,14 @@ class SFDTableView(QTableView):
 
         return super().keyPressEvent(event)
 
-    def display_context_menu(self, menu: QMenu, pos: QPoint) -> None:
+    def display_context_menu_and_disconnect(self, menu: ScrutinyQMenu, pos: QPoint) -> None:
         """Display a menu at given relative position, and make sure it goes below the cursor to mimic what most people are used to"""
         actions = menu.actions()
         at: Optional[QAction] = None
         if len(actions) > 0:
             pos += QPoint(0, menu.actionGeometry(actions[0]).height())
             at = actions[0]
-        menu.exec(self.mapToGlobal(pos), at)
+        menu.exec_and_disconnect_triggered(self.mapToGlobal(pos), at)
 
 
 class ProgressWidget(QWidget):
