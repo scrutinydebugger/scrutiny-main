@@ -51,7 +51,7 @@ class HMITheme:
 
         @staticmethod
         def frame_border() -> QColor:
-            return cast(QColor, scrutiny_get_theme_prop(ScrutinyThemeProperties.HMI_FRAME_BORDER))
+            return cast(QColor, scrutiny_get_theme_prop(ScrutinyThemeProperties.HMI_FRAME_BORDER_COLOR))
 
         @staticmethod
         def dark() -> QColor:
@@ -59,11 +59,19 @@ class HMITheme:
 
         @staticmethod
         def pointer_border() -> QColor:
-            return cast(QColor, scrutiny_get_theme_prop(ScrutinyThemeProperties.HMI_POINTER_BORDER))
+            return cast(QColor, scrutiny_get_theme_prop(ScrutinyThemeProperties.HMI_POINTER_BORDER_COLOR))
 
         @staticmethod
         def pointer_fill() -> QColor:
-            return cast(QColor, scrutiny_get_theme_prop(ScrutinyThemeProperties.HMI_POINTER_FILL))
+            return cast(QColor, scrutiny_get_theme_prop(ScrutinyThemeProperties.HMI_POINTER_FILL_COLOR))
+
+        @staticmethod
+        def major_ticks() -> QColor:
+            return cast(QColor, scrutiny_get_theme_prop(ScrutinyThemeProperties.HMI_POINTER_FILL_COLOR))
+
+        @staticmethod
+        def minor_ticks() -> QColor:
+            return cast(QColor, scrutiny_get_theme_prop(ScrutinyThemeProperties.HMI_POINTER_FILL_COLOR))
 
         @staticmethod
         def text_display_background() -> QColor:

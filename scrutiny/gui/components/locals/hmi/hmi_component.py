@@ -28,6 +28,8 @@ from scrutiny.gui.components.locals.base_local_component import ScrutinyGUIBaseL
 from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget
 from scrutiny.gui.components.locals.hmi.hmi_workzone import HMIWorkZone
 
+from scrutiny.gui.tools.invoker import invoke_later
+
 from scrutiny.tools.typing import *
 
 
@@ -260,7 +262,9 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
 
                 edit_action.triggered.connect(edit_action_slot)
 
-                remove_action.triggered.connect(functools.partial(self._delete_widget, widget))
+                def remove_action_slot():
+                    invoke_later(functools.partial(self._delete_widget, widget))
+                remove_action.triggered.connect(remove_action_slot)
 
         if menu is not None:
             menu.exec_and_disconnect_triggered(self._workzone.mapToGlobal(event.pos()))
@@ -294,7 +298,6 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
             ref_count = len(gc.get_referrers(widget))
             if ref_count > 1:
                 self.logger.warning(f"Dangling reference to widget {widget.get_name()} after deletion")
-                print(gc.get_referrers(widget))
 
 # endregion
 

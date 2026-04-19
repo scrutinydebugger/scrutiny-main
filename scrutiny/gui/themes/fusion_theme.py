@@ -55,14 +55,14 @@ class FusionTheme(ScrutinyTheme):
             self._prop_dict[ScrutinyThemeProperties.CHART_TOOLBAR_HOVERED_SELECTED_BORDER_COLOR] = self.palette().highlight().color().darker(200)
             self._prop_dict[ScrutinyThemeProperties.CHART_TOOLBAR_PRESSED_COLOR] = self.palette().highlight().color().darker(200)
             self._prop_dict[ScrutinyThemeProperties.CHART_TOOLBAR_SELECTED_COLOR] = self.palette().highlight().color()
-            self._prop_dict[ScrutinyThemeProperties.HMI_FRAME_BORDER] = self.palette().light().color()
+            self._prop_dict[ScrutinyThemeProperties.HMI_FRAME_BORDER_COLOR] = self.palette().light().color()
         else:
             self._prop_dict[ScrutinyThemeProperties.CHART_CURSOR_COLOR] = QColor(255, 0, 0)  # Strong red
             self._prop_dict[ScrutinyThemeProperties.CHART_TOOLBAR_HOVERED_BUTTON_COLOR] = LIGHT_HOVERED_COLOR
             self._prop_dict[ScrutinyThemeProperties.CHART_TOOLBAR_HOVERED_SELECTED_BORDER_COLOR] = LIGHT_SELECTED_HOVERED_BORDER_COLOR
             self._prop_dict[ScrutinyThemeProperties.CHART_TOOLBAR_PRESSED_COLOR] = LIGHT_PRESSED_COLOR
             self._prop_dict[ScrutinyThemeProperties.CHART_TOOLBAR_SELECTED_COLOR] = LIGHT_SELECTED_COLOR
-            self._prop_dict[ScrutinyThemeProperties.HMI_FRAME_BORDER] = self.palette().dark().color()
+            self._prop_dict[ScrutinyThemeProperties.HMI_FRAME_BORDER_COLOR] = self.palette().dark().color()
 
         self._prop_dict[ScrutinyThemeProperties.EMBEDDED_GRAPH_CHART_TRIGGER_COLOR] = self.palette().text().color()
         self._prop_dict[ScrutinyThemeProperties.WATCHABLE_LINE_EDIT_CLEAR_BTN_HOVER_COLOR] = self._prop_dict[ScrutinyThemeProperties.CHART_TOOLBAR_SELECTED_COLOR]

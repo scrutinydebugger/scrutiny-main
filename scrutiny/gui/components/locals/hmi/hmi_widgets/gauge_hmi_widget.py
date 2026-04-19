@@ -122,6 +122,8 @@ class GaugeHMIWidget(BaseHMIWidget):
 
     _minval: Optional[float]
     _maxval: Optional[float]
+    _major_ticks_pen: QPen
+    _minor_ticks_pen: QPen
 
     def __init__(self, hmi_component: "HMIComponent") -> None:
         super().__init__(hmi_component)
@@ -168,6 +170,12 @@ class GaugeHMIWidget(BaseHMIWidget):
         gb_text_display_layout = QFormLayout(gb_text_display)
         gb_text_display_layout.addWidget(self._numerical_display.get_config_widget())
 
+        self._major_ticks_pen = QPen()
+        self._major_ticks_pen.setColor(HMITheme.Color.major_ticks())
+
+        self._minor_ticks_pen = QPen()
+        self._minor_ticks_pen.setColor(HMITheme.Color.minor_ticks())
+
         self._cmb_overflow_behavior.currentIndexChanged.connect(self._config_changed_slot)
         self._spn_major_ticks.valueChanged.connect(self._config_changed_slot)
         self._spn_minor_ticks.valueChanged.connect(self._config_changed_slot)
@@ -197,7 +205,12 @@ class GaugeHMIWidget(BaseHMIWidget):
         if denom <= 0:
             return None
         ratio = (float(val) - float(self._minval)) / denom
-        ratio = min(max(ratio, 0), 1)
+        overflow_behavior = cast(OverflowBehavior, self._cmb_overflow_behavior.currentData())
+        if ratio < 0 or ratio > 1:
+            if overflow_behavior == OverflowBehavior.SHOW_NA:
+                return None
+            else:
+                ratio = min(max(ratio, 0), 1)
         return (225 - 270 * ratio)
 
     def _process_new_val(self, val: Optional[Union[bool, int, float]]) -> None:
@@ -255,9 +268,9 @@ class GaugeHMIWidget(BaseHMIWidget):
         painter.setBrush(HMITheme.Color.widget_background())
         painter.drawEllipse(center, outer_radius, outer_radius * aspect_ratio)
 
-        pen.setColor(HMITheme.Color.frame_border())
-        pen.setWidthF(stroke_w)
-        painter.setPen(pen)
+        self._major_ticks_pen.setWidthF(stroke_w)
+        self._major_ticks_pen.setWidthF(stroke_w)
+
         nb_major_ticks = self._spn_major_ticks.value()
         nb_minor_ticks = self._spn_minor_ticks.value()
         if nb_major_ticks >= 2:
@@ -265,6 +278,7 @@ class GaugeHMIWidget(BaseHMIWidget):
             tick_p1_radius = inner_radius - stroke_w
 
             for i in range(nb_major_ticks):
+                painter.setPen(self._major_ticks_pen)
                 angle = 225 - i * delta_angle
                 angle_rad = math.radians(angle)
                 p1 = QPointF(
@@ -279,6 +293,7 @@ class GaugeHMIWidget(BaseHMIWidget):
                 painter.drawLine(p1, p2)
 
                 if nb_minor_ticks > 0 and i < nb_major_ticks - 1:
+                    painter.setPen(self._minor_ticks_pen)
                     for j in range(nb_minor_ticks):
                         minor_angle = angle - (j + 1) * delta_angle / (nb_minor_ticks + 1)
                         minor_angle_rad = math.radians(minor_angle)

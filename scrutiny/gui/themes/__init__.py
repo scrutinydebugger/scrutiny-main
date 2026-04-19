@@ -35,12 +35,14 @@ class ScrutinyThemeProperties(enum.Enum):
 
     EMBEDDED_GRAPH_CHART_TRIGGER_COLOR = enum.auto()
 
-    HMI_FRAME_BORDER = enum.auto()
-    HMI_GREEN_GOOD = enum.auto()
-    HMI_YELLOW_WARNING = enum.auto()
-    HMI_RED_DANGER = enum.auto()
-    HMI_POINTER_BORDER = enum.auto()
-    HMI_POINTER_FILL = enum.auto()
+    HMI_FRAME_BORDER_COLOR = enum.auto()
+    HMI_GREEN_GOOD_COLOR = enum.auto()
+    HMI_YELLOW_WARNING_COLOR = enum.auto()
+    HMI_RED_DANGER_COLOR = enum.auto()
+    HMI_POINTER_BORDER_COLOR = enum.auto()
+    HMI_POINTER_FILL_COLOR = enum.auto()
+    HMI_MAJOR_TICKS_COLOR = enum.auto()
+    HMI_MINOR_TICKS_COLOR = enum.auto()
 
 
 class ScrutinyTheme(abc.ABC):

@@ -29,6 +29,7 @@ class HMIEditGrid(QGraphicsItem):
         self._visible = False
         self._view = view
         self._size = QSize()
+        self.setCacheMode(QGraphicsItem.CacheMode.ItemCoordinateCache)
 
     def show(self) -> None:
         self._visible = True
