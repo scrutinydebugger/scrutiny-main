@@ -199,7 +199,6 @@ class HMIWorkZone(QGraphicsView):
         self._resize_scene()
 
     def _resize_scene(self) -> None:
-        self.viewport().size()
         width = self.viewport().size().width()
         height = self.viewport().size().height()
         for widget in self.iterate_hmi_widgets():
@@ -351,7 +350,7 @@ class HMIWorkZone(QGraphicsView):
                 else:
                     resize_handles = self._mouse_down_widget.resize_handles_coordinates()
                     resize_handle: Optional[HandlePosition] = None
-                    pos_mapped_to_widget = self._mouse_down_widget.mapFromScene(self.mapToScene(event.pos())).toPoint()
+                    pos_mapped_to_widget = self._mouse_down_widget.mapFromScene(self.mapToScene(event.pos()))
                     for handle, rect in resize_handles.items():
                         if rect.contains(pos_mapped_to_widget):
                             resize_handle = handle
@@ -468,7 +467,7 @@ class HMIWorkZone(QGraphicsView):
     def _set_drop_placeholder_pos(self, scene_pos: QPointF) -> None:
         size = self._drop_placeholder.get_size()
         mapped_pos = scene_pos - QPointF(size.width() / 2, size.height() / 2)
-        snapped_pos = self._snap_to_grid(self.mapToScene(mapped_pos.toPoint()), size)
+        snapped_pos = self._snap_to_grid(mapped_pos.toPoint(), size)
         self._drop_placeholder.setPos(snapped_pos)
 
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:
