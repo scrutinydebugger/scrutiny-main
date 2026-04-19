@@ -1,3 +1,12 @@
+#    scrutiny_qmenu.py
+#        An extension of the QMenu used for right click menus. Has a method to destroy cleanly
+#        the menu and avoid memmory leaks with closures
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
+
 __all__ = ['ScrutinyQMenu']
 
 

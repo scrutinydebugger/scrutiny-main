@@ -1053,6 +1053,9 @@
         },
         "scrutiny/gui/widgets/scrutiny_hoverable_widget.py": {
             "docstring": "A widget that can be hovered and style according to the stylesheets"
+        },
+        "scrutiny/gui/widgets/scrutiny_qmenu.py": {
+            "docstring": "An extension of the QMenu used for right click menus. Has a method to destroy cleanly the menu and avoid memmory leaks with closures"
         }
     },
     "authors": {}
