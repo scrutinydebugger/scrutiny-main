@@ -35,6 +35,7 @@ from scrutiny import tools
 from scrutiny.gui import assets
 from scrutiny.gui.themes import scrutiny_get_theme_prop, ScrutinyThemeProperties, scrutiny_get_theme
 from scrutiny.gui.tools.min_max import MinMax
+from scrutiny.gui.widgets.scrutiny_qmenu import ScrutinyQMenu
 
 from scrutiny.tools import validation
 from scrutiny.gui.widgets.graph_signal_tree import GraphSignalTree, ValueItems
@@ -1534,7 +1535,7 @@ class ScrutinyChartToolBar(QGraphicsItem):
             self._is_pressed = False
             self.update()
 
-        def show_menu(self, chartview: QChartView, menu: QMenu) -> None:
+        def show_menu_and_disconnect_triggered(self, chartview: QChartView, menu: ScrutinyQMenu) -> None:
             pos = chartview.mapToGlobal(chartview.mapFromScene(self.mapToScene(self.pos())))
 
             actions = menu.actions()
@@ -1542,7 +1543,7 @@ class ScrutinyChartToolBar(QGraphicsItem):
             if len(actions) > 0:
                 pos += QPoint(0, menu.actionGeometry(actions[0]).height())
                 at = actions[0]
-            menu.exec(pos, at)
+            menu.exec_and_disconnect_triggered(pos, at)
 
     class ToolbarSpacer(QGraphicsItem):
         _width: int
@@ -1557,8 +1558,8 @@ class ScrutinyChartToolBar(QGraphicsItem):
         def paint(self, painter: QPainter, option: QStyleOptionGraphicsItem, widget: Optional[QWidget] = None) -> None:
             pass    # Nothing to do. Need to exist
 
-    class ToolbarMenu(QMenu):
-        @tools.copy_type(QMenu.__init__)
+    class ToolbarMenu(ScrutinyQMenu):
+        @tools.copy_type(ScrutinyQMenu.__init__)
         def __init__(self, *args: Any, **kwargs: Any) -> None:
             super().__init__(*args, **kwargs)
 
@@ -1669,7 +1670,7 @@ class ScrutinyChartToolBar(QGraphicsItem):
         no_cursor_action.triggered.connect(self.disable_chart_cursors)
         single_cursor_action.triggered.connect(self.enable_chart_cursor1)
         diff_cursor_action.triggered.connect(self.enable_chart_diff_cursor)
-        self._btn_cursor_menu.show_menu(self._chartview, menu)
+        self._btn_cursor_menu.show_menu_and_disconnect_triggered(self._chartview, menu)
 
     def _slot_btn_zoom_x(self) -> None:
         """Called when Zoom X button is clicked"""

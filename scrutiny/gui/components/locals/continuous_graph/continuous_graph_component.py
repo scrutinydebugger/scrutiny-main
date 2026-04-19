@@ -16,7 +16,7 @@ from dataclasses import dataclass
 import logging
 
 from PySide6.QtGui import QContextMenuEvent, QKeyEvent, QIcon
-from PySide6.QtWidgets import (QHBoxLayout, QSplitter, QWidget, QVBoxLayout, QMenu,
+from PySide6.QtWidgets import (QHBoxLayout, QSplitter, QWidget, QVBoxLayout,
                                QPushButton, QFormLayout, QSpinBox, QLineEdit, QLabel)
 from PySide6.QtCore import Qt, QPointF, QTimer, QRectF
 from PySide6.QtCharts import QLineSeries
@@ -36,6 +36,7 @@ from scrutiny.gui.dialogs.chart_range_edit_dialog import ChartRangeEditDialog
 from scrutiny.gui.widgets.base_chart import (
     ScrutinyLineSeries, ScrutinyValueAxisWithMinMax, ScrutinyChartView, ScrutinyChart,
     ScrutinyChartToolBar, XValuesData, GridConfiguration)
+from scrutiny.gui.widgets.scrutiny_qmenu import ScrutinyQMenu
 from scrutiny.gui.components.locals.base_local_component import ScrutinyGUIBaseLocalComponent
 from scrutiny.gui.components.locals.continuous_graph.csv_logging_menu import CsvLoggingMenuWidget
 from scrutiny.gui.components.locals.continuous_graph.realtime_line_series import RealTimeScrutinyLineSeries
@@ -1133,7 +1134,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
     def _chart_context_menu_slot(self, chartview_event: QContextMenuEvent) -> None:
         """Slot called when the user right click the chartview. Create a context menu and display it.
         This event is forwarded by the chartview through a signal."""
-        context_menu = QMenu()
+        context_menu = ScrutinyQMenu()
 
         context_menu.addSection("Zoom")
 
@@ -1189,7 +1190,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
         edit_range_action.triggered.connect(range_edit_slot)
         edit_range_action.setEnabled(self._state.enable_edit_range_menu())
 
-        context_menu.exec(self._chartview.mapToGlobal(chartview_event.pos()))
+        context_menu.exec_and_disconnect_triggered(self._chartview.mapToGlobal(chartview_event.pos()))
 
     def _save_image_slot(self) -> None:
         """When the user right-click the graph then click "Save as image" """

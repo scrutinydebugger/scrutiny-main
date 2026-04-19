@@ -13,7 +13,7 @@ from dataclasses import dataclass
 
 from PySide6.QtWidgets import QLineEdit
 from PySide6.QtGui import QDragEnterEvent, QDropEvent, QKeyEvent, QAction, QMouseEvent, QIcon, QPaintEvent, QPainter, QColor
-from PySide6.QtCore import Qt, QSize, QPoint, QRect
+from PySide6.QtCore import Qt, QSize, QPoint, QRect, QObject, Signal
 
 from scrutiny import tools
 from scrutiny.tools.typing import *
@@ -32,6 +32,10 @@ class WatchableFQNAndName:
 
 
 class WatchableLineEdit(QLineEdit):
+
+    class _Signals(QObject):
+        watchable_dropped = Signal(str)
+        watchable_cleared = Signal(str)
 
     class DictState(TypedDict):
         mode: Literal['text', 'watchable']
@@ -53,6 +57,7 @@ class WatchableLineEdit(QLineEdit):
     _mouse_over_clear_button: bool
     _text_mode_enabled: bool
     _loaded_watchable: Optional[WatchableFQNAndName]
+    _signals: _Signals
 
     @tools.copy_type(QLineEdit.__init__)
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -64,10 +69,21 @@ class WatchableLineEdit(QLineEdit):
         self._mouse_over_clear_button = False
         self._text_mode_enabled = True
         self._loaded_watchable = None
+        self._signals = self._Signals()
         self.setAcceptDrops(True)
-        self._update_cursor()
+        self.set_text_mode_enabled(True)
+
+    @property
+    def signals(self) -> _Signals:
+        return self._signals
 
     def set_text_mode_enabled(self, val: bool) -> None:
+        """Allow or disable text value. When disabled, only drag&drop of watchable is possible"""
+        if val:
+            self.setPlaceholderText("Drag or Value")
+        else:
+            self.setPlaceholderText("Drag")
+
         self._text_mode_enabled = val
         if self._mode == self.Mode.TEXT:
             readonly = not self._text_mode_enabled
@@ -75,6 +91,7 @@ class WatchableLineEdit(QLineEdit):
             self._update_cursor()
 
     def _clear_button_geometry(self) -> Tuple[QRect, QRect]:
+        """Returns the rectangle that sets the boundary of the clear button (red X on the right)"""
         zone_size = QSize(self.height() - 2 * self.CLEAR_ZONE_MARGIN, self.height() - 2 * self.CLEAR_ZONE_MARGIN)
         zone_topleft = QPoint(self.width() - zone_size.width() - self.CLEAR_ZONE_MARGIN, self.CLEAR_ZONE_MARGIN)
 
@@ -91,15 +108,22 @@ class WatchableLineEdit(QLineEdit):
         super().dragEnterEvent(event)
 
     def dropEvent(self, event: QDropEvent) -> None:
+        emit_drop_fqn: Optional[str] = None
         watchables = WatchableListDescriptor.from_mime(event.mimeData())
         if watchables is not None:
             if len(watchables.data) == 1:
                 watchable = watchables.data[0]
                 parsed_fqn = WatchableRegistry.FQN.parse(watchable.fqn)
                 self.set_watchable_mode(watchable_type=parsed_fqn.watchable_type, path=parsed_fqn.path, name=watchable.text)
+                emit_drop_fqn = watchable.fqn
         super().dropEvent(event)
 
+        if emit_drop_fqn is not None:
+            self._signals.watchable_dropped.emit(emit_drop_fqn)
+
     def set_watchable_mode(self, watchable_type: WatchableType, path: str, name: str) -> None:
+        """Sets this widget in watchable mode. in this mode, it display the watchable name with an icon and text edition
+        is not possible. Only the clear button can alter it."""
         for action in list(self.actions()):  # Remove any previous left icon
             self.removeAction(action)
         watchable_icon = scrutiny_get_theme().load_tiny_icon(watchabletype_2_icon(watchable_type))
@@ -130,7 +154,9 @@ class WatchableLineEdit(QLineEdit):
                 self.setCursor(Qt.CursorShape.ArrowCursor)
 
     def set_text_mode(self) -> None:
+        """Sets this widget in text mode. In this mode, this widget behaves like a normal QLineEdit (if text_mode is allowed)"""
         if self._mode == self.Mode.WATCHABLE:
+            watchable = self.get_watchable()
             assert self._watchable_icon_action is not None
             self.removeAction(self._watchable_icon_action)
             self.setText("")
@@ -144,6 +170,9 @@ class WatchableLineEdit(QLineEdit):
             self._clear_being_clicked = False
             self._loaded_watchable = None
             self._update_cursor()
+
+            if watchable is not None:
+                self._signals.watchable_cleared.emit(watchable.fqn)
 
     def keyPressEvent(self, event: QKeyEvent) -> None:
         if self._mode == self.Mode.WATCHABLE:

@@ -397,11 +397,12 @@ Editing, saving and reloading
 #############################
 
 The dashboard can be edited at will by drag & drop actions.
-Components can also be docked to any side of the dashbaord renamed or detached to make a whole new window.
+Components can also be docked to any side of the dashboard renamed or detached to make a whole new window.
 Each new window can itself be turned to a new docking zone by drag & dropping other components to them
 
 .. figure:: _static/ui/dashboard/dashboard-tab-menu.png
     :height: 3cm
+    
 
     Dashboard tab menu
 

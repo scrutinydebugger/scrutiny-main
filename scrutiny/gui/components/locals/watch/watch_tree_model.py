@@ -18,7 +18,7 @@ import logging
 import enum
 
 from PySide6.QtCore import QMimeData, QModelIndex, QPersistentModelIndex, Qt, Signal, QPoint, QObject, QAbstractItemModel
-from PySide6.QtWidgets import QWidget, QMenu, QAbstractItemDelegate, QComboBox, QStyleOptionViewItem, QStyledItemDelegate
+from PySide6.QtWidgets import QWidget, QAbstractItemDelegate, QComboBox, QStyleOptionViewItem, QStyledItemDelegate
 from PySide6.QtGui import (QStandardItem, QPalette, QContextMenuEvent, QDragMoveEvent, QDropEvent,
                            QDragEnterEvent, QKeyEvent)
 
@@ -35,6 +35,7 @@ from scrutiny.gui.widgets.watchable_tree import (
     item_from_serializable_data
 )
 from scrutiny.gui.widgets.base_tree import SerializableItemIndexDescriptor
+from scrutiny.gui.widgets.scrutiny_qmenu import ScrutinyQMenu
 from scrutiny.gui.widgets import mixins as gui_mixins
 from scrutiny.gui.themes import scrutiny_get_theme
 from scrutiny.gui import assets
@@ -189,7 +190,7 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
         self._allow_export_vals = val
 
     def contextMenuEvent(self, event: QContextMenuEvent) -> None:
-        context_menu = QMenu()
+        context_menu = ScrutinyQMenu()
         selected_indexes = self.selectedIndexes()
         selected_indexes_no_nested_unordered = self.model().remove_nested_indexes_unordered(selected_indexes)
         nesting_col = self.model().nesting_col()
@@ -261,7 +262,7 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
 
         export_vals_action.setEnabled(self._allow_export_vals and len(selected_items_no_nested_unordered) > 0)
 
-        self.display_context_menu(context_menu, event.pos())
+        self.display_context_menu_and_disconnect_triggered(context_menu, event.pos())
         event.accept()
 
     def model(self) -> "WatchComponentTreeModel":

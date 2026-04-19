@@ -1017,6 +1017,45 @@
         },
         "scripts/build_or_reuse_userguide.sh": {
             "docstring": "Script that either build the user guide or check for its existence if the proper environment variable is set. Meant to be called by a build process"
+        },
+        "scrutiny/gui/components/locals/hmi/hmi_component.py": {
+            "docstring": "Human Machine Interface component. Lets the user build a visual dashboard with graphical elements tied to a watchable."
+        },
+        "scrutiny/gui/components/locals/hmi/hmi_widgets/base_hmi_widget.py": {
+            "docstring": "Base class for every widgets part of a HMI component."
+        },
+        "scrutiny/gui/components/locals/hmi/hmi_widgets/text_label_hmi_widget.py": {
+            "docstring": "A HMI widget that displays a value in text form. Font size selected to fill the draw zone."
+        },
+        "scrutiny/gui/components/locals/hmi/hmi_library.py": {
+            "docstring": "A library of all the HMI widgets avaialble"
+        },
+        "scrutiny/gui/components/locals/hmi/hmi_library_category.py": {
+            "docstring": "A central place to define the different HMI widget categories used for display"
+        },
+        "scrutiny/gui/components/locals/hmi/hmi_widgets/gauge_hmi_widget.py": {
+            "docstring": "An HMI widget that display a dial gauge that goes from minimum to maximum"
+        },
+        "scrutiny/gui/components/locals/hmi/hmi_edit_grid.py": {
+            "docstring": "The Grid used in Edit Mode"
+        },
+        "scrutiny/gui/components/locals/hmi/common/numerical_text_display.py": {
+            "docstring": "A graphic item able to display a numerical value in a graphicScene. Offers parameters to control the font size and avoid display glitches"
+        },
+        "scrutiny/gui/components/locals/hmi/hmi_workzone.py": {
+            "docstring": "A workzone where HMI widgets lives visually. Can be shown in display mode or dragged/edited in Edit mode"
+        },
+        "scrutiny/gui/components/locals/hmi/hmi_theme.py": {
+            "docstring": "An abstraction layer to get the theming proeprties of the dashboard. Reduce possibilities, ensure higher changes of uniformization"
+        },
+        "scrutiny/gui/components/locals/hmi/hmi_widgets/test_hmi_widget.py": {
+            "docstring": "temp file"
+        },
+        "scrutiny/gui/widgets/scrutiny_hoverable_widget.py": {
+            "docstring": "A widget that can be hovered and style according to the stylesheets"
+        },
+        "scrutiny/gui/widgets/scrutiny_qmenu.py": {
+            "docstring": "An extension of the QMenu used for right click menus. Has a method to destroy cleanly the menu and avoid memmory leaks with closures"
         }
     },
     "authors": {}

@@ -9,7 +9,6 @@
 
 __all__ = ['StatusBar']
 
-import functools
 import enum
 import logging
 

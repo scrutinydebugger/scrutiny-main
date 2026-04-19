@@ -1,0 +1,5 @@
+TODO:
+    styling of HMI widgets
+
+    overflow behavior
+    name display

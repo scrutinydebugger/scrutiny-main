@@ -14,7 +14,7 @@ __all__ = [
 
 import enum
 
-from PySide6.QtWidgets import QVBoxLayout, QWidget, QMenu, QTabWidget
+from PySide6.QtWidgets import QVBoxLayout, QWidget, QTabWidget
 from PySide6.QtGui import QContextMenuEvent, QStandardItemModel, QIcon
 from PySide6.QtCore import QModelIndex, Qt, QItemSelectionModel
 
@@ -22,6 +22,7 @@ from scrutiny.gui import assets
 from scrutiny.gui.themes import scrutiny_get_theme
 from scrutiny.gui.core.watchable_registry import WatchableRegistry
 from scrutiny.gui.widgets.watchable_tree import WatchableStandardItem
+from scrutiny.gui.widgets.scrutiny_qmenu import ScrutinyQMenu
 from scrutiny.gui.widgets import mixins as gui_mixins
 from scrutiny.gui.components.globals.base_global_component import ScrutinyGUIBaseGlobalComponent
 from scrutiny.gui.components.globals.varlist.varlist_tree_model import VarListComponentTreeModel
@@ -47,7 +48,7 @@ class VarlistComponentTreeWidget(WatchableTreeWidget):
         return cast(VarListComponentTreeModel, super().model())
 
     def contextMenuEvent(self, e: QContextMenuEvent) -> None:
-        context_menu = QMenu()
+        context_menu = ScrutinyQMenu()
         selected_indexes = self.selectedIndexes()
         nesting_col = self.model().nesting_col()
 
@@ -65,7 +66,7 @@ class VarlistComponentTreeWidget(WatchableTreeWidget):
         copy_path_clipboard_action = gui_mixins.qmenu_add_copy_path_action(context_menu, get_selected_paths())
         copy_path_clipboard_action.setEnabled(len(selected_items) > 0)
 
-        self.display_context_menu(context_menu, e.pos())
+        self.display_context_menu_and_disconnect_triggered(context_menu, e.pos())
 
 
 class VarListComponent(ScrutinyGUIBaseGlobalComponent):

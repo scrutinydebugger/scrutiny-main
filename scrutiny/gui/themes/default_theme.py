@@ -21,6 +21,9 @@ SELECTED_COLOR = QColor(205, 232, 255)
 PRESSED_COLOR = SELECTED_COLOR
 SELECTED_HOVERED_BORDER_COLOR = QColor(153, 209, 255)
 
+HMI_LOW_CONTRAST_COLOR = QColor("#643010")
+HMI_HIGH_CONTRAST_COLOR = QColor("#F08030")
+
 
 class DefaultTheme(ScrutinyTheme):
 
@@ -42,7 +45,17 @@ class DefaultTheme(ScrutinyTheme):
         ScrutinyThemeProperties.WATCHABLE_LINE_EDIT_CLEAR_BTN_PRESSED_COLOR: PRESSED_COLOR,
 
         ScrutinyThemeProperties.WIDGET_ERROR_BACKGROUND_COLOR: RED_ERROR,
-        ScrutinyThemeProperties.EMBEDDED_GRAPH_CHART_TRIGGER_COLOR: QColor(0, 0, 0)
+        ScrutinyThemeProperties.EMBEDDED_GRAPH_CHART_TRIGGER_COLOR: QColor(0, 0, 0),
+
+        ScrutinyThemeProperties.HMI_GREEN_GOOD_COLOR: QColor("#92D050"),
+        ScrutinyThemeProperties.HMI_YELLOW_WARNING_COLOR: QColor("#FFFF00"),
+        ScrutinyThemeProperties.HMI_RED_DANGER_COLOR: QColor("#FF0000"),
+        ScrutinyThemeProperties.HMI_POINTER_BORDER_COLOR: HMI_LOW_CONTRAST_COLOR,
+        ScrutinyThemeProperties.HMI_POINTER_FILL_COLOR: HMI_HIGH_CONTRAST_COLOR,
+        ScrutinyThemeProperties.HMI_FRAME_BORDER_COLOR: QColor("#000000"),
+        ScrutinyThemeProperties.HMI_MAJOR_TICKS_COLOR: HMI_HIGH_CONTRAST_COLOR,
+        ScrutinyThemeProperties.HMI_MINOR_TICKS_COLOR: HMI_LOW_CONTRAST_COLOR,
+
 
     }
 

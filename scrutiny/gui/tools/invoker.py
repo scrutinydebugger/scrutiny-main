@@ -71,10 +71,10 @@ class QueuedInvoker(QObject):
         if app is None:
             raise RuntimeError("A QT application must be running")
 
-    def exec(self, method: Callable[[], None]) -> None:
+    def exec(self, method: Callable[[], None], delay_msec: int = 0) -> None:
         timer = QTimer(self)    # Parent is important
         timer.setSingleShot(True)
-        timer.setInterval(0)
+        timer.setInterval(delay_msec)
 
         def exec_method() -> None:
             timer.setParent(None)
@@ -88,9 +88,9 @@ class QueuedInvoker(QObject):
 
 
 @enforce_thread(QT_THREAD_NAME)
-def invoke_later(method: Callable[[], None]) -> None:
+def invoke_later(method: Callable[[], None], delay_msec: int = 0) -> None:
     """Enqueue a function to be executed at the back of the event queue"""
-    QueuedInvoker.instance().exec(method)
+    QueuedInvoker.instance().exec(method, delay_msec)
 
 
 def invoke_in_qt_thread(method: Callable[[], None]) -> None:

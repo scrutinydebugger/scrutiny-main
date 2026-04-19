@@ -14,7 +14,7 @@ import logging
 import enum
 
 from PySide6.QtWidgets import (
-    QVBoxLayout, QLabel, QWidget, QSplitter, QPushButton, QScrollArea, QHBoxLayout, QMenu,
+    QVBoxLayout, QLabel, QWidget, QSplitter, QPushButton, QScrollArea, QHBoxLayout,
     QTabWidget, QCheckBox, QMessageBox
 )
 from PySide6.QtCore import Qt, QPointF, QRectF, QRect
@@ -43,6 +43,7 @@ from scrutiny.gui.widgets.base_chart import (
 )
 from scrutiny.gui.widgets.graph_signal_tree import GraphSignalTree, ChartSeriesWatchableStandardItem, AxisStandardItem, AxisContent
 from scrutiny.gui.widgets.feedback_label import FeedbackLabel
+from scrutiny.gui.widgets.scrutiny_qmenu import ScrutinyQMenu
 from scrutiny.gui.dialogs.chart_range_edit_dialog import ChartRangeEditDialog
 from scrutiny.gui.components.common import chart_mixins
 from scrutiny import tools
@@ -935,7 +936,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
     def _chart_context_menu_slot(self, chartview_event: QContextMenuEvent) -> None:
         """Slot called when the user right click the chartview. Create a context menu and display it.
         This event is forwarded by the chartview through a signal."""
-        context_menu = QMenu()
+        context_menu = ScrutinyQMenu()
 
         context_menu.addSection("Zoom")
 
@@ -988,7 +989,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
         clear_chart_action.triggered.connect(self._clear_graph)
         clear_chart_action.setEnabled(self._state.enable_clear_button())
 
-        context_menu.exec(self._chartview.mapToGlobal(chartview_event.pos()))
+        context_menu.exec_and_disconnect_triggered(self._chartview.mapToGlobal(chartview_event.pos()))
 
     def _reset_zoom_slot(self) -> None:
         """Right-click -> Reset zoom"""

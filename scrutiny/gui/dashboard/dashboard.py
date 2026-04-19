@@ -18,7 +18,7 @@ from datetime import datetime
 from pathlib import Path
 import gc
 
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QMenu, QInputDialog, QLineEdit
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QInputDialog, QLineEdit
 from PySide6.QtCore import Qt, QSize, QObject, Signal, QTimer
 from PySide6.QtGui import QKeyEvent, QContextMenuEvent, QMouseEvent
 
@@ -38,6 +38,8 @@ from scrutiny.gui.app_settings import app_settings
 from scrutiny.gui.core.persistent_data import gui_persistent_data
 from scrutiny.gui.core.watchable_registry import WatchableRegistry
 from scrutiny.gui.core.server_manager import ServerManager
+
+from scrutiny.gui.widgets.scrutiny_qmenu import ScrutinyQMenu
 
 from scrutiny import tools
 from scrutiny.gui.tools import prompt
@@ -116,9 +118,9 @@ def tab_context_menu(dock_widget: QtAds.CDockWidget,
                      detach: bool = True,
                      pin_to: bool = True,
                      unpin: bool = True,
-                     close: bool = True) -> QMenu:
+                     close: bool = True) -> ScrutinyQMenu:
     """Creates a context menu when the user for when the user right-click a tab."""
-    menu = QMenu()
+    menu = ScrutinyQMenu()
     dock_widget.setAsCurrentTab()
     component = cast(ScrutinyGUIBaseComponent, dock_widget.widget())
     is_autohide = dock_widget.dockAreaWidget().isAutoHide()    # Check dockarea. dock_widget.isautoHide is buggy. See bug #739
@@ -142,7 +144,7 @@ def tab_context_menu(dock_widget: QtAds.CDockWidget,
 
     if pin_to:
         pin_to_action = menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.Pin), "Pin to")
-        pin_to_menu = QMenu(menu)
+        pin_to_menu = ScrutinyQMenu(menu)
         pin_to_action.setMenu(pin_to_menu)
         pin_to_left_action = pin_to_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.SidebarLeft), "Left")
         pin_to_right_action = pin_to_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.SidebarRight), "Right")
@@ -211,7 +213,7 @@ class ScrutinyDockWidgetSideTab(QtAds.ads.CAutoHideTab):
 
         menu = tab_context_menu(dock_widget)
         if len(menu.actions()) > 0:
-            menu.exec(self.mapToGlobal(event.pos()))
+            menu.exec_and_disconnect_triggered(self.mapToGlobal(event.pos()))
 
 
 class ScrutinyDockAreaTitleBar(QtAds.CDockAreaTitleBar):
@@ -241,7 +243,7 @@ class ScrutinyDockWidgetTab(QtAds.CDockWidgetTab):
 
         menu = tab_context_menu(dock_widget)
         if len(menu.actions()) > 0:
-            menu.exec(self.mapToGlobal(event.pos()))
+            menu.exec_and_disconnect_triggered(self.mapToGlobal(event.pos()))
 
 
 class CustomFactory(QtAds.CDockComponentsFactory):
