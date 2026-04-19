@@ -262,7 +262,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
 
                 edit_action.triggered.connect(edit_action_slot)
 
-                def remove_action_slot():
+                def remove_action_slot() -> None:
                     invoke_later(functools.partial(self._delete_widget, widget))
                 remove_action.triggered.connect(remove_action_slot)
 

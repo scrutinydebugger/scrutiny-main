@@ -23,7 +23,6 @@ from scrutiny.tools.typing import *
 # They enable discovery by reflection.
 from .hmi_widgets.text_label_hmi_widget import TextLabelHMIWidget
 from .hmi_widgets.gauge_hmi_widget import GaugeHMIWidget
-from .hmi_widgets.test_hmi_widget import TestHMIWidget
 #########################################
 
 

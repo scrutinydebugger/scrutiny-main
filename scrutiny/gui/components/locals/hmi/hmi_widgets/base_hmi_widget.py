@@ -15,8 +15,8 @@ import logging
 import enum
 
 from PySide6.QtWidgets import QWidget, QFormLayout, QGraphicsItem, QStyleOptionGraphicsItem
-from PySide6.QtGui import QPainter, QPixmap, QBrush, QIcon
-from PySide6.QtCore import QSize, QRectF, QPointF, QObject, QRect, QPoint, Qt, Signal
+from PySide6.QtGui import QPainter, QPixmap,  QIcon
+from PySide6.QtCore import QSize, QRectF, QPointF, QObject, Qt, Signal
 
 from scrutiny import sdk
 from scrutiny.gui.app_settings import app_settings

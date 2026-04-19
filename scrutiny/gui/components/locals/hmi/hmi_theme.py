@@ -23,15 +23,15 @@ class HMITheme:
 
         @staticmethod
         def green_good() -> QColor:
-            return cast(QColor, scrutiny_get_theme_prop(ScrutinyThemeProperties.HMI_GREEN_GOOD))
+            return cast(QColor, scrutiny_get_theme_prop(ScrutinyThemeProperties.HMI_GREEN_GOOD_COLOR))
 
         @staticmethod
         def yellow_warning() -> QColor:
-            return cast(QColor, scrutiny_get_theme_prop(ScrutinyThemeProperties.HMI_YELLOW_WARNING))
+            return cast(QColor, scrutiny_get_theme_prop(ScrutinyThemeProperties.HMI_YELLOW_WARNING_COLOR))
 
         @staticmethod
         def red_danger() -> QColor:
-            return cast(QColor, scrutiny_get_theme_prop(ScrutinyThemeProperties.HMI_RED_DANGER))
+            return cast(QColor, scrutiny_get_theme_prop(ScrutinyThemeProperties.HMI_RED_DANGER_COLOR))
 
         @staticmethod
         def widget_background() -> QColor:
