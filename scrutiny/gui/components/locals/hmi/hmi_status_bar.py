@@ -6,6 +6,7 @@ from PySide6.QtCore import Signal, QObject, QSize
 from scrutiny import tools
 from scrutiny.tools.typing import *
 
+
 class HMIStatusBar(QStatusBar):
 
     class _Signals(QObject):

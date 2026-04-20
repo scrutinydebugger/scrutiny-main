@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (QStyleOptionGraphicsItem, QWidget, QFormLayout, Q
 
 from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget, WatchableValueType
 from scrutiny.gui.components.locals.hmi.hmi_theme import HMITheme
-from scrutiny.gui.components.locals.hmi.common.numerical_text_display import NumericalTextDisplay
+from scrutiny.gui.components.locals.hmi.common.bounded_text_display import BoundedTextDisplay
 from scrutiny.gui import assets
 from scrutiny import tools
 from scrutiny.tools.typing import *
@@ -34,7 +34,7 @@ class Dims:
     KNOB = 0.12
     TEXT_DISPLAY_H = 0.25
     TEXT_DISPLAY_W = 0.8
-    TEXT_DISPLAY_Y = 0.35
+    TEXT_DISPLAY_Y = 0.5
     COLOR_W = 0.07
     MAJOR_TICK_LEN = 0.12
     MINOR_TICK_LEN = 0.04
@@ -113,7 +113,7 @@ class GaugeHMIWidget(BaseHMIWidget):
     _ICON = assets.Icons.HMIGauge
 
     _config_widget: QWidget
-    _numerical_display: NumericalTextDisplay
+    _numerical_display: BoundedTextDisplay
     _pointer: GaugePointer
     _cmb_overflow_behavior: QComboBox
     _spn_major_ticks: QSpinBox
@@ -134,7 +134,7 @@ class GaugeHMIWidget(BaseHMIWidget):
         self._minval = None
         self._maxval = None
 
-        self._numerical_display = NumericalTextDisplay(self)
+        self._numerical_display = BoundedTextDisplay(self)
         self._numerical_display.set_background_color(HMITheme.Color.workzone_background())  # Effect of hole
         self._pointer = GaugePointer(self)
         self._pointer.setPos(0, 0)
@@ -145,13 +145,13 @@ class GaugeHMIWidget(BaseHMIWidget):
 
         self._spn_major_ticks = QSpinBox()
         self._spn_major_ticks.setMinimum(0)
-        self._spn_major_ticks.setMaximum(12)
-        self._spn_major_ticks.setValue(6)
+        self._spn_major_ticks.setMaximum(15)
+        self._spn_major_ticks.setValue(7)
 
         self._spn_minor_ticks = QSpinBox()
         self._spn_minor_ticks.setMinimum(0)
         self._spn_minor_ticks.setMaximum(12)
-        self._spn_minor_ticks.setValue(2)
+        self._spn_minor_ticks.setValue(3)
 
         self._txt_name = QLineEdit()
 

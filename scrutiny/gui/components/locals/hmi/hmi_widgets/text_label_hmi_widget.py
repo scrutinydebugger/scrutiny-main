@@ -19,7 +19,7 @@ from scrutiny.gui import assets
 from scrutiny.tools.typing import *
 
 from scrutiny.gui.components.locals.hmi.hmi_library_category import LibraryCategory
-from scrutiny.gui.components.locals.hmi.common.numerical_text_display import NumericalTextDisplay
+from scrutiny.gui.components.locals.hmi.common.bounded_text_display import BoundedTextDisplay
 from scrutiny.gui.components.locals.hmi.hmi_theme import HMITheme
 
 if TYPE_CHECKING:
@@ -32,7 +32,7 @@ class TextLabelHMIWidget(BaseHMIWidget):
     _NAME = 'Text Display'
     _ICON = assets.Icons.HMITextDisplay
 
-    _numerical_display: NumericalTextDisplay
+    _numerical_display: BoundedTextDisplay
     _config_widget: QWidget
 
     def __init__(self, hmi_component: "HMIComponent") -> None:
@@ -40,7 +40,7 @@ class TextLabelHMIWidget(BaseHMIWidget):
         self.declare_value_slot('val', 'Value')
 
         self._config_widget = QWidget()
-        self._numerical_display = NumericalTextDisplay(self)
+        self._numerical_display = BoundedTextDisplay(self)
         self._numerical_display.set_border_width(4)
         layout = QVBoxLayout(self._config_widget)
         layout.addWidget(self._numerical_display.get_config_widget())
