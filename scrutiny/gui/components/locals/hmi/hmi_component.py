@@ -26,6 +26,7 @@ from scrutiny.gui.widgets.scrutiny_qmenu import ScrutinyQMenu
 from scrutiny.gui.components.locals.base_local_component import ScrutinyGUIBaseLocalComponent
 
 from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget
+from scrutiny.gui.components.locals.hmi.hmi_status_bar import HMIStatusBar
 from scrutiny.gui.components.locals.hmi.hmi_workzone import HMIWorkZone
 
 from scrutiny.gui.tools.invoker import invoke_later
@@ -55,6 +56,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
     _library: HMILibrary
     _config_widgets: Dict[int, QWidget]
     _config_widget_container_layout: QStackedLayout
+    _status_bar: HMIStatusBar
 
 # region inherited methods
     @classmethod
@@ -63,7 +65,8 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
 
     def setup(self) -> None:
         self._mode = HMIInteractionMode.Display
-        self._workzone = HMIWorkZone()
+        self._status_bar = HMIStatusBar()
+        self._workzone = HMIWorkZone(self._status_bar)
         self._library = HMILibrary()
         self._config_widget_container = QWidget()
         self._config_widgets = {}
@@ -77,16 +80,24 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         self._config_widget_container_layout.setStackingMode(QStackedLayout.StackingMode.StackOne)
         self._config_widget_container_layout.addWidget(QWidget())   # Empty widget at index 0
 
+        workzone_status_bar_container = QWidget()
+        workzone_status_bar_container_layout = QVBoxLayout(workzone_status_bar_container)
+        workzone_status_bar_container_layout.setContentsMargins(0, 0, 0, 0)
+
+        workzone_status_bar_container_layout.addWidget(self._workzone, 1)
+        workzone_status_bar_container_layout.addWidget(self._status_bar)
+
         self._splitter = QSplitter()
         self._splitter.setOrientation(Qt.Orientation.Horizontal)
         self._splitter.setContentsMargins(0, 0, 0, 0)
         self._splitter.setHandleWidth(5)
         self._splitter.addWidget(self._edit_tab_widget)
-        self._splitter.addWidget(self._workzone)
+        self._splitter.addWidget(workzone_status_bar_container)
         self._splitter.setCollapsible(self.SPLITTER_EDIT_MENU, True)
         self._splitter.setCollapsible(self.SPLITTER_WORKZONE, False)
 
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
         layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         layout.addWidget(self._splitter, 1)  # 1=Stretch
         self._workzone.signals.right_click.connect(self._workzone_right_click_slot)
@@ -97,6 +108,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         self._show_config_of(None)
 
         self.app.server_manager.signals.registry_changed.connect(self._registry_changed_slot)
+        self._status_bar.signals.exit_edit_mode.connect(lambda: self.set_mode(HMIInteractionMode.Display))
 
     def ready(self) -> None:
         self.set_mode(HMIInteractionMode.Edit)
@@ -140,11 +152,13 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
             self._workzone.show_grid(True)
             self._workzone.setAcceptDrops(True)
             self._workzone.set_allow_edit_widgets(True)
+            self._status_bar.setVisible(True)
         elif self._mode == HMIInteractionMode.Display:
             self._show_edit_menu(False)
             self._workzone.show_grid(False)
             self._workzone.setAcceptDrops(False)
             self._workzone.set_allow_edit_widgets(False)
+            self._status_bar.setVisible(False)
 
         for hmi_widget in self._workzone.iterate_hmi_widgets():
             self.update_hmi_widget_state(hmi_widget)

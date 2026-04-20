@@ -135,6 +135,7 @@ class NumericalTextDisplay(QGraphicsItem):
     _alignement: Qt.AlignmentFlag
     _size: QSize
     _border_width: int
+    _background_color: QColor
 
     def __init__(self, parent: Optional[QGraphicsItem]) -> None:
         super().__init__(parent)
@@ -145,6 +146,7 @@ class NumericalTextDisplay(QGraphicsItem):
         self._text_color = QColor()
         self._size = QSize()
         self._border_width = 1
+        self._background_color = HMITheme.Color.text_display_background()
 
         self._config_widget.signals.changed.connect(self._signals.config_changed)
         self._config_widget.signals.changed.connect(self.update)
@@ -162,6 +164,9 @@ class NumericalTextDisplay(QGraphicsItem):
 
     def set_text_color(self, color: QColor) -> None:
         self._text_color = color
+
+    def set_background_color(self, color: QColor) -> None:
+        self._background_color = color
 
     def set_val(self, val: Union[float, int, bool, str]) -> None:
         self._val = val
@@ -225,7 +230,7 @@ class NumericalTextDisplay(QGraphicsItem):
 
         bounding_rect = self.boundingRect()
         painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(HMITheme.Color.text_display_background())
+        painter.setBrush(self._background_color)
         painter.drawRect(bounding_rect)
 
         if bounding_rect.width() > 2 * self._border_width and bounding_rect.height() > 2 * self._border_width:

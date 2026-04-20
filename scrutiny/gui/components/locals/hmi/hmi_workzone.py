@@ -21,6 +21,7 @@ from scrutiny.gui.components.locals.hmi.hmi_library import HMILibrary
 from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget, HandlePosition
 from scrutiny.gui.components.locals.hmi.hmi_edit_grid import HMIEditGrid
 from scrutiny.gui.components.locals.hmi.hmi_theme import HMITheme
+from scrutiny.gui.components.locals.hmi.hmi_status_bar import HMIStatusBar
 
 
 from scrutiny import tools
@@ -107,15 +108,17 @@ class HMIWorkZone(QGraphicsView):
     _selected_widgets: List[BaseHMIWidget]
     _scene: QGraphicsScene
     _drop_placeholder: DropPlaceholder
+    _status_bar: HMIStatusBar
 
-    @tools.copy_type(QGraphicsView.__init__)
-    def __init__(self) -> None:
+    def __init__(self, status_bar: HMIStatusBar) -> None:
         self._scene = QGraphicsScene()
         super().__init__(self._scene)
         self._signals = self._Signals()
+        self._signals.selection_changed.connect(self._selection_changed_slot)
 
         self._mouse_down_start = None
         self._mouse_down_widget = None
+        self._status_bar = status_bar
 
         self._rubberband = QRubberBand(QRubberBand.Shape.Rectangle)
         self._rubberband.setParent(self)
@@ -211,7 +214,7 @@ class HMIWorkZone(QGraphicsView):
     def mouseMoveEvent(self, event: QMouseEvent) -> None:
         event.accept()
         cursor = Qt.CursorShape.ArrowCursor
-
+        scene_pos = self.mapToScene(event.pos())
         if self._allow_edit_widgets:
             if self._rubberband_active:
                 assert self._mouse_down_start is not None
@@ -227,13 +230,19 @@ class HMIWorkZone(QGraphicsView):
                     # Check if we should display a resize cursor if use hover a resize handle
                     item = self.hmi_widget_at(event.pos())
                     if item is not None:
-                        local_pos = item.mapFromScene(self.mapToScene(event.pos()))
+                        local_pos = item.mapFromScene(scene_pos)
                         for handle, rect in item.resize_handles_coordinates().items():
                             if rect.contains(local_pos):
                                 cursor = RESIZE_CURSOR_MAP[handle]
                                 break
 
         self.setCursor(cursor)
+
+    def _selection_changed_slot(self, widgets: List[BaseHMIWidget]) -> None:
+        if len(widgets) == 0:
+            self._status_bar.set_selected_count(None)
+        else:
+            self._status_bar.set_selected_count(len(widgets))
 
     def _snap_to_grid(self, p: Union[QPoint, QPointF], size: Optional[Union[QSizeF, QSize]] = None) -> QPoint:
         if size is None:
@@ -319,16 +328,20 @@ class HMIWorkZone(QGraphicsView):
         # Apply only on dimensions that are allowed to change
         widget = self._mouse_edit_data.resize_data.widget
         if new_size.width() >= widget.min_width() and new_size.height() >= widget.min_height():
-            self._mouse_edit_data.resize_data.widget.setPos(new_pos)
-            self._mouse_edit_data.resize_data.widget.set_size(new_size)
+            pass
         elif new_size.width() >= widget.min_width():
-            self._mouse_edit_data.resize_data.widget.setPos(QPoint(new_pos.x(), previous_pos.y()))
-            self._mouse_edit_data.resize_data.widget.set_size(QSize(new_size.width(), previous_size.height()))
+            new_pos = QPoint(new_pos.x(), previous_pos.y())
+            new_size = QSize(new_size.width(), previous_size.height())
         elif new_size.height() >= widget.min_height():
-            self._mouse_edit_data.resize_data.widget.setPos(QPoint(previous_pos.x(), new_pos.y()))
-            self._mouse_edit_data.resize_data.widget.set_size(QSize(previous_size.width(), new_size.height()))
+            new_size = QSize(previous_size.width(), new_size.height())
+            new_pos = QPoint(previous_pos.x(), new_pos.y())
         else:
-            pass    # Leave untouched
+            new_pos = previous_pos
+            new_size = previous_size
+
+        self._mouse_edit_data.resize_data.widget.setPos(new_pos)
+        self._mouse_edit_data.resize_data.widget.set_size(new_size)
+        self._status_bar.set_resize_size(new_size)
 
         return cursor
 
@@ -396,6 +409,7 @@ class HMIWorkZone(QGraphicsView):
 
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
         event.accept()
+        self._status_bar.set_resize_size(None)
         if self._mouse_down_start is None:
             return
 

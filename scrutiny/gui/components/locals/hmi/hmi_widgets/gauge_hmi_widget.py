@@ -135,6 +135,7 @@ class GaugeHMIWidget(BaseHMIWidget):
         self._maxval = None
 
         self._numerical_display = NumericalTextDisplay(self)
+        self._numerical_display.set_background_color(HMITheme.Color.workzone_background())  # Effect of hole
         self._pointer = GaugePointer(self)
         self._pointer.setPos(0, 0)
 
