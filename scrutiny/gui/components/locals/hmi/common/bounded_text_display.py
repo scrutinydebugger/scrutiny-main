@@ -109,10 +109,10 @@ class _NumericalConfigWidget(QWidget):
         self.spn_ints.setMaximum(NumericalConfigConstants.MAXIMUM_INTS)
 
         layout = QFormLayout(self)
+        layout.addRow("Engineering notation", self.chk_eng_notation)
         layout.addRow("Integers", self.spn_ints)
         layout.addRow("Decimals", self.spn_decimals)
         layout.addRow("Units", self.txt_units)
-        layout.addRow("Engineering notation", self.chk_eng_notation)
 
         def _changed_slot(*args: Any, **kwargs: Any) -> None:
             self._update_ui_state()
@@ -226,7 +226,7 @@ class BoundedTextDisplay(QGraphicsItem):
 
 # region Private
     @classmethod
-    def format_value(cls, config: BoundedTextNumericalConfig, val: float) -> str:
+    def format_numerical_value(cls, config: BoundedTextNumericalConfig, val: float) -> str:
         if config.eng_notation:
             return tools.format_eng_unit(val, decimal=config.decimals, unit=config.units)
 
@@ -270,7 +270,7 @@ class BoundedTextDisplay(QGraphicsItem):
         elif isinstance(self._val, bool):
             text = "1" if self._val else "0"
         else:
-            text = self.format_value(self._config, float(self._val))
+            text = self.format_numerical_value(self._config, float(self._val))
 
         bounding_rect = self.boundingRect()
         painter.setPen(Qt.PenStyle.NoPen)

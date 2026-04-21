@@ -11,13 +11,14 @@ __all__ = ['GaugeHMIWidget']
 import math
 import enum
 
-from PySide6.QtGui import QPainter, QColor, QPen
-from PySide6.QtCore import QSize, QRect, QPoint, Qt, QPointF, QRectF, QSizeF
-from PySide6.QtWidgets import (QStyleOptionGraphicsItem, QWidget, QFormLayout, QComboBox, QLineEdit, QSpinBox, QGroupBox, QVBoxLayout, QGraphicsItem)
+from PySide6.QtGui import QPainter, QPen, QColor
+from PySide6.QtCore import QSize,Qt, QPointF, QRectF, QSizeF
+from PySide6.QtWidgets import (QStyleOptionGraphicsItem, QWidget, QFormLayout, QComboBox, QLineEdit,
+                               QSpinBox, QGroupBox, QVBoxLayout, QGraphicsItem)
 
 from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget, WatchableValueType
 from scrutiny.gui.components.locals.hmi.hmi_theme import HMITheme
-from scrutiny.gui.components.locals.hmi.common.bounded_text_display import BoundedTextDisplay
+from scrutiny.gui.components.locals.hmi.common.bounded_text_display import BoundedTextDisplay, BoundedTextNumericalConfig
 from scrutiny.gui import assets
 from scrutiny import tools
 from scrutiny.tools.typing import *
@@ -32,14 +33,16 @@ class Dims:
     OUTER_CIRCLE = 1
     INNER_CIRCLE = 0.97
     KNOB = 0.12
-    TEXT_DISPLAY_H = 0.25
-    TEXT_DISPLAY_W = 0.8
-    TEXT_DISPLAY_Y = 0.5
+    TEXT_DISPLAY_H = 0.2
+    TEXT_DISPLAY_W = TEXT_DISPLAY_H * 3.5
+    TEXT_DISPLAY_Y = 0.6
     COLOR_W = 0.07
     MAJOR_TICK_LEN = 0.12
     MINOR_TICK_LEN = 0.04
     STROKE = 0.02
     POINTER_LEN = 0.9
+    TICK_LABEL_W = 0.30
+    TICK_LABEL_H = 0.12
 
 
 class OverflowBehavior(enum.Enum):
@@ -123,6 +126,7 @@ class GaugeHMIWidget(BaseHMIWidget):
     _minval: Optional[float]
     _maxval: Optional[float]
     _major_ticks_pen: QPen
+    _major_ticks_label_pen: QPen
     _minor_ticks_pen: QPen
 
     def __init__(self, hmi_component: "HMIComponent") -> None:
@@ -174,6 +178,9 @@ class GaugeHMIWidget(BaseHMIWidget):
         self._major_ticks_pen = QPen()
         self._major_ticks_pen.setColor(HMITheme.Color.major_ticks())
 
+        self._major_ticks_label_pen = QPen()
+        self._major_ticks_label_pen.setColor(HMITheme.Color.text())
+
         self._minor_ticks_pen = QPen()
         self._minor_ticks_pen.setColor(HMITheme.Color.minor_ticks())
 
@@ -217,8 +224,10 @@ class GaugeHMIWidget(BaseHMIWidget):
     def _process_new_val(self, val: Optional[Union[bool, int, float]]) -> None:
         if val is None:
             self._numerical_display.set_val("N/A")
+            self._numerical_display.set_alignment(Qt.AlignmentFlag.AlignCenter)
         else:
             self._numerical_display.set_val(val)
+            self._numerical_display.set_alignment(Qt.AlignmentFlag.AlignRight)
 
         pointer_angle = self._get_pointer_angle(val)
         if pointer_angle is None:
@@ -244,6 +253,10 @@ class GaugeHMIWidget(BaseHMIWidget):
              values: Dict[str, Optional[WatchableValueType]],
              painter: QPainter
              ) -> None:
+
+        self._minval = values['min']
+        self._maxval = values['max']
+
         bounding_rect = self.boundingRect()
         aspect_ratio = bounding_rect.height() / bounding_rect.width()
         ref_size = bounding_rect.width() / 2
@@ -274,42 +287,80 @@ class GaugeHMIWidget(BaseHMIWidget):
 
         nb_major_ticks = self._spn_major_ticks.value()
         nb_minor_ticks = self._spn_minor_ticks.value()
+        numerical_config = BoundedTextNumericalConfig(units="", decimals=1, eng_notation=True)
+        monospace_font = assets.get_font(assets.ScrutinyFont.Monospaced)
+
+        # Draw major ticks
         if nb_major_ticks >= 2:
+            # Precompute common values
             delta_angle = 270 / (nb_major_ticks - 1)
             tick_p1_radius = inner_radius - stroke_w
+            tick_p2_radius = tick_p1_radius - major_tick_len
+            tick_label_size = QSizeF(ref_size * Dims.TICK_LABEL_W, ref_size * Dims.TICK_LABEL_H * aspect_ratio )
+            tick_label_half_size = QSizeF(tick_label_size.width() / 2, tick_label_size.height() / 2)
+            tick_label_longest_diagonal = math.sqrt((tick_label_size.height()/2)**2 + (tick_label_size.width()/2)**2)
 
             for i in range(nb_major_ticks):
-                painter.setPen(self._major_ticks_pen)
                 angle = 225 - i * delta_angle
                 angle_rad = math.radians(angle)
-                p1 = QPointF(
-                    center.x() - tick_p1_radius * math.cos(angle_rad),
-                    center.y() - tick_p1_radius * math.sin(angle_rad) * aspect_ratio,
+                cos_angle = math.cos(angle_rad)
+                sin_angle = math.sin(angle_rad)
+                painter.setPen(self._major_ticks_pen)
+
+                tick_p1 = QPointF(
+                    center.x() + tick_p1_radius * cos_angle,
+                    center.y() - tick_p1_radius * sin_angle * aspect_ratio,
                 )
-                p2 = QPointF(
-                    center.x() - (tick_p1_radius - major_tick_len) * math.cos(angle_rad),
-                    center.y() - (tick_p1_radius - major_tick_len) * math.sin(angle_rad) * aspect_ratio,
+                tick_p2 = QPointF(
+                    center.x() + tick_p2_radius * cos_angle,
+                    center.y() - tick_p2_radius * sin_angle * aspect_ratio,
                 )
 
-                painter.drawLine(p1, p2)
+                painter.drawLine(tick_p1, tick_p2)
 
+                # Write the major tick label
+                if self._minval is not None and self._maxval is not None and self._maxval > self._minval:
+                    label_intersect_point = QPointF(
+                        center.x() + tick_p2_radius * cos_angle,
+                        center.y() - tick_p2_radius * sin_angle * aspect_ratio,
+                    )
+
+                    intersect_x = max(min(tick_label_longest_diagonal * cos_angle, tick_label_half_size.width()), -tick_label_half_size.width())
+                    intersect_y = max(min(-tick_label_longest_diagonal * sin_angle, tick_label_half_size.height()), -tick_label_half_size.height())
+
+                    tick_val = self._minval +  i * ((self._maxval - self._minval)  / (nb_major_ticks - 1))
+                    tick_text = BoundedTextDisplay.format_numerical_value(numerical_config, tick_val)
+                    text_align = Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignHCenter
+
+                    tick_label_pos = label_intersect_point - QPointF(tick_label_half_size.width() + intersect_x, tick_label_half_size.height() + intersect_y)    # Double inversion on Y. cancel out
+                    tick_label_rect = QRectF(tick_label_pos, tick_label_size)
+                    BoundedTextDisplay.apply_font_size(monospace_font, numerical_config, tick_text, tick_label_rect.toRect())
+                    painter.setFont(monospace_font)
+                    painter.setPen(self._major_ticks_label_pen)
+                    painter.setBrush(Qt.BrushStyle.NoBrush)
+                    painter.drawText(tick_label_rect, tick_text, text_align)
+
+                # Draw minor ticks
                 if nb_minor_ticks > 0 and i < nb_major_ticks - 1:
                     painter.setPen(self._minor_ticks_pen)
                     for j in range(nb_minor_ticks):
                         minor_angle = angle - (j + 1) * delta_angle / (nb_minor_ticks + 1)
                         minor_angle_rad = math.radians(minor_angle)
+                        cos_minor_angle =  math.cos(minor_angle_rad)
+                        sin_minor_angle =  math.sin(minor_angle_rad)
 
-                        p1 = QPointF(
-                            center.x() - tick_p1_radius * math.cos(minor_angle_rad),
-                            center.y() - tick_p1_radius * math.sin(minor_angle_rad) * aspect_ratio,
+                        tick_p1 = QPointF(
+                            center.x() - tick_p1_radius * cos_minor_angle,
+                            center.y() - tick_p1_radius * sin_minor_angle * aspect_ratio,
                         )
-                        p2 = QPointF(
-                            center.x() - (tick_p1_radius - minor_tick_len) * math.cos(minor_angle_rad),
-                            center.y() - (tick_p1_radius - minor_tick_len) * math.sin(minor_angle_rad) * aspect_ratio,
+                        tick_p2 = QPointF(
+                            center.x() - (tick_p1_radius - minor_tick_len) * cos_minor_angle,
+                            center.y() - (tick_p1_radius - minor_tick_len) * sin_minor_angle * aspect_ratio,
                         )
-                        painter.drawLine(p1, p2)
+                        painter.drawLine(tick_p1, tick_p2)
 
         pen.setColor(HMITheme.Color.frame_border())
+        pen.setWidthF(stroke_w)
         painter.setPen(pen)
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.drawEllipse(center, inner_radius, inner_radius * aspect_ratio)
@@ -317,8 +368,6 @@ class GaugeHMIWidget(BaseHMIWidget):
         self._numerical_display.setPos(QPointF(textbox_x, textbox_y))
         self._numerical_display.set_size(QSizeF(textbox_w, textbox_h).toSize())
 
-        self._minval = values['min']
-        self._maxval = values['max']
         self._process_new_val(values['val'])
 
     def get_config_widget(self) -> Optional[QWidget]:
