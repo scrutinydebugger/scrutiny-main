@@ -169,6 +169,7 @@ class BoundedTextDisplay(QGraphicsItem):
     _val: Union[float, int, bool, str]
     _font: QFont
     _text_color: QColor
+    _border_color: QColor
     _alignement: Qt.AlignmentFlag
     _size: QSize
     _border_width: int
@@ -182,7 +183,8 @@ class BoundedTextDisplay(QGraphicsItem):
         self._config_widget.apply_config(self._config)
         self._font = assets.get_font(assets.ScrutinyFont.Monospaced)
         self._alignement = Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
-        self._text_color = QColor()
+        self._text_color = HMITheme.Color.text()
+        self._border_color = HMITheme.Color.frame_border()
         self._size = QSize()
         self._border_width = 1
         self._background_color = HMITheme.Color.text_display_background()
@@ -204,6 +206,9 @@ class BoundedTextDisplay(QGraphicsItem):
 
     def set_border_width(self, width: int) -> None:
         self._border_width = width
+
+    def set_border_color(self, color: QColor) -> None:
+        self._border_color = color
 
     def set_text_color(self, color: QColor) -> None:
         self._text_color = color
@@ -292,7 +297,7 @@ class BoundedTextDisplay(QGraphicsItem):
             )
             pen = QPen()
             pen.setWidth(self._border_width)
-            pen.setColor(HMITheme.Color.frame_border())
+            pen.setColor(self._border_color)
             painter.setPen(pen)
             painter.setBrush(Qt.BrushStyle.NoBrush)
 
@@ -305,3 +310,4 @@ class BoundedTextDisplay(QGraphicsItem):
         painter.setPen(HMITheme.Color.text())
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.drawText(inner_frame_rect, self._alignement, text)
+        # painter.drawRect(inner_frame_rect)

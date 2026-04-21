@@ -12,13 +12,14 @@ import math
 import enum
 
 from PySide6.QtGui import QPainter, QPen, QColor
-from PySide6.QtCore import QSize,Qt, QPointF, QRectF, QSizeF
+from PySide6.QtCore import QSize, Qt, QPointF, QRectF, QSizeF
 from PySide6.QtWidgets import (QStyleOptionGraphicsItem, QWidget, QFormLayout, QComboBox, QLineEdit,
                                QSpinBox, QGroupBox, QVBoxLayout, QGraphicsItem)
 
 from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget, WatchableValueType
 from scrutiny.gui.components.locals.hmi.hmi_theme import HMITheme
 from scrutiny.gui.components.locals.hmi.common.bounded_text_display import BoundedTextDisplay, BoundedTextNumericalConfig
+from scrutiny.gui.components.locals.hmi.common.color_span_editor import ColorSpanEditor, SpanColor
 from scrutiny.gui import assets
 from scrutiny import tools
 from scrutiny.tools.typing import *
@@ -36,7 +37,7 @@ class Dims:
     TEXT_DISPLAY_H = 0.2
     TEXT_DISPLAY_W = TEXT_DISPLAY_H * 3.5
     TEXT_DISPLAY_Y = 0.6
-    COLOR_W = 0.07
+    COLOR_W = 0.05
     MAJOR_TICK_LEN = 0.12
     MINOR_TICK_LEN = 0.04
     STROKE = 0.02
@@ -121,7 +122,7 @@ class GaugeHMIWidget(BaseHMIWidget):
     _cmb_overflow_behavior: QComboBox
     _spn_major_ticks: QSpinBox
     _spn_minor_ticks: QSpinBox
-    _txt_name: QLineEdit
+    _color_span_editor: ColorSpanEditor
 
     _minval: Optional[float]
     _maxval: Optional[float]
@@ -140,6 +141,8 @@ class GaugeHMIWidget(BaseHMIWidget):
 
         self._numerical_display = BoundedTextDisplay(self)
         self._numerical_display.set_background_color(HMITheme.Color.workzone_background())  # Effect of hole
+        self._numerical_display.set_border_width(4)  # Padding. Use same color as background to male the inner border invisible
+        self._numerical_display.set_border_color(HMITheme.Color.workzone_background())
         self._pointer = GaugePointer(self)
         self._pointer.setPos(0, 0)
 
@@ -157,23 +160,28 @@ class GaugeHMIWidget(BaseHMIWidget):
         self._spn_minor_ticks.setMaximum(12)
         self._spn_minor_ticks.setValue(3)
 
-        self._txt_name = QLineEdit()
+        self._color_span_editor = ColorSpanEditor()
+        self._color_span_editor.set_max_span(6)
 
         self._config_widget = QWidget()
         gb_text_display = QGroupBox("Text Display")
-        gb_dial_display = QGroupBox("Dial")
+        gb_dial_display = QGroupBox("Ticks")
+        gb_colors = QGroupBox("Colors")
         layout = QVBoxLayout(self._config_widget)
         layout.addWidget(gb_dial_display)
         layout.addWidget(gb_text_display)
+        layout.addWidget(gb_colors)
 
         gb_dial_display_layout = QFormLayout(gb_dial_display)
-        gb_dial_display_layout.addRow("Name", self._txt_name)
         gb_dial_display_layout.addRow("Overflow", self._cmb_overflow_behavior)
         gb_dial_display_layout.addRow("Major Ticks", self._spn_major_ticks)
         gb_dial_display_layout.addRow("Minor Ticks", self._spn_minor_ticks)
 
         gb_text_display_layout = QFormLayout(gb_text_display)
         gb_text_display_layout.addWidget(self._numerical_display.get_config_widget())
+
+        gb_colors_layout = QVBoxLayout(gb_colors)
+        gb_colors_layout.addWidget(self._color_span_editor)
 
         self._major_ticks_pen = QPen()
         self._major_ticks_pen.setColor(HMITheme.Color.major_ticks())
@@ -187,8 +195,10 @@ class GaugeHMIWidget(BaseHMIWidget):
         self._cmb_overflow_behavior.currentIndexChanged.connect(self._config_changed_slot)
         self._spn_major_ticks.valueChanged.connect(self._config_changed_slot)
         self._spn_minor_ticks.valueChanged.connect(self._config_changed_slot)
-        self._txt_name.textChanged.connect(self._config_changed_slot)
         self._numerical_display.signals.config_changed.connect(self._config_changed_slot)
+        self._color_span_editor.signals.row_added.connect(self._config_changed_slot)
+        self._color_span_editor.signals.row_removed.connect(self._config_changed_slot)
+        self._color_span_editor.signals.row_changed.connect(self._config_changed_slot)
 
         # Make sure we do not redraw the full gauge when the needle or the text is updated.
         self.setCacheMode(self.CacheMode.ItemCoordinateCache)
@@ -197,8 +207,10 @@ class GaugeHMIWidget(BaseHMIWidget):
         self._cmb_overflow_behavior.currentIndexChanged.disconnect()
         self._spn_major_ticks.valueChanged.disconnect()
         self._spn_minor_ticks.valueChanged.disconnect()
-        self._txt_name.textChanged.disconnect()
         self._numerical_display.signals.config_changed.disconnect()
+        self._color_span_editor.signals.row_added.disconnect()
+        self._color_span_editor.signals.row_removed.disconnect()
+        self._color_span_editor.signals.row_changed.disconnect()
 
         super().destroy()
 
@@ -227,7 +239,7 @@ class GaugeHMIWidget(BaseHMIWidget):
             self._numerical_display.set_alignment(Qt.AlignmentFlag.AlignCenter)
         else:
             self._numerical_display.set_val(val)
-            self._numerical_display.set_alignment(Qt.AlignmentFlag.AlignRight)
+            self._numerical_display.set_alignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
 
         pointer_angle = self._get_pointer_angle(val)
         if pointer_angle is None:
@@ -264,14 +276,14 @@ class GaugeHMIWidget(BaseHMIWidget):
         stroke_w = max(ref_size * Dims.STROKE, 1)
         outer_radius = ref_size * Dims.OUTER_CIRCLE - stroke_w / 2
         inner_radius = ref_size * Dims.INNER_CIRCLE - stroke_w / 2
-        color_indicator_w = ref_size * Dims.COLOR_W
-        color_indicator_radius = inner_radius - stroke_w / 2 - color_indicator_w / 2
         textbox_w = ref_size * Dims.TEXT_DISPLAY_W
         textbox_h = ref_size * Dims.TEXT_DISPLAY_H * aspect_ratio
         textbox_x = center.x() - textbox_w / 2
         textbox_y = center.y() + ref_size * Dims.TEXT_DISPLAY_Y * aspect_ratio
         major_tick_len = ref_size * Dims.MAJOR_TICK_LEN
         minor_tick_len = ref_size * Dims.MINOR_TICK_LEN
+        color_indicator_w = ref_size * Dims.COLOR_W
+        color_indicator_radius = inner_radius - minor_tick_len - stroke_w / 2 - color_indicator_w / 2
 
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
 
@@ -281,6 +293,27 @@ class GaugeHMIWidget(BaseHMIWidget):
         painter.setPen(pen)
         painter.setBrush(HMITheme.Color.widget_background())
         painter.drawEllipse(center, outer_radius, outer_radius * aspect_ratio)
+
+        # Draw color spans
+        color_spans = self._color_span_editor.get_span_objects()
+        for span in color_spans:
+            start = min(max(span.min_val / 100, 0), 1)
+            stop = min(max(span.max_val / 100, 0), 1)
+
+            angle_stop = 225 - stop * 270
+            angle_len = (stop - start) * 270
+
+            pen = QPen()
+            color = span.color.to_qcolor()
+            color.setAlphaF(0.5)
+            pen.setColor(color)
+            pen.setWidthF(color_indicator_w)
+            pen.setCapStyle(Qt.PenCapStyle.FlatCap)
+            painter.setPen(pen)
+            rect = QRectF(
+                QPointF(ref_size - color_indicator_radius, (ref_size - color_indicator_radius) * aspect_ratio),
+                QSizeF(color_indicator_radius * 2, color_indicator_radius * 2 * aspect_ratio))
+            painter.drawArc(rect, int(angle_stop * 16), int(angle_len * 16))    # CCW
 
         self._major_ticks_pen.setWidthF(stroke_w)
         self._major_ticks_pen.setWidthF(stroke_w)
@@ -296,9 +329,9 @@ class GaugeHMIWidget(BaseHMIWidget):
             delta_angle = 270 / (nb_major_ticks - 1)
             tick_p1_radius = inner_radius - stroke_w
             tick_p2_radius = tick_p1_radius - major_tick_len
-            tick_label_size = QSizeF(ref_size * Dims.TICK_LABEL_W, ref_size * Dims.TICK_LABEL_H * aspect_ratio )
+            tick_label_size = QSizeF(ref_size * Dims.TICK_LABEL_W, ref_size * Dims.TICK_LABEL_H * aspect_ratio)
             tick_label_half_size = QSizeF(tick_label_size.width() / 2, tick_label_size.height() / 2)
-            tick_label_longest_diagonal = math.sqrt((tick_label_size.height()/2)**2 + (tick_label_size.width()/2)**2)
+            tick_label_longest_diagonal = math.sqrt((tick_label_size.height() / 2)**2 + (tick_label_size.width() / 2)**2)
 
             for i in range(nb_major_ticks):
                 angle = 225 - i * delta_angle
@@ -328,11 +361,13 @@ class GaugeHMIWidget(BaseHMIWidget):
                     intersect_x = max(min(tick_label_longest_diagonal * cos_angle, tick_label_half_size.width()), -tick_label_half_size.width())
                     intersect_y = max(min(-tick_label_longest_diagonal * sin_angle, tick_label_half_size.height()), -tick_label_half_size.height())
 
-                    tick_val = self._minval +  i * ((self._maxval - self._minval)  / (nb_major_ticks - 1))
+                    tick_val = self._minval + i * ((self._maxval - self._minval) / (nb_major_ticks - 1))
                     tick_text = BoundedTextDisplay.format_numerical_value(numerical_config, tick_val)
                     text_align = Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignHCenter
 
-                    tick_label_pos = label_intersect_point - QPointF(tick_label_half_size.width() + intersect_x, tick_label_half_size.height() + intersect_y)    # Double inversion on Y. cancel out
+                    tick_label_pos = label_intersect_point - \
+                        QPointF(tick_label_half_size.width() + intersect_x, tick_label_half_size.height() +
+                                intersect_y)    # Double inversion on Y. cancel out
                     tick_label_rect = QRectF(tick_label_pos, tick_label_size)
                     BoundedTextDisplay.apply_font_size(monospace_font, numerical_config, tick_text, tick_label_rect.toRect())
                     painter.setFont(monospace_font)
@@ -346,8 +381,8 @@ class GaugeHMIWidget(BaseHMIWidget):
                     for j in range(nb_minor_ticks):
                         minor_angle = angle - (j + 1) * delta_angle / (nb_minor_ticks + 1)
                         minor_angle_rad = math.radians(minor_angle)
-                        cos_minor_angle =  math.cos(minor_angle_rad)
-                        sin_minor_angle =  math.sin(minor_angle_rad)
+                        cos_minor_angle = math.cos(minor_angle_rad)
+                        sin_minor_angle = math.sin(minor_angle_rad)
 
                         tick_p1 = QPointF(
                             center.x() - tick_p1_radius * cos_minor_angle,
@@ -359,6 +394,7 @@ class GaugeHMIWidget(BaseHMIWidget):
                         )
                         painter.drawLine(tick_p1, tick_p2)
 
+        pen = QPen()
         pen.setColor(HMITheme.Color.frame_border())
         pen.setWidthF(stroke_w)
         painter.setPen(pen)
