@@ -1,3 +1,11 @@
+#    color_button.py
+#        A widget to select a color with a button
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
+
 from PySide6.QtWidgets import (QWidget, QHBoxLayout, QPushButton, QColorDialog)
 from PySide6.QtGui import QColor
 from PySide6.QtCore import QSize, Qt, Signal, QObject

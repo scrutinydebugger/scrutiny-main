@@ -1,3 +1,11 @@
+#    manual_test_hmi_library.py
+#        A manual test suite to test the HMI library rendering
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
+
 if __name__ != '__main__':
     raise RuntimeError("This script is expected to run from the command line")
 

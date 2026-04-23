@@ -1,3 +1,10 @@
+#    text_label_hmi_widget.py
+#        A graphical only HMI widget that display static text
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
 
 __all__ = ['TextLabel']
 
@@ -30,7 +37,7 @@ class TextLabel(BaseHMIWidget):
     _border_pen_config: PenConfigWidget
     _fill_brush_config: BrushConfigWidget
     _txt_content: QLineEdit
-    _font_color_picker:ColorButton
+    _font_color_picker: ColorButton
 
     def __init__(self, hmi_component: "HMIComponent") -> None:
         super().__init__(hmi_component)
@@ -101,7 +108,6 @@ class TextLabel(BaseHMIWidget):
         font = painter.font()
         text = self._txt_content.text()
 
-
         font.setPixelSize(max(1, int(draw_rect.size().height())))
         text_width = QFontMetrics(font).averageCharWidth() * len(text)
         if text_width > draw_rect.size().width():
@@ -115,7 +121,7 @@ class TextLabel(BaseHMIWidget):
             if required_width.width() <= draw_rect.width():
                 break
 
-            font.setPixelSize(previous_size-1)
+            font.setPixelSize(previous_size - 1)
             if not font.pixelSize() < previous_size:
                 self._logger.critical("Failed to reduce the font size. Report this error please.")
                 break

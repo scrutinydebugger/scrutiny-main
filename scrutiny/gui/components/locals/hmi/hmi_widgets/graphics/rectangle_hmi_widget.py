@@ -1,3 +1,10 @@
+#    rectangle_hmi_widget.py
+#        A graphical only HMI widget that draws a rectangle
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
 
 __all__ = ['RectangleHMIWidget']
 

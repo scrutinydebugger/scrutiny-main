@@ -1,4 +1,10 @@
-
+#    hmi_status_bar.py
+#        The status bar showned at the bottom of the GMI work zone when in edit mode
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
 
 from PySide6.QtWidgets import QStatusBar, QLabel, QToolButton
 from PySide6.QtCore import Signal, QObject, QSize

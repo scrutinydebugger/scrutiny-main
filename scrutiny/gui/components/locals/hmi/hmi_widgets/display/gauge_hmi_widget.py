@@ -1,5 +1,6 @@
 #    gauge_hmi_widget.py
-#        An HMI widget that display a dial gauge that goes from minimum to maximum
+#        An HMI widget that display a value with a gauge that goes from a minimum to a maximum
+#        value. Like a speedometer
 #
 #   - License : MIT - See LICENSE file
 #   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)

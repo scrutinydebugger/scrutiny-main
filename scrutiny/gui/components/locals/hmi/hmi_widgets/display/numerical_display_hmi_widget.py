@@ -1,6 +1,6 @@
-#    text_label_hmi_widget.py
-#        A HMI widget that displays a value in text form. Font size selected to fill the draw
-#        zone.
+#    numerical_display_hmi_widget.py
+#        An HMI widget that display a numerical value as text. Will select the right font
+#        for the given rect
 #
 #   - License : MIT - See LICENSE file
 #   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)

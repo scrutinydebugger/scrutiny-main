@@ -1,3 +1,11 @@
+#    brush_config.py
+#        A widget to configure a fill color (QBrush)
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
+
 __all__ = ['BrushConfigWidget']
 
 from PySide6.QtWidgets import (QWidget, QFormLayout, QComboBox)
