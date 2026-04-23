@@ -11,15 +11,15 @@ __all__ = ['GaugeHMIWidget']
 import math
 import enum
 
-from PySide6.QtGui import QPainter, QPen, QColor
+from PySide6.QtGui import QPainter, QPen
 from PySide6.QtCore import QSize, Qt, QPointF, QRectF, QSizeF
-from PySide6.QtWidgets import (QStyleOptionGraphicsItem, QWidget, QFormLayout, QComboBox, QLineEdit,
+from PySide6.QtWidgets import (QStyleOptionGraphicsItem, QWidget, QFormLayout, QComboBox,
                                QSpinBox, QGroupBox, QVBoxLayout, QGraphicsItem)
 
 from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget, WatchableValueType
 from scrutiny.gui.components.locals.hmi.hmi_theme import HMITheme
-from scrutiny.gui.components.locals.hmi.common.bounded_text_display import BoundedTextDisplay, BoundedTextNumericalConfig
-from scrutiny.gui.components.locals.hmi.common.color_span_editor import ColorSpanEditor, SpanColor
+from scrutiny.gui.components.locals.hmi.common.numerical_text_display import NumericalTextDisplay, NumericalTextDisplayConfig
+from scrutiny.gui.components.locals.hmi.common.color_span_editor import ColorSpanEditor
 from scrutiny.gui import assets
 from scrutiny import tools
 from scrutiny.tools.typing import *
@@ -117,7 +117,7 @@ class GaugeHMIWidget(BaseHMIWidget):
     _ICON = assets.Icons.HMIGauge
 
     _config_widget: QWidget
-    _numerical_display: BoundedTextDisplay
+    _numerical_display: NumericalTextDisplay
     _pointer: GaugePointer
     _cmb_overflow_behavior: QComboBox
     _spn_major_ticks: QSpinBox
@@ -139,7 +139,7 @@ class GaugeHMIWidget(BaseHMIWidget):
         self._minval = None
         self._maxval = None
 
-        self._numerical_display = BoundedTextDisplay(self)
+        self._numerical_display = NumericalTextDisplay(self)
         self._numerical_display.set_background_color(HMITheme.Color.workzone_background())  # Effect of hole
         self._numerical_display.set_border_width(4)  # Padding. Use same color as background to male the inner border invisible
         self._numerical_display.set_border_color(HMITheme.Color.workzone_background())
@@ -283,7 +283,7 @@ class GaugeHMIWidget(BaseHMIWidget):
         major_tick_len = ref_size * Dims.MAJOR_TICK_LEN
         minor_tick_len = ref_size * Dims.MINOR_TICK_LEN
         color_indicator_w = ref_size * Dims.COLOR_W
-        color_indicator_radius = inner_radius - minor_tick_len - stroke_w / 2 - color_indicator_w / 2
+        color_indicator_radius = inner_radius * 0.98 - minor_tick_len - stroke_w / 2 - color_indicator_w / 2
 
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
 
@@ -320,7 +320,7 @@ class GaugeHMIWidget(BaseHMIWidget):
 
         nb_major_ticks = self._spn_major_ticks.value()
         nb_minor_ticks = self._spn_minor_ticks.value()
-        numerical_config = BoundedTextNumericalConfig(units="", decimals=1, eng_notation=True)
+        numerical_config = NumericalTextDisplayConfig(units="", decimals=1, eng_notation=True)
         monospace_font = assets.get_font(assets.ScrutinyFont.Monospaced)
 
         # Draw major ticks
@@ -358,18 +358,20 @@ class GaugeHMIWidget(BaseHMIWidget):
                         center.y() - tick_p2_radius * sin_angle * aspect_ratio,
                     )
 
-                    intersect_x = max(min(tick_label_longest_diagonal * cos_angle, tick_label_half_size.width()), -tick_label_half_size.width())
-                    intersect_y = max(min(-tick_label_longest_diagonal * sin_angle, tick_label_half_size.height()), -tick_label_half_size.height())
+                    intersect_x_unclipped = tick_label_longest_diagonal * cos_angle
+                    intersect_y_unclipped = -tick_label_longest_diagonal * sin_angle
+                    intersect_x = max(min(intersect_x_unclipped, tick_label_half_size.width()), -tick_label_half_size.width())
+                    intersect_y = max(min(intersect_y_unclipped, tick_label_half_size.height()), -tick_label_half_size.height())
 
                     tick_val = self._minval + i * ((self._maxval - self._minval) / (nb_major_ticks - 1))
-                    tick_text = BoundedTextDisplay.format_numerical_value(numerical_config, tick_val)
+                    tick_text = NumericalTextDisplay.format_numerical_value(numerical_config, tick_val)
                     text_align = Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignHCenter
 
                     tick_label_pos = label_intersect_point - \
                         QPointF(tick_label_half_size.width() + intersect_x, tick_label_half_size.height() +
                                 intersect_y)    # Double inversion on Y. cancel out
                     tick_label_rect = QRectF(tick_label_pos, tick_label_size)
-                    BoundedTextDisplay.apply_font_size(monospace_font, numerical_config, tick_text, tick_label_rect.toRect())
+                    NumericalTextDisplay.apply_font_size(monospace_font, numerical_config, tick_text, tick_label_rect)
                     painter.setFont(monospace_font)
                     painter.setPen(self._major_ticks_label_pen)
                     painter.setBrush(Qt.BrushStyle.NoBrush)

@@ -1,5 +1,5 @@
 #    hmi_library.py
-#        A library of all the HMI widgets avaialble
+#        A library of all the HMI widgets available
 #
 #   - License : MIT - See LICENSE file
 #   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
@@ -7,9 +7,11 @@
 #    Copyright (c) 2026 Scrutiny Debugger
 
 import math
+import pkgutil
+import importlib
 
 from PySide6.QtGui import QMouseEvent, QResizeEvent, QDrag
-from PySide6.QtWidgets import QWidget, QGridLayout, QVBoxLayout, QLabel, QGroupBox, QFrame
+from PySide6.QtWidgets import QWidget, QGridLayout, QVBoxLayout, QLabel, QGroupBox, QHBoxLayout
 from PySide6.QtCore import Qt, QSize
 
 from scrutiny.gui.widgets.scrutiny_hoverable_widget import ScrutinyHoverableWidget
@@ -19,11 +21,13 @@ from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseH
 
 from scrutiny.tools.typing import *
 
-# Do NOT remove those imports
-# They enable discovery by reflection.
-from .hmi_widgets.text_label_hmi_widget import TextLabelHMIWidget
-from .hmi_widgets.gauge_hmi_widget import GaugeHMIWidget
-#########################################
+# Autoload every sub modules of the library so they can be imported by reflection
+import scrutiny.gui.components.locals.hmi.hmi_widgets.graphics as graphics_submodule
+import scrutiny.gui.components.locals.hmi.hmi_widgets.display as display_submodule
+
+for category_module in [graphics_submodule, display_submodule]:
+    for _module_info in pkgutil.iter_modules(category_module.__path__):
+        importlib.import_module(f'{category_module.__name__}.{_module_info.name}')
 
 
 class HMILibraryEntryWidget(ScrutinyHoverableWidget):
@@ -49,6 +53,8 @@ class HMILibraryEntryWidget(ScrutinyHoverableWidget):
         layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self._icon_label)
         layout.addWidget(self._text_label)
+        layout.setContentsMargins(0, 0, 0, 0)
+        self.setMinimumWidth(self.ICON_SIZE)
 
     def get_widget_name(self) -> str:
         return self._hmi_widget.get_name()
@@ -89,24 +95,30 @@ class HMILibraryCategoryWidget(QWidget):
         self._entries = sorted((HMILibraryEntryWidget(hmiw) for hmiw in hmi_widgets), key=lambda x: x.get_widget_name())
         self._grid_container = QWidget()
 
-        layout = QVBoxLayout(self)
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
         gb = QGroupBox(self._display_name)
-        layout.addWidget(gb)
+        layout.addWidget(gb, stretch=1)
         gb_layout = QVBoxLayout(gb)
-        gb_layout.setContentsMargins(0, 0, 0, 0)
+        gb_layout.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
         gb_layout.addWidget(self._grid_container)
 
         self.rebuild_grid_layout()
 
     def rebuild_grid_layout(self) -> None:
-        nb_col = self._grid_container.width() // HMILibraryEntryWidget.ICON_SIZE
+        LAYOUT_SPACING = 8
+        nb_col = self.width() // (HMILibraryEntryWidget.ICON_SIZE + LAYOUT_SPACING)
         if nb_col == 0:
             return
+        nb_col = min(nb_col, len(self._entries))
         nb_row = math.ceil(len(self._entries) / nb_col)
 
         layout = cast(Optional[QGridLayout], self._grid_container.layout())
         if layout is None:
             layout = QGridLayout(self._grid_container)
+            layout.setContentsMargins(0, 0, 0, 0)
+            layout.setSpacing(LAYOUT_SPACING)
         else:
             if layout.columnCount() == nb_col and layout.rowCount() == nb_row:
                 return
@@ -119,7 +131,6 @@ class HMILibraryCategoryWidget(QWidget):
                 index = row * nb_col + col
                 if index < len(self._entries):
                     layout.addWidget(self._entries[index], row, col, Qt.AlignmentFlag.AlignTop)
-        self._grid_container.setMaximumWidth(nb_col * HMILibraryEntryWidget.ICON_SIZE)
 
     def get_display_name(self) -> str:
         return self._display_name

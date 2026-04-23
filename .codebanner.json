@@ -1028,7 +1028,7 @@
             "docstring": "A HMI widget that displays a value in text form. Font size selected to fill the draw zone."
         },
         "scrutiny/gui/components/locals/hmi/hmi_library.py": {
-            "docstring": "A library of all the HMI widgets avaialble"
+            "docstring": "A library of all the HMI widgets available"
         },
         "scrutiny/gui/components/locals/hmi/hmi_library_category.py": {
             "docstring": "A central place to define the different HMI widget categories used for display"

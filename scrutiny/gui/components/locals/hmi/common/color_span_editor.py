@@ -120,8 +120,11 @@ class _SpanRow(QWidget):
         layout.addWidget(line1)
         layout.addWidget(line2)
 
-        self._spn_start.valueChanged.connect(self._value_changed_slot)
-        self._spn_stop.valueChanged.connect(self._value_changed_slot)
+        self._spn_start.setKeyboardTracking(False)
+        self._spn_stop.setKeyboardTracking(False)
+
+        self._spn_start.valueChanged.connect(self._spn_start_changed_slot)
+        self._spn_stop.valueChanged.connect(self._spn_stop_changed_slot)
 
         self._spn_start.valueChanged.connect(self._signals.row_changed)
         self._spn_stop.valueChanged.connect(self._signals.row_changed)
@@ -131,12 +134,13 @@ class _SpanRow(QWidget):
     def signals(self) -> _Signals:
         return self._signals
 
-    def _value_changed_slot(self, v: int) -> None:
-        self.update_minmax()
+    def _spn_start_changed_slot(self) -> None:
+        if self._spn_stop.value() < self._spn_start.value():
+            self._spn_stop.setValue(self._spn_start.value())
 
-    def update_minmax(self) -> None:
-        self._spn_stop.setMinimum(self._spn_start.value())
-        self._spn_start.setMaximum(self._spn_stop.value())
+    def _spn_stop_changed_slot(self) -> None:
+        if self._spn_start.value() > self._spn_stop.value():
+            self._spn_start.setValue(self._spn_stop.value())
 
     def get_span_object(self) -> ColorSpan:
         start = self._spn_start.value()

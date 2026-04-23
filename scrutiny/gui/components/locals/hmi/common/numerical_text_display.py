@@ -7,7 +7,7 @@
 #
 #    Copyright (c) 2026 Scrutiny Debugger
 
-__all__ = ['BoundedTextDisplay']
+__all__ = ['NumericalTextDisplay']
 
 from dataclasses import dataclass
 from PySide6.QtGui import QPainter, QFont, QFontMetrics, QColor, QPen
@@ -33,7 +33,7 @@ class NumericalConfigConstants:
 
 
 @dataclass(slots=True)
-class BoundedTextNumericalConfig:
+class NumericalTextDisplayConfig:
     units: str = NumericalConfigConstants.DEFAULT_UNIT
     max_ints: int = NumericalConfigConstants.DEFAULT_INTS
     decimals: int = NumericalConfigConstants.DEFAULT_DECIMALS
@@ -131,11 +131,11 @@ class _NumericalConfigWidget(QWidget):
 
     def load_state(self, d: Dict[str, Any]) -> None:
         # Engineering Notation
-        config = BoundedTextNumericalConfig.from_dict(d)
+        config = NumericalTextDisplayConfig.from_dict(d)
         self.apply_config(config)
 
-    def get_config(self) -> BoundedTextNumericalConfig:
-        config = BoundedTextNumericalConfig(
+    def get_config(self) -> NumericalTextDisplayConfig:
+        config = NumericalTextDisplayConfig(
             eng_notation=self.chk_eng_notation.isChecked(),
             decimals=self.spn_decimals.value(),
             max_ints=self.spn_ints.value(),
@@ -143,7 +143,7 @@ class _NumericalConfigWidget(QWidget):
         )
         return config
 
-    def apply_config(self, config: BoundedTextNumericalConfig) -> None:
+    def apply_config(self, config: NumericalTextDisplayConfig) -> None:
         self.chk_eng_notation.setChecked(config.eng_notation)
         self.spn_decimals.setValue(config.decimals)
         self.spn_ints.setValue(config.max_ints)
@@ -158,13 +158,13 @@ class _NumericalConfigWidget(QWidget):
             self.spn_ints.setDisabled(False)
 
 
-class BoundedTextDisplay(QGraphicsItem):
+class NumericalTextDisplay(QGraphicsItem):
 
     class _Signals(QObject):
         config_changed = Signal()
 
     _config_widget: _NumericalConfigWidget
-    _config: BoundedTextNumericalConfig
+    _config: NumericalTextDisplayConfig
     _signals: _Signals
     _val: Union[float, int, bool, str]
     _font: QFont
@@ -178,7 +178,7 @@ class BoundedTextDisplay(QGraphicsItem):
     def __init__(self, parent: Optional[QGraphicsItem]) -> None:
         super().__init__(parent)
         self._signals = self._Signals()
-        self._config = BoundedTextNumericalConfig()
+        self._config = NumericalTextDisplayConfig()
         self._config_widget = _NumericalConfigWidget()
         self._config_widget.apply_config(self._config)
         self._font = assets.get_font(assets.ScrutinyFont.Monospaced)
@@ -231,7 +231,7 @@ class BoundedTextDisplay(QGraphicsItem):
 
 # region Private
     @classmethod
-    def format_numerical_value(cls, config: BoundedTextNumericalConfig, val: float) -> str:
+    def format_numerical_value(cls, config: NumericalTextDisplayConfig, val: float) -> str:
         if config.eng_notation:
             return tools.format_eng_unit(val, decimal=config.decimals, unit=config.units)
 
@@ -244,7 +244,7 @@ class BoundedTextDisplay(QGraphicsItem):
         return text
 
     @classmethod
-    def max_char_count(cls, config: BoundedTextNumericalConfig) -> int:
+    def max_char_count(cls, config: NumericalTextDisplayConfig) -> int:
         unit_part = len(config.units)
         if unit_part > 0 and config.eng_notation:
             unit_part += 1  # prefix
@@ -259,10 +259,10 @@ class BoundedTextDisplay(QGraphicsItem):
         return count
 
     @classmethod
-    def apply_font_size(cls, font: QFont, config: BoundedTextNumericalConfig, text: str, rect: QRect) -> None:
+    def apply_font_size(cls, font: QFont, config: NumericalTextDisplayConfig, text: str, rect: QRectF) -> None:
         text_len = max(len(text), cls.max_char_count(config))
 
-        font.setPixelSize(max(1, rect.size().height()))
+        font.setPixelSize(max(1, int(rect.size().height())))
         text_width = QFontMetrics(font).averageCharWidth() * text_len
         if text_width > rect.size().width():
             font.setPixelSize(max(1, int(rect.size().height() * rect.size().width() / text_width)))
@@ -305,9 +305,8 @@ class BoundedTextDisplay(QGraphicsItem):
         else:
             inner_frame_rect = bounding_rect
 
-        self.apply_font_size(self._font, self._config, text, inner_frame_rect.toRect())
+        self.apply_font_size(self._font, self._config, text, inner_frame_rect)
         painter.setFont(self._font)
         painter.setPen(HMITheme.Color.text())
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.drawText(inner_frame_rect, self._alignement, text)
-        # painter.drawRect(inner_frame_rect)
