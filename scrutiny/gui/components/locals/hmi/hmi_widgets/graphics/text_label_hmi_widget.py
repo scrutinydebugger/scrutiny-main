@@ -31,7 +31,7 @@ class TextLabel(BaseHMIWidget):
 
     _CATEGORY = LibraryCategory.Graphic
     _NAME = 'Label'
-    _ICON = assets.Icons.TestSquare
+    _ICON = assets.Icons.HMILabel
 
     _config_widget: QWidget
     _border_pen_config: PenConfigWidget

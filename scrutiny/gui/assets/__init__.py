@@ -136,6 +136,10 @@ class Icons(enum.Enum):
 
     HMIGauge = "hmi_gauge"
     HMITextDisplay = "hmi_text_display"
+    HMILabel = "hmi_label"
+    HMICircle = "hmi_circle"
+    HMISquare = "hmi_square"
+    HMILine = "hmi_line"
 
 
 _filename_cache: Dict[Tuple[Icons, IconFormat, IconSet], Path] = {}

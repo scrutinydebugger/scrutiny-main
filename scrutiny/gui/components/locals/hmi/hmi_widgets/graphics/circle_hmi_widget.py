@@ -29,7 +29,7 @@ class CircleHMIWidget(BaseHMIWidget):
 
     _CATEGORY = LibraryCategory.Graphic
     _NAME = 'Circle'
-    _ICON = assets.Icons.TestSquare
+    _ICON = assets.Icons.HMICircle
 
     _config_widget: QWidget
 

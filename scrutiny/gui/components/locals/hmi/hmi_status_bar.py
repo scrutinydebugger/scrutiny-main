@@ -14,13 +14,17 @@ from scrutiny.tools.typing import *
 
 
 class HMIStatusBar(QStatusBar):
+    """Status bar to be shown at the bottom of the work zone"""
 
     class _Signals(QObject):
         exit_edit_mode = Signal()
 
     _widget_resize_label: QLabel
+    """Label that shows the size of a HMI widget being resized"""
     _selected_count_label: QLabel
+    """Label showing how many HMI widgets are actually selected"""
     _mode_button: QToolButton
+    """A button to switch back to display mode"""
     _signals: _Signals
 
     @tools.copy_type(QStatusBar.__init__)

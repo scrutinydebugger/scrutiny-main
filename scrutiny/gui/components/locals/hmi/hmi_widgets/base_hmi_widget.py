@@ -60,14 +60,23 @@ class ValueSlot:
         text_value_changed = Signal(object)
 
     name: str
+    """The name of the slot. used to generate a unique id and logging"""
     display_name: str
+    """The name displayed in the library"""
     watchable_line_edit: WatchableLineEdit
+    """The widget that the user can drop a watchable in"""
     watcher_id: str
+    """A unique ID used to subscribe to value update"""
     last_value_received: WatchableValueType
+    """Last value received"""
     require_redraw: bool
+    """A flag that indicate if a redraw of the HMI widget is required when the value of this slot changes"""
     value_update_callback: Optional[HMIWidgetValueUpdateCallback]
+    """A callback to be called on value update. Mostly useful when require_redraw=``False``"""
     _signals: _Signals
+    """The QT signals"""
     _logger: logging.Logger
+    """The logger"""
 
     def __init__(self,
                  name: str,
@@ -92,11 +101,13 @@ class ValueSlot:
         return self._signals
 
     def _text_changed_slot(self, text: str) -> None:
+        """Called when the value is changed manually"""
         if self.watchable_line_edit.is_text_mode():
             val = self._read_text_val(text)
             self._signals.text_value_changed.emit(val)
 
     def _read_text_val(self, textval: str) -> WatchableValueType:
+        """Convert a text value into a numerical value"""
         textval = textval.lower().strip()
         if textval == "true":
             return True
@@ -116,12 +127,14 @@ class ValueSlot:
         return None
 
     def is_configured(self) -> bool:
+        """Returns ``True`` if a value can be obtained from the actual state of this slot"""
         if self.watchable_line_edit.is_text_mode():
             return self._read_text_val(self.watchable_line_edit.text()) is not None
         else:
             return self.watchable_line_edit.get_watchable() is not None
 
     def get_val(self) -> WatchableValueType:
+        """Get the value of this slot, handles both text mode and watchable mode"""
         if self.watchable_line_edit.is_text_mode():
             return self._read_text_val(self.watchable_line_edit.text())
         else:
@@ -129,13 +142,16 @@ class ValueSlot:
 
 
 class EditSelectFrame(QGraphicsItem):
+    """The overlay with handles that can eb dragged for resizing a widget. Drawn over the real widget in edit mode"""
     RESIZE_HANDLE_HW = 6
     HALF_RESIZE_HANDLE_HW = RESIZE_HANDLE_HW / 2
 
     def boundingRect(self) -> QRectF:
+        # REturn the bounding rect of the parent. Follow the widget size
         return self.parentItem().boundingRect()
 
     def resize_handles_coordinates(self) -> Dict[HandlePosition, QRectF]:
+        """Returns the position of every resize handles relative to this widget position"""
         handle_size = QSize(self.RESIZE_HANDLE_HW, self.RESIZE_HANDLE_HW)
         size = self.parentItem().boundingRect().size()
         w = size.width()
@@ -170,6 +186,8 @@ class EditSelectFrame(QGraphicsItem):
 
 
 class SelectionOverlay(QGraphicsItem):
+    """The colored overlay drawn over the real widget when selected"""
+
     def boundingRect(self) -> QRectF:
         return self.parentItem().boundingRect()
 
@@ -184,27 +202,43 @@ class SelectionOverlay(QGraphicsItem):
 
 class BaseHMIWidget(QGraphicsItem):
     MAX_DRAW_RATE = 15
+    """A throttling for the draw rate. Make sure we don't continually redraw if the server streams too fast"""
     MAX_DRAW_RATE_NANOSEC = int(round((1 / MAX_DRAW_RATE) * 1e9))
 
     HMI_COMPONENT_UPDATE_RATE: Optional[float]
+    """The update rate requested to the server when subscribing to a watchable."""
 
     class _Signals(QObject):
         pass
 
     _vslots: List[ValueSlot]
+    """The value list of value slots. Each of them represent an input value passed to the draw function"""
     _hmi_component: "HMIComponent"
+    """A reference to the containing component. Used to access the registry"""
     _need_redraw: bool
+    """A flag used to implement the redraw throttling"""
     _pending_redraw: bool
+    """A flag used to implement the redraw throttling"""
     _last_draw_timestamp_ns: int
+    """Timestamp of the last draw() call"""
     _parent_constructor_called: bool
+    """A flag to print a proper log when"""
     _size: QSize
+    """Size of the HMI widget"""
     _logger: logging.Logger
+    """The logger"""
     _signals: _Signals
+    """Signals emitted by this widget"""
     _selection_overlay: SelectionOverlay
+    """The overlay displayed on top of this widget when selected"""
     _selected: bool
+    """A flag indicating if we should display the selection_overlay"""
     _edit_select_frame: EditSelectFrame
+    """The overlay displayed around a widget in edit mode"""
     _vslot_config_widget: QWidget
+    """The widget containing the ValueSlots widget. To be shown when editing this HMI widget"""
     _vslot_config_widget_layout: QFormLayout
+    """The layout containing _vslot_config_widget"""
 
     def __init__(self, hmi_component: "HMIComponent") -> None:
         super().__init__()
@@ -301,6 +335,15 @@ class BaseHMIWidget(QGraphicsItem):
                            display_name: str,
                            value_update_callback: Optional[HMIWidgetValueUpdateCallback] = None,
                            require_redraw: bool = True) -> None:
+        """Function to be called by the extension of this base class.
+        Add a value slot, allowing the user to specify a text value or drag a watchable on it.
+        The values are given to the draw function.
+
+        :param display_name: The name shown int eh config widget
+        :param value_update_callback: An optional callback that can be called each time a new value is received
+        :param require_redraw: When ``False``, ``draw()`` is not called when the value changes. Expect to use ``value_update_callback`` when ``False``
+
+        """
         if not (hasattr(self, '_parent_constructor_called')):
             raise RuntimeError("Parent constructor not called")
         used_names = set([vslot.name for vslot in self._vslots])
@@ -330,6 +373,7 @@ class BaseHMIWidget(QGraphicsItem):
         vslot.signals.text_value_changed.connect(text_val_update_slot)
 
     def destroy(self) -> None:
+        """Cleanup function"""
         for vslot in self._vslots:
             self._hmi_component.app.watchable_registry.unregister_watcher(vslot.watcher_id)    # Will unwatch all
             vslot.signals.text_value_changed.disconnect()
@@ -353,6 +397,7 @@ class BaseHMIWidget(QGraphicsItem):
         return QRectF(QPointF(0, 0), self._size)
 
     def try_watch_all_vslots(self) -> None:
+        """Try to resubscribe to the server for every watchable associated with the declared ValueSlots."""
         for vslot in self._vslots:
             watchable = vslot.watchable_line_edit.get_watchable()
             if watchable is not None:
@@ -361,6 +406,7 @@ class BaseHMIWidget(QGraphicsItem):
 # region Private
 
     def _slot_value_update_callback(self, vslot: ValueSlot, val: WatchableValueType) -> None:
+        """The callback invoked when a ValueSlot value changes"""
         value_changed = (vslot.last_value_received != val)
 
         if value_changed:   # Avoid redrawing when not necessary
@@ -373,32 +419,37 @@ class BaseHMIWidget(QGraphicsItem):
         vslot.last_value_received = val
 
     def _text_update_callback(self, vslot: ValueSlot, value: WatchableValueType) -> None:
-        """When the WatchableSlot is assigned a text value"""
+        """When the ValueSlot is assigned a text value"""
         self._slot_value_update_callback(vslot, value)
 
     def _watchable_update_callback(self, vslot: ValueSlot, watcher_id: WatcherIdType, updates: List[RegistryValueUpdate]) -> None:
-        """When the WatchableSlot is assigned a value from the server stream"""
+        """When the ValueSlot is assigned a value from the server stream"""
         self._slot_value_update_callback(vslot, updates[-1].sdk_update.value)
 
     def _unwatch_callback(self, watcher_id: Union[str, int], server_path: str, watchable_config: sdk.BriefWatchableConfiguration, registry_id: int) -> None:
+        """Callback invoked when we unsubscribe to a watchable"""
         for vslot in self._vslots:
             if vslot.watcher_id == watcher_id:
                 vslot.last_value_received = None
                 break
 
     def _vslot_configured_slot(self, vslot: ValueSlot, fqn: str) -> None:
+        """When the user drops a watchable on a ValueSlot"""
         self._try_watch(vslot, fqn)
 
     def _vslot_config_cleared_slot(self, vslot: ValueSlot, fqn: str) -> None:
+        """When the user removes watchable on a ValueSlot"""
         self._try_unwatch(vslot, fqn)
 
     def _try_watch(self, vslot: ValueSlot, fqn: str) -> None:
+        """Try to subscribe to the WatchableRegistry (and the server)"""
         try:
             self._hmi_component.app.watchable_registry.watch_fqn(vslot.watcher_id, fqn, self.HMI_COMPONENT_UPDATE_RATE)
         except WatchableRegistryNodeNotFoundError:
             pass
 
     def _try_unwatch(self, vslot: ValueSlot, fqn: str) -> None:
+        """Unsubscribe the watchable of a value slot"""
         # We have a watcher per ValueSlot. No need to cherry pick the unwatch. Just unwatch all
         self._hmi_component.app.watchable_registry.unwatch_all(vslot.watcher_id)
 
@@ -416,6 +467,7 @@ class BaseHMIWidget(QGraphicsItem):
         return self._vslot_config_widget
 
     def _get_vslot_vals(self) -> Dict[str, Optional[WatchableValueType]]:
+        """Read and returns the actual values of each ValueSlot"""
 
         def compute_single(vslot: ValueSlot) -> Optional[WatchableValueType]:
             if vslot.watchable_line_edit.is_text_mode():
@@ -434,6 +486,7 @@ class BaseHMIWidget(QGraphicsItem):
         return {vslot.name: compute_single(vslot) for vslot in self._vslots}
 
     def _redraw_later(self) -> None:
+        """Request to redraw after a fixed delay"""
         def callback() -> None:
             self._pending_redraw = False
             if self._need_redraw:   # Maybe a redraw already occurred in between. Ignore if it happened
@@ -444,6 +497,7 @@ class BaseHMIWidget(QGraphicsItem):
             invoke_later(callback, int(self.MAX_DRAW_RATE_NANOSEC // 1e6))    # Retry later if still needed
 
     def _redraw_if_allowed(self) -> None:
+        """Try to trigger a call to ``draw()``. If throttled, the draw() request will be remembered and retriggered letter"""
         updated = False
         self._need_redraw = True    # Flag used
 
@@ -472,7 +526,6 @@ class BaseHMIWidget(QGraphicsItem):
 
 
 # region Abstracts methods
-
 
     def draw(self,
              values: Dict[str, WatchableValueType],

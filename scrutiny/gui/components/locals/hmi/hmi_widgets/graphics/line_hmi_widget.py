@@ -28,7 +28,7 @@ class LineHMIWidget(BaseHMIWidget):
 
     _CATEGORY = LibraryCategory.Graphic
     _NAME = 'Line'
-    _ICON = assets.Icons.TestSquare
+    _ICON = assets.Icons.HMILine
 
     _config_widget: QWidget
     _cmb_direction: QComboBox

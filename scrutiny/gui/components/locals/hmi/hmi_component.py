@@ -49,14 +49,24 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
     _TYPE_ID = "hmi"
 
     _mode: HMIInteractionMode
+    """The actual working mode: Edit or Display"""
     _workzone: HMIWorkZone
+    """The drawing zone where the HMI widget goes"""
     _splitter: QSplitter
+    """The splitter separating the library/config and the work zone"""
     _config_widget_container: QWidget
+    """The widget that will contain the HMI widget configuration when they are selected"""
     _edit_tab_widget: QTabWidget
+    """The tab to switch between lLibrary and Configuration"""
     _library: HMILibrary
+    """The library displaying the available HMI Widgets"""
     _config_widgets: Dict[int, QWidget]
+    """Dict mapping the HMI Widget id to their config widget that they provided with ``get_config_widget()``.
+    Used to construct the configuration menu when they are selected """
     _config_widget_container_layout: QStackedLayout
+    """The layout containing all config widgets, all staked together. Only one showed at the time"""
     _status_bar: HMIStatusBar
+    """The status bar visible in the work zone when in edit mode"""
 
 # region inherited methods
     @classmethod
@@ -127,6 +137,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         pass
 
     def add(self, widget: BaseHMIWidget, scene_pos: Optional[QPoint] = None) -> None:
+        """Add an HMI Widget to the workzone at the given position"""
         existing_widgets = list(self._workzone.iterate_hmi_widgets())
         self._workzone.add_widget(widget, scene_pos)
         self._create_config_widget_of(widget)
@@ -141,9 +152,11 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         return self._mode == HMIInteractionMode.Edit
 
     def update_hmi_widget_state(self, widget: BaseHMIWidget) -> None:
+        """Update the visual of the HMI widget based on the state of this component"""
         widget.show_resize_handles(self.is_edit_mode())
 
     def set_mode(self, mode: HMIInteractionMode) -> None:
+        """Switch working mode (Edit or Display)"""
         self._mode = mode
         self._workzone.deselect_all_widgets()
 
@@ -165,13 +178,16 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
 
 # region Private
     def _registry_changed_slot(self) -> None:
+        """ Called when watchables are added/removed from the registry"""
         self._resubscribe_all_hmi_widgets()
 
     def _resubscribe_all_hmi_widgets(self) -> None:
+        """Try to resubscribe each HMI Widget to their respective watchable (drag&dropped by the user) if possible"""
         for hmi_widget in self._workzone.iterate_hmi_widgets():
             hmi_widget.try_watch_all_vslots()
 
     def _show_edit_menu(self, val: bool) -> None:
+        """Show or hide the left part of the splitter"""
         if val:
             self._splitter.handle(1).setEnabled(True)
             self._splitter.setHandleWidth(5)
@@ -201,16 +217,19 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         self._config_widget_container_layout.addWidget(config_container)
 
     def _workzone_drop_widget_class_slot(self, widget_class: Type[BaseHMIWidget], scene_pos: QPoint) -> None:
+        """Callback invoked when a HMI widget is dropped on the workzone from the Library"""
         instance = widget_class(self)
         self.add(instance, scene_pos)
 
     def _workzone_selection_changed_slot(self, widgets: List[BaseHMIWidget]) -> None:
-        if len(widgets) == 1:
+        """When the user changes the selection"""
+        if len(widgets) == 1:   # Show the config only if 1 is selected. Don't manage common properties.
             self._show_config_of(widgets[0])
         else:
             self._show_config_of(None)
 
     def _workzone_right_click_slot(self, widget: Optional[BaseHMIWidget], event: QMouseEvent) -> None:
+        """Right click on an HMI widget in the workzone"""
         menu: Optional[ScrutinyQMenu] = None
 
         if self._mode == HMIInteractionMode.Display:
@@ -292,12 +311,13 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
             self._config_widget_container_layout.setCurrentWidget(config_container)
 
     def _reassign_packed_zvalues(self) -> None:
+        """Take every HMI widget is change their ZValue so they range from 0 to N without holes in between them"""
         w = sorted(self._workzone.iterate_hmi_widgets(), key=lambda w: w.zValue())
         for i in range(len(w)):
             w[i].setZValue(i)    # Reassign packed values
 
     def _delete_widget(self, widget: BaseHMIWidget) -> None:
-        """Delete an HMI widget from the view."""
+        """Delete an HMI widget from the work zone."""
         self._workzone.remove_widget(widget)
         widget.destroy()
 
@@ -308,6 +328,9 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
 
         self._reassign_packed_zvalues()
 
+        # Try to find memory leaks. Not bulletproof
+        # A closure in the server manager could kep the object alive temporarily.
+        # Still efficient when developing
         if self.logger.isEnabledFor(logging.DEBUG):
             ref_count = len(gc.get_referrers(widget))
             if ref_count > 1:

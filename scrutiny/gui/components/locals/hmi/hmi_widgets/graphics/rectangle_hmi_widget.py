@@ -9,7 +9,7 @@
 __all__ = ['RectangleHMIWidget']
 
 from PySide6.QtGui import QPainter
-from PySide6.QtCore import QSizeF, Qt, QRectF, QPointF
+from PySide6.QtCore import QSizeF, QRectF, QPointF
 from PySide6.QtWidgets import QVBoxLayout, QWidget, QGroupBox
 
 
@@ -29,7 +29,7 @@ class RectangleHMIWidget(BaseHMIWidget):
 
     _CATEGORY = LibraryCategory.Graphic
     _NAME = 'Rectangle'
-    _ICON = assets.Icons.TestSquare
+    _ICON = assets.Icons.HMISquare
 
     _config_widget: QWidget
     _pen_config: PenConfigWidget

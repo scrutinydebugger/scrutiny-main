@@ -61,6 +61,7 @@ class HMILibraryEntryWidget(ScrutinyHoverableWidget):
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton and self._icon_label.geometry().contains(event.pos()):
+            # Initiate Drag&Drop
             drag = QDrag(self)
 
             drag_data = ScrutinyDragData(
@@ -81,6 +82,7 @@ class HMILibraryEntryWidget(ScrutinyHoverableWidget):
 
 class HMILibraryCategoryWidget(QWidget):
     """A widget that display every HMI widgets in a category"""
+
     _category: LibraryCategory
     _display_name: str
     _entries: List[HMILibraryEntryWidget]

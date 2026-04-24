@@ -1,5 +1,3 @@
 TODO:
-    styling of HMI widgets
-
-    overflow behavior
-    name display
+   Library resizing
+   State save/reload + testing

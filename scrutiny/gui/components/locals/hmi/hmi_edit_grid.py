@@ -18,6 +18,7 @@ from scrutiny.tools.typing import *
 
 
 class HMIEditGrid(QGraphicsItem):
+    """The visual grid drawn in the background of the workzone"""
     GRID_SPACING = 16
 
     _view: QGraphicsView
