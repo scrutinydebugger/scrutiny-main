@@ -1,3 +1,5 @@
 TODO:
-   Library resizing
-   State save/reload + testing
+    State save/reload + testing
+    Scroll area for config widget.
+    Colorspan separator.
+    Gauge color - double check

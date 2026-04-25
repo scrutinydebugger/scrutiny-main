@@ -39,11 +39,13 @@ class LineHMIWidget(BaseHMIWidget):
 
         self._config_widget = QWidget()
         self._pen_config = PenConfigWidget()
+        self._pen_config.set_width(5)
 
         layout = QVBoxLayout(self._config_widget)
         self._cmb_direction = QComboBox()
         self._cmb_direction.addItem("Vertical", Qt.Orientation.Vertical)
         self._cmb_direction.addItem("Horizontal", Qt.Orientation.Horizontal)
+        self._cmb_direction.setCurrentIndex(self._cmb_direction.findData(Qt.Orientation.Horizontal))
 
         layout.addWidget(self._pen_config)
         layout.addWidget(self._cmb_direction)

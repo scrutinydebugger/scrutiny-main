@@ -6,15 +6,15 @@
 #
 #    Copyright (c) 2026 Scrutiny Debugger
 
-import math
 import pkgutil
 import importlib
 
-from PySide6.QtGui import QMouseEvent, QResizeEvent, QDrag
-from PySide6.QtWidgets import QWidget, QGridLayout, QVBoxLayout, QLabel, QGroupBox, QHBoxLayout
+from PySide6.QtGui import QMouseEvent, QDrag, QResizeEvent
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QGroupBox, QHBoxLayout
 from PySide6.QtCore import Qt, QSize
 
 from scrutiny.gui.widgets.scrutiny_hoverable_widget import ScrutinyHoverableWidget
+from scrutiny.gui.widgets.flow_grid_layout import FlowGridLayout
 from scrutiny.gui.core.scrutiny_drag_data import ScrutinyDragData
 from scrutiny.gui.components.locals.hmi.hmi_library_category import HMI_LIBARY_CATEGORIES, LibraryCategory
 from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget
@@ -48,13 +48,15 @@ class HMILibraryEntryWidget(ScrutinyHoverableWidget):
         self._icon_label.setFixedSize(QSize(self.ICON_SIZE, self.ICON_SIZE))
         self._text_label = QLabel(hmi_widget.get_name())
         self._text_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._text_label.setMaximumWidth(self.ICON_SIZE)
+        self._text_label.setWordWrap(True)
 
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self._icon_label)
         layout.addWidget(self._text_label)
         layout.setContentsMargins(0, 0, 0, 0)
-        self.setMinimumWidth(self.ICON_SIZE)
+        self.setFixedWidth(self.ICON_SIZE)
 
     def get_widget_name(self) -> str:
         return self._hmi_widget.get_name()
@@ -85,54 +87,26 @@ class HMILibraryCategoryWidget(QWidget):
 
     _category: LibraryCategory
     _display_name: str
-    _entries: List[HMILibraryEntryWidget]
-
-    _grid_container: QWidget
 
     def __init__(self, category: LibraryCategory, hmi_widgets: List[Type[BaseHMIWidget]]) -> None:
         super().__init__()
         category_info = HMI_LIBARY_CATEGORIES[category]
         self._category = category
         self._display_name = category_info.display_name
-        self._entries = sorted((HMILibraryEntryWidget(hmiw) for hmiw in hmi_widgets), key=lambda x: x.get_widget_name())
-        self._grid_container = QWidget()
+        entries = sorted((HMILibraryEntryWidget(hmiw) for hmiw in hmi_widgets), key=lambda x: x.get_widget_name())
 
-        layout = QHBoxLayout(self)
+        layout = QVBoxLayout(self)
+        layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
         gb = QGroupBox(self._display_name)
-        layout.addWidget(gb, stretch=1)
+        layout.addWidget(gb)
         gb_layout = QVBoxLayout(gb)
-        gb_layout.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
-        gb_layout.addWidget(self._grid_container)
-
-        self.rebuild_grid_layout()
-
-    def rebuild_grid_layout(self) -> None:
-        LAYOUT_SPACING = 8
-        nb_col = self.width() // (HMILibraryEntryWidget.ICON_SIZE + LAYOUT_SPACING)
-        if nb_col == 0:
-            return
-        nb_col = min(nb_col, len(self._entries))
-        nb_row = math.ceil(len(self._entries) / nb_col)
-
-        layout = cast(Optional[QGridLayout], self._grid_container.layout())
-        if layout is None:
-            layout = QGridLayout(self._grid_container)
-            layout.setContentsMargins(0, 0, 0, 0)
-            layout.setSpacing(LAYOUT_SPACING)
-        else:
-            if layout.columnCount() == nb_col and layout.rowCount() == nb_row:
-                return
-
-            for widget in self._entries:
-                layout.removeWidget(widget)
-
-        for row in range(nb_row):
-            for col in range(nb_col):
-                index = row * nb_col + col
-                if index < len(self._entries):
-                    layout.addWidget(self._entries[index], row, col, Qt.AlignmentFlag.AlignTop)
+        grid_widget = QWidget()
+        flow = FlowGridLayout(spacing=8, parent=grid_widget)
+        flow.setContentsMargins(0, 0, 0, 0)
+        for entry in entries:
+            flow.addWidget(entry)
+        gb_layout.addWidget(grid_widget, alignment=Qt.AlignmentFlag.AlignTop)
 
     def get_display_name(self) -> str:
         return self._display_name
@@ -141,8 +115,8 @@ class HMILibraryCategoryWidget(QWidget):
         return self._category
 
     def resizeEvent(self, event: QResizeEvent) -> None:
-        super().resizeEvent(event)
-        self.rebuild_grid_layout()
+        self.updateGeometry()
+        return super().resizeEvent(event)
 
 
 class HMILibrary(QWidget):
