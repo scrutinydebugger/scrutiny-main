@@ -9,7 +9,7 @@
 import pkgutil
 import importlib
 
-from PySide6.QtGui import QMouseEvent, QDrag, QResizeEvent
+from PySide6.QtGui import QMouseEvent, QDrag
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QGroupBox, QHBoxLayout
 from PySide6.QtCore import Qt, QSize
 
@@ -45,7 +45,8 @@ class HMILibraryEntryWidget(ScrutinyHoverableWidget):
         self._icon_label = QLabel()
         pixmap = hmi_widget.get_icon_as_pixmap()
         self._icon_label.setPixmap(pixmap.scaled(QSize(self.ICON_SIZE, self.ICON_SIZE), Qt.AspectRatioMode.KeepAspectRatio))
-        self._icon_label.setFixedSize(QSize(self.ICON_SIZE, self.ICON_SIZE))
+        self._icon_label.setMinimumHeight(self.ICON_SIZE)
+        self._icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._text_label = QLabel(hmi_widget.get_name())
         self._text_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._text_label.setMaximumWidth(self.ICON_SIZE)
@@ -56,7 +57,6 @@ class HMILibraryEntryWidget(ScrutinyHoverableWidget):
         layout.addWidget(self._icon_label)
         layout.addWidget(self._text_label)
         layout.setContentsMargins(0, 0, 0, 0)
-        self.setFixedWidth(self.ICON_SIZE)
 
     def get_widget_name(self) -> str:
         return self._hmi_widget.get_name()
@@ -113,10 +113,6 @@ class HMILibraryCategoryWidget(QWidget):
 
     def get_category(self) -> LibraryCategory:
         return self._category
-
-    def resizeEvent(self, event: QResizeEvent) -> None:
-        self.updateGeometry()
-        return super().resizeEvent(event)
 
 
 class HMILibrary(QWidget):

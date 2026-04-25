@@ -16,9 +16,9 @@ import logging
 
 from scrutiny.gui.components.locals.hmi.hmi_library import HMILibrary
 
-from PySide6.QtCore import Qt, QPoint
-from PySide6.QtWidgets import QVBoxLayout, QSplitter, QTabWidget, QWidget, QStackedLayout
-from PySide6.QtGui import QIcon, QKeyEvent, QMouseEvent
+from PySide6.QtCore import Qt, QPoint, QSize
+from PySide6.QtWidgets import QVBoxLayout, QSplitter, QTabWidget, QWidget, QStackedLayout, QScrollArea
+from PySide6.QtGui import QIcon, QKeyEvent, QMouseEvent, QResizeEvent
 
 from scrutiny.gui import assets
 from scrutiny.gui.themes import scrutiny_get_theme
@@ -68,27 +68,35 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
     _status_bar: HMIStatusBar
     """The status bar visible in the work zone when in edit mode"""
 
+    _library_tab_index: int
+    """Tab index of the Library Tab"""
+    _configure_tab_index: int
+    """Tab index of the configure tab"""
+
 # region inherited methods
     @classmethod
     def get_icon(cls) -> QIcon:
         return scrutiny_get_theme().load_medium_icon(assets.Icons.GaugeLean)
 
     def setup(self) -> None:
+        self._config_widgets = {}
         self._mode = HMIInteractionMode.Display
         self._status_bar = HMIStatusBar()
         self._workzone = HMIWorkZone(self._status_bar)
         self._library = HMILibrary()
         self._config_widget_container = QWidget()
-        self._config_widgets = {}
 
-        self._edit_tab_widget = QTabWidget()
-        self._edit_tab_widget.addTab(self._library, "Library")
-        self._edit_tab_widget.addTab(self._config_widget_container, "Configure")
-
+        config_scroll = QScrollArea()
+        config_scroll.setWidget(self._config_widget_container)
+        config_scroll.setWidgetResizable(True)
         self._config_widget_container_layout = QStackedLayout(self._config_widget_container)
         self._config_widget_container_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         self._config_widget_container_layout.setStackingMode(QStackedLayout.StackingMode.StackOne)
         self._config_widget_container_layout.addWidget(QWidget())   # Empty widget at index 0
+
+        self._edit_tab_widget = QTabWidget()
+        self._library_tab_index = self._edit_tab_widget.addTab(self._library, "Library")
+        self._configure_tab_index = self._edit_tab_widget.addTab(config_scroll, "Configure")
 
         workzone_status_bar_container = QWidget()
         workzone_status_bar_container_layout = QVBoxLayout(workzone_status_bar_container)
@@ -215,6 +223,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
 
         self._config_widgets[id(widget)] = config_container
         self._config_widget_container_layout.addWidget(config_container)
+        config_container.setMinimumWidth(config_container.sizeHint().width())
 
     def _workzone_drop_widget_class_slot(self, widget_class: Type[BaseHMIWidget], scene_pos: QPoint) -> None:
         """Callback invoked when a HMI widget is dropped on the workzone from the Library"""
@@ -289,7 +298,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
                 move_to_front_action.triggered.connect(move_to_front_slot)
 
                 def edit_action_slot() -> None:
-                    self._edit_tab_widget.setCurrentWidget(self._config_widget_container)
+                    self._edit_tab_widget.setCurrentIndex(self._configure_tab_index)
                     self._show_config_of(widget)
                     self._show_edit_menu(True)
 
@@ -307,8 +316,8 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         if widget is None:
             self._config_widget_container_layout.setCurrentIndex(0)  # Empty widget
         else:
-            config_container = self._config_widgets[id(widget)]
-            self._config_widget_container_layout.setCurrentWidget(config_container)
+            config_wdiget = self._config_widgets[id(widget)]
+            self._config_widget_container_layout.setCurrentWidget(config_wdiget)
 
     def _reassign_packed_zvalues(self) -> None:
         """Take every HMI widget is change their ZValue so they range from 0 to N without holes in between them"""

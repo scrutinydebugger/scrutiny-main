@@ -1086,6 +1086,9 @@
         },
         "scrutiny/gui/widgets/color_button.py": {
             "docstring": "A widget to select a color with a button"
+        },
+        "scrutiny/gui/widgets/flow_grid_layout.py": {
+            "docstring": "A layout that behaves liek a Flex layout in CSS. Make a grid by laying out from left to right, starting from top"
         }
     },
     "authors": {}

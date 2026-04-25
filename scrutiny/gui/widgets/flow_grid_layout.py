@@ -1,3 +1,12 @@
+#    flow_grid_layout.py
+#        A layout that behaves liek a Flex layout in CSS. Make a grid by laying out from left
+#        to right, starting from top
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
+
 import math
 
 from PySide6.QtWidgets import QWidget, QLayout, QLayoutItem

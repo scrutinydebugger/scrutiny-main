@@ -1,5 +1,4 @@
 TODO:
     State save/reload + testing
-    Scroll area for config widget.
     Colorspan separator.
     Gauge color - double check

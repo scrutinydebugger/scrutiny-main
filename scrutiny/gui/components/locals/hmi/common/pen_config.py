@@ -89,7 +89,7 @@ class PenConfigWidget(QWidget):
         if idx >= 0:
             self._cmb_style.setCurrentIndex(idx)
 
-    def set_width(self, v:float) -> None:
+    def set_width(self, v: float) -> None:
         pen = self.get_pen()
         pen.setWidthF(v)
         self.set_pen(pen)
