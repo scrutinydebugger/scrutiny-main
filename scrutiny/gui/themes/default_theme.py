@@ -47,9 +47,10 @@ class DefaultTheme(ScrutinyTheme):
         ScrutinyThemeProperties.WIDGET_ERROR_BACKGROUND_COLOR: RED_ERROR,
         ScrutinyThemeProperties.EMBEDDED_GRAPH_CHART_TRIGGER_COLOR: QColor(0, 0, 0),
 
-        ScrutinyThemeProperties.HMI_GREEN_GOOD_COLOR: QColor("#92D050"),
-        ScrutinyThemeProperties.HMI_YELLOW_WARNING_COLOR: QColor("#FFFF00"),
-        ScrutinyThemeProperties.HMI_RED_DANGER_COLOR: QColor("#FF0000"),
+        ScrutinyThemeProperties.HMI_GREEN_GOOD_COLOR: QColor("#63a11f"),
+        ScrutinyThemeProperties.HMI_YELLOW_WARNING_COLOR: QColor("#E0E000"),
+        ScrutinyThemeProperties.HMI_RED_DANGER_COLOR: QColor("#ce2e28"),
+        ScrutinyThemeProperties.HMI_BLUE_HIGHLIGHT_COLOR: QColor("#4090D0"),
         ScrutinyThemeProperties.HMI_POINTER_BORDER_COLOR: HMI_LOW_CONTRAST_COLOR,
         ScrutinyThemeProperties.HMI_POINTER_FILL_COLOR: HMI_HIGH_CONTRAST_COLOR,
         ScrutinyThemeProperties.HMI_FRAME_BORDER_COLOR: QColor("#000000"),

@@ -109,7 +109,7 @@ class _NumericalConfigWidget(QWidget):
         self.spn_ints.setMaximum(NumericalConfigConstants.MAXIMUM_INTS)
 
         layout = QFormLayout(self)
-        layout.addRow("Engineering notation", self.chk_eng_notation)
+        layout.addRow("Eng. notation", self.chk_eng_notation)
         layout.addRow("Integers", self.spn_ints)
         layout.addRow("Decimals", self.spn_decimals)
         layout.addRow("Units", self.txt_units)

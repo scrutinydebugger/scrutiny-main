@@ -16,9 +16,9 @@ import logging
 
 from scrutiny.gui.components.locals.hmi.hmi_library import HMILibrary
 
-from PySide6.QtCore import Qt, QPoint, QSize
-from PySide6.QtWidgets import QVBoxLayout, QSplitter, QTabWidget, QWidget, QStackedLayout, QScrollArea
-from PySide6.QtGui import QIcon, QKeyEvent, QMouseEvent, QResizeEvent
+from PySide6.QtCore import Qt, QPoint
+from PySide6.QtWidgets import QVBoxLayout, QSplitter, QTabWidget, QWidget, QStackedLayout, QScrollArea, QGroupBox
+from PySide6.QtGui import QIcon, QKeyEvent, QMouseEvent
 
 from scrutiny.gui import assets
 from scrutiny.gui.themes import scrutiny_get_theme
@@ -90,6 +90,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         config_scroll.setWidget(self._config_widget_container)
         config_scroll.setWidgetResizable(True)
         self._config_widget_container_layout = QStackedLayout(self._config_widget_container)
+        self._config_widget_container_layout.setContentsMargins(0, 0, 0, 0)
         self._config_widget_container_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         self._config_widget_container_layout.setStackingMode(QStackedLayout.StackingMode.StackOne)
         self._config_widget_container_layout.addWidget(QWidget())   # Empty widget at index 0
@@ -97,6 +98,8 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         self._edit_tab_widget = QTabWidget()
         self._library_tab_index = self._edit_tab_widget.addTab(self._library, "Library")
         self._configure_tab_index = self._edit_tab_widget.addTab(config_scroll, "Configure")
+
+        self._edit_tab_widget.setMinimumWidth(192)
 
         workzone_status_bar_container = QWidget()
         workzone_status_bar_container_layout = QVBoxLayout(workzone_status_bar_container)
@@ -165,6 +168,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
 
     def set_mode(self, mode: HMIInteractionMode) -> None:
         """Switch working mode (Edit or Display)"""
+        previous_mode = self._mode
         self._mode = mode
         self._workzone.deselect_all_widgets()
 
@@ -184,7 +188,9 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         for hmi_widget in self._workzone.iterate_hmi_widgets():
             self.update_hmi_widget_state(hmi_widget)
 
+
 # region Private
+
     def _registry_changed_slot(self) -> None:
         """ Called when watchables are added/removed from the registry"""
         self._resubscribe_all_hmi_widgets()
@@ -213,9 +219,14 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         layout = QVBoxLayout(config_container)
         layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
+        vslot_gb = QGroupBox("Input values")
+        vslot_gb_layout = QVBoxLayout(vslot_gb)
+        vslot_gb_layout.setContentsMargins(0, 0, 0, 0)
+
         vslot_config = widget.get_slot_config_widget()
         if vslot_config is not None:
-            layout.addWidget(vslot_config)
+            vslot_gb_layout.addWidget(vslot_config)
+        layout.addWidget(vslot_gb)
 
         specific_config = widget.get_config_widget()
         if specific_config is not None:
@@ -223,7 +234,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
 
         self._config_widgets[id(widget)] = config_container
         self._config_widget_container_layout.addWidget(config_container)
-        config_container.setMinimumWidth(config_container.sizeHint().width())
+        config_container.setMaximumWidth(config_container.sizeHint().width())
 
     def _workzone_drop_widget_class_slot(self, widget_class: Type[BaseHMIWidget], scene_pos: QPoint) -> None:
         """Callback invoked when a HMI widget is dropped on the workzone from the Library"""

@@ -11,7 +11,7 @@ __all__ = ['NumericalDisplayHMIWidget']
 
 from PySide6.QtGui import QPainter
 from PySide6.QtCore import QSize, Qt
-from PySide6.QtWidgets import QVBoxLayout, QWidget
+from PySide6.QtWidgets import QVBoxLayout, QWidget, QGroupBox
 
 
 from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget, WatchableValueType
@@ -42,8 +42,12 @@ class NumericalDisplayHMIWidget(BaseHMIWidget):
         self._config_widget = QWidget()
         self._numerical_display = NumericalTextDisplay(self)
         self._numerical_display.set_border_width(4)
-        layout = QVBoxLayout(self._config_widget)
-        layout.addWidget(self._numerical_display.get_config_widget())
+        config_layout = QVBoxLayout(self._config_widget)
+        config_layout.setContentsMargins(0, 0, 0, 0)
+        gb = QGroupBox("Formatting")
+        gb_layout = QVBoxLayout(gb)
+        gb_layout.addWidget(self._numerical_display.get_config_widget())
+        config_layout.addWidget(gb)
         self._numerical_display.set_text_color(HMITheme.Color.text())
 
         self._numerical_display.signals.config_changed.connect(self._config_changed_slot)

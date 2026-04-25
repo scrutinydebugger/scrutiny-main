@@ -12,7 +12,7 @@ __all__ = ['ColorSpanEditor', 'ColorSpan', 'SpanColor']
 import enum
 from dataclasses import dataclass
 
-from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QVBoxLayout, QDoubleSpinBox,
+from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QVBoxLayout, QDoubleSpinBox, QFrame,
                                QComboBox, QToolButton, QLabel, QPushButton)
 from PySide6.QtGui import QColor, QPixmap
 from PySide6.QtCore import Signal, QObject, Qt, QSize
@@ -29,12 +29,14 @@ class SpanColor(enum.Enum):
     GOOD = "good"
     WARNING = "warning"
     DANGER = "danger"
+    HIGHLIGHT = "highlight"
 
     def to_qcolor(self) -> QColor:
         _map = {
-            SpanColor.GOOD: HMITheme.Color.green_good(),
-            SpanColor.WARNING: HMITheme.Color.yellow_warning(),
-            SpanColor.DANGER: HMITheme.Color.red_danger()
+            SpanColor.GOOD: QColor(HMITheme.Color.green_good()),
+            SpanColor.WARNING: QColor(HMITheme.Color.yellow_warning()),
+            SpanColor.DANGER: QColor(HMITheme.Color.red_danger()),
+            SpanColor.HIGHLIGHT: QColor(HMITheme.Color.blue_highlight())
         }
         if self in _map:
             return _map[self]
@@ -89,21 +91,22 @@ class _SpanRow(QWidget):
 
         self._cmb_color = QComboBox()
         icon_size = QSize(self._cmb_color.height(), self._cmb_color.height())
-        good_icon = QPixmap(icon_size)
-        good_icon.fill(SpanColor.GOOD.to_qcolor())
-        warning_icon = QPixmap(icon_size)
-        warning_icon.fill(SpanColor.WARNING.to_qcolor())
-        danger_icon = QPixmap(icon_size)
-        danger_icon.fill(SpanColor.DANGER.to_qcolor())
 
-        self._cmb_color.addItem(good_icon, "Good", SpanColor.GOOD)
-        self._cmb_color.addItem(warning_icon, "Warning", SpanColor.WARNING)
-        self._cmb_color.addItem(danger_icon, "Danger", SpanColor.DANGER)
+        for color, text in [
+            (SpanColor.GOOD, "Good"),
+            (SpanColor.WARNING, "Warning"),
+            (SpanColor.DANGER, "Danger"),
+            (SpanColor.HIGHLIGHT, "Highlight")
+        ]:
+            icon = QPixmap(icon_size)
+            icon.fill(color.to_qcolor())
+            self._cmb_color.addItem(icon, text, color)
 
         self._btn_remove = QToolButton()
         self._btn_remove.setIcon(scrutiny_get_theme().load_tiny_icon(assets.Icons.RedX))
         self._btn_remove.setText("Remove")
         self._btn_remove.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+
         self._btn_remove.clicked.connect(self._signals.remove_requested)
 
         layout = QVBoxLayout(self)
@@ -125,9 +128,13 @@ class _SpanRow(QWidget):
         line2_layout.addWidget(QLabel("Color:"))
         line2_layout.addWidget(self._cmb_color)
         line2_layout.addWidget(self._btn_remove)
+        line3 = QFrame()
+        line3.setFrameShape(QFrame.Shape.HLine)
+        line3.setFrameShadow(QFrame.Shadow.Sunken)
 
         layout.addWidget(line1)
         layout.addWidget(line2)
+        layout.addWidget(line3)
 
         self._spn_start.setKeyboardTracking(False)
         self._spn_stop.setKeyboardTracking(False)
@@ -188,6 +195,7 @@ class ColorSpanEditor(QWidget):
         self._max_spans = 6
         self._rows_layout = QVBoxLayout()
         self._rows_layout.setContentsMargins(0, 0, 0, 0)
+        self._rows_layout.setSpacing(10)
 
         self._btn_add = QPushButton("Add color")
         self._btn_add.setMaximumWidth(self._btn_add.sizeHint().width())

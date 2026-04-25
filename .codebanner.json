@@ -12,7 +12,6 @@
     ],
     "exclude_patterns": [
         "*__init__.py",
-        "*__init__.py",
         "scrutiny/sdk/docs/*",
         "test/core/test_itanium_demangler.py",
         "scrutiny/core/bintools/itanium_demangler.py"
@@ -1088,7 +1087,7 @@
             "docstring": "A widget to select a color with a button"
         },
         "scrutiny/gui/widgets/flow_grid_layout.py": {
-            "docstring": "A layout that behaves liek a Flex layout in CSS. Make a grid by laying out from left to right, starting from top"
+            "docstring": "A layout that behaves like a Flex layout in CSS. Make a grid by laying out from left to right, starting from top"
         }
     },
     "authors": {}

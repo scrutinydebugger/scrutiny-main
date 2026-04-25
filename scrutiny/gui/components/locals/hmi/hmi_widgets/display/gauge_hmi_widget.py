@@ -166,17 +166,18 @@ class GaugeHMIWidget(BaseHMIWidget):
 
         self._config_widget = QWidget()
         gb_text_display = QGroupBox("Text Display")
-        gb_dial_display = QGroupBox("Ticks")
+        gb_ticks_display = QGroupBox("Ticks")
         gb_colors = QGroupBox("Colors")
         layout = QVBoxLayout(self._config_widget)
-        layout.addWidget(gb_dial_display)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(gb_ticks_display)
         layout.addWidget(gb_text_display)
         layout.addWidget(gb_colors)
 
-        gb_dial_display_layout = QFormLayout(gb_dial_display)
-        gb_dial_display_layout.addRow("Overflow", self._cmb_overflow_behavior)
-        gb_dial_display_layout.addRow("Major Ticks", self._spn_major_ticks)
-        gb_dial_display_layout.addRow("Minor Ticks", self._spn_minor_ticks)
+        gb_ticks_display_layout = QFormLayout(gb_ticks_display)
+        gb_ticks_display_layout.addRow("Overflow", self._cmb_overflow_behavior)
+        gb_ticks_display_layout.addRow("Major Ticks", self._spn_major_ticks)
+        gb_ticks_display_layout.addRow("Minor Ticks", self._spn_minor_ticks)
 
         gb_text_display_layout = QFormLayout(gb_text_display)
         gb_text_display_layout.addWidget(self._numerical_display.get_config_widget())
@@ -306,7 +307,6 @@ class GaugeHMIWidget(BaseHMIWidget):
 
             pen = QPen()
             color = span.color.to_qcolor()
-            color.setAlphaF(0.5)
             pen.setColor(color)
             pen.setWidthF(color_indicator_w)
             pen.setCapStyle(Qt.PenCapStyle.FlatCap)

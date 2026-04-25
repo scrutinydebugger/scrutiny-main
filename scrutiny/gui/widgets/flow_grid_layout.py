@@ -1,5 +1,5 @@
 #    flow_grid_layout.py
-#        A layout that behaves liek a Flex layout in CSS. Make a grid by laying out from left
+#        A layout that behaves like a Flex layout in CSS. Make a grid by laying out from left
 #        to right, starting from top
 #
 #   - License : MIT - See LICENSE file
