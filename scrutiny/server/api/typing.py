@@ -80,7 +80,7 @@ class VarFactoryParams(TypedDict):
 
 
 class DatastoreEntryBriefDefinition(TypedDict, total=False):
-    """Given when listing what's avaialble"""
+    """Given when listing what's available"""
     path: str
     dtype: Datatype
     type: WatchableType              # Can be missing

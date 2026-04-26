@@ -21,6 +21,7 @@ from scrutiny.gui.components.locals.hmi.hmi_library import HMILibrary
 from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget, HandlePosition
 from scrutiny.gui.components.locals.hmi.hmi_edit_grid import HMIEditGrid
 from scrutiny.gui.components.locals.hmi.hmi_theme import HMITheme
+from scrutiny.gui.components.locals.hmi.hmi_status_bar import HMIStatusBar
 
 
 from scrutiny import tools
@@ -40,12 +41,14 @@ RESIZE_CURSOR_MAP = {
 
 @dataclass
 class WidgetMouseEditData:
+    """A structure of data that contains mouse state data between a press and a release"""
     class Action(enum.Enum):
         Move = enum.auto()
         Resize = enum.auto()
 
     @dataclass
     class ResizeData:
+        """Data specific to a resize action"""
         original_pos: QPoint
         original_size: QSize
         handle_clicked: HandlePosition
@@ -53,6 +56,7 @@ class WidgetMouseEditData:
 
     @dataclass
     class MoveData:
+        """Data specific to a move action"""
         cursor_start: QPoint
         widget_offset_to_bounding_rect: Dict[int, QPoint]
         selection_bouding_rect: QRect
@@ -63,6 +67,7 @@ class WidgetMouseEditData:
 
 
 class DropPlaceholder(QGraphicsItem):
+    """A square that shows the place that a HMI widget will take on the drop zone"""
     _size: QSize
 
     @tools.copy_type(QGraphicsItem.__init__)
@@ -86,36 +91,51 @@ class DropPlaceholder(QGraphicsItem):
 
 
 class HMIWorkZone(QGraphicsView):
+    """The main work zone. this is the canvas on which every HMI widget are drawn, moved, resize and displayed"""
 
     MIN_RUBBERBAND_AREA = 5 * 5
+    """A constant to disregard noise when making a selection rectangle (rubber band)"""
 
     class _Signals(QObject):
-        right_click = Signal(object, QMouseEvent)    # Optional[BaseHMIWidget], QMouseEvent
+        right_click = Signal(object, QMouseEvent)   # Optional[BaseHMIWidget], QMouseEvent
         left_click = Signal(object, QMouseEvent)    # Optional[BaseHMIWidget], QMouseEvent
-        drop_widget_class = Signal(type, QPoint)
-        selection_changed = Signal(list)
+        drop_widget_class = Signal(type, QPoint)    # Class, QPoint
+        selection_changed = Signal(list)            # List[BaseHMIWidget]
 
     _signals: _Signals
 
     _mouse_down_widget: Optional[BaseHMIWidget]
+    """The widget on which the mouse down was done. ``None`` if mouse was pressed on the background (grid)"""
     _mouse_down_start: Optional[QPoint]
+    """The location of the mouse down action. Has a value when the button is pressed, ``None`` otherwise"""
     _rubberband: QRubberBand
+    """The rubber band when selecting multiple HMI widgets"""
     _rubberband_active: bool
+    """A flag indicating if a rubber band is visible and being stretched"""
     _allow_edit_widgets: bool
+    """A flag allowing to move/resize HMI widgets """
     _mouse_edit_data: Optional[WidgetMouseEditData]
+    """The state data when a mouse press is active. Contains move/resize specific data"""
     _grid: HMIEditGrid
+    """The grid drawn in the background"""
     _selected_widgets: List[BaseHMIWidget]
+    """List of widgets being selected"""
     _scene: QGraphicsScene
+    """The scene on which we draw"""
     _drop_placeholder: DropPlaceholder
+    """The graphic square displayed when the user drag-move a new HMI widget on the workzone to show what place it will take"""
+    _status_bar: HMIStatusBar
+    """The status bar at the bottom of the work zone when in Edit mode"""
 
-    @tools.copy_type(QGraphicsView.__init__)
-    def __init__(self) -> None:
+    def __init__(self, status_bar: HMIStatusBar) -> None:
         self._scene = QGraphicsScene()
         super().__init__(self._scene)
         self._signals = self._Signals()
+        self._signals.selection_changed.connect(self._selection_changed_slot)
 
         self._mouse_down_start = None
         self._mouse_down_widget = None
+        self._status_bar = status_bar
 
         self._rubberband = QRubberBand(QRubberBand.Shape.Rectangle)
         self._rubberband.setParent(self)
@@ -133,15 +153,18 @@ class HMIWorkZone(QGraphicsView):
         self.scene().addItem(self._drop_placeholder)
 
     def show_grid(self, val: bool) -> None:
+        """Show or hide the grid (Edit vs Display mode)"""
         self._grid.setVisible(val)
 
     def add_widgets_to_selection(self, widgets: List[BaseHMIWidget]) -> None:
+        """Add a new widget to the selection (ctrl + click)"""
         self._selected_widgets.extend(widgets)
         for widget in widgets:
             widget.set_selected(True)
         self._signals.selection_changed.emit(self._selected_widgets.copy())
 
     def select_widgets(self, widgets: List[BaseHMIWidget]) -> None:
+        """Define a selection (click or rubber band)"""
         for hmi_widget in self.iterate_hmi_widgets():
             hmi_widget.set_selected(False)
 
@@ -154,26 +177,31 @@ class HMIWorkZone(QGraphicsView):
         self._signals.selection_changed.emit(self._selected_widgets.copy())
 
     def deselect_all_widgets(self) -> None:
+        """Clear the selection"""
         for widget in self._selected_widgets:
             widget.set_selected(False)
         self._selected_widgets.clear()
         self._signals.selection_changed.emit(self._selected_widgets.copy())
 
     def remove_widget(self, widget: BaseHMIWidget) -> None:
+        """Removes a widget from the work zone. No management of lifetime, they are owned by the HMIComponent"""
         if widget in self._selected_widgets:
             self._selected_widgets.remove(widget)
 
         self.scene().removeItem(widget)
 
     def add_widget(self, widget: BaseHMIWidget, scene_pos: Optional[QPoint] = None) -> None:
+        """Adds a HMI widget to the work zone. No lifetime management, they are owned by the HMIComponent"""
         self.scene().addItem(widget)
         if scene_pos is not None:
             widget.setPos(self._snap_to_grid(scene_pos, widget.get_size()))
 
     def selected_widgets(self) -> List[BaseHMIWidget]:
+        """Return the list of actually selected HMI widget"""
         return self._selected_widgets.copy()
 
     def set_allow_edit_widgets(self, val: bool) -> None:
+        """Allow or disallow editing HMI widgets"""
         self._allow_edit_widgets = val
 
         if self._allow_edit_widgets:
@@ -183,6 +211,7 @@ class HMIWorkZone(QGraphicsView):
             self.setMouseTracking(False)
 
     def _compute_rubber_band_rect(self, start: QPoint, end: QPoint) -> QRect:
+        """Get the start and end point of a rubber band selection and return a QRect with dimension in the right orders"""
         top = min(start.y(), end.y())
         bottom = max(start.y(), end.y())
         left = min(start.x(), end.x())
@@ -190,6 +219,7 @@ class HMIWorkZone(QGraphicsView):
         return QRect(QPoint(left, top), QPoint(right, bottom))
 
     def hmi_widget_at(self, pos: QPoint) -> Optional[BaseHMIWidget]:
+        """Tells what HMI widget is at a location. Returns the one on the top (highest z-value) if many"""
         for item in self.items(pos):
             if isinstance(item, BaseHMIWidget):
                 return item
@@ -199,6 +229,7 @@ class HMIWorkZone(QGraphicsView):
         self._resize_scene()
 
     def _resize_scene(self) -> None:
+        """Resize the scene to the fill the containing widget. Will refuse to shrink if an HMI widget is outside of the bounds (will add a scrollbar)"""
         width = self.viewport().size().width()
         height = self.viewport().size().height()
         for widget in self.iterate_hmi_widgets():
@@ -211,23 +242,23 @@ class HMIWorkZone(QGraphicsView):
     def mouseMoveEvent(self, event: QMouseEvent) -> None:
         event.accept()
         cursor = Qt.CursorShape.ArrowCursor
-
         if self._allow_edit_widgets:
-            if self._rubberband_active:
+            scene_pos = self.mapToScene(event.pos())
+            if self._rubberband_active:     # User is making a selection with a rubber band
                 assert self._mouse_down_start is not None
                 self._rubberband.setVisible(True)
                 self._rubberband.setGeometry(self._compute_rubber_band_rect(self._mouse_down_start, event.pos()))
             else:
-                if self._mouse_edit_data is not None:
+                if self._mouse_edit_data is not None:   # An action is presently in progress
                     if self._mouse_edit_data.action == WidgetMouseEditData.Action.Move:
-                        cursor = self._view_mousemove_move_widget(event)
+                        cursor = self._view_mousemove_move_widget(event)    # Handle move action
                     elif self._mouse_edit_data.action == WidgetMouseEditData.Action.Resize:
-                        cursor = self._view_mousemove_resize_widget(event)
-                else:
+                        cursor = self._view_mousemove_resize_widget(event)  # Handle resize action
+                else:   # Nothing is happening
                     # Check if we should display a resize cursor if use hover a resize handle
                     item = self.hmi_widget_at(event.pos())
                     if item is not None:
-                        local_pos = item.mapFromScene(self.mapToScene(event.pos()))
+                        local_pos = item.mapFromScene(scene_pos)
                         for handle, rect in item.resize_handles_coordinates().items():
                             if rect.contains(local_pos):
                                 cursor = RESIZE_CURSOR_MAP[handle]
@@ -235,7 +266,15 @@ class HMIWorkZone(QGraphicsView):
 
         self.setCursor(cursor)
 
+    def _selection_changed_slot(self, widgets: List[BaseHMIWidget]) -> None:
+        """Callback when the user change the selection (add or remove)"""
+        if len(widgets) == 0:
+            self._status_bar.set_selected_count(None)
+        else:
+            self._status_bar.set_selected_count(len(widgets))
+
     def _snap_to_grid(self, p: Union[QPoint, QPointF], size: Optional[Union[QSizeF, QSize]] = None) -> QPoint:
+        """Take a point or a rect (if a size is given) and snaps it to the grid, prevent the point or the square to go outside of the scene."""
         if size is None:
             size = QSize(0, 0)
         max_x = int(((self.sceneRect().right() - size.width()) // self._grid.GRID_SPACING) * self._grid.GRID_SPACING)
@@ -247,6 +286,7 @@ class HMIWorkZone(QGraphicsView):
         )
 
     def _view_mousemove_move_widget(self, event: QMouseEvent) -> Qt.CursorShape:
+        """When moving an HMI widget, this is called during MouseMoveEvent"""
         assert self._mouse_edit_data is not None
         assert self._mouse_edit_data.move_data is not None
 
@@ -266,6 +306,7 @@ class HMIWorkZone(QGraphicsView):
         return Qt.CursorShape.DragMoveCursor
 
     def _view_mousemove_resize_widget(self, event: QMouseEvent) -> Qt.CursorShape:
+        """When resizing an HMI widget, this is called during MouseMoveEvent"""
         assert self._mouse_edit_data is not None
         assert self._mouse_edit_data.resize_data is not None
 
@@ -319,16 +360,20 @@ class HMIWorkZone(QGraphicsView):
         # Apply only on dimensions that are allowed to change
         widget = self._mouse_edit_data.resize_data.widget
         if new_size.width() >= widget.min_width() and new_size.height() >= widget.min_height():
-            self._mouse_edit_data.resize_data.widget.setPos(new_pos)
-            self._mouse_edit_data.resize_data.widget.set_size(new_size)
+            pass
         elif new_size.width() >= widget.min_width():
-            self._mouse_edit_data.resize_data.widget.setPos(QPoint(new_pos.x(), previous_pos.y()))
-            self._mouse_edit_data.resize_data.widget.set_size(QSize(new_size.width(), previous_size.height()))
+            new_pos = QPoint(new_pos.x(), previous_pos.y())
+            new_size = QSize(new_size.width(), previous_size.height())
         elif new_size.height() >= widget.min_height():
-            self._mouse_edit_data.resize_data.widget.setPos(QPoint(previous_pos.x(), new_pos.y()))
-            self._mouse_edit_data.resize_data.widget.set_size(QSize(previous_size.width(), new_size.height()))
+            new_size = QSize(previous_size.width(), new_size.height())
+            new_pos = QPoint(previous_pos.x(), new_pos.y())
         else:
-            pass    # Leave untouched
+            new_pos = previous_pos
+            new_size = previous_size
+
+        self._mouse_edit_data.resize_data.widget.setPos(new_pos)
+        self._mouse_edit_data.resize_data.widget.set_size(new_size)
+        self._status_bar.set_resize_size(new_size)
 
         return cursor
 
@@ -340,14 +385,16 @@ class HMIWorkZone(QGraphicsView):
         self._mouse_down_widget = None
 
         if isinstance(mouse_down_item, BaseHMIWidget):
+            # Remember on what the user clicked. Ignore the Grid
             self._mouse_down_widget = mouse_down_item
 
         if event.button() == Qt.MouseButton.LeftButton:
             self._mouse_edit_data = None
             if self._allow_edit_widgets:
-                if self._mouse_down_widget is None:
+                if self._mouse_down_widget is None:  # Clicked nothing (grid). Start a rubber band
                     self._rubberband_active = True
-                else:
+                else:  # Clicked an HMI Widget
+
                     resize_handles = self._mouse_down_widget.resize_handles_coordinates()
                     resize_handle: Optional[HandlePosition] = None
                     pos_mapped_to_widget = self._mouse_down_widget.mapFromScene(self.mapToScene(event.pos()))
@@ -356,7 +403,8 @@ class HMIWorkZone(QGraphicsView):
                             resize_handle = handle
                             break
 
-                    if resize_handle:
+                    if resize_handle:       # User pressed on a resize handle.
+                        # Start a resize action
                         self._mouse_edit_data = WidgetMouseEditData(
                             action=WidgetMouseEditData.Action.Resize,
                             resize_data=WidgetMouseEditData.ResizeData(
@@ -366,13 +414,15 @@ class HMIWorkZone(QGraphicsView):
                                 original_size=QSize(self._mouse_down_widget.get_size())
                             )
                         )
-                    else:
-                        if self._mouse_down_widget not in self._selected_widgets:
+                    else:       # User pressed the HMI widget without hitting a resize handle.
+                        if self._mouse_down_widget not in self._selected_widgets:   # User  wants to select.
                             if event.modifiers() == Qt.KeyboardModifier.ControlModifier:
                                 self.add_widgets_to_selection([self._mouse_down_widget])
                             else:
                                 self.select_widgets([self._mouse_down_widget])
 
+                        # Start a Move action
+                        # First define the bounding rect that contains every selected HMI widget
                         selection_bounding_rect = self._mouse_down_widget.mapToScene(self._mouse_down_widget.boundingRect().toRect()).boundingRect()
                         for widget in self._selected_widgets:
                             bounding_rect = widget.mapToScene(widget.boundingRect().toRect()).boundingRect()
@@ -396,15 +446,17 @@ class HMIWorkZone(QGraphicsView):
 
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
         event.accept()
+        self._status_bar.set_resize_size(None)
         if self._mouse_down_start is None:
             return
 
         mouse_release_widget: Optional[QGraphicsItem] = self.hmi_widget_at(event.pos())
-        if not isinstance(mouse_release_widget, BaseHMIWidget):
+        if not isinstance(mouse_release_widget, BaseHMIWidget):  # Works for None and Grid
             mouse_release_widget = None
 
         # Check if right-click
         if event.button() == Qt.MouseButton.RightButton:
+            # Right release on same element as right press = right click
             if self._mouse_down_widget is mouse_release_widget:
                 self._signals.right_click.emit(mouse_release_widget, event)
 
@@ -412,11 +464,11 @@ class HMIWorkZone(QGraphicsView):
             if event.pos() == self._mouse_down_start:
                 self._rubberband_active = False
 
-            if self._rubberband_active:
+            if self._rubberband_active:  # Finished a rubberband
                 # Rubber band select logic
                 rubberband_rect = self._compute_rubber_band_rect(self._mouse_down_start, event.pos())
                 area = rubberband_rect.width() * rubberband_rect.height()
-                if area > self.MIN_RUBBERBAND_AREA:
+                if area > self.MIN_RUBBERBAND_AREA:  # Drop if too small
                     selected: List[BaseHMIWidget] = []
                     rubberband_rect_mapped_to_scene = self.mapToScene(rubberband_rect).boundingRect().toRect()
                     for widget in self.iterate_hmi_widgets():
@@ -425,7 +477,7 @@ class HMIWorkZone(QGraphicsView):
                             selected.append(widget)
                     self.select_widgets(selected)
             else:
-                if self._mouse_down_widget is mouse_release_widget:
+                if self._mouse_down_widget is mouse_release_widget:  # Left click on a single HMI widget
                     has_moved = False
                     if self._mouse_edit_data is not None:
                         if self._mouse_edit_data.action == WidgetMouseEditData.Action.Move:
@@ -448,11 +500,13 @@ class HMIWorkZone(QGraphicsView):
         self.setCursor(Qt.CursorShape.ArrowCursor)
 
     def iterate_hmi_widgets(self) -> Generator[BaseHMIWidget, None, None]:
+        """Iterate over every HMIWidget presently in the WorkZone"""
         for item in self.scene().items():
             if isinstance(item, BaseHMIWidget):
                 yield item
 
     def _read_drag_data(self, mime_data: QMimeData) -> Optional[Type[BaseHMIWidget]]:
+        """Parse the drag mime data and return the dragged HMIWidget class if any"""
         drag_data = ScrutinyDragData.from_mime(mime_data)
         if drag_data is None:
             return None
@@ -465,12 +519,14 @@ class HMIWorkZone(QGraphicsView):
         return widget_class
 
     def _set_drop_placeholder_pos(self, scene_pos: QPointF) -> None:
+        """Set the position of the drag placeholder"""
         size = self._drop_placeholder.get_size()
         mapped_pos = scene_pos - QPointF(size.width() / 2, size.height() / 2)
         snapped_pos = self._snap_to_grid(mapped_pos.toPoint(), size)
         self._drop_placeholder.setPos(snapped_pos)
 
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:
+        """Start to drag a widget on the Work zone"""
         widget_class = self._read_drag_data(event.mimeData())
         if widget_class is None:
             return

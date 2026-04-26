@@ -12,7 +12,6 @@
     ],
     "exclude_patterns": [
         "*__init__.py",
-        "*__init__.py",
         "scrutiny/sdk/docs/*",
         "test/core/test_itanium_demangler.py",
         "scrutiny/core/bintools/itanium_demangler.py"
@@ -1024,17 +1023,11 @@
         "scrutiny/gui/components/locals/hmi/hmi_widgets/base_hmi_widget.py": {
             "docstring": "Base class for every widgets part of a HMI component."
         },
-        "scrutiny/gui/components/locals/hmi/hmi_widgets/text_label_hmi_widget.py": {
-            "docstring": "A HMI widget that displays a value in text form. Font size selected to fill the draw zone."
-        },
         "scrutiny/gui/components/locals/hmi/hmi_library.py": {
-            "docstring": "A library of all the HMI widgets avaialble"
+            "docstring": "A library of all the HMI widgets available"
         },
         "scrutiny/gui/components/locals/hmi/hmi_library_category.py": {
             "docstring": "A central place to define the different HMI widget categories used for display"
-        },
-        "scrutiny/gui/components/locals/hmi/hmi_widgets/gauge_hmi_widget.py": {
-            "docstring": "An HMI widget that display a dial gauge that goes from minimum to maximum"
         },
         "scrutiny/gui/components/locals/hmi/hmi_edit_grid.py": {
             "docstring": "The Grid used in Edit Mode"
@@ -1048,14 +1041,53 @@
         "scrutiny/gui/components/locals/hmi/hmi_theme.py": {
             "docstring": "An abstraction layer to get the theming proeprties of the dashboard. Reduce possibilities, ensure higher changes of uniformization"
         },
-        "scrutiny/gui/components/locals/hmi/hmi_widgets/test_hmi_widget.py": {
-            "docstring": "temp file"
-        },
         "scrutiny/gui/widgets/scrutiny_hoverable_widget.py": {
             "docstring": "A widget that can be hovered and style according to the stylesheets"
         },
         "scrutiny/gui/widgets/scrutiny_qmenu.py": {
             "docstring": "An extension of the QMenu used for right click menus. Has a method to destroy cleanly the menu and avoid memmory leaks with closures"
+        },
+        "test/gui/manual/manual_test_hmi_library.py": {
+            "docstring": "A manual test suite to test the HMI library rendering"
+        },
+        "test/gui/manual/manual_test_color_span_editor.py": {
+            "docstring": "A manual test to check the color span editor widget."
+        },
+        "scrutiny/gui/components/locals/hmi/hmi_status_bar.py": {
+            "docstring": "The status bar showned at the bottom of the GMI work zone when in edit mode"
+        },
+        "scrutiny/gui/components/locals/hmi/common/brush_config.py": {
+            "docstring": "A widget to configure a fill color (QBrush)"
+        },
+        "scrutiny/gui/components/locals/hmi/common/color_span_editor.py": {
+            "docstring": "A widget to define a series of range from 0 to 100 and associate a color. Used for gauge widgets"
+        },
+        "scrutiny/gui/components/locals/hmi/common/pen_config.py": {
+            "docstring": "A widget to configure a border color (QPen)"
+        },
+        "scrutiny/gui/components/locals/hmi/hmi_widgets/display/numerical_display_hmi_widget.py": {
+            "docstring": "An HMI widget that display a numerical value as text. Will select the right font for the given rect"
+        },
+        "scrutiny/gui/components/locals/hmi/hmi_widgets/display/gauge_hmi_widget.py": {
+            "docstring": "An HMI widget that display a value with a gauge that goes from a minimum to a maximum value. Like a speedometer"
+        },
+        "scrutiny/gui/components/locals/hmi/hmi_widgets/graphics/rectangle_hmi_widget.py": {
+            "docstring": "A graphical only HMI widget that draws a rectangle"
+        },
+        "scrutiny/gui/components/locals/hmi/hmi_widgets/graphics/text_label_hmi_widget.py": {
+            "docstring": "A graphical only HMI widget that display static text"
+        },
+        "scrutiny/gui/components/locals/hmi/hmi_widgets/graphics/circle_hmi_widget.py": {
+            "docstring": "A graphical only HMI widget that draws a circle"
+        },
+        "scrutiny/gui/components/locals/hmi/hmi_widgets/graphics/line_hmi_widget.py": {
+            "docstring": "A graphical only HMI widget that draws a line"
+        },
+        "scrutiny/gui/widgets/color_button.py": {
+            "docstring": "A widget to select a color with a button"
+        },
+        "scrutiny/gui/widgets/flow_grid_layout.py": {
+            "docstring": "A layout that behaves like a Flex layout in CSS. Make a grid by laying out from left to right, starting from top"
         }
     },
     "authors": {}
