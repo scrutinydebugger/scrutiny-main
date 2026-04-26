@@ -403,6 +403,13 @@ class BaseHMIWidget(QGraphicsItem):
             if watchable is not None:
                 self._try_watch(vslot, watchable.fqn)
 
+    def unwatch_all_vslots(self) -> None:
+        """Unsubscribe every watchable associated with the declared ValueSlots."""
+        for vslot in self._vslots:
+            watchable = vslot.watchable_line_edit.get_watchable()
+            if watchable is not None:
+                self._unwatch_vslot(vslot, watchable.fqn)
+
 # region Private
 
     def _slot_value_update_callback(self, vslot: ValueSlot, val: WatchableValueType) -> None:
@@ -439,7 +446,7 @@ class BaseHMIWidget(QGraphicsItem):
 
     def _vslot_config_cleared_slot(self, vslot: ValueSlot, fqn: str) -> None:
         """When the user removes watchable on a ValueSlot"""
-        self._try_unwatch(vslot, fqn)
+        self._unwatch_vslot(vslot, fqn)
 
     def _try_watch(self, vslot: ValueSlot, fqn: str) -> None:
         """Try to subscribe to the WatchableRegistry (and the server)"""
@@ -448,7 +455,7 @@ class BaseHMIWidget(QGraphicsItem):
         except WatchableRegistryNodeNotFoundError:
             pass
 
-    def _try_unwatch(self, vslot: ValueSlot, fqn: str) -> None:
+    def _unwatch_vslot(self, vslot: ValueSlot, fqn: str) -> None:
         """Unsubscribe the watchable of a value slot"""
         # We have a watcher per ValueSlot. No need to cherry pick the unwatch. Just unwatch all
         self._hmi_component.app.watchable_registry.unwatch_all(vslot.watcher_id)

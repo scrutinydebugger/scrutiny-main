@@ -145,7 +145,10 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         return True
 
     def visibilityChanged(self, visible: bool) -> None:
-        pass
+        if visible:
+            self._resubscribe_all_hmi_widgets()
+        else:
+            self._unsubscribe_all_hmi_widgets()
 
     def add(self, widget: BaseHMIWidget, scene_pos: Optional[QPoint] = None) -> None:
         """Add an HMI Widget to the workzone at the given position"""
@@ -199,6 +202,11 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         """Try to resubscribe each HMI Widget to their respective watchable (drag&dropped by the user) if possible"""
         for hmi_widget in self._workzone.iterate_hmi_widgets():
             hmi_widget.try_watch_all_vslots()
+
+    def _unsubscribe_all_hmi_widgets(self) -> None:
+        """Try to resubscribe each HMI Widget to their respective watchable (drag&dropped by the user) if possible"""
+        for hmi_widget in self._workzone.iterate_hmi_widgets():
+            hmi_widget.unwatch_all_vslots()
 
     def _show_edit_menu(self, val: bool) -> None:
         """Show or hide the left part of the splitter"""
