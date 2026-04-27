@@ -27,7 +27,8 @@ if TYPE_CHECKING:
 class LineHMIWidget(BaseHMIWidget):
 
     _CATEGORY = LibraryCategory.Graphic
-    _NAME = 'Line'
+    _UNIQUE_NAME = 'line'
+    _DISPLAY_NAME = 'Line'
     _ICON = assets.Icons.HMILine
 
     _config_widget: QWidget

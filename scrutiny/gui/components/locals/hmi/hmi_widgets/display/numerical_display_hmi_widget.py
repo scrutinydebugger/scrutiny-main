@@ -29,7 +29,8 @@ if TYPE_CHECKING:
 class NumericalDisplayHMIWidget(BaseHMIWidget):
 
     _CATEGORY = LibraryCategory.Display
-    _NAME = 'Numerical Display'
+    _UNIQUE_NAME = 'numerical_display'
+    _DISPLAY_NAME = 'Numerical Display'
     _ICON = assets.Icons.HMITextDisplay
 
     _numerical_display: NumericalTextDisplay

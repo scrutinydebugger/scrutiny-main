@@ -16,7 +16,7 @@ import logging
 
 from scrutiny.gui.components.locals.hmi.hmi_library import HMILibrary
 
-from PySide6.QtCore import Qt, QPoint
+from PySide6.QtCore import Qt, QPoint, QSize, QRect
 from PySide6.QtWidgets import QVBoxLayout, QSplitter, QTabWidget, QWidget, QStackedLayout, QScrollArea, QGroupBox
 from PySide6.QtGui import QIcon, QKeyEvent, QMouseEvent
 
@@ -25,13 +25,28 @@ from scrutiny.gui.themes import scrutiny_get_theme
 from scrutiny.gui.widgets.scrutiny_qmenu import ScrutinyQMenu
 from scrutiny.gui.components.locals.base_local_component import ScrutinyGUIBaseLocalComponent
 
-from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget
+from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget, ValueSlotStateDict
 from scrutiny.gui.components.locals.hmi.hmi_status_bar import HMIStatusBar
 from scrutiny.gui.components.locals.hmi.hmi_workzone import HMIWorkZone
 
 from scrutiny.gui.tools.invoker import invoke_later
 
+from scrutiny.tools import validation
+from scrutiny import tools
 from scrutiny.tools.typing import *
+
+
+class HMIWidgetStateDict(TypedDict):
+    unique_name: str
+    pos: Tuple[int, int]
+    size: Tuple[int, int]
+    value_slots: Dict[str, ValueSlotStateDict]
+    implementation_config: Dict[str, Any]
+
+
+class HMIComponentStateDict(TypedDict):
+    hmi_widgets: List[HMIWidgetStateDict]
+    workzone_size: Tuple[int, int]
 
 
 class HMIInteractionMode(enum.Enum):
@@ -132,17 +147,111 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         self._status_bar.signals.exit_edit_mode.connect(lambda: self.set_mode(HMIInteractionMode.Display))
 
     def ready(self) -> None:
-        self.set_mode(HMIInteractionMode.Edit)
+        if self._workzone.count_hmi_widgets() == 0:
+            # Blank component created
+            self.set_mode(HMIInteractionMode.Edit)
+        else:
+            # State loaded from Dashboard
+            self.set_mode(HMIInteractionMode.Display)
 
     def teardown(self) -> None:
         for hmi_widget in self._workzone.iterate_hmi_widgets():
             self._delete_widget(hmi_widget)
 
     def get_state(self) -> Dict[Any, Any]:
-        return {}
+        outdict: HMIComponentStateDict = {
+            'hmi_widgets': [],
+            'workzone_size': (self._workzone.size().width(), self._workzone.size().height())
+        }
+
+        for hmiwidget in self._workzone.iterate_hmi_widgets():
+            pos = hmiwidget.pos().toPoint()
+            size = hmiwidget.get_size()
+
+            widget_state: HMIWidgetStateDict = {
+                'unique_name': hmiwidget.get_unique_name(),
+                'pos': (pos.x(), pos.y()),
+                'size': (size.width(), size.height()),
+                'value_slots': hmiwidget.get_value_slots_state(),
+                'implementation_config': hmiwidget.get_implementation_config_dict()
+            }
+
+            outdict["hmi_widgets"].append(widget_state)
+
+        return cast(Dict[Any, Any], outdict)
 
     def load_state(self, state: Dict[Any, Any]) -> bool:
-        return True
+        self.set_mode(HMIInteractionMode.Edit)
+
+        for hmi_widget in list(self._workzone.iterate_hmi_widgets()):
+            self._delete_widget(hmi_widget)
+
+        state_cast = cast(HMIComponentStateDict, state)
+        validation.assert_dict_key(state_cast, 'hmi_widgets', list)
+        validation.assert_dict_key(state_cast, 'workzone_size', (list, tuple))
+
+        def read_pair(d: Any, key: str) -> Tuple[int, int]:
+            validation.assert_dict_key(d, key, (tuple, list))
+            v = d[key]
+            assert len(v) == 2, "Invalid size"
+            assert isinstance(v[0], int), "Invalid size"
+            assert isinstance(v[1], int), "Invalid size"
+            if v[0] < 0 or v[1] < 0:
+                raise ValueError("Invalid Size")
+            return tuple(v)
+
+        def read_size(d: Any, key: str) -> QSize:
+            pair = read_pair(d, key)
+            return QSize(pair[0], pair[1])
+
+        def read_pos(d: Any, key: str) -> QPoint:
+            pair = read_pair(d, key)
+            return QPoint(pair[0], pair[1])
+
+        workszone_size = read_size(state_cast, 'workzone_size')
+        self._workzone.resize(workszone_size)
+
+        fully_loaded_ok = True
+        for widget_state in state_cast["hmi_widgets"]:
+            hmi_widget_ok = False
+            with tools.LogException(self.logger, Exception, "Cannot load invalid HMI widget", str_level=logging.WARNING):
+                validation.assert_dict_key(widget_state, 'unique_name', str)
+
+                with tools.LogException(self.logger, Exception, f"Cannot load HMI widget of type {widget_state['unique_name']}. Invalid", str_level=logging.WARNING):
+                    widget_class = HMILibrary.load_from_unique_name(widget_state['unique_name'])
+                    if widget_class is None:
+                        raise ValueError(f'Unknown HMI widget of with unique name : {widget_state['unique_name']}')
+
+                    validation.assert_dict_key(widget_state, 'size', (list, tuple))
+                    validation.assert_dict_key(widget_state, 'pos', (list, tuple))
+                    validation.assert_dict_key(widget_state, 'value_slots', dict)
+                    validation.assert_dict_key(widget_state, 'implementation_config', dict)
+
+                    size = read_size(widget_state, 'size')
+                    pos = read_pos(widget_state, 'pos')
+
+                    instance = widget_class(self)
+                    instance.set_size(size)
+                    self._workzone.setSceneRect(QRect(QPoint(0, 0), QSize(1024, 1024)))
+
+                    self.add(instance, pos)
+                    self._show_config_of(instance)
+
+                    # If this fails, warning will be logged from within the load function
+                    if instance.apply_value_slots_state(widget_state['value_slots']) == False:
+                        fully_loaded_ok = False
+
+                    # If this fails, warning will be logged from within the load function
+                    if instance.apply_implementation_config_dict(widget_state['implementation_config']) == False:
+                        fully_loaded_ok = False
+
+                    hmi_widget_ok = True
+
+            if not hmi_widget_ok:
+                fully_loaded_ok = False
+
+        self.set_mode(HMIInteractionMode.Display)
+        return fully_loaded_ok
 
     def visibilityChanged(self, visible: bool) -> None:
         if visible:
@@ -194,6 +303,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
 
 # region Private
 
+
     def _registry_changed_slot(self) -> None:
         """ Called when watchables are added/removed from the registry"""
         self._resubscribe_all_hmi_widgets()
@@ -227,14 +337,13 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         layout = QVBoxLayout(config_container)
         layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
-        vslot_gb = QGroupBox("Input values")
-        vslot_gb_layout = QVBoxLayout(vslot_gb)
-        vslot_gb_layout.setContentsMargins(0, 0, 0, 0)
-
         vslot_config = widget.get_slot_config_widget()
         if vslot_config is not None:
+            vslot_gb = QGroupBox("Input values")
+            vslot_gb_layout = QVBoxLayout(vslot_gb)
+            vslot_gb_layout.setContentsMargins(0, 0, 0, 0)
             vslot_gb_layout.addWidget(vslot_config)
-        layout.addWidget(vslot_gb)
+            layout.addWidget(vslot_gb)
 
         specific_config = widget.get_config_widget()
         if specific_config is not None:
@@ -362,7 +471,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         if self.logger.isEnabledFor(logging.DEBUG):
             ref_count = len(gc.get_referrers(widget))
             if ref_count > 1:
-                self.logger.warning(f"Dangling reference to widget {widget.get_name()} after deletion")
+                self.logger.warning(f"Dangling reference to widget {widget.get_display_name()} after deletion")
 
 # endregion
 

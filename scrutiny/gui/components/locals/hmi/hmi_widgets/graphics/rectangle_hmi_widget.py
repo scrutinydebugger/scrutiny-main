@@ -28,7 +28,8 @@ if TYPE_CHECKING:
 class RectangleHMIWidget(BaseHMIWidget):
 
     _CATEGORY = LibraryCategory.Graphic
-    _NAME = 'Rectangle'
+    _UNIQUE_NAME = 'rectangle'
+    _DISPLAY_NAME = 'Rectangle'
     _ICON = assets.Icons.HMISquare
 
     _config_widget: QWidget

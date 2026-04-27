@@ -25,12 +25,14 @@ from scrutiny.gui.core.watchable_registry import WatchableRegistryNodeNotFoundEr
 from scrutiny.gui.components.locals.hmi.hmi_library_category import LibraryCategory
 from scrutiny.gui.components.locals.hmi.hmi_edit_grid import HMIEditGrid
 from scrutiny.gui.components.locals.hmi.hmi_theme import HMITheme
-from scrutiny.gui.core.watchable_registry import WatcherIdType, RegistryValueUpdate
+from scrutiny.gui.core.watchable_registry import WatcherIdType, RegistryValueUpdate, WatchableRegistry
 from scrutiny.gui.tools.invoker import invoke_later
 from scrutiny.gui.themes import scrutiny_get_theme
 from scrutiny.gui import assets
 from scrutiny.tools.global_counters import global_i64_counter
 from scrutiny.tools.typing import *
+from scrutiny.tools import validation
+from scrutiny import tools
 
 
 if TYPE_CHECKING:
@@ -40,6 +42,16 @@ T = TypeVar('T')
 
 WatchableValueType: TypeAlias = Optional[Union[bool, float, int]]
 HMIWidgetValueUpdateCallback: TypeAlias = Callable[[WatchableValueType], None]
+
+
+class WatchableStateDict(TypedDict):
+    fqn: str
+    name: str
+
+
+class ValueSlotStateDict(TypedDict):
+    datatype: Literal['text', 'watchable']
+    data: Union[str, WatchableStateDict]
 
 
 class HandlePosition(enum.Enum):
@@ -139,6 +151,46 @@ class ValueSlot:
             return self._read_text_val(self.watchable_line_edit.text())
         else:
             return self.last_value_received
+
+    def get_state_dict(self) -> ValueSlotStateDict:
+        if self.watchable_line_edit.is_watchable_mode():
+            watchable = self.watchable_line_edit.get_watchable()
+            assert watchable is not None
+            return {
+                'datatype': 'watchable',
+                'data': {
+                    'name': watchable.name,
+                    'fqn': watchable.fqn
+                }
+            }
+        else:
+            return {
+                'datatype': 'text',
+                'data': self.watchable_line_edit.text()
+            }
+
+    def load_state_dict(self, state: ValueSlotStateDict) -> None:
+        validation.assert_dict_key(state, 'datatype', str)
+
+        if state['datatype'] == 'text':
+            validation.assert_dict_key(state, 'data', str)
+
+            self.watchable_line_edit.set_text_mode()
+            self.watchable_line_edit.setText(cast(str, state['data']))
+        elif state['datatype'] == 'watchable':
+            validation.assert_dict_key(state, 'data', dict)
+            validation.assert_dict_key(state, 'data.fqn', str)
+            validation.assert_dict_key(state, 'data.name', str)
+
+            data = cast(WatchableStateDict, state['data'])
+            parsed_fqn = WatchableRegistry.FQN.parse(data['fqn'])
+            self.watchable_line_edit.set_watchable_mode(
+                name=data['name'],
+                watchable_type=parsed_fqn.watchable_type,
+                path=parsed_fqn.path
+            )
+        else:
+            raise ValueError(f"Unsupported data type {state['datatype']}")
 
 
 class EditSelectFrame(QGraphicsItem):
@@ -275,8 +327,12 @@ class BaseHMIWidget(QGraphicsItem):
         return cls._read_class_prop('_CATEGORY', LibraryCategory)
 
     @classmethod
-    def get_name(cls) -> str:
-        return cls._read_class_prop('_NAME', str)
+    def get_unique_name(cls) -> str:
+        return cls._read_class_prop('_UNIQUE_NAME', str)
+
+    @classmethod
+    def get_display_name(cls) -> str:
+        return cls._read_class_prop('_DISPLAY_NAME', str)
 
     @classmethod
     def get_icon_as_pixmap(cls) -> QPixmap:
@@ -409,6 +465,36 @@ class BaseHMIWidget(QGraphicsItem):
             watchable = vslot.watchable_line_edit.get_watchable()
             if watchable is not None:
                 self._unwatch_vslot(vslot, watchable.fqn)
+
+    def get_implementation_config_dict(self) -> Dict[str, Any]:
+        return {}
+
+    def apply_implementation_config_dict(self, d: Dict[str, Any]) -> bool:
+        return False
+
+    def get_value_slots_state(self) -> Dict[str, ValueSlotStateDict]:
+        return {vslot.name: vslot.get_state_dict() for vslot in self._vslots}
+
+    def apply_value_slots_state(self, state: Dict[str, ValueSlotStateDict]) -> bool:
+        all_good = True
+        for name, vslot_state_dict in state.items():
+            try:
+                validation.assert_type(name, 'name', str)
+                validation.assert_type(vslot_state_dict, 'vslot_state_dict', dict)
+                found = False
+                for vslot in self._vslots:
+                    if vslot.name == name:
+                        vslot.load_state_dict(vslot_state_dict)  # Can raise
+                        found = True
+                        break
+
+                if not found:
+                    raise KeyError(f"No Value Slot with name {name}")
+            except Exception as e:
+                tools.log_exception(self._logger, e, "Invalid ValueSlot config", str_level=logging.WARNING)
+                all_good = False
+        return all_good
+
 
 # region Private
 
@@ -549,4 +635,4 @@ class BaseHMIWidget(QGraphicsItem):
 # endregion
 
     def __del__(self) -> None:
-        self._logger.debug(f"Deleting HMI widget of type {self.get_name()}")
+        self._logger.debug(f"Deleting HMI widget of type {self.get_unique_name()}")

@@ -499,6 +499,9 @@ class HMIWorkZone(QGraphicsView):
         self._mouse_edit_data = None
         self.setCursor(Qt.CursorShape.ArrowCursor)
 
+    def count_hmi_widgets(self) -> int:
+        return len(list(self.iterate_hmi_widgets()))
+
     def iterate_hmi_widgets(self) -> Generator[BaseHMIWidget, None, None]:
         """Iterate over every HMIWidget presently in the WorkZone"""
         for item in self.scene().items():
@@ -513,7 +516,7 @@ class HMIWorkZone(QGraphicsView):
         if drag_data.type != ScrutinyDragData.DataType.HMIWidgetClass:
             return None
 
-        widget_class = HMILibrary.load_from_name(drag_data.data_copy['class'])
+        widget_class = HMILibrary.load_from_class_name(drag_data.data_copy['class'])
         if widget_class is None:
             return None
         return widget_class

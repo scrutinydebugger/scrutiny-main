@@ -28,7 +28,8 @@ if TYPE_CHECKING:
 class CircleHMIWidget(BaseHMIWidget):
 
     _CATEGORY = LibraryCategory.Graphic
-    _NAME = 'Circle'
+    _UNIQUE_NAME = 'circle'
+    _DISPLAY_NAME = 'Circle'
     _ICON = assets.Icons.HMICircle
 
     _config_widget: QWidget

@@ -114,7 +114,8 @@ class GaugePointer(QGraphicsItem):
 class GaugeHMIWidget(BaseHMIWidget):
 
     _CATEGORY = LibraryCategory.Display
-    _NAME = 'Gauge'
+    _UNIQUE_NAME = 'gauge'
+    _DISPLAY_NAME = 'Gauge'
     _ICON = assets.Icons.HMIGauge
 
     _config_widget: QWidget

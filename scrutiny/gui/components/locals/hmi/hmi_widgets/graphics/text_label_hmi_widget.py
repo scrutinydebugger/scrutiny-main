@@ -30,7 +30,8 @@ if TYPE_CHECKING:
 class TextLabel(BaseHMIWidget):
 
     _CATEGORY = LibraryCategory.Graphic
-    _NAME = 'Label'
+    _UNIQUE_NAME = 'label'
+    _DISPLAY_NAME = 'Label'
     _ICON = assets.Icons.HMILabel
 
     _config_widget: QWidget
