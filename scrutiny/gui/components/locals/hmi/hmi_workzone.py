@@ -152,6 +152,12 @@ class HMIWorkZone(QGraphicsView):
         self.scene().addItem(self._grid)
         self.scene().addItem(self._drop_placeholder)
 
+    def destroy(self, destroyWindow: bool = False, destroySubWindows: bool = False) -> None:
+        for item in list(self.scene().items()):
+            self.scene().removeItem(item)
+
+        super().destroy(destroyWindow, destroySubWindows)
+
     def show_grid(self, val: bool) -> None:
         """Show or hide the grid (Edit vs Display mode)"""
         self._grid.setVisible(val)

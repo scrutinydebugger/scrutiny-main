@@ -291,17 +291,21 @@ class BaseHMIWidget(QGraphicsItem):
     """The widget containing the ValueSlots widget. To be shown when editing this HMI widget"""
     _vslot_config_widget_layout: QFormLayout
     """The layout containing _vslot_config_widget"""
+    _instance_id: int
+    """A monotonic unique number assigned to the HMI widget"""
+    _del_callback: List[Callable[[], None]]
 
     def __init__(self, hmi_component: "HMIComponent") -> None:
         super().__init__()
         self.HMI_COMPONENT_UPDATE_RATE = app_settings().SCRUTINY_GUI_HMI_UPDATE_RATE
-
+        self._instance_id = global_i64_counter()
         self._vslots = []
         self._hmi_component = hmi_component
         self._need_redraw = False
         self._pending_redraw = False
         self._last_draw_timestamp_ns = time.perf_counter_ns()
         self._parent_constructor_called = True
+        self._del_callback = []
         self._size = QSize(128, 128)
         self._logger = logging.getLogger(self.__class__.__name__)
         self._signals = self._Signals()
@@ -317,6 +321,10 @@ class BaseHMIWidget(QGraphicsItem):
         self._vslot_config_widget_layout = QFormLayout(self._vslot_config_widget)
 
         self.set_size(self.default_size())
+
+    @property
+    def instance_id(self) -> int:
+        return self._instance_id
 
     @property
     def signals(self) -> _Signals:
@@ -352,6 +360,9 @@ class BaseHMIWidget(QGraphicsItem):
         if not isinstance(v, t):
             raise RuntimeError(f"Class {cls.__name__} has defined \"{propname}\" of the wrong type. expected {t.__name__}")
         return v
+
+    def add_del_callback(self, fn: Callable[[], None]) -> None:
+        self._del_callback.append(fn)
 
     def min_width(self) -> int:
         return HMIEditGrid.GRID_SPACING
@@ -446,6 +457,9 @@ class BaseHMIWidget(QGraphicsItem):
                 obj.setParent(None)
 
         self._vslot_config_widget.setParent(None)
+        config_widget = self.get_config_widget()
+        if config_widget is not None:
+            config_widget.setParent(None)
 
         self._need_redraw = False
 
@@ -497,6 +511,7 @@ class BaseHMIWidget(QGraphicsItem):
 
 
 # region Private
+
 
     def _slot_value_update_callback(self, vslot: ValueSlot, val: WatchableValueType) -> None:
         """The callback invoked when a ValueSlot value changes"""
@@ -620,6 +635,7 @@ class BaseHMIWidget(QGraphicsItem):
 
 # region Abstracts methods
 
+
     def draw(self,
              values: Dict[str, WatchableValueType],
              painter: QPainter
@@ -636,3 +652,5 @@ class BaseHMIWidget(QGraphicsItem):
 
     def __del__(self) -> None:
         self._logger.debug(f"Deleting HMI widget of type {self.get_unique_name()}")
+        for cb in self._del_callback:
+            cb()

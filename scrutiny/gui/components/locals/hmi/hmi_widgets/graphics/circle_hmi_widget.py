@@ -18,8 +18,8 @@ from scrutiny.gui import assets
 from scrutiny.tools.typing import *
 
 from scrutiny.gui.components.locals.hmi.hmi_library_category import LibraryCategory
-from scrutiny.gui.components.locals.hmi.common.pen_config import PenConfigWidget
-from scrutiny.gui.components.locals.hmi.common.brush_config import BrushConfigWidget
+from scrutiny.gui.components.locals.hmi.common.pen_config import PenConfigWidget, PenConfigStateDict
+from scrutiny.gui.components.locals.hmi.common.brush_config import BrushConfigWidget, BrushConfigStateDict
 
 if TYPE_CHECKING:
     from scrutiny.gui.components.locals.hmi.hmi_component import HMIComponent
@@ -79,3 +79,27 @@ class CircleHMIWidget(BaseHMIWidget):
         )
 
         painter.drawEllipse(draw_rect)
+
+    def get_implementation_config_dict(self) -> Dict[str, Any]:
+        return {
+            'border': self._pen_config.get_state_dict(),
+            'fill': self._brush_config.get_state_dict()
+        }
+
+    def apply_implementation_config_dict(self, d: Dict[str, Any]) -> bool:
+        border_valid = False
+        fill_valid = False
+
+        if 'border' in d and isinstance(d['border'], dict):
+            border_valid = self._pen_config.set_state_dict(cast(PenConfigStateDict, d['border']))
+
+        if 'fill' in d and isinstance(d['fill'], dict):
+            fill_valid = self._brush_config.set_state_dict(cast(BrushConfigStateDict, d['fill']))
+
+        if not border_valid:
+            self._logger.warning(f"Invalid border settings for HMI Widget: {self.get_display_name()}")
+
+        if not fill_valid:
+            self._logger.warning(f"Invalid fill settings for HMI Widget: {self.get_display_name()}")
+
+        return fill_valid and border_valid

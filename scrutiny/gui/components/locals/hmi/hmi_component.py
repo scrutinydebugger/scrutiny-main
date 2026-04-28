@@ -82,11 +82,13 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
     """The layout containing all config widgets, all staked together. Only one showed at the time"""
     _status_bar: HMIStatusBar
     """The status bar visible in the work zone when in edit mode"""
-
+    _awaiting_delete_set: Set[int]
+    """A set of instance ID to keep track of memory leaks."""
     _library_tab_index: int
     """Tab index of the Library Tab"""
     _configure_tab_index: int
     """Tab index of the configure tab"""
+
 
 # region inherited methods
     @classmethod
@@ -95,6 +97,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
 
     def setup(self) -> None:
         self._config_widgets = {}
+        self._awaiting_delete_set = set()
         self._mode = HMIInteractionMode.Display
         self._status_bar = HMIStatusBar()
         self._workzone = HMIWorkZone(self._status_bar)
@@ -155,8 +158,18 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
             self.set_mode(HMIInteractionMode.Display)
 
     def teardown(self) -> None:
+        self._show_config_of(None)
+
         for hmi_widget in self._workzone.iterate_hmi_widgets():
             self._delete_widget(hmi_widget)
+
+        self._workzone.signals.right_click.disconnect()
+        self._workzone.signals.drop_widget_class.disconnect()
+        self._workzone.signals.selection_changed.disconnect()
+        self.app.server_manager.signals.registry_changed.disconnect()
+        self._status_bar.signals.exit_edit_mode.disconnect()
+
+        self._workzone.destroy()
 
     def get_state(self) -> Dict[Any, Any]:
         outdict: HMIComponentStateDict = {
@@ -468,10 +481,22 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         # Try to find memory leaks. Not bulletproof
         # A closure in the server manager could kep the object alive temporarily.
         # Still efficient when developing
-        if self.logger.isEnabledFor(logging.DEBUG):
-            ref_count = len(gc.get_referrers(widget))
-            if ref_count > 1:
-                self.logger.warning(f"Dangling reference to widget {widget.get_display_name()} after deletion")
+
+        self._awaiting_delete_set.add(widget.instance_id)
+        widget.add_del_callback(functools.partial(self._hmi_widget_del_callback, widget.instance_id))
+
+        fn = functools.partial(self.check_is_deleted, widget.instance_id, widget.get_display_name())
+        invoke_later(fn)
+        gc.collect()
+
+    def _hmi_widget_del_callback(self, instance_id: int) -> None:
+        if instance_id in self._awaiting_delete_set:
+            self._awaiting_delete_set.remove(instance_id)
+
+    def check_is_deleted(self, instance_id: int, name: str) -> None:
+        if instance_id in self._awaiting_delete_set:
+            self.logger.warning(f"Dangling reference to widget {name} after deletion")
+
 
 # endregion
 

@@ -38,6 +38,9 @@ class ScrutinyGUIBaseComponent(QWidget):
         self.logger = logging.getLogger(self.__class__.__name__)
         super().__init__()
 
+    def __del__(self) -> None:
+        self.logger.debug(f"Deleting component instance {self.instance_name} of type {self.__class__.__name__}")
+
     @classmethod
     def class_from_type_id(cls: Type["ScrutinyGUIBaseComponent"], type_id: str) -> Optional[Type["ScrutinyGUIBaseComponent"]]:
         def find_recursive(parent_class: Type["ScrutinyGUIBaseComponent"], type_id: str) -> Optional[Type["ScrutinyGUIBaseComponent"]]:

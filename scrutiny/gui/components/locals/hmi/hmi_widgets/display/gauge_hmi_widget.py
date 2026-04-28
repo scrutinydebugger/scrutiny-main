@@ -17,9 +17,10 @@ from PySide6.QtCore import QSize, Qt, QPointF, QRectF, QSizeF
 from PySide6.QtWidgets import (QStyleOptionGraphicsItem, QWidget, QFormLayout, QComboBox,
                                QSpinBox, QGroupBox, QVBoxLayout, QGraphicsItem)
 
+from scrutiny.gui.components.locals.hmi.hmi_library_category import LibraryCategory
 from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget, WatchableValueType
 from scrutiny.gui.components.locals.hmi.hmi_theme import HMITheme
-from scrutiny.gui.components.locals.hmi.common.numerical_text_display import NumericalTextDisplay, NumericalTextDisplayConfig
+from scrutiny.gui.components.locals.hmi.common.numerical_text_display import NumericalTextDisplay, NumberFormattingConfig
 from scrutiny.gui.components.locals.hmi.common.color_span_editor import ColorSpanEditor
 from scrutiny.gui import assets
 from scrutiny import tools
@@ -27,8 +28,6 @@ from scrutiny.tools.typing import *
 
 if TYPE_CHECKING:
     from scrutiny.gui.components.locals.hmi.hmi_component import HMIComponent
-
-from scrutiny.gui.components.locals.hmi.hmi_library_category import LibraryCategory
 
 
 class Dims:
@@ -322,7 +321,7 @@ class GaugeHMIWidget(BaseHMIWidget):
 
         nb_major_ticks = self._spn_major_ticks.value()
         nb_minor_ticks = self._spn_minor_ticks.value()
-        numerical_config = NumericalTextDisplayConfig(units="", decimals=1, eng_notation=True)
+        numerical_config = NumberFormattingConfig(units="", decimals=1, eng_notation=True)
         monospace_font = assets.get_font(assets.ScrutinyFont.Monospaced)
 
         # Draw major ticks

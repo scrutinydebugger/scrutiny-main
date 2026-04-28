@@ -18,7 +18,7 @@ from scrutiny.gui import assets
 from scrutiny.tools.typing import *
 
 from scrutiny.gui.components.locals.hmi.hmi_library_category import LibraryCategory
-from scrutiny.gui.components.locals.hmi.common.pen_config import PenConfigWidget
+from scrutiny.gui.components.locals.hmi.common.pen_config import PenConfigWidget, PenConfigStateDict
 
 if TYPE_CHECKING:
     from scrutiny.gui.components.locals.hmi.hmi_component import HMIComponent
@@ -83,3 +83,30 @@ class LineHMIWidget(BaseHMIWidget):
 
         painter.setPen(pen)
         painter.drawLine(p1, p2)
+
+    def get_implementation_config_dict(self) -> Dict[str, Any]:
+        return {
+            'border': self._pen_config.get_state_dict(),
+            'direction': cast(Qt.Orientation, self._cmb_direction.currentData()).value
+        }
+
+    def apply_implementation_config_dict(self, d: Dict[str, Any]) -> bool:
+        border_valid = False
+        direction_valid = False
+
+        if 'border' in d and isinstance(d['border'], dict):
+            border_valid = self._pen_config.set_state_dict(cast(PenConfigStateDict, d['border']))
+
+        if 'direction' in d and isinstance(d['direction'], int):
+            index = self._cmb_direction.findData(Qt.Orientation(d['direction']))
+            if index >= 0:
+                self._cmb_direction.setCurrentIndex(index)
+                direction_valid = True
+
+        if not border_valid:
+            self._logger.warning(f"Invalid border settings for HMI Widget: {self.get_display_name()}")
+
+        if not direction_valid:
+            self._logger.warning(f"Invalid direction for HMI Widget: {self.get_display_name()}")
+
+        return direction_valid and border_valid

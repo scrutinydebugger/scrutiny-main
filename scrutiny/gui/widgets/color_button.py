@@ -54,11 +54,10 @@ class ColorButton(QWidget):
     def get_color(self) -> QColor:
         return QColor(self._color)
 
-    def set_color(self, color: QColor, emit: bool = False) -> None:
+    def set_color(self, color: QColor) -> None:
         self._color = QColor(color)
         self._update_appearance()
-        if emit:
-            self._signals.changed.emit(QColor(self._color))
+        self._signals.changed.emit()
 
     def sizeHint(self) -> QSize:
         size_hint = super().sizeHint()

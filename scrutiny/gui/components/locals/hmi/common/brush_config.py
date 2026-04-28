@@ -9,7 +9,7 @@
 __all__ = ['BrushConfigWidget']
 
 from PySide6.QtWidgets import (QWidget, QFormLayout, QComboBox)
-from PySide6.QtGui import QBrush
+from PySide6.QtGui import QBrush, QColor
 from PySide6.QtCore import Signal, QObject, Qt
 
 from scrutiny.gui.themes import scrutiny_get_theme
@@ -17,6 +17,11 @@ from scrutiny.gui.widgets.color_button import ColorButton
 
 from scrutiny import tools
 from scrutiny.tools.typing import *
+
+
+class BrushConfigStateDict(TypedDict):
+    fill_style: int
+    color: str
 
 
 class BrushConfigWidget(QWidget):
@@ -69,3 +74,28 @@ class BrushConfigWidget(QWidget):
         idx = self._cmb_style.findData(brush.style())
         if idx >= 0:
             self._cmb_style.setCurrentIndex(idx)
+
+    def get_state_dict(self) -> BrushConfigStateDict:
+        brush = self.get_brush()
+        return {
+            "fill_style": cast(int, brush.style().value),
+            "color": brush.color().name(QColor.NameFormat.HexRgb)
+        }
+
+    def set_state_dict(self, d: BrushConfigStateDict) -> bool:
+        brush = QBrush()
+        valid_style = False
+        valid_color = False
+        if 'fill_style' in d:
+            brush.setStyle(Qt.BrushStyle(d['fill_style']))
+            valid_style = True
+
+        if 'color' in d:
+            color = QColor(d['color'])
+            if color.name(QColor.NameFormat.HexRgb) == d['color']:  # Check valid
+                brush.setColor(color)
+                valid_color = True
+
+        self.set_brush(brush)
+
+        return valid_style and valid_color

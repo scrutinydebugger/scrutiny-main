@@ -8,8 +8,8 @@
 
 __all__ = ['PenConfigWidget']
 
-from PySide6.QtWidgets import (QWidget, QFormLayout, QDoubleSpinBox, QComboBox)
-from PySide6.QtGui import QPen
+from PySide6.QtWidgets import QWidget, QFormLayout, QDoubleSpinBox, QComboBox
+from PySide6.QtGui import QPen, QColor
 from PySide6.QtCore import Signal, QObject, Qt
 
 from scrutiny.gui.themes import scrutiny_get_theme
@@ -17,6 +17,12 @@ from scrutiny.gui.widgets.color_button import ColorButton
 
 from scrutiny import tools
 from scrutiny.tools.typing import *
+
+
+class PenConfigStateDict(TypedDict):
+    style: int
+    width: float
+    color: str
 
 
 class PenConfigWidget(QWidget):
@@ -93,3 +99,34 @@ class PenConfigWidget(QWidget):
         pen = self.get_pen()
         pen.setWidthF(v)
         self.set_pen(pen)
+
+    def get_state_dict(self) -> PenConfigStateDict:
+        pen = self.get_pen()
+        return {
+            "style": cast(int, pen.style().value),
+            "width": pen.widthF(),
+            "color": pen.color().name(QColor.NameFormat.HexRgb)
+        }
+
+    def set_state_dict(self, d: PenConfigStateDict) -> bool:
+        pen = QPen()
+        valid_style = False
+        valid_color = False
+        valid_width = False
+        if 'style' in d:
+            pen.setStyle(Qt.PenStyle(d['style']))
+            valid_style = True
+
+        if 'color' in d:
+            color = QColor(d['color'])
+            if color.name(QColor.NameFormat.HexRgb) == d['color']:  # Check valid
+                pen.setColor(color)
+                valid_color = True
+
+        if 'width' in d and isinstance(d["width"], float) and d["width"] > 0:
+            pen.setWidthF(d["width"])
+            valid_width = True
+
+        self.set_pen(pen)
+
+        return valid_style and valid_color and valid_width
