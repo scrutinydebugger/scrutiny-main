@@ -233,7 +233,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
                 with tools.LogException(self.logger, Exception, f"Cannot load HMI widget of type {widget_state['unique_name']}. Invalid", str_level=logging.WARNING):
                     widget_class = HMILibrary.load_from_unique_name(widget_state['unique_name'])
                     if widget_class is None:
-                        raise ValueError(f'Unknown HMI widget of with unique name : {widget_state['unique_name']}')
+                        raise ValueError(f"Unknown HMI widget of with unique name : {widget_state['unique_name']}")
 
                     validation.assert_dict_key(widget_state, 'size', (list, tuple))
                     validation.assert_dict_key(widget_state, 'pos', (list, tuple))
