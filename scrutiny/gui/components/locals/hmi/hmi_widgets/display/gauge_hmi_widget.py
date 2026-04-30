@@ -20,8 +20,8 @@ from PySide6.QtWidgets import (QStyleOptionGraphicsItem, QWidget, QFormLayout, Q
 from scrutiny.gui.components.locals.hmi.hmi_library_category import LibraryCategory
 from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget, WatchableValueType
 from scrutiny.gui.components.locals.hmi.hmi_theme import HMITheme
-from scrutiny.gui.components.locals.hmi.common.numerical_text_display import NumericalTextDisplay, NumberFormattingConfig
-from scrutiny.gui.components.locals.hmi.common.color_span_editor import ColorSpanEditor
+from scrutiny.gui.components.locals.hmi.common.numerical_text_display import NumericalTextDisplay, NumberFormattingConfig, NumericalTextDisplayStateDict
+from scrutiny.gui.components.locals.hmi.common.color_span_editor import ColorSpanEditor, ColorSpanListStateDict
 from scrutiny.gui import assets
 from scrutiny import tools
 from scrutiny.tools.typing import *
@@ -47,8 +47,8 @@ class Dims:
 
 
 class OverflowBehavior(enum.Enum):
-    CLIP = enum.auto()
-    SHOW_NA = enum.auto()
+    CLIP = 1
+    SHOW_NA = 2
 
 
 class GaugePointer(QGraphicsItem):
@@ -117,6 +117,7 @@ class GaugeHMIWidget(BaseHMIWidget):
     _DISPLAY_NAME = 'Gauge'
     _ICON = assets.Icons.HMIGauge
 
+    # Config
     _config_widget: QWidget
     _numerical_display: NumericalTextDisplay
     _pointer: GaugePointer
@@ -125,6 +126,7 @@ class GaugeHMIWidget(BaseHMIWidget):
     _spn_minor_ticks: QSpinBox
     _color_span_editor: ColorSpanEditor
 
+    # Precomputed data
     _minval: Optional[float]
     _maxval: Optional[float]
     _major_ticks_pen: QPen
@@ -299,8 +301,8 @@ class GaugeHMIWidget(BaseHMIWidget):
         # Draw color spans
         color_spans = self._color_span_editor.get_span_objects()
         for span in color_spans:
-            start = min(max(span.min_val / 100, 0), 1)
-            stop = min(max(span.max_val / 100, 0), 1)
+            start = min(max(span.start / 100, 0), 1)
+            stop = min(max(span.stop / 100, 0), 1)
 
             angle_stop = 225 - stop * 270
             angle_len = (stop - start) * 270
@@ -411,3 +413,62 @@ class GaugeHMIWidget(BaseHMIWidget):
 
     def get_config_widget(self) -> Optional[QWidget]:
         return self._config_widget
+
+    def get_implementation_config_dict(self) -> Dict[str, Any]:
+        return {
+            'display': self._numerical_display.get_state_dict(),
+            'overflow': cast(OverflowBehavior, self._cmb_overflow_behavior.currentData()).value,
+            'minor_tick': self._spn_minor_ticks.value(),
+            'major_tick': self._spn_major_ticks.value(),
+            'colors': self._color_span_editor.get_state_dict()
+        }
+
+    def apply_implementation_config_dict(self, d: Dict[str, Any]) -> bool:
+        valid_display = False
+        valid_overflow = False
+        valid_minor_tick = False
+        valid_major_tick = False
+        valid_colors = False
+
+        if 'display' in d and isinstance(d['display'], dict):
+            valid_display = self._numerical_display.set_state_dict(cast(NumericalTextDisplayStateDict, d['display']))
+
+        if 'overflow' in d and isinstance(d['overflow'], int):
+            with tools.SuppressException(Exception):
+                behavior = OverflowBehavior(d['overflow'])
+                index = self._cmb_overflow_behavior.findData(behavior)
+                if index >= 0:
+                    self._cmb_overflow_behavior.setCurrentIndex(index)
+                    valid_overflow = True
+
+        if 'minor_tick' in d and isinstance(d['minor_tick'], int):
+            self._spn_minor_ticks.setValue(d['minor_tick'])
+            if d['minor_tick'] == self._spn_minor_ticks.value():
+                valid_minor_tick = True
+
+        if 'major_tick' in d and isinstance(d['major_tick'], int):
+            self._spn_major_ticks.setValue(d['major_tick'])
+            if d['major_tick'] == self._spn_major_ticks.value():
+                valid_major_tick = True
+
+        if 'colors' in d and isinstance(d['colors'], dict):
+            self._color_span_editor.set_state_dict(cast(ColorSpanListStateDict, d['colors']))
+
+        if not valid_display:
+            self._logger.warning('Invalid numerical display configuration')
+        if not valid_overflow:
+            self._logger.warning('Invalid overflow behavior')
+        if not valid_minor_tick:
+            self._logger.warning('Invalid minor tick value')
+        if not valid_major_tick:
+            self._logger.warning('Invalid major tick value')
+        if not valid_colors:
+            self._logger.warning('Invalid color spans')
+
+        return (
+            valid_display
+            and valid_overflow
+            and valid_minor_tick
+            and valid_major_tick
+            and valid_colors
+        )

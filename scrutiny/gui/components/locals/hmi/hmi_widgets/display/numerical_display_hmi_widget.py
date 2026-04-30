@@ -19,7 +19,7 @@ from scrutiny.gui import assets
 from scrutiny.tools.typing import *
 
 from scrutiny.gui.components.locals.hmi.hmi_library_category import LibraryCategory
-from scrutiny.gui.components.locals.hmi.common.numerical_text_display import NumericalTextDisplay
+from scrutiny.gui.components.locals.hmi.common.numerical_text_display import NumericalTextDisplay, NumericalTextDisplayStateDict
 from scrutiny.gui.components.locals.hmi.hmi_theme import HMITheme
 
 if TYPE_CHECKING:
@@ -85,3 +85,19 @@ class NumericalDisplayHMIWidget(BaseHMIWidget):
 
         self._numerical_display.set_size(self.boundingRect().size().toSize())
         self._numerical_display.update()
+
+    def get_implementation_config_dict(self) -> Dict[str, Any]:
+        return {
+            'display': self._numerical_display.get_state_dict()
+        }
+
+    def apply_implementation_config_dict(self, d: Dict[str, Any]) -> bool:
+        valid_display = False
+        if 'display' in d and isinstance(d['display'], dict):
+            self._numerical_display.set_state_dict(cast(NumericalTextDisplayStateDict, d['display']))
+            valid_display = True
+
+        if not valid_display:
+            self._logger.warning("Invalid numerical display configuration")
+
+        return valid_display

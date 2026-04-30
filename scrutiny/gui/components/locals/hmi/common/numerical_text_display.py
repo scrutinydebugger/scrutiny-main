@@ -10,6 +10,7 @@
 __all__ = ['NumericalTextDisplay']
 
 from dataclasses import dataclass
+import logging
 from PySide6.QtGui import QPainter, QFont, QFontMetrics, QColor, QPen
 from PySide6.QtWidgets import QStyleOptionGraphicsItem, QWidget, QFormLayout, QLineEdit, QCheckBox, QSpinBox, QGraphicsItem
 from PySide6.QtCore import QObject, QRectF, QRect, Signal, QSize, QPoint, Qt
@@ -185,6 +186,7 @@ class NumericalTextDisplay(QGraphicsItem):
     _size: QSize
     _border_width: int
     _background_color: QColor
+    _logger: logging.Logger
 
     def __init__(self, parent: Optional[QGraphicsItem]) -> None:
         super().__init__(parent)
@@ -199,6 +201,7 @@ class NumericalTextDisplay(QGraphicsItem):
         self._size = QSize()
         self._border_width = 1
         self._background_color = HMITheme.Color.text_display_background()
+        self._logger = logging.getLogger(self.__class__.__name__)
 
         self._config_widget.signals.changed.connect(self._config_changed_slot)
 
@@ -249,9 +252,64 @@ class NumericalTextDisplay(QGraphicsItem):
             'background_color': self._background_color.name(QColor.NameFormat.HexRgb),
         }
 
-# endregion
+    def set_state_dict(self, d: NumericalTextDisplayStateDict) -> bool:
+        valid_number_format = False
+        valid_alignment = False
+        valid_text_color = False
+        valid_border_width = False
+        valid_border_color = False
+        valid_background_color = False
 
-# region Private
+        if 'number_format' in d and isinstance(d['number_format'], dict):
+            self._config = NumberFormattingConfig.from_dict(d['number_format'])
+            valid_number_format = True
+
+        if 'alignment' in d and isinstance(d['alignment'], int):
+            self._alignment = Qt.AlignmentFlag(d['alignment'])
+            valid_alignment = True
+
+        if 'text_color' in d and isinstance(d['text_color'], str):
+            color = QColor(d['text_color'])
+            if color.name(QColor.NameFormat.HexRgb) == d['text_color']:
+                self._text_color = color
+                valid_text_color = True
+
+        if 'border_color' in d and isinstance(d['border_color'], str):
+            color = QColor(d['border_color'])
+            if color.name(QColor.NameFormat.HexRgb) == d['border_color']:
+                self._border_color = color
+                valid_border_color = True
+
+        if 'border_width' in d and isinstance(d['border_width'], int):
+            self._border_width = d['border_width']
+            valid_border_width = True
+
+        if 'background_color' in d and isinstance(d['background_color'], str):
+            color = QColor(d['background_color'])
+            if color.name(QColor.NameFormat.HexRgb) == d['background_color']:
+                self._background_color = color
+                valid_background_color = True
+
+        if not valid_number_format:
+            self._logger.warning('Invalid number formatting configuration ')
+        if not valid_alignment:
+            self._logger.warning('Invalid alignment')
+        if not valid_text_color:
+            self._logger.warning('Invalid text color')
+        if not valid_border_width:
+            self._logger.warning('Invalid border width')
+        if not valid_border_color:
+            self._logger.warning('Invalid border color')
+
+        return (
+            valid_number_format
+            and valid_alignment
+            and valid_text_color
+            and valid_border_width
+            and valid_border_color
+            and valid_background_color
+        )
+
     @classmethod
     def format_numerical_value(cls, config: NumberFormattingConfig, val: float) -> str:
         if config.eng_notation:
@@ -288,7 +346,6 @@ class NumericalTextDisplay(QGraphicsItem):
         text_width = QFontMetrics(font).averageCharWidth() * text_len
         if text_width > rect.size().width():
             font.setPixelSize(max(1, int(rect.size().height() * rect.size().width() / text_width)))
-
 # endregion
 
     def paint(self, painter: QPainter, option: QStyleOptionGraphicsItem, widget: Optional[QWidget] = None) -> None:

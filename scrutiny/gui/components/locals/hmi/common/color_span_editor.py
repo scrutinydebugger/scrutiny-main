@@ -10,6 +10,7 @@
 __all__ = ['ColorSpanEditor', 'ColorSpan', 'SpanColor']
 
 import enum
+import logging
 from dataclasses import dataclass
 
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QVBoxLayout, QDoubleSpinBox, QFrame,
@@ -23,6 +24,16 @@ from scrutiny.gui.themes import scrutiny_get_theme
 
 from scrutiny import tools
 from scrutiny.tools.typing import *
+
+
+class ColorSpanStateDict(TypedDict):
+    start: float
+    stop: float
+    color: str
+
+
+class ColorSpanListStateDict(TypedDict):
+    spans: List[ColorSpanStateDict]
 
 
 class SpanColor(enum.Enum):
@@ -53,9 +64,56 @@ class SpanColor(enum.Enum):
 
 @dataclass(slots=True)
 class ColorSpan:
-    min_val: float
-    max_val: float
+    start: float
+    stop: float
     color: SpanColor
+
+    def get_state_dict(self) -> ColorSpanStateDict:
+        return {
+            'start': self.start,
+            'stop': self.stop,
+            'color': self.color.value
+        }
+
+    @classmethod
+    def from_state_dict(cls, d: ColorSpanStateDict) -> Tuple[Self, bool]:
+        valid_start = False
+        valid_stop = False
+        valid_color = False
+        logger = logging.getLogger(cls.__name__)
+
+        span = cls(0, 100, SpanColor.GOOD)
+
+        if 'start' in d and isinstance(d['start'], float):
+            if 0 <= d['start'] <= 100:
+                span.start = d['start']
+                valid_start = True
+
+        if 'stop' in d and isinstance(d['stop'], float):
+            if 0 <= d['stop'] <= 100:
+                span.stop = d['stop']
+                valid_stop = True
+
+        if span.stop < span.start:
+            span.start = span.stop
+            valid_stop = False
+
+        if 'color' in d and isinstance(d['color'], str):
+            with tools.SuppressException(Exception):
+                span.color = SpanColor(d['color'])
+                valid_color = True
+
+        if not valid_start:
+            logger.warning('Invalid start value')
+
+        if not valid_stop:
+            logger.warning('Invalid stop value')
+
+        if not valid_color:
+            logger.warning('Invalid color')
+
+        fully_valid = valid_start and valid_stop and valid_color
+        return (span, fully_valid)
 
 
 class _SpanRow(QWidget):
@@ -162,11 +220,11 @@ class _SpanRow(QWidget):
         start = self._spn_start.value()
         stop = self._spn_stop.value()
         color = cast(SpanColor, self._cmb_color.currentData())
-        return ColorSpan(min_val=min(start, stop), max_val=max(start, stop), color=color)
+        return ColorSpan(start=min(start, stop), stop=max(start, stop), color=color)
 
     def set_from_span_object(self, span: ColorSpan) -> None:
-        self._spn_start.setValue(span.min_val)
-        self._spn_stop.setValue(span.max_val)
+        self._spn_start.setValue(span.start)
+        self._spn_stop.setValue(span.stop)
         index = self._cmb_color.findData(span.color)
         if index >= 0:
             self._cmb_color.setCurrentIndex(index)
@@ -256,3 +314,21 @@ class ColorSpanEditor(QWidget):
     def clear(self) -> None:
         for row in list(self._rows):
             self._remove_row(row)
+
+    def get_state_dict(self) -> ColorSpanListStateDict:
+        return {
+            'spans': [row.get_span_object().get_state_dict() for row in self._rows]
+        }
+
+    def set_state_dict(self, d: ColorSpanListStateDict) -> bool:
+        fully_valid = True
+        spans = []
+        if 'spans' in d and isinstance(d['spans'], list):
+            for span_state_dict in d['spans']:
+                span, row_valid = ColorSpan.from_state_dict(span_state_dict)
+                spans.append(span)
+
+                if not row_valid:
+                    fully_valid = False
+        self.set_from_spans_object(spans)
+        return fully_valid
