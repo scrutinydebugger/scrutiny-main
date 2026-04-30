@@ -453,6 +453,7 @@ class GaugeHMIWidget(BaseHMIWidget):
 
         if 'colors' in d and isinstance(d['colors'], dict):
             self._color_span_editor.set_state_dict(cast(ColorSpanListStateDict, d['colors']))
+            valid_colors = True
 
         if not valid_display:
             self._logger.warning('Invalid numerical display configuration')
