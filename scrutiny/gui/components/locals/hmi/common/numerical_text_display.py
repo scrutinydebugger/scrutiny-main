@@ -205,12 +205,12 @@ class NumericalTextDisplay(QGraphicsItem):
 
         self._config_widget.signals.changed.connect(self._config_changed_slot)
 
-# region Public
+
     @property
     def signals(self) -> _Signals:
         return self._signals
 
-    def _process_change(self, emit_changed=True) -> None:
+    def _process_change(self, emit_changed:bool=True) -> None:
         self.update()
         if emit_changed:
             self._signals.config_changed.emit()
@@ -219,6 +219,7 @@ class NumericalTextDisplay(QGraphicsItem):
         self._config = self._config_widget.get_config()
         self._process_change()
 
+# region Public API
     def set_size(self, size: QSize) -> None:
         self._size = size
         self._process_change()
