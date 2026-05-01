@@ -80,6 +80,8 @@ class PenConfigWidget(QWidget):
     def signals(self) -> "_Signals":
         return self._signals
 
+# region Getters & Setters
+
     def get_pen(self) -> QPen:
         style = cast(Qt.PenStyle, self._cmb_style.currentData())
         pen = QPen()
@@ -100,6 +102,8 @@ class PenConfigWidget(QWidget):
         pen.setWidthF(v)
         self.set_pen(pen)
 
+# endregion
+
     def get_state_dict(self) -> PenConfigStateDict:
         pen = self.get_pen()
         return {
@@ -113,8 +117,8 @@ class PenConfigWidget(QWidget):
         valid_style = False
         valid_color = False
         valid_width = False
-        if 'style' in d:
-            pen.setStyle(Qt.PenStyle(d['style']))
+        if 'style' in d and isinstance(d['style'], int):
+            pen.setStyle(Qt.PenStyle(d['style']))   # Value is validated by QT
             valid_style = True
 
         if 'color' in d:
@@ -123,7 +127,7 @@ class PenConfigWidget(QWidget):
                 pen.setColor(color)
                 valid_color = True
 
-        if 'width' in d and isinstance(d["width"], float) and d["width"] > 0:
+        if 'width' in d and isinstance(d["width"], (float, int)) and d["width"] >= 0:
             pen.setWidthF(d["width"])
             valid_width = True
 

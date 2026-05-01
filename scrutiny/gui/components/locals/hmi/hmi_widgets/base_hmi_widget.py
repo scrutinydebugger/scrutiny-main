@@ -322,6 +322,10 @@ class BaseHMIWidget(QGraphicsItem):
 
         self.set_size(self.default_size())
 
+        # Make sure we do not redraw the full widget when a child element is redrawn.
+        # Will prevent draw loops.
+        self.setCacheMode(self.CacheMode.ItemCoordinateCache)
+
     @property
     def instance_id(self) -> int:
         return self._instance_id

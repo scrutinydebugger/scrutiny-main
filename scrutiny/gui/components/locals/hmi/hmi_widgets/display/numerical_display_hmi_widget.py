@@ -121,7 +121,6 @@ class NumericalDisplayHMIWidget(BaseHMIWidget):
              values: Dict[str, Optional[WatchableValueType]],
              painter: QPainter
              ) -> None:
-
         val = values['val']
 
         if val is None:
@@ -142,8 +141,7 @@ class NumericalDisplayHMIWidget(BaseHMIWidget):
     def apply_implementation_config_dict(self, d: Dict[str, Any]) -> bool:
         valid_display = False
         if 'display' in d and isinstance(d['display'], dict):
-            self._numerical_display.set_state_dict(cast(NumericalTextDisplayStateDict, d['display']))
-            valid_display = True
+            valid_display = self._numerical_display.set_state_dict(cast(NumericalTextDisplayStateDict, d['display']))
 
         if not valid_display:
             self._logger.warning("Invalid numerical display configuration")

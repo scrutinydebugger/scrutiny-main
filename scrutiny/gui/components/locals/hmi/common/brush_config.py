@@ -63,6 +63,8 @@ class BrushConfigWidget(QWidget):
     def signals(self) -> "_Signals":
         return self._signals
 
+# region Getters and Setters
+
     def get_brush(self) -> QBrush:
         style = cast(Qt.BrushStyle, self._cmb_style.currentData())
         brush = QBrush()
@@ -76,6 +78,8 @@ class BrushConfigWidget(QWidget):
         if idx >= 0:
             self._cmb_style.setCurrentIndex(idx)
 
+# endregion
+
     def get_state_dict(self) -> BrushConfigStateDict:
         brush = self.get_brush()
         return {
@@ -87,7 +91,8 @@ class BrushConfigWidget(QWidget):
         brush = QBrush()
         valid_style = False
         valid_color = False
-        if 'fill_style' in d:
+
+        if 'fill_style' in d and isinstance(d['fill_style'], int):
             brush.setStyle(Qt.BrushStyle(d['fill_style']))
             valid_style = True
 

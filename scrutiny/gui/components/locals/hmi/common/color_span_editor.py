@@ -13,7 +13,7 @@ import enum
 import logging
 from dataclasses import dataclass
 
-from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QVBoxLayout, QDoubleSpinBox, QFrame,
+from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QDoubleSpinBox, QFrame,
                                QComboBox, QToolButton, QLabel, QPushButton)
 from PySide6.QtGui import QColor, QPixmap
 from PySide6.QtCore import Signal, QObject, Qt, QSize
@@ -92,18 +92,18 @@ class ColorSpan:
 
         span = cls(0, 100, SpanColor.GOOD)
 
-        if 'start' in d and isinstance(d['start'], float):
+        if 'start' in d and isinstance(d['start'], (int, float)):
             if 0 <= d['start'] <= 100:
-                span.start = d['start']
+                span.start = float(d['start'])
                 valid_start = True
 
-        if 'stop' in d and isinstance(d['stop'], float):
+        if 'stop' in d and isinstance(d['stop'], (int, float)):
             if 0 <= d['stop'] <= 100:
-                span.stop = d['stop']
+                span.stop = float(d['stop'])
                 valid_stop = True
 
         if span.stop < span.start:
-            span.start = span.stop
+            span.stop = span.start
             valid_stop = False
 
         if 'color' in d and isinstance(d['color'], str):
@@ -160,7 +160,7 @@ class _SpanRow(QWidget):
         self._spn_stop.setDecimals(1)
 
         self._cmb_color = QComboBox()
-        icon_size = QSize(self._cmb_color.height(), self._cmb_color.height())
+        icon_size = QSize(self._cmb_color.sizeHint().height(), self._cmb_color.sizeHint().height())
 
         for color, text in [
             (SpanColor.GOOD, "Good"),
@@ -314,8 +314,8 @@ class ColorSpanEditor(QWidget):
             row.signals.remove_requested.disconnect()
             row.signals.row_changed.disconnect()
             row.deleteLater()
+            self._signals.row_removed.emit()
         self._update_add_button()
-        self._signals.row_removed.emit()
 
     def _update_add_button(self) -> None:
         self._btn_add.setEnabled(len(self._rows) < self._max_spans)

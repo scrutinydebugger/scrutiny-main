@@ -232,6 +232,7 @@ class NumericalTextDisplay(QGraphicsItem):
         self._border_width = 1
         self._background_color = HMITheme.Color.text_display_background()
         self._logger = logging.getLogger(self.__class__.__name__)
+        self._val = ""
 
         self._number_format_config_widget.signals.changed.connect(self._number_format_config_changed_slot)
 
@@ -239,47 +240,35 @@ class NumericalTextDisplay(QGraphicsItem):
     def signals(self) -> _Signals:
         return self._signals
 
-    def _process_change(self, emit_changed: bool = True) -> None:
-        self.update()
-        if emit_changed:
-            self._signals.config_changed.emit()
-
     def _number_format_config_changed_slot(self) -> None:
         self._number_format_config = self._number_format_config_widget.get_config()
-        self._process_change()
+        self._signals.config_changed.emit()
 
 # region Public API
     def set_size(self, size: QSize) -> None:
         self._size = size
-        self._process_change()
 
     def set_border_width(self, width: float) -> None:
         self._border_width = width
-        self._process_change()
 
     def set_border_color(self, color: QColor) -> None:
         self._border_color = color
-        self._process_change()
 
     def set_text_color(self, color: QColor) -> None:
         self._text_color = color
-        self._process_change()
 
     def set_background_color(self, color: QColor) -> None:
         self._background_color = color
-        self._process_change()
 
     def set_val(self, val: Union[float, int, bool, str]) -> None:
         self._val = val
-        self._process_change()
 
     def set_alignment(self, alignment: Qt.AlignmentFlag) -> None:
         self._alignment = alignment
-        self._process_change()
 
     def set_number_formatting_config(self, config: NumberFormattingConfig) -> None:
         self._number_format_config = config
-        self._process_change()
+        self._number_format_config_widget.apply_config(config)
 
     def get_size(self) -> QSize:
         return self._size
@@ -331,6 +320,7 @@ class NumericalTextDisplay(QGraphicsItem):
 
         if 'number_format' in d and isinstance(d['number_format'], dict):
             self._number_format_config = NumberFormattingConfig.from_dict(d['number_format'])
+            self._number_format_config_widget.apply_config(self._number_format_config)
             valid_number_format = True
 
         if 'alignment' in d and isinstance(d['alignment'], int):
@@ -369,6 +359,8 @@ class NumericalTextDisplay(QGraphicsItem):
             self._logger.warning('Invalid border width')
         if not valid_border_color:
             self._logger.warning('Invalid border color')
+        if not valid_background_color:
+            self._logger.warning('Invalid background color')
 
         self._process_change()
 
@@ -388,7 +380,7 @@ class NumericalTextDisplay(QGraphicsItem):
             return tools.format_eng_unit(val, decimal=config.decimals, unit=config.units)
 
         if config.decimals == 0:
-            return str(int(val))
+            return str(int(val)) + config.units
 
         format_str = f"%0.{config.decimals}f"
         text = (format_str % val) + config.units
@@ -461,6 +453,6 @@ class NumericalTextDisplay(QGraphicsItem):
 
         self.apply_font_size(self._font, self._number_format_config, text, inner_frame_rect)
         painter.setFont(self._font)
-        painter.setPen(HMITheme.Color.text())
+        painter.setPen(self._text_color)
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.drawText(inner_frame_rect, self._alignment, text)
