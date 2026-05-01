@@ -27,16 +27,20 @@ from scrutiny.tools.typing import *
 
 
 class ColorSpanStateDict(TypedDict):
+    """A serializable dict that represent a single span"""
     start: float
     stop: float
     color: str
 
 
 class ColorSpanListStateDict(TypedDict):
+    """A serializable dict that store all the spans"""
     spans: List[ColorSpanStateDict]
 
 
 class SpanColor(enum.Enum):
+    """A set of predefined color"""
+
     GOOD = "good"
     WARNING = "warning"
     DANGER = "danger"
@@ -64,11 +68,14 @@ class SpanColor(enum.Enum):
 
 @dataclass(slots=True)
 class ColorSpan:
+    """Represent a range defined by a start, stop and a color"""
+
     start: float
     stop: float
     color: SpanColor
 
     def get_state_dict(self) -> ColorSpanStateDict:
+        """Return a serializable dict"""
         return {
             'start': self.start,
             'stop': self.stop,
@@ -77,6 +84,7 @@ class ColorSpan:
 
     @classmethod
     def from_state_dict(cls, d: ColorSpanStateDict) -> Tuple[Self, bool]:
+        """Set the values according to a serializable dict"""
         valid_start = False
         valid_stop = False
         valid_color = False
@@ -117,16 +125,20 @@ class ColorSpan:
 
 
 class _SpanRow(QWidget):
-    """A single row: [start] to [stop] [color] [remove]"""
+    """A widget to edit a single Span"""
 
     class _Signals(QObject):
         remove_requested = Signal()
         row_changed = Signal()
 
     _spn_start: QDoubleSpinBox
+    """A spinbox to select the start of the range. from 0 to 100"""
     _spn_stop: QDoubleSpinBox
+    """A spinbox to select the end of the range. from 0 to 100"""
     _cmb_color: QComboBox
+    """The color associated with this range"""
     _btn_remove: QToolButton
+    """A button to remove the row from the list"""
 
     _signals: _Signals
 
@@ -231,6 +243,7 @@ class _SpanRow(QWidget):
 
 
 class ColorSpanEditor(QWidget):
+    """The main widget to add, remove and edit color spans"""
 
     class _Signals(QObject):
         row_added = Signal()
@@ -238,9 +251,13 @@ class ColorSpanEditor(QWidget):
         row_changed = Signal()
 
     _max_spans: int
+    """Maximum number of color range"""
     _rows: List[_SpanRow]
+    """Contains a list of rows, where each row represent a span"""
     _rows_layout: QVBoxLayout
+    """The layout used to display the rows"""
     _btn_add: QPushButton
+    """The Add button to add span rows"""
 
     _signals: _Signals
 
@@ -304,23 +321,28 @@ class ColorSpanEditor(QWidget):
         self._btn_add.setEnabled(len(self._rows) < self._max_spans)
 
     def get_span_objects(self) -> List[ColorSpan]:
+        """Return the content of the widget as a list of SpanObject"""
         return [row.get_span_object() for row in self._rows]
 
     def set_from_spans_object(self, spans: List[ColorSpan]) -> None:
+        """Set the content of this widget from a list of SpanObject"""
         self.clear()
         for span in spans[:self._max_spans]:
             self._add_row(span)
 
     def clear(self) -> None:
+        """Remove every rows"""
         for row in list(self._rows):
             self._remove_row(row)
 
     def get_state_dict(self) -> ColorSpanListStateDict:
+        """Return a serializable dict defining the content of this widget"""
         return {
             'spans': [row.get_span_object().get_state_dict() for row in self._rows]
         }
 
     def set_state_dict(self, d: ColorSpanListStateDict) -> bool:
+        """Set the content of this widget from a serializable dict"""
         fully_valid = True
         spans = []
         if 'spans' in d and isinstance(d['spans'], list):

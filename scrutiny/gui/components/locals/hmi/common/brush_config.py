@@ -25,6 +25,7 @@ class BrushConfigStateDict(TypedDict):
 
 
 class BrushConfigWidget(QWidget):
+    """A widget to edit a QBrush params"""
 
     class _Signals(QObject):
         changed = Signal()
@@ -33,10 +34,10 @@ class BrushConfigWidget(QWidget):
     _cmb_style: QComboBox
     _signals: _Signals
 
-    _BRUSH_STYLES: "List[Tuple[str, Qt.BrushStyle]]" = [
-        ("Fill", Qt.BrushStyle.SolidPattern),
-        ("None", Qt.BrushStyle.NoBrush),
-    ]
+    _BRUSH_STYLES: Dict[str, Qt.BrushStyle] = {
+        "Fill": Qt.BrushStyle.SolidPattern,
+        "None": Qt.BrushStyle.NoBrush,
+    }
 
     @tools.copy_type(QWidget.__init__)
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -48,7 +49,7 @@ class BrushConfigWidget(QWidget):
         self._btn_color.setFixedWidth(60)
 
         self._cmb_style = QComboBox()
-        for label, style in self._BRUSH_STYLES:
+        for label, style in self._BRUSH_STYLES.items():
             self._cmb_style.addItem(label, style)
 
         form = QFormLayout(self)

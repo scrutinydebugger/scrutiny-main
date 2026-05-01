@@ -35,14 +35,14 @@ class PenConfigWidget(QWidget):
     _cmb_style: QComboBox
     _signals: _Signals
 
-    _PEN_STYLES: "List[Tuple[str, Qt.PenStyle]]" = [
-        ("Solid", Qt.PenStyle.SolidLine),
-        ("Dash", Qt.PenStyle.DashLine),
-        ("Dot", Qt.PenStyle.DotLine),
-        ("Dash Dot", Qt.PenStyle.DashDotLine),
-        ("Dash Dot Dot", Qt.PenStyle.DashDotDotLine),
-        ("None", Qt.PenStyle.NoPen),
-    ]
+    _PEN_STYLES: Dict[str, Qt.PenStyle] = {
+        "Solid": Qt.PenStyle.SolidLine,
+        "Dash": Qt.PenStyle.DashLine,
+        "Dot": Qt.PenStyle.DotLine,
+        "Dash Dot": Qt.PenStyle.DashDotLine,
+        "Dash Dot Dot": Qt.PenStyle.DashDotDotLine,
+        "None": Qt.PenStyle.NoPen
+    }
 
     @tools.copy_type(QWidget.__init__)
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -60,7 +60,7 @@ class PenConfigWidget(QWidget):
         self._btn_color = ColorButton(scrutiny_get_theme().palette().text().color())
 
         self._cmb_style = QComboBox()
-        for label, style in self._PEN_STYLES:
+        for label, style in self._PEN_STYLES.items():
             self._cmb_style.addItem(label, style)
 
         form = QFormLayout(self)

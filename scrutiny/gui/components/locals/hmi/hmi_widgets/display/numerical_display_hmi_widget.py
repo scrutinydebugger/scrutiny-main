@@ -49,7 +49,7 @@ class NumericalDisplayHMIWidget(BaseHMIWidget):
         config_layout.setContentsMargins(0, 0, 0, 0)
         gb = QGroupBox("Formatting")
         gb_layout = QVBoxLayout(gb)
-        gb_layout.addWidget(self._numerical_display.get_config_widget())
+        gb_layout.addWidget(self._numerical_display.get_number_format_config_widget())
         config_layout.addWidget(gb)
         self._numerical_display.set_text_color(HMITheme.Color.text())
 
@@ -59,7 +59,7 @@ class NumericalDisplayHMIWidget(BaseHMIWidget):
         self.update()
 
 # region Getters and Setters
-    def set_border_width(self, width: int) -> None:
+    def set_border_width(self, width: float) -> None:
         self._numerical_display.set_border_width(width)
 
     def set_border_color(self, color: QColor) -> None:
@@ -80,7 +80,7 @@ class NumericalDisplayHMIWidget(BaseHMIWidget):
     def set_number_formatting_config(self, config: NumberFormattingConfig) -> None:
         self._numerical_display.set_number_formatting_config(config)
 
-    def get_border_width(self) -> int:
+    def get_border_width(self) -> float:
         return self._numerical_display.get_border_width()
 
     def get_border_color(self) -> QColor:
