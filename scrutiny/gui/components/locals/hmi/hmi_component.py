@@ -161,7 +161,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         self._show_config_of(None)
 
         for hmi_widget in self._workzone.iterate_hmi_widgets():
-            self._delete_widget(hmi_widget)
+            self.delete_hmi_widget(hmi_widget)
 
         self._workzone.signals.right_click.disconnect()
         self._workzone.signals.drop_widget_class.disconnect()
@@ -197,7 +197,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         self.set_mode(HMIInteractionMode.Edit)
 
         for hmi_widget in list(self._workzone.iterate_hmi_widgets()):
-            self._delete_widget(hmi_widget)
+            self.delete_hmi_widget(hmi_widget)
 
         state_cast = cast(HMIComponentStateDict, state)
         validation.assert_dict_key(state_cast, 'hmi_widgets', list)
@@ -247,7 +247,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
                     instance.set_size(size)
                     self._workzone.setSceneRect(QRect(QPoint(0, 0), QSize(1024, 1024)))
 
-                    self.add(instance, pos)
+                    self.add_hmi_widget(instance, pos)
                     self._show_config_of(instance)
 
                     # If this fails, warning will be logged from within the load function
@@ -272,7 +272,13 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         else:
             self._unsubscribe_all_hmi_widgets()
 
-    def add(self, widget: BaseHMIWidget, scene_pos: Optional[QPoint] = None) -> None:
+    def hmi_widget_count(self) -> int:
+        return self._workzone.count_hmi_widgets()
+
+    def iterate_hmi_widgets(self) -> Generator[BaseHMIWidget, None, None]:
+        return self._workzone.iterate_hmi_widgets()
+
+    def add_hmi_widget(self, widget: BaseHMIWidget, scene_pos: Optional[QPoint] = None) -> None:
         """Add an HMI Widget to the workzone at the given position"""
         existing_widgets = list(self._workzone.iterate_hmi_widgets())
         self._workzone.add_widget(widget, scene_pos)
@@ -283,6 +289,29 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
 
         if len(existing_widgets) > 0:
             widget.setZValue(existing_widgets[-1].zValue() + 1)
+
+    def delete_hmi_widget(self, widget: BaseHMIWidget) -> None:
+        """Delete an HMI widget from the work zone."""
+        self._workzone.remove_widget(widget)
+        widget.destroy()
+
+        # Remove the config pane
+        if self._config_widget_container_layout.currentWidget() is self._config_widgets[id(widget)]:
+            self._config_widget_container_layout.setCurrentIndex(0)
+        del self._config_widgets[id(widget)]    # Should never fail
+
+        self._reassign_packed_zvalues()
+
+        # Try to find memory leaks. Not bulletproof
+        # A closure in the server manager could kep the object alive temporarily.
+        # Still efficient when developing
+
+        self._awaiting_delete_set.add(widget.instance_id)
+        widget.add_del_callback(functools.partial(self._hmi_widget_del_callback, widget.instance_id))
+
+        fn = functools.partial(self.check_is_deleted, widget.instance_id, widget.get_display_name())
+        invoke_later(fn)
+        gc.collect()
 
     def is_edit_mode(self) -> bool:
         return self._mode == HMIInteractionMode.Edit
@@ -315,7 +344,6 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
 
 
 # region Private
-
 
     def _registry_changed_slot(self) -> None:
         """ Called when watchables are added/removed from the registry"""
@@ -369,7 +397,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
     def _workzone_drop_widget_class_slot(self, widget_class: Type[BaseHMIWidget], scene_pos: QPoint) -> None:
         """Callback invoked when a HMI widget is dropped on the workzone from the Library"""
         instance = widget_class(self)
-        self.add(instance, scene_pos)
+        self.add_hmi_widget(instance, scene_pos)
 
     def _workzone_selection_changed_slot(self, widgets: List[BaseHMIWidget]) -> None:
         """When the user changes the selection"""
@@ -446,7 +474,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
                 edit_action.triggered.connect(edit_action_slot)
 
                 def remove_action_slot() -> None:
-                    invoke_later(functools.partial(self._delete_widget, widget))
+                    invoke_later(functools.partial(self.delete_hmi_widget, widget))
                 remove_action.triggered.connect(remove_action_slot)
 
         if menu is not None:
@@ -466,29 +494,6 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         for i in range(len(w)):
             w[i].setZValue(i)    # Reassign packed values
 
-    def _delete_widget(self, widget: BaseHMIWidget) -> None:
-        """Delete an HMI widget from the work zone."""
-        self._workzone.remove_widget(widget)
-        widget.destroy()
-
-        # Remove the config pane
-        if self._config_widget_container_layout.currentWidget() is self._config_widgets[id(widget)]:
-            self._config_widget_container_layout.setCurrentIndex(0)
-        del self._config_widgets[id(widget)]    # Should never fail
-
-        self._reassign_packed_zvalues()
-
-        # Try to find memory leaks. Not bulletproof
-        # A closure in the server manager could kep the object alive temporarily.
-        # Still efficient when developing
-
-        self._awaiting_delete_set.add(widget.instance_id)
-        widget.add_del_callback(functools.partial(self._hmi_widget_del_callback, widget.instance_id))
-
-        fn = functools.partial(self.check_is_deleted, widget.instance_id, widget.get_display_name())
-        invoke_later(fn)
-        gc.collect()
-
     def _hmi_widget_del_callback(self, instance_id: int) -> None:
         if instance_id in self._awaiting_delete_set:
             self._awaiting_delete_set.remove(instance_id)
@@ -500,10 +505,11 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
 
 # endregion
 
+
     def keyPressEvent(self, event: QKeyEvent) -> None:
         if event.key() == Qt.Key.Key_Delete:
             for widget in self._workzone.selected_widgets():
-                self._delete_widget(widget)
+                self.delete_hmi_widget(widget)
 
         return super().keyPressEvent(event)
 

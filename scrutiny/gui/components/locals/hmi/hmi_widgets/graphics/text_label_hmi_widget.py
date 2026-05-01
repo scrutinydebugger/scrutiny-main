@@ -6,7 +6,7 @@
 #
 #    Copyright (c) 2026 Scrutiny Debugger
 
-__all__ = ['TextLabel']
+__all__ = ['TextLabelHMIWidget']
 
 from PySide6.QtGui import QPainter, QPen, QBrush, QFontMetrics, QColor
 from PySide6.QtCore import QSizeF, Qt, QRectF, QPointF
@@ -27,7 +27,7 @@ if TYPE_CHECKING:
     from scrutiny.gui.components.locals.hmi.hmi_component import HMIComponent
 
 
-class TextLabel(BaseHMIWidget):
+class TextLabelHMIWidget(BaseHMIWidget):
 
     _CATEGORY = LibraryCategory.Graphic
     _UNIQUE_NAME = 'label'
@@ -92,6 +92,30 @@ class TextLabel(BaseHMIWidget):
 
     def get_config_widget(self) -> QWidget | None:
         return self._config_widget
+
+    def set_border_pen(self, pen: QPen) -> None:
+        self._border_pen_config.set_pen(pen)
+
+    def get_border_pen(self) -> QPen:
+        return self._border_pen_config.get_pen()
+
+    def set_fill_brush(self, brush: QBrush) -> None:
+        self._fill_brush_config.set_brush(brush)
+
+    def get_fill_brush(self) -> QBrush:
+        return self._fill_brush_config.get_brush()
+
+    def get_font_color(self) -> QColor:
+        return self._font_color_button.get_color()
+
+    def set_font_color(self, color: QColor) -> None:
+        self._font_color_button.set_color(color)
+
+    def get_text(self) -> str:
+        return self._txt_content.text()
+
+    def set_text(self, txt: str) -> None:
+        self._txt_content.setText(txt)
 
     def draw(self,
              values: Dict[str, Optional[WatchableValueType]],

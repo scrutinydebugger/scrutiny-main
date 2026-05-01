@@ -8,7 +8,7 @@
 
 __all__ = ['LineHMIWidget']
 
-from PySide6.QtGui import QPainter
+from PySide6.QtGui import QPainter, QPen
 from PySide6.QtCore import Qt, QPointF
 from PySide6.QtWidgets import QVBoxLayout, QWidget, QComboBox
 
@@ -59,6 +59,12 @@ class LineHMIWidget(BaseHMIWidget):
 
     def get_config_widget(self) -> QWidget | None:
         return self._config_widget
+
+    def set_border_pen(self, pen: QPen) -> None:
+        self._pen_config.set_pen(pen)
+
+    def get_border_pen(self) -> QPen:
+        return self._pen_config.get_pen()
 
     def draw(self,
              values: Dict[str, Optional[WatchableValueType]],

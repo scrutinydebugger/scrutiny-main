@@ -8,7 +8,7 @@
 
 __all__ = ['RectangleHMIWidget']
 
-from PySide6.QtGui import QPainter
+from PySide6.QtGui import QPainter, QPen, QBrush
 from PySide6.QtCore import QSizeF, QRectF, QPointF
 from PySide6.QtWidgets import QVBoxLayout, QWidget, QGroupBox
 
@@ -65,6 +65,18 @@ class RectangleHMIWidget(BaseHMIWidget):
 
     def get_config_widget(self) -> QWidget | None:
         return self._config_widget
+
+    def set_border_pen(self, pen: QPen) -> None:
+        self._pen_config.set_pen(pen)
+
+    def get_border_pen(self) -> QPen:
+        return self._pen_config.get_pen()
+
+    def set_fill_brush(self, brush: QBrush) -> None:
+        self._brush_config.set_brush(brush)
+
+    def get_fill_brush(self) -> QBrush:
+        return self._brush_config.get_brush()
 
     def draw(self,
              values: Dict[str, Optional[WatchableValueType]],
