@@ -245,10 +245,8 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
 
                     instance = widget_class(self)
                     instance.set_size(size)
-                    self._workzone.setSceneRect(QRect(QPoint(0, 0), QSize(1024, 1024)))
 
                     self.add_hmi_widget(instance, pos)
-                    self._show_config_of(instance)
 
                     # If this fails, warning will be logged from within the load function
                     if instance.apply_value_slots_state(widget_state['value_slots']) == False:
@@ -508,7 +506,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
 
     def keyPressEvent(self, event: QKeyEvent) -> None:
         if event.key() == Qt.Key.Key_Delete:
-            for widget in self._workzone.selected_widgets():
+            for widget in self._workzone.selected_widgets():    # This makes a copy
                 self.delete_hmi_widget(widget)
 
         return super().keyPressEvent(event)

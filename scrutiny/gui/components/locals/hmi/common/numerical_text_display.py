@@ -362,7 +362,7 @@ class NumericalTextDisplay(QGraphicsItem):
         if not valid_background_color:
             self._logger.warning('Invalid background color')
 
-        self._process_change()
+        self._signals.config_changed.emit()
 
         return (
             valid_number_format
