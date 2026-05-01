@@ -306,7 +306,7 @@ class ColorSpanEditor(QWidget):
     def get_span_objects(self) -> List[ColorSpan]:
         return [row.get_span_object() for row in self._rows]
 
-    def set_from_spans_object(self, spans: "List[ColorSpan]") -> None:
+    def set_from_spans_object(self, spans: List[ColorSpan]) -> None:
         self.clear()
         for span in spans[:self._max_spans]:
             self._add_row(span)

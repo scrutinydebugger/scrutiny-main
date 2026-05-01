@@ -7,7 +7,7 @@
 #
 #    Copyright (c) 2026 Scrutiny Debugger
 
-__all__ = ['NumericalTextDisplay']
+__all__ = ['NumericalTextDisplay', 'NumberFormattingConfig']
 
 from dataclasses import dataclass
 import logging
@@ -210,34 +210,73 @@ class NumericalTextDisplay(QGraphicsItem):
     def signals(self) -> _Signals:
         return self._signals
 
+    def _process_change(self, emit_changed=True) -> None:
+        self.update()
+        if emit_changed:
+            self._signals.config_changed.emit()
+
     def _config_changed_slot(self) -> None:
         self._config = self._config_widget.get_config()
-        self.update()
-        self._signals.config_changed.emit()
+        self._process_change()
 
     def set_size(self, size: QSize) -> None:
         self._size = size
+        self._process_change()
 
     def set_border_width(self, width: int) -> None:
         self._border_width = width
+        self._process_change()
 
     def set_border_color(self, color: QColor) -> None:
         self._border_color = color
+        self._process_change()
 
     def set_text_color(self, color: QColor) -> None:
         self._text_color = color
+        self._process_change()
 
     def set_background_color(self, color: QColor) -> None:
         self._background_color = color
+        self._process_change()
 
     def set_val(self, val: Union[float, int, bool, str]) -> None:
         self._val = val
+        self._process_change()
 
     def set_alignment(self, alignment: Qt.AlignmentFlag) -> None:
         self._alignment = alignment
+        self._process_change()
+
+    def set_number_formatting_config(self, config: NumberFormattingConfig) -> None:
+        self._config = config
+        self._process_change()
+
+    def get_size(self) -> QSize:
+        return self._size
+
+    def get_border_width(self) -> int:
+        return self._border_width
+
+    def get_border_color(self) -> QColor:
+        return self._border_color
+
+    def get_text_color(self) -> QColor:
+        return self._text_color
+
+    def get_background_color(self) -> QColor:
+        return self._background_color
+
+    def get_val(self) -> Union[float, int, bool, str]:
+        return self._val
+
+    def get_alignment(self) -> Qt.AlignmentFlag:
+        return self._alignment
 
     def get_config_widget(self) -> QWidget:
         return self._config_widget
+
+    def get_number_formatting_config(self) -> NumberFormattingConfig:
+        return self._config
 
     def boundingRect(self) -> QRectF:
         return QRectF(QPoint(0, 0), self._size)

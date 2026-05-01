@@ -1,3 +1,11 @@
+#    test_hmi_component.py
+#        A test suite to the the HMI component
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
+
 from PySide6.QtWidgets import QWidget
 from PySide6.QtCore import QPoint, QSize, Qt
 from PySide6.QtGui import QPen, QBrush, QColor
@@ -7,6 +15,8 @@ from scrutiny.gui.components.locals.hmi.hmi_widgets.graphics.circle_hmi_widget i
 from scrutiny.gui.components.locals.hmi.hmi_widgets.graphics.rectangle_hmi_widget import RectangleHMIWidget
 from scrutiny.gui.components.locals.hmi.hmi_widgets.graphics.line_hmi_widget import LineHMIWidget
 from scrutiny.gui.components.locals.hmi.hmi_widgets.graphics.text_label_hmi_widget import TextLabelHMIWidget
+from scrutiny.gui.components.locals.hmi.hmi_widgets.display.numerical_display_hmi_widget import NumericalDisplayHMIWidget, NumberFormattingConfig
+from scrutiny.gui.components.locals.hmi.hmi_widgets.display.gauge_hmi_widget import GaugeHMIWidget, GaugeOverflowBehavior, ColorSpan, SpanColor
 from test.gui.fake_server_manager import FakeServerManager
 from test.gui.base_gui_test import ScrutinyBaseGuiTest
 from scrutiny.gui.core.watchable_registry import WatchableRegistry
@@ -234,3 +244,86 @@ class TestHMIWidgetSerialization(HMIComponentBaseTest):
 
         self.assertEqual(new_text_label.get_text(), "Potato")
         self.assertEqual(new_text_label.get_font_color(), text_label.get_font_color())
+
+    def test_serialize_numerical_display(self):
+        display = NumericalDisplayHMIWidget(self.hmi_component)
+        display.set_size(QSize(64, 128))
+        self.hmi_component.add_hmi_widget(display, QPoint(16, 32))
+        self.assertEqual(self.hmi_component.hmi_widget_count(), 1)
+
+        display.set_alignment(Qt.AlignmentFlag.AlignLeft)
+        display.set_background_color(QColor("#987654"))
+        display.set_border_color(QColor("#123456"))
+        display.set_border_width(4)
+        display.set_text_color(QColor("#147258"))
+        config = NumberFormattingConfig(
+            decimals=5,
+            eng_notation=False,
+            max_ints=4,
+            units='W',
+        )
+        display.set_number_formatting_config(config)
+
+        state = self.hmi_component.get_state()
+        self.hmi_component.delete_hmi_widget(display)
+        self.assertEqual(self.hmi_component.hmi_widget_count(), 0)
+        fully_loaded = self.hmi_component.load_state(state)
+        self.assertTrue(fully_loaded)
+        self.assertEqual(self.hmi_component.hmi_widget_count(), 1)
+        all_widgets = list(self.hmi_component.iterate_hmi_widgets())
+        self.assertEqual(len(all_widgets), 1)
+        new_display = all_widgets[0]
+
+        self.assertIsInstance(new_display, NumericalDisplayHMIWidget)
+        assert isinstance(new_display, NumericalDisplayHMIWidget)
+
+        self.assertEqual(new_display.pos(), QPoint(16, 32))
+        self.assertEqual(new_display.get_size(), QSize(64, 128))
+        self.assertEqual(new_display.get_alignment(), display.get_alignment())
+        self.assertEqual(new_display.get_background_color(), display.get_background_color())
+        self.assertEqual(new_display.get_border_color(), display.get_border_color())
+        self.assertEqual(new_display.get_border_width(), display.get_border_width())
+        self.assertEqual(new_display.get_text_color(), display.get_text_color())
+        self.assertEqual(new_display.get_number_formatting_config(), display.get_number_formatting_config())
+
+    def test_serialize_gauge(self):
+        gauge = GaugeHMIWidget(self.hmi_component)
+        gauge.set_size(QSize(64, 128))
+        self.hmi_component.add_hmi_widget(gauge, QPoint(16, 32))
+        self.assertEqual(self.hmi_component.hmi_widget_count(), 1)
+
+        gauge.set_major_ticks(6)
+        gauge.set_minor_ticks(3)
+        config = NumberFormattingConfig(
+            decimals=5,
+            eng_notation=False,
+            max_ints=4,
+            units='W',
+        )
+        gauge.set_number_formatting_config(config)
+        gauge.set_overflow_behavior(GaugeOverflowBehavior.SHOW_NA)
+        color_spans = [
+            ColorSpan(start=10, stop=30.5, color=SpanColor.HIGHLIGHT),
+            ColorSpan(start=50.1, stop=90, color=SpanColor.WARNING)
+        ]
+        gauge.set_color_spans(color_spans)
+
+        state = self.hmi_component.get_state()
+        self.hmi_component.delete_hmi_widget(gauge)
+        self.assertEqual(self.hmi_component.hmi_widget_count(), 0)
+        fully_loaded = self.hmi_component.load_state(state)
+        self.assertTrue(fully_loaded)
+        self.assertEqual(self.hmi_component.hmi_widget_count(), 1)
+        all_widgets = list(self.hmi_component.iterate_hmi_widgets())
+        self.assertEqual(len(all_widgets), 1)
+        new_gauge = all_widgets[0]
+
+        self.assertIsInstance(new_gauge, GaugeHMIWidget)
+        assert isinstance(new_gauge, GaugeHMIWidget)
+
+        self.assertEqual(new_gauge.pos(), QPoint(16, 32))
+        self.assertEqual(new_gauge.get_size(), QSize(64, 128))
+        self.assertEqual(new_gauge.get_major_ticks(), gauge.get_major_ticks())
+        self.assertEqual(new_gauge.get_minor_ticks(), gauge.get_minor_ticks())
+        self.assertEqual(new_gauge.get_number_formatting_config(), gauge.get_number_formatting_config())
+        self.assertEqual(new_gauge.get_overflow_behavior(), gauge.get_overflow_behavior())

@@ -7,7 +7,7 @@
 #
 #    Copyright (c) 2026 Scrutiny Debugger
 
-__all__ = ['GaugeHMIWidget']
+__all__ = ['GaugeHMIWidget', 'ColorSpan', 'NumberFormattingConfig', 'SpanColor']
 
 import math
 import enum
@@ -21,7 +21,7 @@ from scrutiny.gui.components.locals.hmi.hmi_library_category import LibraryCateg
 from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget, WatchableValueType
 from scrutiny.gui.components.locals.hmi.hmi_theme import HMITheme
 from scrutiny.gui.components.locals.hmi.common.numerical_text_display import NumericalTextDisplay, NumberFormattingConfig, NumericalTextDisplayStateDict
-from scrutiny.gui.components.locals.hmi.common.color_span_editor import ColorSpanEditor, ColorSpanListStateDict
+from scrutiny.gui.components.locals.hmi.common.color_span_editor import ColorSpanEditor, ColorSpanListStateDict, ColorSpan, SpanColor
 from scrutiny.gui import assets
 from scrutiny import tools
 from scrutiny.tools.typing import *
@@ -30,7 +30,12 @@ if TYPE_CHECKING:
     from scrutiny.gui.components.locals.hmi.hmi_component import HMIComponent
 
 
-class Dims:
+class GaugeOverflowBehavior(enum.Enum):
+    CLIP = 1
+    SHOW_NA = 2
+
+
+class _Dims:
     OUTER_CIRCLE = 1
     INNER_CIRCLE = 0.97
     KNOB = 0.12
@@ -46,12 +51,7 @@ class Dims:
     TICK_LABEL_H = 0.12
 
 
-class OverflowBehavior(enum.Enum):
-    CLIP = 1
-    SHOW_NA = 2
-
-
-class GaugePointer(QGraphicsItem):
+class _GaugePointer(QGraphicsItem):
 
     _angle: float
     _valid: bool
@@ -74,7 +74,7 @@ class GaugePointer(QGraphicsItem):
     def paint(self, painter: QPainter, option: QStyleOptionGraphicsItem, widget: Optional[QWidget] = None) -> None:
         bounding_rect = self.boundingRect()
         ref_size = bounding_rect.width() / 2
-        knob_radius = ref_size * Dims.KNOB
+        knob_radius = ref_size * _Dims.KNOB
         center = QPointF(bounding_rect.width() / 2, bounding_rect.height() / 2)
         aspect_ratio = bounding_rect.height() / bounding_rect.width()
 
@@ -82,12 +82,12 @@ class GaugePointer(QGraphicsItem):
 
         pen = QPen()
         pen.setColor(HMITheme.Color.pointer_border())
-        pen.setWidthF(max(ref_size * Dims.STROKE, 1))
+        pen.setWidthF(max(ref_size * _Dims.STROKE, 1))
         painter.setPen(pen)
         painter.setBrush(HMITheme.Color.pointer_fill())
 
         if self._valid:
-            pointer_length = ref_size * Dims.POINTER_LEN
+            pointer_length = ref_size * _Dims.POINTER_LEN
             pointer_angle_rad = math.radians(self._angle)
 
             pointer_tip_y = -pointer_length * math.sin(pointer_angle_rad) * aspect_ratio
@@ -120,7 +120,7 @@ class GaugeHMIWidget(BaseHMIWidget):
     # Config
     _config_widget: QWidget
     _numerical_display: NumericalTextDisplay
-    _pointer: GaugePointer
+    _pointer: _GaugePointer
     _cmb_overflow_behavior: QComboBox
     _spn_major_ticks: QSpinBox
     _spn_minor_ticks: QSpinBox
@@ -146,12 +146,12 @@ class GaugeHMIWidget(BaseHMIWidget):
         self._numerical_display.set_background_color(HMITheme.Color.workzone_background())  # Effect of hole
         self._numerical_display.set_border_width(4)  # Padding. Use same color as background to male the inner border invisible
         self._numerical_display.set_border_color(HMITheme.Color.workzone_background())
-        self._pointer = GaugePointer(self)
+        self._pointer = _GaugePointer(self)
         self._pointer.setPos(0, 0)
 
         self._cmb_overflow_behavior = QComboBox()
-        self._cmb_overflow_behavior.addItem("Clip", OverflowBehavior.CLIP)
-        self._cmb_overflow_behavior.addItem("Show Invalid", OverflowBehavior.SHOW_NA)
+        self._cmb_overflow_behavior.addItem("Clip", GaugeOverflowBehavior.CLIP)
+        self._cmb_overflow_behavior.addItem("Show Invalid", GaugeOverflowBehavior.SHOW_NA)
 
         self._spn_major_ticks = QSpinBox()
         self._spn_major_ticks.setMinimum(0)
@@ -207,17 +207,6 @@ class GaugeHMIWidget(BaseHMIWidget):
         # Make sure we do not redraw the full gauge when the needle or the text is updated.
         self.setCacheMode(self.CacheMode.ItemCoordinateCache)
 
-    def destroy(self) -> None:
-        self._cmb_overflow_behavior.currentIndexChanged.disconnect()
-        self._spn_major_ticks.valueChanged.disconnect()
-        self._spn_minor_ticks.valueChanged.disconnect()
-        self._numerical_display.signals.config_changed.disconnect()
-        self._color_span_editor.signals.row_added.disconnect()
-        self._color_span_editor.signals.row_removed.disconnect()
-        self._color_span_editor.signals.row_changed.disconnect()
-
-        super().destroy()
-
     def _config_changed_slot(self) -> None:
         self.update()
 
@@ -229,9 +218,9 @@ class GaugeHMIWidget(BaseHMIWidget):
         if denom <= 0:
             return None
         ratio = (float(val) - float(self._minval)) / denom
-        overflow_behavior = cast(OverflowBehavior, self._cmb_overflow_behavior.currentData())
+        overflow_behavior = cast(GaugeOverflowBehavior, self._cmb_overflow_behavior.currentData())
         if ratio < 0 or ratio > 1:
-            if overflow_behavior == OverflowBehavior.SHOW_NA:
+            if overflow_behavior == GaugeOverflowBehavior.SHOW_NA:
                 return None
             else:
                 ratio = min(max(ratio, 0), 1)
@@ -255,6 +244,46 @@ class GaugeHMIWidget(BaseHMIWidget):
         self._numerical_display.update()
         self._pointer.update()
 
+
+# region Getter & Setters
+
+
+    def set_number_formatting_config(self, config: NumberFormattingConfig) -> None:
+        self._numerical_display.set_number_formatting_config(config)
+
+    def set_overflow_behavior(self, behavior: GaugeOverflowBehavior) -> None:
+        index = self._cmb_overflow_behavior.findData(behavior)
+        if index >= 0:
+            self._cmb_overflow_behavior.setCurrentIndex(index)
+
+    def set_minor_ticks(self, ticks: int) -> None:
+        self._spn_minor_ticks.setValue(ticks)
+
+    def set_major_ticks(self, ticks: int) -> None:
+        self._spn_major_ticks.setValue(ticks)
+
+    def set_color_spans(self, spans: List[ColorSpan]) -> None:
+        self._color_span_editor.set_from_spans_object(spans)
+
+    def get_number_formatting_config(self) -> NumberFormattingConfig:
+        return self._numerical_display.get_number_formatting_config()
+
+    def get_overflow_behavior(self) -> GaugeOverflowBehavior:
+        return cast(GaugeOverflowBehavior, self._cmb_overflow_behavior.currentData())
+
+    def get_minor_ticks(self) -> int:
+        return self._spn_minor_ticks.value()
+
+    def get_major_ticks(self) -> int:
+        return self._spn_major_ticks.value()
+
+    def get_color_spans(self) -> List[ColorSpan]:
+        return self._color_span_editor.get_span_objects()
+
+# endregion
+
+# region Override
+
     @classmethod
     def default_size(cls) -> QSize:
         return QSize(128, 128)
@@ -264,6 +293,17 @@ class GaugeHMIWidget(BaseHMIWidget):
 
     def min_height(self) -> int:
         return 64
+
+    def destroy(self) -> None:
+        self._cmb_overflow_behavior.currentIndexChanged.disconnect()
+        self._spn_major_ticks.valueChanged.disconnect()
+        self._spn_minor_ticks.valueChanged.disconnect()
+        self._numerical_display.signals.config_changed.disconnect()
+        self._color_span_editor.signals.row_added.disconnect()
+        self._color_span_editor.signals.row_removed.disconnect()
+        self._color_span_editor.signals.row_changed.disconnect()
+
+        super().destroy()
 
     def draw(self,
              values: Dict[str, Optional[WatchableValueType]],
@@ -277,16 +317,16 @@ class GaugeHMIWidget(BaseHMIWidget):
         aspect_ratio = bounding_rect.height() / bounding_rect.width()
         ref_size = bounding_rect.width() / 2
         center = QPointF(bounding_rect.width() / 2, bounding_rect.height() / 2)
-        stroke_w = max(ref_size * Dims.STROKE, 1)
-        outer_radius = ref_size * Dims.OUTER_CIRCLE - stroke_w / 2
-        inner_radius = ref_size * Dims.INNER_CIRCLE - stroke_w / 2
-        textbox_w = ref_size * Dims.TEXT_DISPLAY_W
-        textbox_h = ref_size * Dims.TEXT_DISPLAY_H * aspect_ratio
+        stroke_w = max(ref_size * _Dims.STROKE, 1)
+        outer_radius = ref_size * _Dims.OUTER_CIRCLE - stroke_w / 2
+        inner_radius = ref_size * _Dims.INNER_CIRCLE - stroke_w / 2
+        textbox_w = ref_size * _Dims.TEXT_DISPLAY_W
+        textbox_h = ref_size * _Dims.TEXT_DISPLAY_H * aspect_ratio
         textbox_x = center.x() - textbox_w / 2
-        textbox_y = center.y() + ref_size * Dims.TEXT_DISPLAY_Y * aspect_ratio
-        major_tick_len = ref_size * Dims.MAJOR_TICK_LEN
-        minor_tick_len = ref_size * Dims.MINOR_TICK_LEN
-        color_indicator_w = ref_size * Dims.COLOR_W
+        textbox_y = center.y() + ref_size * _Dims.TEXT_DISPLAY_Y * aspect_ratio
+        major_tick_len = ref_size * _Dims.MAJOR_TICK_LEN
+        minor_tick_len = ref_size * _Dims.MINOR_TICK_LEN
+        color_indicator_w = ref_size * _Dims.COLOR_W
         color_indicator_radius = inner_radius * 0.98 - minor_tick_len - stroke_w / 2 - color_indicator_w / 2
 
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
@@ -332,7 +372,7 @@ class GaugeHMIWidget(BaseHMIWidget):
             delta_angle = 270 / (nb_major_ticks - 1)
             tick_p1_radius = inner_radius - stroke_w
             tick_p2_radius = tick_p1_radius - major_tick_len
-            tick_label_size = QSizeF(ref_size * Dims.TICK_LABEL_W, ref_size * Dims.TICK_LABEL_H * aspect_ratio)
+            tick_label_size = QSizeF(ref_size * _Dims.TICK_LABEL_W, ref_size * _Dims.TICK_LABEL_H * aspect_ratio)
             tick_label_half_size = QSizeF(tick_label_size.width() / 2, tick_label_size.height() / 2)
             tick_label_longest_diagonal = math.sqrt((tick_label_size.height() / 2)**2 + (tick_label_size.width() / 2)**2)
 
@@ -417,7 +457,7 @@ class GaugeHMIWidget(BaseHMIWidget):
     def get_implementation_config_dict(self) -> Dict[str, Any]:
         return {
             'display': self._numerical_display.get_state_dict(),
-            'overflow': cast(OverflowBehavior, self._cmb_overflow_behavior.currentData()).value,
+            'overflow': cast(GaugeOverflowBehavior, self._cmb_overflow_behavior.currentData()).value,
             'minor_tick': self._spn_minor_ticks.value(),
             'major_tick': self._spn_major_ticks.value(),
             'colors': self._color_span_editor.get_state_dict()
@@ -435,7 +475,7 @@ class GaugeHMIWidget(BaseHMIWidget):
 
         if 'overflow' in d and isinstance(d['overflow'], int):
             with tools.SuppressException(Exception):
-                behavior = OverflowBehavior(d['overflow'])
+                behavior = GaugeOverflowBehavior(d['overflow'])
                 index = self._cmb_overflow_behavior.findData(behavior)
                 if index >= 0:
                     self._cmb_overflow_behavior.setCurrentIndex(index)
@@ -473,3 +513,4 @@ class GaugeHMIWidget(BaseHMIWidget):
             and valid_major_tick
             and valid_colors
         )
+# endregion

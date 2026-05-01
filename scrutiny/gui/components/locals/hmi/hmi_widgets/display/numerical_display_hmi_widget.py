@@ -7,9 +7,9 @@
 #
 #    Copyright (c) 2026 Scrutiny Debugger
 
-__all__ = ['NumericalDisplayHMIWidget']
+__all__ = ['NumericalDisplayHMIWidget', 'NumberFormattingConfig']
 
-from PySide6.QtGui import QPainter
+from PySide6.QtGui import QPainter, QColor
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import QVBoxLayout, QWidget, QGroupBox
 
@@ -19,7 +19,9 @@ from scrutiny.gui import assets
 from scrutiny.tools.typing import *
 
 from scrutiny.gui.components.locals.hmi.hmi_library_category import LibraryCategory
-from scrutiny.gui.components.locals.hmi.common.numerical_text_display import NumericalTextDisplay, NumericalTextDisplayStateDict
+from scrutiny.gui.components.locals.hmi.common.numerical_text_display import (
+    NumericalTextDisplay, NumericalTextDisplayStateDict, NumberFormattingConfig
+)
 from scrutiny.gui.components.locals.hmi.hmi_theme import HMITheme
 
 if TYPE_CHECKING:
@@ -56,8 +58,51 @@ class NumericalDisplayHMIWidget(BaseHMIWidget):
     def _config_changed_slot(self) -> None:
         self.update()
 
-    def get_config_widget(self) -> QWidget | None:
-        return self._config_widget
+# region Getters and Setters
+    def set_border_width(self, width: int) -> None:
+        self._numerical_display.set_border_width(width)
+
+    def set_border_color(self, color: QColor) -> None:
+        self._numerical_display.set_border_color(color)
+
+    def set_text_color(self, color: QColor) -> None:
+        self._numerical_display.set_text_color(color)
+
+    def set_background_color(self, color: QColor) -> None:
+        self._numerical_display.set_background_color(color)
+
+    def set_val(self, val: Union[float, int, bool, str]) -> None:
+        self._numerical_display.set_val(val)
+
+    def set_alignment(self, alignment: Qt.AlignmentFlag) -> None:
+        self._numerical_display.set_alignment(alignment)
+
+    def set_number_formatting_config(self, config: NumberFormattingConfig) -> None:
+        self._numerical_display.set_number_formatting_config(config)
+
+    def get_border_width(self) -> int:
+        return self._numerical_display.get_border_width()
+
+    def get_border_color(self) -> QColor:
+        return self._numerical_display.get_border_color()
+
+    def get_text_color(self) -> QColor:
+        return self._numerical_display.get_text_color()
+
+    def get_background_color(self) -> QColor:
+        return self._numerical_display.get_background_color()
+
+    def get_val(self) -> Union[float, int, bool, str]:
+        return self._numerical_display.get_val()
+
+    def get_alignment(self) -> Qt.AlignmentFlag:
+        return self._numerical_display.get_alignment()
+
+    def get_number_formatting_config(self) -> NumberFormattingConfig:
+        return self._numerical_display.get_number_formatting_config()
+# endregion
+
+# region Override
 
     @classmethod
     def default_size(cls) -> QSize:
@@ -68,6 +113,9 @@ class NumericalDisplayHMIWidget(BaseHMIWidget):
 
     def min_width(self) -> int:
         return 64
+
+    def get_config_widget(self) -> QWidget:
+        return self._config_widget
 
     def draw(self,
              values: Dict[str, Optional[WatchableValueType]],
@@ -101,3 +149,5 @@ class NumericalDisplayHMIWidget(BaseHMIWidget):
             self._logger.warning("Invalid numerical display configuration")
 
         return valid_display
+
+# endregion

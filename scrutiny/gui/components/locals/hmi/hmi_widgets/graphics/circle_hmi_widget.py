@@ -61,9 +61,7 @@ class CircleHMIWidget(BaseHMIWidget):
     def _update(self, *args: Any, **kwargs: Any) -> None:
         self.update()
 
-    def get_config_widget(self) -> QWidget | None:
-        return self._config_widget
-
+# region Getters and Setters
     def set_border_pen(self, pen: QPen) -> None:
         self._pen_config.set_pen(pen)
 
@@ -75,6 +73,12 @@ class CircleHMIWidget(BaseHMIWidget):
 
     def get_fill_brush(self) -> QBrush:
         return self._brush_config.get_brush()
+# endregion
+
+# region Override
+
+    def get_config_widget(self) -> Optional[QWidget]:
+        return self._config_widget
 
     def draw(self,
              values: Dict[str, Optional[WatchableValueType]],
@@ -115,3 +119,5 @@ class CircleHMIWidget(BaseHMIWidget):
             self._logger.warning(f"Invalid fill settings for HMI Widget: {self.get_display_name()}")
 
         return fill_valid and border_valid
+
+# endregion

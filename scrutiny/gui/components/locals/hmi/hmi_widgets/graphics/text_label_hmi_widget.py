@@ -90,9 +90,7 @@ class TextLabelHMIWidget(BaseHMIWidget):
     def _update(self, *args: Any, **kwargs: Any) -> None:
         self.update()
 
-    def get_config_widget(self) -> QWidget | None:
-        return self._config_widget
-
+# region Getters and Setters
     def set_border_pen(self, pen: QPen) -> None:
         self._border_pen_config.set_pen(pen)
 
@@ -116,6 +114,11 @@ class TextLabelHMIWidget(BaseHMIWidget):
 
     def set_text(self, txt: str) -> None:
         self._txt_content.setText(txt)
+# endregion
+
+# region Override
+    def get_config_widget(self) -> Optional[QWidget]:
+        return self._config_widget
 
     def draw(self,
              values: Dict[str, Optional[WatchableValueType]],
@@ -202,3 +205,4 @@ class TextLabelHMIWidget(BaseHMIWidget):
             self._logger.warning(f"Invalid color for HMI Widget: {self.get_display_name()}")
 
         return fill_valid and border_valid and text_valid and font_color_valid
+# endregion

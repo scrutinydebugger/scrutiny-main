@@ -1088,6 +1088,9 @@
         },
         "scrutiny/gui/widgets/flow_grid_layout.py": {
             "docstring": "A layout that behaves like a Flex layout in CSS. Make a grid by laying out from left to right, starting from top"
+        },
+        "test/gui/test_hmi_component.py": {
+            "docstring": "A test suite to the the HMI component"
         }
     },
     "authors": {}
