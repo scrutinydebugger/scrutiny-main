@@ -191,10 +191,14 @@ class HMIWorkZone(QGraphicsView):
 
     def remove_widget(self, widget: BaseHMIWidget) -> None:
         """Removes a widget from the work zone. No management of lifetime, they are owned by the HMIComponent"""
+        selection_changed = False
         if widget in self._selected_widgets:
             self._selected_widgets.remove(widget)
+            selection_changed = True
 
         self.scene().removeItem(widget)
+        if selection_changed:
+            self._signals.selection_changed.emit(self._selected_widgets.copy())
 
     def add_widget(self, widget: BaseHMIWidget, scene_pos: Optional[QPoint] = None) -> None:
         """Adds a HMI widget to the work zone. No lifetime management, they are owned by the HMIComponent"""
