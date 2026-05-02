@@ -158,6 +158,10 @@ class HMIWorkZone(QGraphicsView):
 
         super().destroy(destroyWindow, destroySubWindows)
 
+    def get_drop_placeholder(self) -> DropPlaceholder:
+        """For unit test"""
+        return self._drop_placeholder
+
     def show_grid(self, val: bool) -> None:
         """Show or hide the grid (Edit vs Display mode)"""
         self._grid.setVisible(val)

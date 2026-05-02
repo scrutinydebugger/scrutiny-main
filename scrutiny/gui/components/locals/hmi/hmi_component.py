@@ -270,6 +270,9 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         else:
             self._unsubscribe_all_hmi_widgets()
 
+    def get_workzone(self) -> HMIWorkZone:
+        return self._workzone
+
     def hmi_widget_count(self) -> int:
         return self._workzone.count_hmi_widgets()
 

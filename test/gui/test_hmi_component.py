@@ -7,9 +7,10 @@
 #    Copyright (c) 2026 Scrutiny Debugger
 
 from PySide6.QtWidgets import QWidget
-from PySide6.QtCore import QPoint, QSize, Qt
-from PySide6.QtGui import QPen, QBrush, QColor
+from PySide6.QtCore import QPoint, QSize, Qt, QEvent
+from PySide6.QtGui import QPen, QBrush, QColor, QMouseEvent, QDragEnterEvent, QDragMoveEvent, QDropEvent, QDragLeaveEvent
 
+from scrutiny.gui.core.scrutiny_drag_data import ScrutinyDragData
 from scrutiny.gui.components.locals.hmi.hmi_component import HMIComponent
 from scrutiny.gui.components.locals.hmi.hmi_widgets.graphics.circle_hmi_widget import CircleHMIWidget
 from scrutiny.gui.components.locals.hmi.hmi_widgets.graphics.rectangle_hmi_widget import RectangleHMIWidget
@@ -327,3 +328,162 @@ class TestHMIWidgetSerialization(HMIComponentBaseTest):
         self.assertEqual(new_gauge.get_minor_ticks(), gauge.get_minor_ticks())
         self.assertEqual(new_gauge.get_number_formatting_config(), gauge.get_number_formatting_config())
         self.assertEqual(new_gauge.get_overflow_behavior(), gauge.get_overflow_behavior())
+
+
+class TestWorkZone(HMIComponentBaseTest):
+    def test_selection_logic(self):
+        workzone = self.hmi_component.get_workzone()
+
+        selection_change_call_list = []
+
+        def selection_changed_slot(new_selection):
+            selection_change_call_list.append(new_selection)
+
+        workzone.signals.selection_changed.connect(selection_changed_slot)
+
+        circle1 = CircleHMIWidget(self.hmi_component)
+        circle2 = CircleHMIWidget(self.hmi_component)
+        circle3 = CircleHMIWidget(self.hmi_component)
+        circle1.set_size(QSize(16, 16))
+        circle2.set_size(QSize(16, 16))
+        circle3.set_size(QSize(16, 16))
+        self.hmi_component.add_hmi_widget(circle1, QPoint(0, 0))
+        self.hmi_component.add_hmi_widget(circle2, QPoint(32, 0))
+        self.hmi_component.add_hmi_widget(circle3, QPoint(0, 32))
+
+        self.assertEqual(len(selection_change_call_list), 0)
+
+        selection = [circle1, circle2]
+        workzone.select_widgets(selection)
+        self.assertEqual(len(selection_change_call_list), 1)
+        self.assertEqual(selection, selection_change_call_list[0])
+        self.assertIsNot(selection, selection_change_call_list[0])  # Ensure a copy is made
+
+        workzone.add_widgets_to_selection([circle3])
+        self.assertEqual(len(selection_change_call_list), 2)
+        self.assertEqual([circle1, circle2, circle3], selection_change_call_list[1])
+
+        workzone.deselect_all_widgets()
+        self.assertEqual(len(selection_change_call_list), 3)
+        self.assertEqual([], selection_change_call_list[2])
+
+        workzone.deselect_all_widgets()
+        selection_change_call_list.clear()
+
+        def get_center(w) -> QPoint:
+            return QPoint(
+                int(w.pos().x() + w.get_size().width() / 2),
+                int(w.pos().y() + w.get_size().height() / 2),
+            )
+
+        down_event = QMouseEvent(QEvent.Type.MouseButtonPress, get_center(circle1),
+                                 Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
+                                 )
+        up_event = QMouseEvent(QEvent.Type.MouseButtonRelease, get_center(circle1),
+                               Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
+                               )
+        workzone.mousePressEvent(down_event)
+        workzone.mouseReleaseEvent(up_event)
+        self.assertEqual(len(selection_change_call_list), 1)
+        self.assertEqual(selection_change_call_list[0], [circle1])
+
+        down_event = QMouseEvent(QEvent.Type.MouseButtonPress, get_center(circle2),
+                                 Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
+                                 )
+        up_event = QMouseEvent(QEvent.Type.MouseButtonRelease, get_center(circle2),
+                               Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
+                               )
+        workzone.mousePressEvent(down_event)
+        workzone.mouseReleaseEvent(up_event)
+        self.assertEqual(len(selection_change_call_list), 2)
+        self.assertEqual(selection_change_call_list[1], [circle2])
+
+        down_event = QMouseEvent(QEvent.Type.MouseButtonPress, get_center(circle3),
+                                 Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.ControlModifier
+                                 )
+        up_event = QMouseEvent(QEvent.Type.MouseButtonRelease, get_center(circle3),
+                               Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.ControlModifier
+                               )
+        workzone.mousePressEvent(down_event)
+        workzone.mouseReleaseEvent(up_event)
+        self.assertEqual(len(selection_change_call_list), 3)
+        self.assertEqual(selection_change_call_list[2], [circle2, circle3])
+
+        selection_change_call_list.clear()
+        workzone.select_widgets([circle1, circle2, circle3])
+        self.assertEqual(len(selection_change_call_list), 1)
+
+        workzone.remove_widget(circle2)
+        self.assertEqual(len(selection_change_call_list), 2)
+        self.assertEqual([circle1, circle3], selection_change_call_list[1])
+
+        self.assertEqual(workzone.selected_widgets(), [circle1, circle3])
+        workzone.deselect_all_widgets()
+
+    def test_drop(self):
+        workzone = self.hmi_component.get_workzone()
+        mimedata = ScrutinyDragData(ScrutinyDragData.DataType.HMIWidgetClass, {'class': CircleHMIWidget.__name__}).to_mime()
+        assert mimedata is not None
+        drop_event = QDropEvent(QPoint(16, 32), Qt.DropAction.CopyAction, mimedata, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier)
+        self.assertEqual(workzone.count_hmi_widgets(), 0)
+        workzone.dropEvent(drop_event)
+        self.assertEqual(workzone.count_hmi_widgets(), 1)
+
+        mimedata = ScrutinyDragData(ScrutinyDragData.DataType.HMIWidgetClass, {'class': 'unknown_class'}).to_mime()
+        assert mimedata is not None
+        drop_event = QDropEvent(QPoint(16, 32), Qt.DropAction.CopyAction, mimedata, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier)
+        workzone.dropEvent(drop_event)
+        self.assertEqual(workzone.count_hmi_widgets(), 1)
+
+    def test_drag(self):
+
+        workzone = self.hmi_component.get_workzone()
+        drop_placeholder = workzone.get_drop_placeholder()
+        mimedata = ScrutinyDragData(ScrutinyDragData.DataType.HMIWidgetClass, {'class': CircleHMIWidget.__name__}).to_mime()
+        assert mimedata is not None
+        drag_enter = QDragEnterEvent(QPoint(16, 16), Qt.DropAction.CopyAction, mimedata, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier)
+        self.assertFalse(drop_placeholder.isVisible())
+        workzone.dragEnterEvent(drag_enter)
+        self.assertTrue(drop_placeholder.isVisible())
+
+        expected_size = CircleHMIWidget.default_size()
+        target_left_corner = QPoint(16, 32)
+        required_center = target_left_corner + QPoint(expected_size.width() // 2, expected_size.height() // 2)
+        drag_move = QDragMoveEvent(required_center, Qt.DropAction.CopyAction, mimedata, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier)
+        workzone.dragMoveEvent(drag_move)
+        self.assertEqual(drop_placeholder.pos(), target_left_corner)
+        self.assertTrue(drop_placeholder.isVisible())
+
+        drag_leave = QDragLeaveEvent()
+        workzone.dragLeaveEvent(drag_leave)
+        self.assertFalse(drop_placeholder.isVisible())
+
+    def test_rubber_band(self):
+        workzone = self.hmi_component.get_workzone()
+        circle1 = CircleHMIWidget(self.hmi_component)
+        circle2 = CircleHMIWidget(self.hmi_component)
+        circle3 = CircleHMIWidget(self.hmi_component)
+
+        circle1.set_size(QSize(16, 16))
+        circle2.set_size(QSize(16, 16))
+        circle3.set_size(QSize(16, 16))
+
+        self.hmi_component.add_hmi_widget(circle1, QPoint(16, 32))
+        self.hmi_component.add_hmi_widget(circle2, QPoint(32, 16))
+        self.hmi_component.add_hmi_widget(circle3, QPoint(64, 64))
+
+        down_event = QMouseEvent(QEvent.Type.MouseButtonPress, QPoint(15, 15),
+                                 Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
+                                 )
+        move_event = QMouseEvent(QEvent.Type.MouseButtonPress, QPoint(32 + 16 + 1, 32 + 16 + 1),
+                                 Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
+                                 )
+        up_event = QMouseEvent(QEvent.Type.MouseButtonRelease, QPoint(32 + 16 + 1, 32 + 16 + 1),
+                               Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
+                               )
+
+        workzone.mousePressEvent(down_event)
+        workzone.mouseMoveEvent(move_event)
+        workzone.mouseReleaseEvent(up_event)
+
+        self.assertCountEqual(workzone.selected_widgets(), [circle1, circle2])
