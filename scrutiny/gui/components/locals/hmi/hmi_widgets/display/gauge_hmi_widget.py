@@ -17,6 +17,7 @@ from PySide6.QtCore import QSize, Qt, QPointF, QRectF, QSizeF
 from PySide6.QtWidgets import (QStyleOptionGraphicsItem, QWidget, QFormLayout, QComboBox,
                                QSpinBox, QGroupBox, QVBoxLayout, QGraphicsItem)
 
+from scrutiny.gui.component_app_interface import AbstractComponentAppInterface
 from scrutiny.gui.components.locals.hmi.hmi_library_category import LibraryCategory
 from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget, WatchableValueType
 from scrutiny.gui.components.locals.hmi.hmi_theme import HMITheme
@@ -25,9 +26,6 @@ from scrutiny.gui.components.locals.hmi.common.color_span_editor import ColorSpa
 from scrutiny.gui import assets
 from scrutiny import tools
 from scrutiny.tools.typing import *
-
-if TYPE_CHECKING:
-    from scrutiny.gui.components.locals.hmi.hmi_component import HMIComponent
 
 
 class GaugeOverflowBehavior(enum.Enum):
@@ -145,8 +143,8 @@ class GaugeHMIWidget(BaseHMIWidget):
     _maxval: Optional[float]
     """The last maximum we have received (it's not a constant)"""
 
-    def __init__(self, hmi_component: "HMIComponent") -> None:
-        super().__init__(hmi_component)
+    def __init__(self, app: AbstractComponentAppInterface) -> None:
+        super().__init__(app)
         self.declare_value_slot('val', 'Value', require_redraw=False, value_update_callback=self._process_new_val)
         self.declare_value_slot('min', 'Minimum')
         self.declare_value_slot('max', 'Maximum')
@@ -248,6 +246,7 @@ class GaugeHMIWidget(BaseHMIWidget):
 
 
 # region Getter & Setters
+
 
     def set_number_formatting_config(self, config: NumberFormattingConfig) -> None:
         self._numerical_display.set_number_formatting_config(config)

@@ -243,7 +243,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
                     size = read_size(widget_state, 'size')
                     pos = read_pos(widget_state, 'pos')
 
-                    instance = widget_class(self)
+                    instance = widget_class(self.app)
                     instance.set_size(size)
 
                     self.add_hmi_widget(instance, pos)
@@ -397,7 +397,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
 
     def _workzone_drop_widget_class_slot(self, widget_class: Type[BaseHMIWidget], scene_pos: QPoint) -> None:
         """Callback invoked when a HMI widget is dropped on the workzone from the Library"""
-        instance = widget_class(self)
+        instance = widget_class(self.app)
         self.add_hmi_widget(instance, scene_pos)
 
     def _workzone_selection_changed_slot(self, widgets: List[BaseHMIWidget]) -> None:

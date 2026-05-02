@@ -12,7 +12,7 @@ from PySide6.QtGui import QPainter, QPen, QBrush, QFontMetrics, QColor
 from PySide6.QtCore import QSizeF, Qt, QRectF, QPointF
 from PySide6.QtWidgets import QVBoxLayout, QWidget, QGroupBox, QLineEdit, QFormLayout
 
-
+from scrutiny.gui.component_app_interface import AbstractComponentAppInterface
 from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget, WatchableValueType
 from scrutiny.gui.components.locals.hmi.hmi_library_category import LibraryCategory
 from scrutiny.gui.components.locals.hmi.common.pen_config import PenConfigWidget, PenConfigStateDict
@@ -22,9 +22,6 @@ from scrutiny.gui.widgets.color_button import ColorButton
 
 from scrutiny.gui import assets
 from scrutiny.tools.typing import *
-
-if TYPE_CHECKING:
-    from scrutiny.gui.components.locals.hmi.hmi_component import HMIComponent
 
 
 class TextLabelHMIWidget(BaseHMIWidget):
@@ -40,8 +37,8 @@ class TextLabelHMIWidget(BaseHMIWidget):
     _txt_content: QLineEdit
     _font_color_button: ColorButton
 
-    def __init__(self, hmi_component: "HMIComponent") -> None:
-        super().__init__(hmi_component)
+    def __init__(self, app: AbstractComponentAppInterface) -> None:
+        super().__init__(app)
 
         self._config_widget = QWidget()
         self._font_color_button = ColorButton(HMITheme.Color.text())

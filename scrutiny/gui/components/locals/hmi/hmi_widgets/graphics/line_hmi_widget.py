@@ -13,15 +13,13 @@ from PySide6.QtCore import Qt, QPointF
 from PySide6.QtWidgets import QVBoxLayout, QWidget, QComboBox
 
 
+from scrutiny.gui.component_app_interface import AbstractComponentAppInterface
 from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget, WatchableValueType
 from scrutiny.gui import assets
 from scrutiny.tools.typing import *
 
 from scrutiny.gui.components.locals.hmi.hmi_library_category import LibraryCategory
 from scrutiny.gui.components.locals.hmi.common.pen_config import PenConfigWidget, PenConfigStateDict
-
-if TYPE_CHECKING:
-    from scrutiny.gui.components.locals.hmi.hmi_component import HMIComponent
 
 
 class LineHMIWidget(BaseHMIWidget):
@@ -35,8 +33,8 @@ class LineHMIWidget(BaseHMIWidget):
     _cmb_direction: QComboBox
     _pen_config: PenConfigWidget
 
-    def __init__(self, hmi_component: "HMIComponent") -> None:
-        super().__init__(hmi_component)
+    def __init__(self, app: AbstractComponentAppInterface) -> None:
+        super().__init__(app)
 
         self._config_widget = QWidget()
         self._pen_config = PenConfigWidget()

@@ -12,7 +12,7 @@ from PySide6.QtGui import QPainter, QPen, QBrush
 from PySide6.QtCore import QSizeF, QRectF, QPointF
 from PySide6.QtWidgets import QVBoxLayout, QWidget, QGroupBox
 
-
+from scrutiny.gui.component_app_interface import AbstractComponentAppInterface
 from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget, WatchableValueType
 from scrutiny.gui import assets
 from scrutiny.tools.typing import *
@@ -20,9 +20,6 @@ from scrutiny.tools.typing import *
 from scrutiny.gui.components.locals.hmi.hmi_library_category import LibraryCategory
 from scrutiny.gui.components.locals.hmi.common.pen_config import PenConfigWidget, PenConfigStateDict
 from scrutiny.gui.components.locals.hmi.common.brush_config import BrushConfigWidget, BrushConfigStateDict
-
-if TYPE_CHECKING:
-    from scrutiny.gui.components.locals.hmi.hmi_component import HMIComponent
 
 
 class RectangleHMIWidget(BaseHMIWidget):
@@ -36,8 +33,8 @@ class RectangleHMIWidget(BaseHMIWidget):
     _pen_config: PenConfigWidget
     _brush_config: BrushConfigWidget
 
-    def __init__(self, hmi_component: "HMIComponent") -> None:
-        super().__init__(hmi_component)
+    def __init__(self, app: AbstractComponentAppInterface) -> None:
+        super().__init__(app)
 
         self._config_widget = QWidget()
         self._pen_config = PenConfigWidget()

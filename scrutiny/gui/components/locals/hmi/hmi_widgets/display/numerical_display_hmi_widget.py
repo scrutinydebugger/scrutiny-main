@@ -13,7 +13,7 @@ from PySide6.QtGui import QPainter, QColor
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import QVBoxLayout, QWidget, QGroupBox
 
-
+from scrutiny.gui.component_app_interface import AbstractComponentAppInterface
 from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget, WatchableValueType
 from scrutiny.gui import assets
 from scrutiny.tools.typing import *
@@ -23,9 +23,6 @@ from scrutiny.gui.components.locals.hmi.common.numerical_text_display import (
     NumericalTextDisplay, NumericalTextDisplayStateDict, NumberFormattingConfig
 )
 from scrutiny.gui.components.locals.hmi.hmi_theme import HMITheme
-
-if TYPE_CHECKING:
-    from scrutiny.gui.components.locals.hmi.hmi_component import HMIComponent
 
 
 class NumericalDisplayHMIWidget(BaseHMIWidget):
@@ -38,8 +35,8 @@ class NumericalDisplayHMIWidget(BaseHMIWidget):
     _numerical_display: NumericalTextDisplay
     _config_widget: QWidget
 
-    def __init__(self, hmi_component: "HMIComponent") -> None:
-        super().__init__(hmi_component)
+    def __init__(self, app: AbstractComponentAppInterface) -> None:
+        super().__init__(app)
         self.declare_value_slot('val', 'Value')
 
         self._config_widget = QWidget()

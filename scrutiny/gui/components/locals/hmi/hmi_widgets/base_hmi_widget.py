@@ -21,11 +21,11 @@ from PySide6.QtCore import QSize, QRectF, QPointF, QObject, Qt, Signal
 from scrutiny import sdk
 from scrutiny.gui.app_settings import app_settings
 from scrutiny.gui.widgets.watchable_line_edit import WatchableLineEdit
-from scrutiny.gui.core.watchable_registry import WatchableRegistryNodeNotFoundError
 from scrutiny.gui.components.locals.hmi.hmi_library_category import LibraryCategory
 from scrutiny.gui.components.locals.hmi.hmi_edit_grid import HMIEditGrid
 from scrutiny.gui.components.locals.hmi.hmi_theme import HMITheme
-from scrutiny.gui.core.watchable_registry import WatcherIdType, RegistryValueUpdate, WatchableRegistry
+from scrutiny.gui.core.watchable_registry import WatcherIdType, RegistryValueUpdate, WatchableRegistry, WatchableRegistryNodeNotFoundError
+from scrutiny.gui.component_app_interface import AbstractComponentAppInterface
 from scrutiny.gui.tools.invoker import invoke_later
 from scrutiny.gui.themes import scrutiny_get_theme
 from scrutiny.gui import assets
@@ -33,10 +33,6 @@ from scrutiny.tools.global_counters import global_i64_counter
 from scrutiny.tools.typing import *
 from scrutiny.tools import validation
 from scrutiny import tools
-
-
-if TYPE_CHECKING:
-    from scrutiny.gui.components.locals.hmi.hmi_component import HMIComponent
 
 T = TypeVar('T')
 
@@ -265,8 +261,8 @@ class BaseHMIWidget(QGraphicsItem):
 
     _vslots: List[ValueSlot]
     """The value list of value slots. Each of them represent an input value passed to the draw function"""
-    _hmi_component: "HMIComponent"
-    """A reference to the containing component. Used to access the registry"""
+    _app: AbstractComponentAppInterface
+    """A reference to the app interface to access the watchable registry."""
     _need_redraw: bool
     """A flag used to implement the redraw throttling"""
     _pending_redraw: bool
@@ -295,12 +291,12 @@ class BaseHMIWidget(QGraphicsItem):
     """A monotonic unique number assigned to the HMI widget"""
     _del_callback: List[Callable[[], None]]
 
-    def __init__(self, hmi_component: "HMIComponent") -> None:
+    def __init__(self, app: AbstractComponentAppInterface) -> None:
         super().__init__()
         self.HMI_COMPONENT_UPDATE_RATE = app_settings().SCRUTINY_GUI_HMI_UPDATE_RATE
         self._instance_id = global_i64_counter()
         self._vslots = []
-        self._hmi_component = hmi_component
+        self._app = app
         self._need_redraw = False
         self._pending_redraw = False
         self._last_draw_timestamp_ns = time.perf_counter_ns()
@@ -432,7 +428,7 @@ class BaseHMIWidget(QGraphicsItem):
         self._vslot_config_widget_layout.addRow(vslot.display_name, vslot.watchable_line_edit)
 
         watchable_val_update_slot = functools.partial(self._watchable_update_callback, vslot)
-        self._hmi_component.app.watchable_registry.register_watcher(vslot.watcher_id, watchable_val_update_slot, self._unwatch_callback)
+        self._app.watchable_registry.register_watcher(vslot.watcher_id, watchable_val_update_slot, self._unwatch_callback)
 
         configured_slot = functools.partial(self._vslot_configured_slot, vslot)
         vslot.watchable_line_edit.signals.watchable_dropped.connect(configured_slot)
@@ -446,7 +442,7 @@ class BaseHMIWidget(QGraphicsItem):
     def destroy(self) -> None:
         """Cleanup function"""
         for vslot in self._vslots:
-            self._hmi_component.app.watchable_registry.unregister_watcher(vslot.watcher_id)    # Will unwatch all
+            self._app.watchable_registry.unregister_watcher(vslot.watcher_id)    # Will unwatch all
             vslot.signals.text_value_changed.disconnect()
             vslot.watchable_line_edit.textChanged.disconnect()
             vslot.watchable_line_edit.signals.watchable_dropped.disconnect()
@@ -556,14 +552,14 @@ class BaseHMIWidget(QGraphicsItem):
     def _try_watch(self, vslot: ValueSlot, fqn: str) -> None:
         """Try to subscribe to the WatchableRegistry (and the server)"""
         try:
-            self._hmi_component.app.watchable_registry.watch_fqn(vslot.watcher_id, fqn, self.HMI_COMPONENT_UPDATE_RATE)
+            self._app.watchable_registry.watch_fqn(vslot.watcher_id, fqn, self.HMI_COMPONENT_UPDATE_RATE)
         except WatchableRegistryNodeNotFoundError:
             pass
 
     def _unwatch_vslot(self, vslot: ValueSlot, fqn: str) -> None:
         """Unsubscribe the watchable of a value slot"""
         # We have a watcher per ValueSlot. No need to cherry pick the unwatch. Just unwatch all
-        self._hmi_component.app.watchable_registry.unwatch_all(vslot.watcher_id)
+        self._app.watchable_registry.unwatch_all(vslot.watcher_id)
 
     def _get_slot_by_name(self, name: str) -> ValueSlot:
         for vslot in self._vslots:
@@ -589,7 +585,7 @@ class BaseHMIWidget(QGraphicsItem):
                 if watchable is None:
                     return None
 
-                node = self._hmi_component.app.watchable_registry.get_watchable_node_fqn(watchable.fqn)
+                node = self._app.watchable_registry.get_watchable_node_fqn(watchable.fqn)
                 if node is None:
                     return None
 

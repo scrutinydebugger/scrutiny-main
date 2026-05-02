@@ -8,7 +8,7 @@
 
 from PySide6.QtWidgets import QWidget
 from PySide6.QtCore import QPoint, QSize, Qt, QEvent
-from PySide6.QtGui import QPen, QBrush, QColor, QMouseEvent, QDragEnterEvent, QDragMoveEvent, QDropEvent, QDragLeaveEvent
+from PySide6.QtGui import QPen, QBrush, QColor, QMouseEvent, QDragEnterEvent, QDragMoveEvent, QDropEvent, QDragLeaveEvent, QResizeEvent
 
 from scrutiny.gui.core.scrutiny_drag_data import ScrutinyDragData
 from scrutiny.gui.components.locals.hmi.hmi_component import HMIComponent
@@ -60,16 +60,22 @@ class HMIComponentBaseTest(ScrutinyBaseGuiTest):
         configure_unit_test_app_settings(settings)
 
         self.main_window = MainWindowStub()
-        app_interface = DummyAppInterface()
-        app_interface.server_manager = self.main_window.get_server_manager()
-        app_interface.watchable_registry = self.main_window.get_watchable_registry()
+        self.app_interface = DummyAppInterface()
+        self.app_interface.server_manager = self.main_window.get_server_manager()
+        self.app_interface.watchable_registry = self.main_window.get_watchable_registry()
         self.hmi_component = HMIComponent(
             self.main_window,
             'watch1',
-            app_interface
+            self.app_interface
         )
         self.hmi_component.setup()
         self.hmi_component.ready()
+
+        workzone = self.hmi_component.get_workzone()
+        old_size = workzone.viewport().size()
+        workzone.viewport().setGeometry(7, 9, 645, 483)    # Not round on purpose
+        new_size = workzone.viewport().size()
+        workzone.resizeEvent(QResizeEvent(new_size, old_size))
 
     def tearDown(self):
         self.hmi_component.teardown()
@@ -79,7 +85,7 @@ class HMIComponentBaseTest(ScrutinyBaseGuiTest):
 class TestHMIWidgetSerialization(HMIComponentBaseTest):
 
     def test_serialize_circle(self):
-        circle = CircleHMIWidget(self.hmi_component)
+        circle = CircleHMIWidget(self.app_interface)
         circle.set_size(QSize(64, 128))
         self.hmi_component.add_hmi_widget(circle, QPoint(16, 32))
         self.assertEqual(self.hmi_component.hmi_widget_count(), 1)
@@ -122,7 +128,7 @@ class TestHMIWidgetSerialization(HMIComponentBaseTest):
         self.assertEqual(brush1.color(), brush2.color())
 
     def test_serialize_rectangle(self):
-        rectangle = RectangleHMIWidget(self.hmi_component)
+        rectangle = RectangleHMIWidget(self.app_interface)
         rectangle.set_size(QSize(64, 128))
         self.hmi_component.add_hmi_widget(rectangle, QPoint(16, 32))
         self.assertEqual(self.hmi_component.hmi_widget_count(), 1)
@@ -165,7 +171,7 @@ class TestHMIWidgetSerialization(HMIComponentBaseTest):
         self.assertEqual(brush1.color(), brush2.color())
 
     def test_serialize_line(self):
-        line = LineHMIWidget(self.hmi_component)
+        line = LineHMIWidget(self.app_interface)
         line.set_size(QSize(64, 128))
         self.hmi_component.add_hmi_widget(line, QPoint(16, 32))
         self.assertEqual(self.hmi_component.hmi_widget_count(), 1)
@@ -200,7 +206,7 @@ class TestHMIWidgetSerialization(HMIComponentBaseTest):
         self.assertEqual(pen1.style(), pen2.style())
 
     def test_serialize_text_label(self):
-        text_label = TextLabelHMIWidget(self.hmi_component)
+        text_label = TextLabelHMIWidget(self.app_interface)
         text_label.set_size(QSize(64, 128))
         self.hmi_component.add_hmi_widget(text_label, QPoint(16, 32))
         self.assertEqual(self.hmi_component.hmi_widget_count(), 1)
@@ -249,7 +255,7 @@ class TestHMIWidgetSerialization(HMIComponentBaseTest):
         self.assertEqual(new_text_label.get_font_color(), text_label.get_font_color())
 
     def test_serialize_numerical_display(self):
-        display = NumericalDisplayHMIWidget(self.hmi_component)
+        display = NumericalDisplayHMIWidget(self.app_interface)
         display.set_size(QSize(64, 128))
         self.hmi_component.add_hmi_widget(display, QPoint(16, 32))
         self.assertEqual(self.hmi_component.hmi_widget_count(), 1)
@@ -290,7 +296,7 @@ class TestHMIWidgetSerialization(HMIComponentBaseTest):
         self.assertEqual(new_display.get_number_formatting_config(), display.get_number_formatting_config())
 
     def test_serialize_gauge(self):
-        gauge = GaugeHMIWidget(self.hmi_component)
+        gauge = GaugeHMIWidget(self.app_interface)
         gauge.set_size(QSize(64, 128))
         self.hmi_component.add_hmi_widget(gauge, QPoint(16, 32))
         self.assertEqual(self.hmi_component.hmi_widget_count(), 1)
@@ -343,9 +349,9 @@ class TestWorkZone(HMIComponentBaseTest):
 
         workzone.signals.selection_changed.connect(selection_changed_slot)
 
-        circle1 = CircleHMIWidget(self.hmi_component)
-        circle2 = CircleHMIWidget(self.hmi_component)
-        circle3 = CircleHMIWidget(self.hmi_component)
+        circle1 = CircleHMIWidget(self.app_interface)
+        circle2 = CircleHMIWidget(self.app_interface)
+        circle3 = CircleHMIWidget(self.app_interface)
         circle1.set_size(QSize(16, 16))
         circle2.set_size(QSize(16, 16))
         circle3.set_size(QSize(16, 16))
@@ -422,7 +428,19 @@ class TestWorkZone(HMIComponentBaseTest):
         self.assertEqual(workzone.selected_widgets(), [circle1, circle3])
         workzone.deselect_all_widgets()
 
-    def test_drop(self):
+        # Check if click in grid deselect
+        workzone.select_widgets([circle1, circle2, circle3])
+        down_event = QMouseEvent(QEvent.Type.MouseButtonPress, QPoint(256, 256),
+                                 Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.ControlModifier
+                                 )
+        up_event = QMouseEvent(QEvent.Type.MouseButtonRelease, QPoint(256, 256),
+                               Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.ControlModifier
+                               )
+        workzone.mousePressEvent(down_event)    # Click empty region
+        workzone.mouseReleaseEvent(up_event)
+        self.assertEqual(workzone.selected_widgets(), [])   # Deselected
+
+    def test_drop_library_input(self):
         workzone = self.hmi_component.get_workzone()
         mimedata = ScrutinyDragData(ScrutinyDragData.DataType.HMIWidgetClass, {'class': CircleHMIWidget.__name__}).to_mime()
         assert mimedata is not None
@@ -435,9 +453,9 @@ class TestWorkZone(HMIComponentBaseTest):
         assert mimedata is not None
         drop_event = QDropEvent(QPoint(16, 32), Qt.DropAction.CopyAction, mimedata, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier)
         workzone.dropEvent(drop_event)
-        self.assertEqual(workzone.count_hmi_widgets(), 1)
+        self.assertEqual(workzone.count_hmi_widgets(), 1)   # Expect no changes
 
-    def test_drag(self):
+    def test_drag_library_input(self):
 
         workzone = self.hmi_component.get_workzone()
         drop_placeholder = workzone.get_drop_placeholder()
@@ -462,9 +480,9 @@ class TestWorkZone(HMIComponentBaseTest):
 
     def test_rubber_band(self):
         workzone = self.hmi_component.get_workzone()
-        circle1 = CircleHMIWidget(self.hmi_component)
-        circle2 = CircleHMIWidget(self.hmi_component)
-        circle3 = CircleHMIWidget(self.hmi_component)
+        circle1 = CircleHMIWidget(self.app_interface)
+        circle2 = CircleHMIWidget(self.app_interface)
+        circle3 = CircleHMIWidget(self.app_interface)
 
         circle1.set_size(QSize(16, 16))
         circle2.set_size(QSize(16, 16))
@@ -491,7 +509,7 @@ class TestWorkZone(HMIComponentBaseTest):
         self.assertCountEqual(workzone.selected_widgets(), [circle1, circle2])
 
     def test_resize(self):
-        circle = CircleHMIWidget(self.hmi_component)
+        circle = CircleHMIWidget(self.app_interface)
         initial_w = 64
         initial_h = 64
         initial_pos = QPoint(128, 128)
@@ -548,64 +566,227 @@ class TestWorkZone(HMIComponentBaseTest):
             self.assertEqual(unchanged_point(circle), before_unchanged_point)
 
         delta = 32
-        min_w = circle.min_width()
-        min_h = circle.min_height()
 
-        self.assertLess(min_w, initial_w - delta)
-        self.assertLess(min_h, initial_h - delta)
+        self.assertLess(circle.min_width(), initial_w - delta)
+        self.assertLess(circle.min_height(), initial_h - delta)
+
+        delta_down = QPoint(0, delta - 1)
+        delta_down_long = QPoint(0, delta + circle.get_size().height() - 1)
+        delta_up = QPoint(0, -delta - 1)
+        delta_up_long = QPoint(0, -delta - circle.get_size().height() + 1)
+        delta_left = QPoint(-delta + 1, 0)
+        delta_left_long = QPoint(-delta - circle.get_size().width() + 1, 0)
+        delta_right = QPoint(delta - 1, 0)
+        delta_right_long = QPoint(delta + circle.get_size().width() - 1, 0)
+        delta_down_right = delta_down + delta_right
+        delta_down_right_long = delta_down_long + delta_right_long
+        delta_up_left = delta_up + delta_left
+        delta_up_left_long = delta_up_long + delta_left_long
+        delta_up_right_long = delta_up_long + delta_right_long
+        delta_down_left_long = delta_down_long + delta_left_long
+        delta_down_right_long = delta_down_long + delta_right_long
+
+        unchanged_size = QSize(initial_w, initial_h)
+        smaller_w = QSize(initial_w - delta, initial_h)
+        smaller_h = QSize(initial_w, initial_h - delta)
+        smaller_wh = QSize(initial_w - delta, initial_h - delta)
+        bigger_w = QSize(initial_w + delta, initial_h)
+        bigger_h = QSize(initial_w, initial_h + delta)
+        bigger_wh = QSize(initial_w + delta, initial_h + delta)
+        bigger_w_smaller_h = QSize(initial_w + delta, initial_h - delta)
+        smaller_w_bigger_h = QSize(initial_w - delta, initial_h + delta)
+        min_w = QSize(circle.min_width(), initial_h)
+        min_h = QSize(initial_w, circle.min_height())
+        min_wh = QSize(circle.min_width(), circle.min_height())
 
         with self.subTest("bottom_right -> scale down"):
-            do_scale_test(bottom_right, QPoint(0, delta - 1), expected_size=QSize(initial_w, initial_h + delta), unchanged_point=top_left)
+            do_scale_test(bottom_right, delta_down, expected_size=bigger_h, unchanged_point=top_left)
         with self.subTest("bottom_right -> scale right"):
-            do_scale_test(bottom_right, QPoint(delta - 1, 0), expected_size=QSize(initial_w + delta, initial_h), unchanged_point=top_left)
+            do_scale_test(bottom_right, delta_right, expected_size=bigger_w, unchanged_point=top_left)
         with self.subTest("bottom_right -> scale down right"):
-            do_scale_test(bottom_right, QPoint(delta - 1, delta - 1),
-                          expected_size=QSize(initial_w + delta, initial_h + delta), unchanged_point=top_left)
+            do_scale_test(bottom_right, delta_down_right, expected_size=bigger_wh, unchanged_point=top_left)
         with self.subTest("bottom_right -> scale left"):
-            do_scale_test(bottom_right, QPoint(-delta, 0), expected_size=QSize(initial_w - delta, initial_h), unchanged_point=top_left)
+            do_scale_test(bottom_right, delta_left, expected_size=smaller_w, unchanged_point=top_left)
         with self.subTest("bottom_right -> scale up"):
-            do_scale_test(bottom_right, QPoint(0, -delta), expected_size=QSize(initial_w, initial_h - delta), unchanged_point=top_left)
+            do_scale_test(bottom_right, delta_up, expected_size=smaller_h, unchanged_point=top_left)
         with self.subTest("bottom_right -> scale up left"):
-            do_scale_test(bottom_right, QPoint(-delta, -delta), expected_size=QSize(initial_w - delta, initial_h - delta), unchanged_point=top_left)
+            do_scale_test(bottom_right, delta_up_left, expected_size=smaller_wh, unchanged_point=top_left)
 
         with self.subTest("top_right -> scale down"):
-            do_scale_test(top_right, QPoint(0, delta - 1), expected_size=QSize(initial_w, initial_h - delta), unchanged_point=bottom_left)
+            do_scale_test(top_right, delta_down, expected_size=smaller_h, unchanged_point=bottom_left)
         with self.subTest("top_right -> scale right"):
-            do_scale_test(top_right, QPoint(delta - 1, 0), expected_size=QSize(initial_w + delta, initial_h), unchanged_point=bottom_left)
+            do_scale_test(top_right, delta_right, expected_size=bigger_w, unchanged_point=bottom_left)
         with self.subTest("top_right -> scale down right"):
-            do_scale_test(top_right, QPoint(delta - 1, delta - 1), expected_size=QSize(initial_w +
-                          delta, initial_h - delta), unchanged_point=bottom_left)
+            do_scale_test(top_right, delta_down_right, expected_size=bigger_w_smaller_h, unchanged_point=bottom_left)
         with self.subTest("top_right -> scale left"):
-            do_scale_test(top_right, QPoint(-delta, 0), expected_size=QSize(initial_w - delta, initial_h), unchanged_point=bottom_left)
+            do_scale_test(top_right, delta_left, expected_size=smaller_w, unchanged_point=bottom_left)
         with self.subTest("top_right -> scale up"):
-            do_scale_test(top_right, QPoint(0, -delta), expected_size=QSize(initial_w, initial_h + delta), unchanged_point=bottom_left)
+            do_scale_test(top_right, delta_up, expected_size=bigger_h, unchanged_point=bottom_left)
         with self.subTest("top_right -> scale up left"):
-            do_scale_test(top_right, QPoint(-delta, -delta), expected_size=QSize(initial_w - delta, initial_h + delta), unchanged_point=bottom_left)
+            do_scale_test(top_right, delta_up_left, expected_size=smaller_w_bigger_h, unchanged_point=bottom_left)
 
         with self.subTest("bottom_left -> scale down"):
-            do_scale_test(bottom_left, QPoint(0, delta - 1), expected_size=QSize(initial_w, initial_h + delta), unchanged_point=top_right)
+            do_scale_test(bottom_left, delta_down, expected_size=bigger_h, unchanged_point=top_right)
         with self.subTest("bottom_left -> scale right"):
-            do_scale_test(bottom_left, QPoint(delta - 1, 0), expected_size=QSize(initial_w - delta, initial_h), unchanged_point=top_right)
+            do_scale_test(bottom_left, delta_right, expected_size=smaller_w, unchanged_point=top_right)
         with self.subTest("bottom_left -> scale down right"):
-            do_scale_test(bottom_left, QPoint(delta - 1, delta - 1),
-                          expected_size=QSize(initial_w - delta, initial_h + delta), unchanged_point=top_right)
+            do_scale_test(bottom_left, delta_down_right, expected_size=smaller_w_bigger_h, unchanged_point=top_right)
         with self.subTest("bottom_left -> scale left"):
-            do_scale_test(bottom_left, QPoint(-delta, 0), expected_size=QSize(initial_w + delta, initial_h), unchanged_point=top_right)
+            do_scale_test(bottom_left, delta_left, expected_size=bigger_w, unchanged_point=top_right)
         with self.subTest("bottom_left -> scale up"):
-            do_scale_test(bottom_left, QPoint(0, -delta), expected_size=QSize(initial_w, initial_h - delta), unchanged_point=top_right)
+            do_scale_test(bottom_left, delta_up, expected_size=smaller_h, unchanged_point=top_right)
         with self.subTest("bottom_left -> scale up left"):
-            do_scale_test(bottom_left, QPoint(-delta, -delta), expected_size=QSize(initial_w + delta, initial_h - delta), unchanged_point=top_right)
+            do_scale_test(bottom_left, delta_up_left, expected_size=bigger_w_smaller_h, unchanged_point=top_right)
 
         with self.subTest("top_left -> scale down"):
-            do_scale_test(top_left, QPoint(0, delta - 1), expected_size=QSize(initial_w, initial_h - delta), unchanged_point=bottom_right)
+            do_scale_test(top_left, delta_down, expected_size=smaller_h, unchanged_point=bottom_right)
         with self.subTest("top_left -> scale right"):
-            do_scale_test(top_left, QPoint(delta - 1, 0), expected_size=QSize(initial_w - delta, initial_h), unchanged_point=bottom_right)
+            do_scale_test(top_left, delta_right, expected_size=smaller_w, unchanged_point=bottom_right)
         with self.subTest("top_left -> scale down right"):
-            do_scale_test(top_left, QPoint(delta - 1, delta - 1), expected_size=QSize(initial_w -
-                          delta, initial_h - delta), unchanged_point=bottom_right)
+            do_scale_test(top_left, delta_down_right, expected_size=smaller_wh, unchanged_point=bottom_right)
         with self.subTest("top_left -> scale left"):
-            do_scale_test(top_left, QPoint(-delta, 0), expected_size=QSize(initial_w + delta, initial_h), unchanged_point=bottom_right)
+            do_scale_test(top_left, delta_left, expected_size=bigger_w, unchanged_point=bottom_right)
         with self.subTest("top_left -> scale up"):
-            do_scale_test(top_left, QPoint(0, -delta), expected_size=QSize(initial_w, initial_h + delta), unchanged_point=bottom_right)
+            do_scale_test(top_left, delta_up, expected_size=bigger_h, unchanged_point=bottom_right)
         with self.subTest("top_left -> scale up left"):
-            do_scale_test(top_left, QPoint(-delta, -delta), expected_size=QSize(initial_w + delta, initial_h + delta), unchanged_point=bottom_right)
+            do_scale_test(top_left, delta_up_left, expected_size=bigger_wh, unchanged_point=bottom_right)
+
+        with self.subTest("mid_left -> scale down"):
+            do_scale_test(mid_left, delta_down, expected_size=unchanged_size, unchanged_point=bottom_right)
+        with self.subTest("mid_left -> scale right"):
+            do_scale_test(mid_left, delta_right, expected_size=smaller_w, unchanged_point=bottom_right)
+        with self.subTest("mid_left -> scale down right"):
+            do_scale_test(mid_left, delta_down_right, expected_size=smaller_w, unchanged_point=bottom_right)
+        with self.subTest("mid_left -> scale left"):
+            do_scale_test(mid_left, delta_left, expected_size=bigger_w, unchanged_point=bottom_right)
+        with self.subTest("mid_left -> scale up"):
+            do_scale_test(mid_left, delta_up, expected_size=unchanged_size, unchanged_point=bottom_right)
+        with self.subTest("mid_left -> scale up left"):
+            do_scale_test(mid_left, delta_up_left, expected_size=bigger_w, unchanged_point=bottom_right)
+
+        with self.subTest("mid_right -> scale down"):
+            do_scale_test(mid_right, delta_down, expected_size=unchanged_size, unchanged_point=bottom_left)
+        with self.subTest("mid_right -> scale right"):
+            do_scale_test(mid_right, delta_right, expected_size=bigger_w, unchanged_point=bottom_left)
+        with self.subTest("mid_right -> scale down right"):
+            do_scale_test(mid_right, delta_down_right, expected_size=bigger_w, unchanged_point=bottom_left)
+        with self.subTest("mid_right -> scale left"):
+            do_scale_test(mid_right, delta_left, expected_size=smaller_w, unchanged_point=bottom_left)
+        with self.subTest("mid_right -> scale up"):
+            do_scale_test(mid_right, delta_up, expected_size=unchanged_size, unchanged_point=bottom_left)
+        with self.subTest("mid_right -> scale up left"):
+            do_scale_test(mid_right, delta_up_left, expected_size=smaller_w, unchanged_point=bottom_left)
+
+        with self.subTest("top_mid -> scale down"):
+            do_scale_test(top_mid, delta_down, expected_size=smaller_h, unchanged_point=bottom_mid)
+        with self.subTest("top_mid -> scale right"):
+            do_scale_test(top_mid, delta_right, expected_size=unchanged_size, unchanged_point=bottom_mid)
+        with self.subTest("top_mid -> scale down right"):
+            do_scale_test(top_mid, delta_down_right, expected_size=smaller_h, unchanged_point=bottom_mid)
+        with self.subTest("top_mid -> scale left"):
+            do_scale_test(top_mid, delta_left, expected_size=unchanged_size, unchanged_point=bottom_mid)
+        with self.subTest("top_mid -> scale up"):
+            do_scale_test(top_mid, delta_up, expected_size=bigger_h, unchanged_point=bottom_mid)
+        with self.subTest("top_mid -> scale up left"):
+            do_scale_test(top_mid, delta_up_left, expected_size=bigger_h, unchanged_point=bottom_mid)
+
+        with self.subTest("bottom_mid -> scale down"):
+            do_scale_test(bottom_mid, delta_down, expected_size=bigger_h, unchanged_point=top_mid)
+        with self.subTest("bottom_mid -> scale right"):
+            do_scale_test(bottom_mid, delta_right, expected_size=unchanged_size, unchanged_point=top_mid)
+        with self.subTest("bottom_mid -> scale down right"):
+            do_scale_test(bottom_mid, delta_down_right, expected_size=bigger_h, unchanged_point=top_mid)
+        with self.subTest("bottom_mid -> scale left"):
+            do_scale_test(bottom_mid, delta_left, expected_size=unchanged_size, unchanged_point=top_mid)
+        with self.subTest("bottom_mid -> scale up"):
+            do_scale_test(bottom_mid, delta_up, expected_size=smaller_h, unchanged_point=top_mid)
+        with self.subTest("bottom_mid -> scale up left"):
+            do_scale_test(bottom_mid, delta_up_left, expected_size=smaller_h, unchanged_point=top_mid)
+
+        # Go beyond other size to clip at min
+        with self.subTest("top_left -> reduce clip right"):
+            do_scale_test(top_left, delta_right_long, expected_size=min_w, unchanged_point=bottom_right)
+        with self.subTest("top_left -> reduce clip down"):
+            do_scale_test(top_left, delta_down_long, expected_size=min_h, unchanged_point=bottom_right)
+        with self.subTest("top_left -> reduce clip down right"):
+            do_scale_test(top_left, delta_down_right_long, expected_size=min_wh, unchanged_point=bottom_right)
+
+        with self.subTest("bottom_right -> reduce clip left"):
+            do_scale_test(bottom_right, delta_left_long, expected_size=min_w, unchanged_point=top_left)
+        with self.subTest("bottom_right -> reduce clip up"):
+            do_scale_test(bottom_right, delta_up_long, expected_size=min_h, unchanged_point=top_left)
+        with self.subTest("bottom_right -> reduce clip up left"):
+            do_scale_test(bottom_right, delta_up_left_long, expected_size=min_wh, unchanged_point=top_left)
+
+        with self.subTest("top_right -> reduce clip left"):
+            do_scale_test(top_right, delta_left_long, expected_size=min_w, unchanged_point=bottom_left)
+        with self.subTest("top_right -> reduce clip down"):
+            do_scale_test(top_right, delta_down_long, expected_size=min_h, unchanged_point=bottom_left)
+        with self.subTest("top_right -> reduce clip down left"):
+            do_scale_test(top_right, delta_down_left_long, expected_size=min_wh, unchanged_point=bottom_left)
+
+        with self.subTest("bottom_left -> reduce clip left"):
+            do_scale_test(bottom_left, delta_right_long, expected_size=min_w, unchanged_point=top_right)
+        with self.subTest("bottom_left -> reduce clip up"):
+            do_scale_test(bottom_left, delta_up_long, expected_size=min_h, unchanged_point=top_right)
+        with self.subTest("bottom_left -> reduce clip up left"):
+            do_scale_test(bottom_left, delta_up_right_long, expected_size=min_wh, unchanged_point=top_right)
+
+    def test_move_widget(self):
+        workzone = self.hmi_component.get_workzone()
+        circle = CircleHMIWidget(self.app_interface)
+        initial_size = QSize(64, 64)
+        initial_pos = QPoint(32, 32)
+        circle.set_size(initial_size)
+        self.hmi_component.add_hmi_widget(circle)
+
+        def apply_move(start_pos: QPoint, delta_move: QPoint):
+            down_event = QMouseEvent(QEvent.Type.MouseButtonPress, start_pos,
+                                     Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
+                                     )
+            move_event = QMouseEvent(QEvent.Type.MouseButtonPress, start_pos + delta_move,
+                                     Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
+                                     )
+            up_event = QMouseEvent(QEvent.Type.MouseButtonRelease, start_pos + delta_move,
+                                   Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
+                                   )
+
+            workzone.mousePressEvent(down_event)
+            workzone.mouseMoveEvent(move_event)
+            workzone.mouseReleaseEvent(up_event)
+
+        circle.setPos(initial_pos)
+        apply_move(QPoint(50, 50), QPoint(9, 25))
+        self.assertEqual(circle.pos().toPoint(), initial_pos + QPoint(16, 32))
+        self.assertEqual(circle.get_size(), initial_size)
+
+        circle.setPos(initial_pos)
+        apply_move(QPoint(50, 50), QPoint(7, 23))
+        self.assertEqual(circle.pos().toPoint(), initial_pos + QPoint(0, 16))
+        self.assertEqual(circle.get_size(), initial_size)
+
+        circle.setPos(initial_pos)
+        apply_move(QPoint(50, 50), QPoint(-7, -23))
+        self.assertEqual(circle.pos().toPoint(), initial_pos + QPoint(0, -16))
+        self.assertEqual(circle.get_size(), initial_size)
+
+        circle.setPos(initial_pos)
+        apply_move(QPoint(50, 50), QPoint(-9, -25))
+        self.assertEqual(circle.pos().toPoint(), initial_pos + QPoint(-16, -32))
+        self.assertEqual(circle.get_size(), initial_size)
+
+        # Check clip top left
+        circle.setPos(initial_pos)
+        apply_move(QPoint(50, 50), -circle.pos().toPoint() + QPoint(-32, -32))
+        self.assertEqual(circle.pos().toPoint(), QPoint(0, 0))
+        self.assertEqual(circle.get_size(), initial_size)
+
+        # check clip bottom right
+        circle.setPos(initial_pos)
+
+        apply_move(QPoint(50, 50), workzone.sceneRect().bottomRight().toPoint() + QPoint(32, 32))
+        max_x = int(((workzone.sceneRect().width() - circle.get_size().width()) // 16) * 16)
+        max_y = int(((workzone.sceneRect().height() - circle.get_size().height()) // 16) * 16)
+        expected_pos = QPoint(max_x, max_y)
+        self.assertEqual(circle.pos().toPoint(), expected_pos)
+        self.assertEqual(circle.get_size(), initial_size)

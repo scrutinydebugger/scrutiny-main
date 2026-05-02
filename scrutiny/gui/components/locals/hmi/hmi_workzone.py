@@ -373,17 +373,15 @@ class HMIWorkZone(QGraphicsView):
 
         # Apply only on dimensions that are allowed to change
         widget = self._mouse_edit_data.resize_data.widget
-        if new_size.width() >= widget.min_width() and new_size.height() >= widget.min_height():
-            pass
-        elif new_size.width() >= widget.min_width():
-            new_pos = QPoint(new_pos.x(), previous_pos.y())
-            new_size = QSize(new_size.width(), previous_size.height())
-        elif new_size.height() >= widget.min_height():
-            new_size = QSize(previous_size.width(), new_size.height())
-            new_pos = QPoint(previous_pos.x(), new_pos.y())
-        else:
-            new_pos = previous_pos
-            new_size = previous_size
+        new_size = QSize(max(new_size.width(), widget.min_width()), max(new_size.height(), widget.min_height()))    # Clip size
+
+        # Recompute pos if size is clipped
+        previous_bottom_right = previous_pos + QPoint(previous_size.width(), previous_size.height())
+        max_pos = previous_bottom_right - QPoint(new_size.width(), new_size.height())
+        if new_pos.x() != previous_pos.x() and new_pos.x() > max_pos.x():
+            new_pos.setX(max_pos.x())
+        if new_pos.y() != previous_pos.y() and new_pos.y() > max_pos.y():
+            new_pos.setY(max_pos.y())
 
         self._mouse_edit_data.resize_data.widget.setPos(new_pos)
         self._mouse_edit_data.resize_data.widget.set_size(new_size)
