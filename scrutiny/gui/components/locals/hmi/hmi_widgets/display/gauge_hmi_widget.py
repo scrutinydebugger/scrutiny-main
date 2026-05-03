@@ -80,6 +80,7 @@ class _GaugePointer(QGraphicsItem):
         center = QPointF(bounding_rect.width() / 2, bounding_rect.height() / 2)
         aspect_ratio = bounding_rect.height() / bounding_rect.width()
 
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         pen = QPen()
         pen.setColor(HMITheme.Color.pointer_border())
         pen.setWidthF(max(ref_size * _Dims.STROKE, 1))
