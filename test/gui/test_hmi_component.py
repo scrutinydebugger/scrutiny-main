@@ -10,6 +10,7 @@ from PySide6.QtWidgets import QWidget
 from PySide6.QtCore import QPoint, QSize, Qt, QEvent
 from PySide6.QtGui import QPen, QBrush, QColor, QMouseEvent, QDragEnterEvent, QDragMoveEvent, QDropEvent, QDragLeaveEvent, QResizeEvent
 
+from scrutiny import sdk
 from scrutiny.gui.core.scrutiny_drag_data import ScrutinyDragData
 from scrutiny.gui.components.locals.hmi.hmi_component import HMIComponent
 from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget
@@ -65,11 +66,12 @@ class HMIComponentBaseTest(ScrutinyBaseGuiTest):
         self.app_interface.watchable_registry = self.main_window.get_watchable_registry()
         self.hmi_component = HMIComponent(
             self.main_window,
-            'watch1',
+            'hmi1',
             self.app_interface
         )
         self.hmi_component.setup()
         self.hmi_component.ready()
+        self.hmi_component.set_unittest_mode(True)
 
         workzone = self.hmi_component.get_workzone()
         old_size = workzone.viewport().size()
@@ -790,3 +792,193 @@ class TestWorkZone(HMIComponentBaseTest):
         expected_pos = QPoint(max_x, max_y)
         self.assertEqual(circle.pos().toPoint(), expected_pos)
         self.assertEqual(circle.get_size(), initial_size)
+
+    def test_emit_right_click(self):
+        right_click_list = []
+
+        def click_slot(widget, event):
+            right_click_list.append(widget)
+
+        workzone = self.hmi_component.get_workzone()
+        workzone.signals.right_click.connect(click_slot)
+
+        circle = CircleHMIWidget(self.app_interface)
+        circle.set_size(QSize(32, 32))
+        self.hmi_component.add_hmi_widget(circle)
+
+        click_pos = circle.pos() + QPoint(circle.get_size().width() // 2, circle.get_size().height() // 2)
+
+        down_event = QMouseEvent(QEvent.Type.MouseButtonPress, click_pos,
+                                 Qt.MouseButton.RightButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
+                                 )
+
+        up_event = QMouseEvent(QEvent.Type.MouseButtonRelease, click_pos,
+                               Qt.MouseButton.RightButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
+                               )
+
+        workzone.mousePressEvent(down_event)
+        workzone.mouseReleaseEvent(up_event)
+
+        click_pos = circle.pos() + QPoint(circle.get_size().width() + 1, circle.get_size().height() + 1)
+
+        down_event = QMouseEvent(QEvent.Type.MouseButtonPress, click_pos,
+                                 Qt.MouseButton.RightButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
+                                 )
+
+        up_event = QMouseEvent(QEvent.Type.MouseButtonRelease, click_pos,
+                               Qt.MouseButton.RightButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
+                               )
+
+        workzone.mousePressEvent(down_event)
+        workzone.mouseReleaseEvent(up_event)
+
+        self.assertEqual(len(right_click_list), 2)
+
+        self.assertEqual(right_click_list[0], circle)
+        self.assertEqual(right_click_list[1], None)
+
+    def test_zvalue_manipualtion(self):
+        workzone = self.hmi_component.get_workzone()
+        circle1 = CircleHMIWidget(self.app_interface)
+        circle2 = CircleHMIWidget(self.app_interface)
+        circle3 = CircleHMIWidget(self.app_interface)
+        circle4 = CircleHMIWidget(self.app_interface)
+
+        self.hmi_component.add_hmi_widget(circle1)
+        self.hmi_component.add_hmi_widget(circle2)
+        self.hmi_component.add_hmi_widget(circle3)
+        self.hmi_component.add_hmi_widget(circle4)
+
+        self.assertEqual(circle1.zValue(), 0)
+        self.assertEqual(circle2.zValue(), 1)
+        self.assertEqual(circle3.zValue(), 2)
+        self.assertEqual(circle4.zValue(), 3)
+
+        self.hmi_component.move_forward(circle4)  # Should have no effect
+        self.assertEqual(circle1.zValue(), 0)
+        self.assertEqual(circle2.zValue(), 1)
+        self.assertEqual(circle3.zValue(), 2)
+        self.assertEqual(circle4.zValue(), 3)
+
+        self.hmi_component.move_backward(circle1)  # Should have no effect
+        self.assertEqual(circle1.zValue(), 0)
+        self.assertEqual(circle2.zValue(), 1)
+        self.assertEqual(circle3.zValue(), 2)
+        self.assertEqual(circle4.zValue(), 3)
+
+        self.hmi_component.move_backward(circle3)
+        self.hmi_component.move_backward(circle3)
+        self.assertEqual(circle3.zValue(), 0)
+        self.assertEqual(circle1.zValue(), 1)
+        self.assertEqual(circle2.zValue(), 2)
+        self.assertEqual(circle4.zValue(), 3)
+
+        self.hmi_component.move_forward(circle1)
+        self.assertEqual(circle3.zValue(), 0)
+        self.assertEqual(circle2.zValue(), 1)
+        self.assertEqual(circle1.zValue(), 2)
+        self.assertEqual(circle4.zValue(), 3)
+
+        self.hmi_component.move_to_front(circle2)
+        self.assertEqual(circle3.zValue(), 0)
+        self.assertEqual(circle1.zValue(), 1)
+        self.assertEqual(circle4.zValue(), 2)
+        self.assertEqual(circle2.zValue(), 3)
+
+        self.hmi_component.move_to_back(circle4)
+        self.assertEqual(circle4.zValue(), 0)
+        self.assertEqual(circle3.zValue(), 1)
+        self.assertEqual(circle1.zValue(), 2)
+        self.assertEqual(circle2.zValue(), 3)
+
+    def test_register_with_visibility(self):
+        self.app_interface.watchable_registry.write_content({
+            sdk.WatchableType.Variable: {
+                '/var/aaa': sdk.BriefWatchableConfiguration(sdk.WatchableType.Variable, sdk.EmbeddedDataType.float32, enum=None),
+                '/var/bbb': sdk.BriefWatchableConfiguration(sdk.WatchableType.Variable, sdk.EmbeddedDataType.float32, enum=None)
+            }
+        })
+        display = NumericalDisplayHMIWidget(self.app_interface)
+        self.hmi_component.add_hmi_widget(display)
+
+        self.assertEqual(self.app_interface.watchable_registry.node_watcher_count(sdk.WatchableType.Variable, '/var/aaa'), 0)
+        display.configure_vslot_watchable('val', WatchableRegistry.FQN.make(sdk.WatchableType.Variable, '/var/aaa'), 'test')
+        self.assertEqual(self.app_interface.watchable_registry.node_watcher_count(sdk.WatchableType.Variable, '/var/aaa'), 1)
+        self.hmi_component.visibilityChanged(False)
+        self.assertEqual(self.app_interface.watchable_registry.node_watcher_count(sdk.WatchableType.Variable, '/var/aaa'), 0)
+        self.hmi_component.visibilityChanged(True)
+        self.assertEqual(self.app_interface.watchable_registry.node_watcher_count(sdk.WatchableType.Variable, '/var/aaa'), 1)
+
+
+class TestHMIComponent(HMIComponentBaseTest):
+    def test_serialize_and_reload_state(self):
+        circle1 = CircleHMIWidget(self.app_interface)
+        rect2 = RectangleHMIWidget(self.app_interface)
+        line3 = LineHMIWidget(self.app_interface)
+        label4 = TextLabelHMIWidget(self.app_interface)
+
+        self.hmi_component.add_hmi_widget(circle1)
+        self.hmi_component.add_hmi_widget(rect2)
+        self.hmi_component.add_hmi_widget(line3)
+        self.hmi_component.add_hmi_widget(label4)
+
+        self.hmi_component.move_to_front(rect2)
+
+        self.assertEqual(circle1.zValue(), 0)
+        self.assertEqual(line3.zValue(), 1)
+        self.assertEqual(label4.zValue(), 2)
+        self.assertEqual(rect2.zValue(), 3)
+
+        circle1.setPos(16, 32)
+        rect2.setPos(32, 48)
+        line3.setPos(48, 64)
+        label4.setPos(64, 80)
+
+        circle1.set_size(QSize(64, 48))
+        rect2.set_size(QSize(48, 64))
+        line3.set_size(QSize(32, 16))
+        label4.set_size(QSize(16, 32))
+
+        state = self.hmi_component.get_state()
+        for widget in list(self.hmi_component.iterate_hmi_widgets()):
+            self.hmi_component.delete_hmi_widget(widget)
+        self.assertEqual(self.hmi_component.hmi_widget_count(), 0)
+        self.hmi_component.load_state(state)
+
+        self.assertEqual(self.hmi_component.hmi_widget_count(), 4)
+
+        new_circle: Optional[CircleHMIWidget] = None
+        new_rect: Optional[RectangleHMIWidget] = None
+        new_line: Optional[LineHMIWidget] = None
+        new_label: Optional[TextLabelHMIWidget] = None
+
+        for widget in self.hmi_component.iterate_hmi_widgets():
+            if isinstance(widget, CircleHMIWidget):
+                new_circle = widget
+            elif isinstance(widget, RectangleHMIWidget):
+                new_rect = widget
+            elif isinstance(widget, LineHMIWidget):
+                new_line = widget
+            elif isinstance(widget, TextLabelHMIWidget):
+                new_label = widget
+
+        self.assertIsNotNone(new_circle)
+        self.assertIsNotNone(new_rect)
+        self.assertIsNotNone(new_line)
+        self.assertIsNotNone(new_label)
+
+        self.assertEqual(new_circle.pos(), circle1.pos())
+        self.assertEqual(new_circle.get_size(), circle1.get_size())
+        self.assertEqual(new_circle.zValue(), circle1.zValue())
+
+        self.assertEqual(new_rect.pos(), rect2.pos())
+        self.assertEqual(new_rect.get_size(), rect2.get_size())
+        self.assertEqual(new_rect.zValue(), rect2.zValue())
+
+        self.assertEqual(new_line.pos(), line3.pos())
+        self.assertEqual(new_line.get_size(), line3.get_size())
+        self.assertEqual(new_line.zValue(), line3.zValue())
+
+        self.assertEqual(new_label.pos(), label4.pos())
+        self.assertEqual(new_label.get_size(), label4.get_size())
+        self.assertEqual(new_label.zValue(), label4.zValue())

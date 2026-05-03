@@ -430,7 +430,7 @@ class BaseHMIWidget(QGraphicsItem):
         watchable_val_update_slot = functools.partial(self._watchable_update_callback, vslot)
         self._app.watchable_registry.register_watcher(vslot.watcher_id, watchable_val_update_slot, self._unwatch_callback)
 
-        configured_slot = functools.partial(self._vslot_configured_slot, vslot)
+        configured_slot = functools.partial(self._vslot_configured_with_watchable_slot, vslot)
         vslot.watchable_line_edit.signals.watchable_dropped.connect(configured_slot)
 
         config_cleared_slot = functools.partial(self._vslot_config_cleared_slot, vslot)
@@ -509,9 +509,34 @@ class BaseHMIWidget(QGraphicsItem):
                 all_good = False
         return all_good
 
+    def configure_vslot_constant(self, name: str, val: str) -> None:
+        found = False
+        for vslot in self._vslots:
+            if vslot.name == name:
+                found = True
+                vslot.watchable_line_edit.set_text_mode()
+                vslot.watchable_line_edit.setText(val)
+                break
 
+        if not found:
+            raise KeyError(f"No ValueSlot with name {name} in widget of type {self.get_unique_name()}")
+
+    def configure_vslot_watchable(self, name: str, fqn: str, watchable_name: str) -> None:
+        found = False
+        for vslot in self._vslots:
+            if vslot.name == name:
+                found = True
+                parsed = WatchableRegistry.FQN.parse(fqn)
+                vslot.watchable_line_edit.set_watchable_mode(
+                    watchable_type=parsed.watchable_type,
+                    path=parsed.path,
+                    name=watchable_name
+                )
+                self._vslot_configured_with_watchable_slot(vslot, fqn)
+                break
+        if not found:
+            raise KeyError(f"No ValueSlot with name {name} in widget of type {self.get_unique_name()}")
 # region Private
-
 
     def _slot_value_update_callback(self, vslot: ValueSlot, val: WatchableValueType) -> None:
         """The callback invoked when a ValueSlot value changes"""
@@ -541,7 +566,7 @@ class BaseHMIWidget(QGraphicsItem):
                 vslot.last_value_received = None
                 break
 
-    def _vslot_configured_slot(self, vslot: ValueSlot, fqn: str) -> None:
+    def _vslot_configured_with_watchable_slot(self, vslot: ValueSlot, fqn: str) -> None:
         """When the user drops a watchable on a ValueSlot"""
         self._try_watch(vslot, fqn)
 
@@ -634,7 +659,6 @@ class BaseHMIWidget(QGraphicsItem):
 
 
 # region Abstracts methods
-
 
     def draw(self,
              values: Dict[str, WatchableValueType],
