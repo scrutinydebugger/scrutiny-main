@@ -22,7 +22,7 @@ from scrutiny.gui.components.locals.hmi.hmi_library_category import LibraryCateg
 from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget, WatchableValueType
 from scrutiny.gui.components.locals.hmi.hmi_theme import HMITheme
 from scrutiny.gui.components.locals.hmi.common.numerical_text_display import NumericalTextDisplay, NumberFormattingConfig, NumericalTextDisplayStateDict
-from scrutiny.gui.components.locals.hmi.common.color_span_editor import ColorSpanEditor, ColorSpanListStateDict, ColorSpan, SpanColor
+from scrutiny.gui.components.locals.hmi.common.color_span_editor import ColorSpanEditor, ColorSpanListStateDict, ColorSpan
 from scrutiny.gui import assets
 from scrutiny import tools
 from scrutiny.tools.typing import *
@@ -79,8 +79,6 @@ class _GaugePointer(QGraphicsItem):
         knob_radius = ref_size * _Dims.KNOB
         center = QPointF(bounding_rect.width() / 2, bounding_rect.height() / 2)
         aspect_ratio = bounding_rect.height() / bounding_rect.width()
-
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
 
         pen = QPen()
         pen.setColor(HMITheme.Color.pointer_border())
@@ -333,8 +331,6 @@ class GaugeHMIWidget(BaseHMIWidget):
         color_indicator_w = ref_size * _Dims.COLOR_W
         color_indicator_radius = inner_radius * 0.98 - minor_tick_len - stroke_w / 2 - color_indicator_w / 2
 
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-
         pen = QPen()
         pen.setWidthF(1)
         pen.setColor(HMITheme.Color.select_frame_border())
@@ -410,9 +406,10 @@ class GaugeHMIWidget(BaseHMIWidget):
 
                 # Write the major tick label
                 if self._minval is not None and self._maxval is not None and self._maxval > self._minval:
+                    label_radius = max(tick_p2_radius - 2, tick_p2_radius * 0.98)
                     label_intersect_point = QPointF(
-                        center.x() + tick_p2_radius * cos_angle,
-                        center.y() - tick_p2_radius * sin_angle * aspect_ratio,
+                        center.x() + label_radius * cos_angle,
+                        center.y() - label_radius * sin_angle * aspect_ratio,
                     )
 
                     intersect_x_unclipped = tick_label_longest_diagonal * cos_angle
