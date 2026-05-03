@@ -1,3 +1,11 @@
+#    color_indicator_hmi_widget.py
+#        A HMI widget that simply turn a circle ON or OFF with customizable colors based on
+#        a condition.
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
 
 __all__ = ['ColorIndicatorHMIWidget', 'RelationalOperator']
 

@@ -1,3 +1,10 @@
+#    hmi_colors.py
+#        Colors defined by their role in the HMI dashboard
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
 
 import enum
 from PySide6.QtWidgets import QComboBox

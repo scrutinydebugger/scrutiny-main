@@ -1091,6 +1091,12 @@
         },
         "test/gui/test_hmi_component.py": {
             "docstring": "A test suite to the the HMI component"
+        },
+        "scrutiny/gui/components/locals/hmi/common/hmi_colors.py": {
+            "docstring": "Colors defined by their role in the HMI dashboard"
+        },
+        "scrutiny/gui/components/locals/hmi/hmi_widgets/display/color_indicator_hmi_widget.py": {
+            "docstring": "A HMI widget that simply turn a circle ON or OFF with customizable colors based on a condition."
         }
     },
     "authors": {}
