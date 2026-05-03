@@ -11,7 +11,7 @@ __all__ = ['ColorIndicatorHMIWidget', 'RelationalOperator']
 
 import enum
 
-from PySide6.QtGui import QPainter, QPen, QBrush
+from PySide6.QtGui import QPainter, QPen, QRadialGradient, QBrush, QColor
 from PySide6.QtCore import QSize, Qt, QPointF
 from PySide6.QtWidgets import QVBoxLayout, QWidget, QGroupBox, QComboBox, QFormLayout
 
@@ -24,6 +24,12 @@ from scrutiny.tools.typing import *
 from scrutiny.gui.components.locals.hmi.hmi_library_category import LibraryCategory
 from scrutiny.gui.components.locals.hmi.hmi_theme import HMITheme
 from scrutiny import tools
+
+
+class _Dims:
+    """Those are relative dimensions used to draw the gauge."""
+    RADIUS = 1
+    BORDER_W = 0.05
 
 
 class RelationalOperator(enum.Enum):
@@ -42,7 +48,7 @@ class ColorIndicatorHMIWidget(BaseHMIWidget):
     _CATEGORY = LibraryCategory.Display
     _UNIQUE_NAME = 'color_indicator'
     _DISPLAY_NAME = 'Color Indicator'
-    _ICON = assets.Icons.HMITextDisplay
+    _ICON = assets.Icons.HMIColorIndicator
 
     _cmb_color_on: QComboBox
     _cmb_color_off: QComboBox
@@ -151,7 +157,7 @@ class ColorIndicatorHMIWidget(BaseHMIWidget):
 
     @classmethod
     def default_size(cls) -> QSize:
-        return QSize(32, 32)
+        return QSize(48, 48)
 
     def min_height(self) -> int:
         return 16
@@ -168,10 +174,11 @@ class ColorIndicatorHMIWidget(BaseHMIWidget):
              ) -> None:
         op1 = values['operand1']
         op2 = values['operand2']
-        BORDER_WIDTH = 1
         bounding_rect = self.boundingRect()
+        ref_width = bounding_rect.width() / 2
         aspect_ratio = bounding_rect.height() / bounding_rect.width()
-        radius = bounding_rect.width() / 2 - BORDER_WIDTH / 2
+        radius = (_Dims.RADIUS - _Dims.BORDER_W / 2) * ref_width
+        border_width = _Dims.BORDER_W * ref_width
         center = QPointF(bounding_rect.width() / 2, bounding_rect.height() / 2)
 
         result = self._eval_condition(self._cmb_operator.currentData(), op1, op2)
@@ -182,8 +189,16 @@ class ColorIndicatorHMIWidget(BaseHMIWidget):
 
         painter.setBrush(color)
         pen = QPen()
-        pen.setWidthF(BORDER_WIDTH)
+        pen.setWidthF(border_width)
         pen.setColor(HMITheme.Color.frame_border())
+        painter.setPen(pen)
+        painter.drawEllipse(center, radius, radius * aspect_ratio)
+
+        painter.setPen(Qt.PenStyle.NoPen)
+        gradient = QRadialGradient(center, radius)
+        gradient.setColorAt(0, QColor("#33ffffff"))  # 33 is alpha channel
+        gradient.setColorAt(1, QColor("#33000000"))
+        painter.setBrush(QBrush(gradient))
         painter.drawEllipse(center, radius, radius * aspect_ratio)
 
     def get_implementation_config_dict(self) -> Dict[str, Any]:
