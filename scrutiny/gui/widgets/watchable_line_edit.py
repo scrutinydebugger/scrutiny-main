@@ -12,7 +12,8 @@ import enum
 from dataclasses import dataclass
 
 from PySide6.QtWidgets import QLineEdit
-from PySide6.QtGui import QDragEnterEvent, QDropEvent, QKeyEvent, QAction, QMouseEvent, QIcon, QPaintEvent, QPainter, QColor
+from PySide6.QtGui import (QDragEnterEvent, QDropEvent, QKeyEvent, QAction, QMouseEvent, QIcon,
+                           QPaintEvent, QPainter, QColor, QResizeEvent)
 from PySide6.QtCore import Qt, QSize, QPoint, QRect, QObject, Signal
 
 from scrutiny import tools
@@ -131,15 +132,17 @@ class WatchableLineEdit(QLineEdit):
         self.setText(name)
         self.setReadOnly(True)
         self._mode = self.Mode.WATCHABLE
-
-        margins = self.textMargins()
-        click_rect, icon_rect = self._clear_button_geometry()
-        margins.setRight(margins.right() + click_rect.width())
-        self.setTextMargins(margins)
+        self._adjust_watchable_mode_margins()
         self._loaded_watchable = WatchableFQNAndName(
             fqn=WatchableRegistry.FQN.make(watchable_type, path),
             name=name)
         self._update_cursor()
+
+    def _adjust_watchable_mode_margins(self) -> None:
+        margins = self.textMargins()
+        click_rect, icon_rect = self._clear_button_geometry()
+        margins.setRight(click_rect.width())
+        self.setTextMargins(margins)
 
     def _update_cursor(self) -> None:
         if self._mode == self.Mode.WATCHABLE:
@@ -235,6 +238,11 @@ class WatchableLineEdit(QLineEdit):
 
         self._clear_being_clicked = False
         self.update()
+
+    def resizeEvent(self, event: QResizeEvent) -> None:
+        super().resizeEvent(event)
+        if self.is_watchable_mode():
+            self._adjust_watchable_mode_margins()
 
     def get_watchable(self) -> Optional[WatchableFQNAndName]:
         return self._loaded_watchable

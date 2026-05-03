@@ -7,17 +7,26 @@
 #
 #    Copyright (c) 2026 Scrutiny Debugger
 
-__all__ = ['NumericalTextDisplay']
+__all__ = ['NumericalTextDisplay', 'NumberFormattingConfig']
 
 from dataclasses import dataclass
+import logging
 from PySide6.QtGui import QPainter, QFont, QFontMetrics, QColor, QPen
 from PySide6.QtWidgets import QStyleOptionGraphicsItem, QWidget, QFormLayout, QLineEdit, QCheckBox, QSpinBox, QGraphicsItem
-from PySide6.QtCore import QObject, QRectF, QRect, Signal, QSize, QPoint, Qt
+from PySide6.QtCore import QObject, QRectF, Signal, QSize, QPoint, Qt
 
 from scrutiny.gui.components.locals.hmi.hmi_theme import HMITheme
 from scrutiny import tools
 from scrutiny.gui import assets
 from scrutiny.tools.typing import *
+
+
+class NumberFormattingConfigDict(TypedDict):
+    """A Dict version of ``NumberFormattingConfig`` for serialization"""
+    units: str
+    max_ints: int
+    decimals: int
+    eng: bool
 
 
 class NumericalConfigConstants:
@@ -33,23 +42,28 @@ class NumericalConfigConstants:
 
 
 @dataclass(slots=True)
-class NumericalTextDisplayConfig:
-    units: str = NumericalConfigConstants.DEFAULT_UNIT
-    max_ints: int = NumericalConfigConstants.DEFAULT_INTS
-    decimals: int = NumericalConfigConstants.DEFAULT_DECIMALS
-    eng_notation: bool = NumericalConfigConstants.DEFAULT_ENG_NOTATION
+class NumberFormattingConfig:
+    """A configuration to be given to the NumericalTextDisplay that contains the formatting parameters"""
 
-    def get_state(self) -> Dict[str, Any]:
+    units: str = NumericalConfigConstants.DEFAULT_UNIT
+    """A suffix to be printed after the number"""
+    max_ints: int = NumericalConfigConstants.DEFAULT_INTS
+    """Number of integral digits. Only used when not using engineering notation"""
+    decimals: int = NumericalConfigConstants.DEFAULT_DECIMALS
+    """Number of decimal digits"""
+    eng_notation: bool = NumericalConfigConstants.DEFAULT_ENG_NOTATION
+    """Engineering notation enabled when ``True``. Limit the number of integral digits to 3."""
+
+    def to_dict(self) -> NumberFormattingConfigDict:
         return {
             'eng': self.eng_notation,
             'decimals': self.decimals,
             'units': self.units,
-            'max_int': self.max_ints
+            'max_ints': self.max_ints
         }
 
     @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> Self:
-
+    def from_dict(cls, d: NumberFormattingConfigDict) -> Self:
         # Engineering Notation
         eng = d.get('eng', NumericalConfigConstants.DEFAULT_ENG_NOTATION)
         if not isinstance(eng, bool):
@@ -63,7 +77,7 @@ class NumericalTextDisplayConfig:
             decimals = NumericalConfigConstants.DEFAULT_DECIMALS
 
         # Ints
-        max_ints = d.get('max_int', NumericalConfigConstants.DEFAULT_INTS)
+        max_ints = d.get('max_ints', NumericalConfigConstants.DEFAULT_INTS)
         if not isinstance(max_ints, int):
             max_ints = NumericalConfigConstants.DEFAULT_INTS
         if max_ints < NumericalConfigConstants.MINIMUM_INTS or max_ints > NumericalConfigConstants.MAXIMUM_INTS:
@@ -84,14 +98,19 @@ class NumericalTextDisplayConfig:
         )
 
 
-class _NumericalConfigWidget(QWidget):
+class _NumberFormattingConfigWidget(QWidget):
+    """A widget to visually edit a NumberFormattingConfig"""
     class _Signals(QObject):
         changed = Signal()
 
     txt_units: QLineEdit
+    """Units suffix"""
     chk_eng_notation: QCheckBox
+    """Engineering notation checkbox"""
     spn_decimals: QSpinBox
+    """Number of decimal digits"""
     spn_ints: QSpinBox
+    """Number of integral digits (only used when eng notation is ``False``)"""
     _signals: _Signals
 
     def __init__(self) -> None:
@@ -129,13 +148,9 @@ class _NumericalConfigWidget(QWidget):
     def signals(self) -> _Signals:
         return self._signals
 
-    def load_state(self, d: Dict[str, Any]) -> None:
-        # Engineering Notation
-        config = NumericalTextDisplayConfig.from_dict(d)
-        self.apply_config(config)
-
-    def get_config(self) -> NumericalTextDisplayConfig:
-        config = NumericalTextDisplayConfig(
+    def get_config(self) -> NumberFormattingConfig:
+        """Build a config from the widget content"""
+        config = NumberFormattingConfig(
             eng_notation=self.chk_eng_notation.isChecked(),
             decimals=self.spn_decimals.value(),
             max_ints=self.spn_ints.value(),
@@ -143,7 +158,8 @@ class _NumericalConfigWidget(QWidget):
         )
         return config
 
-    def apply_config(self, config: NumericalTextDisplayConfig) -> None:
+    def apply_config(self, config: NumberFormattingConfig) -> None:
+        """Reload a configuration and update the widget content"""
         self.chk_eng_notation.setChecked(config.eng_notation)
         self.spn_decimals.setValue(config.decimals)
         self.spn_ints.setValue(config.max_ints)
@@ -158,53 +174,81 @@ class _NumericalConfigWidget(QWidget):
             self.spn_ints.setDisabled(False)
 
 
+class NumericalTextDisplayStateDict(TypedDict):
+    """A serializable dict that represent the NumericalTextDisplay state"""
+    number_format: NumberFormattingConfigDict
+    """The number formatting parameters"""
+    alignment: int
+    """QT Alignment flag"""
+    text_color: str
+    """The text color in #hexrgb format"""
+    border_color: str
+    """Border color in #hexrgb format"""
+    border_width: float
+    """Border width"""
+    background_color: str
+    """Background color in #hexrgb format"""
+
+
 class NumericalTextDisplay(QGraphicsItem):
 
     class _Signals(QObject):
         config_changed = Signal()
 
-    _config_widget: _NumericalConfigWidget
-    _config: NumericalTextDisplayConfig
-    _signals: _Signals
+    _number_format_config_widget: _NumberFormattingConfigWidget
+    """The widget that edits the NumberFormattingConfig"""
+    _number_format_config: NumberFormattingConfig
+    """The presently loaded number formatting config"""
     _val: Union[float, int, bool, str]
+    """The value presently displayed"""
     _font: QFont
+    """The font used. Expected to be monospaced"""
     _text_color: QColor
+    """Text color"""
     _border_color: QColor
-    _alignement: Qt.AlignmentFlag
+    """Border color"""
+    _alignment: Qt.AlignmentFlag
+    """QT Alignment flag"""
     _size: QSize
-    _border_width: int
+    """Size of the rectangle to print in. Used for font size selection"""
+    _border_width: float
+    """Border width"""
     _background_color: QColor
+    """Background Color"""
+    _logger: logging.Logger
+    _signals: _Signals
 
     def __init__(self, parent: Optional[QGraphicsItem]) -> None:
         super().__init__(parent)
         self._signals = self._Signals()
-        self._config = NumericalTextDisplayConfig()
-        self._config_widget = _NumericalConfigWidget()
-        self._config_widget.apply_config(self._config)
+        self._number_format_config = NumberFormattingConfig()
+        self._number_format_config_widget = _NumberFormattingConfigWidget()
+        self._number_format_config_widget.apply_config(self._number_format_config)
         self._font = assets.get_font(assets.ScrutinyFont.Monospaced)
-        self._alignement = Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+        self._alignment = Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
         self._text_color = HMITheme.Color.text()
         self._border_color = HMITheme.Color.frame_border()
         self._size = QSize()
         self._border_width = 1
         self._background_color = HMITheme.Color.text_display_background()
+        self._logger = logging.getLogger(self.__class__.__name__)
+        self._val = ""
 
-        self._config_widget.signals.changed.connect(self._config_changed_slot)
+        self._number_format_config_widget.signals.changed.connect(self._number_format_config_changed_slot)
 
-# region Public
     @property
     def signals(self) -> _Signals:
         return self._signals
 
-    def _config_changed_slot(self) -> None:
-        self._config = self._config_widget.get_config()
-        self.update()
+    def _number_format_config_changed_slot(self) -> None:
+        self._number_format_config = self._number_format_config_widget.get_config()
         self._signals.config_changed.emit()
 
+# region Public API
     def set_size(self, size: QSize) -> None:
         self._size = size
 
-    def set_border_width(self, width: int) -> None:
+    def set_border_width(self, width: float) -> None:
         self._border_width = width
 
     def set_border_color(self, color: QColor) -> None:
@@ -219,24 +263,124 @@ class NumericalTextDisplay(QGraphicsItem):
     def set_val(self, val: Union[float, int, bool, str]) -> None:
         self._val = val
 
-    def set_alignment(self, alignement: Qt.AlignmentFlag) -> None:
-        self._alignement = alignement
+    def set_alignment(self, alignment: Qt.AlignmentFlag) -> None:
+        self._alignment = alignment
 
-    def get_config_widget(self) -> QWidget:
-        return self._config_widget
+    def set_number_formatting_config(self, config: NumberFormattingConfig) -> None:
+        self._number_format_config = config
+        self._number_format_config_widget.apply_config(config)
+
+    def get_size(self) -> QSize:
+        return self._size
+
+    def get_border_width(self) -> float:
+        return self._border_width
+
+    def get_border_color(self) -> QColor:
+        return self._border_color
+
+    def get_text_color(self) -> QColor:
+        return self._text_color
+
+    def get_background_color(self) -> QColor:
+        return self._background_color
+
+    def get_val(self) -> Union[float, int, bool, str]:
+        return self._val
+
+    def get_alignment(self) -> Qt.AlignmentFlag:
+        return self._alignment
+
+    def get_number_format_config_widget(self) -> QWidget:
+        return self._number_format_config_widget
+
+    def get_number_formatting_config(self) -> NumberFormattingConfig:
+        return self._number_format_config
 
     def boundingRect(self) -> QRectF:
         return QRectF(QPoint(0, 0), self._size)
-# endregion
 
-# region Private
+    def get_state_dict(self) -> NumericalTextDisplayStateDict:
+        return {
+            'number_format': self._number_format_config.to_dict(),
+            'alignment': self._alignment.value,
+            'text_color': self._text_color.name(QColor.NameFormat.HexRgb),
+            'border_color': self._border_color.name(QColor.NameFormat.HexRgb),
+            'border_width': self._border_width,
+            'background_color': self._background_color.name(QColor.NameFormat.HexRgb),
+        }
+
+    def set_state_dict(self, d: NumericalTextDisplayStateDict) -> bool:
+        valid_number_format = False
+        valid_alignment = False
+        valid_text_color = False
+        valid_border_width = False
+        valid_border_color = False
+        valid_background_color = False
+
+        if 'number_format' in d and isinstance(d['number_format'], dict):
+            self._number_format_config = NumberFormattingConfig.from_dict(d['number_format'])
+            self._number_format_config_widget.apply_config(self._number_format_config)
+            valid_number_format = True
+
+        if 'alignment' in d and isinstance(d['alignment'], int):
+            self._alignment = Qt.AlignmentFlag(d['alignment'])
+            valid_alignment = True
+
+        if 'text_color' in d and isinstance(d['text_color'], str):
+            color = QColor(d['text_color'])
+            if color.name(QColor.NameFormat.HexRgb) == d['text_color']:
+                self._text_color = color
+                valid_text_color = True
+
+        if 'border_color' in d and isinstance(d['border_color'], str):
+            color = QColor(d['border_color'])
+            if color.name(QColor.NameFormat.HexRgb) == d['border_color']:
+                self._border_color = color
+                valid_border_color = True
+
+        if 'border_width' in d and isinstance(d['border_width'], (float, int)):
+            self._border_width = float(d['border_width'])
+            valid_border_width = True
+
+        if 'background_color' in d and isinstance(d['background_color'], str):
+            color = QColor(d['background_color'])
+            if color.name(QColor.NameFormat.HexRgb) == d['background_color']:
+                self._background_color = color
+                valid_background_color = True
+
+        if not valid_number_format:
+            self._logger.warning('Invalid number formatting configuration ')
+        if not valid_alignment:
+            self._logger.warning('Invalid alignment')
+        if not valid_text_color:
+            self._logger.warning('Invalid text color')
+        if not valid_border_width:
+            self._logger.warning('Invalid border width')
+        if not valid_border_color:
+            self._logger.warning('Invalid border color')
+        if not valid_background_color:
+            self._logger.warning('Invalid background color')
+
+        self._signals.config_changed.emit()
+
+        return (
+            valid_number_format
+            and valid_alignment
+            and valid_text_color
+            and valid_border_width
+            and valid_border_color
+            and valid_background_color
+        )
+
     @classmethod
-    def format_numerical_value(cls, config: NumericalTextDisplayConfig, val: float) -> str:
+    def format_numerical_value(cls, config: NumberFormattingConfig, val: float) -> str:
+        """Take a float number and return a string following the parameters in the given configuration"""
         if config.eng_notation:
             return tools.format_eng_unit(val, decimal=config.decimals, unit=config.units)
 
         if config.decimals == 0:
-            return str(int(val))
+            return str(int(val)) + config.units
 
         format_str = f"%0.{config.decimals}f"
         text = (format_str % val) + config.units
@@ -244,7 +388,8 @@ class NumericalTextDisplay(QGraphicsItem):
         return text
 
     @classmethod
-    def max_char_count(cls, config: NumericalTextDisplayConfig) -> int:
+    def max_char_count(cls, config: NumberFormattingConfig) -> int:
+        """Return the maximum characters a configuration may generate"""
         unit_part = len(config.units)
         if unit_part > 0 and config.eng_notation:
             unit_part += 1  # prefix
@@ -259,14 +404,15 @@ class NumericalTextDisplay(QGraphicsItem):
         return count
 
     @classmethod
-    def apply_font_size(cls, font: QFont, config: NumericalTextDisplayConfig, text: str, rect: QRectF) -> None:
+    def apply_font_size(cls, font: QFont, config: NumberFormattingConfig, text: str, rect: QRectF) -> None:
+        """Set the font size on a font to fit a text in a rectangle, following the formatting configuration.
+        Assumes a monospaced font."""
         text_len = max(len(text), cls.max_char_count(config))
 
         font.setPixelSize(max(1, int(rect.size().height())))
         text_width = QFontMetrics(font).averageCharWidth() * text_len
         if text_width > rect.size().width():
             font.setPixelSize(max(1, int(rect.size().height() * rect.size().width() / text_width)))
-
 # endregion
 
     def paint(self, painter: QPainter, option: QStyleOptionGraphicsItem, widget: Optional[QWidget] = None) -> None:
@@ -275,7 +421,7 @@ class NumericalTextDisplay(QGraphicsItem):
         elif isinstance(self._val, bool):
             text = "1" if self._val else "0"
         else:
-            text = self.format_numerical_value(self._config, float(self._val))
+            text = self.format_numerical_value(self._number_format_config, float(self._val))
 
         bounding_rect = self.boundingRect()
         painter.setPen(Qt.PenStyle.NoPen)
@@ -296,7 +442,7 @@ class NumericalTextDisplay(QGraphicsItem):
                 bounding_rect.height() - 2 * self._border_width
             )
             pen = QPen()
-            pen.setWidth(self._border_width)
+            pen.setWidthF(self._border_width)
             pen.setColor(self._border_color)
             painter.setPen(pen)
             painter.setBrush(Qt.BrushStyle.NoBrush)
@@ -305,8 +451,8 @@ class NumericalTextDisplay(QGraphicsItem):
         else:
             inner_frame_rect = bounding_rect
 
-        self.apply_font_size(self._font, self._config, text, inner_frame_rect)
+        self.apply_font_size(self._font, self._number_format_config, text, inner_frame_rect)
         painter.setFont(self._font)
-        painter.setPen(HMITheme.Color.text())
+        painter.setPen(self._text_color)
         painter.setBrush(Qt.BrushStyle.NoBrush)
-        painter.drawText(inner_frame_rect, self._alignement, text)
+        painter.drawText(inner_frame_rect, self._alignment, text)

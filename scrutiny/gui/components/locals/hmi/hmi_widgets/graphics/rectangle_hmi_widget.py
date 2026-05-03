@@ -8,35 +8,33 @@
 
 __all__ = ['RectangleHMIWidget']
 
-from PySide6.QtGui import QPainter
+from PySide6.QtGui import QPainter, QPen, QBrush
 from PySide6.QtCore import QSizeF, QRectF, QPointF
 from PySide6.QtWidgets import QVBoxLayout, QWidget, QGroupBox
 
-
+from scrutiny.gui.component_app_interface import AbstractComponentAppInterface
 from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget, WatchableValueType
 from scrutiny.gui import assets
 from scrutiny.tools.typing import *
 
 from scrutiny.gui.components.locals.hmi.hmi_library_category import LibraryCategory
-from scrutiny.gui.components.locals.hmi.common.pen_config import PenConfigWidget
-from scrutiny.gui.components.locals.hmi.common.brush_config import BrushConfigWidget
-
-if TYPE_CHECKING:
-    from scrutiny.gui.components.locals.hmi.hmi_component import HMIComponent
+from scrutiny.gui.components.locals.hmi.common.pen_config import PenConfigWidget, PenConfigStateDict
+from scrutiny.gui.components.locals.hmi.common.brush_config import BrushConfigWidget, BrushConfigStateDict
 
 
 class RectangleHMIWidget(BaseHMIWidget):
 
     _CATEGORY = LibraryCategory.Graphic
-    _NAME = 'Rectangle'
+    _UNIQUE_NAME = 'rectangle'
+    _DISPLAY_NAME = 'Rectangle'
     _ICON = assets.Icons.HMISquare
 
     _config_widget: QWidget
     _pen_config: PenConfigWidget
     _brush_config: BrushConfigWidget
 
-    def __init__(self, hmi_component: "HMIComponent") -> None:
-        super().__init__(hmi_component)
+    def __init__(self, app: AbstractComponentAppInterface) -> None:
+        super().__init__(app)
 
         self._config_widget = QWidget()
         self._pen_config = PenConfigWidget()
@@ -62,7 +60,22 @@ class RectangleHMIWidget(BaseHMIWidget):
     def _update(self, *args: Any, **kwargs: Any) -> None:
         self.update()
 
-    def get_config_widget(self) -> QWidget | None:
+# region Getters and Setters
+    def set_border_pen(self, pen: QPen) -> None:
+        self._pen_config.set_pen(pen)
+
+    def get_border_pen(self) -> QPen:
+        return self._pen_config.get_pen()
+
+    def set_fill_brush(self, brush: QBrush) -> None:
+        self._brush_config.set_brush(brush)
+
+    def get_fill_brush(self) -> QBrush:
+        return self._brush_config.get_brush()
+# endregion
+
+# region Override
+    def get_config_widget(self) -> Optional[QWidget]:
         return self._config_widget
 
     def draw(self,
@@ -80,3 +93,28 @@ class RectangleHMIWidget(BaseHMIWidget):
         )
 
         painter.drawRect(draw_rect)
+
+    def get_implementation_config_dict(self) -> Dict[str, Any]:
+        return {
+            'border': self._pen_config.get_state_dict(),
+            'fill': self._brush_config.get_state_dict()
+        }
+
+    def apply_implementation_config_dict(self, d: Dict[str, Any]) -> bool:
+        border_valid = False
+        fill_valid = False
+
+        if 'border' in d and isinstance(d['border'], dict):
+            border_valid = self._pen_config.set_state_dict(cast(PenConfigStateDict, d['border']))
+
+        if 'fill' in d and isinstance(d['fill'], dict):
+            fill_valid = self._brush_config.set_state_dict(cast(BrushConfigStateDict, d['fill']))
+
+        if not border_valid:
+            self._logger.warning(f"Invalid border settings for HMI Widget: {self.get_display_name()}")
+
+        if not fill_valid:
+            self._logger.warning(f"Invalid fill settings for HMI Widget: {self.get_display_name()}")
+
+        return fill_valid and border_valid
+# endregion

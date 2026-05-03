@@ -17,6 +17,7 @@ import json
 from datetime import datetime
 from pathlib import Path
 import gc
+import functools
 
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QInputDialog, QLineEdit
 from PySide6.QtCore import Qt, QSize, QObject, Signal, QTimer
@@ -350,7 +351,6 @@ class Dashboard(QWidget):
 
 
 # region Public API
-
 
     @property
     def signals(self) -> _Signals:
@@ -705,10 +705,14 @@ class Dashboard(QWidget):
                 self._logger, e, f"Exception while tearing down component {component.__class__.__name__} (instance name: {component.instance_name})")
 
         gc.collect()
-        referer_count = len(gc.get_referrers(component))
-        if referer_count > 1:
-            self._logger.debug(
-                f"Component {component.instance_name} has {referer_count} referrer after teardown. Only 1 should remain.")
+        invoke_later(functools.partial(self._check_referer_count, component))
+
+    def _check_referer_count(self, component: ScrutinyGUIBaseComponent) -> None:
+        if self._logger.isEnabledFor(logging.DEBUG):
+            referer_count = len(gc.get_referrers(component))
+            if referer_count > 2:
+                self._logger.warning(
+                    f"Component {component.instance_name} has {referer_count} referrer after teardown. Only 1 should remain.")
 # endregion
 
 # region Restore

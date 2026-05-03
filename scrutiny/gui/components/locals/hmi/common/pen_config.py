@@ -8,8 +8,8 @@
 
 __all__ = ['PenConfigWidget']
 
-from PySide6.QtWidgets import (QWidget, QFormLayout, QDoubleSpinBox, QComboBox)
-from PySide6.QtGui import QPen
+from PySide6.QtWidgets import QWidget, QFormLayout, QDoubleSpinBox, QComboBox
+from PySide6.QtGui import QPen, QColor
 from PySide6.QtCore import Signal, QObject, Qt
 
 from scrutiny.gui.themes import scrutiny_get_theme
@@ -17,6 +17,12 @@ from scrutiny.gui.widgets.color_button import ColorButton
 
 from scrutiny import tools
 from scrutiny.tools.typing import *
+
+
+class PenConfigStateDict(TypedDict):
+    style: int
+    width: float
+    color: str
 
 
 class PenConfigWidget(QWidget):
@@ -29,14 +35,14 @@ class PenConfigWidget(QWidget):
     _cmb_style: QComboBox
     _signals: _Signals
 
-    _PEN_STYLES: "List[Tuple[str, Qt.PenStyle]]" = [
-        ("Solid", Qt.PenStyle.SolidLine),
-        ("Dash", Qt.PenStyle.DashLine),
-        ("Dot", Qt.PenStyle.DotLine),
-        ("Dash Dot", Qt.PenStyle.DashDotLine),
-        ("Dash Dot Dot", Qt.PenStyle.DashDotDotLine),
-        ("None", Qt.PenStyle.NoPen),
-    ]
+    _PEN_STYLES: Dict[str, Qt.PenStyle] = {
+        "Solid": Qt.PenStyle.SolidLine,
+        "Dash": Qt.PenStyle.DashLine,
+        "Dot": Qt.PenStyle.DotLine,
+        "Dash Dot": Qt.PenStyle.DashDotLine,
+        "Dash Dot Dot": Qt.PenStyle.DashDotDotLine,
+        "None": Qt.PenStyle.NoPen
+    }
 
     @tools.copy_type(QWidget.__init__)
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -54,7 +60,7 @@ class PenConfigWidget(QWidget):
         self._btn_color = ColorButton(scrutiny_get_theme().palette().text().color())
 
         self._cmb_style = QComboBox()
-        for label, style in self._PEN_STYLES:
+        for label, style in self._PEN_STYLES.items():
             self._cmb_style.addItem(label, style)
 
         form = QFormLayout(self)
@@ -73,6 +79,8 @@ class PenConfigWidget(QWidget):
     @property
     def signals(self) -> "_Signals":
         return self._signals
+
+# region Getters & Setters
 
     def get_pen(self) -> QPen:
         style = cast(Qt.PenStyle, self._cmb_style.currentData())
@@ -93,3 +101,36 @@ class PenConfigWidget(QWidget):
         pen = self.get_pen()
         pen.setWidthF(v)
         self.set_pen(pen)
+
+# endregion
+
+    def get_state_dict(self) -> PenConfigStateDict:
+        pen = self.get_pen()
+        return {
+            "style": cast(int, pen.style().value),
+            "width": pen.widthF(),
+            "color": pen.color().name(QColor.NameFormat.HexRgb)
+        }
+
+    def set_state_dict(self, d: PenConfigStateDict) -> bool:
+        pen = QPen()
+        valid_style = False
+        valid_color = False
+        valid_width = False
+        if 'style' in d and isinstance(d['style'], int):
+            pen.setStyle(Qt.PenStyle(d['style']))   # Value is validated by QT
+            valid_style = True
+
+        if 'color' in d:
+            color = QColor(d['color'])
+            if color.name(QColor.NameFormat.HexRgb) == d['color']:  # Check valid
+                pen.setColor(color)
+                valid_color = True
+
+        if 'width' in d and isinstance(d["width"], (float, int)) and d["width"] >= 0:
+            pen.setWidthF(d["width"])
+            valid_width = True
+
+        self.set_pen(pen)
+
+        return valid_style and valid_color and valid_width

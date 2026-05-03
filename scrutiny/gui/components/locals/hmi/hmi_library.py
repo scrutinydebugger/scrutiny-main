@@ -47,7 +47,7 @@ class HMILibraryEntryWidget(ScrutinyHoverableWidget):
         self._icon_label.setPixmap(pixmap.scaled(QSize(self.ICON_SIZE, self.ICON_SIZE), Qt.AspectRatioMode.KeepAspectRatio))
         self._icon_label.setMinimumHeight(self.ICON_SIZE)
         self._icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._text_label = QLabel(hmi_widget.get_name())
+        self._text_label = QLabel(hmi_widget.get_display_name())
         self._text_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._text_label.setMaximumWidth(self.ICON_SIZE)
         self._text_label.setWordWrap(True)
@@ -58,8 +58,8 @@ class HMILibraryEntryWidget(ScrutinyHoverableWidget):
         layout.addWidget(self._text_label)
         layout.setContentsMargins(0, 0, 0, 0)
 
-    def get_widget_name(self) -> str:
-        return self._hmi_widget.get_name()
+    def get_widget_display_name(self) -> str:
+        return self._hmi_widget.get_display_name()
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton and self._icon_label.geometry().contains(event.pos()):
@@ -93,7 +93,7 @@ class HMILibraryCategoryWidget(QWidget):
         category_info = HMI_LIBARY_CATEGORIES[category]
         self._category = category
         self._display_name = category_info.display_name
-        entries = sorted((HMILibraryEntryWidget(hmiw) for hmiw in hmi_widgets), key=lambda x: x.get_widget_name())
+        entries = sorted((HMILibraryEntryWidget(hmiw) for hmiw in hmi_widgets), key=lambda x: x.get_widget_display_name())
 
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignmentFlag.AlignTop)
@@ -120,6 +120,7 @@ class HMILibrary(QWidget):
 
     def __init__(self) -> None:
         super().__init__()
+        unique_name_set: Set[str] = set()
         widget_classes_per_category: Dict[LibraryCategory, List[Type[BaseHMIWidget]]] = {}
         for c in BaseHMIWidget.__subclasses__():
             category = c.get_category()
@@ -127,6 +128,9 @@ class HMILibrary(QWidget):
 
             if category not in widget_classes_per_category:
                 widget_classes_per_category[category] = []
+            if c.get_unique_name() in unique_name_set:
+                raise RuntimeError(f"Duplicate HMI widget with unique name : {c.get_unique_name()}")
+            unique_name_set.add(c.get_unique_name())
             widget_classes_per_category[category].append(c)
 
         category_widgets = [HMILibraryCategoryWidget(cat, classes) for cat, classes in widget_classes_per_category.items()]
@@ -138,9 +142,15 @@ class HMILibrary(QWidget):
             layout.addWidget(category_widget)
 
     @classmethod
-    def load_from_name(cls, class_name: str) -> Optional[Type[BaseHMIWidget]]:
+    def load_from_class_name(cls, class_name: str) -> Optional[Type[BaseHMIWidget]]:
         for c in BaseHMIWidget.__subclasses__():
             if c.__name__ == class_name:
                 return c
+        return None
 
+    @classmethod
+    def load_from_unique_name(cls, name: str) -> Optional[Type[BaseHMIWidget]]:
+        for c in BaseHMIWidget.__subclasses__():
+            if c.get_unique_name() == name:
+                return c
         return None

@@ -6,44 +6,43 @@
 #
 #    Copyright (c) 2026 Scrutiny Debugger
 
-__all__ = ['TextLabel']
+__all__ = ['TextLabelHMIWidget']
 
-from PySide6.QtGui import QPainter, QPen, QBrush, QFontMetrics
+from PySide6.QtGui import QPainter, QPen, QBrush, QFontMetrics, QColor
 from PySide6.QtCore import QSizeF, Qt, QRectF, QPointF
-from PySide6.QtWidgets import QVBoxLayout, QWidget, QGroupBox, QLineEdit
+from PySide6.QtWidgets import QVBoxLayout, QWidget, QGroupBox, QLineEdit, QFormLayout
 
-
+from scrutiny.gui.component_app_interface import AbstractComponentAppInterface
 from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget, WatchableValueType
 from scrutiny.gui.components.locals.hmi.hmi_library_category import LibraryCategory
-from scrutiny.gui.components.locals.hmi.common.pen_config import PenConfigWidget
-from scrutiny.gui.components.locals.hmi.common.brush_config import BrushConfigWidget
+from scrutiny.gui.components.locals.hmi.common.pen_config import PenConfigWidget, PenConfigStateDict
+from scrutiny.gui.components.locals.hmi.common.brush_config import BrushConfigWidget, BrushConfigStateDict
 from scrutiny.gui.components.locals.hmi.hmi_theme import HMITheme
 from scrutiny.gui.widgets.color_button import ColorButton
 
 from scrutiny.gui import assets
 from scrutiny.tools.typing import *
 
-if TYPE_CHECKING:
-    from scrutiny.gui.components.locals.hmi.hmi_component import HMIComponent
 
-
-class TextLabel(BaseHMIWidget):
+class TextLabelHMIWidget(BaseHMIWidget):
 
     _CATEGORY = LibraryCategory.Graphic
-    _NAME = 'Label'
+    _UNIQUE_NAME = 'label'
+    _DISPLAY_NAME = 'Label'
     _ICON = assets.Icons.HMILabel
 
     _config_widget: QWidget
     _border_pen_config: PenConfigWidget
     _fill_brush_config: BrushConfigWidget
     _txt_content: QLineEdit
-    _font_color_picker: ColorButton
+    _font_color_button: ColorButton
 
-    def __init__(self, hmi_component: "HMIComponent") -> None:
-        super().__init__(hmi_component)
+    def __init__(self, app: AbstractComponentAppInterface) -> None:
+        super().__init__(app)
 
         self._config_widget = QWidget()
-        self._font_color_picker = ColorButton(HMITheme.Color.text())
+        self._font_color_button = ColorButton(HMITheme.Color.text())
+        self._font_color_button.setFixedWidth(60)
         self._border_pen_config = PenConfigWidget()
         self._fill_brush_config = BrushConfigWidget()
         self._txt_content = QLineEdit()
@@ -51,9 +50,11 @@ class TextLabel(BaseHMIWidget):
 
         layout = QVBoxLayout(self._config_widget)
 
+        gb_text = QGroupBox("Text")
         gb_border = QGroupBox("Border")
         gb_fill = QGroupBox("Fill")
 
+        gb_text_layout = QFormLayout(gb_text)
         gb_border_layout = QVBoxLayout(gb_border)
         gb_fill_layout = QVBoxLayout(gb_fill)
 
@@ -68,14 +69,17 @@ class TextLabel(BaseHMIWidget):
         default_brush.setColor(HMITheme.Color.workzone_background())
         self._fill_brush_config.set_brush(default_brush)
 
+        gb_text_layout.addRow("Text", self._txt_content)
+        gb_text_layout.addRow("Font color", self._font_color_button)
+
         gb_border_layout.addWidget(self._border_pen_config)
         gb_fill_layout.addWidget(self._fill_brush_config)
 
-        layout.addWidget(self._txt_content)
+        layout.addWidget(gb_text)
         layout.addWidget(gb_border)
         layout.addWidget(gb_fill)
 
-        self._font_color_picker.signals.changed.connect(self._update)
+        self._font_color_button.signals.changed.connect(self._update)
         self._border_pen_config.signals.changed.connect(self._update)
         self._fill_brush_config.signals.changed.connect(self._update)
         self._txt_content.textChanged.connect(self._update)
@@ -83,7 +87,34 @@ class TextLabel(BaseHMIWidget):
     def _update(self, *args: Any, **kwargs: Any) -> None:
         self.update()
 
-    def get_config_widget(self) -> QWidget | None:
+# region Getters and Setters
+    def set_border_pen(self, pen: QPen) -> None:
+        self._border_pen_config.set_pen(pen)
+
+    def get_border_pen(self) -> QPen:
+        return self._border_pen_config.get_pen()
+
+    def set_fill_brush(self, brush: QBrush) -> None:
+        self._fill_brush_config.set_brush(brush)
+
+    def get_fill_brush(self) -> QBrush:
+        return self._fill_brush_config.get_brush()
+
+    def get_font_color(self) -> QColor:
+        return self._font_color_button.get_color()
+
+    def set_font_color(self, color: QColor) -> None:
+        self._font_color_button.set_color(color)
+
+    def get_text(self) -> str:
+        return self._txt_content.text()
+
+    def set_text(self, txt: str) -> None:
+        self._txt_content.setText(txt)
+# endregion
+
+# region Override
+    def get_config_widget(self) -> Optional[QWidget]:
         return self._config_widget
 
     def draw(self,
@@ -103,7 +134,7 @@ class TextLabel(BaseHMIWidget):
         painter.drawRect(draw_rect)
 
         pen = QPen()
-        pen.setColor(self._font_color_picker.get_color())
+        pen.setColor(self._font_color_button.get_color())
         painter.setPen(pen)
         font = painter.font()
         text = self._txt_content.text()
@@ -127,3 +158,48 @@ class TextLabel(BaseHMIWidget):
                 break
         painter.setFont(font)
         painter.drawText(draw_rect, text, Qt.AlignmentFlag.AlignCenter)
+
+    def get_implementation_config_dict(self) -> Dict[str, Any]:
+        return {
+            'border': self._border_pen_config.get_state_dict(),
+            'fill': self._fill_brush_config.get_state_dict(),
+            'text': self._txt_content.text(),
+            'font_color': self._font_color_button.get_color().name(QColor.NameFormat.HexRgb)
+        }
+
+    def apply_implementation_config_dict(self, d: Dict[str, Any]) -> bool:
+        border_valid = False
+        fill_valid = False
+        text_valid = False
+        font_color_valid = False
+
+        if 'border' in d and isinstance(d['border'], dict):
+            border_valid = self._border_pen_config.set_state_dict(cast(PenConfigStateDict, d['border']))
+
+        if 'fill' in d and isinstance(d['fill'], dict):
+            fill_valid = self._fill_brush_config.set_state_dict(cast(BrushConfigStateDict, d['fill']))
+
+        if 'text' in d and isinstance(d['text'], str):
+            self._txt_content.setText(d['text'])
+            text_valid = True
+
+        if 'font_color' in d and isinstance(d['font_color'], str):
+            color = QColor(d['font_color'])
+            if color.name(QColor.NameFormat.HexRgb) == d['font_color']:  # Check valid
+                self._font_color_button.set_color(color)
+                font_color_valid = True
+
+        if not border_valid:
+            self._logger.warning(f"Invalid border settings for HMI Widget: {self.get_display_name()}")
+
+        if not fill_valid:
+            self._logger.warning(f"Invalid fill settings for HMI Widget: {self.get_display_name()}")
+
+        if not text_valid:
+            self._logger.warning(f"Invalid text content for HMI Widget: {self.get_display_name()}")
+
+        if not font_color_valid:
+            self._logger.warning(f"Invalid color for HMI Widget: {self.get_display_name()}")
+
+        return fill_valid and border_valid and text_valid and font_color_valid
+# endregion
