@@ -652,6 +652,7 @@ class BaseHMIWidget(QGraphicsItem):
         self._need_redraw = False
 
         values = self._get_vslot_vals()
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
 
         self.draw(values, painter)
 

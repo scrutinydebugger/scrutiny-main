@@ -7,19 +7,18 @@
 #
 #    Copyright (c) 2026 Scrutiny Debugger
 
-__all__ = ['ColorSpanEditor', 'ColorSpan', 'SpanColor']
+__all__ = ['ColorSpanEditor', 'ColorSpan']
 
-import enum
 import logging
 from dataclasses import dataclass
 
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QDoubleSpinBox, QFrame,
                                QComboBox, QToolButton, QLabel, QPushButton)
-from PySide6.QtGui import QColor, QPixmap
+from PySide6.QtGui import QPixmap
 from PySide6.QtCore import Signal, QObject, Qt, QSize
 
-from scrutiny.gui.components.locals.hmi.hmi_theme import HMITheme
 from scrutiny.gui import assets
+from scrutiny.gui.components.locals.hmi.common.hmi_colors import HMIColor, create_color_combobox
 from scrutiny.gui.themes import scrutiny_get_theme
 
 from scrutiny import tools
@@ -38,41 +37,13 @@ class ColorSpanListStateDict(TypedDict):
     spans: List[ColorSpanStateDict]
 
 
-class SpanColor(enum.Enum):
-    """A set of predefined color"""
-
-    GOOD = "good"
-    WARNING = "warning"
-    DANGER = "danger"
-    HIGHLIGHT = "highlight"
-
-    def to_qcolor(self) -> QColor:
-        _map = {
-            SpanColor.GOOD: QColor(HMITheme.Color.green_good()),
-            SpanColor.WARNING: QColor(HMITheme.Color.yellow_warning()),
-            SpanColor.DANGER: QColor(HMITheme.Color.red_danger()),
-            SpanColor.HIGHLIGHT: QColor(HMITheme.Color.blue_highlight())
-        }
-        if self in _map:
-            return _map[self]
-
-        raise NotImplementedError(f"Unknown color {self}")
-
-    def to_str(self) -> str:
-        return self.value
-
-    @classmethod
-    def from_str(cls, v: str) -> Self:
-        return cls(v)
-
-
 @dataclass(slots=True)
 class ColorSpan:
     """Represent a range defined by a start, stop and a color"""
 
     start: float
     stop: float
-    color: SpanColor
+    color: HMIColor
 
     def get_state_dict(self) -> ColorSpanStateDict:
         """Return a serializable dict"""
@@ -90,7 +61,7 @@ class ColorSpan:
         valid_color = False
         logger = logging.getLogger(cls.__name__)
 
-        span = cls(0, 100, SpanColor.GOOD)
+        span = cls(0, 100, HMIColor.GOOD)
 
         if 'start' in d and isinstance(d['start'], (int, float)):
             if 0 <= d['start'] <= 100:
@@ -108,7 +79,7 @@ class ColorSpan:
 
         if 'color' in d and isinstance(d['color'], str):
             with tools.SuppressException(Exception):
-                span.color = SpanColor(d['color'])
+                span.color = HMIColor(d['color'])
                 valid_color = True
 
         if not valid_start:
@@ -159,18 +130,7 @@ class _SpanRow(QWidget):
         self._spn_stop.setSingleStep(0.1)
         self._spn_stop.setDecimals(1)
 
-        self._cmb_color = QComboBox()
-        icon_size = QSize(self._cmb_color.sizeHint().height(), self._cmb_color.sizeHint().height())
-
-        for color, text in [
-            (SpanColor.GOOD, "Good"),
-            (SpanColor.WARNING, "Warning"),
-            (SpanColor.DANGER, "Danger"),
-            (SpanColor.HIGHLIGHT, "Highlight")
-        ]:
-            icon = QPixmap(icon_size)
-            icon.fill(color.to_qcolor())
-            self._cmb_color.addItem(icon, text, color)
+        self._cmb_color = create_color_combobox()
 
         self._btn_remove = QToolButton()
         self._btn_remove.setIcon(scrutiny_get_theme().load_tiny_icon(assets.Icons.RedX))
@@ -231,7 +191,7 @@ class _SpanRow(QWidget):
     def get_span_object(self) -> ColorSpan:
         start = self._spn_start.value()
         stop = self._spn_stop.value()
-        color = cast(SpanColor, self._cmb_color.currentData())
+        color = cast(HMIColor, self._cmb_color.currentData())
         return ColorSpan(start=min(start, stop), stop=max(start, stop), color=color)
 
     def set_from_span_object(self, span: ColorSpan) -> None:

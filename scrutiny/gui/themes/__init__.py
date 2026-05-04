@@ -40,6 +40,7 @@ class ScrutinyThemeProperties(enum.Enum):
     HMI_YELLOW_WARNING_COLOR = enum.auto()
     HMI_RED_DANGER_COLOR = enum.auto()
     HMI_BLUE_HIGHLIGHT_COLOR = enum.auto()
+    HMI_GRAY_INACTIVE_COLOR = enum.auto()
     HMI_POINTER_BORDER_COLOR = enum.auto()
     HMI_POINTER_FILL_COLOR = enum.auto()
     HMI_MAJOR_TICKS_COLOR = enum.auto()

@@ -51,6 +51,7 @@ class DefaultTheme(ScrutinyTheme):
         ScrutinyThemeProperties.HMI_YELLOW_WARNING_COLOR: QColor("#E0E000"),
         ScrutinyThemeProperties.HMI_RED_DANGER_COLOR: QColor("#ce2e28"),
         ScrutinyThemeProperties.HMI_BLUE_HIGHLIGHT_COLOR: QColor("#4090D0"),
+        ScrutinyThemeProperties.HMI_GRAY_INACTIVE_COLOR: QColor("#999999"),
         ScrutinyThemeProperties.HMI_POINTER_BORDER_COLOR: HMI_LOW_CONTRAST_COLOR,
         ScrutinyThemeProperties.HMI_POINTER_FILL_COLOR: HMI_HIGH_CONTRAST_COLOR,
         ScrutinyThemeProperties.HMI_FRAME_BORDER_COLOR: QColor("#000000"),

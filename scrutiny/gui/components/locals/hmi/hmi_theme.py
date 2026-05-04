@@ -38,6 +38,10 @@ class HMITheme:
             return cast(QColor, scrutiny_get_theme_prop(ScrutinyThemeProperties.HMI_BLUE_HIGHLIGHT_COLOR))
 
         @staticmethod
+        def gray_inactive() -> QColor:
+            return cast(QColor, scrutiny_get_theme_prop(ScrutinyThemeProperties.HMI_GRAY_INACTIVE_COLOR))
+
+        @staticmethod
         def widget_background() -> QColor:
             return scrutiny_get_theme().palette().window().color()
 

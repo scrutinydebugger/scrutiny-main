@@ -19,7 +19,9 @@ from scrutiny.gui.components.locals.hmi.hmi_widgets.graphics.rectangle_hmi_widge
 from scrutiny.gui.components.locals.hmi.hmi_widgets.graphics.line_hmi_widget import LineHMIWidget
 from scrutiny.gui.components.locals.hmi.hmi_widgets.graphics.text_label_hmi_widget import TextLabelHMIWidget
 from scrutiny.gui.components.locals.hmi.hmi_widgets.display.numerical_display_hmi_widget import NumericalDisplayHMIWidget, NumberFormattingConfig
-from scrutiny.gui.components.locals.hmi.hmi_widgets.display.gauge_hmi_widget import GaugeHMIWidget, GaugeOverflowBehavior, ColorSpan, SpanColor
+from scrutiny.gui.components.locals.hmi.hmi_widgets.display.gauge_hmi_widget import GaugeHMIWidget, GaugeOverflowBehavior, ColorSpan
+from scrutiny.gui.components.locals.hmi.hmi_widgets.display.color_indicator_hmi_widget import ColorIndicatorHMIWidget, RelationalOperator, ActiveBehavior
+from scrutiny.gui.components.locals.hmi.common.hmi_colors import HMIColor
 from test.gui.fake_server_manager import FakeServerManager
 from test.gui.base_gui_test import ScrutinyBaseGuiTest
 from scrutiny.gui.core.watchable_registry import WatchableRegistry
@@ -314,8 +316,8 @@ class TestHMIWidgetSerialization(HMIComponentBaseTest):
         gauge.set_number_formatting_config(config)
         gauge.set_overflow_behavior(GaugeOverflowBehavior.SHOW_NA)
         color_spans = [
-            ColorSpan(start=10, stop=30.5, color=SpanColor.HIGHLIGHT),
-            ColorSpan(start=50.1, stop=90, color=SpanColor.WARNING)
+            ColorSpan(start=10, stop=30.5, color=HMIColor.HIGHLIGHT),
+            ColorSpan(start=50.1, stop=90, color=HMIColor.WARNING)
         ]
         gauge.set_color_spans(color_spans)
 
@@ -338,6 +340,39 @@ class TestHMIWidgetSerialization(HMIComponentBaseTest):
         self.assertEqual(new_gauge.get_minor_ticks(), gauge.get_minor_ticks())
         self.assertEqual(new_gauge.get_number_formatting_config(), gauge.get_number_formatting_config())
         self.assertEqual(new_gauge.get_overflow_behavior(), gauge.get_overflow_behavior())
+
+    def test_serialize_color_indicator(self):
+        indicator = ColorIndicatorHMIWidget(self.app_interface)
+        indicator.set_size(QSize(32, 32))
+        self.hmi_component.add_hmi_widget(indicator, QPoint(16, 32))
+        self.assertEqual(self.hmi_component.hmi_widget_count(), 1)
+
+        indicator.set_on_color(HMIColor.WARNING)
+        indicator.set_off_color(HMIColor.DANGER)
+        indicator.set_operator(RelationalOperator.GEQ)
+        indicator.set_active_behavior(ActiveBehavior.BlinkSlow)
+
+        state = self.hmi_component.get_state()
+        self.hmi_component.delete_hmi_widget(indicator)
+        self.assertEqual(self.hmi_component.hmi_widget_count(), 0)
+
+        fully_loaded = self.hmi_component.load_state(state)
+        self.assertTrue(fully_loaded)
+
+        self.assertEqual(self.hmi_component.hmi_widget_count(), 1)
+        all_widgets = list(self.hmi_component.iterate_hmi_widgets())
+        self.assertEqual(len(all_widgets), 1)
+        new_indicator = all_widgets[0]
+
+        self.assertIsInstance(new_indicator, ColorIndicatorHMIWidget)
+        assert isinstance(new_indicator, ColorIndicatorHMIWidget)
+
+        self.assertEqual(new_indicator.pos(), QPoint(16, 32))
+        self.assertEqual(new_indicator.get_size(), QSize(32, 32))
+        self.assertEqual(new_indicator.get_on_color(), indicator.get_on_color())
+        self.assertEqual(new_indicator.get_off_color(), indicator.get_off_color())
+        self.assertEqual(new_indicator.get_operator(), indicator.get_operator())
+        self.assertEqual(new_indicator.get_active_behavior(), indicator.get_active_behavior())
 
 
 class TestWorkZone(HMIComponentBaseTest):
