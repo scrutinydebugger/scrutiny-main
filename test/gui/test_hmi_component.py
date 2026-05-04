@@ -20,7 +20,7 @@ from scrutiny.gui.components.locals.hmi.hmi_widgets.graphics.line_hmi_widget imp
 from scrutiny.gui.components.locals.hmi.hmi_widgets.graphics.text_label_hmi_widget import TextLabelHMIWidget
 from scrutiny.gui.components.locals.hmi.hmi_widgets.display.numerical_display_hmi_widget import NumericalDisplayHMIWidget, NumberFormattingConfig
 from scrutiny.gui.components.locals.hmi.hmi_widgets.display.gauge_hmi_widget import GaugeHMIWidget, GaugeOverflowBehavior, ColorSpan
-from scrutiny.gui.components.locals.hmi.hmi_widgets.display.color_indicator_hmi_widget import ColorIndicatorHMIWidget, RelationalOperator
+from scrutiny.gui.components.locals.hmi.hmi_widgets.display.color_indicator_hmi_widget import ColorIndicatorHMIWidget, RelationalOperator, ActiveBehavior
 from scrutiny.gui.components.locals.hmi.common.hmi_colors import HMIColor
 from test.gui.fake_server_manager import FakeServerManager
 from test.gui.base_gui_test import ScrutinyBaseGuiTest
@@ -350,6 +350,7 @@ class TestHMIWidgetSerialization(HMIComponentBaseTest):
         indicator.set_on_color(HMIColor.WARNING)
         indicator.set_off_color(HMIColor.DANGER)
         indicator.set_operator(RelationalOperator.GEQ)
+        indicator.set_active_behavior(ActiveBehavior.BlinkSlow)
 
         state = self.hmi_component.get_state()
         self.hmi_component.delete_hmi_widget(indicator)
@@ -368,9 +369,10 @@ class TestHMIWidgetSerialization(HMIComponentBaseTest):
 
         self.assertEqual(new_indicator.pos(), QPoint(16, 32))
         self.assertEqual(new_indicator.get_size(), QSize(32, 32))
-        self.assertEqual(new_indicator.get_on_color(), HMIColor.WARNING)
-        self.assertEqual(new_indicator.get_off_color(), HMIColor.DANGER)
-        self.assertEqual(new_indicator.get_operator(), RelationalOperator.GEQ)
+        self.assertEqual(new_indicator.get_on_color(), indicator.get_on_color())
+        self.assertEqual(new_indicator.get_off_color(), indicator.get_off_color())
+        self.assertEqual(new_indicator.get_operator(), indicator.get_operator())
+        self.assertEqual(new_indicator.get_active_behavior(), indicator.get_active_behavior())
 
 
 class TestWorkZone(HMIComponentBaseTest):
