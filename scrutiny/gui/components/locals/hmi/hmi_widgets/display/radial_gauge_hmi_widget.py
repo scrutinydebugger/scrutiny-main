@@ -1,4 +1,4 @@
-#    gauge_hmi_widget.py
+#    radial_gauge_hmi_widget.py
 #        An HMI widget that display a value with a gauge that goes from a minimum to a maximum
 #        value. Like a speedometer
 #
@@ -7,7 +7,7 @@
 #
 #    Copyright (c) 2026 Scrutiny Debugger
 
-__all__ = ['GaugeHMIWidget', 'ColorSpan', 'NumberFormattingConfig', 'SpanColor']
+__all__ = ['RadialGaugeHMIWidget', 'ColorSpan', 'NumberFormattingConfig']
 
 import math
 import enum
@@ -111,7 +111,7 @@ class _GaugePointer(QGraphicsItem):
         painter.drawEllipse(center, knob_radius, knob_radius * aspect_ratio)
 
 
-class GaugeHMIWidget(BaseHMIWidget):
+class RadialGaugeHMIWidget(BaseHMIWidget):
     """A HMI widget that draw a gauge with a pointer (needle) that rotate from left to right according to a value, a min and a max"""
 
     _CATEGORY = LibraryCategory.Display

@@ -1068,7 +1068,7 @@
         "scrutiny/gui/components/locals/hmi/hmi_widgets/display/numerical_display_hmi_widget.py": {
             "docstring": "An HMI widget that display a numerical value as text. Will select the right font for the given rect"
         },
-        "scrutiny/gui/components/locals/hmi/hmi_widgets/display/gauge_hmi_widget.py": {
+        "scrutiny/gui/components/locals/hmi/hmi_widgets/display/radial_gauge_hmi_widget.py": {
             "docstring": "An HMI widget that display a value with a gauge that goes from a minimum to a maximum value. Like a speedometer"
         },
         "scrutiny/gui/components/locals/hmi/hmi_widgets/graphics/rectangle_hmi_widget.py": {

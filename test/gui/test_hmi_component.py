@@ -19,7 +19,7 @@ from scrutiny.gui.components.locals.hmi.hmi_widgets.graphics.rectangle_hmi_widge
 from scrutiny.gui.components.locals.hmi.hmi_widgets.graphics.line_hmi_widget import LineHMIWidget
 from scrutiny.gui.components.locals.hmi.hmi_widgets.graphics.text_label_hmi_widget import TextLabelHMIWidget
 from scrutiny.gui.components.locals.hmi.hmi_widgets.display.numerical_display_hmi_widget import NumericalDisplayHMIWidget, NumberFormattingConfig
-from scrutiny.gui.components.locals.hmi.hmi_widgets.display.gauge_hmi_widget import GaugeHMIWidget, GaugeOverflowBehavior, ColorSpan
+from scrutiny.gui.components.locals.hmi.hmi_widgets.display.radial_gauge_hmi_widget import RadialGaugeHMIWidget, GaugeOverflowBehavior, ColorSpan
 from scrutiny.gui.components.locals.hmi.hmi_widgets.display.color_indicator_hmi_widget import ColorIndicatorHMIWidget, RelationalOperator, ActiveBehavior
 from scrutiny.gui.components.locals.hmi.common.hmi_colors import HMIColor
 from test.gui.fake_server_manager import FakeServerManager
@@ -300,7 +300,7 @@ class TestHMIWidgetSerialization(HMIComponentBaseTest):
         self.assertEqual(new_display.get_number_formatting_config(), display.get_number_formatting_config())
 
     def test_serialize_gauge(self):
-        gauge = GaugeHMIWidget(self.app_interface)
+        gauge = RadialGaugeHMIWidget(self.app_interface)
         gauge.set_size(QSize(64, 128))
         self.hmi_component.add_hmi_widget(gauge, QPoint(16, 32))
         self.assertEqual(self.hmi_component.hmi_widget_count(), 1)
@@ -331,8 +331,8 @@ class TestHMIWidgetSerialization(HMIComponentBaseTest):
         self.assertEqual(len(all_widgets), 1)
         new_gauge = all_widgets[0]
 
-        self.assertIsInstance(new_gauge, GaugeHMIWidget)
-        assert isinstance(new_gauge, GaugeHMIWidget)
+        self.assertIsInstance(new_gauge, RadialGaugeHMIWidget)
+        assert isinstance(new_gauge, RadialGaugeHMIWidget)
 
         self.assertEqual(new_gauge.pos(), QPoint(16, 32))
         self.assertEqual(new_gauge.get_size(), QSize(64, 128))
