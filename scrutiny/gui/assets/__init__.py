@@ -134,7 +134,8 @@ class Icons(enum.Enum):
     FileSCVAL = "file_scval"
     GaugeLean = "gauge_lean"
 
-    HMIGauge = "hmi_gauge"
+    HMIRadialGauge = "hmi_radial_gauge"
+    HMILinearGauge = "hmi_linear_gauge"
     HMITextDisplay = "hmi_text_display"
     HMILabel = "hmi_label"
     HMICircle = "hmi_circle"

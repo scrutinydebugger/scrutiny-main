@@ -23,15 +23,10 @@ from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseH
 from scrutiny.gui.components.locals.hmi.hmi_theme import HMITheme
 from scrutiny.gui.components.locals.hmi.common.numerical_text_display import NumericalTextDisplay, NumberFormattingConfig, NumericalTextDisplayStateDict
 from scrutiny.gui.components.locals.hmi.common.color_span_editor import ColorSpanEditor, ColorSpanListStateDict, ColorSpan
+from scrutiny.gui.components.locals.hmi.common.gauge import GaugeOverflowBehavior
 from scrutiny.gui import assets
 from scrutiny import tools
 from scrutiny.tools.typing import *
-
-
-class GaugeOverflowBehavior(enum.Enum):
-    """How to handle when a value is outside the min-max range.  CLIP Set to min or max. Show_NA : Remove the pointer and display N/A"""
-    CLIP = 1
-    SHOW_NA = 2
 
 
 class _Dims:
@@ -39,9 +34,9 @@ class _Dims:
     OUTER_CIRCLE = 1
     INNER_CIRCLE = 0.97
     KNOB = 0.12
-    TEXT_DISPLAY_H = 0.2
-    TEXT_DISPLAY_W = TEXT_DISPLAY_H * 3.5
-    TEXT_DISPLAY_Y = 0.6
+    TEXT_DISPLAY_H = 0.25
+    TEXT_DISPLAY_W = TEXT_DISPLAY_H * 3.2
+    TEXT_DISPLAY_Y = 0.575
     COLOR_W = 0.05
     MAJOR_TICK_LEN = 0.12
     MINOR_TICK_LEN = 0.04
@@ -115,9 +110,9 @@ class RadialGaugeHMIWidget(BaseHMIWidget):
     """A HMI widget that draw a gauge with a pointer (needle) that rotate from left to right according to a value, a min and a max"""
 
     _CATEGORY = LibraryCategory.Display
-    _UNIQUE_NAME = 'gauge'
-    _DISPLAY_NAME = 'Gauge'
-    _ICON = assets.Icons.HMIGauge
+    _UNIQUE_NAME = 'radial_gauge'
+    _DISPLAY_NAME = 'Radial Gauge'
+    _ICON = assets.Icons.HMIRadialGauge
 
     _pointer: _GaugePointer
     """The needle that rotates. Drawn as a sub graphical item"""
