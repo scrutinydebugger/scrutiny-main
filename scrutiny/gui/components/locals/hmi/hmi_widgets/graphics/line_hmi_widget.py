@@ -69,6 +69,7 @@ class LineHMIWidget(BaseHMIWidget):
 
     def draw(self,
              values: Dict[str, Optional[WatchableValueType]],
+             edit_mode: bool,
              painter: QPainter
              ) -> None:
         orientation = cast(Qt.Orientation, self._cmb_direction.currentData())

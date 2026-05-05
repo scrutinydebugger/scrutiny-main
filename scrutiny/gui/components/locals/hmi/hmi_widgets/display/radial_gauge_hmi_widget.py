@@ -241,7 +241,6 @@ class RadialGaugeHMIWidget(BaseHMIWidget):
 
 # region Getter & Setters
 
-
     def set_number_formatting_config(self, config: NumberFormattingConfig) -> None:
         self._numerical_display.set_number_formatting_config(config)
 
@@ -301,6 +300,7 @@ class RadialGaugeHMIWidget(BaseHMIWidget):
 
     def draw(self,
              values: Dict[str, Optional[WatchableValueType]],
+             edit_mode: bool,
              painter: QPainter
              ) -> None:
 

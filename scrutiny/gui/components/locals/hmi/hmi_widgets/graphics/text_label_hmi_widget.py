@@ -119,6 +119,7 @@ class TextLabelHMIWidget(BaseHMIWidget):
 
     def draw(self,
              values: Dict[str, Optional[WatchableValueType]],
+             edit_mode: bool,
              painter: QPainter
              ) -> None:
 

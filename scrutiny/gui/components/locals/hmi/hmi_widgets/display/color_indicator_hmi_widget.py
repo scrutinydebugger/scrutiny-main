@@ -234,6 +234,7 @@ class ColorIndicatorHMIWidget(BaseHMIWidget):
 
     def draw(self,
              values: Dict[str, Optional[WatchableValueType]],
+             edit_mode: bool,
              painter: QPainter
              ) -> None:
         op1 = values['operand1']

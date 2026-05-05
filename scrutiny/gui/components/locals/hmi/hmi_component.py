@@ -372,11 +372,10 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
 
     def update_hmi_widget_state(self, widget: BaseHMIWidget) -> None:
         """Update the visual of the HMI widget based on the state of this component"""
-        widget.show_resize_handles(self.is_edit_mode())
+        widget.set_edit_mode(self.is_edit_mode())
 
     def set_mode(self, mode: HMIInteractionMode) -> None:
         """Switch working mode (Edit or Display)"""
-        previous_mode = self._mode
         self._mode = mode
         self._workzone.deselect_all_widgets()
 
@@ -446,7 +445,6 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
 
         self._config_widgets[id(widget)] = config_container
         self._config_widget_container_layout.addWidget(config_container)
-        config_container.setMaximumWidth(config_container.sizeHint().width())
 
     def _workzone_drop_widget_class_slot(self, widget_class: Type[BaseHMIWidget], scene_pos: QPoint) -> None:
         """Callback invoked when a HMI widget is dropped on the workzone from the Library"""
