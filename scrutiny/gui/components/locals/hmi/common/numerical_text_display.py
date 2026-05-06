@@ -7,7 +7,7 @@
 #
 #    Copyright (c) 2026 Scrutiny Debugger
 
-__all__ = ['NumericalTextDisplay', 'NumberFormattingConfig']
+__all__ = ['NumericalTextDisplay', 'NumberFormattingConfig', 'NumberFormattingConfigWidget']
 
 from dataclasses import dataclass
 import logging
@@ -63,42 +63,52 @@ class NumberFormattingConfig:
         }
 
     @classmethod
-    def from_dict(cls, d: NumberFormattingConfigDict) -> Self:
+    def from_dict(cls, d: NumberFormattingConfigDict) -> Tuple[Self, bool]:
+        fully_valid = True
         # Engineering Notation
         eng = d.get('eng', NumericalConfigConstants.DEFAULT_ENG_NOTATION)
         if not isinstance(eng, bool):
             eng = NumericalConfigConstants.DEFAULT_ENG_NOTATION
+            fully_valid = False
 
         # Decimals
         decimals = d.get('decimals', NumericalConfigConstants.DEFAULT_DECIMALS)
         if not isinstance(decimals, int):
             decimals = NumericalConfigConstants.DEFAULT_DECIMALS
+            fully_valid = False
         if decimals < NumericalConfigConstants.MINIMUM_DECIMAL or decimals > NumericalConfigConstants.MAXIMUM_DECIMAL:
             decimals = NumericalConfigConstants.DEFAULT_DECIMALS
+            fully_valid = False
 
         # Ints
         max_ints = d.get('max_ints', NumericalConfigConstants.DEFAULT_INTS)
         if not isinstance(max_ints, int):
             max_ints = NumericalConfigConstants.DEFAULT_INTS
+            fully_valid = False
         if max_ints < NumericalConfigConstants.MINIMUM_INTS or max_ints > NumericalConfigConstants.MAXIMUM_INTS:
             max_ints = NumericalConfigConstants.DEFAULT_INTS
+            fully_valid = False
 
         # Units
         units = d.get('units', NumericalConfigConstants.DEFAULT_UNIT)
         if not isinstance(units, str):
             units = NumericalConfigConstants.DEFAULT_UNIT
+            fully_valid = False
         if len(units) > NumericalConfigConstants.UNIT_MAXLEN:
             units = NumericalConfigConstants.DEFAULT_UNIT
+            fully_valid = False
 
-        return cls(
+        config = cls(
             units=units,
             max_ints=max_ints,
             decimals=decimals,
             eng_notation=eng
         )
 
+        return (config, fully_valid)
 
-class _NumberFormattingConfigWidget(QWidget):
+
+class NumberFormattingConfigWidget(QWidget):
     """A widget to visually edit a NumberFormattingConfig"""
     class _Signals(QObject):
         changed = Signal()
@@ -195,7 +205,7 @@ class NumericalTextDisplay(QGraphicsItem):
     class _Signals(QObject):
         config_changed = Signal()
 
-    _number_format_config_widget: _NumberFormattingConfigWidget
+    _number_format_config_widget: NumberFormattingConfigWidget
     """The widget that edits the NumberFormattingConfig"""
     _number_format_config: NumberFormattingConfig
     """The presently loaded number formatting config"""
@@ -222,7 +232,7 @@ class NumericalTextDisplay(QGraphicsItem):
         super().__init__(parent)
         self._signals = self._Signals()
         self._number_format_config = NumberFormattingConfig()
-        self._number_format_config_widget = _NumberFormattingConfigWidget()
+        self._number_format_config_widget = NumberFormattingConfigWidget()
         self._number_format_config_widget.apply_config(self._number_format_config)
         self._font = assets.get_font(assets.ScrutinyFont.Monospaced)
         self._alignment = Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
@@ -319,9 +329,8 @@ class NumericalTextDisplay(QGraphicsItem):
         valid_background_color = False
 
         if 'number_format' in d and isinstance(d['number_format'], dict):
-            self._number_format_config = NumberFormattingConfig.from_dict(d['number_format'])
+            self._number_format_config, valid_number_format = NumberFormattingConfig.from_dict(d['number_format'])
             self._number_format_config_widget.apply_config(self._number_format_config)
-            valid_number_format = True
 
         if 'alignment' in d and isinstance(d['alignment'], int):
             self._alignment = Qt.AlignmentFlag(d['alignment'])

@@ -337,6 +337,10 @@ class RadialGaugeHMIWidget(BaseHMIWidget):
         painter.drawEllipse(center, outer_radius, outer_radius * aspect_ratio)
 
         # Draw color spans
+        color_span_pen = QPen()
+        color_span_pen.setWidthF(color_indicator_w)
+        color_span_pen.setCapStyle(Qt.PenCapStyle.FlatCap)
+
         color_spans = self._color_span_editor.get_span_objects()
         for span in color_spans:
             start = min(max(span.start / 100, 0), 1)
@@ -345,12 +349,8 @@ class RadialGaugeHMIWidget(BaseHMIWidget):
             angle_stop = 225 - stop * 270
             angle_len = (stop - start) * 270
 
-            pen = QPen()
-            color = span.color.to_qcolor()
-            pen.setColor(color)
-            pen.setWidthF(color_indicator_w)
-            pen.setCapStyle(Qt.PenCapStyle.FlatCap)
-            painter.setPen(pen)
+            color_span_pen.setColor(span.color.to_qcolor())
+            painter.setPen(color_span_pen)
             rect = QRectF(
                 QPointF(ref_size - color_indicator_radius, (ref_size - color_indicator_radius) * aspect_ratio),
                 QSizeF(color_indicator_radius * 2, color_indicator_radius * 2 * aspect_ratio))
