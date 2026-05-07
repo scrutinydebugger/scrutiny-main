@@ -151,7 +151,7 @@ class ColorIndicatorHMIWidget(BaseHMIWidget):
         if v1 is None or v2 is None:
             return False
 
-        # Python type handling already ahs the behavior we need. nothing to do other than casting.
+        # Python type handling already has the behavior we need. Nothing to do other than casting.
         if condition == RelationalOperator.NEQ:
             return v1 != v1.__class__(v2)
         elif condition == RelationalOperator.EQ:

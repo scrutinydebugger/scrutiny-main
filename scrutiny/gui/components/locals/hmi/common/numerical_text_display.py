@@ -9,8 +9,9 @@
 
 __all__ = ['NumericalTextDisplay', 'NumberFormattingConfig', 'NumberFormattingConfigWidget']
 
-from dataclasses import dataclass
+import math
 import logging
+from dataclasses import dataclass
 from PySide6.QtGui import QPainter, QFont, QFontMetrics, QColor, QPen
 from PySide6.QtWidgets import QStyleOptionGraphicsItem, QWidget, QFormLayout, QLineEdit, QCheckBox, QSpinBox, QGraphicsItem
 from PySide6.QtCore import QObject, QRectF, Signal, QSize, QPoint, Qt
@@ -420,7 +421,7 @@ class NumericalTextDisplay(QGraphicsItem):
 
         font.setPixelSize(max(1, int(rect.size().height())))
         text_width = QFontMetrics(font).averageCharWidth() * text_len
-        if text_width > rect.size().width():
+        if text_width > math.ceil(rect.size().width()):
             font.setPixelSize(max(1, int(rect.size().height() * rect.size().width() / text_width)))
 # endregion
 

@@ -7,7 +7,7 @@
 #
 #    Copyright (c) 2026 Scrutiny Debugger
 
-__all__ = ['RadialGaugeHMIWidget', 'ColorSpan', 'NumberFormattingConfig']
+__all__ = ['RadialGaugeHMIWidget']
 
 import math
 from dataclasses import dataclass

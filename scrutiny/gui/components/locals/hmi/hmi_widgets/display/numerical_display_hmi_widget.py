@@ -7,7 +7,7 @@
 #
 #    Copyright (c) 2026 Scrutiny Debugger
 
-__all__ = ['NumericalDisplayHMIWidget', 'NumberFormattingConfig']
+__all__ = ['NumericalDisplayHMIWidget', 'NumberFormattingConfig', 'NumericalTextDisplayStateDict']
 
 from PySide6.QtGui import QPainter, QColor
 from PySide6.QtCore import QSize, Qt
