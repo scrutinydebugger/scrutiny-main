@@ -321,6 +321,7 @@ class TestHMIWidgetSerialization(HMIComponentBaseTest):
             ColorSpan(start=50.1, stop=90, color=HMIColor.WARNING)
         ]
         gauge.set_color_spans(color_spans)
+        gauge.set_label_size_percent(35)
 
         state = self.hmi_component.get_state()
         self.hmi_component.delete_hmi_widget(gauge)
@@ -341,6 +342,7 @@ class TestHMIWidgetSerialization(HMIComponentBaseTest):
         self.assertEqual(new_gauge.get_minor_ticks(), gauge.get_minor_ticks())
         self.assertEqual(new_gauge.get_number_formatting_config(), gauge.get_number_formatting_config())
         self.assertEqual(new_gauge.get_overflow_behavior(), gauge.get_overflow_behavior())
+        self.assertEqual(new_gauge.get_label_size_percent(), gauge.get_label_size_percent())
 
     def test_serialize_linear_gauge(self):
         gauge = LinearGaugeHMIWidget(self.app_interface)
@@ -358,7 +360,7 @@ class TestHMIWidgetSerialization(HMIComponentBaseTest):
         gauge.set_color_spans(color_spans)
         gauge.set_inverted_axis(True)
         gauge.set_gauge_width_percent(33)
-        gauge.set_text_size_percent(58)
+        gauge.set_label_size_percent(58)
         label_config = NumberFormattingConfig(decimals=3, eng_notation=False, max_ints=6, units='mV')
         gauge.set_label_format_config(label_config)
 
@@ -372,7 +374,7 @@ class TestHMIWidgetSerialization(HMIComponentBaseTest):
         self.assertEqual(loaded_spans[1], color_spans[1])
         self.assertEqual(gauge.get_inverted_axis(), True)
         self.assertEqual(gauge.get_gauge_width_percent(), 33)
-        self.assertEqual(gauge.get_text_size_percent(), 58)
+        self.assertEqual(gauge.get_label_size_percent(), 58)
         self.assertEqual(gauge.get_label_format_config(), label_config)
 
         # Serialization round-trip
@@ -400,7 +402,7 @@ class TestHMIWidgetSerialization(HMIComponentBaseTest):
             self.assertEqual(new_spans[i], color_spans[i])
         self.assertEqual(new_gauge.get_inverted_axis(), gauge.get_inverted_axis())
         self.assertEqual(new_gauge.get_gauge_width_percent(), gauge.get_gauge_width_percent())
-        self.assertEqual(new_gauge.get_text_size_percent(), gauge.get_text_size_percent())
+        self.assertEqual(new_gauge.get_label_size_percent(), gauge.get_label_size_percent())
         self.assertEqual(new_gauge.get_label_format_config(), gauge.get_label_format_config())
 
     def test_serialize_color_indicator(self):

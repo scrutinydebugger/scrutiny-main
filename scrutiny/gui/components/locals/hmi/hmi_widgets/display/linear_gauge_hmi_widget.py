@@ -1,9 +1,6 @@
 
 __all__ = ['LinearGaugeHMIWidget', 'ColorSpan', 'NumberFormattingConfig']
 
-import math
-import enum
-
 from PySide6.QtGui import QPainter, QPen
 from PySide6.QtCore import QSize, Qt, QPointF, QRectF, QSizeF
 from PySide6.QtWidgets import (QSlider, QWidget, QFormLayout, QComboBox,
@@ -59,8 +56,11 @@ class LinearGaugeHMIWidget(BaseHMIWidget):
     _color_span_editor: ColorSpanEditor
     """A widget to define region highlighted in colors. Region are defined by a percentage from 0 to 100 and an associated color."""
     _sld_gauge_width: QSlider
-    _sld_text_size: QSlider
+    """A slider to change the width ratio between the gauge and the label"""
+    _sld_label_size: QSlider
+    """A slider to control the label size"""
     _label_format_config_widget: NumberFormattingConfigWidget
+    """A widget to configure the label numerical formatting"""
 
     # State variables
     _minval: Optional[float]
@@ -100,11 +100,11 @@ class LinearGaugeHMIWidget(BaseHMIWidget):
         self._sld_gauge_width.setValue(50)
         self._sld_gauge_width.setTickInterval(5)
 
-        self._sld_text_size = QSlider(Qt.Orientation.Horizontal)
-        self._sld_text_size.setMinimum(10)
-        self._sld_text_size.setMaximum(100)
-        self._sld_text_size.setValue(50)
-        self._sld_text_size.setTickInterval(5)
+        self._sld_label_size = QSlider(Qt.Orientation.Horizontal)
+        self._sld_label_size.setMinimum(10)
+        self._sld_label_size.setMaximum(100)
+        self._sld_label_size.setValue(50)
+        self._sld_label_size.setTickInterval(5)
 
         self._color_span_editor = ColorSpanEditor()
         self._color_span_editor.set_max_span(6)
@@ -130,7 +130,7 @@ class LinearGaugeHMIWidget(BaseHMIWidget):
 
         gb_rendering_layout = QFormLayout(gb_rendering)
         gb_rendering_layout.addRow("Gauge Width", self._sld_gauge_width)
-        gb_rendering_layout.addRow("Text Size", self._sld_text_size)
+        gb_rendering_layout.addRow("Label Size", self._sld_label_size)
         gb_rendering_layout.addRow("Major Ticks", self._spn_major_ticks)
         gb_rendering_layout.addRow("Minor Ticks", self._spn_minor_ticks)
 
@@ -148,7 +148,7 @@ class LinearGaugeHMIWidget(BaseHMIWidget):
         self._color_span_editor.signals.row_removed.connect(self._config_changed_slot)
         self._color_span_editor.signals.row_changed.connect(self._config_changed_slot)
         self._sld_gauge_width.valueChanged.connect(self._config_changed_slot)
-        self._sld_text_size.valueChanged.connect(self._config_changed_slot)
+        self._sld_label_size.valueChanged.connect(self._config_changed_slot)
         self._label_format_config_widget.signals.changed.connect(self._config_changed_slot)
 
     def _config_changed_slot(self, *args: Any, **kwargs: Any) -> None:
@@ -180,8 +180,8 @@ class LinearGaugeHMIWidget(BaseHMIWidget):
     def set_gauge_width_percent(self, width: int) -> None:
         self._sld_gauge_width.setValue(width)
 
-    def set_text_size_percent(self, size: int) -> None:
-        self._sld_text_size.setValue(size)
+    def set_label_size_percent(self, size: int) -> None:
+        self._sld_label_size.setValue(size)
 
     def get_overflow_behavior(self) -> GaugeOverflowBehavior:
         return cast(GaugeOverflowBehavior, self._cmb_overflow_behavior.currentData())
@@ -204,8 +204,8 @@ class LinearGaugeHMIWidget(BaseHMIWidget):
     def get_gauge_width_percent(self) -> int:
         return self._sld_gauge_width.value()
 
-    def get_text_size_percent(self) -> int:
-        return self._sld_text_size.value()
+    def get_label_size_percent(self) -> int:
+        return self._sld_label_size.value()
 
 # endregion
 
@@ -230,7 +230,7 @@ class LinearGaugeHMIWidget(BaseHMIWidget):
         self._color_span_editor.signals.row_removed.disconnect()
         self._color_span_editor.signals.row_changed.disconnect()
         self._sld_gauge_width.valueChanged.disconnect()
-        self._sld_text_size.valueChanged.disconnect()
+        self._sld_label_size.valueChanged.disconnect()
         self._label_format_config_widget.signals.changed.disconnect()
 
         super().destroy()
@@ -288,7 +288,7 @@ class LinearGaugeHMIWidget(BaseHMIWidget):
         gauge_height = bounding_rect.height() - border_width
         gauge_padding = float(0)
         if nb_major_ticks >= 2:
-            label_height = self._sld_text_size.value() / 100 * bounding_rect.height() / nb_major_ticks
+            label_height = self._sld_label_size.value() / 100 * bounding_rect.height() / nb_major_ticks
             gauge_padding = label_height / 2
             gauge_height -= 2 * gauge_padding
 
@@ -437,7 +437,7 @@ class LinearGaugeHMIWidget(BaseHMIWidget):
             'colors': self._color_span_editor.get_state_dict(),
             'inverted_axis': self._chk_inverted_axis.isChecked(),
             'gauge_width_percent': self._sld_gauge_width.value(),
-            'text_size_percent': self._sld_text_size.value(),
+            'label_size_percent': self._sld_label_size.value(),
             'label_format_config': self._label_format_config_widget.get_config().to_dict()
         }
 
@@ -448,7 +448,7 @@ class LinearGaugeHMIWidget(BaseHMIWidget):
         valid_colors = False
         valid_inverted_axis = False
         valid_gauge_width_percent = False
-        valid_text_size_percent = False
+        valid_label_size_percent = False
         valid_label_format_config = False
 
         if 'overflow' in d and isinstance(d['overflow'], int):
@@ -480,9 +480,9 @@ class LinearGaugeHMIWidget(BaseHMIWidget):
             self._sld_gauge_width.setValue(d['gauge_width_percent'])
             valid_gauge_width_percent = (d['gauge_width_percent'] == self._sld_gauge_width.value())
 
-        if 'text_size_percent' in d and isinstance(d['text_size_percent'], int):
-            self._sld_text_size.setValue(d['text_size_percent'])
-            valid_text_size_percent = (d['text_size_percent'] == self._sld_text_size.value())
+        if 'label_size_percent' in d and isinstance(d['label_size_percent'], int):
+            self._sld_label_size.setValue(d['label_size_percent'])
+            valid_label_size_percent = (d['label_size_percent'] == self._sld_label_size.value())
 
         if 'label_format_config' in d and isinstance(d['label_format_config'], dict):
             config, valid_label_format_config = NumberFormattingConfig.from_dict(d['label_format_config'])
@@ -496,13 +496,12 @@ class LinearGaugeHMIWidget(BaseHMIWidget):
             self._logger.warning('Invalid major tick value')
         if not valid_colors:
             self._logger.warning('Invalid color spans')
-
         if not valid_inverted_axis:
             self._logger.warning("Invalid inverted_axis")
         if not valid_gauge_width_percent:
             self._logger.warning("Invalid gauge width percentage")
-        if not valid_text_size_percent:
-            self._logger.warning("Invalid text size percentage")
+        if not valid_label_size_percent:
+            self._logger.warning("Invalid label size percentage")
         if not valid_label_format_config:
             self._logger.warning("Invalid label configuration")
 
@@ -511,5 +510,9 @@ class LinearGaugeHMIWidget(BaseHMIWidget):
             and valid_minor_tick
             and valid_major_tick
             and valid_colors
+            and valid_inverted_axis
+            and valid_gauge_width_percent
+            and valid_label_size_percent
+            and valid_label_format_config
         )
 # endregion

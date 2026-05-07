@@ -10,12 +10,12 @@
 __all__ = ['RadialGaugeHMIWidget', 'ColorSpan', 'NumberFormattingConfig']
 
 import math
-import enum
+from dataclasses import dataclass
 
 from PySide6.QtGui import QPainter, QPen
 from PySide6.QtCore import QSize, Qt, QPointF, QRectF, QSizeF
 from PySide6.QtWidgets import (QStyleOptionGraphicsItem, QWidget, QFormLayout, QComboBox,
-                               QSpinBox, QGroupBox, QVBoxLayout, QGraphicsItem)
+                               QSpinBox, QGroupBox, QVBoxLayout, QGraphicsItem, QSlider)
 
 from scrutiny.gui.component_app_interface import AbstractComponentAppInterface
 from scrutiny.gui.components.locals.hmi.hmi_library_category import LibraryCategory
@@ -42,8 +42,16 @@ class _Dims:
     MINOR_TICK_LEN = 0.04
     STROKE = 0.02
     POINTER_LEN = 0.9
-    TICK_LABEL_W = 0.30
-    TICK_LABEL_H = 0.12
+    TICK_LABEL_MIN_W = 0.20
+    TICK_LABEL_MAX_W = 0.5
+    TICK_LABEL_MIN_H = 0.08
+    TICK_LABEL_MAX_H = 0.20
+
+
+@dataclass
+class PointerAngle:
+    angle: float
+    clipped: bool
 
 
 class _GaugePointer(QGraphicsItem):
@@ -52,18 +60,24 @@ class _GaugePointer(QGraphicsItem):
     """Angle in degree, relative to a standard cartesian plane"""
     _valid: bool
     """a validity flag. Don't draw the pointer when not valid"""
+    _clipped: bool
+    """A flag indicating if the value is clipped. Draw the pointer a different color if it happens"""
 
     @tools.copy_type(QGraphicsItem.__init__)
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self._angle = 0
         self._valid = True
+        self._clipped = False
 
     def set_angle(self, angle: float) -> None:
         self._angle = angle
 
     def set_valid(self, valid: bool) -> None:
         self._valid = valid
+
+    def set_clipped(self, val: bool) -> None:
+        self._clipped = val
 
     def boundingRect(self) -> QRectF:
         return self.parentItem().boundingRect()
@@ -80,7 +94,10 @@ class _GaugePointer(QGraphicsItem):
         pen.setColor(HMITheme.Color.pointer_border())
         pen.setWidthF(max(ref_size * _Dims.STROKE, 1))
         painter.setPen(pen)
-        painter.setBrush(HMITheme.Color.pointer_fill())
+        if self._clipped and self._valid:
+            painter.setBrush(HMITheme.Color.red_danger())
+        else:
+            painter.setBrush(HMITheme.Color.pointer_fill())
 
         if self._valid:
             pointer_length = ref_size * _Dims.POINTER_LEN
@@ -130,6 +147,8 @@ class RadialGaugeHMIWidget(BaseHMIWidget):
     """A spinbox to select how many minor ticks we have"""
     _color_span_editor: ColorSpanEditor
     """A widget to define region highlighted in colors. Region are defined by a percentage from 0 to 100 and an associated color."""
+    _sld_label_size: QSlider
+    """A slider to modulate the size of the tick labels between min and max size"""
 
     # State variables
     _minval: Optional[float]
@@ -170,20 +189,27 @@ class RadialGaugeHMIWidget(BaseHMIWidget):
         self._color_span_editor = ColorSpanEditor()
         self._color_span_editor.set_max_span(6)
 
+        self._sld_label_size = QSlider(Qt.Orientation.Horizontal)
+        self._sld_label_size.setMinimum(10)
+        self._sld_label_size.setMaximum(100)
+        self._sld_label_size.setValue(50)
+        self._sld_label_size.setTickInterval(5)
+
         self._config_widget = QWidget()
         gb_text_display = QGroupBox("Text Display")
-        gb_ticks_display = QGroupBox("Ticks")
+        gb_rendering = QGroupBox("Rendering")
         gb_colors = QGroupBox("Colors")
         layout = QVBoxLayout(self._config_widget)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(gb_ticks_display)
+        layout.addWidget(gb_rendering)
         layout.addWidget(gb_text_display)
         layout.addWidget(gb_colors)
 
-        gb_ticks_display_layout = QFormLayout(gb_ticks_display)
-        gb_ticks_display_layout.addRow("Overflow", self._cmb_overflow_behavior)
-        gb_ticks_display_layout.addRow("Major Ticks", self._spn_major_ticks)
-        gb_ticks_display_layout.addRow("Minor Ticks", self._spn_minor_ticks)
+        gb_rendering_layout = QFormLayout(gb_rendering)
+        gb_rendering_layout.addRow("Overflow", self._cmb_overflow_behavior)
+        gb_rendering_layout.addRow("Label Size", self._sld_label_size)
+        gb_rendering_layout.addRow("Major Ticks", self._spn_major_ticks)
+        gb_rendering_layout.addRow("Minor Ticks", self._spn_minor_ticks)
 
         gb_text_display_layout = QFormLayout(gb_text_display)
         gb_text_display_layout.addWidget(self._numerical_display.get_number_format_config_widget())
@@ -198,11 +224,12 @@ class RadialGaugeHMIWidget(BaseHMIWidget):
         self._color_span_editor.signals.row_added.connect(self._config_changed_slot)
         self._color_span_editor.signals.row_removed.connect(self._config_changed_slot)
         self._color_span_editor.signals.row_changed.connect(self._config_changed_slot)
+        self._sld_label_size.valueChanged.connect(self._config_changed_slot)
 
     def _config_changed_slot(self) -> None:
         self.update()
 
-    def _get_pointer_angle(self, val: Optional[Union[bool, int, float]]) -> Optional[float]:
+    def _get_pointer_angle(self, val: Optional[Union[bool, int, float]]) -> Optional[PointerAngle]:
         """Tells what angle should the pointer be given an input value. ``None`` if no value to display"""
         if val is None or self._minval is None or self._maxval is None:
             return None
@@ -212,12 +239,17 @@ class RadialGaugeHMIWidget(BaseHMIWidget):
             return None
         ratio = (float(val) - float(self._minval)) / denom
         overflow_behavior = cast(GaugeOverflowBehavior, self._cmb_overflow_behavior.currentData())
+        clipped = False
         if ratio < 0 or ratio > 1:
             if overflow_behavior == GaugeOverflowBehavior.SHOW_NA:
                 return None
             else:
                 ratio = min(max(ratio, 0), 1)
-        return (225 - 270 * ratio)
+                clipped = True
+        return PointerAngle(
+            angle=(225 - 270 * ratio),
+            clipped=clipped
+        )
 
     def _process_new_val(self, val: Optional[Union[bool, int, float]]) -> None:
         """Update the value of the gauge by setting the pointer and the text display"""
@@ -232,7 +264,8 @@ class RadialGaugeHMIWidget(BaseHMIWidget):
         if pointer_angle is None:
             self._pointer.set_valid(False)
         else:
-            self._pointer.set_angle(pointer_angle)
+            self._pointer.set_angle(pointer_angle.angle)
+            self._pointer.set_clipped(pointer_angle.clipped)
             self._pointer.set_valid(True)
 
         self._numerical_display.update()
@@ -240,6 +273,7 @@ class RadialGaugeHMIWidget(BaseHMIWidget):
 
 
 # region Getter & Setters
+
 
     def set_number_formatting_config(self, config: NumberFormattingConfig) -> None:
         self._numerical_display.set_number_formatting_config(config)
@@ -258,6 +292,9 @@ class RadialGaugeHMIWidget(BaseHMIWidget):
     def set_color_spans(self, spans: List[ColorSpan]) -> None:
         self._color_span_editor.set_from_spans_object(spans)
 
+    def set_label_size_percent(self, size: int) -> None:
+        self._sld_label_size.setValue(size)
+
     def get_number_formatting_config(self) -> NumberFormattingConfig:
         return self._numerical_display.get_number_formatting_config()
 
@@ -272,6 +309,9 @@ class RadialGaugeHMIWidget(BaseHMIWidget):
 
     def get_color_spans(self) -> List[ColorSpan]:
         return self._color_span_editor.get_span_objects()
+
+    def get_label_size_percent(self) -> int:
+        return self._sld_label_size.value()
 
 # endregion
 
@@ -295,6 +335,7 @@ class RadialGaugeHMIWidget(BaseHMIWidget):
         self._color_span_editor.signals.row_added.disconnect()
         self._color_span_editor.signals.row_removed.disconnect()
         self._color_span_editor.signals.row_changed.disconnect()
+        self._sld_label_size.valueChanged.disconnect()
 
         super().destroy()
 
@@ -367,6 +408,12 @@ class RadialGaugeHMIWidget(BaseHMIWidget):
         minor_ticks_pen = QPen()
         minor_ticks_pen.setColor(HMITheme.Color.minor_ticks())
 
+        edit_border_pen = QPen()
+        edit_border_pen.setWidthF(1)
+        edit_border_pen.setStyle(Qt.PenStyle.DotLine)
+        edit_border_pen.setCapStyle(Qt.PenCapStyle.FlatCap)
+        edit_border_pen.setColor(HMITheme.Color.select_frame_border())
+
         nb_major_ticks = self._spn_major_ticks.value()
         nb_minor_ticks = self._spn_minor_ticks.value()
         numerical_config = NumberFormattingConfig(units="", decimals=1, eng_notation=True)
@@ -378,7 +425,9 @@ class RadialGaugeHMIWidget(BaseHMIWidget):
             delta_angle = 270 / (nb_major_ticks - 1)
             tick_p1_radius = inner_radius - stroke_w
             tick_p2_radius = tick_p1_radius - major_tick_len
-            tick_label_size = QSizeF(ref_size * _Dims.TICK_LABEL_W, ref_size * _Dims.TICK_LABEL_H * aspect_ratio)
+            tick_label_w_ratio = (_Dims.TICK_LABEL_MAX_W - _Dims.TICK_LABEL_MIN_W) * (self._sld_label_size.value() / 100) + _Dims.TICK_LABEL_MIN_W
+            tick_label_h_ratio = (_Dims.TICK_LABEL_MAX_H - _Dims.TICK_LABEL_MIN_H) * (self._sld_label_size.value() / 100) + _Dims.TICK_LABEL_MIN_H
+            tick_label_size = QSizeF(ref_size * tick_label_w_ratio, ref_size * tick_label_h_ratio * aspect_ratio)
             tick_label_half_size = QSizeF(tick_label_size.width() / 2, tick_label_size.height() / 2)
             tick_label_longest_diagonal = math.sqrt((tick_label_size.height() / 2)**2 + (tick_label_size.width() / 2)**2)
 
@@ -427,6 +476,11 @@ class RadialGaugeHMIWidget(BaseHMIWidget):
                     painter.setBrush(Qt.BrushStyle.NoBrush)
                     painter.drawText(tick_label_rect, tick_text, text_align)
 
+                    if edit_mode:
+                        painter.setPen(edit_border_pen)
+                        painter.setBrush(Qt.BrushStyle.NoBrush)
+                        painter.drawRect(tick_label_rect)
+
                 # Draw minor ticks
                 if nb_minor_ticks > 0 and i < nb_major_ticks - 1:
                     painter.setPen(minor_ticks_pen)
@@ -468,6 +522,7 @@ class RadialGaugeHMIWidget(BaseHMIWidget):
             'overflow': cast(GaugeOverflowBehavior, self._cmb_overflow_behavior.currentData()).value,
             'minor_tick': self._spn_minor_ticks.value(),
             'major_tick': self._spn_major_ticks.value(),
+            'label_size_percent': self._sld_label_size.value(),
             'colors': self._color_span_editor.get_state_dict()
         }
 
@@ -477,6 +532,7 @@ class RadialGaugeHMIWidget(BaseHMIWidget):
         valid_minor_tick = False
         valid_major_tick = False
         valid_colors = False
+        valid_label_size_percent = False
 
         if 'display' in d and isinstance(d['display'], dict):
             valid_display = self._numerical_display.set_state_dict(cast(NumericalTextDisplayStateDict, d['display']))
@@ -491,13 +547,15 @@ class RadialGaugeHMIWidget(BaseHMIWidget):
 
         if 'minor_tick' in d and isinstance(d['minor_tick'], int):
             self._spn_minor_ticks.setValue(d['minor_tick'])
-            if d['minor_tick'] == self._spn_minor_ticks.value():
-                valid_minor_tick = True
+            valid_minor_tick = (d['minor_tick'] == self._spn_minor_ticks.value())
 
         if 'major_tick' in d and isinstance(d['major_tick'], int):
             self._spn_major_ticks.setValue(d['major_tick'])
-            if d['major_tick'] == self._spn_major_ticks.value():
-                valid_major_tick = True
+            valid_major_tick = (d['major_tick'] == self._spn_major_ticks.value())
+
+        if 'label_size_percent' in d and isinstance(d['label_size_percent'], int):
+            self._sld_label_size.setValue(d['label_size_percent'])
+            valid_label_size_percent = (d['label_size_percent'] == self._sld_label_size.value())
 
         if 'colors' in d and isinstance(d['colors'], dict):
             valid_colors = self._color_span_editor.set_state_dict(cast(ColorSpanListStateDict, d['colors']))
@@ -510,6 +568,8 @@ class RadialGaugeHMIWidget(BaseHMIWidget):
             self._logger.warning('Invalid minor tick value')
         if not valid_major_tick:
             self._logger.warning('Invalid major tick value')
+        if not valid_label_size_percent:
+            self._logger.warning("Invalid label size percentage")
         if not valid_colors:
             self._logger.warning('Invalid color spans')
 
@@ -518,6 +578,7 @@ class RadialGaugeHMIWidget(BaseHMIWidget):
             and valid_overflow
             and valid_minor_tick
             and valid_major_tick
+            and valid_label_size_percent
             and valid_colors
         )
 # endregion
