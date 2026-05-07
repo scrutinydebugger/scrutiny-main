@@ -10,7 +10,8 @@ from scrutiny.gui.component_app_interface import AbstractComponentAppInterface
 from scrutiny.gui.components.locals.hmi.hmi_library_category import LibraryCategory
 from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget, WatchableValueType
 from scrutiny.gui.components.locals.hmi.hmi_theme import HMITheme
-from scrutiny.gui.components.locals.hmi.common.numerical_text_display import NumberFormattingConfig, NumericalTextDisplay, NumberFormattingConfigWidget
+from scrutiny.gui.components.locals.hmi.common.numerical_text_display import (
+    NumberFormattingConfig, NumericalTextDisplay, NumberFormattingConfigWidget, NumberFormattingConfigDict)
 from scrutiny.gui.components.locals.hmi.common.color_span_editor import ColorSpanEditor, ColorSpanListStateDict, ColorSpan
 from scrutiny.gui.components.locals.hmi.common.gauge import GaugeOverflowBehavior
 from scrutiny.gui import assets
@@ -485,7 +486,7 @@ class LinearGaugeHMIWidget(BaseHMIWidget):
             valid_label_size_percent = (d['label_size_percent'] == self._sld_label_size.value())
 
         if 'label_format_config' in d and isinstance(d['label_format_config'], dict):
-            config, valid_label_format_config = NumberFormattingConfig.from_dict(d['label_format_config'])
+            config, valid_label_format_config = NumberFormattingConfig.from_dict(cast(NumberFormattingConfigDict, d['label_format_config']))
             self._label_format_config_widget.apply_config(config)
 
         if not valid_overflow:

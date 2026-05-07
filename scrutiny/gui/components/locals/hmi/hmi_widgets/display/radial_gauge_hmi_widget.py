@@ -48,7 +48,7 @@ class _Dims:
     TICK_LABEL_MAX_H = 0.20
 
 
-@dataclass
+@dataclass(slots=True)
 class PointerAngle:
     angle: float
     clipped: bool
