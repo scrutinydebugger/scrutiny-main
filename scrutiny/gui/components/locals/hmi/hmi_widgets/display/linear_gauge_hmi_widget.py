@@ -49,7 +49,8 @@ class _LinearGaugeFillRect(QGraphicsItem):
     @tools.copy_type(QGraphicsItem.__init__)
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        self._fill_rect = QRectF()
+        self._fill_rect = None
+        self._background_rect = QRectF()
         self._fill_color = QColor()
 
     def set_fill_rect(self, r: Optional[QRectF]) -> None:
@@ -356,7 +357,8 @@ class _LinearGaugeCursor(QGraphicsItem):
 
 
 class LinearGaugeHMIWidget(BaseHMIWidget):
-    """A HMI widget that draw a gauge with a pointer (needle) that rotate from left to right according to a value, a min and a max"""
+    """A HMI widget that draw a linear gauge that shows a small cursor that slide along that gauge.
+    Can optionally fill the content to look like a progressbar"""
 
     _CATEGORY = LibraryCategory.Display
     _UNIQUE_NAME = 'linear_gauge'
@@ -499,6 +501,7 @@ class LinearGaugeHMIWidget(BaseHMIWidget):
         gauge_inner_rect = self._gauge.get_inner_rect()
         self._fill_rect.set_background_rect(gauge_rect)  # zvalue behind gauge
         self._cursor.setVisible(False)
+        self._fill_rect.set_fill_rect(None)
         border_width = self._gauge.get_border_width()
         if val is not None and self._minval is not None and self._maxval is not None:
             overflow_behavior = cast(GaugeOverflowBehavior, self._cmb_overflow_behavior.currentData())
@@ -525,7 +528,6 @@ class LinearGaugeHMIWidget(BaseHMIWidget):
                     self._cursor.set_fill_color(HMITheme.Color.pointer_fill())
                 self._cursor.setVisible(True)
 
-                # zero_val = values['zero']
                 if self._zero_point is not None and self._zero_point >= self._minval and self._zero_point <= self._maxval:
                     zero_ratio = (self._zero_point - self._minval) / (self._maxval - self._minval)
                     if self._chk_inverted_axis.isChecked():
@@ -542,8 +544,6 @@ class LinearGaugeHMIWidget(BaseHMIWidget):
                     )
 
                     self._fill_rect.set_fill_rect(fill_rect)
-                else:
-                    self._fill_rect.set_fill_rect(None)
 
         self._fill_rect.update()
         self._cursor.update()
