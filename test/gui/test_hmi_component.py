@@ -19,7 +19,8 @@ from scrutiny.gui.components.locals.hmi.hmi_widgets.graphics.rectangle_hmi_widge
 from scrutiny.gui.components.locals.hmi.hmi_widgets.graphics.line_hmi_widget import LineHMIWidget
 from scrutiny.gui.components.locals.hmi.hmi_widgets.graphics.text_label_hmi_widget import TextLabelHMIWidget
 from scrutiny.gui.components.locals.hmi.hmi_widgets.display.numerical_display_hmi_widget import NumericalDisplayHMIWidget, NumberFormattingConfig
-from scrutiny.gui.components.locals.hmi.hmi_widgets.display.gauge_hmi_widget import GaugeHMIWidget, GaugeOverflowBehavior, ColorSpan
+from scrutiny.gui.components.locals.hmi.hmi_widgets.display.radial_gauge_hmi_widget import RadialGaugeHMIWidget, GaugeOverflowBehavior, ColorSpan
+from scrutiny.gui.components.locals.hmi.hmi_widgets.display.linear_gauge_hmi_widget import LinearGaugeHMIWidget
 from scrutiny.gui.components.locals.hmi.hmi_widgets.display.color_indicator_hmi_widget import ColorIndicatorHMIWidget, RelationalOperator, ActiveBehavior
 from scrutiny.gui.components.locals.hmi.common.hmi_colors import HMIColor
 from test.gui.fake_server_manager import FakeServerManager
@@ -299,8 +300,8 @@ class TestHMIWidgetSerialization(HMIComponentBaseTest):
         self.assertEqual(new_display.get_text_color(), display.get_text_color())
         self.assertEqual(new_display.get_number_formatting_config(), display.get_number_formatting_config())
 
-    def test_serialize_gauge(self):
-        gauge = GaugeHMIWidget(self.app_interface)
+    def test_serialize_radial_gauge(self):
+        gauge = RadialGaugeHMIWidget(self.app_interface)
         gauge.set_size(QSize(64, 128))
         self.hmi_component.add_hmi_widget(gauge, QPoint(16, 32))
         self.assertEqual(self.hmi_component.hmi_widget_count(), 1)
@@ -320,6 +321,7 @@ class TestHMIWidgetSerialization(HMIComponentBaseTest):
             ColorSpan(start=50.1, stop=90, color=HMIColor.WARNING)
         ]
         gauge.set_color_spans(color_spans)
+        gauge.set_label_size_percent(35)
 
         state = self.hmi_component.get_state()
         self.hmi_component.delete_hmi_widget(gauge)
@@ -331,8 +333,8 @@ class TestHMIWidgetSerialization(HMIComponentBaseTest):
         self.assertEqual(len(all_widgets), 1)
         new_gauge = all_widgets[0]
 
-        self.assertIsInstance(new_gauge, GaugeHMIWidget)
-        assert isinstance(new_gauge, GaugeHMIWidget)
+        self.assertIsInstance(new_gauge, RadialGaugeHMIWidget)
+        assert isinstance(new_gauge, RadialGaugeHMIWidget)
 
         self.assertEqual(new_gauge.pos(), QPoint(16, 32))
         self.assertEqual(new_gauge.get_size(), QSize(64, 128))
@@ -340,6 +342,69 @@ class TestHMIWidgetSerialization(HMIComponentBaseTest):
         self.assertEqual(new_gauge.get_minor_ticks(), gauge.get_minor_ticks())
         self.assertEqual(new_gauge.get_number_formatting_config(), gauge.get_number_formatting_config())
         self.assertEqual(new_gauge.get_overflow_behavior(), gauge.get_overflow_behavior())
+        self.assertEqual(new_gauge.get_label_size_percent(), gauge.get_label_size_percent())
+        self.assertEqual(new_gauge.get_color_spans(), gauge.get_color_spans())
+
+    def test_serialize_linear_gauge(self):
+        gauge = LinearGaugeHMIWidget(self.app_interface)
+        gauge.set_size(QSize(128, 256))
+        self.hmi_component.add_hmi_widget(gauge, QPoint(16, 32))
+        self.assertEqual(self.hmi_component.hmi_widget_count(), 1)
+
+        gauge.set_major_ticks(8)
+        gauge.set_minor_ticks(4)
+        gauge.set_overflow_behavior(GaugeOverflowBehavior.SHOW_NA)
+        color_spans = [
+            ColorSpan(start=10, stop=30.5, color=HMIColor.HIGHLIGHT),
+            ColorSpan(start=50.1, stop=90, color=HMIColor.WARNING)
+        ]
+        gauge.set_color_spans(color_spans)
+        gauge.set_inverted_axis(True)
+        gauge.set_gauge_width_percent(33)
+        gauge.set_label_size_percent(58)
+        label_config = NumberFormattingConfig(decimals=3, eng_notation=False, max_ints=6, units='mV')
+        gauge.set_label_format_config(label_config)
+
+        # Verify all getters directly
+        self.assertEqual(gauge.get_major_ticks(), 8)
+        self.assertEqual(gauge.get_minor_ticks(), 4)
+        self.assertEqual(gauge.get_overflow_behavior(), GaugeOverflowBehavior.SHOW_NA)
+        loaded_spans = gauge.get_color_spans()
+        self.assertEqual(len(loaded_spans), 2)
+        self.assertEqual(loaded_spans[0], color_spans[0])
+        self.assertEqual(loaded_spans[1], color_spans[1])
+        self.assertEqual(gauge.get_inverted_axis(), True)
+        self.assertEqual(gauge.get_gauge_width_percent(), 33)
+        self.assertEqual(gauge.get_label_size_percent(), 58)
+        self.assertEqual(gauge.get_label_format_config(), label_config)
+
+        # Serialization round-trip
+        state = self.hmi_component.get_state()
+        self.hmi_component.delete_hmi_widget(gauge)
+        self.assertEqual(self.hmi_component.hmi_widget_count(), 0)
+        fully_loaded = self.hmi_component.load_state(state)
+        self.assertTrue(fully_loaded)
+        self.assertEqual(self.hmi_component.hmi_widget_count(), 1)
+        all_widgets = list(self.hmi_component.iterate_hmi_widgets())
+        self.assertEqual(len(all_widgets), 1)
+        new_gauge = all_widgets[0]
+
+        self.assertIsInstance(new_gauge, LinearGaugeHMIWidget)
+        assert isinstance(new_gauge, LinearGaugeHMIWidget)
+
+        self.assertEqual(new_gauge.pos(), QPoint(16, 32))
+        self.assertEqual(new_gauge.get_size(), QSize(128, 256))
+        self.assertEqual(new_gauge.get_major_ticks(), gauge.get_major_ticks())
+        self.assertEqual(new_gauge.get_minor_ticks(), gauge.get_minor_ticks())
+        self.assertEqual(new_gauge.get_overflow_behavior(), gauge.get_overflow_behavior())
+        new_spans = new_gauge.get_color_spans()
+        self.assertEqual(len(new_spans), len(color_spans))
+        for i in range(len(color_spans)):
+            self.assertEqual(new_spans[i], color_spans[i])
+        self.assertEqual(new_gauge.get_inverted_axis(), gauge.get_inverted_axis())
+        self.assertEqual(new_gauge.get_gauge_width_percent(), gauge.get_gauge_width_percent())
+        self.assertEqual(new_gauge.get_label_size_percent(), gauge.get_label_size_percent())
+        self.assertEqual(new_gauge.get_label_format_config(), gauge.get_label_format_config())
 
     def test_serialize_color_indicator(self):
         indicator = ColorIndicatorHMIWidget(self.app_interface)

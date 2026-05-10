@@ -283,6 +283,8 @@ class BaseHMIWidget(QGraphicsItem):
     """A flag indicating if we should display the selection_overlay"""
     _edit_select_frame: EditSelectFrame
     """The overlay displayed around a widget in edit mode"""
+    _edit_mode: bool
+    """A flag indicating if we should render as Edit mode"""
     _vslot_config_widget: QWidget
     """The widget containing the ValueSlots widget. To be shown when editing this HMI widget"""
     _vslot_config_widget_layout: QFormLayout
@@ -311,7 +313,7 @@ class BaseHMIWidget(QGraphicsItem):
         self._edit_select_frame.setZValue(100000)
         self._selection_overlay.setZValue(self._edit_select_frame.zValue() - 1)
         self.set_selected(False)
-        self.show_resize_handles(False)
+        self.set_edit_mode(False)
 
         self._vslot_config_widget = QWidget()
         self._vslot_config_widget_layout = QFormLayout(self._vslot_config_widget)
@@ -382,7 +384,8 @@ class BaseHMIWidget(QGraphicsItem):
     def get_size(self) -> QSize:
         return self._size
 
-    def show_resize_handles(self, val: bool) -> None:
+    def set_edit_mode(self, val: bool) -> None:
+        self._edit_mode = val
         self._edit_select_frame.setVisible(val)
         self.update()
 
@@ -654,15 +657,17 @@ class BaseHMIWidget(QGraphicsItem):
         values = self._get_vslot_vals()
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
 
-        self.draw(values, painter)
+        self.draw(values, self._edit_mode, painter)
 
         self._last_draw_timestamp_ns = time.perf_counter_ns()
 
 
 # region Abstracts methods
 
+
     def draw(self,
              values: Dict[str, WatchableValueType],
+             edit_mode: bool,
              painter: QPainter
              ) -> None:
         raise NotImplementedError("draw() must be overridden")
