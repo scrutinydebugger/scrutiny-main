@@ -343,6 +343,7 @@ class TestHMIWidgetSerialization(HMIComponentBaseTest):
         self.assertEqual(new_gauge.get_number_formatting_config(), gauge.get_number_formatting_config())
         self.assertEqual(new_gauge.get_overflow_behavior(), gauge.get_overflow_behavior())
         self.assertEqual(new_gauge.get_label_size_percent(), gauge.get_label_size_percent())
+        self.assertEqual(new_gauge.get_color_spans(), gauge.get_color_spans())
 
     def test_serialize_linear_gauge(self):
         gauge = LinearGaugeHMIWidget(self.app_interface)

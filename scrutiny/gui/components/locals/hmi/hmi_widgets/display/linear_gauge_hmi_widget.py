@@ -20,7 +20,7 @@ from scrutiny.tools.typing import *
 
 
 class _Dims:
-    """Those are relative dimensions used to draw the gauge."""
+    """Those are dimensions (mostly relatives) used to draw the gauge."""
     BORDER_WIDTH = 0.02
     GAUGE_MIN_WIDTH = 0.2
     GAUGE_MAX_WIDTH = 0.8
@@ -29,14 +29,22 @@ class _Dims:
     MINOR_TICK_LEN_GAUGE_RATIO = 0.25
     FILL_COLOR_WIDTH_GAUGE_RATIO = 1
     LABEL_WIDTH = 0.35
-    CURSOR_HEIGHT = 0.06
-    CURSOR_WIDTH = 0.08
+    CURSOR_WIDTH_GAUGE_RATIO = 0.20
+    CURSOR_WIDTH_MAX_PX = 32
     TEXT_LABEL_MARGIN_PX = 5
 
 
+# region FillRect GraphicItem
 class _LinearGaugeFillRect(QGraphicsItem):
-    _fill_rect: QRectF
+    """The graphic item that draw the gauge fill.
+    Must be in a different GraphicItem to be updated without redrawing everything"""
+
+    _fill_rect: Optional[QRectF]
+    """Rect to fill with fill color. Do not draw if ``None``"""
     _fill_color: QColor
+    """Fill color (blue)"""
+    _background_rect: QRectF
+    """Rect to fill with widget background color"""
 
     @tools.copy_type(QGraphicsItem.__init__)
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -44,8 +52,11 @@ class _LinearGaugeFillRect(QGraphicsItem):
         self._fill_rect = QRectF()
         self._fill_color = QColor()
 
-    def set_rect(self, r: QRectF) -> None:
+    def set_fill_rect(self, r: Optional[QRectF]) -> None:
         self._fill_rect = r
+
+    def set_background_rect(self, r: QRectF) -> None:
+        self._background_rect = r
 
     def set_fill_color(self, color: QColor) -> None:
         self._fill_color = color
@@ -55,36 +66,55 @@ class _LinearGaugeFillRect(QGraphicsItem):
 
     def paint(self, painter: QPainter, option: QStyleOptionGraphicsItem, widget: Optional[QWidget] = None) -> None:
         painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(self._fill_color)
-        painter.drawRect(self._fill_rect)
+        painter.setBrush(HMITheme.Color.widget_background())
+        painter.drawRect(self._background_rect)
+        if self._fill_rect is not None:
+            painter.setBrush(self._fill_color)
+            painter.drawRect(self._fill_rect)
+
+# endregion
+
+# region LinearGauge GraphicItem
 
 
 class _LinearGauge(QGraphicsItem):
-    _size: QSizeF
-    _border_width: float
-    _inverted_axis: bool
-    _color_spans: List[ColorSpan]
-    _nb_major_ticks: int
-    _nb_minor_ticks: int
+    """The graphic item that does not change for value update.
+    Gets redrawn only if dimensions changes. Draw the gauge border, ticks & labels"""
+
+    # Measurements given by the parent graphics items
     _minval: Optional[float]
     _maxval: Optional[float]
-    _gauge_rect: QRectF
     _label_numerical_config: NumberFormattingConfig
+    _border_width: float
+    _label_height: float
+    _gauge_width: float
+    _cursor_size: QSizeF
+    _nb_major_ticks: int
+    _nb_minor_ticks: int
+    _inverted_axis: bool
+    _edit_mode: bool
+    _color_spans: List[ColorSpan]
+    _gauge_rect: QRectF
 
     @tools.copy_type(QGraphicsItem.__init__)
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        self._size = QSizeF()
-        self._border_width = 0
-        self._inverted_axis = False
-        self._color_spans = []
-        self._nb_major_ticks = 0
-        self._nb_minor_ticks = 0
+        # Init values
         self._minval = None
         self._maxval = None
         self._label_numerical_config = NumberFormattingConfig()
+        self._border_width = 0
+        self._label_height = 0
+        self._gauge_width = 0
+        self._cursor_size = QSizeF(0, 0)
+        self._nb_major_ticks = 0
+        self._nb_minor_ticks = 0
+        self._inverted_axis = False
+        self._edit_mode = False
+        self._color_spans = []
         self._gauge_rect = QRectF()
 
+        # Precompute values reused often
         self._major_ticks_pen = QPen()
         self._major_ticks_pen.setColor(HMITheme.Color.major_ticks())
         self._major_ticks_pen.setCapStyle(Qt.PenCapStyle.FlatCap)
@@ -102,6 +132,7 @@ class _LinearGauge(QGraphicsItem):
         self._edit_border_pen.setCapStyle(Qt.PenCapStyle.FlatCap)
         self._edit_border_pen.setColor(HMITheme.Color.select_frame_border())
 
+# region Getters & Setters
     def set_minmax(self, minval: Optional[float], maxval: Optional[float]) -> None:
         self._minval = minval
         self._maxval = maxval
@@ -112,15 +143,16 @@ class _LinearGauge(QGraphicsItem):
     def set_border_width(self, width: float) -> None:
         self._border_width = width
 
-    def get_border_width(self) -> float:
-        return self._border_width
-
     def set_label_height(self, label_height: float) -> None:
         self._label_height = label_height
         self._recompute_gauge_rect()
 
     def set_gauge_width(self, gauge_width: float) -> None:
         self._gauge_width = gauge_width
+        self._recompute_gauge_rect()
+
+    def set_cursor_size(self, cursor_size: QSizeF) -> None:
+        self._cursor_size = cursor_size
         self._recompute_gauge_rect()
 
     def set_major_ticks(self, val: int) -> None:
@@ -131,6 +163,12 @@ class _LinearGauge(QGraphicsItem):
 
     def set_inverted_axis(self, val: bool) -> None:
         self._inverted_axis = val
+
+    def set_edit_mode(self, val: bool) -> None:
+        self._edit_mode = val
+
+    def get_border_width(self) -> float:
+        return self._border_width
 
     def get_inverted_axis(self) -> bool:
         return self._inverted_axis
@@ -153,25 +191,33 @@ class _LinearGauge(QGraphicsItem):
             QSizeF(self._gauge_rect.width() - self._border_width, self._gauge_rect.height() - self._border_width)
         )
 
-    def boundingRect(self) -> QRectF:
-        return self.parentItem().boundingRect()
+# endregion
 
     def _recompute_gauge_rect(self) -> None:
         bounding_rect = self.boundingRect()
         gauge_height = bounding_rect.height() - self._border_width
         gauge_padding = float(0)
         if self._nb_major_ticks >= 2:
-            gauge_padding = self._label_height / 2
-            gauge_height -= 2 * gauge_padding
+            gauge_padding = max(self._label_height / 2, gauge_padding)
+        gauge_padding = max(gauge_padding, self._cursor_size.height() / 2)
+        gauge_height -= 2 * gauge_padding
 
         self._gauge_rect = QRectF(
             QPointF(0, gauge_padding),
             QSizeF(self._gauge_width, gauge_height)
         )
 
+    def boundingRect(self) -> QRectF:
+        return self.parentItem().boundingRect()
+
     def paint(self, painter: QPainter, option: QStyleOptionGraphicsItem, widget: Optional[QWidget] = None) -> None:
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        bounding_rect = self.boundingRect()
+        monospace_font = assets.get_font(assets.ScrutinyFont.Monospaced)
+        half_border_width = self._border_width / 2
+        inner_rect = self.get_inner_rect()
 
+        # Draw the gauge frame (filling comes from another graphic element with different z value)
         pen = QPen()
         pen.setWidthF(self._border_width)
         pen.setColor(HMITheme.Color.frame_border())
@@ -179,30 +225,29 @@ class _LinearGauge(QGraphicsItem):
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.drawRect(self._gauge_rect)
 
-        bounding_rect = self.boundingRect()
-        monospace_font = assets.get_font(assets.ScrutinyFont.Monospaced)
-        half_border_width = self._border_width / 2
-        inner_rect = self.get_inner_rect()
-        color_span_pen = QPen()
-        color_bar_w = inner_rect.width() * _Dims.COLOR_BAR_WIDTH_GAUGE_RATIO
-        color_span_pen.setWidthF(color_bar_w)
-        color_span_pen.setCapStyle(Qt.PenCapStyle.FlatCap)
-        for span in self._color_spans:
-            start = min(max(span.start / 100, 0), 1)
-            stop = min(max(span.stop / 100, 0), 1)
+        # Draw the color bars if any
+        if len(self._color_spans) > 0:
+            color_span_pen = QPen()
+            color_bar_w = inner_rect.width() * _Dims.COLOR_BAR_WIDTH_GAUGE_RATIO
+            color_span_pen.setWidthF(color_bar_w)
+            color_span_pen.setCapStyle(Qt.PenCapStyle.FlatCap)
+            for span in self._color_spans:
+                start = min(max(span.start / 100, 0), 1)
+                stop = min(max(span.stop / 100, 0), 1)
 
-            color_span_pen.setColor(span.color.to_qcolor())
-            painter.setPen(color_span_pen)
-            if self._inverted_axis:
-                color_bar_y1 = inner_rect.top() + start * inner_rect.height()
-                color_bar_y2 = inner_rect.top() + stop * inner_rect.height()
-            else:
-                color_bar_y1 = inner_rect.bottom() - start * inner_rect.height()
-                color_bar_y2 = inner_rect.bottom() - stop * inner_rect.height()
-            color_bar_x = inner_rect.right() - color_bar_w / 2
+                color_span_pen.setColor(span.color.to_qcolor())
+                painter.setPen(color_span_pen)
+                if self._inverted_axis:
+                    color_bar_y1 = inner_rect.top() + start * inner_rect.height()
+                    color_bar_y2 = inner_rect.top() + stop * inner_rect.height()
+                else:
+                    color_bar_y1 = inner_rect.bottom() - start * inner_rect.height()
+                    color_bar_y2 = inner_rect.bottom() - stop * inner_rect.height()
+                color_bar_x = inner_rect.right() - color_bar_w / 2
 
-            painter.drawLine(QPointF(color_bar_x, color_bar_y1), QPointF(color_bar_x, color_bar_y2))
+                painter.drawLine(QPointF(color_bar_x, color_bar_y1), QPointF(color_bar_x, color_bar_y2))
 
+        # Draw the ticks and labels if any
         painter.setBrush(Qt.BrushStyle.NoBrush)
         if self._nb_major_ticks >= 2:
             major_tick_x1 = inner_rect.right()
@@ -210,7 +255,7 @@ class _LinearGauge(QGraphicsItem):
             minor_tick_x1 = inner_rect.right()
             minor_tick_x2 = minor_tick_x1 - inner_rect.width() * _Dims.MINOR_TICK_LEN_GAUGE_RATIO
             delta_major_tick = self._gauge_rect.height() / (self._nb_major_ticks - 1)
-            label_x = self._gauge_rect.width() + half_border_width + _Dims.CURSOR_WIDTH * bounding_rect.width() + _Dims.TEXT_LABEL_MARGIN_PX
+            label_x = self._gauge_rect.width() + half_border_width + self._cursor_size.width() + _Dims.TEXT_LABEL_MARGIN_PX
             label_width = max(bounding_rect.right() - label_x, 0)
 
             for i in range(self._nb_major_ticks):
@@ -228,8 +273,7 @@ class _LinearGauge(QGraphicsItem):
                     QSizeF(label_width, self._label_height)
                 )
 
-               # if edit_mode:
-                if True:
+                if self._edit_mode:
                     painter.setPen(self._edit_border_pen)
                     painter.drawRect(tick_label_rect)
 
@@ -248,17 +292,28 @@ class _LinearGauge(QGraphicsItem):
                     painter.setBrush(Qt.BrushStyle.NoBrush)
                     painter.drawText(tick_label_rect, tick_text, text_align)
 
+                # Minor ticks
                 if self._nb_minor_ticks > 0 and i < self._nb_major_ticks - 1:
                     painter.setPen(self._minor_ticks_pen)
                     for j in range(self._nb_minor_ticks):
                         minor_tick_y = major_tick_y + (j + 1) * delta_major_tick / (self._nb_minor_ticks + 1)
                         painter.drawLine(QPointF(minor_tick_x1, minor_tick_y), QPointF(minor_tick_x2, minor_tick_y))
 
+# endregion
+
+# region Cursor GraphicItem
+
 
 class _LinearGaugeCursor(QGraphicsItem):
+    """The cursor on the right of the gauge (little triangle).
+    In a separate GraphicItem to be updated without redrawing everything"""
+
     _size: QSizeF
+    """Size of bounding box"""
     _pen: QPen
+    """Pen for border"""
     _brush: QBrush
+    """Brush for fill"""
 
     @tools.copy_type(QGraphicsItem.__init__)
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -295,6 +350,10 @@ class _LinearGaugeCursor(QGraphicsItem):
 
         painter.drawPolygon([p1, p2, p3], Qt.FillRule.WindingFill)
 
+# endregion
+
+# region HMI Widget
+
 
 class LinearGaugeHMIWidget(BaseHMIWidget):
     """A HMI widget that draw a gauge with a pointer (needle) that rotate from left to right according to a value, a min and a max"""
@@ -310,7 +369,7 @@ class LinearGaugeHMIWidget(BaseHMIWidget):
     _cmb_overflow_behavior: QComboBox
     """A combo box to select the overflow behavior"""
     _chk_inverted_axis: QCheckBox
-    """A checkbox to invert t"""
+    """A checkbox to invert the axis"""
     _spn_major_ticks: QSpinBox
     """A spinbox to select how many major ticks we have"""
     _spn_minor_ticks: QSpinBox
@@ -324,10 +383,11 @@ class LinearGaugeHMIWidget(BaseHMIWidget):
     _label_format_config_widget: NumberFormattingConfigWidget
     """A widget to configure the label numerical formatting"""
     _fill_rect: _LinearGaugeFillRect
+    """The graphic item that fills the gauge, shown behind"""
     _cursor: _LinearGaugeCursor
+    """The graphic item that draws the cursor, shown on top of the gauge"""
     _gauge: _LinearGauge
-
-    _gauge_rect: QRectF
+    """The main gauge graphic item. Drawn with transparent background"""
 
     # State variables
     _minval: Optional[float]
@@ -357,7 +417,6 @@ class LinearGaugeHMIWidget(BaseHMIWidget):
         fill_color = QColor(HMITheme.Color.blue_highlight())
         fill_color.setAlphaF(0.7)
         self._fill_rect.set_fill_color(fill_color)
-        self._fill_rect.setZValue(-1)
 
         self._cmb_overflow_behavior = QComboBox()
         self._cmb_overflow_behavior.addItem("Clip", GaugeOverflowBehavior.CLIP)
@@ -438,6 +497,7 @@ class LinearGaugeHMIWidget(BaseHMIWidget):
     def _process_new_val(self, val: Optional[Union[bool, int, float]]) -> None:
         gauge_rect = self._gauge.get_gauge_rect()
         gauge_inner_rect = self._gauge.get_inner_rect()
+        self._fill_rect.set_background_rect(gauge_rect)  # zvalue behind gauge
         self._cursor.setVisible(False)
         border_width = self._gauge.get_border_width()
         if val is not None and self._minval is not None and self._maxval is not None:
@@ -449,9 +509,9 @@ class LinearGaugeHMIWidget(BaseHMIWidget):
                     clipped = True
                 elif overflow_behavior == GaugeOverflowBehavior.SHOW_NA:
                     val = None
-
-            if val is not None:
-                ratio = (val - self._minval) / (self._maxval - self._minval)
+            minmax_range = self._maxval - self._minval
+            if val is not None and minmax_range > 0:
+                ratio = (val - self._minval) / minmax_range
                 if self._chk_inverted_axis.isChecked():
                     cursor_tip_y = ratio * gauge_rect.height() + gauge_rect.top()
                 else:
@@ -481,13 +541,13 @@ class LinearGaugeHMIWidget(BaseHMIWidget):
                         QSizeF(gauge_inner_rect.width() * _Dims.FILL_COLOR_WIDTH_GAUGE_RATIO, height)
                     )
 
-                    self._fill_rect.set_rect(fill_rect)
-                    self._fill_rect.setVisible(True)
+                    self._fill_rect.set_fill_rect(fill_rect)
                 else:
-                    self._fill_rect.setVisible(False)
+                    self._fill_rect.set_fill_rect(None)
 
         self._fill_rect.update()
         self._cursor.update()
+
 # region Getter & Setters
 
     def set_overflow_behavior(self, behavior: GaugeOverflowBehavior) -> None:
@@ -593,6 +653,11 @@ class LinearGaugeHMIWidget(BaseHMIWidget):
         if self._spn_major_ticks.value() >= 2:
             label_height = float(self._sld_label_size.value()) / 100.0 * bounding_rect.height() / float(self._spn_major_ticks.value())
 
+        cursor_size = min(_Dims.CURSOR_WIDTH_MAX_PX, _Dims.CURSOR_WIDTH_GAUGE_RATIO * gauge_width)
+        self._cursor.set_size(QSizeF(cursor_size, cursor_size))   # square
+
+        self._gauge.set_edit_mode(edit_mode)
+        self._gauge.set_cursor_size(self._cursor.get_size())
         self._gauge.set_gauge_width(gauge_width)
         self._gauge.set_label_height(label_height)
         self._gauge.set_major_ticks(self._spn_major_ticks.value())
@@ -602,8 +667,6 @@ class LinearGaugeHMIWidget(BaseHMIWidget):
         self._gauge.set_inverted_axis(self._chk_inverted_axis.isChecked())
         self._gauge.set_color_spans(self._color_span_editor.get_span_objects())
 
-        cursor_size = _Dims.CURSOR_WIDTH * ref_width
-        self._cursor.set_size(QSizeF(cursor_size, cursor_size))   # square
         self._process_new_val(values['val'])
 
         self._gauge.update()
@@ -698,4 +761,5 @@ class LinearGaugeHMIWidget(BaseHMIWidget):
             and valid_label_size_percent
             and valid_label_format_config
         )
+# endregion
 # endregion
