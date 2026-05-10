@@ -28,7 +28,6 @@ class _Dims:
     MAJOR_TICK_LEN_GAUGE_RATIO = 0.6
     MINOR_TICK_LEN_GAUGE_RATIO = 0.25
     FILL_COLOR_WIDTH_GAUGE_RATIO = 1
-    LABEL_WIDTH = 0.35
     CURSOR_WIDTH_GAUGE_RATIO = 0.20
     CURSOR_WIDTH_MAX_PX = 32
     TEXT_LABEL_MARGIN_PX = 5
@@ -143,6 +142,7 @@ class _LinearGauge(QGraphicsItem):
 
     def set_border_width(self, width: float) -> None:
         self._border_width = width
+        self._recompute_gauge_rect()
 
     def set_label_height(self, label_height: float) -> None:
         self._label_height = label_height
@@ -158,6 +158,7 @@ class _LinearGauge(QGraphicsItem):
 
     def set_major_ticks(self, val: int) -> None:
         self._nb_major_ticks = val
+        self._recompute_gauge_rect()
 
     def set_minor_ticks(self, val: int) -> None:
         self._nb_minor_ticks = val
@@ -330,6 +331,7 @@ class _LinearGaugeCursor(QGraphicsItem):
         self.setCacheMode(self.CacheMode.ItemCoordinateCache)
 
     def set_size(self, size: QSizeF) -> None:
+        self.prepareGeometryChange()
         self._size = size
 
     def get_size(self) -> QSizeF:
@@ -357,8 +359,8 @@ class _LinearGaugeCursor(QGraphicsItem):
 
 
 class LinearGaugeHMIWidget(BaseHMIWidget):
-    """A HMI widget that draw a linear gauge that shows a small cursor that slide along that gauge.
-    Can optionally fill the content to look like a progressbar"""
+    """A HMI widget that draws a linear gauge that shows a small cursor that slide along that gauge.
+    Can optionally fill the gauge to look like a progressbar"""
 
     _CATEGORY = LibraryCategory.Display
     _UNIQUE_NAME = 'linear_gauge'
