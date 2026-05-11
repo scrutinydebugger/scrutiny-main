@@ -14,7 +14,7 @@ import time
 import logging
 import enum
 
-from PySide6.QtWidgets import QWidget, QFormLayout, QGraphicsItem, QStyleOptionGraphicsItem
+from PySide6.QtWidgets import QGraphicsSceneMouseEvent, QWidget, QFormLayout, QGraphicsItem, QStyleOptionGraphicsItem
 from PySide6.QtGui import QPainter, QPixmap, QIcon
 from PySide6.QtCore import QSize, QRectF, QPointF, QObject, Qt, Signal
 
@@ -661,6 +661,12 @@ class BaseHMIWidget(QGraphicsItem):
 
         self._last_draw_timestamp_ns = time.perf_counter_ns()
 
+
+    def left_mouse_down(self, pos:QPointF) -> None:
+        pass
+
+    def left_mouse_up(self, pos:Optional[QPointF]) -> None:
+        pass
 
 # region Abstracts methods
 
