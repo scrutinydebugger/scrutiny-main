@@ -389,7 +389,6 @@ class HMIWorkZone(QGraphicsView):
         return cursor
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
-        print("down workzone")
         event.accept()
         self._mouse_down_start = event.pos()
         mouse_down_item = self.hmi_widget_at(event.pos())
@@ -463,11 +462,10 @@ class HMIWorkZone(QGraphicsView):
             self._mouse_down_widget.left_mouse_down(self._mouse_down_widget.mapFromScene(self.mapToScene(event.pos())))
 
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
-        print("release workzone")
         event.accept()
         mouse_release_widget: Optional[QGraphicsItem] = None
         self._status_bar.set_resize_size(None)
-        if self._mouse_down_start is not  None:
+        if self._mouse_down_start is not None:
             mouse_release_widget = self.hmi_widget_at(event.pos())
             if not isinstance(mouse_release_widget, BaseHMIWidget):  # Works for None and Grid
                 mouse_release_widget = None
@@ -523,7 +521,14 @@ class HMIWorkZone(QGraphicsView):
         self.setCursor(Qt.CursorShape.ArrowCursor)
 
     def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:
-        event.ignore()
+        # We don't handle double clicks.
+        # But 2 quick clicks cause:
+        #  - MousePress
+        #  - MouseRelease
+        #  - MouseDoubleClick
+        #  - MouseRelease
+
+        self.mousePressEvent(event)
 
     def count_hmi_widgets(self) -> int:
         return len(list(self.iterate_hmi_widgets()))

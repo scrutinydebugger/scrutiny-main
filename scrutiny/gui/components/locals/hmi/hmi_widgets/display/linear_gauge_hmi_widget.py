@@ -701,7 +701,7 @@ class LinearGaugeHMIWidget(BaseHMIWidget):
         valid_label_format_config = False
 
         if 'overflow' in d and isinstance(d['overflow'], int):
-            valid_overflow = deserialize_combobox_val(d['overflow'], GaugeOverflowBehavior, self._cmb_overflow_behavior )
+            valid_overflow = deserialize_combobox_val(d['overflow'], GaugeOverflowBehavior, self._cmb_overflow_behavior)
 
         if 'minor_tick' in d and isinstance(d['minor_tick'], int):
             self._spn_minor_ticks.setValue(d['minor_tick'])

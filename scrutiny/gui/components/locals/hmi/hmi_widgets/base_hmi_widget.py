@@ -61,7 +61,7 @@ class HandlePosition(enum.Enum):
     BOTTOMRIGHT = enum.auto()
 
 
-@dataclass(slots=True, init=False)
+@dataclass(init=False)
 class ValueSlot:
 
     class _Signals(QObject):
@@ -91,6 +91,7 @@ class ValueSlot:
                  display_name: str,
                  value_update_callback: Optional[HMIWidgetValueUpdateCallback] = None,
                  require_redraw: bool = True,
+                 allow_constant: bool = True
                  ) -> None:
         self.name = name
         self.display_name = display_name
@@ -102,6 +103,7 @@ class ValueSlot:
         self._signals = self._Signals()
         self._logger = logging.getLogger(self.__class__.__name__)
 
+        self.watchable_line_edit.set_text_mode_enabled(allow_constant)
         self.watchable_line_edit.textChanged.connect(self._text_changed_slot)
 
     @property
@@ -404,7 +406,8 @@ class BaseHMIWidget(QGraphicsItem):
                            name: str,
                            display_name: str,
                            value_update_callback: Optional[HMIWidgetValueUpdateCallback] = None,
-                           require_redraw: bool = True) -> None:
+                           require_redraw: bool = True,
+                           allow_constant: bool = True) -> None:
         """Function to be called by the extension of this base class.
         Add a value slot, allowing the user to specify a text value or drag a watchable on it.
         The values are given to the draw function.
@@ -424,7 +427,8 @@ class BaseHMIWidget(QGraphicsItem):
             name=name,
             display_name=display_name,
             value_update_callback=value_update_callback,
-            require_redraw=require_redraw
+            require_redraw=require_redraw,
+            allow_constant=allow_constant
         )
 
         self._vslots.append(vslot)
@@ -441,6 +445,20 @@ class BaseHMIWidget(QGraphicsItem):
 
         text_val_update_slot = functools.partial(self._text_update_callback, vslot)
         vslot.signals.text_value_changed.connect(text_val_update_slot)
+
+    def write_value_slot(self, name: str, value: Union[bool, float, int, str], callback: Optional[Callable[[Optional[Exception]], None]] = None) -> bool:
+        vslot = self._get_vslot_by_name(name)
+        if vslot is None:
+            raise KeyError(f"No Value Slot with name {name}")
+
+        watchable = vslot.watchable_line_edit.get_watchable()
+        if watchable is None:
+            return False
+
+        if callback is None:
+            callback = lambda *args, **kwargs: None
+        self._app.server_manager.qt_write_watchable_value(watchable.fqn, value, callback)
+        return True
 
     def destroy(self) -> None:
         """Cleanup function"""
@@ -498,48 +516,46 @@ class BaseHMIWidget(QGraphicsItem):
             try:
                 validation.assert_type(name, 'name', str)
                 validation.assert_type(vslot_state_dict, 'vslot_state_dict', dict)
-                found = False
-                for vslot in self._vslots:
-                    if vslot.name == name:
-                        vslot.load_state_dict(vslot_state_dict)  # Can raise
-                        found = True
-                        break
-
-                if not found:
+                vslot = self._get_vslot_by_name(name)
+                if vslot is None:
                     raise KeyError(f"No Value Slot with name {name}")
+
+                vslot.load_state_dict(vslot_state_dict)  # Can raise
             except Exception as e:
                 tools.log_exception(self._logger, e, "Invalid ValueSlot config", str_level=logging.WARNING)
                 all_good = False
         return all_good
 
     def configure_vslot_constant(self, name: str, val: str) -> None:
-        found = False
-        for vslot in self._vslots:
-            if vslot.name == name:
-                found = True
-                vslot.watchable_line_edit.set_text_mode()
-                vslot.watchable_line_edit.setText(val)
-                break
-
-        if not found:
+        vslot = self._get_vslot_by_name(name)
+        if vslot is None:
             raise KeyError(f"No ValueSlot with name {name} in widget of type {self.get_unique_name()}")
+
+        vslot.watchable_line_edit.set_text_mode()
+        vslot.watchable_line_edit.setText(val)
 
     def configure_vslot_watchable(self, name: str, fqn: str, watchable_name: str) -> None:
-        found = False
+        vslot = self._get_vslot_by_name(name)
+        if vslot is None:
+            raise KeyError(f"No ValueSlot with name {name} in widget of type {self.get_unique_name()}")
+
+        parsed = WatchableRegistry.FQN.parse(fqn)
+        vslot.watchable_line_edit.set_watchable_mode(
+            watchable_type=parsed.watchable_type,
+            path=parsed.path,
+            name=watchable_name
+        )
+        self._vslot_configured_with_watchable_slot(vslot, fqn)
+
+
+# region Private
+
+
+    def _get_vslot_by_name(self, name: str) -> Optional[ValueSlot]:
         for vslot in self._vslots:
             if vslot.name == name:
-                found = True
-                parsed = WatchableRegistry.FQN.parse(fqn)
-                vslot.watchable_line_edit.set_watchable_mode(
-                    watchable_type=parsed.watchable_type,
-                    path=parsed.path,
-                    name=watchable_name
-                )
-                self._vslot_configured_with_watchable_slot(vslot, fqn)
-                break
-        if not found:
-            raise KeyError(f"No ValueSlot with name {name} in widget of type {self.get_unique_name()}")
-# region Private
+                return vslot
+        return None
 
     def _slot_value_update_callback(self, vslot: ValueSlot, val: WatchableValueType) -> None:
         """The callback invoked when a ValueSlot value changes"""
@@ -602,6 +618,12 @@ class BaseHMIWidget(QGraphicsItem):
 
         return self._vslot_config_widget
 
+    def get_vslot_val_by_name(self, name: str) -> WatchableValueType:
+        vslot = self._get_slot_by_name(name)
+        if vslot is None:
+            raise KeyError(f"No Value Slot with name {name}")
+        return vslot.get_val()
+
     def _get_vslot_vals(self) -> Dict[str, Optional[WatchableValueType]]:
         """Read and returns the actual values of each ValueSlot"""
 
@@ -661,15 +683,13 @@ class BaseHMIWidget(QGraphicsItem):
 
         self._last_draw_timestamp_ns = time.perf_counter_ns()
 
-
-    def left_mouse_down(self, pos:QPointF) -> None:
+    def left_mouse_down(self, pos: QPointF) -> None:
         pass
 
-    def left_mouse_up(self, pos:Optional[QPointF]) -> None:
+    def left_mouse_up(self, pos: Optional[QPointF]) -> None:
         pass
 
 # region Abstracts methods
-
 
     def draw(self,
              values: Dict[str, WatchableValueType],
