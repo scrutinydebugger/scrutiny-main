@@ -1,3 +1,11 @@
+#    linear_gauge_hmi_widget.py
+#        An HMI widget that display a value with a linear gauge that goes from a minimum to
+#        a maximum value. Like a progress bar
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
 
 __all__ = ['LinearGaugeHMIWidget']
 

@@ -1,3 +1,11 @@
+#    button_hmi_widget.py
+#        An HMI widget acting as a push button. Write a boolean value to a watchable. The
+#        button can be momentary or toggle
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
 
 __all__ = ['ButtonHMIWidget']
 

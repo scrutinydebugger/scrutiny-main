@@ -1,3 +1,11 @@
+#    gauge.py
+#        Common work between the linear and radial gauge
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
+
 import enum
 
 
