@@ -326,7 +326,7 @@ class ButtonHMIWidget(BaseHMIWidget):
                 new_val = not bool(last_val)
                 self._write_val(new_val)
         else:
-            raise NotImplementedError("Unknown button type")
+            raise NotImplementedError("Unknown button type")    # pragma: no cover
 
         self.update()
 
@@ -336,7 +336,7 @@ class ButtonHMIWidget(BaseHMIWidget):
         elif self.get_button_type() == ButtonType.TOGGLE:
             pass
         else:
-            raise NotImplementedError("Unknown button type")
+            raise NotImplementedError("Unknown button type")    # pragma: no cover
         self._is_pressed = False
         self.update()
 

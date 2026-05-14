@@ -7,6 +7,7 @@
 #    Copyright (c) 2024 Scrutiny Debugger
 
 import logging
+from dataclasses import dataclass
 from PySide6.QtCore import Signal, QObject, QTimer
 from scrutiny.gui.core.watchable_registry import WatchableRegistry
 from scrutiny.gui.core.server_manager import ServerConfig
@@ -46,6 +47,7 @@ DUMMY_DATASET_VAR = {
     '/var/var.b/var.b.a': sdk.BriefWatchableConfiguration(watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None),
     '/var/var.b/var.b.b': sdk.BriefWatchableConfiguration(watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None),
     '/var/var.b/var.b.c': sdk.BriefWatchableConfiguration(watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None),
+    '/var/some_bool': sdk.BriefWatchableConfiguration(watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.boolean, enum=None),
 }
 
 
@@ -66,6 +68,11 @@ class FakeServerManager:
         registry_changed = Signal()
         status_received = Signal()
 
+    @dataclass
+    class WriteLog:
+        fqn: str
+        value: Union[str, bool, int, float]
+
     _started: bool
     _server_connected: bool
     _device_connected: bool
@@ -75,6 +82,7 @@ class FakeServerManager:
     _handles: Dict[str, StubbedWatchableHandle]
     _broadcast_timer: QTimer
     _registrations: Dict[Union[str, int], Set[StubbedWatchableHandle]]
+    _write_history: List[WriteLog]
 
     def __init__(self, watchable_registry: WatchableRegistry):
         self._signals = self._Signals()
@@ -89,6 +97,7 @@ class FakeServerManager:
         self._broadcast_timer.setInterval(300)
         self._broadcast_timer.timeout.connect(self._broadcast_timer_slot)
         self._handles = {}
+        self._write_history = []
 
         self._client = FakeSDKClient()
 
@@ -108,6 +117,9 @@ class FakeServerManager:
     def registry(self) -> WatchableRegistry:
         """The watchable registry containing a definition of all the watchables available on the server"""
         return self._registry
+
+    def get_fake_client(self) -> FakeSDKClient:
+        return self._client
 
     def start(self, config: ServerConfig) -> None:
         self._signals.starting.emit()
@@ -249,7 +261,8 @@ class FakeServerManager:
         return info
 
     def qt_write_watchable_value(self, fqn: str, value: Union[str, int, float, bool], callback: Callable[[Optional[Exception]], None]) -> None:
-        pass
+        self._write_history.append(self.WriteLog(fqn, value))
+        callback(None)
 
     def _broadcast_timer_slot(self) -> None:
         updates: List[updates] = []
@@ -265,3 +278,6 @@ class FakeServerManager:
             update = ValueUpdate(handle, value, status, datetime.now())
             updates.append(update)
         self._registry.broadcast_value_updates_to_watchers(updates)
+
+    def get_write_history(self) -> List[WriteLog]:
+        return self._write_history

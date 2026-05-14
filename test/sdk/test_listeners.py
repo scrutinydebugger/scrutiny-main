@@ -293,7 +293,13 @@ class TestListeners(ScrutinyUnitTest):
 
         self.w1._update_value(3.1415)
         self.w2._update_value(-1234)
+
+        self.assertFalse(listener.error_occurred)
         listener._broadcast_update([self.w1, self.w2])
+        t1 = time.perf_counter()
+        while time.perf_counter() - t1 < 3:
+            if listener.error_occurred:
+                break
 
         listener.stop()  # Should not throw.
         self.assertFalse(listener.is_started)
