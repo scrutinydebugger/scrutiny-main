@@ -1097,6 +1097,21 @@
         },
         "scrutiny/gui/components/locals/hmi/hmi_widgets/display/color_indicator_hmi_widget.py": {
             "docstring": "A HMI widget that simply turn a circle ON or OFF with customizable colors based on a condition."
+        },
+        "scrutiny/gui/components/locals/hmi/common/text.py": {
+            "docstring": "Text manipulation tools"
+        },
+        "scrutiny/gui/components/locals/hmi/common/serialization.py": {
+            "docstring": "HMI widget serialization tools"
+        },
+        "scrutiny/gui/components/locals/hmi/common/gauge.py": {
+            "docstring": "Common work between the linear and radial gauge"
+        },
+        "scrutiny/gui/components/locals/hmi/hmi_widgets/controls/button_hmi_widget.py": {
+            "docstring": "An HMI widget acting as a push button. Write a boolean value to a watchable. The button can be momentary or toggle "
+        },
+        "scrutiny/gui/components/locals/hmi/hmi_widgets/display/linear_gauge_hmi_widget.py": {
+            "docstring": "An HMI widget that display a value with a linear gauge that goes from a minimum to a maximum value. Like a progress bar"
         }
     },
     "authors": {}

@@ -193,6 +193,10 @@ class BaseListener(abc.ABC):
                         except queue.Empty:
                             pass
 
+                        # In case stop has been received during blocking wait
+                        if self._stop_request_event.is_set():
+                            break
+
                         if updates is not None:
                             self._update_count += len(updates)
                             self._update_rate_measurement.add_data(len(updates))

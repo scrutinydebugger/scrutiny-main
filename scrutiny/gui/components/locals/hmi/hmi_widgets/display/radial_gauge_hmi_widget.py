@@ -24,6 +24,7 @@ from scrutiny.gui.components.locals.hmi.hmi_theme import HMITheme
 from scrutiny.gui.components.locals.hmi.common.numerical_text_display import NumericalTextDisplay, NumberFormattingConfig, NumericalTextDisplayStateDict
 from scrutiny.gui.components.locals.hmi.common.color_span_editor import ColorSpanEditor, ColorSpanListStateDict, ColorSpan
 from scrutiny.gui.components.locals.hmi.common.gauge import GaugeOverflowBehavior
+from scrutiny.gui.components.locals.hmi.common.serialization import deserialize_combobox_val
 from scrutiny.gui import assets
 from scrutiny import tools
 from scrutiny.tools.typing import *
@@ -538,12 +539,7 @@ class RadialGaugeHMIWidget(BaseHMIWidget):
             valid_display = self._numerical_display.set_state_dict(cast(NumericalTextDisplayStateDict, d['display']))
 
         if 'overflow' in d and isinstance(d['overflow'], int):
-            with tools.SuppressException(Exception):
-                behavior = GaugeOverflowBehavior(d['overflow'])
-                index = self._cmb_overflow_behavior.findData(behavior)
-                if index >= 0:
-                    self._cmb_overflow_behavior.setCurrentIndex(index)
-                    valid_overflow = True
+            valid_overflow = deserialize_combobox_val(d['overflow'], GaugeOverflowBehavior, self._cmb_overflow_behavior)
 
         if 'minor_tick' in d and isinstance(d['minor_tick'], int):
             self._spn_minor_ticks.setValue(d['minor_tick'])

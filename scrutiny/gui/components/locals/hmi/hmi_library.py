@@ -24,8 +24,9 @@ from scrutiny.tools.typing import *
 # Autoload every sub modules of the library so they can be imported by reflection
 import scrutiny.gui.components.locals.hmi.hmi_widgets.graphics as graphics_submodule
 import scrutiny.gui.components.locals.hmi.hmi_widgets.display as display_submodule
+import scrutiny.gui.components.locals.hmi.hmi_widgets.controls as controls_module
 
-for category_module in [graphics_submodule, display_submodule]:
+for category_module in [graphics_submodule, display_submodule, controls_module]:
     for _module_info in pkgutil.iter_modules(category_module.__path__):
         importlib.import_module(f'{category_module.__name__}.{_module_info.name}')
 

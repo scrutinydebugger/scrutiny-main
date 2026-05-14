@@ -7,8 +7,8 @@
 #    Copyright (c) 2026 Scrutiny Debugger
 
 from PySide6.QtWidgets import QWidget
-from PySide6.QtCore import QPoint, QSize, Qt, QEvent
-from PySide6.QtGui import QPen, QBrush, QColor, QMouseEvent, QDragEnterEvent, QDragMoveEvent, QDropEvent, QDragLeaveEvent, QResizeEvent
+from PySide6.QtCore import QPoint, QSize, Qt, QEvent, QPointF
+from PySide6.QtGui import QPen, QBrush, QColor, QMouseEvent, QDragEnterEvent, QDragMoveEvent, QDropEvent, QDragLeaveEvent, QResizeEvent, QPainter
 
 from scrutiny import sdk
 from scrutiny.gui.core.scrutiny_drag_data import ScrutinyDragData
@@ -22,6 +22,7 @@ from scrutiny.gui.components.locals.hmi.hmi_widgets.display.numerical_display_hm
 from scrutiny.gui.components.locals.hmi.hmi_widgets.display.radial_gauge_hmi_widget import RadialGaugeHMIWidget, GaugeOverflowBehavior, ColorSpan
 from scrutiny.gui.components.locals.hmi.hmi_widgets.display.linear_gauge_hmi_widget import LinearGaugeHMIWidget
 from scrutiny.gui.components.locals.hmi.hmi_widgets.display.color_indicator_hmi_widget import ColorIndicatorHMIWidget, RelationalOperator, ActiveBehavior
+from scrutiny.gui.components.locals.hmi.hmi_widgets.controls.button_hmi_widget import ButtonHMIWidget, ButtonType
 from scrutiny.gui.components.locals.hmi.common.hmi_colors import HMIColor
 from test.gui.fake_server_manager import FakeServerManager
 from test.gui.base_gui_test import ScrutinyBaseGuiTest
@@ -37,6 +38,9 @@ class MainWindowStub(QWidget):
         super().__init__()
         self.registry = WatchableRegistry()
         self.server_manager = FakeServerManager(self.registry)
+        self.server_manager.simulate_server_connect()
+        self.server_manager.simulate_device_ready()
+        self.server_manager.simulate_sfd_loaded()
 
     def get_server_manager(self):
         return self.server_manager
@@ -438,6 +442,49 @@ class TestHMIWidgetSerialization(HMIComponentBaseTest):
         self.assertEqual(new_indicator.get_off_color(), indicator.get_off_color())
         self.assertEqual(new_indicator.get_operator(), indicator.get_operator())
         self.assertEqual(new_indicator.get_active_behavior(), indicator.get_active_behavior())
+
+    def test_serialize_button(self):
+        button = ButtonHMIWidget(self.app_interface)
+        button.set_size(QSize(48, 48))
+        self.hmi_component.add_hmi_widget(button, QPoint(16, 32))
+        self.assertEqual(self.hmi_component.hmi_widget_count(), 1)
+
+        button.set_button_type(ButtonType.TOGGLE)
+        button.set_label_active("START")
+        button.set_color_active(HMIColor.WARNING)
+        button.set_label_inactive("STOP")
+        button.set_color_inactive(HMIColor.DANGER)
+
+        # Verify getters directly
+        self.assertEqual(button.get_button_type(), ButtonType.TOGGLE)
+        self.assertEqual(button.get_label_active(), "START")
+        self.assertEqual(button.get_color_active(), HMIColor.WARNING)
+        self.assertEqual(button.get_label_inactive(), "STOP")
+        self.assertEqual(button.get_color_inactive(), HMIColor.DANGER)
+
+        # Serialization round-trip
+        state = self.hmi_component.get_state()
+        self.hmi_component.delete_hmi_widget(button)
+        self.assertEqual(self.hmi_component.hmi_widget_count(), 0)
+
+        fully_loaded = self.hmi_component.load_state(state)
+        self.assertTrue(fully_loaded)
+
+        self.assertEqual(self.hmi_component.hmi_widget_count(), 1)
+        all_widgets = list(self.hmi_component.iterate_hmi_widgets())
+        self.assertEqual(len(all_widgets), 1)
+        new_button = all_widgets[0]
+
+        self.assertIsInstance(new_button, ButtonHMIWidget)
+        assert isinstance(new_button, ButtonHMIWidget)
+
+        self.assertEqual(new_button.pos(), QPoint(16, 32))
+        self.assertEqual(new_button.get_size(), QSize(48, 48))
+        self.assertEqual(new_button.get_button_type(), button.get_button_type())
+        self.assertEqual(new_button.get_label_active(), button.get_label_active())
+        self.assertEqual(new_button.get_color_active(), button.get_color_active())
+        self.assertEqual(new_button.get_label_inactive(), button.get_label_inactive())
+        self.assertEqual(new_button.get_color_inactive(), button.get_color_inactive())
 
 
 class TestWorkZone(HMIComponentBaseTest):
@@ -1082,3 +1129,59 @@ class TestHMIComponent(HMIComponentBaseTest):
         self.assertEqual(new_label.pos(), label4.pos())
         self.assertEqual(new_label.get_size(), label4.get_size())
         self.assertEqual(new_label.zValue(), label4.zValue())
+
+
+class TestHMIWidgets(HMIComponentBaseTest):
+    def test_button(self):
+        bool_fqn = "var:/var/some_bool"
+        button = ButtonHMIWidget(self.app_interface)
+        button.set_size(QSize(48, 48))
+        button.configure_vslot_watchable('val', bool_fqn, 'some_bool')
+        self.hmi_component.add_hmi_widget(button, QPoint(16, 32))
+
+        painter = QPainter()
+        button.set_button_type(ButtonType.MOMENTARY)
+        button.draw({'val': None}, edit_mode=False, painter=painter)
+        button.draw({'val': False}, edit_mode=False, painter=painter)
+        button.draw({'val': True}, edit_mode=False, painter=painter)
+        button.draw({'val': True}, edit_mode=True, painter=painter)
+
+        button.set_button_type(ButtonType.TOGGLE)
+        button.draw({'val': None}, edit_mode=False, painter=painter)
+        button.draw({'val': False}, edit_mode=False, painter=painter)
+        button.draw({'val': True}, edit_mode=False, painter=painter)
+        button.draw({'val': True}, edit_mode=True, painter=painter)
+
+        fake_server_manager = cast(FakeServerManager, self.app_interface.server_manager)
+        write_history = fake_server_manager.get_write_history()
+        button_center = QPointF(48 + 8, 48 + 16)
+
+        button.set_button_type(ButtonType.MOMENTARY)
+
+        button.left_mouse_down(button_center)
+        button.draw({'val': False}, edit_mode=False, painter=painter)
+        self.assertEqual(len(write_history), 1)
+        self.assertEqual(write_history[0].fqn, bool_fqn)
+        self.assertEqual(write_history[0].value, True)
+
+        button.left_mouse_up(button_center)
+        self.assertEqual(len(write_history), 2)
+        self.assertEqual(write_history[1].fqn, bool_fqn)
+        self.assertEqual(write_history[1].value, False)
+
+        write_history.clear()
+
+        button.set_button_type(ButtonType.TOGGLE)
+        button.left_mouse_down(button_center)
+        button.left_mouse_up(button_center)
+        self.assertEqual(len(write_history), 1)
+        self.assertEqual(write_history[0].fqn, bool_fqn)
+        self.assertEqual(write_history[0].value, True)
+
+        button.left_mouse_down(button_center)
+        button.left_mouse_up(button_center)
+        self.assertEqual(len(write_history), 2)
+        self.assertEqual(write_history[1].fqn, bool_fqn)
+        self.assertEqual(write_history[1].value, False)
+
+        self.app_interface.watchable_registry

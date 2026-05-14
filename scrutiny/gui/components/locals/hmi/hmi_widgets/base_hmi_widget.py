@@ -61,11 +61,16 @@ class HandlePosition(enum.Enum):
     BOTTOMRIGHT = enum.auto()
 
 
-@dataclass(slots=True, init=False)
+@dataclass(init=False)
 class ValueSlot:
 
     class _Signals(QObject):
         text_value_changed = Signal(object)
+
+    @dataclass(frozen=True)
+    class ValueOverride:
+        value: Union[int, float, bool]
+        override_id: int
 
     name: str
     """The name of the slot. used to generate a unique id and logging"""
@@ -81,6 +86,7 @@ class ValueSlot:
     """A flag that indicate if a redraw of the HMI widget is required when the value of this slot changes"""
     value_update_callback: Optional[HMIWidgetValueUpdateCallback]
     """A callback to be called on value update. Mostly useful when require_redraw=``False``"""
+    value_override: Optional[ValueOverride]
     _signals: _Signals
     """The QT signals"""
     _logger: logging.Logger
@@ -91,6 +97,7 @@ class ValueSlot:
                  display_name: str,
                  value_update_callback: Optional[HMIWidgetValueUpdateCallback] = None,
                  require_redraw: bool = True,
+                 allow_constant: bool = True
                  ) -> None:
         self.name = name
         self.display_name = display_name
@@ -99,9 +106,11 @@ class ValueSlot:
         self.last_value_received = None
         self.value_update_callback = value_update_callback
         self.require_redraw = require_redraw
+        self.value_override = None
         self._signals = self._Signals()
         self._logger = logging.getLogger(self.__class__.__name__)
 
+        self.watchable_line_edit.set_text_mode_enabled(allow_constant)
         self.watchable_line_edit.textChanged.connect(self._text_changed_slot)
 
     @property
@@ -146,6 +155,8 @@ class ValueSlot:
         if self.watchable_line_edit.is_text_mode():
             return self._read_text_val(self.watchable_line_edit.text())
         else:
+            if self.value_override is not None:
+                return self.value_override.value
             return self.last_value_received
 
     def get_state_dict(self) -> ValueSlotStateDict:
@@ -404,7 +415,8 @@ class BaseHMIWidget(QGraphicsItem):
                            name: str,
                            display_name: str,
                            value_update_callback: Optional[HMIWidgetValueUpdateCallback] = None,
-                           require_redraw: bool = True) -> None:
+                           require_redraw: bool = True,
+                           allow_constant: bool = True) -> None:
         """Function to be called by the extension of this base class.
         Add a value slot, allowing the user to specify a text value or drag a watchable on it.
         The values are given to the draw function.
@@ -424,7 +436,8 @@ class BaseHMIWidget(QGraphicsItem):
             name=name,
             display_name=display_name,
             value_update_callback=value_update_callback,
-            require_redraw=require_redraw
+            require_redraw=require_redraw,
+            allow_constant=allow_constant
         )
 
         self._vslots.append(vslot)
@@ -441,6 +454,43 @@ class BaseHMIWidget(QGraphicsItem):
 
         text_val_update_slot = functools.partial(self._text_update_callback, vslot)
         vslot.signals.text_value_changed.connect(text_val_update_slot)
+
+    def write_value_slot(self,
+                         name: str,
+                         value: Union[bool, float, int, str],
+                         callback: Optional[Callable[[Optional[Exception]], None]] = None
+                         ) -> bool:
+        """Method meant to be used by an sub class to write a Value Slot.
+        If the write succeed, the ValueSlot value will be updated even if no
+        new value is received from the server. Avoid visual glitches"""
+        vslot = self._get_vslot_by_name(name)
+        if vslot is None:
+            raise KeyError(f"No Value Slot with name {name}")
+
+        watchable = vslot.watchable_line_edit.get_watchable()
+        if watchable is None:
+            return False
+
+        if callback is None:
+            callback = lambda *args, **kwargs: None
+
+        # When we write, we place a temporary override on the value given to the HMI widget
+        # so it reads what has been written. The override is removed when the write completes.
+        # The override is removed after the write is complete (failed or not) only if there is no new write happening,
+        # we used a monotonic ID to determine that.
+        # If the write is successful, the override value becomes the permanent value before removing it (until next update from server)
+        try:
+            override: Optional[ValueSlot.ValueOverride] = None
+            if not isinstance(value, str):
+                override = ValueSlot.ValueOverride(value=value, override_id=global_i64_counter())
+                callback = functools.partial(self._write_callback_wrapper, vslot, override.override_id, callback)
+            self._app.server_manager.qt_write_watchable_value(watchable.fqn, value, callback)
+            vslot.value_override = override
+        except Exception as e:
+            tools.log_exception(self._logger, e, f"Failed to write value on slot: {vslot.name}")
+            return False
+
+        return True
 
     def destroy(self) -> None:
         """Cleanup function"""
@@ -498,48 +548,61 @@ class BaseHMIWidget(QGraphicsItem):
             try:
                 validation.assert_type(name, 'name', str)
                 validation.assert_type(vslot_state_dict, 'vslot_state_dict', dict)
-                found = False
-                for vslot in self._vslots:
-                    if vslot.name == name:
-                        vslot.load_state_dict(vslot_state_dict)  # Can raise
-                        found = True
-                        break
-
-                if not found:
+                vslot = self._get_vslot_by_name(name)
+                if vslot is None:
                     raise KeyError(f"No Value Slot with name {name}")
+
+                vslot.load_state_dict(vslot_state_dict)  # Can raise
             except Exception as e:
                 tools.log_exception(self._logger, e, "Invalid ValueSlot config", str_level=logging.WARNING)
                 all_good = False
         return all_good
 
     def configure_vslot_constant(self, name: str, val: str) -> None:
-        found = False
-        for vslot in self._vslots:
-            if vslot.name == name:
-                found = True
-                vslot.watchable_line_edit.set_text_mode()
-                vslot.watchable_line_edit.setText(val)
-                break
-
-        if not found:
+        vslot = self._get_vslot_by_name(name)
+        if vslot is None:
             raise KeyError(f"No ValueSlot with name {name} in widget of type {self.get_unique_name()}")
+
+        vslot.watchable_line_edit.set_text_mode()
+        vslot.watchable_line_edit.setText(val)
 
     def configure_vslot_watchable(self, name: str, fqn: str, watchable_name: str) -> None:
-        found = False
+        vslot = self._get_vslot_by_name(name)
+        if vslot is None:
+            raise KeyError(f"No ValueSlot with name {name} in widget of type {self.get_unique_name()}")
+
+        parsed = WatchableRegistry.FQN.parse(fqn)
+        vslot.watchable_line_edit.set_watchable_mode(
+            watchable_type=parsed.watchable_type,
+            path=parsed.path,
+            name=watchable_name
+        )
+        self._vslot_configured_with_watchable_slot(vslot, fqn)
+
+
+# region Private
+
+    def _write_callback_wrapper(self,
+                                vslot: ValueSlot,
+                                override_id: int,
+                                original_callback: Callable[[Optional[Exception]], None],
+                                error: Optional[Exception]) -> None:
+        """Callback used to update the ValueSlot value after a successful write. Clear the temporary override
+        if this callback is the consequence of the last write done (checked by monotonic ID matching)"""
+        if vslot.value_override is not None:
+            if vslot.value_override.override_id == override_id:
+                if error is None and not isinstance(vslot.value_override.value, str):
+                    vslot.last_value_received = vslot.value_override.value
+
+                vslot.value_override = None
+
+        original_callback(error)
+
+    def _get_vslot_by_name(self, name: str) -> Optional[ValueSlot]:
         for vslot in self._vslots:
             if vslot.name == name:
-                found = True
-                parsed = WatchableRegistry.FQN.parse(fqn)
-                vslot.watchable_line_edit.set_watchable_mode(
-                    watchable_type=parsed.watchable_type,
-                    path=parsed.path,
-                    name=watchable_name
-                )
-                self._vslot_configured_with_watchable_slot(vslot, fqn)
-                break
-        if not found:
-            raise KeyError(f"No ValueSlot with name {name} in widget of type {self.get_unique_name()}")
-# region Private
+                return vslot
+        return None
 
     def _slot_value_update_callback(self, vslot: ValueSlot, val: WatchableValueType) -> None:
         """The callback invoked when a ValueSlot value changes"""
@@ -602,6 +665,12 @@ class BaseHMIWidget(QGraphicsItem):
 
         return self._vslot_config_widget
 
+    def get_vslot_val_by_name(self, name: str) -> WatchableValueType:
+        vslot = self._get_slot_by_name(name)
+        if vslot is None:
+            raise KeyError(f"No Value Slot with name {name}")
+        return vslot.get_val()
+
     def _get_vslot_vals(self) -> Dict[str, Optional[WatchableValueType]]:
         """Read and returns the actual values of each ValueSlot"""
 
@@ -661,9 +730,13 @@ class BaseHMIWidget(QGraphicsItem):
 
         self._last_draw_timestamp_ns = time.perf_counter_ns()
 
+    def left_mouse_down(self, pos: QPointF) -> None:
+        pass
+
+    def left_mouse_up(self, pos: Optional[QPointF]) -> None:
+        pass
 
 # region Abstracts methods
-
 
     def draw(self,
              values: Dict[str, WatchableValueType],

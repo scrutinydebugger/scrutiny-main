@@ -98,7 +98,6 @@ class HMIWorkZone(QGraphicsView):
 
     class _Signals(QObject):
         right_click = Signal(object, QMouseEvent)   # Optional[BaseHMIWidget], QMouseEvent
-        left_click = Signal(object, QMouseEvent)    # Optional[BaseHMIWidget], QMouseEvent
         drop_widget_class = Signal(type, QPoint)    # Class, QPoint
         selection_changed = Signal(list)            # List[BaseHMIWidget]
 
@@ -391,10 +390,10 @@ class HMIWorkZone(QGraphicsView):
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
         event.accept()
-
         self._mouse_down_start = event.pos()
         mouse_down_item = self.hmi_widget_at(event.pos())
         self._mouse_down_widget = None
+        must_propagate_left_button = False
 
         if isinstance(mouse_down_item, BaseHMIWidget):
             # Remember on what the user clicked. Ignore the Grid
@@ -406,7 +405,6 @@ class HMIWorkZone(QGraphicsView):
                 if self._mouse_down_widget is None:  # Clicked nothing (grid). Start a rubber band
                     self._rubberband_active = True
                 else:  # Clicked an HMI Widget
-
                     resize_handles = self._mouse_down_widget.resize_handles_coordinates()
                     resize_handle: Optional[HandlePosition] = None
                     pos_mapped_to_widget = self._mouse_down_widget.mapFromScene(self.mapToScene(event.pos()))
@@ -455,54 +453,65 @@ class HMIWorkZone(QGraphicsView):
                                 selection_bouding_rect=selection_bounding_rect.toRect()
                             )
                         )
+            else:
+                must_propagate_left_button = True
+
+        # Prevent propagation if we took the event.
+        # Prevents control widget to react when moving
+        if must_propagate_left_button and self._mouse_down_widget is not None:
+            self._mouse_down_widget.left_mouse_down(self._mouse_down_widget.mapFromScene(self.mapToScene(event.pos())))
 
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
         event.accept()
+        mouse_release_widget: Optional[QGraphicsItem] = None
         self._status_bar.set_resize_size(None)
-        if self._mouse_down_start is None:
-            return
+        if self._mouse_down_start is not None:
+            mouse_release_widget = self.hmi_widget_at(event.pos())
+            if not isinstance(mouse_release_widget, BaseHMIWidget):  # Works for None and Grid
+                mouse_release_widget = None
 
-        mouse_release_widget: Optional[QGraphicsItem] = self.hmi_widget_at(event.pos())
-        if not isinstance(mouse_release_widget, BaseHMIWidget):  # Works for None and Grid
-            mouse_release_widget = None
+            # Check if right-click
+            if event.button() == Qt.MouseButton.RightButton:
+                # Right release on same element as right press = right click
+                if self._mouse_down_widget is mouse_release_widget:
+                    self._signals.right_click.emit(mouse_release_widget, event)
 
-        # Check if right-click
-        if event.button() == Qt.MouseButton.RightButton:
-            # Right release on same element as right press = right click
-            if self._mouse_down_widget is mouse_release_widget:
-                self._signals.right_click.emit(mouse_release_widget, event)
+            elif event.button() == Qt.MouseButton.LeftButton:
+                if self._allow_edit_widgets:
+                    if event.pos() == self._mouse_down_start:
+                        self._rubberband_active = False
 
-        elif event.button() == Qt.MouseButton.LeftButton:
-            if event.pos() == self._mouse_down_start:
-                self._rubberband_active = False
-
-            if self._rubberband_active:  # Finished a rubberband
-                # Rubber band select logic
-                rubberband_rect = self._compute_rubber_band_rect(self._mouse_down_start, event.pos())
-                area = rubberband_rect.width() * rubberband_rect.height()
-                if area > self.MIN_RUBBERBAND_AREA:  # Drop if too small
-                    selected: List[BaseHMIWidget] = []
-                    rubberband_rect_mapped_to_scene = self.mapToScene(rubberband_rect).boundingRect().toRect()
-                    for widget in self.iterate_hmi_widgets():
-                        widget_rect = widget.mapToScene(widget.boundingRect()).boundingRect().toRect()
-                        if rubberband_rect_mapped_to_scene.contains(widget_rect):
-                            selected.append(widget)
-                    self.select_widgets(selected)
-            else:
-                if self._mouse_down_widget is mouse_release_widget:  # Left click on a single HMI widget
-                    has_moved = False
-                    if self._mouse_edit_data is not None:
-                        if self._mouse_edit_data.action == WidgetMouseEditData.Action.Move:
-                            if event.pos() != self._mouse_down_start:
-                                has_moved = True
-
-                    if not has_moved:
-                        self._signals.left_click.emit(mouse_release_widget, event)
-
-                        if mouse_release_widget is None:
-                            self.deselect_all_widgets()  # Will emit selection_changed
+                    if self._rubberband_active:  # Finished a rubberband
+                        # Rubber band select logic
+                        rubberband_rect = self._compute_rubber_band_rect(self._mouse_down_start, event.pos())
+                        area = rubberband_rect.width() * rubberband_rect.height()
+                        if area > self.MIN_RUBBERBAND_AREA:  # Drop if too small
+                            selected: List[BaseHMIWidget] = []
+                            rubberband_rect_mapped_to_scene = self.mapToScene(rubberband_rect).boundingRect().toRect()
+                            for widget in self.iterate_hmi_widgets():
+                                widget_rect = widget.mapToScene(widget.boundingRect()).boundingRect().toRect()
+                                if rubberband_rect_mapped_to_scene.contains(widget_rect):
+                                    selected.append(widget)
+                            self.select_widgets(selected)
                     else:
-                        self._resize_scene()
+                        if self._mouse_down_widget is mouse_release_widget:  # Left click on a single HMI widget
+                            has_moved = False
+                            if self._mouse_edit_data is not None:
+                                if self._mouse_edit_data.action == WidgetMouseEditData.Action.Move:
+                                    if event.pos() != self._mouse_down_start:
+                                        has_moved = True
+
+                            if not has_moved:
+                                if mouse_release_widget is None:
+                                    self.deselect_all_widgets()  # Will emit selection_changed
+                            else:
+                                self._resize_scene()
+
+                elif self._mouse_down_widget is not None:
+                    if mouse_release_widget is self._mouse_down_widget:
+                        self._mouse_down_widget.left_mouse_up(self._mouse_down_widget.mapFromScene(self.mapToScene(event.pos())))
+                    else:
+                        self._mouse_down_widget.left_mouse_up(None)
 
         self._mouse_down_widget = None
         self._mouse_down_start = None
@@ -510,6 +519,16 @@ class HMIWorkZone(QGraphicsView):
         self._rubberband_active = False
         self._mouse_edit_data = None
         self.setCursor(Qt.CursorShape.ArrowCursor)
+
+    def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:
+        # We don't handle double clicks.
+        # But 2 quick clicks cause:
+        #  - MousePress
+        #  - MouseRelease
+        #  - MouseDoubleClick
+        #  - MouseRelease
+
+        self.mousePressEvent(event)
 
     def count_hmi_widgets(self) -> int:
         return len(list(self.iterate_hmi_widgets()))

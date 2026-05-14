@@ -18,6 +18,7 @@ from PySide6.QtWidgets import QVBoxLayout, QWidget, QGroupBox, QComboBox, QFormL
 from scrutiny.gui.component_app_interface import AbstractComponentAppInterface
 from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget, WatchableValueType
 from scrutiny.gui.components.locals.hmi.common.hmi_colors import HMIColor, create_color_combobox
+from scrutiny.gui.components.locals.hmi.common.serialization import deserialize_combobox_val
 from scrutiny.gui import assets
 from scrutiny.tools.typing import *
 
@@ -167,16 +168,6 @@ class ColorIndicatorHMIWidget(BaseHMIWidget):
 
         raise NotImplementedError("Unknown condition")
 
-    @staticmethod
-    def _load_combobox(val: Any, dtype: Type[Any], cmbbox: QComboBox) -> bool:
-        with tools.SuppressException(Exception):
-            index = cmbbox.findData(dtype(val))
-            if index != -1:
-                cmbbox.setCurrentIndex(index)
-                return True
-
-        return False
-
     def _blink_timer_slot(self) -> None:
         self._blink_enable_flag = not self._blink_enable_flag
         self.update()
@@ -289,16 +280,16 @@ class ColorIndicatorHMIWidget(BaseHMIWidget):
         valid_active_behavior = False
 
         if 'operator' in d and isinstance(d['operator'], int):
-            valid_operator = self._load_combobox(d['operator'], RelationalOperator, self._cmb_operator)
+            valid_operator = deserialize_combobox_val(d['operator'], RelationalOperator, self._cmb_operator)
 
         if 'off_color' in d and isinstance(d['off_color'], str):
-            valid_off_color = self._load_combobox(d['off_color'], HMIColor, self._cmb_color_off)
+            valid_off_color = deserialize_combobox_val(d['off_color'], HMIColor, self._cmb_color_off)
 
         if 'on_color' in d and isinstance(d['on_color'], str):
-            valid_on_color = self._load_combobox(d['on_color'], HMIColor, self._cmb_color_on)
+            valid_on_color = deserialize_combobox_val(d['on_color'], HMIColor, self._cmb_color_on)
 
         if 'active_behavior' in d and isinstance(d['active_behavior'], int):
-            valid_active_behavior = self._load_combobox(d['active_behavior'], ActiveBehavior, self._cmb_active_behavior)
+            valid_active_behavior = deserialize_combobox_val(d['active_behavior'], ActiveBehavior, self._cmb_active_behavior)
 
         if not valid_operator:
             self._logger.warning("Invalid condition operator")

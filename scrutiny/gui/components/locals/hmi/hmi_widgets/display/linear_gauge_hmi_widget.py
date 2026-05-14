@@ -1,3 +1,11 @@
+#    linear_gauge_hmi_widget.py
+#        An HMI widget that display a value with a linear gauge that goes from a minimum to
+#        a maximum value. Like a progress bar
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
 
 __all__ = ['LinearGaugeHMIWidget']
 
@@ -14,6 +22,7 @@ from scrutiny.gui.components.locals.hmi.common.numerical_text_display import (
     NumberFormattingConfig, NumericalTextDisplay, NumberFormattingConfigWidget, NumberFormattingConfigDict)
 from scrutiny.gui.components.locals.hmi.common.color_span_editor import ColorSpanEditor, ColorSpanListStateDict, ColorSpan
 from scrutiny.gui.components.locals.hmi.common.gauge import GaugeOverflowBehavior
+from scrutiny.gui.components.locals.hmi.common.serialization import deserialize_combobox_val
 from scrutiny.gui import assets
 from scrutiny import tools
 from scrutiny.tools.typing import *
@@ -700,12 +709,7 @@ class LinearGaugeHMIWidget(BaseHMIWidget):
         valid_label_format_config = False
 
         if 'overflow' in d and isinstance(d['overflow'], int):
-            with tools.SuppressException(Exception):
-                behavior = GaugeOverflowBehavior(d['overflow'])
-                index = self._cmb_overflow_behavior.findData(behavior)
-                if index >= 0:
-                    self._cmb_overflow_behavior.setCurrentIndex(index)
-                    valid_overflow = True
+            valid_overflow = deserialize_combobox_val(d['overflow'], GaugeOverflowBehavior, self._cmb_overflow_behavior)
 
         if 'minor_tick' in d and isinstance(d['minor_tick'], int):
             self._spn_minor_ticks.setValue(d['minor_tick'])

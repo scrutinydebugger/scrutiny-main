@@ -19,6 +19,7 @@ from copy import copy
 from dataclasses import dataclass
 
 from PySide6.QtCore import Signal, QObject
+import shiboken6
 
 from scrutiny.core.logging import DUMPDATA_LOGLEVEL
 from scrutiny.sdk.listeners import BaseListener, ValueUpdate
@@ -103,7 +104,11 @@ class QtBufferedListener(BaseListener):
             self.qt_event_rate_measurement.add_data(1)
             self.last_signal_perf_cnt_ns = tnow
             self.emit_allowed = False
-            self.signals.data_received.emit()
+            # The signal is created in the main thread, but used in the listener thread
+            # Even very improbable, there is a slight time window where
+            # this signal can be deleted before teardown is called. So suppress the exception for normal operation
+            with tools.LogException(self._logger, RuntimeError, "Failed to emit", str_level=logging.DEBUG, traceback_level=logging.DEBUG):
+                self.signals.data_received.emit()
 
     def receive(self, updates: List[ValueUpdate]) -> None:
         try:
@@ -1200,6 +1205,7 @@ class ServerManager:
             return
 
         self._logger.debug("Stopping server manager")
+        self._listener.emit_allowed = False
         UserMessagesManager.instance().clear_message(USER_MSG_ID_CONNECT_FAILED)
         self._stop_pending = True
         self._set_device_info(None)
