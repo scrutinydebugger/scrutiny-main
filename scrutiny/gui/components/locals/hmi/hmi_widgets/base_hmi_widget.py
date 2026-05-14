@@ -14,7 +14,7 @@ import time
 import logging
 import enum
 
-from PySide6.QtWidgets import QGraphicsSceneMouseEvent, QWidget, QFormLayout, QGraphicsItem, QStyleOptionGraphicsItem
+from PySide6.QtWidgets import QWidget, QFormLayout, QGraphicsItem, QStyleOptionGraphicsItem
 from PySide6.QtGui import QPainter, QPixmap, QIcon
 from PySide6.QtCore import QSize, QRectF, QPointF, QObject, Qt, Signal
 
@@ -67,6 +67,11 @@ class ValueSlot:
     class _Signals(QObject):
         text_value_changed = Signal(object)
 
+    @dataclass(frozen=True)
+    class ValueOverride:
+        value: Union[int, float, bool]
+        override_id: int
+
     name: str
     """The name of the slot. used to generate a unique id and logging"""
     display_name: str
@@ -81,6 +86,7 @@ class ValueSlot:
     """A flag that indicate if a redraw of the HMI widget is required when the value of this slot changes"""
     value_update_callback: Optional[HMIWidgetValueUpdateCallback]
     """A callback to be called on value update. Mostly useful when require_redraw=``False``"""
+    value_override: Optional[ValueOverride]
     _signals: _Signals
     """The QT signals"""
     _logger: logging.Logger
@@ -100,6 +106,7 @@ class ValueSlot:
         self.last_value_received = None
         self.value_update_callback = value_update_callback
         self.require_redraw = require_redraw
+        self.value_override = None
         self._signals = self._Signals()
         self._logger = logging.getLogger(self.__class__.__name__)
 
@@ -148,6 +155,8 @@ class ValueSlot:
         if self.watchable_line_edit.is_text_mode():
             return self._read_text_val(self.watchable_line_edit.text())
         else:
+            if self.value_override is not None:
+                return self.value_override.value
             return self.last_value_received
 
     def get_state_dict(self) -> ValueSlotStateDict:
@@ -446,7 +455,14 @@ class BaseHMIWidget(QGraphicsItem):
         text_val_update_slot = functools.partial(self._text_update_callback, vslot)
         vslot.signals.text_value_changed.connect(text_val_update_slot)
 
-    def write_value_slot(self, name: str, value: Union[bool, float, int, str], callback: Optional[Callable[[Optional[Exception]], None]] = None) -> bool:
+    def write_value_slot(self,
+                         name: str,
+                         value: Union[bool, float, int, str],
+                         callback: Optional[Callable[[Optional[Exception]], None]] = None
+                         ) -> bool:
+        """Method meant to be used by an sub class to write a Value Slot.
+        If the write succeed, the ValueSlot value will be updated even if no
+        new value is received from the server. Avoid visual glitches"""
         vslot = self._get_vslot_by_name(name)
         if vslot is None:
             raise KeyError(f"No Value Slot with name {name}")
@@ -457,7 +473,23 @@ class BaseHMIWidget(QGraphicsItem):
 
         if callback is None:
             callback = lambda *args, **kwargs: None
-        self._app.server_manager.qt_write_watchable_value(watchable.fqn, value, callback)
+
+        # When we write, we place a temporary override on the value given to the HMI widget
+        # so it reads what has been written. The override is removed when the write completes.
+        # The override is removed after the write is complete (failed or not) only if there is no new write happening,
+        # we used a monotonic ID to determine that.
+        # If the write is successful, the override value becomes the permanent value before removing it (until next update from server)
+        try:
+            override: Optional[ValueSlot.ValueOverride] = None
+            if not isinstance(value, str):
+                override = ValueSlot.ValueOverride(value=value, override_id=global_i64_counter())
+                callback = functools.partial(self._write_callback_wrapper, vslot, override.override_id, callback)
+            self._app.server_manager.qt_write_watchable_value(watchable.fqn, value, callback)
+            vslot.value_override = override
+        except Exception as e:
+            tools.log_exception(self._logger, e, f"Failed to write value on slot: {vslot.name}")
+            return False
+
         return True
 
     def destroy(self) -> None:
@@ -550,6 +582,21 @@ class BaseHMIWidget(QGraphicsItem):
 
 # region Private
 
+    def _write_callback_wrapper(self,
+                                vslot: ValueSlot,
+                                override_id: int,
+                                original_callback: Callable[[Optional[Exception]], None],
+                                error: Optional[Exception]) -> None:
+        """Callback used to update the ValueSlot value after a successful write. Clear the temporary override
+        if this callback is the consequence of the last write done (checked by monotonic ID matching)"""
+        if vslot.value_override is not None:
+            if vslot.value_override.override_id == override_id:
+                if error is None and not isinstance(vslot.value_override.value, str):
+                    vslot.last_value_received = vslot.value_override.value
+
+                vslot.value_override = None
+
+        original_callback(error)
 
     def _get_vslot_by_name(self, name: str) -> Optional[ValueSlot]:
         for vslot in self._vslots:

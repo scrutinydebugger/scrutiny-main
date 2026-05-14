@@ -3,8 +3,9 @@ __all__ = ['ButtonHMIWidget']
 
 import enum
 import math
+import functools
 
-from PySide6.QtGui import QPainter, QPen, QBrush, QColor
+from PySide6.QtGui import QPainter, QPen, QBrush
 from PySide6.QtCore import QSize, Qt, QPointF, QRectF, QSizeF
 from PySide6.QtWidgets import QVBoxLayout, QWidget, QGroupBox, QComboBox, QFormLayout, QLineEdit
 
@@ -12,12 +13,12 @@ from scrutiny.gui.component_app_interface import AbstractComponentAppInterface
 from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget, WatchableValueType
 from scrutiny.gui.components.locals.hmi.common.serialization import deserialize_combobox_val
 from scrutiny.gui.components.locals.hmi.common.hmi_colors import create_color_combobox, HMIColor
+from scrutiny.gui.components.locals.hmi.common.text import set_font_size_to_fit_rect
 from scrutiny.gui.components.locals.hmi.hmi_theme import HMITheme
-from scrutiny.gui import assets
 from scrutiny.tools.typing import *
+from scrutiny.gui import assets
 
 from scrutiny.gui.components.locals.hmi.hmi_library_category import LibraryCategory
-from scrutiny import tools
 
 
 class _Dims:
@@ -27,6 +28,8 @@ class _Dims:
     PERSPECTIVE_WIDTH_MAX_PX = 6
     RADIUS_PX = 3
     ROUND_CORNER_DELTA = RADIUS_PX * (1 - math.cos(math.pi / 4))
+    TEXT_MARGIN_RATIO = 0.1
+    TEXT_MARGIN_MAX_PX = 10
 
 
 class ButtonType(enum.Enum):
@@ -50,14 +53,12 @@ class ButtonHMIWidget(BaseHMIWidget):
     _txt_label_inactive: QLineEdit
 
     _is_pressed: bool
-    _pending_write: Optional[bool]
     _text_pen: QPen
 
     def __init__(self, app: AbstractComponentAppInterface) -> None:
         super().__init__(app)
         self.declare_value_slot('val', 'Value', allow_constant=False)
         self._is_pressed = False
-        self._pending_write = None
         self._text_pen = QPen()
         self._text_pen.setColor(HMITheme.Color.text())
 
@@ -92,9 +93,9 @@ class ButtonHMIWidget(BaseHMIWidget):
         config_layout.addWidget(gb_inactive)
 
         self._cmb_button_type.setCurrentIndex(self._cmb_button_type.findData(ButtonType.MOMENTARY))
-        self._txt_label_active.setText("On")
+        self._txt_label_active.setText("ON")
         self._cmb_color_active.setCurrentIndex(self._cmb_color_active.findData(HMIColor.GOOD))
-        self._txt_label_inactive.setText("Off")
+        self._txt_label_inactive.setText("OFF")
         self._cmb_color_inactive.setCurrentIndex(self._cmb_color_inactive.findData(HMIColor.INACTIVE))
 
         self._cmb_button_type.currentIndexChanged.connect(self._config_changed_slot)
@@ -114,6 +115,11 @@ class ButtonHMIWidget(BaseHMIWidget):
 
     def _config_changed_slot(self) -> None:
         self.update()
+
+    def _write_val(self, val: bool) -> None:
+        # There will be (almost) no visual glitches during the duration of the write.
+        # The BaseHMIWidget has a mechanism to override the draw value while the write is in progress
+        self.write_value_slot('val', val)
 
 # region Getters and Setters
 
@@ -152,8 +158,6 @@ class ButtonHMIWidget(BaseHMIWidget):
         is_active = False
         if is_valid:
             is_active = bool(values['val'])
-            if self._pending_write is not None:
-                is_active = self._pending_write
 
         bounding_rect = self.boundingRect()
         border_width = min(min(bounding_rect.width(), bounding_rect.height()) * _Dims.EDGE_WIDTH, _Dims.EDGE_WIDTH_MAX_PX)
@@ -180,6 +184,8 @@ class ButtonHMIWidget(BaseHMIWidget):
         painter.setBrush(brush)
 
         perspective_delta = min(min(bounding_rect.width(), bounding_rect.height()) * _Dims.PERSPECTIVE_WIDTH, _Dims.PERSPECTIVE_WIDTH_MAX_PX)
+        text_margin_v = min((bounding_rect.height() - border_width) * _Dims.TEXT_MARGIN_RATIO, _Dims.TEXT_MARGIN_MAX_PX)
+        text_margin_h = min((bounding_rect.width() - border_width) * _Dims.TEXT_MARGIN_RATIO, _Dims.TEXT_MARGIN_MAX_PX)
         rect_size = QSizeF(bounding_rect.width() - perspective_delta - border_width, bounding_rect.height() - border_width - perspective_delta)
 
         half_border_width = border_width / 2
@@ -195,9 +201,12 @@ class ButtonHMIWidget(BaseHMIWidget):
 
         if self._is_pressed:
             painter.drawRoundedRect(bottom_rect, _Dims.RADIUS_PX, _Dims.RADIUS_PX)
+            text_rect = QRectF(
+                bottom_rect.topLeft() + QPointF(text_margin_h, text_margin_v),
+                bottom_rect.size() - QSizeF(2 * text_margin_h, 2 * text_margin_v)
+            )
 
             painter.setPen(self._text_pen)
-            painter.drawText(bottom_rect, text, Qt.AlignmentFlag.AlignCenter)
         else:
             painter.drawRoundedRect(bottom_rect, _Dims.RADIUS_PX, _Dims.RADIUS_PX)
             p1 = QPointF(half_border_width + _Dims.ROUND_CORNER_DELTA, half_border_width + perspective_delta + _Dims.ROUND_CORNER_DELTA)
@@ -209,10 +218,16 @@ class ButtonHMIWidget(BaseHMIWidget):
             painter.drawLine(p1 + delta_br, p2 + delta_br)
             painter.drawRoundedRect(top_rect, _Dims.RADIUS_PX, _Dims.RADIUS_PX)
 
-            painter.setPen(self._text_pen)
-            painter.drawText(top_rect, text, Qt.AlignmentFlag.AlignCenter)
+            text_rect = QRectF(
+                top_rect.topLeft() + QPointF(text_margin_h, text_margin_v),
+                top_rect.size() - QSizeF(2 * text_margin_h, 2 * text_margin_v)
+            )
 
-        self._pending_write = None
+        font = painter.font()
+        set_font_size_to_fit_rect(font, text, text_rect)
+        painter.setFont(font)
+        painter.setPen(self._text_pen)
+        painter.drawText(text_rect, text, Qt.AlignmentFlag.AlignCenter)
 
     def get_implementation_config_dict(self) -> Dict[str, Any]:
         return {
@@ -235,14 +250,12 @@ class ButtonHMIWidget(BaseHMIWidget):
     def left_mouse_down(self, pos: QPointF) -> None:
         self._is_pressed = True
         if self.get_button_type() == ButtonType.MOMENTARY:
-            if self.write_value_slot('val', True):
-                self._pending_write = True
+            self._write_val(True)
         elif self.get_button_type() == ButtonType.TOGGLE:
             last_val = self.get_vslot_val_by_name('val')
             if last_val is not None:
                 new_val = not bool(last_val)
-                if self.write_value_slot('val', new_val):
-                    self._pending_write = new_val
+                self._write_val(new_val)
         else:
             raise NotImplementedError("Unknown button type")
 
@@ -250,8 +263,7 @@ class ButtonHMIWidget(BaseHMIWidget):
 
     def left_mouse_up(self, pos: Optional[QPointF]) -> None:
         if self.get_button_type() == ButtonType.MOMENTARY:
-            if self.write_value_slot('val', False):
-                self._pending_write = False
+            self._write_val(False)
         elif self.get_button_type() == ButtonType.TOGGLE:
             pass
         else:

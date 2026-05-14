@@ -17,6 +17,7 @@ from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseH
 from scrutiny.gui.components.locals.hmi.hmi_library_category import LibraryCategory
 from scrutiny.gui.components.locals.hmi.common.pen_config import PenConfigWidget, PenConfigStateDict
 from scrutiny.gui.components.locals.hmi.common.brush_config import BrushConfigWidget, BrushConfigStateDict
+from scrutiny.gui.components.locals.hmi.common.text import set_font_size_to_fit_rect
 from scrutiny.gui.components.locals.hmi.hmi_theme import HMITheme
 from scrutiny.gui.widgets.color_button import ColorButton
 
@@ -139,24 +140,7 @@ class TextLabelHMIWidget(BaseHMIWidget):
         painter.setPen(pen)
         font = painter.font()
         text = self._txt_content.text()
-
-        font.setPixelSize(max(1, int(draw_rect.size().height())))
-        text_width = QFontMetrics(font).averageCharWidth() * len(text)
-        if text_width > draw_rect.size().width():
-            font.setPixelSize(max(1, int(draw_rect.size().height() * draw_rect.size().width() / text_width)))
-
-        # apply_font_size uses average char size. It might not be exact.
-        # Decrease the size until we fit on one line
-        while font.pixelSize() > 1:
-            previous_size = font.pixelSize()
-            required_width = QFontMetrics(font).size(0, text)
-            if required_width.width() <= draw_rect.width():
-                break
-
-            font.setPixelSize(previous_size - 1)
-            if not font.pixelSize() < previous_size:
-                self._logger.critical("Failed to reduce the font size. Report this error please.")
-                break
+        set_font_size_to_fit_rect(font, text, draw_rect)
         painter.setFont(font)
         painter.drawText(draw_rect, text, Qt.AlignmentFlag.AlignCenter)
 
