@@ -11,7 +11,6 @@ __all__ = ['ButtonHMIWidget']
 
 import enum
 import math
-import functools
 
 from PySide6.QtGui import QPainter, QPen, QBrush
 from PySide6.QtCore import QSize, Qt, QPointF, QRectF, QSizeF
@@ -23,8 +22,8 @@ from scrutiny.gui.components.locals.hmi.common.serialization import deserialize_
 from scrutiny.gui.components.locals.hmi.common.hmi_colors import create_color_combobox, HMIColor
 from scrutiny.gui.components.locals.hmi.common.text import set_font_size_to_fit_rect
 from scrutiny.gui.components.locals.hmi.hmi_theme import HMITheme
-from scrutiny.tools.typing import *
 from scrutiny.gui import assets
+from scrutiny.tools.typing import *
 
 from scrutiny.gui.components.locals.hmi.hmi_library_category import LibraryCategory
 
@@ -139,6 +138,34 @@ class ButtonHMIWidget(BaseHMIWidget):
         if index >= 0:
             self._cmb_button_type.setCurrentIndex(index)
 
+    def get_label_active(self) -> str:
+        return self._txt_label_active.text()
+
+    def set_label_active(self, label: str) -> None:
+        self._txt_label_active.setText(label)
+
+    def get_color_active(self) -> HMIColor:
+        return cast(HMIColor, self._cmb_color_active.currentData())
+
+    def set_color_active(self, color: HMIColor) -> None:
+        index = self._cmb_color_active.findData(color)
+        if index >= 0:
+            self._cmb_color_active.setCurrentIndex(index)
+
+    def get_label_inactive(self) -> str:
+        return self._txt_label_inactive.text()
+
+    def set_label_inactive(self, label: str) -> None:
+        self._txt_label_inactive.setText(label)
+
+    def get_color_inactive(self) -> HMIColor:
+        return cast(HMIColor, self._cmb_color_inactive.currentData())
+
+    def set_color_inactive(self, color: HMIColor) -> None:
+        index = self._cmb_color_inactive.findData(color)
+        if index >= 0:
+            self._cmb_color_inactive.setCurrentIndex(index)
+
 # endregion
 
 # region Override
@@ -240,19 +267,53 @@ class ButtonHMIWidget(BaseHMIWidget):
     def get_implementation_config_dict(self) -> Dict[str, Any]:
         return {
             'btn_type': cast(ButtonType, self._cmb_button_type.currentData()).value,
+            'label_active': self._txt_label_active.text(),
+            'color_active': cast(HMIColor, self._cmb_color_active.currentData()).value,
+            'label_inactive': self._txt_label_inactive.text(),
+            'color_inactive': cast(HMIColor, self._cmb_color_inactive.currentData()).value,
         }
 
     def apply_implementation_config_dict(self, d: Dict[str, Any]) -> bool:
         valid_button_type = False
+        valid_label_active = False
+        valid_color_active = False
+        valid_label_inactive = False
+        valid_color_inactive = False
 
         if 'btn_type' in d and isinstance(d['btn_type'], int):
             valid_button_type = deserialize_combobox_val(d['btn_type'], ButtonType, self._cmb_button_type)
 
+        if 'label_active' in d and isinstance(d['label_active'], str):
+            self._txt_label_active.setText(d['label_active'])
+            valid_label_active = True
+
+        if 'color_active' in d and isinstance(d['color_active'], str):
+            valid_color_active = deserialize_combobox_val(d['color_active'], HMIColor, self._cmb_color_active)
+
+        if 'label_inactive' in d and isinstance(d['label_inactive'], str):
+            self._txt_label_inactive.setText(d['label_inactive'])
+            valid_label_inactive = True
+
+        if 'color_inactive' in d and isinstance(d['color_inactive'], str):
+            valid_color_inactive = deserialize_combobox_val(d['color_inactive'], HMIColor, self._cmb_color_inactive)
+
         if not valid_button_type:
             self._logger.warning("Invalid button type")
+        if not valid_label_active:
+            self._logger.warning("Invalid active label")
+        if not valid_color_active:
+            self._logger.warning("Invalid active color")
+        if not valid_label_inactive:
+            self._logger.warning("Invalid inactive label")
+        if not valid_color_inactive:
+            self._logger.warning("Invalid inactive color")
 
         return (
             valid_button_type
+            and valid_label_active
+            and valid_color_active
+            and valid_label_inactive
+            and valid_color_inactive
         )
 
     def left_mouse_down(self, pos: QPointF) -> None:
