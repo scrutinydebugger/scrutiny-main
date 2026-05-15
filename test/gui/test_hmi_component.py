@@ -8,7 +8,7 @@
 
 from PySide6.QtWidgets import QWidget
 from PySide6.QtCore import QPoint, QSize, Qt, QEvent, QPointF
-from PySide6.QtGui import QPen, QBrush, QColor, QMouseEvent, QDragEnterEvent, QDragMoveEvent, QDropEvent, QDragLeaveEvent, QResizeEvent, QPainter
+from PySide6.QtGui import QPen, QBrush, QColor, QMouseEvent, QDragEnterEvent, QDragMoveEvent, QDropEvent, QDragLeaveEvent, QResizeEvent, QPainter, QImage
 
 from scrutiny import sdk
 from scrutiny.gui.core.scrutiny_drag_data import ScrutinyDragData
@@ -38,6 +38,7 @@ class MainWindowStub(QWidget):
         super().__init__()
         self.registry = WatchableRegistry()
         self.server_manager = FakeServerManager(self.registry)
+        self.server_manager.start("config_is_not_used_with_fake_manager")
         self.server_manager.simulate_server_connect()
         self.server_manager.simulate_device_ready()
         self.server_manager.simulate_sfd_loaded()
@@ -415,6 +416,9 @@ class TestHMIWidgetSerialization(HMIComponentBaseTest):
         indicator.set_size(QSize(32, 32))
         self.hmi_component.add_hmi_widget(indicator, QPoint(16, 32))
         self.assertEqual(self.hmi_component.hmi_widget_count(), 1)
+        fqn = 'var:/var/some_bool'
+        indicator.configure_vslot_watchable('operand1', fqn, 'some_bool')
+        indicator.configure_vslot_constant('operand2', False)
 
         indicator.set_on_color(HMIColor.WARNING)
         indicator.set_off_color(HMIColor.DANGER)
@@ -436,6 +440,11 @@ class TestHMIWidgetSerialization(HMIComponentBaseTest):
         self.assertIsInstance(new_indicator, ColorIndicatorHMIWidget)
         assert isinstance(new_indicator, ColorIndicatorHMIWidget)
 
+        operand1_watchable = new_indicator.get_vslot_watchable('operand1')
+        self.assertIsNotNone(operand1_watchable)
+        self.assertEqual(operand1_watchable.fqn, fqn)
+        self.assertEqual(operand1_watchable.name, 'some_bool')
+        self.assertEqual(new_indicator.get_vslot_val_by_name('operand2'), False)
         self.assertEqual(new_indicator.pos(), QPoint(16, 32))
         self.assertEqual(new_indicator.get_size(), QSize(32, 32))
         self.assertEqual(new_indicator.get_on_color(), indicator.get_on_color())
@@ -1132,34 +1141,185 @@ class TestHMIComponent(HMIComponentBaseTest):
 
 
 class TestHMIWidgets(HMIComponentBaseTest):
+
+    def setUp(self):
+        super().setUp()
+        self.paint_device = QImage(640, 480, QImage.Format.Format_RGB32)
+        self.paint_device.fill(Qt.GlobalColor.white)
+
+    def _render_scene(self):
+        scene = self.hmi_component.get_workzone().scene()
+        scene.invalidate()
+        painter = QPainter(self.paint_device)
+        self.hmi_component.get_workzone().render(
+            painter,
+            self.paint_device.rect(),
+            scene.sceneRect().toRect()
+        )
+        painter.end()
+
+    def test_basic_shapes_draw(self):
+        rectangle = RectangleHMIWidget(self.app_interface)
+        circle = CircleHMIWidget(self.app_interface)
+        line = LineHMIWidget(self.app_interface)
+        label = TextLabelHMIWidget(self.app_interface)
+
+        rectangle.set_size(QSize(48, 48))
+        circle.set_size(QSize(48, 48))
+        line.set_size(QSize(48, 48))
+        label.set_size(QSize(48, 48))
+        label.set_text("hello")
+
+        self.hmi_component.add_hmi_widget(rectangle, QPoint(0, 0))
+        self.hmi_component.add_hmi_widget(circle, QPoint(48, 0))
+        self.hmi_component.add_hmi_widget(line, QPoint(0, 48))
+        self.hmi_component.add_hmi_widget(label, QPoint(48, 48))
+
+        rectangle.update()
+        circle.update()
+        line.update()
+        label.update()
+        self._render_scene()
+
+    def test_color_indicator_draw(self):
+        # Make sure wer can draw without raising an exception
+        indicator = ColorIndicatorHMIWidget(self.app_interface)
+        indicator.set_size(QSize(48, 48))
+        self.hmi_component.add_hmi_widget(indicator, QPoint(0, 0))
+
+        indicator.set_active_behavior(ActiveBehavior.Steady)
+        indicator.set_on_color(HMIColor.GOOD)
+        indicator.set_off_color(HMIColor.DANGER)
+
+        for operator in RelationalOperator:
+            with self.subTest(f"operator={operator}"):
+                indicator.set_operator(operator)
+                indicator.draw({'operand1': 1, 'operand2': 2}, False, QPainter())
+
+        indicator.set_active_behavior(ActiveBehavior.BlinkFast)
+        indicator.set_operator(RelationalOperator.EQ)
+        indicator.draw({'operand1': 1, 'operand2': 2}, False, QPainter())
+
+    def test_draw_radial_gauge(self):
+        gauge = RadialGaugeHMIWidget(self.app_interface)
+        gauge.set_size(QSize(128, 128))
+        self.hmi_component.add_hmi_widget(gauge, QPoint(0, 0))
+        gauge.configure_vslot_constant('val', 40)
+        gauge.configure_vslot_constant('min', -100)
+        gauge.configure_vslot_constant('max', 100)
+
+        gauge.set_major_ticks(8)
+        gauge.set_minor_ticks(4)
+        gauge.set_label_size_percent(50)
+        gauge.set_overflow_behavior(GaugeOverflowBehavior.CLIP)
+        gauge.set_number_formatting_config(NumberFormattingConfig(units="W", eng_notation=True, decimals=2))
+        gauge.set_color_spans([ColorSpan(0, 10, HMIColor.DANGER), ColorSpan(90, 100, HMIColor.DANGER)])
+
+        gauge.update()
+        self._render_scene()
+
+        gauge.set_overflow_behavior(GaugeOverflowBehavior.CLIP)
+        gauge.configure_vslot_constant('val', 101)
+        gauge.update()
+        self._render_scene()
+
+        gauge.set_overflow_behavior(GaugeOverflowBehavior.SHOW_NA)
+        gauge.configure_vslot_constant('val', 101)
+        gauge.update()
+        self._render_scene()
+
+        gauge.configure_vslot_constant('val', "")
+        gauge.update()
+        self._render_scene()
+
+        gauge.set_overflow_behavior(GaugeOverflowBehavior.CLIP)
+        gauge.configure_vslot_constant('val', 0)
+        gauge.configure_vslot_constant('min', 100)
+        gauge.configure_vslot_constant('max', 100)
+        gauge.update()
+        self._render_scene()
+
+    def test_draw_linear_gauge(self):
+        gauge = LinearGaugeHMIWidget(self.app_interface)
+        gauge.set_size(QSize(128, 128))
+        self.hmi_component.add_hmi_widget(gauge, QPoint(0, 0))
+        gauge.configure_vslot_constant('val', 40)
+        gauge.configure_vslot_constant('min', -100)
+        gauge.configure_vslot_constant('max', 100)
+        gauge.configure_vslot_constant('zero', 0)
+
+        gauge.set_major_ticks(8)
+        gauge.set_minor_ticks(4)
+        gauge.set_label_size_percent(50)
+        gauge.set_overflow_behavior(GaugeOverflowBehavior.CLIP)
+        gauge.set_label_format_config(NumberFormattingConfig(units="W", eng_notation=True, decimals=2))
+        gauge.set_color_spans([ColorSpan(0, 10, HMIColor.DANGER), ColorSpan(90, 100, HMIColor.DANGER)])
+
+        gauge.update()
+        self._render_scene()
+
+        gauge.configure_vslot_constant('val', 101)
+        gauge.update()
+        self._render_scene()
+
+        gauge.set_overflow_behavior(GaugeOverflowBehavior.SHOW_NA)
+        gauge.update()
+        self._render_scene()
+
+        gauge.configure_vslot_constant('val', 50)
+        gauge.set_inverted_axis(True)
+        gauge.update()
+        self._render_scene()
+
+    def test_draw_numerical_display(self):
+        display = NumericalDisplayHMIWidget(self.app_interface)
+        display.set_size(QSize(128, 128))
+        self.hmi_component.add_hmi_widget(display, QPoint(0, 0))
+
+        display.configure_vslot_constant('val', "")
+        display.update()
+        self._render_scene()
+
+        display.configure_vslot_constant('val', 123.45)
+        display.update()
+        self._render_scene()
+
+        for val in [123.4, True, 55, "hi"]:
+            display.set_val(val)
+            display.update()
+            self.assertEqual(val, display.get_val())
+            self._render_scene()
+
     def test_button(self):
-        bool_fqn = "var:/var/some_bool"
+        server_path = '/var/some_bool'
+        bool_fqn = f"var:{server_path}"
         button = ButtonHMIWidget(self.app_interface)
         button.set_size(QSize(48, 48))
         button.configure_vslot_watchable('val', bool_fqn, 'some_bool')
         self.hmi_component.add_hmi_widget(button, QPoint(16, 32))
 
-        painter = QPainter()
-        button.set_button_type(ButtonType.MOMENTARY)
-        button.draw({'val': None}, edit_mode=False, painter=painter)
-        button.draw({'val': False}, edit_mode=False, painter=painter)
-        button.draw({'val': True}, edit_mode=False, painter=painter)
-        button.draw({'val': True}, edit_mode=True, painter=painter)
-
-        button.set_button_type(ButtonType.TOGGLE)
-        button.draw({'val': None}, edit_mode=False, painter=painter)
-        button.draw({'val': False}, edit_mode=False, painter=painter)
-        button.draw({'val': True}, edit_mode=False, painter=painter)
-        button.draw({'val': True}, edit_mode=True, painter=painter)
-
         fake_server_manager = cast(FakeServerManager, self.app_interface.server_manager)
+        button.set_button_type(ButtonType.MOMENTARY)
+
+        button.update()
+        self._render_scene()
+
+        button.emulate_vslot_watchable_value_update('val', False)
+        button.update()
+        self._render_scene()
+
+        button.emulate_vslot_watchable_value_update('val', True)
+        button.update()
+        self._render_scene()
+
         write_history = fake_server_manager.get_write_history()
         button_center = QPointF(48 + 8, 48 + 16)
 
         button.set_button_type(ButtonType.MOMENTARY)
 
         button.left_mouse_down(button_center)
-        button.draw({'val': False}, edit_mode=False, painter=painter)
+        button.update()
+        self._render_scene()
         self.assertEqual(len(write_history), 1)
         self.assertEqual(write_history[0].fqn, bool_fqn)
         self.assertEqual(write_history[0].value, True)
@@ -1183,5 +1343,3 @@ class TestHMIWidgets(HMIComponentBaseTest):
         self.assertEqual(len(write_history), 2)
         self.assertEqual(write_history[1].fqn, bool_fqn)
         self.assertEqual(write_history[1].value, False)
-
-        self.app_interface.watchable_registry

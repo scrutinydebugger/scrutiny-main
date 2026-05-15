@@ -281,3 +281,11 @@ class FakeServerManager:
 
     def get_write_history(self) -> List[WriteLog]:
         return self._write_history
+
+    def emulate_update_watchable(self,
+                                 server_path: str,
+                                 value: Union[int, float, bool],
+                                 status: ValueStatus = ValueStatus.Valid):
+        handle = self._handles[server_path]
+        update = ValueUpdate(handle, value, status, datetime.now())
+        self._registry.broadcast_value_updates_to_watchers([update])
