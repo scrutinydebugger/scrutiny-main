@@ -16,14 +16,16 @@ from PySide6.QtGui import (QDragEnterEvent, QDropEvent, QKeyEvent, QAction, QMou
                            QPaintEvent, QPainter, QColor, QResizeEvent)
 from PySide6.QtCore import Qt, QSize, QPoint, QRect, QObject, Signal
 
-from scrutiny import tools
-from scrutiny.tools.typing import *
+from scrutiny.sdk import WatchableType
+
 from scrutiny.gui.core.scrutiny_drag_data import WatchableListDescriptor
+from scrutiny.gui.core.watchable_registry import WatchableRegistry
+from scrutiny.gui.themes import scrutiny_get_theme_prop, ScrutinyThemeProperties, scrutiny_get_theme
 from scrutiny.gui.tools import watchabletype_2_icon
 from scrutiny.gui import assets
-from scrutiny.gui.core.watchable_registry import WatchableRegistry
-from scrutiny.sdk import WatchableType
-from scrutiny.gui.themes import scrutiny_get_theme_prop, ScrutinyThemeProperties, scrutiny_get_theme
+
+from scrutiny import tools
+from scrutiny.tools.typing import *
 
 
 @dataclass(slots=True)
