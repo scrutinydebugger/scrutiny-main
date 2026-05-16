@@ -55,6 +55,13 @@ class PointerAngle:
     clipped: bool
 
 
+@dataclass(slots=True)
+class HitTestData:
+    center: QPointF
+    radius_w: float
+    radius_h: float
+
+
 class _GaugePointer(QGraphicsItem):
     """The needle of the gauge"""
     _angle: float
@@ -151,6 +158,7 @@ class RadialGaugeHMIWidget(BaseHMIWidget):
     _sld_label_size: QSlider
     """A slider to modulate the size of the tick labels between min and max size"""
 
+    _hit_test_data: HitTestData
     # State variables
     _minval: Optional[float]
     """The last minimum we have received (it's not a constant)"""
@@ -165,6 +173,7 @@ class RadialGaugeHMIWidget(BaseHMIWidget):
 
         self._minval = None
         self._maxval = None
+        self._hit_test_data = HitTestData(QPointF(0, 0), 1, 1)
 
         self._numerical_display = NumericalTextDisplay(self)
         self._numerical_display.set_background_color(HMITheme.Color.workzone_background())  # Effect of hole
@@ -275,7 +284,6 @@ class RadialGaugeHMIWidget(BaseHMIWidget):
 
 # region Getter & Setters
 
-
     def set_number_formatting_config(self, config: NumberFormattingConfig) -> None:
         self._numerical_display.set_number_formatting_config(config)
 
@@ -358,6 +366,10 @@ class RadialGaugeHMIWidget(BaseHMIWidget):
         ref_size = bounding_rect.width() / 2
         center = QPointF(bounding_rect.width() / 2, bounding_rect.height() / 2)
         stroke_w = max(ref_size * _Dims.STROKE, 1)
+        self._hit_test_data.center = center
+        self._hit_test_data.radius_w = ref_size * _Dims.OUTER_CIRCLE
+        self._hit_test_data.radius_h = self._hit_test_data.radius_w * aspect_ratio
+
         outer_radius = ref_size * _Dims.OUTER_CIRCLE - stroke_w / 2
         inner_radius = ref_size * _Dims.INNER_CIRCLE - stroke_w / 2
         textbox_w = ref_size * _Dims.TEXT_DISPLAY_W
@@ -513,6 +525,14 @@ class RadialGaugeHMIWidget(BaseHMIWidget):
         self._numerical_display.set_size(QSizeF(textbox_w, textbox_h).toSize())
 
         self._process_new_val(values['val'])
+
+    def hit_test(self, pos: QPointF) -> bool:
+        if self._hit_test_data.radius_w <= 0 or self._hit_test_data.radius_h <= 0:
+            return False
+
+        term1 = (pos.x() - self._hit_test_data.center.x())**2 / self._hit_test_data.radius_w**2
+        term2 = (pos.y() - self._hit_test_data.center.y())**2 / self._hit_test_data.radius_h**2
+        return (term1 + term2 <= 1)
 
     def get_config_widget(self) -> Optional[QWidget]:
         return self._config_widget

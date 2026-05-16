@@ -223,6 +223,14 @@ class ColorIndicatorHMIWidget(BaseHMIWidget):
     def get_config_widget(self) -> QWidget:
         return self._config_widget
 
+    def hit_test(self, pos: QPointF) -> bool:
+        bounding_rect = self.boundingRect()
+        center = QPointF(bounding_rect.width() / 2, bounding_rect.height() / 2)
+        radius_w = _Dims.RADIUS * bounding_rect.width() / 2
+        radius_h = _Dims.RADIUS * bounding_rect.height() / 2
+
+        return ((pos.x() - center.x())**2 / radius_w**2 + (pos.y() - center.y())**2 / radius_h**2 <= 1)
+
     def draw(self,
              values: Dict[str, Optional[WatchableValueType]],
              edit_mode: bool,

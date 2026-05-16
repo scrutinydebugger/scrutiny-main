@@ -16,7 +16,7 @@ import enum
 
 from PySide6.QtWidgets import QWidget, QFormLayout, QGraphicsItem, QStyleOptionGraphicsItem
 from PySide6.QtGui import QPainter, QPixmap, QIcon
-from PySide6.QtCore import QSize, QRectF, QPointF, QObject, Qt, Signal
+from PySide6.QtCore import QSize, QRectF, QPointF, QPoint, QObject, Qt, Signal
 
 from scrutiny import sdk
 from scrutiny.gui.app_settings import app_settings
@@ -584,7 +584,6 @@ class BaseHMIWidget(QGraphicsItem):
 
 # region Private
 
-
     def _write_callback_wrapper(self,
                                 vslot: ValueSlot,
                                 override_id: int,
@@ -737,11 +736,17 @@ class BaseHMIWidget(QGraphicsItem):
 
         self._last_draw_timestamp_ns = time.perf_counter_ns()
 
-    def left_mouse_down(self, pos: QPointF) -> None:
-        pass
+    def left_mouse_down(self, pos: QPointF) -> Qt.CursorShape:
+        return Qt.CursorShape.ArrowCursor
 
-    def left_mouse_up(self, pos: Optional[QPointF]) -> None:
-        pass
+    def left_mouse_up(self, pos: Optional[QPointF]) -> Qt.CursorShape:
+        return Qt.CursorShape.ArrowCursor
+
+    def mouse_move(self, pos: QPointF) -> Qt.CursorShape:
+        return Qt.CursorShape.ArrowCursor
+
+    def hit_test(self, pos: QPointF) -> bool:
+        return self.boundingRect().contains(pos)
 
 # region Abstracts methods
 

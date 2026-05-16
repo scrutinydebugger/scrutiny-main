@@ -383,13 +383,13 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
             self._show_edit_menu(True)
             self._workzone.show_grid(True)
             self._workzone.setAcceptDrops(True)
-            self._workzone.set_allow_edit_widgets(True)
+            self._workzone.set_edit_mode(True)
             self._status_bar.setVisible(True)
         elif self._mode == HMIInteractionMode.Display:
             self._show_edit_menu(False)
             self._workzone.show_grid(False)
             self._workzone.setAcceptDrops(False)
-            self._workzone.set_allow_edit_widgets(False)
+            self._workzone.set_edit_mode(False)
             self._status_bar.setVisible(False)
 
         for hmi_widget in self._workzone.iterate_hmi_widgets():
