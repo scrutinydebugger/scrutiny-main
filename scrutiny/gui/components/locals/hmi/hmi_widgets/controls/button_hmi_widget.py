@@ -12,9 +12,9 @@ __all__ = ['ButtonHMIWidget']
 import enum
 import math
 
-from PySide6.QtGui import QPainter, QPen, QBrush
+from PySide6.QtGui import QPainter, QPainterPath, QPen, QBrush
 from PySide6.QtCore import QSize, Qt, QPointF, QRectF, QSizeF
-from PySide6.QtWidgets import QVBoxLayout, QWidget, QGroupBox, QComboBox, QFormLayout, QLineEdit
+from PySide6.QtWidgets import QGraphicsSceneMouseEvent, QVBoxLayout, QWidget, QGroupBox, QComboBox, QFormLayout, QLineEdit
 
 from scrutiny.gui.component_app_interface import AbstractComponentAppInterface
 from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget, WatchableValueType
@@ -183,6 +183,10 @@ class ButtonHMIWidget(BaseHMIWidget):
     def get_config_widget(self) -> QWidget:
         return self._config_widget
 
+    def mouseMoveEvent(self, event: QGraphicsSceneMouseEvent) -> None:
+        print("move")
+        return super().mouseMoveEvent(event)
+
     def draw(self,
              values: Dict[str, Optional[WatchableValueType]],
              edit_mode: bool,
@@ -206,7 +210,7 @@ class ButtonHMIWidget(BaseHMIWidget):
 
         if not is_valid:
             text = ""
-            brush.setColor(HMITheme.Color.text_display_background())
+            brush.setColor(HMIColor.INACTIVE.to_qcolor())
         else:
             if is_active:
                 brush.setColor(cast(HMIColor, self._cmb_color_active.currentData()).to_qcolor())
@@ -316,7 +320,7 @@ class ButtonHMIWidget(BaseHMIWidget):
             and valid_color_inactive
         )
 
-    def left_mouse_down(self, pos: QPointF) -> None:
+    def left_mouse_down(self, pos: QPointF) -> Qt.CursorShape:
         self._is_pressed = True
         if self.get_button_type() == ButtonType.MOMENTARY:
             self._write_val(True)
@@ -329,8 +333,9 @@ class ButtonHMIWidget(BaseHMIWidget):
             raise NotImplementedError("Unknown button type")    # pragma: no cover
 
         self.update()
+        return Qt.CursorShape.PointingHandCursor
 
-    def left_mouse_up(self, pos: Optional[QPointF]) -> None:
+    def left_mouse_up(self, pos: Optional[QPointF]) -> Qt.CursorShape:
         if self.get_button_type() == ButtonType.MOMENTARY:
             self._write_val(False)
         elif self.get_button_type() == ButtonType.TOGGLE:
@@ -339,6 +344,9 @@ class ButtonHMIWidget(BaseHMIWidget):
             raise NotImplementedError("Unknown button type")    # pragma: no cover
         self._is_pressed = False
         self.update()
+        return Qt.CursorShape.PointingHandCursor
 
+    def mouse_move(self, pos: QPointF) -> Qt.CursorShape:
+        return Qt.CursorShape.PointingHandCursor
 
 # endregion

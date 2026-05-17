@@ -58,6 +58,9 @@ class DummyAppInterface(AbstractComponentAppInterface):
 class HMIComponentBaseTest(ScrutinyBaseGuiTest):
     def setUp(self):
         super().setUp()
+        self.paint_device = QImage(640, 480, QImage.Format.Format_RGB32)
+        self.paint_device.fill(Qt.GlobalColor.white)
+
         settings = ScrutinyQtGUI.Settings(
             debug_layout=False,
             auto_connect=False,
@@ -90,6 +93,17 @@ class HMIComponentBaseTest(ScrutinyBaseGuiTest):
     def tearDown(self):
         self.hmi_component.teardown()
         return super().tearDown()
+
+    def _render_scene(self):
+        scene = self.hmi_component.get_workzone().scene()
+        scene.invalidate()
+        painter = QPainter(self.paint_device)
+        self.hmi_component.get_workzone().render(
+            painter,
+            self.paint_device.rect(),
+            scene.sceneRect().toRect()
+        )
+        painter.end()
 
 
 class TestHMIWidgetSerialization(HMIComponentBaseTest):
@@ -191,6 +205,7 @@ class TestHMIWidgetSerialization(HMIComponentBaseTest):
         pen1.setColor(QColor("#123456"))
         pen1.setStyle(Qt.PenStyle.DashDotLine)
         line.set_border_pen(pen1)
+        line.set_orientation(Qt.Orientation.Vertical)
 
         state = self.hmi_component.get_state()
         self.hmi_component.delete_hmi_widget(line)
@@ -214,6 +229,7 @@ class TestHMIWidgetSerialization(HMIComponentBaseTest):
         self.assertEqual(pen1.widthF(), pen2.widthF())
         self.assertEqual(pen1.color(), pen2.color())
         self.assertEqual(pen1.style(), pen2.style())
+        self.assertEqual(new_line.get_orientation(), line.get_orientation())
 
     def test_serialize_text_label(self):
         text_label = TextLabelHMIWidget(self.app_interface)
@@ -993,7 +1009,7 @@ class TestWorkZone(HMIComponentBaseTest):
         self.assertEqual(right_click_list[0], circle)
         self.assertEqual(right_click_list[1], None)
 
-    def test_zvalue_manipualtion(self):
+    def test_zvalue_manipulation(self):
         workzone = self.hmi_component.get_workzone()
         circle1 = CircleHMIWidget(self.app_interface)
         circle2 = CircleHMIWidget(self.app_interface)
@@ -1064,6 +1080,84 @@ class TestWorkZone(HMIComponentBaseTest):
         self.assertEqual(self.app_interface.watchable_registry.node_watcher_count(sdk.WatchableType.Variable, '/var/aaa'), 0)
         self.hmi_component.visibilityChanged(True)
         self.assertEqual(self.app_interface.watchable_registry.node_watcher_count(sdk.WatchableType.Variable, '/var/aaa'), 1)
+
+    def test_button_press_check_hit_test(self):
+        DOWN = 0
+        UP = 1
+        MOVE = 2
+
+        event_history: List[Tuple[Type, int]] = []
+
+        class Circle2(CircleHMIWidget):
+            def left_mouse_down(self, pos: QPointF) -> Qt.CursorShape:
+                event_history.append((self.__class__, DOWN))
+                return super().left_mouse_down(pos)
+
+            def left_mouse_up(self, pos: Optional[QPointF]) -> Qt.CursorShape:
+                event_history.append((self.__class__, UP))
+                return super().left_mouse_up(pos)
+
+            def mouse_move(self, pos: QPointF) -> Qt.CursorShape:
+                event_history.append((self.__class__, MOVE))
+                return super().mouse_move(pos)
+
+        class Rectangle2(RectangleHMIWidget):
+            def left_mouse_down(self, pos: QPointF) -> Qt.CursorShape:
+                event_history.append((self.__class__, DOWN))
+                return super().left_mouse_down(pos)
+
+            def left_mouse_up(self, pos: Optional[QPointF]) -> Qt.CursorShape:
+                event_history.append((self.__class__, UP))
+                return super().left_mouse_up(pos)
+
+            def mouse_move(self, pos: QPointF) -> Qt.CursorShape:
+                event_history.append((self.__class__, MOVE))
+                return super().mouse_move(pos)
+
+        circle = Circle2(self.app_interface)
+        rectangle = Rectangle2(self.app_interface)
+
+        rectangle.set_size(QSize(128, 128))
+        circle.set_size(QSize(128, 128))
+        self.hmi_component.add_hmi_widget(rectangle, QPoint(50, 100))
+        self.hmi_component.add_hmi_widget(circle, QPoint(50, 100))
+        self.hmi_component.move_to_front(circle)
+
+        self._render_scene()
+
+        workzone = self.hmi_component.get_workzone()
+
+        p = QPointF(60, 110)
+        down_event = QMouseEvent(QEvent.Type.MouseButtonPress, p,
+                                 Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
+                                 )
+        up_event = QMouseEvent(QEvent.Type.MouseButtonRelease, p,
+                               Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
+                               )
+        move_event = QMouseEvent(QEvent.Type.MouseButtonPress, p,
+                                 Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
+                                 )
+
+        # In edit mode, the widget never receives the events. The workzone keeps them
+        workzone.set_edit_mode(True)
+        workzone.mousePressEvent(down_event)
+        workzone.mouseReleaseEvent(up_event)
+        workzone.mouseMoveEvent(move_event)
+
+        self.assertEqual(len(event_history), 0)
+        self.assertEqual(len(workzone.selected_widgets()), 1)
+        self.assertIs(workzone.selected_widgets()[0], circle)
+
+        # In display mode, the events invoke the widget methods.
+        # Empty region is considered through the HitZone
+        workzone.set_edit_mode(False)
+        workzone.mousePressEvent(down_event)
+        workzone.mouseReleaseEvent(up_event)
+        workzone.mouseMoveEvent(move_event)
+        self.assertEqual(len(event_history), 3)
+        self.assertEqual(event_history[0], (Rectangle2, DOWN))
+        self.assertEqual(event_history[1], (Rectangle2, UP))
+        self.assertEqual(event_history[2], (Rectangle2, MOVE))
 
 
 class TestHMIComponent(HMIComponentBaseTest):
@@ -1141,22 +1235,6 @@ class TestHMIComponent(HMIComponentBaseTest):
 
 
 class TestHMIWidgets(HMIComponentBaseTest):
-
-    def setUp(self):
-        super().setUp()
-        self.paint_device = QImage(640, 480, QImage.Format.Format_RGB32)
-        self.paint_device.fill(Qt.GlobalColor.white)
-
-    def _render_scene(self):
-        scene = self.hmi_component.get_workzone().scene()
-        scene.invalidate()
-        painter = QPainter(self.paint_device)
-        self.hmi_component.get_workzone().render(
-            painter,
-            self.paint_device.rect(),
-            scene.sceneRect().toRect()
-        )
-        painter.end()
 
     def test_basic_shapes_draw(self):
         rectangle = RectangleHMIWidget(self.app_interface)
@@ -1343,3 +1421,123 @@ class TestHMIWidgets(HMIComponentBaseTest):
         self.assertEqual(len(write_history), 2)
         self.assertEqual(write_history[1].fqn, bool_fqn)
         self.assertEqual(write_history[1].value, False)
+
+    def test_radial_gauge_hit_zone(self):
+        gauge = RadialGaugeHMIWidget(self.app_interface)
+        gauge.set_size(QSize(128, 64))
+
+        self.hmi_component.add_hmi_widget(gauge, QPoint(64, 32))
+        gauge.update()
+        self._render_scene()
+
+        # Corners
+        self.assertFalse(gauge.hit_test(QPointF(0, 0)))
+        self.assertFalse(gauge.hit_test(QPointF(127, 127)))
+        self.assertFalse(gauge.hit_test(QPointF(127, 63)))
+        self.assertFalse(gauge.hit_test(QPointF(0, 63)))
+
+        # Just outside the perimeter
+        self.assertFalse(gauge.hit_test(QPointF(14, 11)))
+        self.assertFalse(gauge.hit_test(QPointF(114, 11)))
+        self.assertFalse(gauge.hit_test(QPointF(114, 53)))
+        self.assertFalse(gauge.hit_test(QPointF(14, 53)))
+
+        # Center
+        self.assertTrue(gauge.hit_test(QPointF(64, 32)))
+
+        # Just inside the perimeter
+        self.assertTrue(gauge.hit_test(QPointF(14, 13)))
+        self.assertTrue(gauge.hit_test(QPointF(114, 13)))
+        self.assertTrue(gauge.hit_test(QPointF(14, 51)))
+        self.assertTrue(gauge.hit_test(QPointF(114, 51)))
+
+    def test_color_indicator_hit_zone(self):
+        indicator = ColorIndicatorHMIWidget(self.app_interface)
+        indicator.set_size(QSize(128, 64))
+
+        self.hmi_component.add_hmi_widget(indicator, QPoint(64, 32))
+        indicator.update()
+        self._render_scene()
+
+        # Corners
+        self.assertFalse(indicator.hit_test(QPointF(0, 0)))
+        self.assertFalse(indicator.hit_test(QPointF(127, 127)))
+        self.assertFalse(indicator.hit_test(QPointF(127, 63)))
+        self.assertFalse(indicator.hit_test(QPointF(0, 63)))
+
+        # Just outside the perimeter
+        self.assertFalse(indicator.hit_test(QPointF(14, 11)))
+        self.assertFalse(indicator.hit_test(QPointF(114, 11)))
+        self.assertFalse(indicator.hit_test(QPointF(114, 53)))
+        self.assertFalse(indicator.hit_test(QPointF(14, 53)))
+
+        # Center
+        self.assertTrue(indicator.hit_test(QPointF(64, 32)))
+
+        # Just inside the perimeter
+        self.assertTrue(indicator.hit_test(QPointF(14, 13)))
+        self.assertTrue(indicator.hit_test(QPointF(114, 13)))
+        self.assertTrue(indicator.hit_test(QPointF(14, 51)))
+        self.assertTrue(indicator.hit_test(QPointF(114, 51)))
+
+    def test_circle_hit_zone(self):
+        circle = CircleHMIWidget(self.app_interface)
+        circle.set_size(QSize(128, 64))
+
+        self.hmi_component.add_hmi_widget(circle, QPoint(64, 32))
+        circle.update()
+        self._render_scene()
+
+        # Corners
+        self.assertFalse(circle.hit_test(QPointF(0, 0)))
+        self.assertFalse(circle.hit_test(QPointF(127, 127)))
+        self.assertFalse(circle.hit_test(QPointF(127, 63)))
+        self.assertFalse(circle.hit_test(QPointF(0, 63)))
+
+        # Just outside the perimeter
+        self.assertFalse(circle.hit_test(QPointF(14, 11)))
+        self.assertFalse(circle.hit_test(QPointF(114, 11)))
+        self.assertFalse(circle.hit_test(QPointF(114, 53)))
+        self.assertFalse(circle.hit_test(QPointF(14, 53)))
+
+        # Center
+        self.assertTrue(circle.hit_test(QPointF(64, 32)))
+
+        # Just inside the perimeter
+        self.assertTrue(circle.hit_test(QPointF(14, 13)))
+        self.assertTrue(circle.hit_test(QPointF(114, 13)))
+        self.assertTrue(circle.hit_test(QPointF(14, 51)))
+        self.assertTrue(circle.hit_test(QPointF(114, 51)))
+
+    def test_line_hit_zone(self):
+        line = LineHMIWidget(self.app_interface)
+        line.set_size(QSize(128, 64))
+        pen = QPen()
+        pen.setWidthF(10)
+        line.set_border_pen(pen)
+        line.set_orientation(Qt.Orientation.Horizontal)
+
+        self.hmi_component.add_hmi_widget(line, QPoint(64, 32))
+        line.update()
+        self._render_scene()
+
+        self.assertFalse(line.hit_test(QPointF(0, 26)))
+        self.assertTrue(line.hit_test(QPointF(0, 27)))
+        self.assertTrue(line.hit_test(QPointF(0, 37)))
+        self.assertFalse(line.hit_test(QPointF(0, 38)))
+        self.assertFalse(line.hit_test(QPointF(127, 26)))
+        self.assertTrue(line.hit_test(QPointF(127, 27)))
+        self.assertTrue(line.hit_test(QPointF(127, 37)))
+        self.assertFalse(line.hit_test(QPointF(127, 38)))
+
+        line.set_orientation(Qt.Orientation.Vertical)
+        line.update()
+        self._render_scene()
+        self.assertFalse(line.hit_test(QPointF(58, 0)))
+        self.assertTrue(line.hit_test(QPointF(59, 0)))
+        self.assertTrue(line.hit_test(QPointF(69, 0)))
+        self.assertFalse(line.hit_test(QPointF(70, 0)))
+        self.assertFalse(line.hit_test(QPointF(58, 63)))
+        self.assertTrue(line.hit_test(QPointF(59, 63)))
+        self.assertTrue(line.hit_test(QPointF(69, 63)))
+        self.assertFalse(line.hit_test(QPointF(70, 63)))

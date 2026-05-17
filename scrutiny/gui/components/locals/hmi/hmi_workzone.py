@@ -111,7 +111,7 @@ class HMIWorkZone(QGraphicsView):
     """The rubber band when selecting multiple HMI widgets"""
     _rubberband_active: bool
     """A flag indicating if a rubber band is visible and being stretched"""
-    _allow_edit_widgets: bool
+    _edit_mode: bool
     """A flag allowing to move/resize HMI widgets """
     _mouse_edit_data: Optional[WidgetMouseEditData]
     """The state data when a mouse press is active. Contains move/resize specific data"""
@@ -140,7 +140,7 @@ class HMIWorkZone(QGraphicsView):
         self._rubberband.setParent(self)
         self._rubberband_active = False
         self._rubberband.setVisible(False)
-        self._allow_edit_widgets = False
+        self._edit_mode = False
         self._mouse_edit_data = None
         self._grid = HMIEditGrid(self)
         self._grid.set_size(self.viewport().size())
@@ -150,6 +150,8 @@ class HMIWorkZone(QGraphicsView):
         self._drop_placeholder.setZValue(10000)
         self.scene().addItem(self._grid)
         self.scene().addItem(self._drop_placeholder)
+
+        self.setMouseTracking(True)
 
     def destroy(self, destroyWindow: bool = False, destroySubWindows: bool = False) -> None:
         for item in list(self.scene().items()):
@@ -213,15 +215,12 @@ class HMIWorkZone(QGraphicsView):
         """Return the list of actually selected HMI widget"""
         return self._selected_widgets.copy()
 
-    def set_allow_edit_widgets(self, val: bool) -> None:
+    def set_edit_mode(self, val: bool) -> None:
         """Allow or disallow editing HMI widgets"""
-        self._allow_edit_widgets = val
+        self._edit_mode = val
 
-        if self._allow_edit_widgets:
-            self.setMouseTracking(True)
-        else:
+        if not self._edit_mode:
             self._mouse_edit_data = None
-            self.setMouseTracking(False)
 
     def _compute_rubber_band_rect(self, start: QPoint, end: QPoint) -> QRect:
         """Get the start and end point of a rubber band selection and return a QRect with dimension in the right orders"""
@@ -231,11 +230,14 @@ class HMIWorkZone(QGraphicsView):
         right = max(start.x(), end.x())
         return QRect(QPoint(left, top), QPoint(right, bottom))
 
-    def hmi_widget_at(self, pos: QPoint) -> Optional[BaseHMIWidget]:
+    def hmi_widget_at(self, pos: QPoint, perform_hit_test: bool = False) -> Optional[BaseHMIWidget]:
         """Tells what HMI widget is at a location. Returns the one on the top (highest z-value) if many"""
         for item in self.items(pos):
             if isinstance(item, BaseHMIWidget):
-                return item
+                if not perform_hit_test:
+                    return item
+                elif item.hit_test(item.mapFromScene(self.mapToScene(pos))):
+                    return item
         return None
 
     def resizeEvent(self, event: QResizeEvent) -> None:
@@ -255,7 +257,7 @@ class HMIWorkZone(QGraphicsView):
     def mouseMoveEvent(self, event: QMouseEvent) -> None:
         event.accept()
         cursor = Qt.CursorShape.ArrowCursor
-        if self._allow_edit_widgets:
+        if self._edit_mode:
             scene_pos = self.mapToScene(event.pos())
             if self._rubberband_active:     # User is making a selection with a rubber band
                 assert self._mouse_down_start is not None
@@ -269,14 +271,18 @@ class HMIWorkZone(QGraphicsView):
                         cursor = self._view_mousemove_resize_widget(event)  # Handle resize action
                 else:   # Nothing is happening
                     # Check if we should display a resize cursor if use hover a resize handle
-                    item = self.hmi_widget_at(event.pos())
-                    if item is not None:
-                        local_pos = item.mapFromScene(scene_pos)
-                        for handle, rect in item.resize_handles_coordinates().items():
+                    hmi_widget = self.hmi_widget_at(event.pos(), perform_hit_test=False)
+                    if hmi_widget is not None:
+                        local_pos = hmi_widget.mapFromScene(scene_pos)
+                        for handle, rect in hmi_widget.resize_handles_coordinates().items():
                             if rect.contains(local_pos):
                                 cursor = RESIZE_CURSOR_MAP[handle]
                                 break
 
+        else:
+            hmi_widget = self.hmi_widget_at(event.pos(), perform_hit_test=True)
+            if hmi_widget is not None:
+                cursor = hmi_widget.mouse_move(hmi_widget.mapFromScene(self.mapToScene(event.pos())))
         self.setCursor(cursor)
 
     def _selection_changed_slot(self, widgets: List[BaseHMIWidget]) -> None:
@@ -389,19 +395,15 @@ class HMIWorkZone(QGraphicsView):
         return cursor
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
+        cursor = Qt.CursorShape.ArrowCursor
         event.accept()
         self._mouse_down_start = event.pos()
-        mouse_down_item = self.hmi_widget_at(event.pos())
-        self._mouse_down_widget = None
         must_propagate_left_button = False
-
-        if isinstance(mouse_down_item, BaseHMIWidget):
-            # Remember on what the user clicked. Ignore the Grid
-            self._mouse_down_widget = mouse_down_item
+        self._mouse_down_widget = self.hmi_widget_at(event.pos(), perform_hit_test=not self._edit_mode)
 
         if event.button() == Qt.MouseButton.LeftButton:
             self._mouse_edit_data = None
-            if self._allow_edit_widgets:
+            if self._edit_mode:
                 if self._mouse_down_widget is None:  # Clicked nothing (grid). Start a rubber band
                     self._rubberband_active = True
                 else:  # Clicked an HMI Widget
@@ -459,16 +461,15 @@ class HMIWorkZone(QGraphicsView):
         # Prevent propagation if we took the event.
         # Prevents control widget to react when moving
         if must_propagate_left_button and self._mouse_down_widget is not None:
-            self._mouse_down_widget.left_mouse_down(self._mouse_down_widget.mapFromScene(self.mapToScene(event.pos())))
+            cursor = self._mouse_down_widget.left_mouse_down(self._mouse_down_widget.mapFromScene(self.mapToScene(event.pos())))
+        self.setCursor(cursor)
 
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
+        cursor = Qt.CursorShape.ArrowCursor
         event.accept()
-        mouse_release_widget: Optional[QGraphicsItem] = None
         self._status_bar.set_resize_size(None)
         if self._mouse_down_start is not None:
-            mouse_release_widget = self.hmi_widget_at(event.pos())
-            if not isinstance(mouse_release_widget, BaseHMIWidget):  # Works for None and Grid
-                mouse_release_widget = None
+            mouse_release_widget = self.hmi_widget_at(event.pos(), perform_hit_test=not self._edit_mode)
 
             # Check if right-click
             if event.button() == Qt.MouseButton.RightButton:
@@ -477,7 +478,7 @@ class HMIWorkZone(QGraphicsView):
                     self._signals.right_click.emit(mouse_release_widget, event)
 
             elif event.button() == Qt.MouseButton.LeftButton:
-                if self._allow_edit_widgets:
+                if self._edit_mode:
                     if event.pos() == self._mouse_down_start:
                         self._rubberband_active = False
 
@@ -509,16 +510,16 @@ class HMIWorkZone(QGraphicsView):
 
                 elif self._mouse_down_widget is not None:
                     if mouse_release_widget is self._mouse_down_widget:
-                        self._mouse_down_widget.left_mouse_up(self._mouse_down_widget.mapFromScene(self.mapToScene(event.pos())))
+                        cursor = self._mouse_down_widget.left_mouse_up(self._mouse_down_widget.mapFromScene(self.mapToScene(event.pos())))
                     else:
-                        self._mouse_down_widget.left_mouse_up(None)
+                        cursor = self._mouse_down_widget.left_mouse_up(None)
 
         self._mouse_down_widget = None
         self._mouse_down_start = None
         self._rubberband.setVisible(False)
         self._rubberband_active = False
         self._mouse_edit_data = None
-        self.setCursor(Qt.CursorShape.ArrowCursor)
+        self.setCursor(cursor)
 
     def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:
         # We don't handle double clicks.

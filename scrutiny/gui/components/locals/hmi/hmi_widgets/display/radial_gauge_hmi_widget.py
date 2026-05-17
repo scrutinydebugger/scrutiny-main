@@ -25,6 +25,7 @@ from scrutiny.gui.components.locals.hmi.common.numerical_text_display import Num
 from scrutiny.gui.components.locals.hmi.common.color_span_editor import ColorSpanEditor, ColorSpanListStateDict, ColorSpan
 from scrutiny.gui.components.locals.hmi.common.gauge import GaugeOverflowBehavior
 from scrutiny.gui.components.locals.hmi.common.serialization import deserialize_combobox_val
+from scrutiny.gui.components.locals.hmi.common.hit_zones import EllipseHitZone
 from scrutiny.gui import assets
 from scrutiny import tools
 from scrutiny.tools.typing import *
@@ -275,7 +276,6 @@ class RadialGaugeHMIWidget(BaseHMIWidget):
 
 # region Getter & Setters
 
-
     def set_number_formatting_config(self, config: NumberFormattingConfig) -> None:
         self._numerical_display.set_number_formatting_config(config)
 
@@ -358,6 +358,13 @@ class RadialGaugeHMIWidget(BaseHMIWidget):
         ref_size = bounding_rect.width() / 2
         center = QPointF(bounding_rect.width() / 2, bounding_rect.height() / 2)
         stroke_w = max(ref_size * _Dims.STROKE, 1)
+        hit_zone = EllipseHitZone(
+            center=center,
+            radius_w=ref_size * _Dims.OUTER_CIRCLE,
+            radius_h=ref_size * _Dims.OUTER_CIRCLE * aspect_ratio
+        )
+        self._set_hit_zone(hit_zone)
+
         outer_radius = ref_size * _Dims.OUTER_CIRCLE - stroke_w / 2
         inner_radius = ref_size * _Dims.INNER_CIRCLE - stroke_w / 2
         textbox_w = ref_size * _Dims.TEXT_DISPLAY_W

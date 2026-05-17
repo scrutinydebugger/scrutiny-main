@@ -20,6 +20,7 @@ from scrutiny.tools.typing import *
 from scrutiny.gui.components.locals.hmi.hmi_library_category import LibraryCategory
 from scrutiny.gui.components.locals.hmi.common.pen_config import PenConfigWidget, PenConfigStateDict
 from scrutiny.gui.components.locals.hmi.common.brush_config import BrushConfigWidget, BrushConfigStateDict
+from scrutiny.gui.components.locals.hmi.common.hit_zones import EllipseHitZone
 
 
 class CircleHMIWidget(BaseHMIWidget):
@@ -91,6 +92,13 @@ class CircleHMIWidget(BaseHMIWidget):
             QPointF(pen.widthF() / 2, pen.widthF() / 2),
             QSizeF(bounding_rect.width() - pen.widthF(), bounding_rect.height() - pen.widthF())
         )
+
+        hit_zone = EllipseHitZone(
+            center=QPointF(bounding_rect.width() / 2, bounding_rect.height() / 2),
+            radius_w=bounding_rect.width() / 2,
+            radius_h=bounding_rect.height() / 2
+        )
+        self._set_hit_zone(hit_zone)
 
         painter.drawEllipse(draw_rect)
 

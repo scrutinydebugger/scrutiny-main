@@ -19,6 +19,7 @@ from scrutiny.gui.component_app_interface import AbstractComponentAppInterface
 from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget, WatchableValueType
 from scrutiny.gui.components.locals.hmi.common.hmi_colors import HMIColor, create_color_combobox
 from scrutiny.gui.components.locals.hmi.common.serialization import deserialize_combobox_val
+from scrutiny.gui.components.locals.hmi.common.hit_zones import EllipseHitZone
 from scrutiny.gui import assets
 from scrutiny.tools.typing import *
 
@@ -237,6 +238,13 @@ class ColorIndicatorHMIWidget(BaseHMIWidget):
         inner_radius = (_Dims.RADIUS - _Dims.BORDER_W) * ref_width
         border_width = _Dims.BORDER_W * ref_width
         center = QPointF(bounding_rect.width() / 2, bounding_rect.height() / 2)
+
+        hit_zone = EllipseHitZone(
+            center=center,
+            radius_w=ref_width * _Dims.RADIUS,
+            radius_h=ref_width * _Dims.RADIUS * aspect_ratio
+        )
+        self._set_hit_zone(hit_zone)
 
         result = self._eval_condition(self._cmb_operator.currentData(), op1, op2)
         if result and not self._last_condition_eval_result:
