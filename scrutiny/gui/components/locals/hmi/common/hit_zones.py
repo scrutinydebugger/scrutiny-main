@@ -1,3 +1,11 @@
+#    hit_zones.py
+#        Hit test logic for various shapes. Contains shared logic between HMI widgets
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
+
 from dataclasses import dataclass
 from PySide6.QtCore import QPointF, QRectF
 

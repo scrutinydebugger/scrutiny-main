@@ -1112,6 +1112,9 @@
         },
         "scrutiny/gui/components/locals/hmi/hmi_widgets/display/linear_gauge_hmi_widget.py": {
             "docstring": "An HMI widget that display a value with a linear gauge that goes from a minimum to a maximum value. Like a progress bar"
+        },
+        "scrutiny/gui/components/locals/hmi/common/hit_zones.py": {
+            "docstring": "Hit test logic for various shapes. Contains shared logic between HMI widgets"
         }
     },
     "authors": {}
