@@ -19,6 +19,7 @@ from scrutiny.gui.component_app_interface import AbstractComponentAppInterface
 from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget, WatchableValueType
 from scrutiny.gui.components.locals.hmi.common.hmi_colors import HMIColor, create_color_combobox
 from scrutiny.gui.components.locals.hmi.common.serialization import deserialize_combobox_val
+from scrutiny.gui.components.locals.hmi.common.hit_zones import EllipseHitZone
 from scrutiny.gui import assets
 from scrutiny.tools.typing import *
 
@@ -223,14 +224,6 @@ class ColorIndicatorHMIWidget(BaseHMIWidget):
     def get_config_widget(self) -> QWidget:
         return self._config_widget
 
-    def hit_test(self, pos: QPointF) -> bool:
-        bounding_rect = self.boundingRect()
-        center = QPointF(bounding_rect.width() / 2, bounding_rect.height() / 2)
-        radius_w = _Dims.RADIUS * bounding_rect.width() / 2
-        radius_h = _Dims.RADIUS * bounding_rect.height() / 2
-
-        return ((pos.x() - center.x())**2 / radius_w**2 + (pos.y() - center.y())**2 / radius_h**2 <= 1)
-
     def draw(self,
              values: Dict[str, Optional[WatchableValueType]],
              edit_mode: bool,
@@ -245,6 +238,13 @@ class ColorIndicatorHMIWidget(BaseHMIWidget):
         inner_radius = (_Dims.RADIUS - _Dims.BORDER_W) * ref_width
         border_width = _Dims.BORDER_W * ref_width
         center = QPointF(bounding_rect.width() / 2, bounding_rect.height() / 2)
+
+        hit_zone = EllipseHitZone(
+            center=center,
+            radius_w=ref_width * _Dims.RADIUS,
+            radius_h=ref_width * _Dims.RADIUS * aspect_ratio
+        )
+        self._set_hit_zone(hit_zone)
 
         result = self._eval_condition(self._cmb_operator.currentData(), op1, op2)
         if result and not self._last_condition_eval_result:

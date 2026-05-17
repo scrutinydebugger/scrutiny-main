@@ -24,6 +24,7 @@ from scrutiny.gui.widgets.watchable_line_edit import WatchableLineEdit, Watchabl
 from scrutiny.gui.components.locals.hmi.hmi_library_category import LibraryCategory
 from scrutiny.gui.components.locals.hmi.hmi_edit_grid import HMIEditGrid
 from scrutiny.gui.components.locals.hmi.hmi_theme import HMITheme
+from scrutiny.gui.components.locals.hmi.common.hit_zones import BaseHitZone
 from scrutiny.gui.core.watchable_registry import WatcherIdType, RegistryValueUpdate, WatchableRegistry, WatchableRegistryNodeNotFoundError
 from scrutiny.gui.component_app_interface import AbstractComponentAppInterface
 from scrutiny.gui.tools.invoker import invoke_later
@@ -87,6 +88,7 @@ class ValueSlot:
     value_update_callback: Optional[HMIWidgetValueUpdateCallback]
     """A callback to be called on value update. Mostly useful when require_redraw=``False``"""
     value_override: Optional[ValueOverride]
+    """When set, overrides the watchable value reading with this value. Used to avoid visual glitches while writes are in progress"""
     _signals: _Signals
     """The QT signals"""
     _logger: logging.Logger
@@ -303,6 +305,8 @@ class BaseHMIWidget(QGraphicsItem):
     _instance_id: int
     """A monotonic unique number assigned to the HMI widget"""
     _del_callback: List[Callable[[], None]]
+    """A list of callbacks to call when this object is garbage collected."""
+    _hit_zone: Optional[BaseHitZone]
 
     def __init__(self, app: AbstractComponentAppInterface) -> None:
         super().__init__()
@@ -323,6 +327,7 @@ class BaseHMIWidget(QGraphicsItem):
         self._edit_select_frame = EditSelectFrame(self)
         self._edit_select_frame.setZValue(100000)
         self._selection_overlay.setZValue(self._edit_select_frame.zValue() - 1)
+        self._hit_zone = None
         self.set_selected(False)
         self.set_edit_mode(False)
 
@@ -581,8 +586,16 @@ class BaseHMIWidget(QGraphicsItem):
             raise RuntimeError("ValueSlot is not in watchable mode")
         return vslot.watchable_line_edit.get_watchable()
 
+    def hit_test(self, pos: QPointF) -> bool:
+        if self._hit_zone is None:
+            return self.boundingRect().contains(pos)
+        else:
+            return self._hit_zone.hit_test(pos)
 
 # region Private
+    def _set_hit_zone(self, zone: Optional[BaseHitZone]) -> None:
+        """To be called by child HMI widget"""
+        self._hit_zone = zone
 
     def _write_callback_wrapper(self,
                                 vslot: ValueSlot,
@@ -744,9 +757,6 @@ class BaseHMIWidget(QGraphicsItem):
 
     def mouse_move(self, pos: QPointF) -> Qt.CursorShape:
         return Qt.CursorShape.ArrowCursor
-
-    def hit_test(self, pos: QPointF) -> bool:
-        return self.boundingRect().contains(pos)
 
 # region Abstracts methods
 
