@@ -13,6 +13,8 @@ from scrutiny.gui.components.locals.hmi.common.serialization import deserialize_
 from scrutiny.gui.components.locals.hmi.common.hmi_colors import create_color_combobox, HMIColor
 from scrutiny.gui.components.locals.hmi.common.text import set_font_size_to_fit_rect
 from scrutiny.gui.components.locals.hmi.hmi_theme import HMITheme
+from scrutiny.gui.components.locals.hmi.common.numerical_text_display import (
+    NumberFormattingConfig, NumericalTextDisplay, NumberFormattingConfigWidget, NumberFormattingConfigDict)
 from scrutiny.gui import assets
 from scrutiny.tools.typing import *
 from scrutiny.gui.widgets.validable_line_edit import FloatValidableLineEdit
@@ -21,8 +23,16 @@ from scrutiny.gui.components.locals.hmi.hmi_library_category import LibraryCateg
 
 
 class _Dims:
-
-    pass
+    TEXT_LABEL_MARGIN_PX = 3
+    MAJOR_TICK_LEN_RATIO = 0.1
+    MINOR_TICK_LEN_RATIO = 0.05
+    SLIDE_ZONE_MIN_W_RATIO = 0.1
+    CURSOR_W_RATIO = 0.2
+    CURSOR_H_RATIO = 0.05
+    CURSOR_H_MAX_PX = 15
+    BORDER_MAX_PX = 5
+    BORDER_RATIO = 0.03
+    MAJOR_TICK_MAX_THICKNESS_PX = 4
 
 
 class SliderHMIWidget(BaseHMIWidget):
@@ -39,10 +49,18 @@ class SliderHMIWidget(BaseHMIWidget):
     _sld_label_size: QSlider
     _spn_major_ticks: QSpinBox
     _spn_minor_ticks: QSpinBox
+    _label_format_config_widget: NumberFormattingConfigWidget
+    """A widget to configure the label numerical formatting"""
+    _edit_border_pen: QPen
+
+    _cursor_rect: Optional[QRectF]
+    _dragging: bool
 
     def __init__(self, app: AbstractComponentAppInterface) -> None:
         super().__init__(app)
         self.declare_value_slot('val', 'Value', allow_constant=False)
+        self._cursor_rect = None
+        self._dragging = False
 
         self._cmb_orientation = QComboBox()
         self._cmb_orientation.addItem("Horizontal", Qt.Orientation.Horizontal)
@@ -58,24 +76,26 @@ class SliderHMIWidget(BaseHMIWidget):
         self._sld_label_size = QSlider(Qt.Orientation.Horizontal)
         self._sld_label_size.setMinimum(0)
         self._sld_label_size.setMaximum(100)
-        self._sld_label_size.setValue(50)
         self._sld_label_size.setTickInterval(5)
 
         self._spn_major_ticks = QSpinBox()
         self._spn_major_ticks.setMinimum(0)
         self._spn_major_ticks.setMaximum(20)
-        self._spn_major_ticks.setValue(5)
 
         self._spn_minor_ticks = QSpinBox()
         self._spn_minor_ticks.setMinimum(0)
         self._spn_minor_ticks.setMaximum(12)
-        self._spn_minor_ticks.setValue(3)
+
+        self._label_format_config_widget = NumberFormattingConfigWidget()
+        self._label_format_config_widget.apply_config(NumberFormattingConfig(decimals=1, eng_notation=True))
 
         self._config_widget = QWidget()
         gb_config = QGroupBox("Configuration")
+        gb_label = QGroupBox("Labels")
         layout = QVBoxLayout(self._config_widget)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(gb_config)
+        layout.addWidget(gb_label)
 
         gb_config_layout = QFormLayout(gb_config)
         gb_config_layout.addRow("Orientation", self._cmb_orientation)
@@ -84,6 +104,22 @@ class SliderHMIWidget(BaseHMIWidget):
         gb_config_layout.addRow("Label Size", self._sld_label_size)
         gb_config_layout.addRow("Major Ticks", self._spn_major_ticks)
         gb_config_layout.addRow("Minor Ticks", self._spn_minor_ticks)
+
+        gb_label_layout = QVBoxLayout(gb_label)
+        gb_label_layout.addWidget(self._label_format_config_widget)
+
+        self._cmb_orientation.setCurrentIndex(self._cmb_orientation.findData(Qt.Orientation.Vertical))
+        self._txt_min_val.setText("")
+        self._txt_max_val.setText("")
+        self._sld_label_size.setValue(50)
+        self._spn_major_ticks.setValue(5)
+        self._spn_minor_ticks.setValue(3)
+
+        self._edit_border_pen = QPen()
+        self._edit_border_pen.setWidthF(1)
+        self._edit_border_pen.setStyle(Qt.PenStyle.DotLine)
+        self._edit_border_pen.setCapStyle(Qt.PenCapStyle.FlatCap)
+        self._edit_border_pen.setColor(HMITheme.Color.select_frame_border())
 
         self._cmb_orientation.currentIndexChanged.connect(self._config_changed_slot)
         self._txt_min_val.textChanged.connect(self._config_changed_slot)
@@ -153,7 +189,7 @@ class SliderHMIWidget(BaseHMIWidget):
 
     @classmethod
     def default_size(cls) -> QSize:
-        return QSize(64, 32)
+        return QSize(32, 128)
 
     def min_height(self) -> int:
         return 32
@@ -172,8 +208,160 @@ class SliderHMIWidget(BaseHMIWidget):
              edit_mode: bool,
              painter: QPainter
              ) -> None:
+        self._logger.info("draw")
+        monospace_font = assets.get_font(assets.ScrutinyFont.Monospaced)
+        orientation = cast(Qt.Orientation, self._cmb_orientation.currentData())
+        bounding_rect = self.boundingRect()
+        border_w = min(_Dims.BORDER_RATIO * min(bounding_rect.width(), bounding_rect.height()), _Dims.BORDER_MAX_PX)
 
-        pass
+        slide_zone_pen = QPen()
+        slide_zone_pen.setWidthF(border_w)
+        slide_zone_pen.setColor(HMITheme.Color.frame_border())
+
+        slide_zone_brush = QBrush()
+        slide_zone_brush.setColor(HMITheme.Color.widget_background())
+        slide_zone_brush.setStyle(Qt.BrushStyle.SolidPattern)
+
+        cursor_pen = QPen()
+        cursor_pen.setWidthF(border_w)
+        cursor_pen.setColor(HMITheme.Color.pointer_border())
+
+        cursor_brush = QBrush()
+        cursor_brush.setColor(HMITheme.Color.pointer_fill())
+        cursor_brush.setStyle(Qt.BrushStyle.SolidPattern)
+
+        major_tick_pen = QPen()
+        major_tick_pen.setWidthF(min(border_w, _Dims.MAJOR_TICK_MAX_THICKNESS_PX))
+        major_tick_pen.setColor(HMITheme.Color.frame_border())
+
+        minor_tick_pen = QPen()
+        minor_tick_pen.setWidthF(1)
+        minor_tick_pen.setColor(HMITheme.Color.frame_border())
+
+        min_val = self._txt_min_val.get_float_value()
+        max_val = self._txt_max_val.get_float_value()
+        val = values['val']
+
+        major_ticks = self._spn_major_ticks.value()
+        minor_ticks = self._spn_minor_ticks.value()
+
+        ratio: Optional[float] = None
+        if min_val is not None and max_val is not None and val is not None and max_val > min_val:
+            ratio = min(1, max(0, (val - min_val) / (max_val - min_val)))
+
+        if orientation == Qt.Orientation.Vertical:
+            label_height = float(0)
+            if major_ticks >= 2:
+                label_height = float(self._sld_label_size.value()) / 100.0 * bounding_rect.height() / float(self._spn_major_ticks.value())
+
+            cursor_x = border_w / 2
+            cursor_w = bounding_rect.width() * _Dims.CURSOR_W_RATIO
+            slide_zone_w = bounding_rect.width() * _Dims.SLIDE_ZONE_MIN_W_RATIO
+            slide_zone_x = cursor_w / 2 + border_w / 2 - slide_zone_w / 2
+            slide_zone_y = border_w / 2 + label_height / 2
+            slide_zone_h = bounding_rect.height() - 2 * slide_zone_y
+            cursor_h = min(slide_zone_h * _Dims.CURSOR_H_RATIO, _Dims.CURSOR_H_MAX_PX)
+
+            if major_ticks >= 2:
+                major_tick_w = max(slide_zone_w * _Dims.MAJOR_TICK_LEN_RATIO, 2 * border_w)
+                minor_tick_w = major_tick_w / 2
+                major_tick_x1 = slide_zone_x + slide_zone_w + border_w / 2
+                major_tick_x2 = major_tick_x1 + major_tick_w
+                minor_tick_x1 = major_tick_x1
+                minor_tick_x2 = minor_tick_x1 + minor_tick_w
+                delta_major_tick = slide_zone_h / (major_ticks - 1)
+                label_x = max(major_tick_x2, cursor_w + border_w) + _Dims.TEXT_LABEL_MARGIN_PX
+                label_width = max(bounding_rect.right() - label_x, 0)
+                label_config = self._label_format_config_widget.get_config()
+
+                for i in range(major_ticks):
+                    painter.setPen(major_tick_pen)
+                    major_tick_y = slide_zone_y + i * delta_major_tick
+                    painter.drawLine(QPointF(major_tick_x1, major_tick_y), QPointF(major_tick_x2, major_tick_y))
+
+                    if minor_ticks > 0 and i < major_ticks - 1:
+                        painter.setPen(minor_tick_pen)
+                        for j in range(minor_ticks):
+                            minor_tick_y = major_tick_y + (j + 1) * delta_major_tick / (minor_ticks + 1)
+                            painter.drawLine(QPointF(minor_tick_x1, minor_tick_y), QPointF(minor_tick_x2, minor_tick_y))
+
+                    label_topleft_y = major_tick_y - label_height / 2
+                    tick_label_rect = QRectF(
+                        QPointF(label_x, label_topleft_y),
+                        QSizeF(label_width, label_height)
+                    )
+
+                    if edit_mode:
+                        painter.setPen(self._edit_border_pen)
+                        painter.drawRect(tick_label_rect)
+
+                    if max_val is not None and min_val is not None:
+                        value_range = max_val - min_val
+                        delta_val = value_range / (major_ticks - 1)
+                        tick_val = max_val - delta_val * i
+                        tick_text = NumericalTextDisplay.format_numerical_value(label_config, tick_val)
+                        text_align = Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft
+                        NumericalTextDisplay.apply_font_size(monospace_font, label_config, tick_text, tick_label_rect)
+                        painter.setFont(monospace_font)
+                        painter.setPen(HMITheme.Color.text())
+                        painter.setBrush(Qt.BrushStyle.NoBrush)
+                        painter.drawText(tick_label_rect, tick_text, text_align)
+
+            painter.setPen(slide_zone_pen)
+            painter.setBrush(slide_zone_brush)
+
+            painter.drawRect(QRectF(
+                QPointF(slide_zone_x, slide_zone_y),
+                QSizeF(slide_zone_w, slide_zone_h))
+            )
+
+            if ratio is not None:
+                cursor_y = slide_zone_y + slide_zone_h * (1 - ratio) - cursor_h
+                self._cursor_rect = QRectF(QPointF(cursor_x, cursor_y), QSizeF(cursor_w, cursor_h))
+                painter.setPen(cursor_pen)
+                painter.setBrush(cursor_brush)
+                painter.drawRect(self._cursor_rect)
+            else:
+                self._cursor_rect = None
+
+    def left_mouse_down(self, pos: QPointF) -> Qt.CursorShape:
+        if self._cursor_rect is None:
+            return Qt.CursorShape.ArrowCursor
+
+        if not self._cursor_rect.contains(pos):
+            return Qt.CursorShape.ArrowCursor
+
+        self._dragging = True
+        orientation = self.get_orientation()
+        if orientation == Qt.Orientation.Horizontal:
+            return Qt.CursorShape.SizeHorCursor
+        elif orientation == Qt.Orientation.Vertical:
+            return Qt.CursorShape.SizeVerCursor
+        else:
+            raise NotImplementedError("Unknown orientation")
+
+    def left_mouse_up(self, pos: QPointF | None) -> Qt.CursorShape:
+        self._dragging = False
+        return Qt.CursorShape.ArrowCursor
+
+    def mouse_move(self, pos: QPointF) -> Qt.CursorShape:
+        orientation = self.get_orientation()
+        if orientation == Qt.Orientation.Horizontal:
+            resize_cursor = Qt.CursorShape.SizeHorCursor
+        elif orientation == Qt.Orientation.Vertical:
+            resize_cursor = Qt.CursorShape.SizeVerCursor
+        else:
+            raise NotImplementedError("Unknown orientation")
+
+        if not self._dragging:
+            if self._cursor_rect is None:
+                return Qt.CursorShape.ArrowCursor
+            if not self._cursor_rect.contains(pos):
+                return Qt.CursorShape.ArrowCursor
+
+            return resize_cursor
+        else:
+            return resize_cursor
 
     def get_implementation_config_dict(self) -> Dict[str, Any]:
         min_val = self._txt_min_val.get_float_value()
