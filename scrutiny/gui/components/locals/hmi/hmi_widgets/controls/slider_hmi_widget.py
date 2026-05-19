@@ -55,14 +55,14 @@ class SliderHMIWidget(BaseHMIWidget):
 
     _cursor_rect: Optional[QRectF]
     _slide_zone_rect: Optional[QRectF]
-    _dragging: bool
+    _dragging_val: Optional[float]
 
     def __init__(self, app: AbstractComponentAppInterface) -> None:
         super().__init__(app)
         self.declare_value_slot('val', 'Value', allow_constant=False)
         self._cursor_rect = None
         self._slide_zone_rect = None
-        self._dragging = False
+        self._dragging_val = None
 
         self._cmb_orientation = QComboBox()
         self._cmb_orientation.addItem("Horizontal", Qt.Orientation.Horizontal)
@@ -141,9 +141,6 @@ class SliderHMIWidget(BaseHMIWidget):
 
     def _config_changed_slot(self) -> None:
         self.update()
-
-    def _write_val(self, val: float) -> None:
-        self.write_value_slot('val', val)
 
     def _val_from_pos(self, pos: QPointF) -> Optional[float]:
         min_val = self._txt_min_val.get_float_value()
@@ -235,10 +232,10 @@ class SliderHMIWidget(BaseHMIWidget):
         monospace_font = assets.get_font(assets.ScrutinyFont.Monospaced)
         orientation = cast(Qt.Orientation, self._cmb_orientation.currentData())
         bounding_rect = self.boundingRect()
-        border_w = min(_Dims.BORDER_RATIO * min(bounding_rect.width(), bounding_rect.height()), _Dims.BORDER_MAX_PX)
+        border_size = min(_Dims.BORDER_RATIO * min(bounding_rect.width(), bounding_rect.height()), _Dims.BORDER_MAX_PX)
 
         slide_zone_pen = QPen()
-        slide_zone_pen.setWidthF(border_w)
+        slide_zone_pen.setWidthF(border_size)
         slide_zone_pen.setColor(HMITheme.Color.frame_border())
 
         slide_zone_brush = QBrush()
@@ -246,7 +243,7 @@ class SliderHMIWidget(BaseHMIWidget):
         slide_zone_brush.setStyle(Qt.BrushStyle.SolidPattern)
 
         cursor_pen = QPen()
-        cursor_pen.setWidthF(border_w)
+        cursor_pen.setWidthF(border_size)
         cursor_pen.setColor(HMITheme.Color.pointer_border())
 
         cursor_brush = QBrush()
@@ -254,7 +251,7 @@ class SliderHMIWidget(BaseHMIWidget):
         cursor_brush.setStyle(Qt.BrushStyle.SolidPattern)
 
         major_tick_pen = QPen()
-        major_tick_pen.setWidthF(min(border_w, _Dims.MAJOR_TICK_MAX_THICKNESS_PX))
+        major_tick_pen.setWidthF(min(border_size, _Dims.MAJOR_TICK_MAX_THICKNESS_PX))
         major_tick_pen.setColor(HMITheme.Color.frame_border())
 
         minor_tick_pen = QPen()
@@ -267,9 +264,12 @@ class SliderHMIWidget(BaseHMIWidget):
 
         major_ticks = self._spn_major_ticks.value()
         minor_ticks = self._spn_minor_ticks.value()
+        label_config = self._label_format_config_widget.get_config()
 
         ratio: Optional[float] = None
         if min_val is not None and max_val is not None and val is not None and max_val > min_val:
+            if self._dragging_val is not None:
+                val = self._dragging_val
             ratio = min(1, max(0, (val - min_val) / (max_val - min_val)))
 
         if orientation == Qt.Orientation.Vertical:
@@ -277,25 +277,24 @@ class SliderHMIWidget(BaseHMIWidget):
             if major_ticks >= 2:
                 label_height = float(self._sld_label_size.value()) / 100.0 * bounding_rect.height() / float(self._spn_major_ticks.value())
 
-            cursor_x = border_w / 2
+            cursor_x = border_size / 2
             cursor_w = bounding_rect.width() * _Dims.CURSOR_W_RATIO
             slide_zone_w = bounding_rect.width() * _Dims.SLIDE_ZONE_MIN_W_RATIO
-            slide_zone_x = cursor_w / 2 + border_w / 2 - slide_zone_w / 2
-            slide_zone_y = border_w / 2 + label_height / 2
+            slide_zone_x = cursor_w / 2 + border_size / 2 - slide_zone_w / 2
+            slide_zone_y = border_size / 2 + label_height / 2
             slide_zone_h = bounding_rect.height() - 2 * slide_zone_y
             cursor_h = min(slide_zone_h * _Dims.CURSOR_H_RATIO, _Dims.CURSOR_H_MAX_PX)
 
             if major_ticks >= 2:
-                major_tick_w = max(slide_zone_w * _Dims.MAJOR_TICK_LEN_RATIO, 2 * border_w)
+                major_tick_w = max(slide_zone_w * _Dims.MAJOR_TICK_LEN_RATIO, 2 * border_size)
                 minor_tick_w = major_tick_w / 2
-                major_tick_x1 = slide_zone_x + slide_zone_w + border_w / 2
+                major_tick_x1 = slide_zone_x + slide_zone_w + border_size / 2
                 major_tick_x2 = major_tick_x1 + major_tick_w
                 minor_tick_x1 = major_tick_x1
                 minor_tick_x2 = minor_tick_x1 + minor_tick_w
                 delta_major_tick = slide_zone_h / (major_ticks - 1)
-                label_x = max(major_tick_x2, cursor_w + border_w) + _Dims.TEXT_LABEL_MARGIN_PX
+                label_x = max(major_tick_x2, cursor_w + border_size) + _Dims.TEXT_LABEL_MARGIN_PX
                 label_width = max(bounding_rect.right() - label_x, 0)
-                label_config = self._label_format_config_widget.get_config()
 
                 for i in range(major_ticks):
                     painter.setPen(major_tick_pen)
@@ -339,7 +338,81 @@ class SliderHMIWidget(BaseHMIWidget):
             painter.drawRect(self._slide_zone_rect)
 
             if ratio is not None:
-                cursor_y = slide_zone_y + slide_zone_h * (1 - ratio) - cursor_h / 2 - border_w / 2
+                cursor_y = slide_zone_y + slide_zone_h * (1 - ratio) - cursor_h / 2 - border_size / 2
+                self._cursor_rect = QRectF(QPointF(cursor_x, cursor_y), QSizeF(cursor_w, cursor_h))
+                painter.setPen(cursor_pen)
+                painter.setBrush(cursor_brush)
+                painter.drawRect(self._cursor_rect)
+            else:
+                self._cursor_rect = None
+
+        elif orientation == Qt.Orientation.Horizontal:
+            label_width = float(0)
+            if major_ticks >= 2:
+                label_width = float(self._sld_label_size.value()) / 100.0 * bounding_rect.width() / float(self._spn_major_ticks.value())
+
+            cursor_y = border_size / 2
+            cursor_h = bounding_rect.height() * _Dims.CURSOR_W_RATIO
+            slide_zone_h = bounding_rect.height() * _Dims.SLIDE_ZONE_MIN_W_RATIO
+            slide_zone_y = cursor_h / 2 + border_size / 2 - slide_zone_h / 2
+            slide_zone_x = border_size / 2 + label_width / 2
+            slide_zone_w = bounding_rect.width() - 2 * slide_zone_x
+            cursor_w = min(slide_zone_w * _Dims.CURSOR_H_RATIO, _Dims.CURSOR_H_MAX_PX)
+
+            if major_ticks >= 2:
+                major_tick_h = max(slide_zone_h * _Dims.MAJOR_TICK_LEN_RATIO, 2 * border_size)
+                minor_tick_h = major_tick_h / 2
+                major_tick_y1 = slide_zone_y + slide_zone_h + border_size / 2
+                major_tick_y2 = major_tick_y1 + major_tick_h
+                minor_tick_y1 = major_tick_y1
+                minor_tick_y2 = minor_tick_y1 + minor_tick_h
+                delta_major_tick = slide_zone_w / (major_ticks - 1)
+                label_y = max(major_tick_y2, cursor_h + border_size) + _Dims.TEXT_LABEL_MARGIN_PX
+                label_height = max(bounding_rect.bottom() - label_y, 0)
+
+                for i in range(major_ticks):
+                    painter.setPen(major_tick_pen)
+                    major_tick_x = slide_zone_x + i * delta_major_tick
+                    painter.drawLine(QPointF(major_tick_x, major_tick_y1), QPointF(major_tick_x, major_tick_y2))
+
+                    if minor_ticks > 0 and i < major_ticks - 1:
+                        painter.setPen(minor_tick_pen)
+                        for j in range(minor_ticks):
+                            minor_tick_x = major_tick_x + (j + 1) * delta_major_tick / (minor_ticks + 1)
+                            painter.drawLine(QPointF(minor_tick_x, minor_tick_y1), QPointF(minor_tick_x, minor_tick_y2))
+
+                    label_topleft_x = major_tick_x - label_width / 2
+                    tick_label_rect = QRectF(
+                        QPointF(label_topleft_x, label_y),
+                        QSizeF(label_width, label_height)
+                    )
+
+                    if edit_mode:
+                        painter.setPen(self._edit_border_pen)
+                        painter.drawRect(tick_label_rect)
+
+                    if max_val is not None and min_val is not None:
+                        value_range = max_val - min_val
+                        delta_val = value_range / (major_ticks - 1)
+                        tick_val = max_val - delta_val * i
+                        tick_text = NumericalTextDisplay.format_numerical_value(label_config, tick_val)
+                        text_align = Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter
+                        NumericalTextDisplay.apply_font_size(monospace_font, label_config, tick_text, tick_label_rect)
+                        painter.setFont(monospace_font)
+                        painter.setPen(HMITheme.Color.text())
+                        painter.setBrush(Qt.BrushStyle.NoBrush)
+                        painter.drawText(tick_label_rect, tick_text, text_align)
+
+            painter.setPen(slide_zone_pen)
+            painter.setBrush(slide_zone_brush)
+
+            self._slide_zone_rect = QRectF(
+                QPointF(slide_zone_x, slide_zone_y),
+                QSizeF(slide_zone_w, slide_zone_h))
+            painter.drawRect(self._slide_zone_rect)
+
+            if ratio is not None:
+                cursor_x = slide_zone_x + slide_zone_w * ratio - cursor_w / 2 - border_size / 2
                 self._cursor_rect = QRectF(QPointF(cursor_x, cursor_y), QSizeF(cursor_w, cursor_h))
                 painter.setPen(cursor_pen)
                 painter.setBrush(cursor_brush)
@@ -354,7 +427,7 @@ class SliderHMIWidget(BaseHMIWidget):
         if not self._cursor_rect.contains(pos):
             return Qt.CursorShape.ArrowCursor
 
-        self._dragging = True
+        self._dragging_val = self._val_from_pos(pos)
         orientation = self.get_orientation()
         if orientation == Qt.Orientation.Horizontal:
             return Qt.CursorShape.SizeHorCursor
@@ -364,7 +437,7 @@ class SliderHMIWidget(BaseHMIWidget):
             raise NotImplementedError("Unknown orientation")
 
     def left_mouse_up(self, pos: QPointF | None) -> Qt.CursorShape:
-        self._dragging = False
+        self._dragging_val = None
         return Qt.CursorShape.ArrowCursor
 
     def mouse_move(self, pos: QPointF) -> Qt.CursorShape:
@@ -376,7 +449,7 @@ class SliderHMIWidget(BaseHMIWidget):
         else:
             raise NotImplementedError("Unknown orientation")
 
-        if not self._dragging:
+        if self._dragging_val is None:
             if self._cursor_rect is None:
                 return Qt.CursorShape.ArrowCursor
             if not self._cursor_rect.contains(pos):
@@ -386,7 +459,8 @@ class SliderHMIWidget(BaseHMIWidget):
         else:
             v = self._val_from_pos(pos)
             if v is not None:
-                self._write_val(v)
+                self._dragging_val = v
+                self.write_value_slot('val', v)
             return resize_cursor
 
     def get_implementation_config_dict(self) -> Dict[str, Any]:

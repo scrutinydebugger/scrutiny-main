@@ -270,7 +270,7 @@ class HMIWorkZone(QGraphicsView):
                     elif self._mouse_edit_data.action == WidgetMouseEditData.Action.Resize:
                         cursor = self._view_mousemove_resize_widget(event)  # Handle resize action
                 else:   # Nothing is happening
-                    # Check if we should display a resize cursor if use hover a resize handle
+                    # Check if we should display a resize cursor if used over a resize handle
                     hmi_widget = self.hmi_widget_at(event.pos(), perform_hit_test=False)
                     if hmi_widget is not None:
                         local_pos = hmi_widget.mapFromScene(scene_pos)
