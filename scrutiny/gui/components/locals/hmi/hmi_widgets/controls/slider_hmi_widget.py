@@ -54,12 +54,14 @@ class SliderHMIWidget(BaseHMIWidget):
     _edit_border_pen: QPen
 
     _cursor_rect: Optional[QRectF]
+    _slide_zone_rect: Optional[QRectF]
     _dragging: bool
 
     def __init__(self, app: AbstractComponentAppInterface) -> None:
         super().__init__(app)
         self.declare_value_slot('val', 'Value', allow_constant=False)
         self._cursor_rect = None
+        self._slide_zone_rect = None
         self._dragging = False
 
         self._cmb_orientation = QComboBox()
@@ -140,8 +142,33 @@ class SliderHMIWidget(BaseHMIWidget):
     def _config_changed_slot(self) -> None:
         self.update()
 
-    def _write_val(self, val: bool) -> None:
+    def _write_val(self, val: float) -> None:
         self.write_value_slot('val', val)
+
+    def _val_from_pos(self, pos: QPointF) -> Optional[float]:
+        min_val = self._txt_min_val.get_float_value()
+        max_val = self._txt_max_val.get_float_value()
+
+        if min_val is None or max_val is None:
+            return None
+
+        if self._slide_zone_rect is None:
+            return None
+
+        if self._slide_zone_rect.height() == 0 or self._slide_zone_rect.width() == 0:
+            return None
+
+        orientation = self.get_orientation()
+        if orientation == Qt.Orientation.Vertical:
+            yval = min(self._slide_zone_rect.bottom(), max(self._slide_zone_rect.top(), pos.y()))
+            ratio = (yval - self._slide_zone_rect.top()) / self._slide_zone_rect.height()
+            return (max_val - min_val) * (1 - ratio) + min_val    # 1-ratio because y0 is at the top and minval is at bottom
+        elif orientation == Qt.Orientation.Horizontal:
+            xval = min(self._slide_zone_rect.right(), max(self._slide_zone_rect.left(), pos.x()))
+            ratio = (xval - self._slide_zone_rect.left()) / self._slide_zone_rect.width()
+            return (max_val - min_val) * ratio + min_val
+
+        raise NotImplementedError("Unknown orientation")
 
 # region Getters and Setters
 
@@ -199,9 +226,6 @@ class SliderHMIWidget(BaseHMIWidget):
 
     def get_config_widget(self) -> QWidget:
         return self._config_widget
-
-    def mouseMoveEvent(self, event: QGraphicsSceneMouseEvent) -> None:
-        return super().mouseMoveEvent(event)
 
     def draw(self,
              values: Dict[str, Optional[WatchableValueType]],
@@ -309,13 +333,13 @@ class SliderHMIWidget(BaseHMIWidget):
             painter.setPen(slide_zone_pen)
             painter.setBrush(slide_zone_brush)
 
-            painter.drawRect(QRectF(
+            self._slide_zone_rect = QRectF(
                 QPointF(slide_zone_x, slide_zone_y),
                 QSizeF(slide_zone_w, slide_zone_h))
-            )
+            painter.drawRect(self._slide_zone_rect)
 
             if ratio is not None:
-                cursor_y = slide_zone_y + slide_zone_h * (1 - ratio) - cursor_h
+                cursor_y = slide_zone_y + slide_zone_h * (1 - ratio) - cursor_h / 2 - border_w / 2
                 self._cursor_rect = QRectF(QPointF(cursor_x, cursor_y), QSizeF(cursor_w, cursor_h))
                 painter.setPen(cursor_pen)
                 painter.setBrush(cursor_brush)
@@ -360,6 +384,9 @@ class SliderHMIWidget(BaseHMIWidget):
 
             return resize_cursor
         else:
+            v = self._val_from_pos(pos)
+            if v is not None:
+                self._write_val(v)
             return resize_cursor
 
     def get_implementation_config_dict(self) -> Dict[str, Any]:

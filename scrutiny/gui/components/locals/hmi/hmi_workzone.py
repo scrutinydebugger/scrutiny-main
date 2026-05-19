@@ -280,7 +280,10 @@ class HMIWorkZone(QGraphicsView):
                                 break
 
         else:
-            hmi_widget = self.hmi_widget_at(event.pos(), perform_hit_test=True)
+            if self._mouse_down_widget is not None:
+                hmi_widget = self._mouse_down_widget
+            else:
+                hmi_widget = self.hmi_widget_at(event.pos(), perform_hit_test=True)
             if hmi_widget is not None:
                 cursor = hmi_widget.mouse_move(hmi_widget.mapFromScene(self.mapToScene(event.pos())))
         self.setCursor(cursor)
