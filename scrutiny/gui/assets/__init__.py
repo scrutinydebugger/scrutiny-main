@@ -143,6 +143,7 @@ class Icons(enum.Enum):
     HMILine = "hmi_line"
     HMIColorIndicator = "hmi_color_indicator"
     HMIButton = "hmi_button"
+    HMISlider = "hmi_slider"
 
 
 _filename_cache: Dict[Tuple[Icons, IconFormat, IconSet], Path] = {}
