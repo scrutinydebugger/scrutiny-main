@@ -208,7 +208,6 @@ class SliderHMIWidget(BaseHMIWidget):
              edit_mode: bool,
              painter: QPainter
              ) -> None:
-        self._logger.info("draw")
         monospace_font = assets.get_font(assets.ScrutinyFont.Monospaced)
         orientation = cast(Qt.Orientation, self._cmb_orientation.currentData())
         bounding_rect = self.boundingRect()
