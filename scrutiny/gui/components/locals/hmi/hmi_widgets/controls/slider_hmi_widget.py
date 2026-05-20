@@ -3,7 +3,7 @@ __all__ = ['SliderHMIWidget']
 import enum
 import math
 
-from PySide6.QtGui import QPainter, QPainterPath, QPen, QBrush, QDoubleValidator
+from PySide6.QtGui import QPainter, QPainterPath, QPen, QBrush, QDoubleValidator, QFontMetrics
 from PySide6.QtCore import QSize, Qt, QPointF, QRectF, QSizeF
 from PySide6.QtWidgets import QGraphicsSceneMouseEvent, QVBoxLayout, QWidget, QGroupBox, QComboBox, QFormLayout, QLineEdit, QSlider, QSpinBox
 
@@ -23,12 +23,14 @@ from scrutiny.gui.components.locals.hmi.hmi_library_category import LibraryCateg
 
 
 class _Dims:
+    CURSOR_MIN_W_PX = 16
     TEXT_LABEL_MARGIN_PX = 3
-    MAJOR_TICK_LEN_RATIO = 0.1
+    MAJOR_TICK_LEN_RATIO = 0.05
+    MAJOR_TICK_MAX_LEN_PX = 20
     MINOR_TICK_LEN_RATIO = 0.05
     SLIDE_ZONE_MIN_W_RATIO = 0.1
     CURSOR_W_RATIO = 0.2
-    CURSOR_H_RATIO = 0.05
+    CURSOR_H_RATIO_TO_CURSOR_W = 0.3
     CURSOR_H_MAX_PX = 15
     BORDER_MAX_PX = 5
     BORDER_RATIO = 0.03
@@ -129,6 +131,7 @@ class SliderHMIWidget(BaseHMIWidget):
         self._sld_label_size.valueChanged.connect(self._config_changed_slot)
         self._spn_major_ticks.valueChanged.connect(self._config_changed_slot)
         self._spn_minor_ticks.valueChanged.connect(self._config_changed_slot)
+        self._label_format_config_widget.signals.changed.connect(self._config_changed_slot)
 
     def destroy(self) -> None:
         self._cmb_orientation.currentIndexChanged.disconnect()
@@ -265,6 +268,7 @@ class SliderHMIWidget(BaseHMIWidget):
         major_ticks = self._spn_major_ticks.value()
         minor_ticks = self._spn_minor_ticks.value()
         label_config = self._label_format_config_widget.get_config()
+        label_size_ratio = float(self._sld_label_size.value()) / 100.0
 
         ratio: Optional[float] = None
         if min_val is not None and max_val is not None and val is not None and max_val > min_val:
@@ -275,7 +279,7 @@ class SliderHMIWidget(BaseHMIWidget):
         if orientation == Qt.Orientation.Vertical:
             label_height = float(0)
             if major_ticks >= 2:
-                label_height = float(self._sld_label_size.value()) / 100.0 * bounding_rect.height() / float(self._spn_major_ticks.value())
+                label_height = label_size_ratio * bounding_rect.height() / float(major_ticks)
 
             cursor_x = border_size / 2
             cursor_w = bounding_rect.width() * _Dims.CURSOR_W_RATIO
@@ -283,7 +287,7 @@ class SliderHMIWidget(BaseHMIWidget):
             slide_zone_x = cursor_w / 2 + border_size / 2 - slide_zone_w / 2
             slide_zone_y = border_size / 2 + label_height / 2
             slide_zone_h = bounding_rect.height() - 2 * slide_zone_y
-            cursor_h = min(slide_zone_h * _Dims.CURSOR_H_RATIO, _Dims.CURSOR_H_MAX_PX)
+            cursor_h = min(cursor_w * _Dims.CURSOR_H_RATIO_TO_CURSOR_W, _Dims.CURSOR_H_MAX_PX)
 
             if major_ticks >= 2:
                 major_tick_w = max(slide_zone_w * _Dims.MAJOR_TICK_LEN_RATIO, 2 * border_size)
@@ -347,28 +351,55 @@ class SliderHMIWidget(BaseHMIWidget):
                 self._cursor_rect = None
 
         elif orientation == Qt.Orientation.Horizontal:
+            # Horizontal slider drawing is tricky because labels grow horizontally
+            # We use the cursor height as a base.
+            # Estimate cursor length based on label max label width, then make sure cursor has minimum size,
+            # then recompute the label height and position of everything
+
             label_width = float(0)
-            if major_ticks >= 2:
-                label_width = float(self._sld_label_size.value()) / 100.0 * bounding_rect.width() / float(self._spn_major_ticks.value())
+            major_tick_h = float(0)
+            minor_tick_h = float(0)
+            label_height = float(0)
+            label_margin = float(0)
 
             cursor_y = border_size / 2
-            cursor_h = bounding_rect.height() * _Dims.CURSOR_W_RATIO
-            slide_zone_h = bounding_rect.height() * _Dims.SLIDE_ZONE_MIN_W_RATIO
-            slide_zone_y = cursor_h / 2 + border_size / 2 - slide_zone_h / 2
-            slide_zone_x = border_size / 2 + label_width / 2
-            slide_zone_w = bounding_rect.width() - 2 * slide_zone_x
-            cursor_w = min(slide_zone_w * _Dims.CURSOR_H_RATIO, _Dims.CURSOR_H_MAX_PX)
 
-            if major_ticks >= 2:
-                major_tick_h = max(slide_zone_h * _Dims.MAJOR_TICK_LEN_RATIO, 2 * border_size)
+            if major_ticks >= 2:    # Has labels
+                # Compute ideal label height to take all the width. May be too big, we will fix later.
+                label_width = label_size_ratio * bounding_rect.width() / float(major_ticks)
+                monospace_font.setPixelSize(12)
+                single_char_rect = QFontMetrics(monospace_font).boundingRect("a")
+                font_h2w_ratio = float(single_char_rect.height()) / single_char_rect.width()
+
+                label_max_char = NumericalTextDisplay.max_char_count(label_config)
+                label_height = label_width / label_max_char * font_h2w_ratio
+                major_tick_h = min(bounding_rect.height() * _Dims.MAJOR_TICK_LEN_RATIO, _Dims.MAJOR_TICK_MAX_LEN_PX)
                 minor_tick_h = major_tick_h / 2
+                label_margin = _Dims.TEXT_LABEL_MARGIN_PX
+            else:
+                pass
+
+            # If label height is too big, cursor will be too small. Make sure the cursor is visible then fix label heights
+            cursor_h = (bounding_rect.height() - label_height - minor_tick_h - label_margin) - border_size
+            cursor_h = max(cursor_h, _Dims.CURSOR_MIN_W_PX)
+            cursor_w = min(cursor_h * _Dims.CURSOR_H_RATIO_TO_CURSOR_W, _Dims.CURSOR_H_MAX_PX)
+            label_height = min(label_height, bounding_rect.height() - cursor_h - major_tick_h - label_margin)
+
+            # We have cursor and label height. We can compute the position of everything now.
+            slide_zone_h = cursor_h * _Dims.SLIDE_ZONE_MIN_W_RATIO / _Dims.CURSOR_W_RATIO
+            slide_zone_y = cursor_h / 2 + border_size / 2 - slide_zone_h / 2
+            slide_zone_x = max(border_size / 2 + label_width / 2, cursor_w / 2 + border_size / 2)
+            slide_zone_w = bounding_rect.width() - 2 * slide_zone_x
+
+            if major_ticks >= 2:    # We have labels and ticks
                 major_tick_y1 = slide_zone_y + slide_zone_h + border_size / 2
                 major_tick_y2 = major_tick_y1 + major_tick_h
                 minor_tick_y1 = major_tick_y1
                 minor_tick_y2 = minor_tick_y1 + minor_tick_h
                 delta_major_tick = slide_zone_w / (major_ticks - 1)
                 label_y = max(major_tick_y2, cursor_h + border_size) + _Dims.TEXT_LABEL_MARGIN_PX
-                label_height = max(bounding_rect.bottom() - label_y, 0)
+                label_max_height = max(bounding_rect.bottom() - label_y, 0)
+                label_height = min(label_height, label_max_height)
 
                 for i in range(major_ticks):
                     painter.setPen(major_tick_pen)
@@ -382,6 +413,7 @@ class SliderHMIWidget(BaseHMIWidget):
                             painter.drawLine(QPointF(minor_tick_x, minor_tick_y1), QPointF(minor_tick_x, minor_tick_y2))
 
                     label_topleft_x = major_tick_x - label_width / 2
+
                     tick_label_rect = QRectF(
                         QPointF(label_topleft_x, label_y),
                         QSizeF(label_width, label_height)
@@ -394,7 +426,7 @@ class SliderHMIWidget(BaseHMIWidget):
                     if max_val is not None and min_val is not None:
                         value_range = max_val - min_val
                         delta_val = value_range / (major_ticks - 1)
-                        tick_val = max_val - delta_val * i
+                        tick_val = min_val + delta_val * i
                         tick_text = NumericalTextDisplay.format_numerical_value(label_config, tick_val)
                         text_align = Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter
                         NumericalTextDisplay.apply_font_size(monospace_font, label_config, tick_text, tick_label_rect)
@@ -473,6 +505,7 @@ class SliderHMIWidget(BaseHMIWidget):
             'label_size_percent': self._sld_label_size.value(),
             'major_ticks': self._spn_major_ticks.value(),
             'minor_ticks': self._spn_minor_ticks.value(),
+            'label_config': self._label_format_config_widget.get_config().to_dict()
         }
 
     def apply_implementation_config_dict(self, d: Dict[str, Any]) -> bool:
@@ -482,29 +515,41 @@ class SliderHMIWidget(BaseHMIWidget):
         valid_label_size_percent = False
         valid_major_ticks = False
         valid_minor_ticks = False
+        valid_label_config = False
 
-        if 'orientation' in d and isinstance(d['orientation'], int):
-            valid_orientation = deserialize_combobox_val(d['orientation'], Qt.Orientation, self._cmb_orientation)
+        key = 'orientation'
+        if key in d and isinstance(d[key], int):
+            valid_orientation = deserialize_combobox_val(d[key], Qt.Orientation, self._cmb_orientation)
 
-        if 'min_val' in d and isinstance(d['min_val'], (int, float)):
-            self._txt_min_val.set_float_value(float(d['min_val']))
+        key = 'min_val'
+        if key in d and isinstance(d[key], (int, float)):
+            self._txt_min_val.set_float_value(float(d[key]))
             valid_min_val = True
 
-        if 'max_val' in d and isinstance(d['max_val'], (int, float)):
-            self._txt_max_val.set_float_value(float(d['max_val']))
+        key = 'max_val'
+        if key in d and isinstance(d[key], (int, float)):
+            self._txt_max_val.set_float_value(float(d[key]))
             valid_max_val = True
 
-        if 'label_size_percent' in d and isinstance(d['label_size_percent'], int):
-            self._sld_label_size.setValue(d['label_size_percent'])
-            valid_label_size_percent = (d['label_size_percent'] == self._sld_label_size.value())
+        key = 'label_size_percent'
+        if key in d and isinstance(d[key], int):
+            self._sld_label_size.setValue(d[key])
+            valid_label_size_percent = (d[key] == self._sld_label_size.value())
 
-        if 'major_ticks' in d and isinstance(d['major_ticks'], int):
-            self._spn_major_ticks.setValue(d['major_ticks'])
-            valid_major_ticks = (d['major_ticks'] == self._spn_major_ticks.value())
+        key = 'major_ticks'
+        if key in d and isinstance(d[key], int):
+            self._spn_major_ticks.setValue(d[key])
+            valid_major_ticks = (d[key] == self._spn_major_ticks.value())
 
-        if 'minor_ticks' in d and isinstance(d['minor_ticks'], int):
-            self._spn_minor_ticks.setValue(d['minor_ticks'])
-            valid_minor_ticks = (d['minor_ticks'] == self._spn_minor_ticks.value())
+        key = 'minor_ticks'
+        if key in d and isinstance(d[key], int):
+            self._spn_minor_ticks.setValue(d[key])
+            valid_minor_ticks = (d[key] == self._spn_minor_ticks.value())
+
+        key = 'label_config'
+        if key in d and isinstance(d[key], dict):
+            label_config, valid_label_config = NumberFormattingConfig.from_dict(d[key])
+            self._label_format_config_widget.apply_config(label_config)
 
         if not valid_orientation:
             self._logger.warning('Invalid orientation value')
@@ -518,6 +563,8 @@ class SliderHMIWidget(BaseHMIWidget):
             self._logger.warning('Invalid major ticks value')
         if not valid_minor_ticks:
             self._logger.warning('Invalid minor ticks value')
+        if not valid_label_config:
+            self._logger.warning('Invalid label configuration')
 
         return (
             valid_orientation
@@ -526,6 +573,7 @@ class SliderHMIWidget(BaseHMIWidget):
             and valid_label_size_percent
             and valid_major_ticks
             and valid_minor_ticks
+            and valid_label_config
         )
 
 
