@@ -208,25 +208,26 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         validation.assert_dict_key(state_cast, 'hmi_widgets', list)
         validation.assert_dict_key(state_cast, 'workzone_size', (list, tuple))
 
-        def read_pair(d: Any, key: str) -> Tuple[int, int]:
+        def read_posint_pair(d: Any, key: str) -> Tuple[int, int]:
             validation.assert_dict_key(d, key, (tuple, list))
             v = d[key]
-            assert len(v) == 2, "Invalid size"
-            assert isinstance(v[0], int), "Invalid size"
-            assert isinstance(v[1], int), "Invalid size"
+            assert len(v) == 2, f"Invalid {key}"
+            assert isinstance(v[0], int), f"Invalid {key}"
+            assert isinstance(v[1], int), f"Invalid {key}"
             if v[0] < 0 or v[1] < 0:
-                raise ValueError("Invalid Size")
+                raise ValueError(f"Invalid {key}")
             return tuple(v)
 
         def read_size(d: Any, key: str) -> QSize:
-            pair = read_pair(d, key)
+            pair = read_posint_pair(d, key)
             return QSize(pair[0], pair[1])
 
         def read_pos(d: Any, key: str) -> QPoint:
-            pair = read_pair(d, key)
+            pair = read_posint_pair(d, key)
             return QPoint(pair[0], pair[1])
 
         workszone_size = read_size(state_cast, 'workzone_size')
+        self._workzone.setSceneRect(QRect(QPoint(0, 0), workszone_size))
         self._workzone.resize(workszone_size)
 
         fully_loaded_ok = True
