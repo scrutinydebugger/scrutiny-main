@@ -60,7 +60,7 @@ assert_file ${LICENSE_FILE}
 STATIC_DATA_ARGS=
 STATIC_DATA_ARGS+=" --include-data-file="${LICENSE_FILE}"=LICENSE"
 STATIC_DATA_ARGS+=" --include-data-file="${ICON_PNG}"=$(basename "${ICON_PNG}")"
-
+set -x
 if [ "$NO_PACKAGE" -ne 1 ]; then
     info "Building a Scrutiny Wheel file (No CLI entry points)"
     WHEEL_FOLDER="$OUTPUT_FOLDER/wheel"
@@ -69,14 +69,16 @@ if [ "$NO_PACKAGE" -ne 1 ]; then
     ./scripts/make_wheel_nocli.sh "$WHEEL_FOLDER"
     WHEEL_FILE_NOCLI="$WHEEL_FOLDER/$(scripts/make_wheel_filename.sh NOCLI)"
     assert_file "$WHEEL_FILE_NOCLI"
+    BASENAME_WHEEL_FILE_NOCLI=$(basename "${WHEEL_FILE_NOCLI}")
     info "Embedding $(basename $WHEEL_FILE_NOCLI) inside Nuitka package"
 
     # User Guide
     ./scripts/build_or_reuse_userguide.sh
     USERGUIDE_PDF=$(python -m scrutiny userguide location)
 
-    STATIC_DATA_ARGS+= " --include-data-file="${WHEEL_FILE_NOCLI}"=$(basename "${WHEEL_FILE_NOCLI}")"
-    STATIC_DATA_ARGS+= " --include-data-file="${USERGUIDE_PDF}"=scrutiny/$(basename "${USERGUIDE_PDF}")"
+    STATIC_DATA_ARGS+=" --include-data-file="${WHEEL_FILE_NOCLI}"="${BASENAME_WHEEL_FILE_NOCLI}""
+    STATIC_DATA_ARGS+=" --include-data-file="${USERGUIDE_PDF}"=scrutiny/$(basename "${USERGUIDE_PDF}")"
+    echo $STATIC_DATA_ARGS
 fi
 
 # Launch the compilation
