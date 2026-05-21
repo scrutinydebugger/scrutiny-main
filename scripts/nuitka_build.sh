@@ -42,7 +42,7 @@ PLATFORM_ARGS=
 OUTPUT_FILENAME="scrutiny.bin"  # default. we manage with symlink on unix based platform
 if [ "$PLATFORM" = "win32" ]; then
     PLATFORM_ARGS+=" --windows-icon-from-ico=${ICON_PNG}"
-    PLATFORM_ARGS+=" --windows-console-mode=disable"
+    PLATFORM_ARGS+=" --windows-console-mode=hide"
     OUTPUT_FILENAME="scrutiny"  # we do not want scrutiny.bin.exe
 elif [ "$PLATFORM" = "darwin" ]; then
     PLATFORM_ARGS+=" --macos-create-app-bundle"
@@ -86,6 +86,7 @@ python -m nuitka                                    \
     --python-flag=no_site                           \
     --output-dir=${OUTPUT_FOLDER}                   \
     --standalone                                    \
+    --nofollow-import-to=numpy                      \
     --nofollow-import-to=ipdb                       \
     --nofollow-import-to=test                       \
     --enable-plugin=pyside6                         \
@@ -99,6 +100,7 @@ python -m nuitka                                    \
     ${PLATFORM_ARGS}                                \
     --output-filename=${OUTPUT_FILENAME}            \
     --main=scrutiny                                 \
+    --report=nuitka_build_log.xml
 
 rm "${LICENSE_FILE}"
 
