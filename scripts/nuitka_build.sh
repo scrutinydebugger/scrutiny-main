@@ -18,6 +18,8 @@ OUTPUT_FOLDER=$(dir_with_default ${1:-""} "nuitka_build")
 PROJECT_ROOT="$(get_project_root)"
 cd ${PROJECT_ROOT}
 
+NO_PACKAGE=${SCRUTINY_NUITKA_BUILD_NO_PACKAGE:-0}
+
 DEPLOY_FOLDER=${PROJECT_ROOT}/deploy
 assert_dir "$DEPLOY_FOLDER"
 
@@ -32,23 +34,10 @@ assert_scrutiny_version_format "$SCRUTINY_VERSION"
 info "Building scrutiny into ${OUTPUT_FOLDER}"
 info "Using $(python --version)"
 
-# Per platform specfic parameters
+# Per platform specific parameters
 PRODUCT_NAME="Scrutiny Debugger"
 PLATFORM=$(python -c "import sys; print(sys.platform);")
 PLATFORM_ARGS=
-
-info "Building a Scrutiny Wheel file (No CLI entry points)"
-WHEEL_FOLDER="$OUTPUT_FOLDER/wheel"
-rm -rf "$WHEEL_FOLDER"
-mkdir -p "$WHEEL_FOLDER"
-./scripts/make_wheel_nocli.sh "$WHEEL_FOLDER"
-WHEEL_FILE_NOCLI="$WHEEL_FOLDER/$(scripts/make_wheel_filename.sh NOCLI)"
-assert_file "$WHEEL_FILE_NOCLI"
-info "Embedding $(basename $WHEEL_FILE_NOCLI) inside Nuitka package"
-
-# User Guide
-./scripts/build_or_reuse_userguide.sh
-USERGUIDE_PDF=$(python -m scrutiny userguide location)
 
 OUTPUT_FILENAME="scrutiny.bin"  # default. we manage with symlink on unix based platform
 if [ "$PLATFORM" = "win32" ]; then
@@ -68,6 +57,28 @@ LICENSE_FILE="LICENSE.out"
 ./scripts/make_license.sh ${LICENSE_FILE}
 assert_file ${LICENSE_FILE}
 
+STATIC_DATA_ARGS=
+STATIC_DATA_ARGS+=" --include-data-file="${LICENSE_FILE}"=LICENSE"
+STATIC_DATA_ARGS+=" --include-data-file="${ICON_PNG}"=$(basename "${ICON_PNG}")"
+
+if [ "$NO_PACKAGE" -ne 1 ]; then
+    info "Building a Scrutiny Wheel file (No CLI entry points)"
+    WHEEL_FOLDER="$OUTPUT_FOLDER/wheel"
+    rm -rf "$WHEEL_FOLDER"
+    mkdir -p "$WHEEL_FOLDER"
+    ./scripts/make_wheel_nocli.sh "$WHEEL_FOLDER"
+    WHEEL_FILE_NOCLI="$WHEEL_FOLDER/$(scripts/make_wheel_filename.sh NOCLI)"
+    assert_file "$WHEEL_FILE_NOCLI"
+    info "Embedding $(basename $WHEEL_FILE_NOCLI) inside Nuitka package"
+
+    # User Guide
+    ./scripts/build_or_reuse_userguide.sh
+    USERGUIDE_PDF=$(python -m scrutiny userguide location)
+
+    STATIC_DATA_ARGS+= " --include-data-file="${WHEEL_FILE_NOCLI}"=$(basename "${WHEEL_FILE_NOCLI}")"
+    STATIC_DATA_ARGS+= " --include-data-file="${USERGUIDE_PDF}"=scrutiny/$(basename "${USERGUIDE_PDF}")"
+fi
+
 # Launch the compilation
 python -m nuitka                                    \
     --follow-imports                                \
@@ -81,10 +92,7 @@ python -m nuitka                                    \
     --assume-yes-for-downloads                      \
     --noinclude-unittest-mode=allow                 \
     --include-package-data=scrutiny.gui.assets      \
-    --include-data-file="${LICENSE_FILE}"="LICENSE" \
-    --include-data-file="${ICON_PNG}"=$(basename "${ICON_PNG}")                         \
-    --include-data-file="${WHEEL_FILE_NOCLI}"=$(basename "${WHEEL_FILE_NOCLI}")         \
-    --include-data-file="${USERGUIDE_PDF}"=scrutiny/$(basename "${USERGUIDE_PDF}")      \
+    ${STATIC_DATA_ARGS}                             \
     --product-name="${PRODUCT_NAME}"                \
     --product-version="${SCRUTINY_VERSION}"         \
     --copyright="${COPYRIGHT_STRING}"               \
