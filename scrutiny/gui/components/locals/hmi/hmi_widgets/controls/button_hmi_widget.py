@@ -12,7 +12,7 @@ __all__ = ['ButtonHMIWidget']
 import enum
 import math
 
-from PySide6.QtGui import QPainter, QPainterPath, QPen, QBrush
+from PySide6.QtGui import QPainter, QPen, QBrush
 from PySide6.QtCore import QSize, Qt, QPointF, QRectF, QSizeF
 from PySide6.QtWidgets import QGraphicsSceneMouseEvent, QVBoxLayout, QWidget, QGroupBox, QComboBox, QFormLayout, QLineEdit
 
@@ -182,10 +182,6 @@ class ButtonHMIWidget(BaseHMIWidget):
 
     def get_config_widget(self) -> QWidget:
         return self._config_widget
-
-    def mouseMoveEvent(self, event: QGraphicsSceneMouseEvent) -> None:
-        print("move")
-        return super().mouseMoveEvent(event)
 
     def draw(self,
              values: Dict[str, Optional[WatchableValueType]],

@@ -1159,6 +1159,91 @@ class TestWorkZone(HMIComponentBaseTest):
         self.assertEqual(event_history[1], (Rectangle2, UP))
         self.assertEqual(event_history[2], (Rectangle2, MOVE))
 
+    def test_move_events_broadcast_while_mouse_down_even_if_outside_bounding_rect(self):
+        DOWN = 0
+        UP = 1
+        MOVE = 2
+
+        event_history: List[Tuple[Type, int]] = []
+
+        class Circle2(CircleHMIWidget):
+            def left_mouse_down(self, pos: QPointF) -> Qt.CursorShape:
+                event_history.append((self, DOWN))
+                return super().left_mouse_down(pos)
+
+            def left_mouse_up(self, pos: Optional[QPointF]) -> Qt.CursorShape:
+                event_history.append((self, UP))
+                return super().left_mouse_up(pos)
+
+            def mouse_move(self, pos: QPointF) -> Qt.CursorShape:
+                event_history.append((self, MOVE))
+                return super().mouse_move(pos)
+
+        circle1 = Circle2(self.app_interface)
+        circle2 = Circle2(self.app_interface)
+        circle1.set_size(QSize(64, 64))
+        circle2.set_size(QSize(64, 64))
+        self.hmi_component.add_hmi_widget(circle1, QPoint(0, 0))
+        self.hmi_component.add_hmi_widget(circle2, QPoint(100, 100))
+
+        p1 = QPointF(10, 10)
+        p2 = QPointF(110, 110)
+        circle1_down_event = QMouseEvent(QEvent.Type.MouseButtonPress, p1,
+                                         Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
+                                         )
+        circle1_up_event = QMouseEvent(QEvent.Type.MouseButtonRelease, p1,
+                                       Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
+                                       )
+        circle1_move_event = QMouseEvent(QEvent.Type.MouseButtonPress, p1,
+                                         Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
+                                         )
+
+        circle2_up_event = QMouseEvent(QEvent.Type.MouseButtonRelease, p2,
+                                       Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
+                                       )
+        circle2_move_event = QMouseEvent(QEvent.Type.MouseButtonPress, p2,
+                                         Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
+                                         )
+
+        workzone = self.hmi_component.get_workzone()
+        workzone.set_edit_mode(False)
+        workzone.mouseMoveEvent(circle1_move_event)
+        workzone.mouseReleaseEvent(circle1_up_event)
+        self.assertEqual(len(event_history), 1)
+        self.assertEqual(event_history[0], (circle1, MOVE))
+
+        workzone.mousePressEvent(circle1_down_event)
+        workzone.mouseMoveEvent(circle2_move_event)
+        workzone.mouseReleaseEvent(circle2_up_event)
+        self.assertEqual(len(event_history), 4)
+        self.assertEqual(event_history[1], (circle1, DOWN))
+        self.assertEqual(event_history[2], (circle1, MOVE))
+        self.assertEqual(event_history[3], (circle1, UP))
+
+    def test_resize_handles(self):
+        circle = CircleHMIWidget(self.app_interface)
+        circle.set_size(QSize(64, 64))
+        self.hmi_component.add_hmi_widget(circle, QPoint(64, 64))
+        workzone = self.hmi_component.get_workzone()
+        workzone.set_edit_mode(True)
+
+        pos_cursor_map = [
+            (QPoint(65, 65), Qt.CursorShape.SizeFDiagCursor),
+            (QPoint(65, 96), Qt.CursorShape.SizeHorCursor),
+            (QPoint(65, 127), Qt.CursorShape.SizeBDiagCursor),
+            (QPoint(96, 65), Qt.CursorShape.SizeVerCursor),
+            (QPoint(127, 65), Qt.CursorShape.SizeBDiagCursor),
+            (QPoint(127, 96), Qt.CursorShape.SizeHorCursor),
+            (QPoint(127, 127), Qt.CursorShape.SizeFDiagCursor),
+            (QPoint(96, 127), Qt.CursorShape.SizeVerCursor),
+        ]
+
+        for pos, cursor in pos_cursor_map:
+            workzone.mouseMoveEvent(QMouseEvent(QEvent.Type.MouseButtonRelease, pos,
+                                                Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
+                                                ))
+            self.assertEqual(workzone.cursor().shape(), cursor, msg=f"p={pos}")
+
 
 class TestHMIComponent(HMIComponentBaseTest):
     def test_serialize_and_reload_state(self):

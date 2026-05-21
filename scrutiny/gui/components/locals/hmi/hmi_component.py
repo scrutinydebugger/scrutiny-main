@@ -208,25 +208,26 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         validation.assert_dict_key(state_cast, 'hmi_widgets', list)
         validation.assert_dict_key(state_cast, 'workzone_size', (list, tuple))
 
-        def read_pair(d: Any, key: str) -> Tuple[int, int]:
+        def read_posint_pair(d: Any, key: str) -> Tuple[int, int]:
             validation.assert_dict_key(d, key, (tuple, list))
             v = d[key]
-            assert len(v) == 2, "Invalid size"
-            assert isinstance(v[0], int), "Invalid size"
-            assert isinstance(v[1], int), "Invalid size"
+            assert len(v) == 2, f"Invalid {key}"
+            assert isinstance(v[0], int), f"Invalid {key}"
+            assert isinstance(v[1], int), f"Invalid {key}"
             if v[0] < 0 or v[1] < 0:
-                raise ValueError("Invalid Size")
+                raise ValueError(f"Invalid {key}")
             return tuple(v)
 
         def read_size(d: Any, key: str) -> QSize:
-            pair = read_pair(d, key)
+            pair = read_posint_pair(d, key)
             return QSize(pair[0], pair[1])
 
         def read_pos(d: Any, key: str) -> QPoint:
-            pair = read_pair(d, key)
+            pair = read_posint_pair(d, key)
             return QPoint(pair[0], pair[1])
 
         workszone_size = read_size(state_cast, 'workzone_size')
+        self._workzone.setSceneRect(QRect(QPoint(0, 0), workszone_size))
         self._workzone.resize(workszone_size)
 
         fully_loaded_ok = True
@@ -337,7 +338,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         self._awaiting_delete_set.add(widget.instance_id)
         widget.add_del_callback(functools.partial(self._hmi_widget_del_callback, widget.instance_id))
 
-        fn = functools.partial(self.check_is_deleted, widget.instance_id, widget.get_display_name())
+        fn = functools.partial(self._check_is_deleted, widget.instance_id, widget.get_display_name())
         invoke_later(fn)
         gc.collect()
 
@@ -518,7 +519,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         if instance_id in self._awaiting_delete_set:
             self._awaiting_delete_set.remove(instance_id)
 
-    def check_is_deleted(self, instance_id: int, name: str) -> None:
+    def _check_is_deleted(self, instance_id: int, name: str) -> None:
         if instance_id in self._awaiting_delete_set:
             self.logger.warning(f"Dangling reference to widget {name} after deletion")
 

@@ -83,6 +83,8 @@ class ValueSlot:
     """A unique ID used to subscribe to value update"""
     last_value_received: WatchableValueType
     """Last value received"""
+    last_value_drawn: WatchableValueType
+    """Last value drawn. Used to avoid unnecessary redraw"""
     require_redraw: bool
     """A flag that indicate if a redraw of the HMI widget is required when the value of this slot changes"""
     value_update_callback: Optional[HMIWidgetValueUpdateCallback]
@@ -106,6 +108,7 @@ class ValueSlot:
         self.watchable_line_edit = WatchableLineEdit()
         self.watcher_id = f'{name}{global_i64_counter()}'
         self.last_value_received = None
+        self.last_value_drawn = None
         self.value_update_callback = value_update_callback
         self.require_redraw = require_redraw
         self.value_override = None
@@ -307,6 +310,7 @@ class BaseHMIWidget(QGraphicsItem):
     _del_callback: List[Callable[[], None]]
     """A list of callbacks to call when this object is garbage collected."""
     _hit_zone: Optional[BaseHitZone]
+    """Object used for knowing if a position is on a visible section of the drawing. Like QT Shape(), but owned but used by the Workzone"""
 
     def __init__(self, app: AbstractComponentAppInterface) -> None:
         super().__init__()
@@ -627,9 +631,9 @@ class BaseHMIWidget(QGraphicsItem):
 
     def _slot_value_update_callback(self, vslot: ValueSlot, val: WatchableValueType) -> None:
         """The callback invoked when a ValueSlot value changes"""
-        value_changed = (vslot.last_value_received != val)
+        value_changed = (vslot.last_value_drawn != val)
 
-        if value_changed:   # Avoid redrawing when not necessary
+        if value_changed:
             if vslot.value_update_callback is not None:
                 vslot.value_update_callback(val)
 
@@ -690,7 +694,7 @@ class BaseHMIWidget(QGraphicsItem):
         vslot = self._get_vslot_by_name_or_raise(name)
         return vslot.get_val()
 
-    def _get_vslot_vals(self) -> Dict[str, Optional[WatchableValueType]]:
+    def _get_vslot_vals_for_draw(self) -> Dict[str, Optional[WatchableValueType]]:
         """Read and returns the actual values of each ValueSlot"""
 
         def compute_single(vslot: ValueSlot) -> Optional[WatchableValueType]:
@@ -705,7 +709,8 @@ class BaseHMIWidget(QGraphicsItem):
                 if node is None:
                     return None
 
-                return vslot.get_val()
+                vslot.last_value_drawn = vslot.get_val()
+                return vslot.last_value_drawn
 
         return {vslot.name: compute_single(vslot) for vslot in self._vslots}
 
@@ -742,7 +747,7 @@ class BaseHMIWidget(QGraphicsItem):
         self._pending_redraw = False
         self._need_redraw = False
 
-        values = self._get_vslot_vals()
+        values = self._get_vslot_vals_for_draw()
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
 
         self.draw(values, self._edit_mode, painter)
