@@ -58,8 +58,8 @@ LICENSE_FILE="LICENSE.out"
 assert_file ${LICENSE_FILE}
 
 STATIC_DATA_ARGS=
-STATIC_DATA_ARGS+=" --include-data-file=\"${LICENSE_FILE}\"=LICENSE"
-STATIC_DATA_ARGS+=" --include-data-file=\"${ICON_PNG}\"=\"$(basename "${ICON_PNG}")\""
+STATIC_DATA_ARGS+=" --include-data-file=${LICENSE_FILE}=LICENSE"
+STATIC_DATA_ARGS+=" --include-data-file=${ICON_PNG}=$(basename "${ICON_PNG}")"
 
 if [ "$NO_PACKAGE" -ne 1 ]; then
     info "Building a Scrutiny Wheel file (No CLI entry points)"
@@ -77,8 +77,8 @@ if [ "$NO_PACKAGE" -ne 1 ]; then
     USERGUIDE_PDF=$(python -m scrutiny userguide location)
     BASENAME_USERGUIDE_PDF=$(basename "${USERGUIDE_PDF}")
 
-    STATIC_DATA_ARGS+=" --include-data-file=\"${WHEEL_FILE_NOCLI}\"=\"${BASENAME_WHEEL_FILE_NOCLI}\""
-    STATIC_DATA_ARGS+=" --include-data-file=\"${USERGUIDE_PDF}\"=\"scrutiny/${BASENAME_USERGUIDE_PDF})\""
+    STATIC_DATA_ARGS+=" --include-data-file=${WHEEL_FILE_NOCLI}=${BASENAME_WHEEL_FILE_NOCLI}"
+    STATIC_DATA_ARGS+=" --include-data-file=${USERGUIDE_PDF}=scrutiny/${BASENAME_USERGUIDE_PDF})"
 fi
 
 # Launch the compilation
