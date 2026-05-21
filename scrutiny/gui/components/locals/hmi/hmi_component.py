@@ -337,7 +337,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         self._awaiting_delete_set.add(widget.instance_id)
         widget.add_del_callback(functools.partial(self._hmi_widget_del_callback, widget.instance_id))
 
-        fn = functools.partial(self.check_is_deleted, widget.instance_id, widget.get_display_name())
+        fn = functools.partial(self._check_is_deleted, widget.instance_id, widget.get_display_name())
         invoke_later(fn)
         gc.collect()
 
@@ -518,7 +518,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         if instance_id in self._awaiting_delete_set:
             self._awaiting_delete_set.remove(instance_id)
 
-    def check_is_deleted(self, instance_id: int, name: str) -> None:
+    def _check_is_deleted(self, instance_id: int, name: str) -> None:
         if instance_id in self._awaiting_delete_set:
             self.logger.warning(f"Dangling reference to widget {name} after deletion")
 
