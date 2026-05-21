@@ -58,8 +58,8 @@ LICENSE_FILE="LICENSE.out"
 assert_file ${LICENSE_FILE}
 
 STATIC_DATA_ARGS=
-STATIC_DATA_ARGS+=" --include-data-file="${LICENSE_FILE}"=LICENSE"
-STATIC_DATA_ARGS+=" --include-data-file="${ICON_PNG}"=$(basename "${ICON_PNG}")"
+STATIC_DATA_ARGS+=" --include-data-file=\"${LICENSE_FILE}\"=LICENSE"
+STATIC_DATA_ARGS+=" --include-data-file=\"${ICON_PNG}\"=\"$(basename "${ICON_PNG}")\""
 
 if [ "$NO_PACKAGE" -ne 1 ]; then
     info "Building a Scrutiny Wheel file (No CLI entry points)"
