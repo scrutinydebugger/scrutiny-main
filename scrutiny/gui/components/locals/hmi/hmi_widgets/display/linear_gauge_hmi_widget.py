@@ -15,7 +15,6 @@ from PySide6.QtWidgets import (QSlider, QStyleOptionGraphicsItem, QWidget, QForm
                                QSpinBox, QGroupBox, QVBoxLayout, QCheckBox)
 
 from scrutiny.gui.component_app_interface import AbstractComponentAppInterface
-from scrutiny.gui.components.locals.hmi.hmi_library_category import LibraryCategory
 from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget, WatchableValueType
 from scrutiny.gui.components.locals.hmi.hmi_theme import HMITheme
 from scrutiny.gui.components.locals.hmi.common.numerical_text_display import (
@@ -371,7 +370,6 @@ class LinearGaugeHMIWidget(BaseHMIWidget):
     """A HMI widget that draws a linear gauge that shows a small cursor that slide along that gauge.
     Can optionally fill the gauge to look like a progressbar"""
 
-    _CATEGORY = LibraryCategory.Display
     _UNIQUE_NAME = 'linear_gauge'
     _DISPLAY_NAME = 'Linear Gauge'
     _ICON = assets.Icons.HMILinearGauge

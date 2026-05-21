@@ -24,7 +24,7 @@ def extract_external_links(root_folder:Path) -> List[str]:
                 try:
                     with open(full_path, "r", encoding="utf-8") as f:
                         content = f.read()
-                        found = [m.group(1) for m in url_pattern.finditer(content)]
+                        found = [m.group(1).strip() for m in url_pattern.finditer(content)]
                         urls.update(found)
                 except (OSError, UnicodeDecodeError):
                     # Skip unreadable files

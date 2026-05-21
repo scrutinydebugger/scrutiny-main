@@ -14,7 +14,6 @@ from PySide6.QtWidgets import QVBoxLayout, QWidget, QGroupBox, QLineEdit, QFormL
 
 from scrutiny.gui.component_app_interface import AbstractComponentAppInterface
 from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget, WatchableValueType
-from scrutiny.gui.components.locals.hmi.hmi_library_category import LibraryCategory
 from scrutiny.gui.components.locals.hmi.common.pen_config import PenConfigWidget, PenConfigStateDict
 from scrutiny.gui.components.locals.hmi.common.brush_config import BrushConfigWidget, BrushConfigStateDict
 from scrutiny.gui.components.locals.hmi.common.text import set_font_size_to_fit_rect
@@ -27,7 +26,6 @@ from scrutiny.tools.typing import *
 
 class TextLabelHMIWidget(BaseHMIWidget):
 
-    _CATEGORY = LibraryCategory.Graphic
     _UNIQUE_NAME = 'label'
     _DISPLAY_NAME = 'Label'
     _ICON = assets.Icons.HMILabel

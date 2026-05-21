@@ -22,7 +22,7 @@ cd ${PROJECT_ROOT}
 
 # Check Folders exists
 info "App directory: $APP_DIR"
-info "Otuput directory: $OUTPUT_FOLDER"
+info "Output directory: $OUTPUT_FOLDER"
 
 assert_dir "$APP_DIR"
 assert_dir "$OUTPUT_FOLDER"

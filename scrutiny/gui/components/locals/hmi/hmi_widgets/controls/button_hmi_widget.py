@@ -25,8 +25,6 @@ from scrutiny.gui.components.locals.hmi.hmi_theme import HMITheme
 from scrutiny.gui import assets
 from scrutiny.tools.typing import *
 
-from scrutiny.gui.components.locals.hmi.hmi_library_category import LibraryCategory
-
 
 class _Dims:
     EDGE_WIDTH = 0.05
@@ -46,7 +44,6 @@ class ButtonType(enum.Enum):
 
 class ButtonHMIWidget(BaseHMIWidget):
 
-    _CATEGORY = LibraryCategory.Control
     _UNIQUE_NAME = 'button'
     _DISPLAY_NAME = 'Button'
     _ICON = assets.Icons.HMIButton

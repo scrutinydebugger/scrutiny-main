@@ -18,7 +18,6 @@ from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseH
 from scrutiny.gui import assets
 from scrutiny.tools.typing import *
 
-from scrutiny.gui.components.locals.hmi.hmi_library_category import LibraryCategory
 from scrutiny.gui.components.locals.hmi.common.numerical_text_display import (
     NumericalTextDisplay, NumericalTextDisplayStateDict, NumberFormattingConfig
 )
@@ -27,7 +26,6 @@ from scrutiny.gui.components.locals.hmi.hmi_theme import HMITheme
 
 class NumericalDisplayHMIWidget(BaseHMIWidget):
 
-    _CATEGORY = LibraryCategory.Display
     _UNIQUE_NAME = 'numerical_display'
     _DISPLAY_NAME = 'Numerical Display'
     _ICON = assets.Icons.HMITextDisplay

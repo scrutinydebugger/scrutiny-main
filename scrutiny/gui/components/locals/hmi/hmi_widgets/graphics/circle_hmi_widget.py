@@ -17,7 +17,6 @@ from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseH
 from scrutiny.gui import assets
 from scrutiny.tools.typing import *
 
-from scrutiny.gui.components.locals.hmi.hmi_library_category import LibraryCategory
 from scrutiny.gui.components.locals.hmi.common.pen_config import PenConfigWidget, PenConfigStateDict
 from scrutiny.gui.components.locals.hmi.common.brush_config import BrushConfigWidget, BrushConfigStateDict
 from scrutiny.gui.components.locals.hmi.common.hit_zones import EllipseHitZone
@@ -25,7 +24,6 @@ from scrutiny.gui.components.locals.hmi.common.hit_zones import EllipseHitZone
 
 class CircleHMIWidget(BaseHMIWidget):
 
-    _CATEGORY = LibraryCategory.Graphic
     _UNIQUE_NAME = 'circle'
     _DISPLAY_NAME = 'Circle'
     _ICON = assets.Icons.HMICircle
