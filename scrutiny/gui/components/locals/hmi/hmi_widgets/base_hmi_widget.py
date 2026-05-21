@@ -21,7 +21,6 @@ from PySide6.QtCore import QSize, QRectF, QPointF, QPoint, QObject, Qt, Signal
 from scrutiny import sdk
 from scrutiny.gui.app_settings import app_settings
 from scrutiny.gui.widgets.watchable_line_edit import WatchableLineEdit, WatchableFQNAndName
-from scrutiny.gui.components.locals.hmi.hmi_library_category import LibraryCategory
 from scrutiny.gui.components.locals.hmi.hmi_edit_grid import HMIEditGrid
 from scrutiny.gui.components.locals.hmi.hmi_theme import HMITheme
 from scrutiny.gui.components.locals.hmi.common.hit_zones import BaseHitZone
@@ -351,10 +350,6 @@ class BaseHMIWidget(QGraphicsItem):
     @property
     def signals(self) -> _Signals:
         return self._signals
-
-    @classmethod
-    def get_category(cls) -> LibraryCategory:
-        return cls._read_class_prop('_CATEGORY', LibraryCategory)
 
     @classmethod
     def get_unique_name(cls) -> str:

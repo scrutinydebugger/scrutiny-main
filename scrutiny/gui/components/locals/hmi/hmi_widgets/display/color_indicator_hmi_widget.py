@@ -23,7 +23,6 @@ from scrutiny.gui.components.locals.hmi.common.hit_zones import EllipseHitZone
 from scrutiny.gui import assets
 from scrutiny.tools.typing import *
 
-from scrutiny.gui.components.locals.hmi.hmi_library_category import LibraryCategory
 from scrutiny.gui.components.locals.hmi.hmi_theme import HMITheme
 from scrutiny import tools
 
@@ -57,7 +56,6 @@ _BLINK_FAST_INTERVAL_MS = 400
 
 class ColorIndicatorHMIWidget(BaseHMIWidget):
 
-    _CATEGORY = LibraryCategory.Display
     _UNIQUE_NAME = 'color_indicator'
     _DISPLAY_NAME = 'Color Indicator'
     _ICON = assets.Icons.HMIColorIndicator

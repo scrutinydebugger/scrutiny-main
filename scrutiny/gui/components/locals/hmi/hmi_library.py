@@ -6,8 +6,7 @@
 #
 #    Copyright (c) 2026 Scrutiny Debugger
 
-import pkgutil
-import importlib
+import enum
 
 from PySide6.QtGui import QMouseEvent, QDrag
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QGroupBox, QHBoxLayout
@@ -16,19 +15,29 @@ from PySide6.QtCore import Qt, QSize
 from scrutiny.gui.widgets.scrutiny_hoverable_widget import ScrutinyHoverableWidget
 from scrutiny.gui.widgets.flow_grid_layout import FlowGridLayout
 from scrutiny.gui.core.scrutiny_drag_data import ScrutinyDragData
-from scrutiny.gui.components.locals.hmi.hmi_library_category import HMI_LIBARY_CATEGORIES, LibraryCategory
 from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget
 
 from scrutiny.tools.typing import *
 
 # Autoload every sub modules of the library so they can be imported by reflection
-import scrutiny.gui.components.locals.hmi.hmi_widgets.graphics as graphics_submodule
-import scrutiny.gui.components.locals.hmi.hmi_widgets.display as display_submodule
-import scrutiny.gui.components.locals.hmi.hmi_widgets.controls as controls_module
+from scrutiny.gui.components.locals.hmi.hmi_widgets.graphics.circle_hmi_widget import CircleHMIWidget
+from scrutiny.gui.components.locals.hmi.hmi_widgets.graphics.rectangle_hmi_widget import RectangleHMIWidget
+from scrutiny.gui.components.locals.hmi.hmi_widgets.graphics.line_hmi_widget import LineHMIWidget
+from scrutiny.gui.components.locals.hmi.hmi_widgets.graphics.text_label_hmi_widget import TextLabelHMIWidget
 
-for category_module in [graphics_submodule, display_submodule, controls_module]:
-    for _module_info in pkgutil.iter_modules(category_module.__path__):
-        importlib.import_module(f'{category_module.__name__}.{_module_info.name}')
+from scrutiny.gui.components.locals.hmi.hmi_widgets.controls.button_hmi_widget import ButtonHMIWidget
+from scrutiny.gui.components.locals.hmi.hmi_widgets.controls.slider_hmi_widget import SliderHMIWidget
+
+from scrutiny.gui.components.locals.hmi.hmi_widgets.display.color_indicator_hmi_widget import ColorIndicatorHMIWidget
+from scrutiny.gui.components.locals.hmi.hmi_widgets.display.linear_gauge_hmi_widget import LinearGaugeHMIWidget
+from scrutiny.gui.components.locals.hmi.hmi_widgets.display.numerical_display_hmi_widget import NumericalDisplayHMIWidget
+from scrutiny.gui.components.locals.hmi.hmi_widgets.display.radial_gauge_hmi_widget import RadialGaugeHMIWidget
+
+
+class LibraryCategory(enum.Enum):
+    Display = enum.auto()
+    Control = enum.auto()
+    Graphic = enum.auto()
 
 
 class HMILibraryEntryWidget(ScrutinyHoverableWidget):
@@ -89,11 +98,10 @@ class HMILibraryCategoryWidget(QWidget):
     _category: LibraryCategory
     _display_name: str
 
-    def __init__(self, category: LibraryCategory, hmi_widgets: List[Type[BaseHMIWidget]]) -> None:
+    def __init__(self, category: LibraryCategory, display_name: str, hmi_widgets: List[Type[BaseHMIWidget]]) -> None:
         super().__init__()
-        category_info = HMI_LIBARY_CATEGORIES[category]
         self._category = category
-        self._display_name = category_info.display_name
+        self._display_name = display_name
         entries = sorted((HMILibraryEntryWidget(hmiw) for hmiw in hmi_widgets), key=lambda x: x.get_widget_display_name())
 
         layout = QVBoxLayout(self)
@@ -121,26 +129,33 @@ class HMILibrary(QWidget):
 
     def __init__(self) -> None:
         super().__init__()
-        unique_name_set: Set[str] = set()
-        widget_classes_per_category: Dict[LibraryCategory, List[Type[BaseHMIWidget]]] = {}
-        for c in BaseHMIWidget.__subclasses__():
-            category = c.get_category()
-            assert category in HMI_LIBARY_CATEGORIES
-
-            if category not in widget_classes_per_category:
-                widget_classes_per_category[category] = []
-            if c.get_unique_name() in unique_name_set:
-                raise RuntimeError(f"Duplicate HMI widget with unique name : {c.get_unique_name()}")
-            unique_name_set.add(c.get_unique_name())
-            widget_classes_per_category[category].append(c)
-
-        category_widgets = [HMILibraryCategoryWidget(cat, classes) for cat, classes in widget_classes_per_category.items()]
-        category_widgets.sort(key=lambda x: x.get_display_name())
 
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-        for category_widget in category_widgets:
-            layout.addWidget(category_widget)
+
+        layout.addWidget(
+            HMILibraryCategoryWidget(LibraryCategory.Control, "Control", [
+                ButtonHMIWidget,
+                SliderHMIWidget
+            ])
+        )
+        layout.addWidget(
+            HMILibraryCategoryWidget(LibraryCategory.Display, "Display", [
+                NumericalDisplayHMIWidget,
+                ColorIndicatorHMIWidget,
+                RadialGaugeHMIWidget,
+                LinearGaugeHMIWidget
+            ])
+        )
+
+        layout.addWidget(
+            HMILibraryCategoryWidget(LibraryCategory.Graphic, "Graphic", [
+                CircleHMIWidget,
+                RectangleHMIWidget,
+                LineHMIWidget,
+                TextLabelHMIWidget
+            ])
+        )
 
     @classmethod
     def load_from_class_name(cls, class_name: str) -> Optional[Type[BaseHMIWidget]]:

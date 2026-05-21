@@ -18,7 +18,6 @@ from PySide6.QtWidgets import (QStyleOptionGraphicsItem, QWidget, QFormLayout, Q
                                QSpinBox, QGroupBox, QVBoxLayout, QGraphicsItem, QSlider)
 
 from scrutiny.gui.component_app_interface import AbstractComponentAppInterface
-from scrutiny.gui.components.locals.hmi.hmi_library_category import LibraryCategory
 from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget, WatchableValueType
 from scrutiny.gui.components.locals.hmi.hmi_theme import HMITheme
 from scrutiny.gui.components.locals.hmi.common.numerical_text_display import NumericalTextDisplay, NumberFormattingConfig, NumericalTextDisplayStateDict
@@ -128,7 +127,6 @@ class _GaugePointer(QGraphicsItem):
 class RadialGaugeHMIWidget(BaseHMIWidget):
     """A HMI widget that draw a gauge with a pointer (needle) that rotate from left to right according to a value, a min and a max"""
 
-    _CATEGORY = LibraryCategory.Display
     _UNIQUE_NAME = 'radial_gauge'
     _DISPLAY_NAME = 'Radial Gauge'
     _ICON = assets.Icons.HMIRadialGauge

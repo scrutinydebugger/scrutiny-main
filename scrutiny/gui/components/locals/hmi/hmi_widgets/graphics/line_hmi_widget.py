@@ -18,14 +18,12 @@ from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseH
 from scrutiny.gui import assets
 from scrutiny.tools.typing import *
 
-from scrutiny.gui.components.locals.hmi.hmi_library_category import LibraryCategory
 from scrutiny.gui.components.locals.hmi.common.pen_config import PenConfigWidget, PenConfigStateDict
 from scrutiny.gui.components.locals.hmi.common.hit_zones import RectHitZone
 
 
 class LineHMIWidget(BaseHMIWidget):
 
-    _CATEGORY = LibraryCategory.Graphic
     _UNIQUE_NAME = 'line'
     _DISPLAY_NAME = 'Line'
     _ICON = assets.Icons.HMILine

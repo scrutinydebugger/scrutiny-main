@@ -19,8 +19,6 @@ from scrutiny.gui import assets
 from scrutiny.tools.typing import *
 from scrutiny.gui.widgets.validable_line_edit import FloatValidableLineEdit
 
-from scrutiny.gui.components.locals.hmi.hmi_library_category import LibraryCategory
-
 
 class _Dims:
     CURSOR_MIN_W_PX = 16
@@ -39,7 +37,6 @@ class _Dims:
 
 class SliderHMIWidget(BaseHMIWidget):
 
-    _CATEGORY = LibraryCategory.Control
     _UNIQUE_NAME = 'slider'
     _DISPLAY_NAME = 'Slider'
     _ICON = assets.Icons.HMISlider
