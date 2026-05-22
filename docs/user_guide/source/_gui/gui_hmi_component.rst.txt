@@ -75,7 +75,7 @@ The parameters below the input values are cosntants and cannot be tied to a watc
 
     "Icon",                             "Widget Name",          "Description"
     "|HMI_Display_ColorIndicatorIcon|",     ":ref:`Color indicator<hmi_widget_display_color_indicator>`",      "Behaves like a light and change color based on a condition. Can blink."
-    "|HMI_Display_NumericalDisplayIcon|",   "Numerical Display",    "Display a numerical value textually."
+    "|HMI_Display_NumericalDisplayIcon|",   ":ref:`Numerical Display<hmi_widget_display_numerical_display>`",    "Display a numerical value textually."
     "|HMI_Display_RadialGaugeIcon|",        "Radial Gauge",         "Display a value with a rotating pointer that ranges from a minimum to a maximum value. "
     "|HMI_Display_LinearGaugeIcon|",        "Linear Gauge",         "Display a value with a sliding pointer that ranges from a minimum to a maximum value. A fill pattern is optionally possible."
 
@@ -105,14 +105,20 @@ The parameters below the input values are cosntants and cannot be tied to a watc
     "|HMI_Graphic_RectangleIcon|",      "Rectangle",    "Static rectangle. Cannot be tied to a watchable"
     "|HMI_Graphic_LineIcon|",           "Line",         "Static line. Cannot be tied to a watchable"
 
+.. _hmi_formatting_params:
+
 Number formatting
 ^^^^^^^^^^^^^^^^^
 
 Many widget will have numerical formatting parameters used to ensure that number of displayed digits and their position stays the same regardless of the value.
 Parameters are :
 
-- **Eng. Notation** : When checked, the value is converted to engineering notation, forcing a maximum number of integers to 3. The magnitude of the value is expressed with a suffix such as micro (u), milli (m), kilo (k), mega (M), etc.
-- **Integers** : Number of integral digits (left of the decimal point). This value is forced to 3 when ``Eng. Notation`` is checked. This value is only used to reserve space for rendering text, a value requiring more digits will not be truncated, but blank space will be allocated for a value requiring less digits.
+- **Eng. Notation** : When checked, the value is converted to engineering notation, forcing a maximum number of integers to 3.
+  The magnitude of the value is expressed with a suffix such as micro (u), milli (m), kilo (k), mega (M), etc.
+- **Integers** : Number of integral digits (left of the decimal point).
+  This value is forced to 3 when ``Eng. Notation`` is checked.
+  This value is only used to reserve space for rendering text, a value requiring more digits will not be truncated,
+  but blank space will be allocated for a value requiring less digits.
 - **Decimals** : Number of decimal digits (right of the decimal point)
 - **Units** : An optional string suffix
 
@@ -189,3 +195,46 @@ Parameters:
     - Steady : Color is applied, no blinking
     - Blink Slow : Color oscillates between ON and OFF color, slowly.
     - Blink Fast : Color oscillates between ON and OFF color, quickly.
+
+.. _hmi_widget_display_numerical_display:
+
+Numerical Display
+^^^^^^^^^^^^^^^^^
+
+A simple textual display of a numerical value. It's sole input value is the value to display, it can be a constant or a watcahble.
+the only parameters are :ref:`formatting parameters<hmi_formatting_params>`.
+
+"N/A" is displayed when no valid input value is configured
+
+
+.. _hmi_widget_radial_gauge:
+
+Radial Gauge
+^^^^^^^^^^^^
+
+The radial gauge mimicks a physical gauge with a needle. It has 3 input values, which can all be constant or watchables : Value, Minimum, Maximum.
+The gauge will display a rotating pointer that ranges from minimum to maximum value. If any of the input value is not properly set, the gauge will display
+"N/A" and the pointer will not be drawn, indicating an "invalid condition"
+
+When the Value input is valid but outisde of the Min/Max range, this is considered an "overflow".
+Optional color bands can also be added to the gauge to indicates values that might be good or near limits.
+
+
+.. figure:: _static/ui/dashboard/hmi-radial-gauge-details.png
+    :height: 8cm
+
+    Radial gauge
+
+
+Parameters:
+
+- **Overflow** : How to handle an overflow.
+
+  - Clip : Pointer stops at the minimum or maximum and changes color. the text display shows the real value.
+  - Show Invalid : Pointer is not drawn. Text display shows ``N/A``
+
+- **Label Size** : The size of the labels
+- **Major ticks** : Number of major tick marker (with a labels) along the slider
+- **Minor ticks** : Number of minor toick marker (without labels) along the slider
+- **Text Display** : :ref:`Formatting parameters<hmi_formatting_params>` for the text display
+- **Colors** : List of color bands to draw on the gauge with their range specified in percent.
