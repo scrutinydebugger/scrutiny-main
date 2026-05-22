@@ -1,0 +1,191 @@
+.. _hmi_component:
+
+Human Machine Interface (HMI) Component
+#######################################
+
+The Human Machine Interface (:ref:`HMI <glossary>`) component let the user design its own graphical interface where widgets can be tied to watchables.
+The user can move, resize and control the stacking order of the widgets.
+
+The component has two modes : **Edit mode** and **Display mode**.
+
+Edit mode
+    In this mode, the user can add/remove widgets, position them and resize them. The component is split in two parts: the edit menu on the left, and
+    the work zone on the right where a grid is displayed. The left menu contains a widget library where each widget can be dragged and dropped on the work zone.
+    When selecting a widget in the workzone, the "Configure" tab will be filled with drawing options.
+
+    In Edit mode, the widgets are visually updated, but mouse events will not reach the widget, as they are catched by the workzone for edition.
+
+Display mode
+    In this mode, the left menu and the grid are hidden. Only the widgets are visible. Mouse events are forwarded to the widgets, allowing interaction with the user
+    (enabling button, sliders, etc. )
+
+.. figure:: _static/ui/dashboard/hmi-library-workzone.png
+    :height: 10cm
+
+    HMI library and work zone
+
+.. figure:: _static/ui/dashboard/hmi-configure-widgets.png
+    :height: 10cm
+
+    HMI widget configuration
+
+When configuring an HMI widget, the upper part of the configuration pane will always be the "Input values" (if applicable).
+These are the only parameters that can be tied to a watchable.
+Depending on the widget, they can also have a numerical constant value, some won't allow it.
+
+The parameters below the input values are cosntants and cannot be tied to a watchables.
+
+
+.. |HMI_Control_SliderIcon| image:: _static/ui/icons/hmi_control_slider.png
+   :height: 32px
+
+.. |HMI_Control_ButtonIcon| image:: _static/ui/icons/hmi_control_button.png
+   :width: 32px
+
+.. tabularcolumns:: >{\centering}m{0.15\linewidth} m{0.15\linewidth} m{0.7\linewidth}
+
+.. csv-table:: HMI widgets - Control
+    :widths: 15 15 70
+    :header-rows: 1
+    :align: left
+
+    "Icon",                     "Widget Name",  "Description"
+    "|HMI_Control_SliderIcon|", ":ref:`Slider<hmi_widget_control_slider>`",       "Write a watchable with a numerical value defined by sliding a cursor from a minimum to a maximum."
+    "|HMI_Control_ButtonIcon|",     ":ref:`Button<hmi_widget_control_button>`",       "Control a boolean value with a button. Momentary or toggle behavior possible."
+
+
+.. |HMI_Display_ColorIndicatorIcon| image:: _static/ui/icons/hmi_display_color_indicator.png
+   :height: 32px
+
+.. |HMI_Display_LinearGaugeIcon| image:: _static/ui/icons/hmi_display_linear_gauge.png
+   :height: 32px
+
+.. |HMI_Display_NumericalDisplayIcon| image:: _static/ui/icons/hmi_display_numerical_display.png
+   :width: 32px
+
+.. |HMI_Display_RadialGaugeIcon| image:: _static/ui/icons/hmi_display_radial_gauge.png
+   :height: 32px
+
+.. tabularcolumns:: >{\centering}m{0.15\linewidth} m{0.15\linewidth} m{0.7\linewidth}
+
+.. csv-table:: HMI widgets - Display
+    :widths: 15 15 70
+    :header-rows: 1
+    :align: left
+
+    "Icon",                             "Widget Name",          "Description"
+    "|HMI_Display_ColorIndicatorIcon|",     ":ref:`Color indicator<hmi_widget_display_color_indicator>`",      "Behaves like a light and change color based on a condition. Can blink."
+    "|HMI_Display_NumericalDisplayIcon|",   "Numerical Display",    "Display a numerical value textually."
+    "|HMI_Display_RadialGaugeIcon|",        "Radial Gauge",         "Display a value with a rotating pointer that ranges from a minimum to a maximum value. "
+    "|HMI_Display_LinearGaugeIcon|",        "Linear Gauge",         "Display a value with a sliding pointer that ranges from a minimum to a maximum value. A fill pattern is optionally possible."
+
+
+.. |HMI_Graphic_ColorIndicatorIcon| image:: _static/ui/icons/hmi_graphic_label.png
+   :height: 32px
+
+.. |HMI_Graphic_CircleIcon| image:: _static/ui/icons/hmi_graphic_circle.png
+   :height: 32px
+
+.. |HMI_Graphic_RectangleIcon| image:: _static/ui/icons/hmi_graphic_rectangle.png
+   :height: 32px
+
+.. |HMI_Graphic_LineIcon| image:: _static/ui/icons/hmi_graphic_line.png
+   :height: 32px
+
+.. tabularcolumns:: >{\centering}m{0.15\linewidth} m{0.15\linewidth} m{0.7\linewidth}
+
+.. csv-table:: HMI widgets - Graphics
+    :widths: 15 15 70
+    :header-rows: 1
+    :align: left
+
+    "Icon",                         "Widget Name",  "Description"
+    "|HMI_Graphic_ColorIndicatorIcon|", "Label",        "Static label. Cannot be tied to a watchable"
+    "|HMI_Graphic_CircleIcon|",         "Circle",       "Static circle. Cannot be tied to a watchable"
+    "|HMI_Graphic_RectangleIcon|",      "Rectangle",    "Static rectangle. Cannot be tied to a watchable"
+    "|HMI_Graphic_LineIcon|",           "Line",         "Static line. Cannot be tied to a watchable"
+
+Number formatting
+^^^^^^^^^^^^^^^^^
+
+Many widget will have numerical formatting parameters used to ensure that number of displayed digits and their position stays the same regardless of the value.
+Parameters are :
+
+- **Eng. Notation** : When checked, the value is converted to engineering notation, forcing a maximum number of integers to 3. The magnitude of the value is expressed with a suffix such as micro (u), milli (m), kilo (k), mega (M), etc.
+- **Integers** : Number of integral digits (left of the decimal point). This value is forced to 3 when ``Eng. Notation`` is checked. This value is only used to reserve space for rendering text, a value requiring more digits will not be truncated, but blank space will be allocated for a value requiring less digits.
+- **Decimals** : Number of decimal digits (right of the decimal point)
+- **Units** : An optional string suffix
+
+**Examples**:
+
+- [Eng Notation:``true``, Integers:``N/A``, Decimals:``2``, Suffix:``W``]:  ``123456.789`` -->  ``123.46kW``
+- [Eng Notation:``false``, Integers:``4`` , Decimals:``1``, Suffix:``W``]:  ``123456.789`` -->  ``123456.8W``
+- [Eng Notation:``false``, Integers:``4`` , Decimals:``1``, Suffix:``None``]:  ``12.3456`` -->  ``12.3``
+
+.. _hmi_widget_control_slider:
+
+Slider
+^^^^^^
+The slider widget allow to edit a numerical value by sliding a cursor from minimum to maximum.
+Since this widget writes the watchable, the onput value cannot be a constant -- a watchable element is required.
+Values are sent to the server as float. If the target watchable is of a different type (integer or boolean), the server will do the conversion.
+An integer is truncated, a boolean is ``true`` for any non-zero value.
+
+The cursor of the slider will follow the value of the input watchable in real time. When the cursor is dragged by the user,
+the position of the cursor will follow the mouse, regardless of the real value of the watchable. Each movement will cause a new write action.
+As soon as the cursor is released, it will continue to follow the real value. When no watcahble is tied to the slider, the cursor is not drawn.
+
+Parameters:
+
+- **Orientation** : Vertical or horizontal slider
+- **Minimum/Maximum** : Vertical or horizontal slider
+- **Label Size** : The size of the tick label
+- **Major ticks** : Number of major tick marker (with a labels) along the slider
+- **Minor ticks** : Number of minor toick marker (without labels) along the slider
+
+.. _hmi_widget_control_button:
+
+Button
+^^^^^^
+The button is a widget that allow to write a boolean value by clicking a button.
+Since this widget writes the watchable, the onput value cannot be a constant -- a watchable element is required.
+The button has 2 modes : Momentary and Toggle.
+
+Momentary
+    ``true`` is written when the button is pressed. ``false`` is written when the button is released
+
+Toggle:
+    The value is inverted each time the button is pressed and released.
+
+The button color and label varies according to the actual value of the watchable. The button can therefore serves as a feedback indicator too.
+When no valid watchable is tied to the button, no label is written and the button is gray.
+
+Parameters:
+
+- **Type** : Momentary or Toggle button
+- **Active Label** : Text written on the button when the watchable is ``true``
+- **Active Color** : Color of the button when the watchable is ``true``
+- **Inactive Label** : Text written on the button when the watchable is ``false``
+- **Inactive Color** : Color of the button when the watchable is ``false``
+
+
+.. _hmi_widget_display_color_indicator:
+
+Color indicator
+^^^^^^^^^^^^^^^
+
+The color indicator is a circle that changes color based on a condition (mimicking a light on a physical dashboard).
+The user can build hiw own condition using 2 operands and an operator.
+The input values are the 2 operands of the condition. They can both be a constant or a watchable.
+
+The color of the indicator changes based on the result of the condition evaluation. The color can also blink.
+
+Parameters:
+
+- **Condition** : Oeprator to use to compare the 2 operands
+- **ON Color** : Color when the condition evaluates to ``true``
+- **OFF Color** : Color when the condition evaluates to ``false``
+- **Active behavior** : How the indicator shows the ON color when the condition evaluates to ``true``
+    - Steady : Color is applied, no blinking
+    - Blink Slow : Color oscillates between ON and OFF color, slowly.
+    - Blink Fast : Color oscillates between ON and OFF color, quickly.

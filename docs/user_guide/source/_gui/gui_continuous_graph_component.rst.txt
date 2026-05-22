@@ -1,0 +1,50 @@
+.. _continuous_graph_component:
+
+Continuous Graph Component
+##########################
+
+The continuous graph is generated entirely by the GUI. The server and the device have no knowledge of its existence.
+
+.. figure:: _static/ui/dashboard/continuous-graph-window.png
+    :height: 12cm
+
+    Continuous Graph Component
+
+When an acquisition is started, the GUI subscribes to the requested watchable elements on the server and plots,
+in real time, the values broadcast by the server until the acquisition is stopped. The subscription to the server
+required the highest update rate possible.
+
+Watchable elements (Variables, Aliases, and RPVs) can be dragged and dropped onto the axes region.
+Both axes and watchable elements can be renamed freely for the duration of the acquisition.
+
+Because the server's broadcast rate is variable, the sampling rate of this graph is also variable,
+and sample synchronization is not guaranteed.
+This means that even when two variables are plotted together, their samples may arrive independently.
+Zooming in closely on the timeline will reveal that the samples are not aligned on the time axis.
+
+.. figure:: _static/ui/dashboard/unaligned-samples.png
+    :height: 6cm
+
+    Unaligned samples
+
+The continuous graph is designed to run indefinitely. The GUI retains only a limited number of samples and displays them in a moving window.
+To preserve all received values, CSV logging can be enabled.
+
+.. figure:: _static/ui/dashboard/continuous-graph-csv-logging.png
+    :height: 6cm
+
+    CSV Logging
+
+The CSV export is split into multiple files, each with a numbered suffix that increments whenever a new file is created.
+
+Each time a new value is received, a new row is appended to the CSV file.
+Columns that do not receive an updated value retain their previous value.
+An additional column labeled ``New Values`` indicates, using a boolean flag, which columns were updated in that row.
+
+.. figure:: _static/ui/dashboard/continuous_graph_round_robin.png
+    :height: 6cm
+
+    New Values column meaning
+
+In the screenshot above, we can see that not all values are updated on every row.
+We can also observe the server's round-robin polling behavior across variables.
