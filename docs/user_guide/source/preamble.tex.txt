@@ -46,4 +46,7 @@
     }%
 }
 
+% Force a vertical cell-padding in tables.
+\renewcommand{\arraystretch}{1.3}
+
 \makeatother

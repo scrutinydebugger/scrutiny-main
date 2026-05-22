@@ -169,17 +169,22 @@ There are two types of dashboard components: those that allow only a single inst
 .. |InternalMetricIcon| image:: _static/ui/icons/stopwatch.png
    :width: 32px
 
-.. csv-table::
-    :widths: 10 15 10 65
-    :header-rows: 1
-    :align: left
+.. |HMIIcon| image:: _static/ui/icons/hmi.png
+   :width: 32px
 
-    "Icon",                 "Components Name",  "Instance", "Description"
-    "|VarListIcon|",        "Variable List",    "Single",   "Displays the available watchable elements (Variables, Aliases, :ref:`RPVs<glossary>`)."
-    "|InternalMetricIcon|", "Internal Metrics", "Single",   "Displays statistics about current Scrutiny performances, including polling data rates."
-    "|WatchIcon|",          "Watch Window",     "Multiple", "Displays the real-time values of watchable elements dropped into it via drag & drop. The layout can be reorganized as needed."
-    "|ContinuousGraphIcon|", "Continuous Graph", "Multiple", "Creates a graph of the real-time values of the selected watchable elements. The sampling rate is configurable, and the acquisition length is unlimited."
-    "|EmbeddedGraphIcon|",  "Embedded Graph",   "Multiple", "Configures and displays graphs obtained through the datalogging feature. The sampling rate depends on the device and is typically stable. The acquisition length depends on the size of the datalogging buffer."
+
+.. tabularcolumns:: >{\centering}m{0.1\linewidth} m{0.15\linewidth} m{0.1\linewidth} m{0.65\linewidth}
+
+.. csv-table:: Dashboard components
+    :header-rows: 1
+
+    "Icon",                 "Component Name",          "Instance", "Description"
+    "|VarListIcon|",        "Variable List",            "Single",   "Displays the available watchable elements (Variables, Aliases, :ref:`RPVs<glossary>`)."
+    "|InternalMetricIcon|", "Internal Metrics",         "Single",   "Displays statistics about current Scrutiny performances, including polling data rates."
+    "|WatchIcon|",          "Watch Window",             "Multiple", "Displays the real-time values of watchable elements dropped into it via drag & drop. The layout can be reorganized as needed."
+    "|ContinuousGraphIcon|", "Continuous Graph",        "Multiple", "Creates a graph of the real-time values of the selected watchable elements. The sampling rate is configurable, and the acquisition length is unlimited."
+    "|EmbeddedGraphIcon|",  "Embedded Graph",           "Multiple", "Configures and displays graphs obtained through the datalogging feature. The sampling rate depends on the device and is typically stable. The acquisition length depends on the size of the datalogging buffer."
+    "|HMIIcon|",            "Human Machine Interface",  "Multiple", "Creates a customizable dashboard with user defined widgets tied to watchables. This dashboard can serve as Human Machine Interface with buttons, sliders, gauges, etc."
 
 .. _watch_window_component:
 
@@ -372,15 +377,15 @@ Moving on, the possible trigger conditions are listed below:
     :align: left
 
     "Condition",                "Number of Operands",   "Formula"
-    "Always True",              "0",                    "``true``"
-    "Equal (=)",                "2",                    "``x1 = x2``"
-    "Not Equal (!=)",           "2",                    "``x1 != x2``"
-    "Greater Than (>)",         "2",                    "``x1 > x2``"
-    "Greater or Equal (>=)",    "2",                    "``x1 >= x2``"
-    "Less Than (<)",            "2",                    "``x1 < x2``"
-    "Less or Equal (<=)",       "2",                    "``x1 <= x2``"
-    "Change More Than",         "2",                    "``|dx1| > |x2| & sign(dx1) = sign(x2)``"
-    "Is Within",                "3",                    "``|x1 - x2| < |x3|``"
+    "Always True",              "0",                    "true"
+    "Equal (=)",                "2",                    "x1 = x2"
+    "Not Equal (!=)",           "2",                    "x1 != x2"
+    "Greater Than (>)",         "2",                    "x1 > x2"
+    "Greater or Equal (>=)",    "2",                    "x1 >= x2"
+    "Less Than (<)",            "2",                    "x1 < x2"
+    "Less or Equal (<=)",       "2",                    "x1 <= x2"
+    "Change More Than",         "2",                    "\|dx1\| > \|x2\| & sign(dx1) = sign(x2)"
+    "Is Within",                "3",                    "\|x1 - x2\| < \|x3\|"
 
 Finally, every acquisition taken by the server can be reloaded from a database
 
@@ -393,8 +398,119 @@ Stored acquisition can be loaded or delete. When checking the "Loaded firmware o
 of displayed acquisition will be filtered to only show those with a Frimware ID matching the actually
 loaded :ref:`SFD <page_sfd>` file on the server.
 
-Editing, saving and reloading
-#############################
+
+.. _hmi_component:
+
+Human Machine Interface (HMI) Component
+#######################################
+
+The Human Machine Interface (:ref:`HMI <glossary>`) component let the user design its own graphical interface where widgets can be tied to watchables.
+The user can move, resize and control the stacking order of the widgets.
+
+The component has two modes : **Edit mode** and **Display mode**.
+
+Edit mode
+    In this mode, the user can add/remove widgets, position them and resize them. The component is split in two parts: the edit menu on the left, and
+    the work zone on the right where a grid is displayed. The left menu contains a widget library where each widget can be dragged and dropped on the work zone.
+    When selecting a widget in the workzone, the "Configure" tab will be filled with drawing options.
+
+    In Edit mode, the widgets are visually updated, but mouse events will not reach the widget, as they are catched by the workzone for edition.
+
+Display mode
+    In this mode, the left menu and the grid are hidden. Only the widgets are visible. Mouse events are forwarded to the widgets, allowing interaction with the user
+    (enabling button, sliders, etc. )
+
+.. figure:: _static/ui/dashboard/hmi-library-workzone.png
+    :height: 10cm
+
+    HMI library and work zone
+
+.. figure:: _static/ui/dashboard/hmi-configure-widgets.png
+    :height: 10cm
+
+    HMI widget configuration
+
+When configuring an HMI widget, the upper part of the configuration pane will always be the "Input values" (if applicable).
+These are the only parameters that can be tied to a watchable.
+Depending on the widget, they can also have a numerical constant value, some won't allow it.
+
+The parameters below the input values are cosntants and cannot be tied to a watchables.
+
+
+.. |HMI_Control_SliderIcon| image:: _static/ui/icons/hmi_control_slider.png
+   :height: 32px
+
+.. |HMI_Control_Button| image:: _static/ui/icons/hmi_control_button.png
+   :width: 32px
+
+.. tabularcolumns:: >{\centering}m{0.15\linewidth} m{0.15\linewidth} m{0.7\linewidth}
+
+.. csv-table:: HMI widgets - Control
+    :widths: 15 15 70
+    :header-rows: 1
+    :align: left
+
+    "Icon",                     "Widget Name",  "Description"
+    "|HMI_Control_SliderIcon|", "Slider",       "Write a watchable with a numerical value defined by sliding a cursor from a minimum to a maximum."
+    "|HMI_Control_Button|",     "Button",       "Control a boolean value with a button. Momentary or toggle behavior possible."
+
+
+.. |HMI_Display_ColorIndicator| image:: _static/ui/icons/hmi_display_color_indicator.png
+   :height: 32px
+
+.. |HMI_Display_LinearGauge| image:: _static/ui/icons/hmi_display_linear_gauge.png
+   :height: 32px
+
+.. |HMI_Display_NumericalDisplay| image:: _static/ui/icons/hmi_display_numerical_display.png
+   :width: 32px
+
+.. |HMI_Display_RadialGauge| image:: _static/ui/icons/hmi_display_radial_gauge.png
+   :height: 32px
+
+.. tabularcolumns:: >{\centering}m{0.15\linewidth} m{0.15\linewidth} m{0.7\linewidth}
+
+.. csv-table:: HMI widgets - Display
+    :widths: 15 15 70
+    :header-rows: 1
+    :align: left
+
+    "Icon",                             "Widget Name",          "Description"
+    "|HMI_Display_NumericalDisplay|",   "Numerical Display",    "Display a numerical value textually."
+    "|HMI_Display_RadialGauge|",        "Radial Gauge",         "Display a value with a rotating pointer that ranges from a minimum to a maximum value. "
+    "|HMI_Display_LinearGauge|",        "Linear Gauge",         "Display a value with a sliding pointer that ranges from a minimum to a maximum value. A fill pattern is optionally possible."
+    "|HMI_Display_ColorIndicator|",     "Color indicator",      "Behaves like a light and change color based on a condition. Can blink."
+
+
+.. |HMI_Graphic_ColorIndicator| image:: _static/ui/icons/hmi_graphic_label.png
+   :height: 32px
+
+.. |HMI_Graphic_Circle| image:: _static/ui/icons/hmi_graphic_circle.png
+   :height: 32px
+
+.. |HMI_Graphic_Rectangle| image:: _static/ui/icons/hmi_graphic_rectangle.png
+   :height: 32px
+
+.. |HMI_Graphic_Line| image:: _static/ui/icons/hmi_graphic_line.png
+   :height: 32px
+
+.. tabularcolumns:: >{\centering}m{0.15\linewidth} m{0.15\linewidth} m{0.7\linewidth}
+
+.. csv-table:: HMI widgets - Graphics
+    :widths: 15 15 70
+    :header-rows: 1
+    :align: left
+
+    "Icon",                         "Widget Name",  "Description"
+    "|HMI_Graphic_ColorIndicator|", "Label",        "Static label. Cannot be tied to a watchable"
+    "|HMI_Graphic_Circle|",         "Circle",       "Static circle. Cannot be tied to a watchable"
+    "|HMI_Graphic_Rectangle|",      "Rectangle",    "Static rectangle. Cannot be tied to a watchable"
+    "|HMI_Graphic_Line|",           "Line",         "Static line. Cannot be tied to a watchable"
+
+
+
+
+Editing, saving and reloading the dashboard
+###########################################
 
 The dashboard can be edited at will by drag & drop actions.
 Components can also be docked to any side of the dashboard renamed or detached to make a whole new window.
@@ -402,7 +518,6 @@ Each new window can itself be turned to a new docking zone by drag & dropping ot
 
 .. figure:: _static/ui/dashboard/dashboard-tab-menu.png
     :height: 3cm
-    
 
     Dashboard tab menu
 
