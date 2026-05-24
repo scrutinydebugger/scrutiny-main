@@ -73,11 +73,11 @@ The parameters below the input values are cosntants and cannot be tied to a watc
     :header-rows: 1
     :align: left
 
-    "Icon",                             "Widget Name",          "Description"
-    "|HMI_Display_ColorIndicatorIcon|",     ":ref:`Color indicator<hmi_widget_display_color_indicator>`",      "Behaves like a light and change color based on a condition. Can blink."
-    "|HMI_Display_NumericalDisplayIcon|",   ":ref:`Numerical Display<hmi_widget_display_numerical_display>`",    "Display a numerical value textually."
-    "|HMI_Display_RadialGaugeIcon|",        "Radial Gauge",         "Display a value with a rotating pointer that ranges from a minimum to a maximum value. "
-    "|HMI_Display_LinearGaugeIcon|",        "Linear Gauge",         "Display a value with a sliding pointer that ranges from a minimum to a maximum value. A fill pattern is optionally possible."
+    "Icon",                                 "Widget Name",                                                      "Description"
+    "|HMI_Display_ColorIndicatorIcon|",     ":ref:`Color indicator<hmi_widget_display_color_indicator>`",       "Behaves like a light and change color based on a condition. Can blink."
+    "|HMI_Display_NumericalDisplayIcon|",   ":ref:`Numerical Display<hmi_widget_display_numerical_display>`",   "Display a numerical value textually."
+    "|HMI_Display_RadialGaugeIcon|",        ":ref:`Radial Gauge<hmi_widget_display_radial_gauge>`",             "Display a value with a rotating pointer that ranges from a minimum to a maximum value. "
+    "|HMI_Display_LinearGaugeIcon|",        ":ref:`Linear Gauge<hmi_widget_display_linear_gauge>`",             "Display a value with a sliding pointer that ranges from a minimum to a maximum value. A fill pattern is optionally possible."
 
 
 .. |HMI_Graphic_ColorIndicatorIcon| image:: _static/ui/icons/hmi_graphic_label.png
@@ -99,7 +99,7 @@ The parameters below the input values are cosntants and cannot be tied to a watc
     :header-rows: 1
     :align: left
 
-    "Icon",                         "Widget Name",  "Description"
+    "Icon",                             "Widget Name",  "Description"
     "|HMI_Graphic_ColorIndicatorIcon|", "Label",        "Static label. Cannot be tied to a watchable"
     "|HMI_Graphic_CircleIcon|",         "Circle",       "Static circle. Cannot be tied to a watchable"
     "|HMI_Graphic_RectangleIcon|",      "Rectangle",    "Static rectangle. Cannot be tied to a watchable"
@@ -207,7 +207,7 @@ the only parameters are :ref:`formatting parameters<hmi_formatting_params>`.
 "N/A" is displayed when no valid input value is configured
 
 
-.. _hmi_widget_radial_gauge:
+.. _hmi_widget_display_radial_gauge:
 
 Radial Gauge
 ^^^^^^^^^^^^
@@ -238,3 +238,57 @@ Parameters:
 - **Minor ticks** : Number of minor toick marker (without labels) along the slider
 - **Text Display** : :ref:`Formatting parameters<hmi_formatting_params>` for the text display
 - **Colors** : List of color bands to draw on the gauge with their range specified in percent.
+
+
+.. _hmi_widget_display_linear_gauge:
+
+Linear Gauge
+^^^^^^^^^^^^
+
+The linear gauge shows a linear scale, like a ruler with a value indicated with a sliding arrow that goes from a minimum to a maximum value.
+The gauge can also be filled with a fill color if a zero point is specified.
+
+It has 4 input values, which can all be constant or watchables : Value, Minimum, Maximum, Zero Point.
+Only Value, Minimum, Maximum are required, if any of the input value is not properly set, the gauge pointer will not be drawn.
+Zero Point is only used to draw the fill pattern as the start of the fill range may be a value different from the minimum
+
+When the Value input is valid but outisde of the Min/Max range, this is considered an "overflow".
+Optional color bands can also be added to the gauge to indicates values that might be good or near limits.
+
+
+.. figure:: _static/ui/dashboard/hmi-linear-gauge-details.png
+    :height: 8cm
+
+    Linear gauge
+
+
+Parameters:
+
+- **Overflow** : How to handle an overflow.
+
+  - Clip : Pointer stops at the minimum or maximum and changes color.
+  - Show Invalid : Pointer and fill color are not drawn.
+
+- **Inverted** : When checked, the minimum is at the top of the gauge and the maximum at the bottom.
+- **Gauge Width** : Set the width of the gauge, giving more or less space for labels.
+- **Label Size** : The size of the labels.
+- **Major ticks** : Number of major tick marker (with a labels) along the slider.
+- **Minor ticks** : Number of minor toick marker (without labels) along the slider.
+- **Labels** : :ref:`Formatting parameters<hmi_formatting_params>` for the labels.
+- **Colors** : List of color bands to draw on the gauge with their range specified in percent.
+
+
+.. _hmi_widget_graphics:
+
+Graphics
+^^^^^^^^
+
+Several simple widgets are provided for shape drawing. They do not take input values and only have drawing parameters.
+Those can be used to add visual indicators on your dashbaord.
+
+Available shapes:
+
+- **Circle** : Draw a circle or an ellipse. Border and fill color are editable.
+- **Rectangle** : Draw a rectangle. Border and fill color are editable.
+- **Line** : Draw a line, horizontal or vertical. Line color and width is editable.
+- **Text Label** : Render a string. Border, fill and font color are editable.
