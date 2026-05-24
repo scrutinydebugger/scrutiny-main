@@ -16,7 +16,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from manual_test_base import make_manual_test_app
 app = make_manual_test_app()
 
-from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QCheckBox, QLabel, QHBoxLayout
+from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QCheckBox, QLabel, QHBoxLayout, QPushButton
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QDoubleValidator
 from scrutiny.gui.widgets.watchable_line_edit import WatchableLineEdit
@@ -84,6 +84,20 @@ def state_changed(state: Qt.CheckState):
 chk_text_mode.checkStateChanged.connect(state_changed)
 chk_text_mode.setCheckState(Qt.CheckState.Checked)
 
+btn_set_available = QPushButton("Set Available")
+btn_set_unavailable = QPushButton("Set Unavailable")
+
+
+def set_available(val: bool):
+    if line_edit.is_watchable_mode():
+        line_edit.set_watchable_available(val)
+    if line_edit_double_validator.is_watchable_mode():
+        line_edit_double_validator.set_watchable_available(val)
+
+
+btn_set_available.clicked.connect(lambda _: set_available(True))
+btn_set_unavailable.clicked.connect(lambda _: set_available(False))
+
 widget_lineedit = QWidget()
 layout1 = QHBoxLayout(widget_lineedit)
 layout1.addWidget(QLabel("No Validator"))
@@ -94,9 +108,15 @@ layout2 = QHBoxLayout(widget_lineedit_double_validator)
 layout2.addWidget(QLabel("Validator"))
 layout2.addWidget(line_edit_double_validator)
 
+available_widget = QWidget()
+available_widget_layout = QHBoxLayout(available_widget)
+available_widget_layout.addWidget(btn_set_available)
+available_widget_layout.addWidget(btn_set_unavailable)
+
 layout.addWidget(widget_lineedit)
 layout.addWidget(widget_lineedit_double_validator)
 layout.addWidget(chk_text_mode)
+layout.addWidget(available_widget)
 layout.addWidget(varlist)
 
 window.show()
