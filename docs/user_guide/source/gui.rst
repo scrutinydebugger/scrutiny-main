@@ -66,8 +66,8 @@ communication link so the server can reach the device.
 
 The available physical communication links are:
 
-- Serial (based of ``pySerial``)
-- :ref:`CAN<glossary>` / :ref:`CAN-FD<glossary>` (based of ``python-can``)
+- Serial (based on ``pySerial``)
+- :ref:`CAN<glossary>` / :ref:`CAN-FD<glossary>` (based on ``python-can``)
 - :ref:`UDP/IP<glossary>`
 - Jlink :ref:`RTT<glossary>` (based of pylink-square)
 
@@ -83,7 +83,7 @@ Additionally, it is possible to request the server to run a virtual device to tr
 
     Serial configuration dialog
 
-The information provided in the dialog is passed to the SDK function  ``ScrutinyClient::configure_device_link()``
+The information provided in the dialog is passed to the SDK function ``ScrutinyClient::configure_device_link()``.
 
 Once the communication channel is configured, the server opens it and begins polling for a device.
 
@@ -95,7 +95,7 @@ Example:
 .. figure:: _static/ui/serial_com999.png
     :height: 1cm
 
-    Unavailable communication channel (inexistant COM port)
+    Unavailable communication channel (nonexistent COM port)
 
 If the port opens successfully, the indicator light turns green, and the device-connection status updates to reflect
 the state of the communication with the device.
@@ -146,10 +146,10 @@ Clicking the label opens a dialog that displays the SFD metadata.
 The dashboard
 -------------
 
-The dashboard is based of the excelent `QT Advanced Docking System <https://githubuser0xffff.github.io/Qt-Advanced-Docking-System/>`__ project.
+The dashboard is based on the excellent `QT Advanced Docking System <https://githubuser0xffff.github.io/Qt-Advanced-Docking-System/>`__ project.
 It consists of a docking library that allows you to create a visual layout containing various types of widgets.
 
-To avoid confusion with Qt's own Widget terminology, we refer to dockable elements as  ``Dashboard Components``.
+To avoid confusion with Qt's own Widget terminology, we refer to dockable elements as ``Dashboard Components``.
 The dashboard components provided by Scrutiny are available in the left sidebar.
 
 There are two types of dashboard components: those that allow only a single instance (top section) and those that allow multiple instances (bottom section).
@@ -201,15 +201,15 @@ Editing, saving and reloading the dashboard
 ###########################################
 
 The dashboard can be edited at will by drag & drop actions.
-Components can also be docked to any side of the dashboard renamed or detached to make a whole new window.
-Each new window can itself be turned to a new docking zone by drag & dropping other components to them
+Components can also be docked to any side of the dashboard, renamed, or detached to create a standalone window.
+Each new window can itself become a docking zone by drag & dropping other components into it.
 
 .. figure:: _static/ui/dashboard/dashboard-tab-menu.png
     :height: 3cm
 
     Dashboard tab menu
 
-Dashboards can be saved and reloaded to a JSON based file format
+Dashboards can be saved and reloaded in a JSON-based file format.
 
 .. figure:: _static/ui/dashboard/dashboard-save-reload.png
     :height: 4cm
@@ -235,9 +235,9 @@ By clicking the menu bar menu : ``Server`` --> ``Manage Firmware``, the followin
 Advanced Options
 ----------------
 
-To GUI can be launched with extra options, refers to the :ref:`GUI command line options<cmd_gui>`.
+The GUI can be launched with extra options; refer to the :ref:`GUI command line options<cmd_gui>`.
 
-Additionally, there are few very technical options that can be controlled through environment variables.
+Additionally, there are a few highly technical options that can be controlled through environment variables.
 
 QT_QPA_PLATFORM
     This variable is handled directly by Qt. It defines which low-level windowing system will be used to create application windows.
