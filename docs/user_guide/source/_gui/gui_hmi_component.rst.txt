@@ -3,8 +3,8 @@
 Human Machine Interface (HMI) Component
 #######################################
 
-The Human Machine Interface (:ref:`HMI <glossary>`) component let the user design its own graphical interface where widgets can be tied to watchables.
-The user can move, resize and control the stacking order of the widgets.
+The Human Machine Interface (:ref:`HMI <glossary>`) component lets users design their own graphical interface where widgets can be tied to watchables.
+The user can move, resize, and control the stacking order of the widgets.
 
 The component has two modes : **Edit mode** and **Display mode**.
 
@@ -13,7 +13,7 @@ Edit mode
     the work zone on the right where a grid is displayed. The left menu contains a widget library where each widget can be dragged and dropped on the work zone.
     When selecting a widget in the workzone, the "Configure" tab will be filled with drawing options.
 
-    In Edit mode, the widgets are visually updated, but mouse events will not reach the widget, as they are catched by the workzone for edition.
+    In Edit mode, the widgets are visually updated, but mouse events will not reach the widget, as they are captured by the work zone for editing.
 
 Display mode
     In this mode, the left menu and the grid are hidden. Only the widgets are visible. Mouse events are forwarded to the widgets, allowing interaction with the user
@@ -31,9 +31,9 @@ Display mode
 
 When configuring an HMI widget, the upper part of the configuration pane will always be the "Input values" (if applicable).
 These are the only parameters that can be tied to a watchable.
-Depending on the widget, they can also have a numerical constant value, some won't allow it.
+Depending on the widget, they may also accept a constant numerical value; some do not.
 
-The parameters below the input values are cosntants and cannot be tied to a watchables.
+The parameters below the input values are constants and cannot be tied to a watchable.
 
 
 .. |HMI_Control_SliderIcon| image:: _static/ui/icons/hmi_control_slider.png
@@ -110,7 +110,7 @@ The parameters below the input values are cosntants and cannot be tied to a watc
 Number formatting
 ^^^^^^^^^^^^^^^^^
 
-Many widget will have numerical formatting parameters used to ensure that number of displayed digits and their position stays the same regardless of the value.
+Many widgets have numerical formatting parameters used to ensure that the number of displayed digits and their position stay the same regardless of the value.
 Parameters are :
 
 - **Eng. Notation** : When checked, the value is converted to engineering notation, forcing a maximum number of integers to 3.
@@ -132,29 +132,29 @@ Parameters are :
 
 Slider
 ^^^^^^
-The slider widget allow to edit a numerical value by sliding a cursor from minimum to maximum.
-Since this widget writes the watchable, the onput value cannot be a constant -- a watchable element is required.
+The slider widget allows editing a numerical value by sliding a cursor from minimum to maximum.
+Since this widget writes the watchable, the input value cannot be a constant — a watchable element is required.
 Values are sent to the server as float. If the target watchable is of a different type (integer or boolean), the server will do the conversion.
 An integer is truncated, a boolean is ``true`` for any non-zero value.
 
 The cursor of the slider will follow the value of the input watchable in real time. When the cursor is dragged by the user,
 the position of the cursor will follow the mouse, regardless of the real value of the watchable. Each movement will cause a new write action.
-As soon as the cursor is released, it will continue to follow the real value. When no watcahble is tied to the slider, the cursor is not drawn.
+As soon as the cursor is released, it will continue to follow the real value. When no watchable is tied to the slider, the cursor is not drawn.
 
 Parameters:
 
 - **Orientation** : Vertical or horizontal slider
-- **Minimum/Maximum** : Vertical or horizontal slider
-- **Label Size** : The size of the tick label
-- **Major ticks** : Number of major tick marker (with a labels) along the slider
-- **Minor ticks** : Number of minor toick marker (without labels) along the slider
+- **Minimum/Maximum** : The minimum and maximum values of the slider range
+- **Label Size** : The size of the tick labels
+- **Major ticks** : Number of major tick markers (with labels) along the slider
+- **Minor ticks** : Number of minor tick markers (without labels) along the slider
 
 .. _hmi_widget_control_button:
 
 Button
 ^^^^^^
-The button is a widget that allow to write a boolean value by clicking a button.
-Since this widget writes the watchable, the onput value cannot be a constant -- a watchable element is required.
+The button widget allows writing a boolean value by clicking a button.
+Since this widget writes the watchable, the input value cannot be a constant — a watchable element is required.
 The button has 2 modes : Momentary and Toggle.
 
 Momentary
@@ -163,7 +163,7 @@ Momentary
 Toggle:
     The value is inverted each time the button is pressed and released.
 
-The button color and label varies according to the actual value of the watchable. The button can therefore serves as a feedback indicator too.
+The button color and label vary according to the actual value of the watchable. The button can therefore serve as a feedback indicator as well.
 When no valid watchable is tied to the button, no label is written and the button is gray.
 
 Parameters:
@@ -181,14 +181,14 @@ Color indicator
 ^^^^^^^^^^^^^^^
 
 The color indicator is a circle that changes color based on a condition (mimicking a light on a physical dashboard).
-The user can build hiw own condition using 2 operands and an operator.
+The user can build their own condition using 2 operands and an operator.
 The input values are the 2 operands of the condition. They can both be a constant or a watchable.
 
 The color of the indicator changes based on the result of the condition evaluation. The color can also blink.
 
 Parameters:
 
-- **Condition** : Oeprator to use to compare the 2 operands
+- **Condition** : Operator used to compare the 2 operands
 - **ON Color** : Color when the condition evaluates to ``true``
 - **OFF Color** : Color when the condition evaluates to ``false``
 - **Active behavior** : How the indicator shows the ON color when the condition evaluates to ``true``
@@ -201,7 +201,7 @@ Parameters:
 Numerical Display
 ^^^^^^^^^^^^^^^^^
 
-A simple textual display of a numerical value. It's sole input value is the value to display, it can be a constant or a watcahble.
+A simple textual display of a numerical value. Its sole input value is the value to display, which can be a constant or a watchable.
 the only parameters are :ref:`formatting parameters<hmi_formatting_params>`.
 
 "N/A" is displayed when no valid input value is configured
@@ -212,12 +212,12 @@ the only parameters are :ref:`formatting parameters<hmi_formatting_params>`.
 Radial Gauge
 ^^^^^^^^^^^^
 
-The radial gauge mimicks a physical gauge with a needle. It has 3 input values, which can all be constant or watchables : Value, Minimum, Maximum.
-The gauge will display a rotating pointer that ranges from minimum to maximum value. If any of the input value is not properly set, the gauge will display
-"N/A" and the pointer will not be drawn, indicating an "invalid condition"
+The radial gauge mimics a physical gauge with a needle. It has 3 input values, each of which can be a constant or a watchable: Value, Minimum, Maximum.
+The gauge displays a rotating pointer that ranges from the minimum to the maximum value. If any input value is not properly set, the gauge will display
+"N/A" and the pointer will not be drawn, indicating an invalid state.
 
-When the Value input is valid but outisde of the Min/Max range, this is considered an "overflow".
-Optional color bands can also be added to the gauge to indicates values that might be good or near limits.
+When the Value input is valid but outside the Min/Max range, this is considered an overflow.
+Optional color bands can also be added to the gauge to indicate values that might be nominal or near limits.
 
 
 .. figure:: _static/ui/dashboard/hmi-radial-gauge-details.png
@@ -230,12 +230,12 @@ Parameters:
 
 - **Overflow** : How to handle an overflow.
 
-  - Clip : Pointer stops at the minimum or maximum and changes color. the text display shows the real value.
+  - Clip : Pointer stops at the minimum or maximum and changes color. The text display shows the real value.
   - Show Invalid : Pointer is not drawn. Text display shows ``N/A``
 
 - **Label Size** : The size of the labels
-- **Major ticks** : Number of major tick marker (with a labels) along the slider
-- **Minor ticks** : Number of minor toick marker (without labels) along the slider
+- **Major ticks** : Number of major tick markers (with labels) along the gauge
+- **Minor ticks** : Number of minor tick markers (without labels) along the gauge
 - **Text Display** : :ref:`Formatting parameters<hmi_formatting_params>` for the text display
 - **Colors** : List of color bands to draw on the gauge with their range specified in percent.
 
@@ -248,12 +248,12 @@ Linear Gauge
 The linear gauge shows a linear scale, like a ruler with a value indicated with a sliding arrow that goes from a minimum to a maximum value.
 The gauge can also be filled with a fill color if a zero point is specified.
 
-It has 4 input values, which can all be constant or watchables : Value, Minimum, Maximum, Zero Point.
-Only Value, Minimum, Maximum are required, if any of the input value is not properly set, the gauge pointer will not be drawn.
-Zero Point is only used to draw the fill pattern as the start of the fill range may be a value different from the minimum
+It has 4 input values, each of which can be a constant or a watchable: Value, Minimum, Maximum, Zero Point.
+Only Value, Minimum, and Maximum are required; if any of these is not properly set, the gauge pointer will not be drawn.
+Zero Point is only used to draw the fill pattern, since the start of the fill range may differ from the minimum.
 
-When the Value input is valid but outisde of the Min/Max range, this is considered an "overflow".
-Optional color bands can also be added to the gauge to indicates values that might be good or near limits.
+When the Value input is valid but outside the Min/Max range, this is considered an overflow.
+Optional color bands can also be added to the gauge to indicate values that might be nominal or near limits.
 
 
 .. figure:: _static/ui/dashboard/hmi-linear-gauge-details.png
@@ -272,8 +272,8 @@ Parameters:
 - **Inverted** : When checked, the minimum is at the top of the gauge and the maximum at the bottom.
 - **Gauge Width** : Set the width of the gauge, giving more or less space for labels.
 - **Label Size** : The size of the labels.
-- **Major ticks** : Number of major tick marker (with a labels) along the slider.
-- **Minor ticks** : Number of minor toick marker (without labels) along the slider.
+- **Major ticks** : Number of major tick markers (with labels) along the gauge.
+- **Minor ticks** : Number of minor tick markers (without labels) along the gauge.
 - **Labels** : :ref:`Formatting parameters<hmi_formatting_params>` for the labels.
 - **Colors** : List of color bands to draw on the gauge with their range specified in percent.
 
@@ -284,7 +284,7 @@ Graphics
 ^^^^^^^^
 
 Several simple widgets are provided for shape drawing. They do not take input values and only have drawing parameters.
-Those can be used to add visual indicators on your dashbaord.
+These can be used to add visual indicators on your dashboard.
 
 Available shapes:
 
