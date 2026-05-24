@@ -124,7 +124,7 @@ class WatchableLineEdit(QLineEdit):
         if emit_drop_fqn is not None:
             self._signals.watchable_dropped.emit(emit_drop_fqn)
 
-    def set_watchable_mode(self, watchable_type: WatchableType, path: str, name: str) -> None:
+    def set_watchable_mode(self, watchable_type: WatchableType, path: str, name: str, available: bool = True) -> None:
         """Sets this widget in watchable mode. in this mode, it display the watchable name with an icon and text edition
         is not possible. Only the clear button can alter it."""
         for action in list(self.actions()):  # Remove any previous left icon
@@ -138,7 +138,19 @@ class WatchableLineEdit(QLineEdit):
         self._loaded_watchable = WatchableFQNAndName(
             fqn=WatchableRegistry.FQN.make(watchable_type, path),
             name=name)
+        self.set_watchable_available(available)
         self._update_cursor()
+
+    def set_watchable_available(self, available: bool) -> None:
+        if not self.is_watchable_mode():
+            raise ValueError("Cannot call set_watchable_available when in text mode")
+
+        self._set_style_available(available)
+
+    def _set_style_available(self, available: bool) -> None:
+        font = self.font()
+        font.setStrikeOut(not available)
+        self.setFont(font)
 
     def _adjust_watchable_mode_margins(self) -> None:
         margins = self.textMargins()
@@ -178,6 +190,7 @@ class WatchableLineEdit(QLineEdit):
 
             if watchable is not None:
                 self._signals.watchable_cleared.emit(watchable.fqn)
+        self._set_style_available(True)
 
     def keyPressEvent(self, event: QKeyEvent) -> None:
         if self._mode == self.Mode.WATCHABLE:

@@ -647,6 +647,15 @@ class GraphConfigWidget(QWidget):
 
         self._txt_acquisition_name.setText(self.AUTONAME_PREFIX + str(num + 1))
 
+    def update_watchable_availabilities(self) -> None:
+        txtw_operands = [self._txtw_trigger_operand1, self._txtw_trigger_operand2, self._txtw_trigger_operand3]
+        for txtw_operand in txtw_operands:
+            if txtw_operand.is_watchable_mode():
+                watchable = txtw_operand.get_watchable()
+                assert watchable is not None
+                exist = self._watchable_registry.is_watchable_fqn(watchable.fqn)
+                txtw_operand.set_watchable_available(exist)
+
     def get_txt_acquisition_name(self) -> QLineEdit:
         return self._txt_acquisition_name
 

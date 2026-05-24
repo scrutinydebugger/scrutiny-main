@@ -642,6 +642,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
                 self._chartview.chart().set_grid_config(grid_config)
 
         self._signal_tree.update_all_availabilities()
+        self._graph_config_widget.update_watchable_availabilities()
 
         if log_and_suppress_exceptions.exception_logged:
             fully_valid = False
@@ -724,6 +725,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
         """Called when the server manager has finished making a change to the registry"""
         if not self._state.has_content:  # We are not inspecting data.
             self._signal_tree.update_all_availabilities()
+        self._graph_config_widget.update_watchable_availabilities()
 
     def _datalogging_state_changed_slot(self) -> None:
         """When the server tells us that the datalogger has changed state"""

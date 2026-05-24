@@ -664,8 +664,9 @@ class BaseHMIWidget(QGraphicsItem):
         """Try to subscribe to the WatchableRegistry (and the server)"""
         try:
             self._app.watchable_registry.watch_fqn(vslot.watcher_id, fqn, self.HMI_COMPONENT_UPDATE_RATE)
+            vslot.watchable_line_edit.set_watchable_available(True)
         except WatchableRegistryNodeNotFoundError:
-            pass
+            vslot.watchable_line_edit.set_watchable_available(False)
 
     def _unwatch_vslot(self, vslot: ValueSlot, fqn: str) -> None:
         """Unsubscribe the watchable of a value slot"""
