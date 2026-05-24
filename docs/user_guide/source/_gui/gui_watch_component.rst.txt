@@ -1,0 +1,47 @@
+.. _watch_window_component:
+
+Watch Window Component
+######################
+
+.. figure:: _static/ui/dashboard/watch-window-component.png
+    :height: 10cm
+
+    Watch Window Component
+
+In the screenshot above, we see a variable structure, in this case, the  ``htim2`` timer instance from the STM32 demo.
+The tree structure can be edited freely once it is in the Watch window.
+Each row is tied to its server path and retains its link to the data source even if renamed or reorganized.
+
+When a watchable element is added to a Watch window, the GUI subscribes to the server for
+updates at a rate defined by :ref:`SCRUTINY_GUI_WATCH_UPDATE_RATE<advanced_options>`.
+
+When a folder is collapsed (hiding its variables), the GUI immediately unsubscribes the hidden variables from the server.
+This can free bandwidth on the device communication channel, allowing the server to increase the refresh rate for the remaining visible variables.
+The same behavior occurs when an entire watch window becomes hidden behind another tab.
+
+Values can be exported to a file in the ``.scval`` format. When exporting, a snapshot of the current
+values is taken and saved to a file that can be reimported later.
+This can be useful for loading a predefined set of parameters to bring a device into a known state.
+
+.. figure:: _static/ui/dashboard/import-values.png
+    :height: 2cm
+
+    Server value import
+
+Additionally, note that in the screen capture we have a pointed variable, identifiable by the asterisk in its name.
+For more information about pointed variables, see the :ref:`elf2varmap <cmd_elf2varmap>` command.
+
+In this example, the pointer refers to a structure. The pointer is named ``Instance`` and is of type ``ptr32``.
+The pointed variables are nested under ``*Instance`` and may be of any type.
+All of them can be read or written; the server supports pointer dereferencing.
+
+If a pointer is set to ``0``, the Scrutiny server will refuse to read it and will report an invalid value.
+
+.. figure:: _static/ui/dashboard/watch-window-null-instance.png
+    :height: 6cm
+
+    Null pointer dereferencing refused by the server
+
+.. warning::
+
+    Be very careful when changing the value of a pointer as it can cause a runtime crash of your device.

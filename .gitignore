@@ -10,3 +10,5 @@ nuitka_build
 .DS_Store
 scrutiny/*_user_guide.pdf
 dist_wheel
+*.out
+nuitka_build_log.xml

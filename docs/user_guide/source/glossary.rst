@@ -34,6 +34,9 @@ Glossary
     HIL  (Hardware In the Loop)
         A testing methodology that involves interaction with a physical device.
 
+    HMI  (Human Machine Interface)
+        A dedicated graphical interface meant to control a piece of hardware.
+
     I²C  (Inter-Integrated Circuit)
         A multi-node, master/slave communication protocol requiring two wires. Commonly used within a single electronic board.
 
