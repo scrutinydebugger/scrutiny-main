@@ -7,7 +7,7 @@
 #    Copyright (c) 2026 Scrutiny Debugger
 
 from PySide6.QtWidgets import QWidget
-from PySide6.QtCore import QPoint, QSize, Qt, QEvent, QPointF
+from PySide6.QtCore import QPoint, QSize, Qt, QEvent, QPointF, QRectF
 from PySide6.QtGui import QPen, QBrush, QColor, QMouseEvent, QDragEnterEvent, QDragMoveEvent, QDropEvent, QDragLeaveEvent, QResizeEvent, QPainter, QImage
 
 from scrutiny import sdk
@@ -23,6 +23,7 @@ from scrutiny.gui.components.locals.hmi.hmi_widgets.display.radial_gauge_hmi_wid
 from scrutiny.gui.components.locals.hmi.hmi_widgets.display.linear_gauge_hmi_widget import LinearGaugeHMIWidget
 from scrutiny.gui.components.locals.hmi.hmi_widgets.display.color_indicator_hmi_widget import ColorIndicatorHMIWidget, RelationalOperator, ActiveBehavior
 from scrutiny.gui.components.locals.hmi.hmi_widgets.controls.button_hmi_widget import ButtonHMIWidget, ButtonType
+from scrutiny.gui.components.locals.hmi.hmi_widgets.controls.slider_hmi_widget import SliderHMIWidget
 from scrutiny.gui.components.locals.hmi.common.hmi_colors import HMIColor
 from test.gui.fake_server_manager import FakeServerManager
 from test.gui.base_gui_test import ScrutinyBaseGuiTest
@@ -1321,7 +1322,7 @@ class TestHMIComponent(HMIComponentBaseTest):
 
 class TestHMIWidgets(HMIComponentBaseTest):
 
-    def test_basic_shapes_draw(self):
+    def test_draw_basic_shapes(self):
         rectangle = RectangleHMIWidget(self.app_interface)
         circle = CircleHMIWidget(self.app_interface)
         line = LineHMIWidget(self.app_interface)
@@ -1344,7 +1345,7 @@ class TestHMIWidgets(HMIComponentBaseTest):
         label.update()
         self._render_scene()
 
-    def test_color_indicator_draw(self):
+    def test_draw_color_indicator(self):
         # Make sure wer can draw without raising an exception
         indicator = ColorIndicatorHMIWidget(self.app_interface)
         indicator.set_size(QSize(48, 48))
@@ -1506,6 +1507,280 @@ class TestHMIWidgets(HMIComponentBaseTest):
         self.assertEqual(len(write_history), 2)
         self.assertEqual(write_history[1].fqn, bool_fqn)
         self.assertEqual(write_history[1].value, False)
+
+    def test_slider_vertical(self):
+        server_path = '/var/some_float'
+        float_fqn = f"var:{server_path}"
+
+        fake_server_manager = cast(FakeServerManager, self.app_interface.server_manager)
+        workzone = self.hmi_component.get_workzone()
+
+        slider = SliderHMIWidget(self.app_interface)
+        slider.set_size(QSize(100, 400))
+        slider.set_min_val(0.0)
+        slider.set_max_val(100.0)
+        slider.set_major_ticks(5)
+        slider.set_minor_ticks(3)
+        slider.set_orientation(Qt.Orientation.Vertical)
+        slider.configure_vslot_watchable('val', float_fqn, 'some_float')
+        self.hmi_component.add_hmi_widget(slider, QPoint(32, 64))
+
+        workzone.set_edit_mode(False)
+
+        # Render first to initialize _slide_zone_rect
+        slider.update()
+        self._render_scene()
+
+        # Feed a value to enable and position the cursor at 50 %
+        slider.emulate_vslot_watchable_value_update('val', 50.0)
+        slider.update()
+        self._render_scene()
+
+        slidezone = slider.get_slidezone_rect()
+        assert slidezone is not None
+
+        def compute_slider_pos_ratio(cursor: QRectF) -> float:
+            mid = cursor.top() + cursor.height() / 2
+            slidezone_range = slidezone.bottom() - slidezone.top()
+            ratio_from_top = (mid - slidezone.top()) / slidezone_range
+
+            return 1 - ratio_from_top
+
+        def check_slider_dims(cursor: QRectF):
+            self.assertGreater(cursor.width(), slidezone.width())
+            self.assertGreater(cursor.height(), 0)
+
+            cursor_x_mid = cursor.left() + cursor.width() / 2
+            slidezone_x_mid = slidezone.left() + slidezone.width() / 2
+            self.assertAlmostEqual(cursor_x_mid, slidezone_x_mid, places=3)
+
+        slider.emulate_vslot_watchable_value_update('val', -100)
+        cursor = slider.get_cursor_rect()
+        check_slider_dims(cursor)
+        self.assertEqual(compute_slider_pos_ratio(cursor), 0)
+
+        slider.emulate_vslot_watchable_value_update('val', 0)
+        cursor = slider.get_cursor_rect()
+        check_slider_dims(cursor)
+        self.assertEqual(compute_slider_pos_ratio(cursor), 0)
+
+        slider.emulate_vslot_watchable_value_update('val', 25)
+        cursor = slider.get_cursor_rect()
+        check_slider_dims(cursor)
+        self.assertAlmostEqual(compute_slider_pos_ratio(cursor), 0.25)
+
+        slider.emulate_vslot_watchable_value_update('val', 50)
+        cursor = slider.get_cursor_rect()
+        check_slider_dims(cursor)
+        self.assertAlmostEqual(compute_slider_pos_ratio(cursor), 0.50)
+
+        slider.emulate_vslot_watchable_value_update('val', 75)
+        cursor = slider.get_cursor_rect()
+        check_slider_dims(cursor)
+        self.assertAlmostEqual(compute_slider_pos_ratio(cursor), 0.75)
+
+        slider.emulate_vslot_watchable_value_update('val', 100)
+        cursor = slider.get_cursor_rect()
+        check_slider_dims(cursor)
+        self.assertAlmostEqual(compute_slider_pos_ratio(cursor), 1)
+
+        slider.emulate_vslot_watchable_value_update('val', 200)
+        cursor = slider.get_cursor_rect()
+        check_slider_dims(cursor)
+        self.assertEqual(compute_slider_pos_ratio(cursor), 1)
+
+        def move_cursor_to(ratio: float):
+            cursor = slider.get_cursor_rect()
+            start_pos = slider.pos() + QPointF(
+                cursor.left() + cursor.width() / 2,
+                cursor.top() + cursor.height() / 2
+            )
+
+            end_pos = slider.pos() + QPointF(
+                slidezone.left() + slidezone.width() / 2,
+                slidezone.top() + slidezone.height() * (1 - ratio)
+            )
+
+            down_event = QMouseEvent(QEvent.Type.MouseButtonPress, start_pos,
+                                     Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
+                                     )
+            move_event = QMouseEvent(QEvent.Type.MouseButtonPress, end_pos,
+                                     Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
+                                     )
+            up_event = QMouseEvent(QEvent.Type.MouseButtonRelease, end_pos,
+                                   Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
+                                   )
+
+            workzone.mousePressEvent(down_event)
+            workzone.mouseMoveEvent(move_event)
+            workzone.mouseReleaseEvent(up_event)
+
+        move_cursor_to(0.25)
+        move_cursor_to(0.50)
+        move_cursor_to(0.75)
+        move_cursor_to(1)
+        move_cursor_to(1.2)
+        move_cursor_to(0)
+        move_cursor_to(-0.25)
+
+        write_history = fake_server_manager.get_write_history()
+        self.assertEqual(len(write_history), 7)
+
+        self.assertEqual(write_history[0].fqn, float_fqn)
+        self.assertEqual(write_history[1].fqn, float_fqn)
+        self.assertEqual(write_history[2].fqn, float_fqn)
+        self.assertEqual(write_history[3].fqn, float_fqn)
+        self.assertEqual(write_history[4].fqn, float_fqn)
+        self.assertEqual(write_history[5].fqn, float_fqn)
+        self.assertEqual(write_history[6].fqn, float_fqn)
+
+        precision = 100 / slider.get_size().height()
+
+        self.assertAlmostEqual(write_history[0].value, 25, delta=precision)
+        self.assertAlmostEqual(write_history[1].value, 50, delta=precision)
+        self.assertAlmostEqual(write_history[2].value, 75, delta=precision)
+        self.assertAlmostEqual(write_history[3].value, 100, delta=precision)
+        self.assertEqual(write_history[4].value, 100)
+        self.assertAlmostEqual(write_history[5].value, 0, delta=precision)
+        self.assertEqual(write_history[6].value, 0)
+
+    def test_slider_horizontal(self):
+        server_path = '/var/some_float'
+        float_fqn = f"var:{server_path}"
+
+        fake_server_manager = cast(FakeServerManager, self.app_interface.server_manager)
+        workzone = self.hmi_component.get_workzone()
+
+        slider = SliderHMIWidget(self.app_interface)
+        slider.set_size(QSize(400, 100))
+        slider.set_min_val(0.0)
+        slider.set_max_val(100.0)
+        slider.set_major_ticks(5)
+        slider.set_minor_ticks(3)
+        slider.set_orientation(Qt.Orientation.Horizontal)
+        slider.configure_vslot_watchable('val', float_fqn, 'some_float')
+        self.hmi_component.add_hmi_widget(slider, QPoint(32, 64))
+
+        workzone.set_edit_mode(False)
+
+        # Render first to initialize _slide_zone_rect
+        slider.update()
+        self._render_scene()
+
+        # Feed a value to enable and position the cursor at 50 %
+        slider.emulate_vslot_watchable_value_update('val', 50.0)
+        slider.update()
+        self._render_scene()
+
+        slidezone = slider.get_slidezone_rect()
+        assert slidezone is not None
+
+        def compute_slider_pos_ratio(cursor: QRectF) -> float:
+            mid = cursor.left() + cursor.width() / 2
+            slidezone_range = slidezone.right() - slidezone.left()
+            return (mid - slidezone.left()) / slidezone_range
+
+        def check_slider_dims(cursor: QRectF):
+            # For horizontal: cursor is taller than the track and its vertical centre aligns
+            self.assertGreater(cursor.height(), slidezone.height())
+            self.assertGreater(cursor.width(), 0)
+
+            cursor_y_mid = cursor.top() + cursor.height() / 2
+            slidezone_y_mid = slidezone.top() + slidezone.height() / 2
+            self.assertAlmostEqual(cursor_y_mid, slidezone_y_mid, places=3)
+
+        # Below-min value clamps to 0
+        slider.emulate_vslot_watchable_value_update('val', -100)
+        cursor = slider.get_cursor_rect()
+        check_slider_dims(cursor)
+        self.assertEqual(compute_slider_pos_ratio(cursor), 0)
+
+        # At-min value stays at 0
+        slider.emulate_vslot_watchable_value_update('val', 0)
+        cursor = slider.get_cursor_rect()
+        check_slider_dims(cursor)
+        self.assertEqual(compute_slider_pos_ratio(cursor), 0)
+
+        slider.emulate_vslot_watchable_value_update('val', 25)
+        cursor = slider.get_cursor_rect()
+        check_slider_dims(cursor)
+        self.assertAlmostEqual(compute_slider_pos_ratio(cursor), 0.25)
+
+        slider.emulate_vslot_watchable_value_update('val', 50)
+        cursor = slider.get_cursor_rect()
+        check_slider_dims(cursor)
+        self.assertAlmostEqual(compute_slider_pos_ratio(cursor), 0.50)
+
+        slider.emulate_vslot_watchable_value_update('val', 75)
+        cursor = slider.get_cursor_rect()
+        check_slider_dims(cursor)
+        self.assertAlmostEqual(compute_slider_pos_ratio(cursor), 0.75)
+
+        slider.emulate_vslot_watchable_value_update('val', 100)
+        cursor = slider.get_cursor_rect()
+        check_slider_dims(cursor)
+        self.assertAlmostEqual(compute_slider_pos_ratio(cursor), 1)
+
+        # Above-max value clamps to 1
+        slider.emulate_vslot_watchable_value_update('val', 200)
+        cursor = slider.get_cursor_rect()
+        check_slider_dims(cursor)
+        self.assertEqual(compute_slider_pos_ratio(cursor), 1)
+
+        def move_cursor_to(ratio: float):
+            cursor = slider.get_cursor_rect()
+            start_pos = slider.pos() + QPointF(
+                cursor.left() + cursor.width() / 2,
+                cursor.top() + cursor.height() / 2
+            )
+
+            end_pos = slider.pos() + QPointF(
+                slidezone.left() + slidezone.width() * ratio,
+                slidezone.top() + slidezone.height() / 2
+            )
+
+            down_event = QMouseEvent(QEvent.Type.MouseButtonPress, start_pos,
+                                     Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
+                                     )
+            move_event = QMouseEvent(QEvent.Type.MouseButtonPress, end_pos,
+                                     Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
+                                     )
+            up_event = QMouseEvent(QEvent.Type.MouseButtonRelease, end_pos,
+                                   Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
+                                   )
+
+            workzone.mousePressEvent(down_event)
+            workzone.mouseMoveEvent(move_event)
+            workzone.mouseReleaseEvent(up_event)
+
+        move_cursor_to(0.25)
+        move_cursor_to(0.50)
+        move_cursor_to(0.75)
+        move_cursor_to(1)
+        move_cursor_to(1.2)   # beyond right edge → clamp to max
+        move_cursor_to(0)
+        move_cursor_to(-0.25)  # beyond left edge → clamp to min
+
+        write_history = fake_server_manager.get_write_history()
+        self.assertEqual(len(write_history), 7)
+
+        self.assertEqual(write_history[0].fqn, float_fqn)
+        self.assertEqual(write_history[1].fqn, float_fqn)
+        self.assertEqual(write_history[2].fqn, float_fqn)
+        self.assertEqual(write_history[3].fqn, float_fqn)
+        self.assertEqual(write_history[4].fqn, float_fqn)
+        self.assertEqual(write_history[5].fqn, float_fqn)
+        self.assertEqual(write_history[6].fqn, float_fqn)
+
+        precision = 100 / slider.get_size().width()
+
+        self.assertAlmostEqual(float(write_history[0].value), 25, delta=precision)
+        self.assertAlmostEqual(float(write_history[1].value), 50, delta=precision)
+        self.assertAlmostEqual(float(write_history[2].value), 75, delta=precision)
+        self.assertAlmostEqual(float(write_history[3].value), 100, delta=precision)
+        self.assertEqual(write_history[4].value, 100)
+        self.assertAlmostEqual(float(write_history[5].value), 0, delta=precision)
+        self.assertEqual(write_history[6].value, 0)
 
     def test_radial_gauge_hit_zone(self):
         gauge = RadialGaugeHMIWidget(self.app_interface)

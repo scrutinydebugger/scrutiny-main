@@ -307,6 +307,12 @@ class SliderHMIWidget(BaseHMIWidget):
             raise NotImplementedError("Unknown orientation")
         self._cursor.update()
 
+    def get_cursor_rect(self) -> QRectF:
+        return QRectF(self._cursor.pos(), self._cursor.get_size())
+
+    def get_slidezone_rect(self) -> Optional[QRectF]:
+        return self._slide_zone_rect
+
 # region Getters and Setters
 
     def get_orientation(self) -> Qt.Orientation:
@@ -393,10 +399,10 @@ class SliderHMIWidget(BaseHMIWidget):
             if major_ticks >= 2:
                 label_height = label_size_ratio * bounding_rect.height() / float(major_ticks)
 
-            cursor_x = cursor_border_size / 2
+            cursor_x = 0
             cursor_w = bounding_rect.width() * _Dims.CURSOR_W_RATIO
             slide_zone_w = bounding_rect.width() * _Dims.SLIDE_ZONE_MIN_W_RATIO
-            slide_zone_x = cursor_w / 2 + border_size / 2 - slide_zone_w / 2
+            slide_zone_x = cursor_w / 2 - slide_zone_w / 2
             slide_zone_y = border_size / 2 + label_height / 2
             slide_zone_h = bounding_rect.height() - 2 * slide_zone_y
             cursor_h = min(cursor_w * _Dims.CURSOR_H_RATIO_TO_CURSOR_W, _Dims.CURSOR_H_MAX_PX)
@@ -475,7 +481,7 @@ class SliderHMIWidget(BaseHMIWidget):
             label_height = float(0)
             label_margin = float(0)
 
-            cursor_y = cursor_border_size / 2
+            cursor_y = 0
 
             if major_ticks >= 2:    # Has labels
                 # Compute ideal label height to take all the width. May be too big, we will fix later.
@@ -491,14 +497,14 @@ class SliderHMIWidget(BaseHMIWidget):
                 label_margin = _Dims.TEXT_LABEL_MARGIN_PX
 
             # If label height is too big, cursor will be too small. Make sure the cursor is visible then fix label heights
-            cursor_h = (bounding_rect.height() - label_height - minor_tick_h - label_margin) - cursor_border_size
+            cursor_h = (bounding_rect.height() - label_height - minor_tick_h - label_margin)
             cursor_h = max(cursor_h, _Dims.CURSOR_MIN_W_PX)
             cursor_w = min(cursor_h * _Dims.CURSOR_H_RATIO_TO_CURSOR_W, _Dims.CURSOR_H_MAX_PX)
             label_height = min(label_height, bounding_rect.height() - cursor_h - major_tick_h - label_margin)
 
             # We have cursor and label height. We can compute the position of everything now.
             slide_zone_h = cursor_h * _Dims.SLIDE_ZONE_MIN_W_RATIO / _Dims.CURSOR_W_RATIO
-            slide_zone_y = cursor_h / 2 + border_size / 2 - slide_zone_h / 2
+            slide_zone_y = cursor_h / 2 - slide_zone_h / 2
             slide_zone_x = max(border_size / 2 + label_width / 2, cursor_w / 2 + border_size / 2)
             slide_zone_w = bounding_rect.width() - 2 * slide_zone_x
 
