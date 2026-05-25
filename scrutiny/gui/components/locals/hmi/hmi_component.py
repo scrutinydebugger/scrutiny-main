@@ -170,7 +170,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         self._workzone.signals.right_click.disconnect()
         self._workzone.signals.drop_widget_class.disconnect()
         self._workzone.signals.selection_changed.disconnect()
-        self.app.server_manager.signals.registry_changed.disconnect()
+        self.app.server_manager.signals.registry_changed.disconnect(self._registry_changed_slot)
         self._status_bar.signals.exit_edit_mode.disconnect()
 
         self._workzone.destroy()
