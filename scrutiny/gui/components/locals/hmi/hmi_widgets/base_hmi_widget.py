@@ -484,6 +484,8 @@ class BaseHMIWidget(QGraphicsItem):
             override: Optional[ValueSlot.ValueOverride] = None
             if not isinstance(value, str):
                 override = ValueSlot.ValueOverride(value=value, override_id=global_i64_counter())
+                if vslot.value_update_callback is not None:
+                    vslot.value_update_callback(value)
                 callback = functools.partial(self._write_callback_wrapper, vslot, override.override_id, callback)
             self._app.server_manager.qt_write_watchable_value(watchable.fqn, value, callback)
             vslot.value_override = override
@@ -650,6 +652,7 @@ class BaseHMIWidget(QGraphicsItem):
         for vslot in self._vslots:
             if vslot.watcher_id == watcher_id:
                 vslot.last_value_received = None
+                invoke_later(self._redraw_if_allowed)
                 break
 
     def _vslot_configured_with_watchable_slot(self, vslot: ValueSlot, fqn: str) -> None:
