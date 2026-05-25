@@ -512,6 +512,56 @@ class TestHMIWidgetSerialization(HMIComponentBaseTest):
         self.assertEqual(new_button.get_label_inactive(), button.get_label_inactive())
         self.assertEqual(new_button.get_color_inactive(), button.get_color_inactive())
 
+    def test_serialize_slider(self):
+        slider = SliderHMIWidget(self.app_interface)
+        slider.set_size(QSize(32, 128))
+        self.hmi_component.add_hmi_widget(slider, QPoint(16, 32))
+        self.assertEqual(self.hmi_component.hmi_widget_count(), 1)
+
+        slider.set_orientation(Qt.Orientation.Vertical)
+        slider.set_min_val(-50.0)
+        slider.set_max_val(150.0)
+        slider.set_label_size_percent(60)
+        slider.set_major_ticks(7)
+        slider.set_minor_ticks(4)
+        label_config = NumberFormattingConfig(decimals=2, eng_notation=True, max_ints=4, units='Hz')
+        slider._label_format_config_widget.apply_config(label_config)
+
+        # Verify getters directly
+        self.assertEqual(slider.get_orientation(), Qt.Orientation.Vertical)
+        self.assertEqual(slider.get_min_val(), -50.0)
+        self.assertEqual(slider.get_max_val(), 150.0)
+        self.assertEqual(slider.get_label_size_percent(), 60)
+        self.assertEqual(slider.get_major_ticks(), 7)
+        self.assertEqual(slider.get_minor_ticks(), 4)
+        self.assertEqual(slider._label_format_config_widget.get_config(), label_config)
+
+        # Serialization round-trip
+        state = self.hmi_component.get_state()
+        self.hmi_component.delete_hmi_widget(slider)
+        self.assertEqual(self.hmi_component.hmi_widget_count(), 0)
+
+        fully_loaded = self.hmi_component.load_state(state)
+        self.assertTrue(fully_loaded)
+
+        self.assertEqual(self.hmi_component.hmi_widget_count(), 1)
+        all_widgets = list(self.hmi_component.iterate_hmi_widgets())
+        self.assertEqual(len(all_widgets), 1)
+        new_slider = all_widgets[0]
+
+        self.assertIsInstance(new_slider, SliderHMIWidget)
+        assert isinstance(new_slider, SliderHMIWidget)
+
+        self.assertEqual(new_slider.pos(), QPoint(16, 32))
+        self.assertEqual(new_slider.get_size(), QSize(32, 128))
+        self.assertEqual(new_slider.get_orientation(), slider.get_orientation())
+        self.assertEqual(new_slider.get_min_val(), slider.get_min_val())
+        self.assertEqual(new_slider.get_max_val(), slider.get_max_val())
+        self.assertEqual(new_slider.get_label_size_percent(), slider.get_label_size_percent())
+        self.assertEqual(new_slider.get_major_ticks(), slider.get_major_ticks())
+        self.assertEqual(new_slider.get_minor_ticks(), slider.get_minor_ticks())
+        self.assertEqual(new_slider._label_format_config_widget.get_config(), slider._label_format_config_widget.get_config())
+
 
 class TestWorkZone(HMIComponentBaseTest):
     def test_selection_logic(self):
