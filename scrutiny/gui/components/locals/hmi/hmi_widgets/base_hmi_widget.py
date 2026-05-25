@@ -698,7 +698,7 @@ class BaseHMIWidget(QGraphicsItem):
 
         def compute_single(vslot: ValueSlot) -> Optional[WatchableValueType]:
             if vslot.watchable_line_edit.is_text_mode():
-                return vslot.get_val()
+                vslot.last_value_drawn = vslot.get_val()
             else:
                 watchable = vslot.watchable_line_edit.get_watchable()
                 if watchable is None:
@@ -709,7 +709,8 @@ class BaseHMIWidget(QGraphicsItem):
                     return None
 
                 vslot.last_value_drawn = vslot.get_val()
-                return vslot.last_value_drawn
+
+            return vslot.last_value_drawn
 
         return {vslot.name: compute_single(vslot) for vslot in self._vslots}
 
