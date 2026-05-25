@@ -10,6 +10,7 @@
 __all__ = ['HMIWorkZone']
 
 import enum
+import time
 from dataclasses import dataclass
 
 from PySide6.QtCore import QRectF, Qt, Signal, QRect, QPoint, QObject, QMimeData, QSize, QPointF, QSizeF
@@ -66,6 +67,12 @@ class WidgetMouseEditData:
     move_data: Optional[MoveData] = None
 
 
+@dataclass
+class DoubleClickDetectData:
+    first_press_timestamp_ns: int = 0
+    first_press_hmi_widget: Optional[BaseHMIWidget] = None
+
+
 class DropPlaceholder(QGraphicsItem):
     """A square that shows the place that a HMI widget will take on the drop zone"""
     _size: QSize
@@ -94,12 +101,14 @@ class HMIWorkZone(QGraphicsView):
     """The main work zone. this is the canvas on which every HMI widget are drawn, moved, resize and displayed"""
 
     MIN_RUBBERBAND_AREA = 5 * 5
+    DOUBLE_CLICK_DELAY_NS = 500 * 1e6
     """A constant to disregard noise when making a selection rectangle (rubber band)"""
 
     class _Signals(QObject):
         right_click = Signal(object, QMouseEvent)   # Optional[BaseHMIWidget], QMouseEvent
         drop_widget_class = Signal(type, QPoint)    # Class, QPoint
         selection_changed = Signal(list)            # List[BaseHMIWidget]
+        double_click_edit_widget = Signal(object)
 
     _signals: _Signals
 
@@ -125,6 +134,7 @@ class HMIWorkZone(QGraphicsView):
     """The graphic square displayed when the user drag-move a new HMI widget on the workzone to show what place it will take"""
     _status_bar: HMIStatusBar
     """The status bar at the bottom of the work zone when in Edit mode"""
+    _double_click_data: DoubleClickDetectData
 
     def __init__(self, status_bar: HMIStatusBar) -> None:
         self._scene = QGraphicsScene()
@@ -135,6 +145,7 @@ class HMIWorkZone(QGraphicsView):
         self._mouse_down_start = None
         self._mouse_down_widget = None
         self._status_bar = status_bar
+        self._double_click_data = DoubleClickDetectData()
 
         self._rubberband = QRubberBand(QRubberBand.Shape.Rectangle)
         self._rubberband.setParent(self)
@@ -157,6 +168,7 @@ class HMIWorkZone(QGraphicsView):
         for item in list(self.scene().items()):
             self.scene().removeItem(item)
 
+        self._signals.selection_changed.disconnect(self._selection_changed_slot)
         super().destroy(destroyWindow, destroySubWindows)
 
     def get_drop_placeholder(self) -> DropPlaceholder:
@@ -403,13 +415,26 @@ class HMIWorkZone(QGraphicsView):
         self._mouse_down_start = event.pos()
         must_propagate_left_button = False
         self._mouse_down_widget = self.hmi_widget_at(event.pos(), perform_hit_test=not self._edit_mode)
+        double_click_start_candidate = False
 
         if event.button() == Qt.MouseButton.LeftButton:
             self._mouse_edit_data = None
             if self._edit_mode:
                 if self._mouse_down_widget is None:  # Clicked nothing (grid). Start a rubber band
                     self._rubberband_active = True
+
                 else:  # Clicked an HMI Widget
+                    double_click_start_candidate = True
+                    press_timestamp = time.perf_counter_ns()
+                    if press_timestamp - self._double_click_data.first_press_timestamp_ns < self.DOUBLE_CLICK_DELAY_NS:
+                        if self._double_click_data.first_press_hmi_widget is self._mouse_down_widget:
+                            double_click_start_candidate = False
+                            self.signals.double_click_edit_widget.emit(self._mouse_down_widget)
+
+                    if double_click_start_candidate:
+                        self._double_click_data.first_press_hmi_widget = self._mouse_down_widget
+                        self._double_click_data.first_press_timestamp_ns = press_timestamp
+
                     resize_handles = self._mouse_down_widget.resize_handles_coordinates()
                     resize_handle: Optional[HandlePosition] = None
                     pos_mapped_to_widget = self._mouse_down_widget.mapFromScene(self.mapToScene(event.pos()))
@@ -460,6 +485,9 @@ class HMIWorkZone(QGraphicsView):
                         )
             else:
                 must_propagate_left_button = True
+
+        if not double_click_start_candidate:
+            self._double_click_data.first_press_hmi_widget = None
 
         # Prevent propagation if we took the event.
         # Prevents control widget to react when moving
