@@ -144,6 +144,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         layout.addWidget(self._splitter, 1)  # 1=Stretch
         self._workzone.signals.right_click.connect(self._workzone_right_click_slot)
+        self._workzone.signals.double_click_edit_widget.connect(self._workzone_double_click_edit_widget_slot)
         self._workzone.signals.drop_widget_class.connect(self._workzone_drop_widget_class_slot)
         self._workzone.signals.selection_changed.connect(self._workzone_selection_changed_slot)
         self._show_edit_menu(False)  # Necessary to set the menu to a size of 0, used for state checking
@@ -493,12 +494,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
                 move_forward_action.triggered.connect(functools.partial(self.move_forward, widget))
                 move_to_front_action.triggered.connect(functools.partial(self.move_to_front, widget))
 
-                def edit_action_slot() -> None:
-                    self._edit_tab_widget.setCurrentIndex(self._configure_tab_index)
-                    self._show_config_of(widget)
-                    self._show_edit_menu(True)
-
-                edit_action.triggered.connect(edit_action_slot)
+                edit_action.triggered.connect(functools.partial(self._request_edit_of_widget, widget))
 
                 def remove_action_slot() -> None:
                     invoke_later(functools.partial(self.delete_hmi_widget, widget))
@@ -506,6 +502,16 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
 
         if menu is not None and not self._unittest_mode:
             menu.exec_and_disconnect_triggered(self._workzone.mapToGlobal(event.pos()))  # pragma: no cover
+
+    def _workzone_double_click_edit_widget_slot(self, widget: BaseHMIWidget) -> None:
+        """Invoked when the user double click a widget in edit mode"""
+        self._request_edit_of_widget(widget)
+
+    def _request_edit_of_widget(self, widget: BaseHMIWidget) -> None:
+        """Open the edition menu and show config of given widget. """
+        self._edit_tab_widget.setCurrentIndex(self._configure_tab_index)
+        self._show_config_of(widget)
+        self._show_edit_menu(True)
 
     def _show_config_of(self, widget: Optional[BaseHMIWidget]) -> None:
         """Make the HMI Widget configuration pane visible by swapping the QStackedLayout index. show an empty widget if None"""
