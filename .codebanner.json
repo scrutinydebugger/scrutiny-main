@@ -1026,9 +1026,6 @@
         "scrutiny/gui/components/locals/hmi/hmi_library.py": {
             "docstring": "A library of all the HMI widgets available"
         },
-        "scrutiny/gui/components/locals/hmi/hmi_library_category.py": {
-            "docstring": "A central place to define the different HMI widget categories used for display"
-        },
         "scrutiny/gui/components/locals/hmi/hmi_edit_grid.py": {
             "docstring": "The Grid used in Edit Mode"
         },
@@ -1115,6 +1112,9 @@
         },
         "scrutiny/gui/components/locals/hmi/common/hit_zones.py": {
             "docstring": "Hit test logic for various shapes. Contains shared logic between HMI widgets"
+        },
+        "scrutiny/gui/components/locals/hmi/hmi_widgets/controls/slider_hmi_widget.py": {
+            "docstring": "A slider that can write a float value by moving a cursor from min to max. Can be horizontal or vertical."
         }
     },
     "authors": {}

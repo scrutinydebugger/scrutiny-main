@@ -1,3 +1,12 @@
+#    slider_hmi_widget.py
+#        A slider that can write a float value by moving a cursor from min to max. Can be
+#        horizontal or vertical.
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
+
 __all__ = ['SliderHMIWidget']
 
 from PySide6.QtGui import QPainter, QPen, QBrush, QDoubleValidator, QFontMetrics
