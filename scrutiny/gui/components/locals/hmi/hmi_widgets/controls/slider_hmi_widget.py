@@ -20,7 +20,6 @@ class _Dims:
     TEXT_LABEL_MARGIN_PX = 3
     MAJOR_TICK_LEN_RATIO = 0.05
     MAJOR_TICK_MAX_LEN_PX = 20
-    MINOR_TICK_LEN_RATIO = 0.05
     SLIDE_ZONE_MIN_W_RATIO = 0.1
     CURSOR_W_RATIO = 0.2
     CURSOR_H_RATIO_TO_CURSOR_W = 0.3
@@ -149,10 +148,7 @@ class SliderHMIWidget(BaseHMIWidget):
         self._cmb_orientation.setCurrentIndex(self._cmb_orientation.findData(Qt.Orientation.Horizontal))
 
         self._txt_min_val = FloatValidableLineEdit(hard_validator=QDoubleValidator())
-        self._txt_min_val.set_float_value(0.0)
-
         self._txt_max_val = FloatValidableLineEdit(hard_validator=QDoubleValidator())
-        self._txt_max_val.set_float_value(100.0)
 
         self._sld_label_size = QSlider(Qt.Orientation.Horizontal)
         self._sld_label_size.setMinimum(0)
@@ -233,6 +229,7 @@ class SliderHMIWidget(BaseHMIWidget):
         self._sld_label_size.valueChanged.disconnect()
         self._spn_major_ticks.valueChanged.disconnect()
         self._spn_minor_ticks.valueChanged.disconnect()
+        self._label_format_config_widget.signals.changed.disconnect()
         return super().destroy()
 
     def _config_changed_slot(self) -> None:
@@ -287,7 +284,7 @@ class SliderHMIWidget(BaseHMIWidget):
 
     def _value_update_callback(self, val: Optional[Union[float, int, bool]]) -> None:
         """Called when a new value is received"""
-        if val == self._last_val_received:
+        if val == self._last_val_received and type(val) == type(self._last_val_received):
             return
 
         self._last_val_received = val
@@ -492,8 +489,6 @@ class SliderHMIWidget(BaseHMIWidget):
                 major_tick_h = min(bounding_rect.height() * _Dims.MAJOR_TICK_LEN_RATIO, _Dims.MAJOR_TICK_MAX_LEN_PX)
                 minor_tick_h = major_tick_h / 2
                 label_margin = _Dims.TEXT_LABEL_MARGIN_PX
-            else:
-                pass
 
             # If label height is too big, cursor will be too small. Make sure the cursor is visible then fix label heights
             cursor_h = (bounding_rect.height() - label_height - minor_tick_h - label_margin) - cursor_border_size
