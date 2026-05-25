@@ -408,7 +408,7 @@ class SliderHMIWidget(BaseHMIWidget):
             if major_ticks >= 2:
                 label_height = label_size_ratio * bounding_rect.height() / float(major_ticks)
 
-            cursor_x = 0
+            cursor_x = float(0)
             cursor_w = bounding_rect.width() * _Dims.CURSOR_W_RATIO
             slide_zone_w = bounding_rect.width() * _Dims.SLIDE_ZONE_MIN_W_RATIO
             slide_zone_x = cursor_w / 2 - slide_zone_w / 2
@@ -490,7 +490,7 @@ class SliderHMIWidget(BaseHMIWidget):
             label_height = float(0)
             label_margin = float(0)
 
-            cursor_y = 0
+            cursor_y = float(0)
 
             if major_ticks >= 2:    # Has labels
                 # Compute ideal label height to take all the width. May be too big, we will fix later.
