@@ -33,6 +33,7 @@ class StubbedComponent(ScrutinyGUIBaseComponent):
     ready_called: bool
     teardown_called: bool
     state: Dict[Any, Any]
+    call_history:List[str]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -40,21 +41,28 @@ class StubbedComponent(ScrutinyGUIBaseComponent):
         self.ready_called = False
         self.teardown_called = False
         self.state = {}
+        self.call_history = []
 
     def setup(self) -> None:
+        self.call_history.append("setup")
         self.setup_called = True
 
     def ready(self) -> None:
+        self.call_history.append("ready")
         self.ready_called = True
 
     def teardown(self) -> None:
+        self.call_history.append("teardown")
         self.teardown_called = True
 
     def get_state(self) -> Dict[Any, Any]:
+        self.call_history.append("get_state")
         return self.state
 
     def load_state(self, state: Dict[Any, Any]) -> bool:
+        self.call_history.append("load_state")
         self.state = state
+        return True
 
 
 class StubbedGlobalComponent(StubbedComponent, ScrutinyGUIBaseGlobalComponent):
@@ -268,6 +276,9 @@ class TestDashboard(ScrutinyBaseGuiTest):
             dashboard.save(file)
             new_dashboard.open(file, exceptions=True)
 
+        # Load state is delayed to happen after UI stabilize
+        self.process_events()   # Invoke Ready, load_state
+
         # New dashboard is reloaded from file. Check that it matches the original one.
         self.assertEqual(len(new_dashboard.dock_manager().dockWidgetsMap()), len(all_dock_widgets))
         containers = new_dashboard.dock_manager().dockContainers()
@@ -407,6 +418,25 @@ class TestDashboard(ScrutinyBaseGuiTest):
         self.assertFalse(dock_widget2.isFloating())
         self.assertFalse(dock_widget2.dockAreaWidget().isAutoHide())
         self.assertTrue(dock_widget2.isTabbed())    # Share tab with local component
+
+    def test_call_order(self):
+        dashboard1 = Dashboard(self.main_window)
+        dashboard2 = Dashboard(self.main_window)
+        dashboard1.add_local_component(StubbedLocalComponent)
+
+        self.assertEqual(len(dashboard2.dock_manager().dockWidgetsMap()), 0)
+        with tempfile.TemporaryDirectory() as d:
+            file = Path(os.path.join(d, 'test_dashboard'))
+            dashboard1.save(file)
+            dashboard2.open(file, exceptions=True)
+
+        items = list(dashboard2.dock_manager().dockWidgetsMap().items())
+        self.assertEqual(len(items), 1)
+        key, dock_widget = items[0]
+        component = dock_widget.widget()
+        assert isinstance(component, StubbedLocalComponent)
+        self.process_events()
+        self.assertEqual(component.call_history, ['setup', 'ready', 'load_state'])
 
     def test_ads_bug_739(self):
         QtAds.CDockManager.setAutoHideConfigFlags(QtAds.CDockManager.DefaultAutoHideConfig)
