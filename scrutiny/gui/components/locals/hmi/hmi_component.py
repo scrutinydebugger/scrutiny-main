@@ -272,6 +272,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
                 fully_loaded_ok = False
 
         self._reassign_packed_zvalues()
+        self._resubscribe_all_hmi_widgets()
         self.set_mode(HMIInteractionMode.Display)
         return fully_loaded_ok
 
