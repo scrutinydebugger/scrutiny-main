@@ -628,12 +628,12 @@ class BaseHMIWidget(QGraphicsItem):
 
     def _slot_value_update_callback(self, vslot: ValueSlot, val: WatchableValueType) -> None:
         """The callback invoked when a ValueSlot value changes"""
-        value_changed = (vslot.last_value_drawn != val)
 
-        if value_changed:
-            if vslot.value_update_callback is not None:
+        if vslot.value_update_callback is not None:
+            if not tools.strict_eq(val, vslot.last_value_received): # Updated in this function
                 vslot.value_update_callback(val)
 
+        if not tools.strict_eq(val, vslot.last_value_drawn):    # Updated in draw()
             if vslot.require_redraw:
                 invoke_later(self._redraw_if_allowed)
 
