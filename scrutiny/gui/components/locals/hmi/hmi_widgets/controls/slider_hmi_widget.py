@@ -118,6 +118,8 @@ class SliderHMIWidget(BaseHMIWidget):
     """Text input for the minimum value of the slider range"""
     _txt_max_val: FloatValidableLineEdit
     """Text input for the maximum value of the slider range"""
+    _txt_step_size: FloatValidableLineEdit
+    """Defines by the minimum value step size. """
     _sld_label_size: QSlider
     """Slider to control the size of tick labels"""
     _spn_major_ticks: QSpinBox
@@ -159,6 +161,7 @@ class SliderHMIWidget(BaseHMIWidget):
 
         self._txt_min_val = FloatValidableLineEdit(hard_validator=QDoubleValidator())
         self._txt_max_val = FloatValidableLineEdit(hard_validator=QDoubleValidator())
+        self._txt_step_size = FloatValidableLineEdit(hard_validator=QDoubleValidator())
 
         self._sld_label_size = QSlider(Qt.Orientation.Horizontal)
         self._sld_label_size.setMinimum(0)
@@ -188,6 +191,7 @@ class SliderHMIWidget(BaseHMIWidget):
         gb_config_layout.addRow("Orientation", self._cmb_orientation)
         gb_config_layout.addRow("Minimum", self._txt_min_val)
         gb_config_layout.addRow("Maximum", self._txt_max_val)
+        gb_config_layout.addRow("Step", self._txt_step_size)
         gb_config_layout.addRow("Label Size", self._sld_label_size)
         gb_config_layout.addRow("Major Ticks", self._spn_major_ticks)
         gb_config_layout.addRow("Minor Ticks", self._spn_minor_ticks)
@@ -198,6 +202,7 @@ class SliderHMIWidget(BaseHMIWidget):
         self._cmb_orientation.setCurrentIndex(self._cmb_orientation.findData(Qt.Orientation.Vertical))
         self._txt_min_val.setText("")
         self._txt_max_val.setText("")
+        self._txt_step_size.set_float_value(0)
         self._sld_label_size.setValue(50)
         self._spn_major_ticks.setValue(5)
         self._spn_minor_ticks.setValue(3)
@@ -227,6 +232,7 @@ class SliderHMIWidget(BaseHMIWidget):
         self._cmb_orientation.currentIndexChanged.connect(self._config_changed_slot)
         self._txt_min_val.textChanged.connect(self._config_changed_slot)
         self._txt_max_val.textChanged.connect(self._config_changed_slot)
+        self._txt_step_size.textChanged.connect(self._config_changed_slot)
         self._sld_label_size.valueChanged.connect(self._config_changed_slot)
         self._spn_major_ticks.valueChanged.connect(self._config_changed_slot)
         self._spn_minor_ticks.valueChanged.connect(self._config_changed_slot)
@@ -236,6 +242,7 @@ class SliderHMIWidget(BaseHMIWidget):
         self._cmb_orientation.currentIndexChanged.disconnect()
         self._txt_min_val.textChanged.disconnect()
         self._txt_max_val.textChanged.disconnect()
+        self._txt_step_size.textChanged.disconnect()
         self._sld_label_size.valueChanged.disconnect()
         self._spn_major_ticks.valueChanged.disconnect()
         self._spn_minor_ticks.valueChanged.disconnect()
@@ -249,8 +256,9 @@ class SliderHMIWidget(BaseHMIWidget):
         """Compute the value to write based on the position of the cursor"""
         min_val = self._txt_min_val.get_float_value()
         max_val = self._txt_max_val.get_float_value()
+        step = self._txt_step_size.get_float_value()
 
-        if min_val is None or max_val is None:
+        if min_val is None or max_val is None or step is None:
             return None
 
         if self._slide_zone_rect is None:
@@ -263,13 +271,26 @@ class SliderHMIWidget(BaseHMIWidget):
         if orientation == Qt.Orientation.Vertical:
             yval = min(self._slide_zone_rect.bottom(), max(self._slide_zone_rect.top(), pos.y()))
             ratio = (yval - self._slide_zone_rect.top()) / self._slide_zone_rect.height()
-            return (max_val - min_val) * (1 - ratio) + min_val    # 1-ratio because y0 is at the top and minval is at bottom
+            val = (max_val - min_val) * (1 - ratio) + min_val    # 1-ratio because y0 is at the top and minval is at bottom
         elif orientation == Qt.Orientation.Horizontal:
             xval = min(self._slide_zone_rect.right(), max(self._slide_zone_rect.left(), pos.x()))
             ratio = (xval - self._slide_zone_rect.left()) / self._slide_zone_rect.width()
-            return (max_val - min_val) * ratio + min_val
+            val = (max_val - min_val) * ratio + min_val
+        else:
+            raise NotImplementedError("Unknown orientation")
 
-        raise NotImplementedError("Unknown orientation")
+        # Avoid division by zero
+        if step == 0:
+            return val
+
+        # Handle range not a multiple of step
+        if val >= max_val - step / 2:
+            return max_val
+        if val <= min_val + step / 2:
+            return min_val
+
+        # Value in range. Snap to multiple of step
+        return max(min_val, min(max_val, round(val / float(step), 0) * step))
 
     def _get_val_ratio(self, val: Optional[Union[float, int, bool]]) -> Optional[float]:
         """Compute the value ratio representing the cursor position in the min/max range"""
@@ -339,6 +360,9 @@ class SliderHMIWidget(BaseHMIWidget):
     def set_max_val(self, val: float) -> None:
         self._txt_max_val.set_float_value(val)
 
+    def set_step_size(self, val: float) -> None:
+        self._txt_step_size.set_float_value(val)
+
     def set_label_size_percent(self, size: int) -> None:
         self._sld_label_size.setValue(size)
 
@@ -353,6 +377,9 @@ class SliderHMIWidget(BaseHMIWidget):
 
     def get_max_val(self) -> Optional[float]:
         return self._txt_max_val.get_float_value()
+
+    def get_step_size(self) -> Optional[float]:
+        return self._txt_step_size.get_float_value()
 
     def get_label_size_percent(self) -> int:
         return self._sld_label_size.value()
@@ -628,10 +655,12 @@ class SliderHMIWidget(BaseHMIWidget):
     def get_implementation_config_dict(self) -> Dict[str, Any]:
         min_val = self._txt_min_val.get_float_value()
         max_val = self._txt_max_val.get_float_value()
+        step = self._txt_step_size.get_float_value()
         return {
             'orientation': cast(Qt.Orientation, self._cmb_orientation.currentData()).value,
             'min_val': min_val if min_val is not None else 0.0,
             'max_val': max_val if max_val is not None else 100.0,
+            'step': step if max_val is not None else 0.0,
             'label_size_percent': self._sld_label_size.value(),
             'major_ticks': self._spn_major_ticks.value(),
             'minor_ticks': self._spn_minor_ticks.value(),
@@ -642,6 +671,7 @@ class SliderHMIWidget(BaseHMIWidget):
         valid_orientation = False
         valid_min_val = False
         valid_max_val = False
+        valid_step = False
         valid_label_size_percent = False
         valid_major_ticks = False
         valid_minor_ticks = False
@@ -660,6 +690,11 @@ class SliderHMIWidget(BaseHMIWidget):
         if key in d and isinstance(d[key], (int, float)):
             self._txt_max_val.set_float_value(float(d[key]))
             valid_max_val = True
+
+        key = 'step'
+        if key in d and isinstance(d[key], (int, float)):
+            self._txt_step_size.set_float_value(float(d[key]))
+            valid_step = True
 
         key = 'label_size_percent'
         if key in d and isinstance(d[key], int):
@@ -687,6 +722,8 @@ class SliderHMIWidget(BaseHMIWidget):
             self._logger.warning('Invalid minimum value')
         if not valid_max_val:
             self._logger.warning('Invalid maximum value')
+        if not valid_step:
+            self._logger.warning('Invalid step value')
         if not valid_label_size_percent:
             self._logger.warning('Invalid label size percentage')
         if not valid_major_ticks:
@@ -700,6 +737,7 @@ class SliderHMIWidget(BaseHMIWidget):
             valid_orientation
             and valid_min_val
             and valid_max_val
+            and valid_step
             and valid_label_size_percent
             and valid_major_ticks
             and valid_minor_ticks
