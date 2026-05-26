@@ -155,15 +155,18 @@ class RadialGaugeHMIWidget(BaseHMIWidget):
     """The last minimum we have received (it's not a constant)"""
     _maxval: Optional[float]
     """The last maximum we have received (it's not a constant)"""
+    _last_val: Optional[Union[int, float, bool]]
+    """Last value received. Used to avoid unnecessary redraw"""
 
     def __init__(self, app: AbstractComponentAppInterface) -> None:
         super().__init__(app)
-        self.declare_value_slot('val', 'Value', require_redraw=False, value_update_callback=self._process_new_val)
+        self.declare_value_slot('val', 'Value', require_redraw=False, value_update_callback=self._value_update_callback)
         self.declare_value_slot('min', 'Minimum')
         self.declare_value_slot('max', 'Maximum')
 
         self._minval = None
         self._maxval = None
+        self._last_val = None
 
         self._numerical_display = NumericalTextDisplay(self)
         self._numerical_display.set_background_color(HMITheme.Color.workzone_background())  # Effect of hole
@@ -251,8 +254,15 @@ class RadialGaugeHMIWidget(BaseHMIWidget):
             clipped=clipped
         )
 
+    def _value_update_callback(self, val: Optional[Union[bool, int, float]]) -> None:
+        if tools.strict_eq(val, self._last_val):
+            return
+        self._process_new_val(val)
+
     def _process_new_val(self, val: Optional[Union[bool, int, float]]) -> None:
         """Update the value of the gauge by setting the pointer and the text display"""
+        self._last_val = val
+
         if val is None:
             self._numerical_display.set_val("N/A")
             self._numerical_display.set_alignment(Qt.AlignmentFlag.AlignCenter)
@@ -343,7 +353,6 @@ class RadialGaugeHMIWidget(BaseHMIWidget):
              edit_mode: bool,
              painter: QPainter
              ) -> None:
-
         # Draw is only invoked when a value changes. But here, we want to avoid
         # redrawing the background of the gauge when only the value changes.
 

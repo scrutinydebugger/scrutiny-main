@@ -19,9 +19,10 @@ from scrutiny.gui.components.locals.hmi.common.serialization import deserialize_
 from scrutiny.gui.components.locals.hmi.hmi_theme import HMITheme
 from scrutiny.gui.components.locals.hmi.common.numerical_text_display import (
     NumberFormattingConfig, NumericalTextDisplay, NumberFormattingConfigWidget)
-from scrutiny.gui import assets
-from scrutiny.tools.typing import *
 from scrutiny.gui.widgets.validable_line_edit import FloatValidableLineEdit
+from scrutiny.gui import assets
+from scrutiny import tools
+from scrutiny.tools.typing import *
 
 
 class _Dims:
@@ -293,7 +294,7 @@ class SliderHMIWidget(BaseHMIWidget):
 
     def _value_update_callback(self, val: Optional[Union[float, int, bool]]) -> None:
         """Called when a new value is received"""
-        if val == self._last_val_received and type(val) == type(self._last_val_received):
+        if tools.strict_eq(val, self._last_val_received):
             return
 
         self._last_val_received = val

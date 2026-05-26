@@ -140,6 +140,11 @@ class _LinearGauge(QGraphicsItem):
         self._edit_border_pen.setCapStyle(Qt.PenCapStyle.FlatCap)
         self._edit_border_pen.setColor(HMITheme.Color.select_frame_border())
 
+        # Bulk of optimization here.
+        # When a new value arrives, we redraw only the pointer and the fill.
+        # The rest of the gauge is cached and does not need a redraw
+        self.setCacheMode(self.CacheMode.ItemCoordinateCache)
+
 # region Getters & Setters
     def set_minmax(self, minval: Optional[float], maxval: Optional[float]) -> None:
         self._minval = minval
@@ -406,10 +411,13 @@ class LinearGaugeHMIWidget(BaseHMIWidget):
     _maxval: Optional[float]
     """The last maximum we have received (it's not a constant)"""
     _zero_point: Optional[float]
+    """The point from where to start filling the gauge with a fill color."""
+    _last_val: Optional[Union[int, float, bool]]
+    """Last value received. Used to avoid unnecessary redraw"""
 
     def __init__(self, app: AbstractComponentAppInterface) -> None:
         super().__init__(app)
-        self.declare_value_slot('val', 'Value', require_redraw=False, value_update_callback=self._process_new_val)
+        self.declare_value_slot('val', 'Value', require_redraw=False, value_update_callback=self._value_update_callback)
         self.declare_value_slot('min', 'Minimum')
         self.declare_value_slot('max', 'Maximum')
         self.declare_value_slot('zero', 'Zero Point')
@@ -417,6 +425,7 @@ class LinearGaugeHMIWidget(BaseHMIWidget):
         self._minval = None
         self._maxval = None
         self._zero_point = None
+        self._last_val = None
 
         self._fill_rect = _LinearGaugeFillRect(self)
         self._cursor = _LinearGaugeCursor(self)
@@ -505,7 +514,14 @@ class LinearGaugeHMIWidget(BaseHMIWidget):
     def _config_changed_slot(self, *args: Any, **kwargs: Any) -> None:
         self.update()
 
+    def _value_update_callback(self, val: Optional[Union[bool, int, float]]) -> None:
+        if tools.strict_eq(val, self._last_val):
+            return
+        self._process_new_val(val)
+
     def _process_new_val(self, val: Optional[Union[bool, int, float]]) -> None:
+        self._last_val = val
+
         gauge_rect = self._gauge.get_gauge_rect()
         gauge_inner_rect = self._gauge.get_inner_rect()
         self._fill_rect.set_background_rect(gauge_rect)  # zvalue behind gauge
@@ -642,10 +658,8 @@ class LinearGaugeHMIWidget(BaseHMIWidget):
              edit_mode: bool,
              painter: QPainter
              ) -> None:
-
-        # Draw is only invoked when a value changes. But here, we want to avoid
-        # redrawing the background of the gauge when only the value changes.
-
+        # Draw does not do the drawing directly because we need to stack elements
+        # in this order : fill color, gauge, cursor. So we used sub elements.
         self._minval = values['min']    # Used by process_new_val
         self._maxval = values['max']
         self._gauge.set_minmax(values['min'], values['max'])
