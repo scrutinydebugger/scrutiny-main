@@ -628,7 +628,21 @@ class Dashboard(QWidget):
         def ready_if_not_deleted() -> None:
             # If the component is created but unused (deleted at func exit)
             if shiboken6.isValid(widget):
+                self._logger.debug(f"Invoking ready() on {widget.instance_name}")
                 widget.ready()
+
+                # If the widget has been created by reloading a dashboard (.scdb)
+                # There might be a pending state waiting to be reloaded.
+                # The state may be attached after creation. So we make the check in the ready func.
+                if widget.has_pending_state_to_reload():
+                    component_name = f"\"{dock_widget.tabWidget().text()}\" (type={component_class.__name__})"
+                    self._logger.debug(f"Reloading state of {widget.instance_name}")
+
+                    with tools.LogException(self._logger, Exception, f"Failed to reload the state of component {component_name}"):
+                        fully_valid = widget.reload_pending_state()
+                        if not fully_valid:
+                            self._logger.warning(f"State of component {component_name} was not fully reloaded. Some content was not valid")
+
         self._component_instances[name] = widget
 
         invoke_later(ready_if_not_deleted)
@@ -661,13 +675,7 @@ class Dashboard(QWidget):
             component = cast(Optional[ScrutinyGUIBaseComponent], component_dock_widget.widget())
             assert component is not None
 
-            component_name = f"\"{s_component.title}\" (type={component_class.__name__})"
-            try:
-                fully_valid = component.load_state(s_component.state)
-                if not fully_valid:
-                    self._logger.warning(f"State of component {component_name} was not fully reloaded. Some content was not valid")
-            except Exception as e:
-                tools.log_exception(self._logger, e, f"Failed to reload the state of component {component_name}")
+            component.attach_pending_state_to_reload(s_component.state)
 
         return component_dock_widget
 
