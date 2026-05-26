@@ -431,3 +431,7 @@ def read_env_numeric(name: str, vtype: Type[ENVT], default: ENVT, minval: Option
         return v
 
     return default
+
+
+def strict_eq(v1: Any, v2: Any) -> bool:
+    return (v1 == v2) and (type(v1) is type(v2))
