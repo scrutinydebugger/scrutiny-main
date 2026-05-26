@@ -412,8 +412,6 @@ class LinearGaugeHMIWidget(BaseHMIWidget):
     """The last maximum we have received (it's not a constant)"""
     _zero_point: Optional[float]
     """The point from where to start filling the gauge with a fill color."""
-    _last_val: Optional[Union[int, float, bool]]
-    """Last value received. Used to avoid unnecessary redraw"""
 
     def __init__(self, app: AbstractComponentAppInterface) -> None:
         super().__init__(app)
@@ -425,7 +423,6 @@ class LinearGaugeHMIWidget(BaseHMIWidget):
         self._minval = None
         self._maxval = None
         self._zero_point = None
-        self._last_val = None
 
         self._fill_rect = _LinearGaugeFillRect(self)
         self._cursor = _LinearGaugeCursor(self)
@@ -515,13 +512,9 @@ class LinearGaugeHMIWidget(BaseHMIWidget):
         self.update()
 
     def _value_update_callback(self, val: Optional[Union[bool, int, float]]) -> None:
-        if tools.strict_eq(val, self._last_val):
-            return
         self._process_new_val(val)
 
     def _process_new_val(self, val: Optional[Union[bool, int, float]]) -> None:
-        self._last_val = val
-
         gauge_rect = self._gauge.get_gauge_rect()
         gauge_inner_rect = self._gauge.get_inner_rect()
         self._fill_rect.set_background_rect(gauge_rect)  # zvalue behind gauge

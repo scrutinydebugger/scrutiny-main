@@ -137,8 +137,6 @@ class SliderHMIWidget(BaseHMIWidget):
     """Bounding rectangle of the slider track area, None until first paint"""
     _dragging_val: Optional[float]
     """The value being dragged to, None when not actively dragging"""
-    _last_val_received: Optional[Union[float, int, bool]]
-    """Last value received used to prevent redraw when not necessary"""
 
     _slide_zone_pen: QPen
     _slide_zone_brush: QBrush
@@ -152,7 +150,6 @@ class SliderHMIWidget(BaseHMIWidget):
         self._dragging_val = None
         self._cursor = SliderCursor(self)
         self._cursor.set_enabled(False)
-        self._last_val_received = None
 
         self._cmb_orientation = QComboBox()
         self._cmb_orientation.addItem("Horizontal", Qt.Orientation.Horizontal)
@@ -315,10 +312,6 @@ class SliderHMIWidget(BaseHMIWidget):
 
     def _value_update_callback(self, val: Optional[Union[float, int, bool]]) -> None:
         """Called when a new value is received"""
-        if tools.strict_eq(val, self._last_val_received):
-            return
-
-        self._last_val_received = val
         ratio = self._get_val_ratio(val)
         if self._slide_zone_rect is None or ratio is None:
             self._cursor.set_enabled(False)
