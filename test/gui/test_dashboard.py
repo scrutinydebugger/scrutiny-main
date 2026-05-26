@@ -33,7 +33,7 @@ class StubbedComponent(ScrutinyGUIBaseComponent):
     ready_called: bool
     teardown_called: bool
     state: Dict[Any, Any]
-    call_history:List[str]
+    call_history: List[str]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

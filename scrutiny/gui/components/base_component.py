@@ -26,7 +26,7 @@ class ScrutinyGUIBaseComponent(QWidget):
     main_window: "MainWindow"
     app: AbstractComponentAppInterface
     logger: logging.Logger
-    _pending_state_reload:Optional[Dict[Any, Any]]
+    _pending_state_reload: Optional[Dict[Any, Any]]
 
     def __init__(self,
                  main_window: "MainWindow",
@@ -75,7 +75,7 @@ class ScrutinyGUIBaseComponent(QWidget):
             raise RuntimeError(f"Class {cls.__name__} require the _TYPE_ID to be set")
         return cast(str, getattr(cls, '_TYPE_ID'))
 
-    def attach_pending_state_to_reload(self, state:Dict[Any, Any]):
+    def attach_pending_state_to_reload(self, state: Dict[Any, Any]) -> None:
         self._pending_state_reload = state
 
     def has_pending_state_to_reload(self) -> bool:
