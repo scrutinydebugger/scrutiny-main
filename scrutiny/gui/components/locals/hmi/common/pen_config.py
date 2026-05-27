@@ -8,12 +8,13 @@
 
 __all__ = ['PenConfigWidget']
 
-from PySide6.QtWidgets import QWidget, QFormLayout, QDoubleSpinBox, QComboBox
+from PySide6.QtWidgets import QWidget, QDoubleSpinBox, QComboBox
 from PySide6.QtGui import QPen, QColor
 from PySide6.QtCore import Signal, QObject, Qt
 
 from scrutiny.gui.themes import scrutiny_get_theme
 from scrutiny.gui.widgets.color_button import ColorButton
+from scrutiny.gui.widgets.tooltip_form_layout import TooltipFormLayout
 
 from scrutiny import tools
 from scrutiny.tools.typing import *
@@ -63,10 +64,10 @@ class PenConfigWidget(QWidget):
         for label, style in self._PEN_STYLES.items():
             self._cmb_style.addItem(label, style)
 
-        form = QFormLayout(self)
-        form.addRow("Width:", self._spn_width)
-        form.addRow("Color:", self._btn_color)
-        form.addRow("Style:", self._cmb_style)
+        form = TooltipFormLayout(self)
+        form.add_row_tooltip("Width:", self._spn_width, "Border width in px")
+        form.add_row_tooltip("Color:", self._btn_color, "Border color")
+        form.add_row_tooltip("Style:", self._cmb_style, "Border style")
 
         self._btn_color.setMaximumWidth(self._btn_color.sizeHint().width())
         self._cmb_style.setMaximumWidth(self._cmb_style.sizeHint().width())

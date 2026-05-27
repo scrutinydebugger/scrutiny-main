@@ -14,13 +14,14 @@ import time
 import logging
 import enum
 
-from PySide6.QtWidgets import QWidget, QFormLayout, QGraphicsItem, QStyleOptionGraphicsItem
+from PySide6.QtWidgets import QWidget, QGraphicsItem, QStyleOptionGraphicsItem, QLabel
 from PySide6.QtGui import QPainter, QPixmap, QIcon
-from PySide6.QtCore import QSize, QRectF, QPointF, QPoint, QObject, Qt, Signal
+from PySide6.QtCore import QSize, QRectF, QPointF, QObject, Qt, Signal
 
 from scrutiny import sdk
 from scrutiny.gui.app_settings import app_settings
 from scrutiny.gui.widgets.watchable_line_edit import WatchableLineEdit, WatchableFQNAndName
+from scrutiny.gui.widgets.tooltip_form_layout import TooltipFormLayout
 from scrutiny.gui.components.locals.hmi.hmi_edit_grid import HMIEditGrid
 from scrutiny.gui.components.locals.hmi.hmi_theme import HMITheme
 from scrutiny.gui.components.locals.hmi.common.hit_zones import BaseHitZone
@@ -302,7 +303,7 @@ class BaseHMIWidget(QGraphicsItem):
     """A flag indicating if we should render as Edit mode"""
     _vslot_config_widget: QWidget
     """The widget containing the ValueSlots widget. To be shown when editing this HMI widget"""
-    _vslot_config_widget_layout: QFormLayout
+    _vslot_config_widget_layout: TooltipFormLayout
     """The layout containing _vslot_config_widget"""
     _instance_id: int
     """A monotonic unique number assigned to the HMI widget"""
@@ -335,7 +336,7 @@ class BaseHMIWidget(QGraphicsItem):
         self.set_edit_mode(False)
 
         self._vslot_config_widget = QWidget()
-        self._vslot_config_widget_layout = QFormLayout(self._vslot_config_widget)
+        self._vslot_config_widget_layout = TooltipFormLayout(self._vslot_config_widget)
 
         self.set_size(self.default_size())
 
@@ -420,7 +421,8 @@ class BaseHMIWidget(QGraphicsItem):
                            display_name: str,
                            value_update_callback: Optional[HMIWidgetValueUpdateCallback] = None,
                            require_redraw: bool = True,
-                           allow_constant: bool = True) -> None:
+                           allow_constant: bool = True,
+                           tooltip: Optional[str] = None) -> None:
         """Function to be called by the extension of this base class.
         Add a value slot, allowing the user to specify a text value or drag a watchable on it.
         The values are given to the draw function.
@@ -428,6 +430,8 @@ class BaseHMIWidget(QGraphicsItem):
         :param display_name: The name shown int eh config widget
         :param value_update_callback: An optional callback that can be called each time a new value is received
         :param require_redraw: When ``False``, ``draw()`` is not called when the value changes. Expect to use ``value_update_callback`` when ``False``
+        :param allow_constant: When ``True``, a constant numerical value can be given instead of a watchable
+        :param tooltip: An optional tooltip to display when hovering the value slot label
 
         """
         if not (hasattr(self, '_parent_constructor_called')):
@@ -445,7 +449,7 @@ class BaseHMIWidget(QGraphicsItem):
         )
 
         self._vslots.append(vslot)
-        self._vslot_config_widget_layout.addRow(vslot.display_name, vslot.watchable_line_edit)
+        self._vslot_config_widget_layout.add_row_tooltip(vslot.display_name, vslot.watchable_line_edit, tooltip)
 
         watchable_val_update_slot = functools.partial(self._watchable_update_callback, vslot)
         self._app.watchable_registry.register_watcher(vslot.watcher_id, watchable_val_update_slot, self._unwatch_callback)
@@ -630,7 +634,7 @@ class BaseHMIWidget(QGraphicsItem):
         """The callback invoked when a ValueSlot value changes"""
 
         if vslot.value_update_callback is not None:
-            if not tools.strict_eq(val, vslot.last_value_received): # Updated in this function
+            if not tools.strict_eq(val, vslot.last_value_received):  # Updated in this function
                 vslot.value_update_callback(val)
 
         if not tools.strict_eq(val, vslot.last_value_drawn):    # Updated in draw()
