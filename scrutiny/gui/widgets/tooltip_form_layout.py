@@ -1,3 +1,11 @@
+#    tooltip_form_layout.py
+#        An extension of the QFormLayout that can easily add tooltips on the label
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
+
 from PySide6.QtWidgets import QFormLayout, QWidget, QLabel
 from PySide6.QtCore import Qt
 
