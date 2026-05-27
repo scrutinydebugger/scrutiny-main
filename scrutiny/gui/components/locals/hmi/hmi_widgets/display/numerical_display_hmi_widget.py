@@ -35,7 +35,7 @@ class NumericalDisplayHMIWidget(BaseHMIWidget):
 
     def __init__(self, app: AbstractComponentAppInterface) -> None:
         super().__init__(app)
-        self.declare_value_slot('val', 'Value')
+        self.declare_value_slot('val', 'Value', tooltip="The value to display as a number")
 
         self._config_widget = QWidget()
         self._numerical_display = NumericalTextDisplay(self)

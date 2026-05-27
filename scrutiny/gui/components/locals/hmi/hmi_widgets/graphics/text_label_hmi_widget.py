@@ -8,10 +8,11 @@
 
 __all__ = ['TextLabelHMIWidget']
 
-from PySide6.QtGui import QPainter, QPen, QBrush, QFontMetrics, QColor
+from PySide6.QtGui import QPainter, QPen, QBrush, QColor
 from PySide6.QtCore import QSizeF, Qt, QRectF, QPointF
-from PySide6.QtWidgets import QVBoxLayout, QWidget, QGroupBox, QLineEdit, QFormLayout
+from PySide6.QtWidgets import QVBoxLayout, QWidget, QGroupBox, QLineEdit
 
+from scrutiny.gui.widgets.tooltip_form_layout import TooltipFormLayout
 from scrutiny.gui.component_app_interface import AbstractComponentAppInterface
 from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget, WatchableValueType
 from scrutiny.gui.components.locals.hmi.common.pen_config import PenConfigWidget, PenConfigStateDict
@@ -53,7 +54,7 @@ class TextLabelHMIWidget(BaseHMIWidget):
         gb_border = QGroupBox("Border")
         gb_fill = QGroupBox("Fill")
 
-        gb_text_layout = QFormLayout(gb_text)
+        gb_text_layout = TooltipFormLayout(gb_text)
         gb_border_layout = QVBoxLayout(gb_border)
         gb_fill_layout = QVBoxLayout(gb_fill)
 
@@ -68,8 +69,8 @@ class TextLabelHMIWidget(BaseHMIWidget):
         default_brush.setColor(HMITheme.Color.workzone_background())
         self._fill_brush_config.set_brush(default_brush)
 
-        gb_text_layout.addRow("Text", self._txt_content)
-        gb_text_layout.addRow("Font color", self._font_color_button)
+        gb_text_layout.add_row_tooltip("Text", self._txt_content, "Text to display")
+        gb_text_layout.add_row_tooltip("Font color", self._font_color_button, "Text color")
 
         gb_border_layout.addWidget(self._border_pen_config)
         gb_fill_layout.addWidget(self._fill_brush_config)

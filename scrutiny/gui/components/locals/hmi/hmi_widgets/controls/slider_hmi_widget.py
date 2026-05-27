@@ -11,8 +11,9 @@ __all__ = ['SliderHMIWidget']
 
 from PySide6.QtGui import QPainter, QPen, QBrush, QDoubleValidator, QFontMetrics
 from PySide6.QtCore import QSize, Qt, QPointF, QRectF, QSizeF
-from PySide6.QtWidgets import QStyleOptionGraphicsItem, QVBoxLayout, QWidget, QGroupBox, QComboBox, QFormLayout, QSlider, QSpinBox, QGraphicsItem
+from PySide6.QtWidgets import QStyleOptionGraphicsItem, QVBoxLayout, QWidget, QGroupBox, QComboBox, QSlider, QSpinBox, QGraphicsItem
 
+from scrutiny.gui.widgets.tooltip_form_layout import TooltipFormLayout
 from scrutiny.gui.component_app_interface import AbstractComponentAppInterface
 from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget, WatchableValueType
 from scrutiny.gui.components.locals.hmi.common.serialization import deserialize_combobox_val
@@ -21,7 +22,6 @@ from scrutiny.gui.components.locals.hmi.common.numerical_text_display import (
     NumberFormattingConfig, NumericalTextDisplay, NumberFormattingConfigWidget)
 from scrutiny.gui.widgets.validable_line_edit import FloatValidableLineEdit
 from scrutiny.gui import assets
-from scrutiny import tools
 from scrutiny.tools.typing import *
 
 
@@ -145,7 +145,11 @@ class SliderHMIWidget(BaseHMIWidget):
 
     def __init__(self, app: AbstractComponentAppInterface) -> None:
         super().__init__(app)
-        self.declare_value_slot('val', 'Value', allow_constant=False, require_redraw=False, value_update_callback=self._value_update_callback)
+        self.declare_value_slot('val', 'Value',
+                                allow_constant=False,
+                                require_redraw=False,
+                                value_update_callback=self._value_update_callback,
+                                tooltip="The value written by the slider")
         self._slide_zone_rect = None
         self._dragging_val = None
         self._cursor = SliderCursor(self)
@@ -184,14 +188,14 @@ class SliderHMIWidget(BaseHMIWidget):
         layout.addWidget(gb_config)
         layout.addWidget(gb_label)
 
-        gb_config_layout = QFormLayout(gb_config)
-        gb_config_layout.addRow("Orientation", self._cmb_orientation)
-        gb_config_layout.addRow("Minimum", self._txt_min_val)
-        gb_config_layout.addRow("Maximum", self._txt_max_val)
-        gb_config_layout.addRow("Step", self._txt_step_size)
-        gb_config_layout.addRow("Label Size", self._sld_label_size)
-        gb_config_layout.addRow("Major Ticks", self._spn_major_ticks)
-        gb_config_layout.addRow("Minor Ticks", self._spn_minor_ticks)
+        gb_config_layout = TooltipFormLayout(gb_config)
+        gb_config_layout.add_row_tooltip("Orientation", self._cmb_orientation, "Orientation of the slider")
+        gb_config_layout.add_row_tooltip("Minimum", self._txt_min_val, "Lower bound of the slider value range")
+        gb_config_layout.add_row_tooltip("Maximum", self._txt_max_val, "Upper bound of the slider value range")
+        gb_config_layout.add_row_tooltip("Step", self._txt_step_size, "Minimum increment")
+        gb_config_layout.add_row_tooltip("Label Size", self._sld_label_size, "Unitless size ratio")
+        gb_config_layout.add_row_tooltip("Major Ticks", self._spn_major_ticks, "Number of major tick marks (with a label) to draw")
+        gb_config_layout.add_row_tooltip("Minor Ticks", self._spn_minor_ticks, "Number of minor tick marks (without labels) to draw")
 
         gb_label_layout = QVBoxLayout(gb_label)
         gb_label_layout.addWidget(self._label_format_config_widget)

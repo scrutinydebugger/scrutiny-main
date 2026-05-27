@@ -800,7 +800,7 @@ class Dashboard(QWidget):
             placeholder_widgets.append(ads_placeholder_widget)
 
             if i > 0:
-                # Lay out all subsequent sibblings next to the last one added
+                # Lay out all subsequent siblings next to the last one added
                 insert_dock_area = ads_dock_areas[-1]
                 insert_direction = ads_area_direction
 

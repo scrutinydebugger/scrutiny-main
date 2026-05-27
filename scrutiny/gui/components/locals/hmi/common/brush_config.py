@@ -8,12 +8,13 @@
 
 __all__ = ['BrushConfigWidget']
 
-from PySide6.QtWidgets import (QWidget, QFormLayout, QComboBox)
+from PySide6.QtWidgets import (QWidget, QComboBox)
 from PySide6.QtGui import QBrush, QColor
 from PySide6.QtCore import Signal, QObject, Qt
 
 from scrutiny.gui.themes import scrutiny_get_theme
 from scrutiny.gui.widgets.color_button import ColorButton
+from scrutiny.gui.widgets.tooltip_form_layout import TooltipFormLayout
 
 from scrutiny import tools
 from scrutiny.tools.typing import *
@@ -52,9 +53,9 @@ class BrushConfigWidget(QWidget):
         for label, style in self._BRUSH_STYLES.items():
             self._cmb_style.addItem(label, style)
 
-        form = QFormLayout(self)
-        form.addRow("Color:", self._btn_color)
-        form.addRow("Fill:", self._cmb_style)
+        form = TooltipFormLayout(self)
+        form.add_row_tooltip("Color:", self._btn_color, "Fill color")
+        form.add_row_tooltip("Fill:", self._cmb_style, "Fill style")
 
         self._cmb_style.currentIndexChanged.connect(self._signals.changed)
         self._btn_color.signals.changed.connect(self._signals.changed)

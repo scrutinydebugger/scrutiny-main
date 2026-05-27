@@ -13,10 +13,11 @@ import math
 import logging
 from dataclasses import dataclass
 from PySide6.QtGui import QPainter, QFont, QFontMetrics, QColor, QPen
-from PySide6.QtWidgets import QStyleOptionGraphicsItem, QWidget, QFormLayout, QLineEdit, QCheckBox, QSpinBox, QGraphicsItem
+from PySide6.QtWidgets import QStyleOptionGraphicsItem, QWidget, QLineEdit, QCheckBox, QSpinBox, QGraphicsItem
 from PySide6.QtCore import QObject, QRectF, Signal, QSize, QPoint, Qt
 
 from scrutiny.gui.components.locals.hmi.hmi_theme import HMITheme
+from scrutiny.gui.widgets.tooltip_form_layout import TooltipFormLayout
 from scrutiny import tools
 from scrutiny.gui import assets
 from scrutiny.tools.typing import *
@@ -138,12 +139,16 @@ class NumberFormattingConfigWidget(QWidget):
         self.spn_ints.setMinimum(NumericalConfigConstants.MINIMUM_INTS)
         self.spn_ints.setMaximum(NumericalConfigConstants.MAXIMUM_INTS)
 
-        layout = QFormLayout(self)
+        layout = TooltipFormLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.addRow("Eng. notation", self.chk_eng_notation)
-        layout.addRow("Integers", self.spn_ints)
-        layout.addRow("Decimals", self.spn_decimals)
-        layout.addRow("Units", self.txt_units)
+        layout.add_row_tooltip("Eng. notation", self.chk_eng_notation,
+                               tooltip="Convert the value into engineering notation using suffixes such as milli (m), micro (u), kilo (k), etc. Forces a maximum of 3 integer digits")
+        layout.add_row_tooltip("Integers", self.spn_ints,
+                               tooltip="Number of integer digits (left of decimal point)")
+        layout.add_row_tooltip("Decimals", self.spn_decimals,
+                               tooltip="Number of decimal digits (right of decimal point)")
+        layout.add_row_tooltip("Units", self.txt_units,
+                               tooltip="A textual suffix for units")
 
         def _changed_slot(*args: Any, **kwargs: Any) -> None:
             self._update_ui_state()

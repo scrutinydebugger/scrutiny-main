@@ -1115,6 +1115,9 @@
         },
         "scrutiny/gui/components/locals/hmi/hmi_widgets/controls/slider_hmi_widget.py": {
             "docstring": "A slider that can write a float value by moving a cursor from min to max. Can be horizontal or vertical."
+        },
+        "scrutiny/gui/widgets/tooltip_form_layout.py": {
+            "docstring": "An extension of the QFormLayout that can easily add tooltips on the label"
         }
     },
     "authors": {}

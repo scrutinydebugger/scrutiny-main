@@ -14,8 +14,9 @@ import math
 
 from PySide6.QtGui import QPainter, QPen, QBrush
 from PySide6.QtCore import QSize, Qt, QPointF, QRectF, QSizeF
-from PySide6.QtWidgets import QGraphicsSceneMouseEvent, QVBoxLayout, QWidget, QGroupBox, QComboBox, QFormLayout, QLineEdit
+from PySide6.QtWidgets import QVBoxLayout, QWidget, QGroupBox, QComboBox, QLineEdit
 
+from scrutiny.gui.widgets.tooltip_form_layout import TooltipFormLayout
 from scrutiny.gui.component_app_interface import AbstractComponentAppInterface
 from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget, WatchableValueType
 from scrutiny.gui.components.locals.hmi.common.serialization import deserialize_combobox_val
@@ -61,7 +62,9 @@ class ButtonHMIWidget(BaseHMIWidget):
 
     def __init__(self, app: AbstractComponentAppInterface) -> None:
         super().__init__(app)
-        self.declare_value_slot('val', 'Value', allow_constant=False)
+        self.declare_value_slot('val', 'Value',
+                                allow_constant=False,
+                                tooltip="The value controlled by the button")
         self._is_pressed = False
         self._text_pen = QPen()
         self._text_pen.setColor(HMITheme.Color.text())
@@ -80,17 +83,17 @@ class ButtonHMIWidget(BaseHMIWidget):
         config_layout = QVBoxLayout(self._config_widget)
         config_layout.setContentsMargins(0, 0, 0, 0)
         gb_config = QGroupBox("Configuration")
-        gb_config_layout = QFormLayout(gb_config)
-        gb_config_layout.addRow("Type", self._cmb_button_type)
+        gb_config_layout = TooltipFormLayout(gb_config)
+        gb_config_layout.add_row_tooltip("Type", self._cmb_button_type, "Type of button, defines its behavior")
 
         gb_active = QGroupBox("Active")
-        gb_active_layout = QFormLayout(gb_active)
-        gb_active_layout.addRow("Label", self._txt_label_active)
-        gb_active_layout.addRow("Color", self._cmb_color_active)
+        gb_active_layout = TooltipFormLayout(gb_active)
+        gb_active_layout.add_row_tooltip("Label", self._txt_label_active, "Button label when the input value is true")
+        gb_active_layout.add_row_tooltip("Color", self._cmb_color_active, "Button color when the input value is true")
         gb_inactive = QGroupBox("Inactive")
-        gb_inactive_layout = QFormLayout(gb_inactive)
-        gb_inactive_layout.addRow("Label", self._txt_label_inactive)
-        gb_inactive_layout.addRow("Color", self._cmb_color_inactive)
+        gb_inactive_layout = TooltipFormLayout(gb_inactive)
+        gb_inactive_layout.add_row_tooltip("Label", self._txt_label_inactive, "Button label when the input value is false")
+        gb_inactive_layout.add_row_tooltip("Color", self._cmb_color_inactive, "Button color when the input value is false")
 
         config_layout.addWidget(gb_config)
         config_layout.addWidget(gb_active)

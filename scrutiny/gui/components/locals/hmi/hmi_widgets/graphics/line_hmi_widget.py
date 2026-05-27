@@ -13,6 +13,7 @@ from PySide6.QtCore import Qt, QPointF, QRectF, QSizeF
 from PySide6.QtWidgets import QVBoxLayout, QWidget, QComboBox
 
 
+from scrutiny.gui.widgets.tooltip_form_layout import TooltipFormLayout
 from scrutiny.gui.component_app_interface import AbstractComponentAppInterface
 from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget, WatchableValueType
 from scrutiny.gui import assets
@@ -43,10 +44,13 @@ class LineHMIWidget(BaseHMIWidget):
         self._cmb_orientation.addItem("Vertical", Qt.Orientation.Vertical)
         self._cmb_orientation.addItem("Horizontal", Qt.Orientation.Horizontal)
         self._cmb_orientation.setCurrentIndex(self._cmb_orientation.findData(Qt.Orientation.Horizontal))
+        self._cmb_orientation.setMaximumWidth(self._cmb_orientation.sizeHint().width())
 
         layout.addWidget(self._pen_config)
-        layout.addWidget(self._cmb_orientation)
-
+        container = QWidget()
+        container_layout = TooltipFormLayout(container)
+        container_layout.add_row_tooltip("Orientation", self._cmb_orientation, "The line orientation")
+        layout.addWidget(container)
         self._pen_config.signals.changed.connect(self._update)
         self._cmb_orientation.currentIndexChanged.connect(self._update)
 

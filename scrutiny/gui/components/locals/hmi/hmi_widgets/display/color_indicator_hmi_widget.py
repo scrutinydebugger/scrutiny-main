@@ -13,8 +13,9 @@ import enum
 
 from PySide6.QtGui import QPainter, QPen, QRadialGradient, QBrush, QColor
 from PySide6.QtCore import QSize, Qt, QPointF, QTimer
-from PySide6.QtWidgets import QVBoxLayout, QWidget, QGroupBox, QComboBox, QFormLayout
+from PySide6.QtWidgets import QVBoxLayout, QWidget, QGroupBox, QComboBox
 
+from scrutiny.gui.widgets.tooltip_form_layout import TooltipFormLayout
 from scrutiny.gui.component_app_interface import AbstractComponentAppInterface
 from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget, WatchableValueType
 from scrutiny.gui.components.locals.hmi.common.hmi_colors import HMIColor, create_color_combobox
@@ -24,7 +25,6 @@ from scrutiny.gui import assets
 from scrutiny.tools.typing import *
 
 from scrutiny.gui.components.locals.hmi.hmi_theme import HMITheme
-from scrutiny import tools
 
 
 class _Dims:
@@ -71,8 +71,8 @@ class ColorIndicatorHMIWidget(BaseHMIWidget):
 
     def __init__(self, app: AbstractComponentAppInterface) -> None:
         super().__init__(app)
-        self.declare_value_slot('operand1', 'Operand 1')
-        self.declare_value_slot('operand2', 'Operand 2')
+        self.declare_value_slot('operand1', 'Operand 1', tooltip="First operand (left) of the condition")
+        self.declare_value_slot('operand2', 'Operand 2', tooltip="Second operand (right) of the condition")
 
         self._config_widget = QWidget()
 
@@ -98,11 +98,11 @@ class ColorIndicatorHMIWidget(BaseHMIWidget):
         config_layout = QVBoxLayout(self._config_widget)
         config_layout.setContentsMargins(0, 0, 0, 0)
         gb = QGroupBox("Configuration")
-        gb_layout = QFormLayout(gb)
-        gb_layout.addRow("Condition", self._cmb_operator)
-        gb_layout.addRow("ON color", self._cmb_color_on)
-        gb_layout.addRow("OFF color", self._cmb_color_off)
-        gb_layout.addRow("Active Behavior", self._cmb_active_behavior)
+        gb_layout = TooltipFormLayout(gb)
+        gb_layout.add_row_tooltip("Condition", self._cmb_operator, "Condition operator")
+        gb_layout.add_row_tooltip("ON color", self._cmb_color_on, "Color of the indicator when the condition is true")
+        gb_layout.add_row_tooltip("OFF color", self._cmb_color_off, "Color of the indicator when the condition is false")
+        gb_layout.add_row_tooltip("Active Behavior", self._cmb_active_behavior, "Fill behavior of the indicator when the condition is true")
         config_layout.addWidget(gb)
 
         self._cmb_operator.setCurrentIndex(self._cmb_operator.findData(RelationalOperator.NEQ))

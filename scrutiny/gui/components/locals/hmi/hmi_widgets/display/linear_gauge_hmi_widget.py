@@ -11,9 +11,10 @@ __all__ = ['LinearGaugeHMIWidget']
 
 from PySide6.QtGui import QPainter, QPen, QColor, QBrush
 from PySide6.QtCore import QSize, Qt, QPointF, QRectF, QSizeF
-from PySide6.QtWidgets import (QSlider, QStyleOptionGraphicsItem, QWidget, QFormLayout, QComboBox, QGraphicsItem,
+from PySide6.QtWidgets import (QSlider, QStyleOptionGraphicsItem, QWidget, QComboBox, QGraphicsItem,
                                QSpinBox, QGroupBox, QVBoxLayout, QCheckBox)
 
+from scrutiny.gui.widgets.tooltip_form_layout import TooltipFormLayout
 from scrutiny.gui.component_app_interface import AbstractComponentAppInterface
 from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget, WatchableValueType
 from scrutiny.gui.components.locals.hmi.hmi_theme import HMITheme
@@ -415,10 +416,14 @@ class LinearGaugeHMIWidget(BaseHMIWidget):
 
     def __init__(self, app: AbstractComponentAppInterface) -> None:
         super().__init__(app)
-        self.declare_value_slot('val', 'Value', require_redraw=False, value_update_callback=self._value_update_callback)
-        self.declare_value_slot('min', 'Minimum')
-        self.declare_value_slot('max', 'Maximum')
-        self.declare_value_slot('zero', 'Zero Point')
+        self.declare_value_slot('val', 'Value',
+                                require_redraw=False,
+                                value_update_callback=self._value_update_callback,
+                                tooltip="The value controlling the cursor position")
+        self.declare_value_slot('min', 'Minimum', tooltip="Lower bound of the gauge value range")
+        self.declare_value_slot('max', 'Maximum', tooltip="Upper bound of the gauge value range")
+        self.declare_value_slot('zero', 'Zero Point',
+                                tooltip="Optional start value of the fill color (extending to the cursor position). No fill color when unset")
 
         self._minval = None
         self._maxval = None
@@ -481,15 +486,21 @@ class LinearGaugeHMIWidget(BaseHMIWidget):
         layout.addWidget(gb_label)
         layout.addWidget(gb_colors)
 
-        gb_behavior_layout = QFormLayout(gb_behavior)
-        gb_behavior_layout.addRow("Overflow", self._cmb_overflow_behavior)
-        gb_behavior_layout.addRow("Inverted", self._chk_inverted_axis)
+        gb_behavior_layout = TooltipFormLayout(gb_behavior)
+        gb_behavior_layout.add_row_tooltip("Overflow", self._cmb_overflow_behavior,
+                                           tooltip="How to handle an overflow condition (when the value is outside of the min/max range)")
+        gb_behavior_layout.add_row_tooltip("Inverted", self._chk_inverted_axis,
+                                           tooltip="Invert the minimum and maximum position, making the cursor move downward with an increasing value")
 
-        gb_rendering_layout = QFormLayout(gb_rendering)
-        gb_rendering_layout.addRow("Gauge Width", self._sld_gauge_width)
-        gb_rendering_layout.addRow("Label Size", self._sld_label_size)
-        gb_rendering_layout.addRow("Major Ticks", self._spn_major_ticks)
-        gb_rendering_layout.addRow("Minor Ticks", self._spn_minor_ticks)
+        gb_rendering_layout = TooltipFormLayout(gb_rendering)
+        gb_rendering_layout.add_row_tooltip("Gauge Width", self._sld_gauge_width,
+                                            tooltip="A unitless value controlling the ratio between the gauge width itself and the label zone width")
+        gb_rendering_layout.add_row_tooltip("Label Size", self._sld_label_size,
+                                            tooltip="A unitless value controlling the relative size of the labels")
+        gb_rendering_layout.add_row_tooltip("Major Ticks", self._spn_major_ticks,
+                                            tooltip="Number of major tick marks (with a label) to draw")
+        gb_rendering_layout.add_row_tooltip("Minor Ticks", self._spn_minor_ticks,
+                                            tooltip="Number of minor tick marks (without labels) to draw")
 
         gb_label_layout = QVBoxLayout(gb_label)
         gb_label_layout.addWidget(self._label_format_config_widget)

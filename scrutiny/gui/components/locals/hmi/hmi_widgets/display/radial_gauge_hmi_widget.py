@@ -14,9 +14,10 @@ from dataclasses import dataclass
 
 from PySide6.QtGui import QPainter, QPen
 from PySide6.QtCore import QSize, Qt, QPointF, QRectF, QSizeF
-from PySide6.QtWidgets import (QStyleOptionGraphicsItem, QWidget, QFormLayout, QComboBox,
+from PySide6.QtWidgets import (QStyleOptionGraphicsItem, QWidget, QComboBox,
                                QSpinBox, QGroupBox, QVBoxLayout, QGraphicsItem, QSlider)
 
+from scrutiny.gui.widgets.tooltip_form_layout import TooltipFormLayout
 from scrutiny.gui.component_app_interface import AbstractComponentAppInterface
 from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget, WatchableValueType
 from scrutiny.gui.components.locals.hmi.hmi_theme import HMITheme
@@ -205,13 +206,17 @@ class RadialGaugeHMIWidget(BaseHMIWidget):
         layout.addWidget(gb_text_display)
         layout.addWidget(gb_colors)
 
-        gb_rendering_layout = QFormLayout(gb_rendering)
-        gb_rendering_layout.addRow("Overflow", self._cmb_overflow_behavior)
-        gb_rendering_layout.addRow("Label Size", self._sld_label_size)
-        gb_rendering_layout.addRow("Major Ticks", self._spn_major_ticks)
-        gb_rendering_layout.addRow("Minor Ticks", self._spn_minor_ticks)
+        gb_rendering_layout = TooltipFormLayout(gb_rendering)
+        gb_rendering_layout.add_row_tooltip("Overflow", self._cmb_overflow_behavior,
+                                            tooltip="How to handle an overflow condition (when the value is outside of the min/max range)")
+        gb_rendering_layout.add_row_tooltip("Label Size", self._sld_label_size,
+                                            tooltip="A unitless value controlling the relative size of the labels")
+        gb_rendering_layout.add_row_tooltip("Major Ticks", self._spn_major_ticks,
+                                            tooltip="Number of major tick marks (with a label) to draw")
+        gb_rendering_layout.add_row_tooltip("Minor Ticks", self._spn_minor_ticks,
+                                            tooltip="Number of minor tick marks (without labels) to draw")
 
-        gb_text_display_layout = QFormLayout(gb_text_display)
+        gb_text_display_layout = QVBoxLayout(gb_text_display)
         gb_text_display_layout.addWidget(self._numerical_display.get_number_format_config_widget())
 
         gb_colors_layout = QVBoxLayout(gb_colors)
@@ -276,6 +281,7 @@ class RadialGaugeHMIWidget(BaseHMIWidget):
 
 
 # region Getter & Setters
+
 
     def set_number_formatting_config(self, config: NumberFormattingConfig) -> None:
         self._numerical_display.set_number_formatting_config(config)
