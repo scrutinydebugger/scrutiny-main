@@ -13,11 +13,13 @@ import enum
 import functools
 import gc
 import logging
+import json
+from dataclasses import dataclass
 
 from scrutiny.gui.components.locals.hmi.hmi_library import HMILibrary
 
-from PySide6.QtCore import Qt, QPoint, QSize, QRect
-from PySide6.QtWidgets import QVBoxLayout, QSplitter, QTabWidget, QWidget, QStackedLayout, QScrollArea, QGroupBox
+from PySide6.QtCore import Qt, QPoint, QSize, QRect, QMimeData, QByteArray, QPointF, QRectF
+from PySide6.QtWidgets import QVBoxLayout, QSplitter, QTabWidget, QWidget, QStackedLayout, QScrollArea, QGroupBox, QApplication
 from PySide6.QtGui import QIcon, QKeyEvent, QMouseEvent
 
 from scrutiny.gui import assets
@@ -45,6 +47,10 @@ class HMIWidgetStateDict(TypedDict):
     implementation_config: Dict[str, Any]
 
 
+class CopyPasteStateDict(TypedDict):
+    hmi_widgets: List[HMIWidgetStateDict]
+
+
 class HMIComponentStateDict(TypedDict):
     hmi_widgets: List[HMIWidgetStateDict]
     workzone_size: Tuple[int, int]
@@ -53,6 +59,38 @@ class HMIComponentStateDict(TypedDict):
 class HMIInteractionMode(enum.Enum):
     Display = enum.auto()
     Edit = enum.auto()
+
+
+@dataclass
+class HMIWidgetCreatedFromState:
+    instance: BaseHMIWidget
+    pos: QPoint
+    zval: int
+    fully_loaded: bool
+
+
+class StateParser:
+
+    @staticmethod
+    def read_posint_pair(d: Any, key: str) -> Tuple[int, int]:
+        validation.assert_dict_key(d, key, (tuple, list))
+        v = d[key]
+        assert len(v) == 2, f"Invalid {key}"
+        assert isinstance(v[0], int), f"Invalid {key}"
+        assert isinstance(v[1], int), f"Invalid {key}"
+        if v[0] < 0 or v[1] < 0:
+            raise ValueError(f"Invalid {key}")
+        return tuple(v)
+
+    @staticmethod
+    def read_size(d: Any, key: str) -> QSize:
+        pair = StateParser.read_posint_pair(d, key)
+        return QSize(pair[0], pair[1])
+
+    @staticmethod
+    def read_pos(d: Any, key: str) -> QPoint:
+        pair = StateParser.read_posint_pair(d, key)
+        return QPoint(pair[0], pair[1])
 
 
 class HMIComponent(ScrutinyGUIBaseLocalComponent):
@@ -165,8 +203,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
     def teardown(self) -> None:
         self._show_config_of(None)
 
-        for hmi_widget in self._workzone.iterate_hmi_widgets():
-            self.delete_hmi_widget(hmi_widget)
+        self.delete_hmi_widgets(list(self._workzone.iterate_hmi_widgets()))
 
         self._workzone.signals.right_click.disconnect()
         self._workzone.signals.drop_widget_class.disconnect()
@@ -184,51 +221,55 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         }
 
         for hmiwidget in self._workzone.iterate_hmi_widgets():
-            pos = hmiwidget.pos().toPoint()
-            size = hmiwidget.get_size()
-
-            widget_state: HMIWidgetStateDict = {
-                'unique_name': hmiwidget.get_unique_name(),
-                'pos': (pos.x(), pos.y()),
-                'size': (size.width(), size.height()),
-                'zval': int(hmiwidget.zValue()),
-                'value_slots': hmiwidget.get_value_slots_state(),
-                'implementation_config': hmiwidget.get_implementation_config_dict()
-            }
-
-            outdict["hmi_widgets"].append(widget_state)
+            outdict["hmi_widgets"].append(self._make_hmi_widget_state(hmiwidget))
 
         return cast(Dict[Any, Any], outdict)
+
+    def _create_hmi_widget_from_state_dict(self, widget_state: HMIWidgetStateDict) -> HMIWidgetCreatedFromState:
+        fully_loaded = True
+
+        widget_class = HMILibrary.load_from_unique_name(widget_state['unique_name'])
+        if widget_class is None:
+            raise ValueError(f"Unknown HMI widget of with unique name : {widget_state['unique_name']}")
+
+        validation.assert_dict_key(widget_state, 'size', (list, tuple))
+        validation.assert_dict_key(widget_state, 'pos', (list, tuple))
+        validation.assert_dict_key(widget_state, 'zval', int)
+        validation.assert_dict_key(widget_state, 'value_slots', dict)
+        validation.assert_dict_key(widget_state, 'implementation_config', dict)
+
+        size = StateParser.read_size(widget_state, 'size')
+        pos = StateParser.read_pos(widget_state, 'pos')
+        zval = widget_state['zval']
+
+        instance = widget_class(self.app)
+        instance.set_size(size)
+
+        # If this fails, warning will be logged from within the load function
+        if instance.apply_value_slots_state(widget_state['value_slots']) == False:
+            fully_loaded = False
+
+        # If this fails, warning will be logged from within the load function
+        if instance.apply_implementation_config_dict(widget_state['implementation_config']) == False:
+            fully_loaded = False
+
+        return HMIWidgetCreatedFromState(
+            instance=instance,
+            pos=pos,
+            zval=zval,
+            fully_loaded=fully_loaded
+        )
 
     def load_state(self, state: Dict[Any, Any]) -> bool:
         self.set_mode(HMIInteractionMode.Edit)
 
-        for hmi_widget in list(self._workzone.iterate_hmi_widgets()):
-            self.delete_hmi_widget(hmi_widget)
+        self.delete_hmi_widgets(list(self._workzone.iterate_hmi_widgets()))
 
         state_cast = cast(HMIComponentStateDict, state)
         validation.assert_dict_key(state_cast, 'hmi_widgets', list)
         validation.assert_dict_key(state_cast, 'workzone_size', (list, tuple))
 
-        def read_posint_pair(d: Any, key: str) -> Tuple[int, int]:
-            validation.assert_dict_key(d, key, (tuple, list))
-            v = d[key]
-            assert len(v) == 2, f"Invalid {key}"
-            assert isinstance(v[0], int), f"Invalid {key}"
-            assert isinstance(v[1], int), f"Invalid {key}"
-            if v[0] < 0 or v[1] < 0:
-                raise ValueError(f"Invalid {key}")
-            return tuple(v)
-
-        def read_size(d: Any, key: str) -> QSize:
-            pair = read_posint_pair(d, key)
-            return QSize(pair[0], pair[1])
-
-        def read_pos(d: Any, key: str) -> QPoint:
-            pair = read_posint_pair(d, key)
-            return QPoint(pair[0], pair[1])
-
-        workszone_size = read_size(state_cast, 'workzone_size')
+        workszone_size = StateParser.read_size(state_cast, 'workzone_size')
         self._workzone.setSceneRect(QRect(QPoint(0, 0), workszone_size))
         self._workzone.resize(workszone_size)
 
@@ -239,34 +280,10 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
                 validation.assert_dict_key(widget_state, 'unique_name', str)
 
                 with tools.LogException(self.logger, Exception, f"Cannot load HMI widget of type {widget_state['unique_name']}. Invalid", str_level=logging.WARNING):
-                    widget_class = HMILibrary.load_from_unique_name(widget_state['unique_name'])
-                    if widget_class is None:
-                        raise ValueError(f"Unknown HMI widget of with unique name : {widget_state['unique_name']}")
-
-                    validation.assert_dict_key(widget_state, 'size', (list, tuple))
-                    validation.assert_dict_key(widget_state, 'pos', (list, tuple))
-                    validation.assert_dict_key(widget_state, 'zval', int)
-                    validation.assert_dict_key(widget_state, 'value_slots', dict)
-                    validation.assert_dict_key(widget_state, 'implementation_config', dict)
-
-                    size = read_size(widget_state, 'size')
-                    pos = read_pos(widget_state, 'pos')
-                    zval = widget_state['zval']
-
-                    instance = widget_class(self.app)
-                    instance.set_size(size)
-
-                    self.add_hmi_widget(instance, scene_pos=pos, zval=zval)
-
-                    # If this fails, warning will be logged from within the load function
-                    if instance.apply_value_slots_state(widget_state['value_slots']) == False:
+                    hmi_widget = self._create_hmi_widget_from_state_dict(widget_state)
+                    self.add_hmi_widget(hmi_widget.instance, scene_pos=hmi_widget.pos, zval=hmi_widget.zval)
+                    if not hmi_widget.fully_loaded:
                         fully_loaded_ok = False
-
-                    # If this fails, warning will be logged from within the load function
-                    if instance.apply_implementation_config_dict(widget_state['implementation_config']) == False:
-                        fully_loaded_ok = False
-
-                    hmi_widget_ok = True
 
             if not hmi_widget_ok:
                 fully_loaded_ok = False
@@ -283,9 +300,18 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
             self._unsubscribe_all_hmi_widgets()
 
     def keyPressEvent(self, event: QKeyEvent) -> None:
-        if event.key() == Qt.Key.Key_Delete:
-            for widget in self._workzone.selected_widgets():    # This makes a copy
-                self.delete_hmi_widget(widget)
+
+        if event.modifiers() == Qt.KeyboardModifier.ControlModifier:
+            if event.key() == Qt.Key.Key_C:
+                self._copy_to_clipboard(self._workzone.selected_widgets())
+            elif event.key() == Qt.Key.Key_V:
+                selection = self._read_clipboard_selection()
+                if selection is not None:
+                    self._paste_selection(selection, scene_pos=None)
+
+        elif event.modifiers() == Qt.KeyboardModifier.NoModifier:
+            if event.key() == Qt.Key.Key_Delete:
+                self.delete_hmi_widgets(self._workzone.selected_widgets())
 
         return super().keyPressEvent(event)
 
@@ -322,27 +348,27 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
             else:
                 widget.setZValue(0)
 
-    def delete_hmi_widget(self, widget: BaseHMIWidget) -> None:
-        """Delete an HMI widget from the work zone."""
-        self._workzone.remove_widget(widget)
-        widget.destroy()
+    def delete_hmi_widgets(self, widgets: List[BaseHMIWidget]) -> None:
+        """Delete multiple HMI widget from the work zone."""
+        for widget in widgets:
+            self._workzone.remove_widget(widget)
+            widget.destroy()
 
-        # Remove the config pane
-        if self._config_widget_container_layout.currentWidget() is self._config_widgets[id(widget)]:
-            self._config_widget_container_layout.setCurrentIndex(0)
-        del self._config_widgets[id(widget)]    # Should never fail
+            # Remove the config pane
+            if self._config_widget_container_layout.currentWidget() is self._config_widgets[id(widget)]:
+                self._config_widget_container_layout.setCurrentIndex(0)
+            del self._config_widgets[id(widget)]    # Should never fail
+
+            # Try to find memory leaks. Not bulletproof
+            # A closure in the server manager could keep the object alive temporarily.
+            # Still efficient when developing
+            self._awaiting_delete_set.add(widget.instance_id)
+            widget.add_del_callback(functools.partial(self._hmi_widget_del_callback, widget.instance_id))
+
+            fn = functools.partial(self._check_is_deleted, widget.instance_id, widget.get_display_name())
+            invoke_later(fn)
 
         self._reassign_packed_zvalues()
-
-        # Try to find memory leaks. Not bulletproof
-        # A closure in the server manager could kep the object alive temporarily.
-        # Still efficient when developing
-
-        self._awaiting_delete_set.add(widget.instance_id)
-        widget.add_del_callback(functools.partial(self._hmi_widget_del_callback, widget.instance_id))
-
-        fn = functools.partial(self._check_is_deleted, widget.instance_id, widget.get_display_name())
-        invoke_later(fn)
         gc.collect()
 
     def move_to_back(self, widget: BaseHMIWidget) -> None:
@@ -401,6 +427,19 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
 # endregion
 
 # region Private
+
+    def _make_hmi_widget_state(self, hmiwidget: BaseHMIWidget) -> HMIWidgetStateDict:
+        pos = hmiwidget.pos().toPoint()
+        size = hmiwidget.get_size()
+
+        return {
+            'unique_name': hmiwidget.get_unique_name(),
+            'pos': (pos.x(), pos.y()),
+            'size': (size.width(), size.height()),
+            'zval': int(hmiwidget.zValue()),
+            'value_slots': hmiwidget.get_value_slots_state(),
+            'implementation_config': hmiwidget.get_implementation_config_dict()
+        }
 
     def _registry_changed_slot(self) -> None:
         """ Called when watchables are added/removed from the registry"""
@@ -462,7 +501,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         else:
             self._show_config_of(None)
 
-    def _workzone_right_click_slot(self, widget: Optional[BaseHMIWidget], event: QMouseEvent) -> None:
+    def _workzone_right_click_slot(self, widgets: List[BaseHMIWidget], event: QMouseEvent) -> None:
         """Right click on an HMI widget in the workzone"""
         menu: Optional[ScrutinyQMenu] = None
 
@@ -472,16 +511,24 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
             edit_mode_action.triggered.connect(lambda: self.set_mode(HMIInteractionMode.Edit))
 
         elif self._mode == HMIInteractionMode.Edit:
-            if widget is None:
+            if len(widgets) == 0:
                 menu = ScrutinyQMenu()
                 display_mode_action = menu.addAction("Display mode")
                 display_mode_action.triggered.connect(lambda: self.set_mode(HMIInteractionMode.Display))
 
+                paste_action = menu.addAction("Paste")
+                data_to_paste = self._read_clipboard_selection()
+                paste_action.setEnabled(data_to_paste is not None)
+                if data_to_paste is not None:
+                    paste_partial_func = functools.partial(self._paste_selection, data_to_paste, self._workzone.mapToScene(event.pos()))
+                    paste_action.triggered.connect(paste_partial_func)
+
             else:
-                self._workzone.select_widgets([widget])
+                self._workzone.select_widgets(widgets)
                 menu = ScrutinyQMenu()
                 remove_action = menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.RedX), "Remove")
                 edit_action = menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.TextEdit), "Edit")
+                copy_action = menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.Copy), "Copy")
                 move_to_action = menu.addAction("Move")
 
                 move_to_menu = ScrutinyQMenu()
@@ -491,15 +538,26 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
                 move_to_front_action = move_to_menu.addAction("To Front")
                 move_to_action.setMenu(move_to_menu)
 
-                move_to_back_action.triggered.connect(functools.partial(self.move_to_back, widget))
-                move_backward_action.triggered.connect(functools.partial(self.move_backward, widget))
-                move_forward_action.triggered.connect(functools.partial(self.move_forward, widget))
-                move_to_front_action.triggered.connect(functools.partial(self.move_to_front, widget))
+                if len(widgets) == 1:
+                    move_to_back_action.triggered.connect(functools.partial(self.move_to_back, widgets[0]))
+                    move_backward_action.triggered.connect(functools.partial(self.move_backward, widgets[0]))
+                    move_forward_action.triggered.connect(functools.partial(self.move_forward, widgets[0]))
+                    move_to_front_action.triggered.connect(functools.partial(self.move_to_front, widgets[0]))
 
-                edit_action.triggered.connect(functools.partial(self._request_edit_of_widget, widget))
+                    edit_action.triggered.connect(functools.partial(self._request_edit_of_widget, widgets[0]))
+
+                else:
+                    move_to_back_action.setEnabled(False)
+                    move_backward_action.setEnabled(False)
+                    move_forward_action.setEnabled(False)
+                    move_to_front_action.setEnabled(False)
+                    edit_action.setEnabled(False)
+
+                copy_action.triggered.connect(functools.partial(self._copy_to_clipboard, widgets))
+                copy_action.setEnabled(len(widgets) > 0)
 
                 def remove_action_slot() -> None:
-                    invoke_later(functools.partial(self.delete_hmi_widget, widget))
+                    invoke_later(functools.partial(self.delete_hmi_widgets, widgets))
                 remove_action.triggered.connect(remove_action_slot)
 
         if menu is not None and not self._unittest_mode:
@@ -514,6 +572,87 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         self._edit_tab_widget.setCurrentIndex(self._configure_tab_index)
         self._show_config_of(widget)
         self._show_edit_menu(True)
+
+    def _copy_to_clipboard(self, widgets: List[BaseHMIWidget]) -> None:
+        """Take the widgets and put their state in the clipboard so they can be pasted later"""
+        state_dict: CopyPasteStateDict = {
+            'hmi_widgets': []
+        }
+
+        for widget in widgets:
+            state_dict['hmi_widgets'].append(self._make_hmi_widget_state(widget))
+
+        serializable_dict = {
+            'type': 'hmi_widget_state',
+            'state': state_dict
+        }
+        data = QMimeData()
+        data.setData('application/json', QByteArray.fromStdString(json.dumps(serializable_dict)))
+        QApplication.clipboard().setMimeData(data)
+
+    def _read_clipboard_selection(self) -> Optional[CopyPasteStateDict]:
+        """Read the clipboard for a possible dictionary containing a series of HMI widgets copied.
+         Return None if there is no valid selection in the clipboard. """
+        mime_data = QApplication.clipboard().mimeData()
+        json_data = mime_data.data('application/json')
+
+        try:
+            json_decoded = json.loads(QByteArray.toStdString(json_data))
+        except json.JSONDecodeError:
+            return None
+
+        if not json_decoded.get('type', '') == 'hmi_widget_state':
+            return None
+
+        if 'state' not in json_decoded or not isinstance(json_decoded['state'], dict):
+            return None
+
+        return cast(CopyPasteStateDict, json_decoded['state'])
+
+    def _paste_selection(self, copy_paste_state_dict: CopyPasteStateDict, scene_pos: Optional[QPointF] = None) -> None:
+        """Read a state dictionary created by a clipboard copy and add the widgets at the specified location.
+        If no location is specified, shift on the grid by 1 step"""
+
+        if 'hmi_widgets' not in copy_paste_state_dict or not isinstance(copy_paste_state_dict['hmi_widgets'], list):
+            return
+
+        hmi_widgets: List[HMIWidgetCreatedFromState] = []
+        try:
+            for widget_state_dict in copy_paste_state_dict['hmi_widgets']:
+                hmi_widgets.append(self._create_hmi_widget_from_state_dict(widget_state_dict))
+        except Exception as e:
+            tools.log_exception(self.logger, e, "Failed to paste HMI widgets")
+            return
+
+        if len(hmi_widgets) == 0:
+            return
+
+        bounding_box = QRectF(
+            hmi_widgets[0].pos,
+            hmi_widgets[0].instance.get_size()
+        )
+        max_zval = max(int(w.zValue()) for w in self.iterate_hmi_widgets())
+        hmi_widgets.sort(key=lambda w: w.zval)
+
+        for hmi_widget in hmi_widgets:
+            bounding_box.setLeft(min(bounding_box.left(), hmi_widget.pos.x()))
+            bounding_box.setTop(min(bounding_box.top(), hmi_widget.pos.y()))
+            bounding_box.setRight(max(bounding_box.right(), hmi_widget.pos.x() + hmi_widget.instance.get_size().width()))
+            bounding_box.setBottom(max(bounding_box.bottom(), hmi_widget.pos.y() + hmi_widget.instance.get_size().height()))
+
+        top_left_insert_offset = QPointF(self._workzone.get_grid_spacing(), self._workzone.get_grid_spacing())
+        if scene_pos is not None:
+            top_left_insert_offset = scene_pos - bounding_box.topLeft()
+
+        for hmi_widget in hmi_widgets:
+            new_pos = hmi_widget.pos + top_left_insert_offset.toPoint()
+            self.add_hmi_widget(hmi_widget.instance, scene_pos=new_pos, zval=max_zval)
+            max_zval += 1
+
+        self._reassign_packed_zvalues()
+        self._resubscribe_all_hmi_widgets()
+
+        self._workzone.select_widgets([w.instance for w in hmi_widgets])
 
     def _show_config_of(self, widget: Optional[BaseHMIWidget]) -> None:
         """Make the HMI Widget configuration pane visible by swapping the QStackedLayout index. show an empty widget if None"""

@@ -234,6 +234,9 @@ class HMIWorkZone(QGraphicsView):
         if not self._edit_mode:
             self._mouse_edit_data = None
 
+    def get_grid_spacing(self) -> float:
+        return self._grid.GRID_SPACING
+
     def _compute_rubber_band_rect(self, start: QPoint, end: QPoint) -> QRect:
         """Get the start and end point of a rubber band selection and return a QRect with dimension in the right orders"""
         top = min(start.y(), end.y())
@@ -506,7 +509,12 @@ class HMIWorkZone(QGraphicsView):
             if event.button() == Qt.MouseButton.RightButton:
                 # Right release on same element as right press = right click
                 if self._mouse_down_widget is mouse_release_widget:
-                    self._signals.right_click.emit(mouse_release_widget, event)
+                    if mouse_release_widget is None:
+                        self._signals.right_click.emit([], event)
+                    elif mouse_release_widget not in self._selected_widgets:
+                        self._signals.right_click.emit([mouse_release_widget], event)
+                    else:
+                        self._signals.right_click.emit(self._selected_widgets.copy(), event)
 
             elif event.button() == Qt.MouseButton.LeftButton:
                 if self._edit_mode:
