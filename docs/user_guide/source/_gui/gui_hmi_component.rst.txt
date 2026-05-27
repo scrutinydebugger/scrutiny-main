@@ -145,6 +145,8 @@ Parameters:
 
 - **Orientation** : Vertical or horizontal slider
 - **Minimum/Maximum** : The minimum and maximum values of the slider range
+- **Step** : Minimum value increment when sliding the cursor
+- **Width** : Unitless width ratio for a vertical slider only
 - **Label Size** : The size of the tick labels
 - **Major ticks** : Number of major tick markers (with labels) along the slider
 - **Minor ticks** : Number of minor tick markers (without labels) along the slider
