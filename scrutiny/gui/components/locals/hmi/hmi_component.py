@@ -303,11 +303,9 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
 
         if event.modifiers() == Qt.KeyboardModifier.ControlModifier:
             if event.key() == Qt.Key.Key_C:
-                self._copy_to_clipboard(self._workzone.selected_widgets())
+                self.copy_widgets_to_clipboard(self._workzone.selected_widgets())
             elif event.key() == Qt.Key.Key_V:
-                selection = self._read_clipboard_selection()
-                if selection is not None:
-                    self._paste_selection(selection, scene_pos=None)
+                self.paste_widgets_from_clipboard(scene_pos=None)
 
         elif event.modifiers() == Qt.KeyboardModifier.NoModifier:
             if event.key() == Qt.Key.Key_Delete:
@@ -321,6 +319,9 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
 
     def get_workzone(self) -> HMIWorkZone:
         return self._workzone
+
+    def selected_widgets(self) -> List[BaseHMIWidget]:
+        return self._workzone.selected_widgets()
 
     def hmi_widget_count(self) -> int:
         return self._workzone.count_hmi_widgets()
@@ -424,6 +425,30 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
 
         for hmi_widget in self._workzone.iterate_hmi_widgets():
             self.update_hmi_widget_state(hmi_widget)
+
+    def copy_widgets_to_clipboard(self, widgets: List[BaseHMIWidget]) -> None:
+        """Take the widgets and put their state in the clipboard so they can be pasted later"""
+        state_dict: CopyPasteStateDict = {
+            'hmi_widgets': []
+        }
+
+        for widget in widgets:
+            state_dict['hmi_widgets'].append(self._make_hmi_widget_state(widget))
+
+        serializable_dict = {
+            'type': 'hmi_widget_state',
+            'state': state_dict
+        }
+        data = QMimeData()
+        data.setData('application/json', QByteArray.fromStdString(json.dumps(serializable_dict)))
+        QApplication.clipboard().setMimeData(data)
+
+    def paste_widgets_from_clipboard(self, scene_pos:Optional[QPointF]) -> None:
+        selection = self._read_clipboard_selection()
+        if selection is not None:
+            self._paste_widgets(selection, scene_pos=scene_pos)
+
+
 # endregion
 
 # region Private
@@ -520,7 +545,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
                 data_to_paste = self._read_clipboard_selection()
                 paste_action.setEnabled(data_to_paste is not None)
                 if data_to_paste is not None:
-                    paste_partial_func = functools.partial(self._paste_selection, data_to_paste, self._workzone.mapToScene(event.pos()))
+                    paste_partial_func = functools.partial(self._paste_widgets, data_to_paste, self._workzone.mapToScene(event.pos()))
                     paste_action.triggered.connect(paste_partial_func)
 
             else:
@@ -553,7 +578,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
                     move_to_front_action.setEnabled(False)
                     edit_action.setEnabled(False)
 
-                copy_action.triggered.connect(functools.partial(self._copy_to_clipboard, widgets))
+                copy_action.triggered.connect(functools.partial(self.copy_widgets_to_clipboard, widgets))
                 copy_action.setEnabled(len(widgets) > 0)
 
                 def remove_action_slot() -> None:
@@ -572,23 +597,6 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         self._edit_tab_widget.setCurrentIndex(self._configure_tab_index)
         self._show_config_of(widget)
         self._show_edit_menu(True)
-
-    def _copy_to_clipboard(self, widgets: List[BaseHMIWidget]) -> None:
-        """Take the widgets and put their state in the clipboard so they can be pasted later"""
-        state_dict: CopyPasteStateDict = {
-            'hmi_widgets': []
-        }
-
-        for widget in widgets:
-            state_dict['hmi_widgets'].append(self._make_hmi_widget_state(widget))
-
-        serializable_dict = {
-            'type': 'hmi_widget_state',
-            'state': state_dict
-        }
-        data = QMimeData()
-        data.setData('application/json', QByteArray.fromStdString(json.dumps(serializable_dict)))
-        QApplication.clipboard().setMimeData(data)
 
     def _read_clipboard_selection(self) -> Optional[CopyPasteStateDict]:
         """Read the clipboard for a possible dictionary containing a series of HMI widgets copied.
@@ -609,7 +617,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
 
         return cast(CopyPasteStateDict, json_decoded['state'])
 
-    def _paste_selection(self, copy_paste_state_dict: CopyPasteStateDict, scene_pos: Optional[QPointF] = None) -> None:
+    def _paste_widgets(self, copy_paste_state_dict: CopyPasteStateDict, scene_pos: Optional[QPointF]) -> None:
         """Read a state dictionary created by a clipboard copy and add the widgets at the specified location.
         If no location is specified, shift on the grid by 1 step"""
 
