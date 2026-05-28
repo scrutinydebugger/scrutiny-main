@@ -15,7 +15,7 @@ import scrutiny
 from PySide6.QtWidgets import QWidget, QHBoxLayout
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtCore import Qt, QRect
-from PySide6.QtWidgets import QMainWindow
+from PySide6.QtWidgets import QMainWindow, QApplication
 
 from scrutiny.gui.core.persistent_data import gui_persistent_data
 from scrutiny.gui.core.local_server_runner import LocalServerRunner

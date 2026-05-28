@@ -7,7 +7,7 @@
 #
 #    Copyright (c) 2025 Scrutiny Debugger
 
-__all__ = ['make_qt_app']
+__all__ = ['make_qt_app', 'cleanup_qt_app']
 
 from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import QLocale
@@ -25,6 +25,13 @@ def make_qt_app(args: List[str]) -> QApplication:
     QLocale.setDefault(loc)
 
     app = QApplication(args)
+    app.aboutToQuit.connect(cleanup_qt_app)
     CrossThreadInvoker.init()
 
     return app
+
+
+def cleanup_qt_app() -> None:
+    # Saw a segfault that looked like a race condition in the MimeData
+    #  destructor. This can fix.
+    QApplication.clipboard().clear()

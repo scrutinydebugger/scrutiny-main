@@ -70,6 +70,7 @@ class ScrutinyBaseGuiTest(ScrutinyUnitTest):
 
     def tearDown(self):
         self.process_events()
+        QApplication.clipboard().clear()    # Can make a segfault if not present.
 
     def wait_equal(self, fn, val, timeout, no_assert=False):
         t = time.perf_counter()

@@ -126,7 +126,7 @@ class TestHMIWidgetSerialization(HMIComponentBaseTest):
         circle.set_fill_brush(brush1)
 
         state = self.hmi_component.get_state()
-        self.hmi_component.delete_hmi_widget(circle)
+        self.hmi_component.delete_hmi_widgets([circle])
 
         self.assertEqual(self.hmi_component.hmi_widget_count(), 0)
 
@@ -169,7 +169,7 @@ class TestHMIWidgetSerialization(HMIComponentBaseTest):
         rectangle.set_fill_brush(brush1)
 
         state = self.hmi_component.get_state()
-        self.hmi_component.delete_hmi_widget(rectangle)
+        self.hmi_component.delete_hmi_widgets([rectangle])
 
         self.assertEqual(self.hmi_component.hmi_widget_count(), 0)
 
@@ -209,7 +209,7 @@ class TestHMIWidgetSerialization(HMIComponentBaseTest):
         line.set_orientation(Qt.Orientation.Vertical)
 
         state = self.hmi_component.get_state()
-        self.hmi_component.delete_hmi_widget(line)
+        self.hmi_component.delete_hmi_widgets([line])
 
         self.assertEqual(self.hmi_component.hmi_widget_count(), 0)
 
@@ -252,7 +252,7 @@ class TestHMIWidgetSerialization(HMIComponentBaseTest):
         text_label.set_font_color(QColor("#975123"))
 
         state = self.hmi_component.get_state()
-        self.hmi_component.delete_hmi_widget(text_label)
+        self.hmi_component.delete_hmi_widgets([text_label])
 
         self.assertEqual(self.hmi_component.hmi_widget_count(), 0)
 
@@ -301,7 +301,7 @@ class TestHMIWidgetSerialization(HMIComponentBaseTest):
         display.set_number_formatting_config(config)
 
         state = self.hmi_component.get_state()
-        self.hmi_component.delete_hmi_widget(display)
+        self.hmi_component.delete_hmi_widgets([display])
         self.assertEqual(self.hmi_component.hmi_widget_count(), 0)
         fully_loaded = self.hmi_component.load_state(state)
         self.assertTrue(fully_loaded)
@@ -346,7 +346,7 @@ class TestHMIWidgetSerialization(HMIComponentBaseTest):
         gauge.set_label_size_percent(35)
 
         state = self.hmi_component.get_state()
-        self.hmi_component.delete_hmi_widget(gauge)
+        self.hmi_component.delete_hmi_widgets([gauge])
         self.assertEqual(self.hmi_component.hmi_widget_count(), 0)
         fully_loaded = self.hmi_component.load_state(state)
         self.assertTrue(fully_loaded)
@@ -402,7 +402,7 @@ class TestHMIWidgetSerialization(HMIComponentBaseTest):
 
         # Serialization round-trip
         state = self.hmi_component.get_state()
-        self.hmi_component.delete_hmi_widget(gauge)
+        self.hmi_component.delete_hmi_widgets([gauge])
         self.assertEqual(self.hmi_component.hmi_widget_count(), 0)
         fully_loaded = self.hmi_component.load_state(state)
         self.assertTrue(fully_loaded)
@@ -443,7 +443,7 @@ class TestHMIWidgetSerialization(HMIComponentBaseTest):
         indicator.set_active_behavior(ActiveBehavior.BlinkSlow)
 
         state = self.hmi_component.get_state()
-        self.hmi_component.delete_hmi_widget(indicator)
+        self.hmi_component.delete_hmi_widgets([indicator])
         self.assertEqual(self.hmi_component.hmi_widget_count(), 0)
 
         fully_loaded = self.hmi_component.load_state(state)
@@ -490,7 +490,7 @@ class TestHMIWidgetSerialization(HMIComponentBaseTest):
 
         # Serialization round-trip
         state = self.hmi_component.get_state()
-        self.hmi_component.delete_hmi_widget(button)
+        self.hmi_component.delete_hmi_widgets([button])
         self.assertEqual(self.hmi_component.hmi_widget_count(), 0)
 
         fully_loaded = self.hmi_component.load_state(state)
@@ -542,7 +542,7 @@ class TestHMIWidgetSerialization(HMIComponentBaseTest):
 
         # Serialization round-trip
         state = self.hmi_component.get_state()
-        self.hmi_component.delete_hmi_widget(slider)
+        self.hmi_component.delete_hmi_widgets([slider])
         self.assertEqual(self.hmi_component.hmi_widget_count(), 0)
 
         fully_loaded = self.hmi_component.load_state(state)
@@ -1063,8 +1063,8 @@ class TestWorkZone(HMIComponentBaseTest):
 
         self.assertEqual(len(right_click_list), 2)
 
-        self.assertEqual(right_click_list[0], circle)
-        self.assertEqual(right_click_list[1], None)
+        self.assertEqual(right_click_list[0], [circle])
+        self.assertEqual(right_click_list[1], [])
 
     def test_zvalue_manipulation(self):
         workzone = self.hmi_component.get_workzone()
@@ -1332,8 +1332,7 @@ class TestHMIComponent(HMIComponentBaseTest):
         label4.set_size(QSize(16, 32))
 
         state = self.hmi_component.get_state()
-        for widget in list(self.hmi_component.iterate_hmi_widgets()):
-            self.hmi_component.delete_hmi_widget(widget)
+        self.hmi_component.delete_hmi_widgets(list(self.hmi_component.iterate_hmi_widgets()))
         self.assertEqual(self.hmi_component.hmi_widget_count(), 0)
         self.hmi_component.load_state(state)
 
@@ -1374,6 +1373,61 @@ class TestHMIComponent(HMIComponentBaseTest):
         self.assertEqual(new_label.pos(), label4.pos())
         self.assertEqual(new_label.get_size(), label4.get_size())
         self.assertEqual(new_label.zValue(), label4.zValue())
+
+    def test_copy_paste(self):
+        circle1 = CircleHMIWidget(self.app_interface)
+        rect1 = RectangleHMIWidget(self.app_interface)
+        circle2 = CircleHMIWidget(self.app_interface)
+        rect2 = RectangleHMIWidget(self.app_interface)
+
+        circle1.set_size(QSize(32, 32))
+        rect1.set_size(QSize(48, 48))
+        circle2.set_size(QSize(64, 32))
+        rect2.set_size(QSize(32, 24))
+
+        self.hmi_component.add_hmi_widget(circle1, QPoint(0, 0))
+        self.hmi_component.add_hmi_widget(rect1, QPoint(64, 0))
+        self.hmi_component.add_hmi_widget(circle2, QPoint(0, 64))
+        self.hmi_component.add_hmi_widget(rect2, QPoint(64, 64))
+
+        self.hmi_component.move_to_front(rect1)
+        self.hmi_component.copy_widgets_to_clipboard([circle1, rect1])
+
+        self.hmi_component.paste_widgets_from_clipboard(scene_pos=QPointF(128, 128))
+        all_widgets = list(self.hmi_component.iterate_hmi_widgets())
+
+        self.assertEqual(len(all_widgets), 6)
+
+        self.assertIn(circle1, all_widgets)
+        self.assertIn(rect1, all_widgets)
+        self.assertIn(circle2, all_widgets)
+        self.assertIn(rect2, all_widgets)
+
+        all_widgets.remove(circle1)
+        all_widgets.remove(rect1)
+        all_widgets.remove(circle2)
+        all_widgets.remove(rect2)
+
+        self.assertEqual(len(all_widgets), 2)
+
+        new_rect1 = None
+        new_rect1 = None
+        for w in all_widgets:
+            if isinstance(w, CircleHMIWidget):
+                new_circle1 = w
+            if isinstance(w, RectangleHMIWidget):
+                new_rect1 = w
+
+        self.assertIsNotNone(new_circle1)
+        self.assertIsNotNone(new_rect1)
+
+        self.assertEqual(new_circle1.get_size(), circle1.get_size())
+        self.assertEqual(new_circle1.pos(), QPointF(128, 128))
+        self.assertEqual(new_rect1.get_size(), new_rect1.get_size())
+        self.assertEqual(new_rect1.pos(), QPointF(128 + 64, 128))
+
+        self.assertEqual(new_circle1.get_implementation_config_dict(), circle1.get_implementation_config_dict())
+        self.assertEqual(new_rect1.get_implementation_config_dict(), rect1.get_implementation_config_dict())
 
 
 class TestHMIWidgets(HMIComponentBaseTest):
