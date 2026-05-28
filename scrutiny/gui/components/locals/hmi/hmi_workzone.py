@@ -213,8 +213,18 @@ class HMIWorkZone(QGraphicsView):
             self._selected_widgets.remove(widget)
             selection_changed = True
 
+        # Release all references to that widget so the garbage collector can destroy it.
+        # Failing to release should produce a "Dangling reference warning"
         if widget is self._double_click_data.first_press_hmi_widget:
             self._double_click_data.first_press_hmi_widget = None
+
+        if widget is self._mouse_down_widget:
+            self._mouse_down_widget = None
+
+        if self._mouse_edit_data is not None:
+            if self._mouse_edit_data.resize_data is not None:
+                if self._mouse_edit_data.resize_data.widget is widget:
+                    self._mouse_edit_data = None
 
         self.scene().removeItem(widget)
         if selection_changed:
