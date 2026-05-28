@@ -284,7 +284,6 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
                     if not hmi_widget.fully_loaded:
                         fully_loaded_ok = False
 
-
         self._reassign_packed_zvalues()
         self._resubscribe_all_hmi_widgets()
         self.set_mode(HMIInteractionMode.Display)
@@ -450,7 +449,6 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
 
 # region Private
 
-
     def _make_hmi_widget_state(self, hmiwidget: BaseHMIWidget) -> HMIWidgetStateDict:
         pos = hmiwidget.pos().toPoint()
         size = hmiwidget.get_size()
@@ -600,6 +598,8 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         """Read the clipboard for a possible dictionary containing a series of HMI widgets copied.
          Return None if there is no valid selection in the clipboard. """
         mime_data = QApplication.clipboard().mimeData()
+        if mime_data is None:
+            return None
         json_data = mime_data.data('application/json')
 
         try:

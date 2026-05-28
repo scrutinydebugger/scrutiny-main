@@ -1063,8 +1063,8 @@ class TestWorkZone(HMIComponentBaseTest):
 
         self.assertEqual(len(right_click_list), 2)
 
-        self.assertEqual(right_click_list[0], circle)
-        self.assertEqual(right_click_list[1], None)
+        self.assertEqual(right_click_list[0], [circle])
+        self.assertEqual(right_click_list[1], [])
 
     def test_zvalue_manipulation(self):
         workzone = self.hmi_component.get_workzone()
