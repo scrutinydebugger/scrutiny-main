@@ -275,7 +275,6 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
 
         fully_loaded_ok = True
         for widget_state in state_cast["hmi_widgets"]:
-            hmi_widget_ok = False
             with tools.LogException(self.logger, Exception, "Cannot load invalid HMI widget", str_level=logging.WARNING):
                 validation.assert_dict_key(widget_state, 'unique_name', str)
 
@@ -285,8 +284,6 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
                     if not hmi_widget.fully_loaded:
                         fully_loaded_ok = False
 
-            if not hmi_widget_ok:
-                fully_loaded_ok = False
 
         self._reassign_packed_zvalues()
         self._resubscribe_all_hmi_widgets()
