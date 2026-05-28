@@ -19,11 +19,12 @@ import logging
 import enum
 
 from PySide6.QtCore import QTimer, Qt
+from PySide6.QtWidgets import QApplication
 
 import scrutiny
 from scrutiny.gui.main_window import MainWindow
 from scrutiny.gui import assets
-from scrutiny.gui.core.qt import make_qt_app
+from scrutiny.gui.core.qt import make_qt_app, cleanup_qt_app
 from scrutiny.gui.tools.opengl import prepare_for_opengl
 from scrutiny.gui.themes import scrutiny_set_theme, scrutiny_get_theme
 from dataclasses import dataclass

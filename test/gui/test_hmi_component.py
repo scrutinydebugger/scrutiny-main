@@ -1385,19 +1385,49 @@ class TestHMIComponent(HMIComponentBaseTest):
         circle2.set_size(QSize(64, 32))
         rect2.set_size(QSize(32, 24))
 
-        self.hmi_component.add_hmi_widget(circle1, QPoint(0,0))
-        self.hmi_component.add_hmi_widget(rect1, QPoint(64,0))
-        self.hmi_component.add_hmi_widget(circle2, QPoint(0,64))
-        self.hmi_component.add_hmi_widget(rect2, QPoint(64,64))
+        self.hmi_component.add_hmi_widget(circle1, QPoint(0, 0))
+        self.hmi_component.add_hmi_widget(rect1, QPoint(64, 0))
+        self.hmi_component.add_hmi_widget(circle2, QPoint(0, 64))
+        self.hmi_component.add_hmi_widget(rect2, QPoint(64, 64))
 
         self.hmi_component.move_to_front(rect1)
-        self.hmi_component.copy_widgets_to_clipboard([circle1, rect1, circle2])
+        self.hmi_component.copy_widgets_to_clipboard([circle1, rect1])
 
-        self.hmi_component.paste_widgets_from_clipboard(scene_pos=QPointF(128,128))
+        self.hmi_component.paste_widgets_from_clipboard(scene_pos=QPointF(128, 128))
         all_widgets = list(self.hmi_component.iterate_hmi_widgets())
 
-        self.assertEqual(len(all_widgets), 7)
+        self.assertEqual(len(all_widgets), 6)
 
+        self.assertIn(circle1, all_widgets)
+        self.assertIn(rect1, all_widgets)
+        self.assertIn(circle2, all_widgets)
+        self.assertIn(rect2, all_widgets)
+
+        all_widgets.remove(circle1)
+        all_widgets.remove(rect1)
+        all_widgets.remove(circle2)
+        all_widgets.remove(rect2)
+
+        self.assertEqual(len(all_widgets), 2)
+
+        new_rect1 = None
+        new_rect1 = None
+        for w in all_widgets:
+            if isinstance(w, CircleHMIWidget):
+                new_circle1 = w
+            if isinstance(w, RectangleHMIWidget):
+                new_rect1 = w
+
+        self.assertIsNotNone(new_circle1)
+        self.assertIsNotNone(new_rect1)
+
+        self.assertEqual(new_circle1.get_size(), circle1.get_size())
+        self.assertEqual(new_circle1.pos(), QPointF(128, 128))
+        self.assertEqual(new_rect1.get_size(), new_rect1.get_size())
+        self.assertEqual(new_rect1.pos(), QPointF(128 + 64, 128))
+
+        self.assertEqual(new_circle1.get_implementation_config_dict(), circle1.get_implementation_config_dict())
+        self.assertEqual(new_rect1.get_implementation_config_dict(), rect1.get_implementation_config_dict())
 
 
 class TestHMIWidgets(HMIComponentBaseTest):

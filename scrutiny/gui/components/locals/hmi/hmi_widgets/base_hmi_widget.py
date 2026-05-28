@@ -788,4 +788,3 @@ class BaseHMIWidget(QGraphicsItem):
         self._logger.debug(f"Deleting HMI widget of type {self.get_unique_name()}")
         for cb in self._del_callback:
             cb()
-        print("asdasd")

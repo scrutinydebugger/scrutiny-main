@@ -443,7 +443,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         data.setData('application/json', QByteArray.fromStdString(json.dumps(serializable_dict)))
         QApplication.clipboard().setMimeData(data)
 
-    def paste_widgets_from_clipboard(self, scene_pos:Optional[QPointF]) -> None:
+    def paste_widgets_from_clipboard(self, scene_pos: Optional[QPointF]) -> None:
         selection = self._read_clipboard_selection()
         if selection is not None:
             self._paste_widgets(selection, scene_pos=scene_pos)
@@ -452,6 +452,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
 # endregion
 
 # region Private
+
 
     def _make_hmi_widget_state(self, hmiwidget: BaseHMIWidget) -> HMIWidgetStateDict:
         pos = hmiwidget.pos().toPoint()
