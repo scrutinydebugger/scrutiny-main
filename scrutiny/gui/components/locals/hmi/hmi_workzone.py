@@ -213,6 +213,9 @@ class HMIWorkZone(QGraphicsView):
             self._selected_widgets.remove(widget)
             selection_changed = True
 
+        if widget is self._double_click_data.first_press_hmi_widget:
+            self._double_click_data.first_press_hmi_widget = None
+
         self.scene().removeItem(widget)
         if selection_changed:
             self._signals.selection_changed.emit(self._selected_widgets.copy())
@@ -558,7 +561,6 @@ class HMIWorkZone(QGraphicsView):
         self._rubberband.setVisible(False)
         self._rubberband_active = False
         self._mouse_edit_data = None
-        self._double_click_data.first_press_hmi_widget = None
         self.setCursor(cursor)
 
     def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:
