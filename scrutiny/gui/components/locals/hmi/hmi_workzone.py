@@ -558,6 +558,7 @@ class HMIWorkZone(QGraphicsView):
         self._rubberband.setVisible(False)
         self._rubberband_active = False
         self._mouse_edit_data = None
+        self._double_click_data.first_press_hmi_widget = None
         self.setCursor(cursor)
 
     def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:
