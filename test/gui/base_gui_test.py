@@ -18,6 +18,8 @@ from scrutiny.gui.core.qt import make_qt_app
 from scrutiny.gui.themes import scrutiny_set_theme
 from scrutiny.gui.themes.default_theme import DefaultTheme
 from scrutiny.gui.core.user_messages_manager import UserMessagesManager
+from scrutiny.gui.app_settings import configure_unit_test_app_settings
+from scrutiny.gui.gui import ScrutinyQtGUI, SupportedTheme
 from scrutiny.gui import assets
 
 from scrutiny.tools.typing import *
@@ -65,6 +67,17 @@ class ScrutinyBaseGuiTest(ScrutinyUnitTest):
             self.app = make_qt_app([])
             UserMessagesManager.init()
             assets.initialize_fonts()
+
+            settings = ScrutinyQtGUI.Settings(
+                debug_layout=False,
+                auto_connect=False,
+                opengl_enabled=False,
+                local_server_port=8765,
+                start_local_server=False,
+                theme=SupportedTheme.Default
+            )
+
+            configure_unit_test_app_settings(settings)
 
         scrutiny_set_theme(self.app, DefaultTheme())
 

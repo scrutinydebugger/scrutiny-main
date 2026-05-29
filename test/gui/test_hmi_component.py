@@ -62,16 +62,6 @@ class HMIComponentBaseTest(ScrutinyBaseGuiTest):
         self.paint_device = QImage(640, 480, QImage.Format.Format_RGB32)
         self.paint_device.fill(Qt.GlobalColor.white)
 
-        settings = ScrutinyQtGUI.Settings(
-            debug_layout=False,
-            auto_connect=False,
-            opengl_enabled=False,
-            local_server_port=8765,
-            start_local_server=False,
-            theme=SupportedTheme.Default
-        )
-        configure_unit_test_app_settings(settings)
-
         self.main_window = MainWindowStub()
         self.app_interface = DummyAppInterface()
         self.app_interface.server_manager = self.main_window.get_server_manager()

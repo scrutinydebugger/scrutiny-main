@@ -26,7 +26,7 @@ from scrutiny.gui.core.serializable_value_set import SerializableValueSet
 from scrutiny.gui.core.watchable_registry import WatchableRegistry, WatcherNotFoundError, RegistryValueUpdate, WatchableRegistryError, ParsedFullyQualifiedName
 from scrutiny.gui.widgets.watchable_tree import get_watchable_icon
 from scrutiny.gui.widgets.scrutiny_qmenu import ScrutinyQMenu
-from scrutiny.gui.core.server_manager import ServerManager
+from scrutiny.gui.core.server_manager.server_manager  import ServerManager
 from scrutiny.gui.tools.invoker import invoke_later
 from scrutiny.gui.widgets.feedback_label import FeedbackLabel
 from scrutiny.gui.themes import scrutiny_get_theme

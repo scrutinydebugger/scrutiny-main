@@ -10,7 +10,7 @@ import logging
 from dataclasses import dataclass
 from PySide6.QtCore import Signal, QObject, QTimer
 from scrutiny.gui.core.watchable_registry import WatchableRegistry
-from scrutiny.gui.core.server_manager import ServerConfig
+from scrutiny.gui.core.server_manager.server_manager  import ServerConfig
 from test.gui.fake_sdk_client import StubbedWatchableHandle, FakeSDKClient
 from scrutiny import sdk
 from uuid import uuid4

@@ -11,7 +11,7 @@ __all__ = ['ApplicationStatsDisplay']
 from PySide6.QtWidgets import QWidget, QFormLayout, QLabel, QGroupBox, QVBoxLayout
 from PySide6.QtCore import Qt
 from scrutiny import sdk
-from scrutiny.gui.core.server_manager import ServerManager
+from scrutiny.gui.core.server_manager.server_manager  import ServerManager
 from scrutiny.tools import format_eng_unit, format_sec_to_dhms
 from scrutiny.tools.typing import *
 
