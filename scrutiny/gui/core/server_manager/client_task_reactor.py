@@ -1,3 +1,11 @@
+#    client_task_reactor.py
+#        A reactor that can pipeline blocking requests to the server using the synchronous
+#        SDK. Uses a threadpool
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
 
 import queue
 import threading

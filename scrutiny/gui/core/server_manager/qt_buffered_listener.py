@@ -1,3 +1,11 @@
+#    qt_buffered_listener.py
+#        A custom sdk.Listener meant to broadcast value upadtes the the QT GUI.
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
+
 from scrutiny import sdk
 import threading
 import time
