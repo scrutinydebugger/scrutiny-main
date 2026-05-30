@@ -140,6 +140,8 @@ class SliderHMIWidget(BaseHMIWidget):
     """Bounding rectangle of the slider track area, None until first paint"""
     _dragging_val: Optional[float]
     """The value being dragged to, None when not actively dragging"""
+    _write_val_in_progress: Optional[float]
+    """The value presently being written"""
 
     _slide_zone_pen: QPen
     _slide_zone_brush: QBrush
@@ -155,6 +157,7 @@ class SliderHMIWidget(BaseHMIWidget):
                                 tooltip="The value written by the slider")
         self._slide_zone_rect = None
         self._dragging_val = None
+        self._write_val_in_progress = None
         self._cursor = SliderCursor(self)
         self._cursor.set_enabled(False)
 
@@ -347,6 +350,20 @@ class SliderHMIWidget(BaseHMIWidget):
         else:
             raise NotImplementedError("Unknown orientation")
         self._cursor.update()
+
+    def _write_val(self, v: float) -> None:
+        self._write_val_in_progress = v
+        self.write_value_slot('val', v, self._write_complete_callback)
+
+    def _write_in_progress(self) -> bool:
+        return self._write_val_in_progress is not None
+
+    def _write_complete_callback(self, error: Optional[Exception]) -> None:
+        value_written = self._write_val_in_progress
+        self._write_val_in_progress = None
+
+        if self._dragging_val is not None and self._dragging_val != value_written:
+            self._write_val(self._dragging_val)
 
     def get_cursor_rect(self) -> QRectF:
         return QRectF(self._cursor.pos(), self._cursor.get_size())
@@ -646,6 +663,9 @@ class SliderHMIWidget(BaseHMIWidget):
             raise NotImplementedError("Unknown orientation")
 
     def left_mouse_up(self, pos: QPointF | None) -> Qt.CursorShape:
+        if self._write_in_progress() and self._dragging_val is not None:
+            if self._dragging_val != self._write_val_in_progress:
+                self._write_val(self._dragging_val)  # Make sure to not miss the final value
         self._dragging_val = None
         return Qt.CursorShape.ArrowCursor
 
@@ -670,7 +690,9 @@ class SliderHMIWidget(BaseHMIWidget):
             v = self._val_from_pos(pos)
             if v is not None:
                 self._dragging_val = v
-                self.write_value_slot('val', v)
+                if not self._write_in_progress():
+                    self._write_val(v)
+
             return resize_cursor
 
     def get_implementation_config_dict(self) -> Dict[str, Any]:
