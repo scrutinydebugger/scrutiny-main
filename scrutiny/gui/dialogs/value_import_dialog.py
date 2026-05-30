@@ -284,7 +284,7 @@ class ValueImportDialog(QDialog):
 
         try:
             self._server_manager.schedule_client_request(
-                user_func=functools.partial(self._ephemerous_thread_write_func, path_item.get_path(), value_to_write),
+                user_func=functools.partial(self._threaded_func_write_func, path_item.get_path(), value_to_write),
                 ui_thread_callback=functools.partial(self._qt_thread_write_callback, row)
             )
         except Exception as e:
@@ -293,7 +293,7 @@ class ValueImportDialog(QDialog):
             invoke_later(start_write_next_row)
             return
 
-    def _ephemerous_thread_write_func(self, path: str, value: Union[int, bool, float, str], client: ScrutinyClient) -> None:
+    def _threaded_func_write_func(self, path: str, value: Union[int, bool, float, str], client: ScrutinyClient) -> None:
         """Executed in a background thread. Blocks until completion"""
         self._logger.debug(f"Write value ({value}) of {path}")
         client.write_watchable(path, value)

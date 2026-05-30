@@ -544,7 +544,7 @@ class ServerManager:
     # region Private QT side methods
 
     def _request_update_rate_change(self, handle: WatchableHandle, update_rate: Optional[float]) -> None:
-        def _ephemerous_thread_change(client: ScrutinyClient) -> Optional[float]:
+        def _threaded_func_change(client: ScrutinyClient) -> Optional[float]:
             return handle.change_update_rate(update_rate)
 
         def _qt_thread_callback(effective_rate: Optional[float], error: Optional[Exception]) -> None:
@@ -554,7 +554,7 @@ class ServerManager:
 
         if self._logger.isEnabledFor(logging.DEBUG):
             self._logger.debug(f"Changing update rate of {handle.server_path} to {update_rate}")
-        self.schedule_client_request(_ephemerous_thread_change, _qt_thread_callback)
+        self.schedule_client_request(_threaded_func_change, _qt_thread_callback)
 
     def _qt_update_registration_from_watchable_handle(self,
                                                       registration_status: WatchableRegistrationStatus,

@@ -364,7 +364,7 @@ class ServerSFDManagerDialog(QDialog):
         # Let's send a request to the server for uninstalling the selected SFD
         self._feedback_label.clear()
 
-        def ephemerous_thread_request_uninstall(client: ScrutinyClient) -> None:
+        def threded_func_request_uninstall(client: ScrutinyClient) -> None:
             client.uninstall_sfds(firmware_ids)  # Blocking request
 
         def ui_thread_uninstall_complete(response: None, error: Optional[Exception]) -> None:
@@ -379,7 +379,7 @@ class ServerSFDManagerDialog(QDialog):
             self._feedback_label.set_success(f"Uninstalled {nb_sfd} Scrutiny Firmware Description (SFD) files.")
 
         self._server_manager.schedule_client_request(
-            user_func=ephemerous_thread_request_uninstall,
+            user_func=threded_func_request_uninstall,
             ui_thread_callback=ui_thread_uninstall_complete
         )
 
@@ -391,7 +391,7 @@ class ServerSFDManagerDialog(QDialog):
         if self.is_transfer_active():
             return
 
-        def ephemerous_thread_request_download(client: ScrutinyClient) -> bytes:
+        def threded_func_request_download(client: ScrutinyClient) -> bytes:
             req = client.download_sfd(sfd_info.firmware_id)
             self._internal_signals.sfd_transfer_started.emit(req)
             req.wait_for_completion()   # Blocking call
@@ -419,7 +419,7 @@ class ServerSFDManagerDialog(QDialog):
                     tools.log_exception(self._logger, e, f"Failed to save SFD to {save_path}")
 
         self._server_manager.schedule_client_request(
-            user_func=ephemerous_thread_request_download,
+            user_func=threded_func_request_download,
             ui_thread_callback=ui_thread_download_complete
         )
 
@@ -456,7 +456,7 @@ class ServerSFDManagerDialog(QDialog):
         if filepath is None:
             return
 
-        def ephemerous_thread_upload_init(client: ScrutinyClient) -> SFDUploadRequest:
+        def threded_func_upload_init(client: ScrutinyClient) -> SFDUploadRequest:
             return client.init_sfd_upload(filepath)
 
         def ui_thread_upload_init_completed(req: Optional[SFDUploadRequest], error: Optional[Exception]) -> None:
@@ -480,7 +480,7 @@ class ServerSFDManagerDialog(QDialog):
 
             self._internal_signals.sfd_transfer_started.emit(req)
 
-            def ephemerous_thread_upload(client: ScrutinyClient) -> SFDUploadRequest:
+            def threded_func_upload(client: ScrutinyClient) -> SFDUploadRequest:
                 req.start()
                 req.wait_for_completion()
                 return req
@@ -502,12 +502,12 @@ class ServerSFDManagerDialog(QDialog):
                 prompt.success_msgbox("Installed", f"Installed SFD {data.firmware_id}")
 
             self._server_manager.schedule_client_request(
-                user_func=ephemerous_thread_upload,
+                user_func=threded_func_upload,
                 ui_thread_callback=ui_thread_upload_complete
             )
 
         self._server_manager.schedule_client_request(
-            user_func=ephemerous_thread_upload_init,
+            user_func=threded_func_upload_init,
             ui_thread_callback=ui_thread_upload_init_completed
         )
 
@@ -520,7 +520,7 @@ class ServerSFDManagerDialog(QDialog):
         """Downloads the installed SFD from the server and populates the table view"""
         self.clear_sfd_list()
 
-        def ephemerous_thread_request_download(client: ScrutinyClient) -> Dict[str, sdk.SFDInfo]:
+        def threded_func_request_download(client: ScrutinyClient) -> Dict[str, sdk.SFDInfo]:
             return client.get_installed_sfds()  # Blocking call
 
         def ui_thread_download_callback(sfds: Optional[Dict[str, sdk.SFDInfo]], error: Optional[Exception]) -> None:
@@ -538,7 +538,7 @@ class ServerSFDManagerDialog(QDialog):
             self._sfd_table.sortByColumn(SFDTableModel.Cols.CREATION_DATE, Qt.SortOrder.DescendingOrder)
 
         self._server_manager.schedule_client_request(
-            user_func=ephemerous_thread_request_download,
+            user_func=threded_func_request_download,
             ui_thread_callback=ui_thread_download_callback
         )
 
