@@ -43,6 +43,7 @@ class ServerConfig:
     hostname: str
     port: int
 
+
 class ServerManager:
     """Runs a thread for the synchronous SDK and emit QT events when something interesting happens"""
 
@@ -157,7 +158,7 @@ class ServerManager:
 
     _stop_pending: bool
     """Indicate if a stop is in progress. ``True`` between calls to stop() and emission of ``stopped`` signal"""
-    _client_task_reactor:ClientTaskReactor
+    _client_task_reactor: ClientTaskReactor
     """A reactor that can pipeline blocking requests to the server"""
     _listener: QtBufferedListener
     """A custom listener that passes the data from the SDK client thread to the QT GUI thread"""

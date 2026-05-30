@@ -30,6 +30,7 @@ from scrutiny.gui.app_settings import app_settings
 
 USER_MSG_UPDATE_OVERRUN = "listener_update_dropped"
 
+
 class QtBufferedListener(BaseListener):
     """A listener that can plug into the SDK. This listener receives the updates from the server and buffers them in a queue.
     A signal is emitted when new data is received to tell the UI to come read the queue. The signal is only emitted when the

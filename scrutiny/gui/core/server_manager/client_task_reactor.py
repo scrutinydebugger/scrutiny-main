@@ -11,6 +11,7 @@ import queue
 import threading
 import logging
 import functools
+from dataclasses import dataclass
 
 from scrutiny.sdk.client import ScrutinyClient
 from scrutiny.tools.typing import *
@@ -18,22 +19,38 @@ from scrutiny.gui.core.threads import QT_THREAD_NAME
 from scrutiny.tools.thread_enforcer import enforce_thread
 from scrutiny.gui.tools.invoker import invoke_in_qt_thread
 
-ReactorTask:TypeAlias = Callable[[ScrutinyClient], Any]
-UICallbackFunc:TypeAlias = Callable[[Any, Optional[Exception]], None]
+ReactorTask: TypeAlias = Callable[[ScrutinyClient], Any]
+UICallbackFunc: TypeAlias = Callable[[Any, Optional[Exception]], None]
+
+
+@dataclass(slots=True)
+class TaskQueueEntry:
+    task_id: int
+    task: ReactorTask
+    ui_callback: UICallbackFunc
+
 
 class StoppedException(Exception):
     pass
 
-class ClientTaskReactor:
-    _client:ScrutinyClient
-    _threads:List[threading.Thread]
-    _exit_event:threading.Event
-    _started_event:threading.Event
-    _logger:logging.Logger
-    _task_queue:"queue.Queue[Optional[Tuple[int, ReactorTask, UICallbackFunc]]]"
-    _next_task_id:int
 
-    def __init__(self, client:ScrutinyClient, nb_thread:int, queue_max_size:int ) -> None:
+class ClientTaskReactor:
+    _client: ScrutinyClient
+    """Reference to a ScrutinyClient that the user can use in its task"""
+    _threads: List[threading.Thread]
+    """The thread pool"""
+    _exit_event: threading.Event
+    """Stop event for the active session (time span between start and stop)"""
+    _started_event: threading.Event
+    """Start event for the active session (time span between start and stop). No task is taken by the thread pool until this is fired"""
+    _task_queue: "queue.Queue[Optional[TaskQueueEntry]]"
+    """The task queue filled by the different component and read by the thread pool"""
+    _next_task_id: int
+    """A simple numerical ID to make sens eof the logs"""
+    _logger: logging.Logger
+    """The logger"""
+
+    def __init__(self, client: ScrutinyClient, nb_thread: int, queue_max_size: int) -> None:
         self._client = client
         self._nb_thread = nb_thread
         self._exit_event = threading.Event()
@@ -43,19 +60,22 @@ class ClientTaskReactor:
         self._next_task_id = 0
 
     @enforce_thread(QT_THREAD_NAME)
-    def put_task(self, task:ReactorTask, ui_callback:UICallbackFunc) -> None:
+    def put_task(self, task: ReactorTask, ui_callback: UICallbackFunc) -> None:
+        """Enqueue a task for the thread pool to execute"""
         task_id = self._next_task_id
         self._next_task_id += 1
         if self._logger.isEnabledFor(logging.DEBUG):
             self._logger.debug(f"Enqueuing task #{task_id}")
         try:
-            self._task_queue.put_nowait((task_id, task, ui_callback))
+            entry = TaskQueueEntry(task_id, task, ui_callback)
+            self._task_queue.put_nowait(entry)
         except queue.Full as e:
             self._logger.error("Task queue is full")
             ui_callback(None, e)
 
     @enforce_thread(QT_THREAD_NAME)
     def start(self) -> None:
+        """Start the threads"""
         self._logger.debug("Starting")
         if self._started_event.is_set():
             raise RuntimeError("Already started")
@@ -69,7 +89,7 @@ class ClientTaskReactor:
 
         self._threads = []
         for i in range(self._nb_thread):
-            thread = threading.Thread(target = self._thread_task, daemon=True)
+            thread = threading.Thread(target=self._thread_task, daemon=True)
             self._threads.append(thread)
 
         for thread in self._threads:
@@ -79,6 +99,7 @@ class ClientTaskReactor:
 
     @enforce_thread(QT_THREAD_NAME)
     def stop(self) -> None:
+        """Request all threads to exit. This method does not wait on thread to exit."""
         self._logger.debug("Stopping")
         # By setting this, we guarantee that each thread will not take on new tasks.
         # Only finish the one started.
@@ -89,13 +110,12 @@ class ClientTaskReactor:
         # Deplete the queue of any remaining task so we can inform the QT event loop of their non-completion.
         try:
             while not self._task_queue.empty():
-                func_pair = self._task_queue.get_nowait()
-                if func_pair is None:
+                entry = self._task_queue.get_nowait()
+                if entry is None:
                     continue
-                task_id, task, completion_callback = func_pair
                 if self._logger.isEnabledFor(logging.DEBUG):
-                    self._logger.debug(f"Cancelling task #{task_id}")
-                completion_callback(None, StoppedException("Reactor stopped"))
+                    self._logger.debug(f"Cancelling task #{entry.task_id}")
+                entry.ui_callback(None, StoppedException("Reactor stopped"))
         except queue.Empty:
             pass
 
@@ -109,6 +129,7 @@ class ClientTaskReactor:
         self._logger.debug("Stopped")
 
     def _thread_task(self) -> None:
+        """The function run by every thread"""
         started_event = self._started_event
         exit_event = self._exit_event
         started_event.wait(10)
@@ -118,21 +139,20 @@ class ClientTaskReactor:
             return
 
         while not exit_event.is_set():
-            func_pair = self._task_queue.get()
-            if func_pair is None:
+            entry = self._task_queue.get()
+            if entry is None:
                 continue
 
-            task_id, task, ui_callback = func_pair
-            result:Any = None
-            error:Optional[Exception] = None
+            result: Any = None
+            error: Optional[Exception] = None
             try:
                 if self._logger.isEnabledFor(logging.DEBUG):
-                    self._logger.debug(f"Executing task #{task_id}")
-                result = task(self._client)
+                    self._logger.debug(f"Executing task #{entry.task_id}")
+                result = entry.task(self._client)
                 if self._logger.isEnabledFor(logging.DEBUG):
-                    self._logger.debug(f"Task #{task_id} executed")
+                    self._logger.debug(f"Task #{entry.task_id} executed")
             except Exception as e:
-                self._logger.debug(f"Task #{task_id} failed")
+                self._logger.debug(f"Task #{entry.task_id} failed")
                 error = e
 
-            invoke_in_qt_thread(functools.partial(ui_callback, result, error))
+            invoke_in_qt_thread(functools.partial(entry.ui_callback, result, error)) # Non blocking

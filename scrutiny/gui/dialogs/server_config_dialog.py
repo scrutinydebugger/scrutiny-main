@@ -23,7 +23,7 @@ from scrutiny.gui.themes import scrutiny_get_theme
 
 from scrutiny.gui import DEFAULT_SERVER_PORT
 from scrutiny.gui.tools.validators import IpPortValidator, NotEmptyValidator
-from scrutiny.gui.core.server_manager.server_manager  import ServerConfig
+from scrutiny.gui.core.server_manager.server_manager import ServerConfig
 from scrutiny.gui.core.local_server_runner import LocalServerRunner
 from scrutiny.gui.core.persistent_data import gui_persistent_data, AppPersistentData
 from scrutiny.gui import assets

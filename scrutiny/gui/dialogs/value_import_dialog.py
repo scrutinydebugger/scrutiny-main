@@ -21,7 +21,7 @@ from PySide6.QtCore import Qt
 
 from scrutiny.gui.core.serializable_value_set import SerializableValueSet
 from scrutiny.gui.core.watchable_registry import WatchableRegistry, ParsedFullyQualifiedName, WatchableRegistryError
-from scrutiny.gui.core.server_manager.server_manager  import ServerManager
+from scrutiny.gui.core.server_manager.server_manager import ServerManager
 from scrutiny.gui.widgets.watchable_tree import get_watchable_icon
 from scrutiny.gui.widgets.scrutiny_qmenu import ScrutinyQMenu
 from scrutiny.gui.tools.invoker import invoke_later
