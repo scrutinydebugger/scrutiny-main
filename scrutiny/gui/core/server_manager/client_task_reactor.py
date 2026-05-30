@@ -50,8 +50,9 @@ class ClientTaskReactor:
             self._logger.debug(f"Enqueuing task #{task_id}")
         try:
             self._task_queue.put_nowait((task_id, task, ui_callback))
-        except queue.Full:
-            self._logger.critical("Task queue is full")
+        except queue.Full as e:
+            self._logger.error("Task queue is full")
+            ui_callback(None, e)
 
     @enforce_thread(QT_THREAD_NAME)
     def start(self) -> None:
