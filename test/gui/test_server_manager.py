@@ -7,7 +7,8 @@
 #    Copyright (c) 2024 Scrutiny Debugger
 
 from scrutiny import sdk
-from scrutiny.gui.core.server_manager import ServerManager, ServerConfig, QtBufferedListener
+from scrutiny.gui.core.server_manager.server_manager import ServerManager, ServerConfig
+from scrutiny.gui.core.server_manager.qt_buffered_listener import QtBufferedListener
 from scrutiny.gui.core.watchable_registry import WatchableRegistry
 from test.gui.fake_sdk_client import FakeSDKClient, StubbedWatchableHandle
 from test.gui.base_gui_test import ScrutinyBaseGuiTest, EventType
@@ -489,6 +490,7 @@ class TestServerManager(ScrutinyBaseGuiTest):
             time.sleep(0.5)
             return "hello"
 
+        self.server_manager.start(SERVER_MANAGER_CONFIG)
         self.server_manager.schedule_client_request(func_success, ui_callback)
         self.wait_true_with_events(lambda: data.callback_called, 3)
 

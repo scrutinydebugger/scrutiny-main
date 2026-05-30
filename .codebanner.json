@@ -474,9 +474,6 @@
         "scrutiny/gui/core/watchable_registry.py": {
             "docstring": "A storage object that keeps a local copy of all the watchable (Variable/Alias/RPV) available on the server. \nLots of overlapping feature with the server datastore, with few fundamentals differences."
         },
-        "scrutiny/gui/core/server_manager.py": {
-            "docstring": "Object that handles the communication with the server and inform the rest of the GUI about what's happening on the other side of the socket. Based on the SDK ScrutinyClient"
-        },
         "scrutiny/gui/components/base_component.py": {
             "docstring": "A base class for a component that can be added to the GUI (globally or on the dashboard)"
         },
@@ -1118,6 +1115,15 @@
         },
         "scrutiny/gui/widgets/tooltip_form_layout.py": {
             "docstring": "An extension of the QFormLayout that can easily add tooltips on the label"
+        },
+        "scrutiny/gui/core/server_manager/qt_buffered_listener.py": {
+            "docstring": "A custom sdk.Listener meant to broadcast value upadtes the the QT GUI."
+        },
+        "scrutiny/gui/core/server_manager/server_manager.py": {
+            "docstring": "Object that handles the communication with the server and inform the rest of the GUI about what's happening on the other side of the socket. Based on the SDK ScrutinyClient"
+        },
+        "scrutiny/gui/core/server_manager/client_task_reactor.py": {
+            "docstring": "A reactor that can pipeline blocking requests to the server using the synchronous SDK. Uses a threadpool"
         }
     },
     "authors": {}

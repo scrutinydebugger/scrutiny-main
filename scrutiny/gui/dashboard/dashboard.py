@@ -38,7 +38,7 @@ from scrutiny.gui.dashboard import dashboard_file_format
 from scrutiny.gui.app_settings import app_settings
 from scrutiny.gui.core.persistent_data import gui_persistent_data
 from scrutiny.gui.core.watchable_registry import WatchableRegistry
-from scrutiny.gui.core.server_manager import ServerManager
+from scrutiny.gui.core.server_manager.server_manager import ServerManager
 
 from scrutiny.gui.widgets.scrutiny_qmenu import ScrutinyQMenu
 

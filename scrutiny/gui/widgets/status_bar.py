@@ -16,7 +16,7 @@ from PySide6.QtWidgets import QStatusBar, QWidget, QLabel, QHBoxLayout, QSizePol
 from PySide6.QtCore import Qt, QPoint
 from PySide6.QtGui import QPixmap, QAction
 
-from scrutiny.gui.core.server_manager import ServerManager
+from scrutiny.gui.core.server_manager.server_manager import ServerManager
 from scrutiny.gui.core.local_server_runner import LocalServerRunner
 from scrutiny.gui.core.user_messages_manager import UserMessagesManager, UserMessage
 from scrutiny.gui.dialogs.server_config_dialog import ServerConfigDialog

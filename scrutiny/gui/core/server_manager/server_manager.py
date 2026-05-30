@@ -13,13 +13,11 @@ from scrutiny import sdk
 import threading
 import time
 import logging
-import queue
 import enum
 from copy import copy
 from dataclasses import dataclass
 
 from PySide6.QtCore import Signal, QObject
-import shiboken6
 
 from scrutiny.core.logging import DUMPDATA_LOGLEVEL
 from scrutiny.sdk.listeners import BaseListener, ValueUpdate
@@ -27,162 +25,23 @@ from scrutiny.sdk.watchable_handle import WatchableHandle
 from scrutiny.sdk.client import ScrutinyClient, WatchableListDownloadRequest
 from scrutiny.gui.core.watchable_registry import WatchableRegistry, GlobalWatchCallbackData
 from scrutiny.gui.core.user_messages_manager import UserMessagesManager
+from scrutiny.gui.core.server_manager.qt_buffered_listener import QtBufferedListener
+from scrutiny.gui.core.server_manager.client_task_reactor import ClientTaskReactor
 from scrutiny.gui.core.threads import QT_THREAD_NAME, SERVER_MANAGER_THREAD_NAME
 from scrutiny.gui.tools.invoker import invoke_in_qt_thread_synchronized, invoke_later
+
 from scrutiny import tools
 from scrutiny.tools.thread_enforcer import thread_func, enforce_thread
-from scrutiny.tools.profiling import VariableRateExponentialAverager
 from scrutiny.tools.typing import *
 from scrutiny.gui.app_settings import app_settings
 
 USER_MSG_ID_CONNECT_FAILED = "connect_failed"
-USER_MSG_UPDATE_OVERRUN = "listener_update_dropped"
 
 
 @dataclass(slots=True)
 class ServerConfig:
     hostname: str
     port: int
-
-
-class QtBufferedListener(BaseListener):
-    """A listener that can plug into the SDK. This listener receives the updates from the server and buffers them in a queue.
-    A signal is emitted when new data is received to tell the UI to come read the queue. The signal is only emitted when the
-    UI is ready to receive it for natural derating on update speed if the CPU is overloaded"""
-
-    MAX_SIGNALS_PER_SEC = 15
-    """Maximum number of ``data_received`` QT signals this listener is allowed to emit per seconds.
-    Prevent overflowing the event loop"""
-    TARGET_PROCESS_INTERVAL = 0.2
-    """Delay between 2 calls to ``process()``. Override ``BaseListener`` value"""
-
-    class _Signals(QObject):
-        data_received = Signal()
-
-    to_gui_thread_queue: "queue.Queue[List[ValueUpdate]]"
-    """A queue to transfer the value updates to the GUI thread"""
-    signals: _Signals
-    """The signals that this listener can emit"""
-    last_signal_perf_cnt_ns: int
-    """Timestamp of the last signal being sent"""
-    minimal_inter_signal_delay_ns: int = int(1e9 / MAX_SIGNALS_PER_SEC)
-    """Minimal amount of time between two data_received signals"""
-    emit_allowed: bool
-    """Flag preventing overflowing the event loop if the GUI thread is overloaded"""
-    update_dropped_count: int
-    """A counter that keeps track of how many value updates were lost during this session"""
-    _last_drop_message_monotonic_time: Optional[float]
-    """A timestamp used to avoid spamming the logger/messaging system when the queue overflows"""
-
-    def __init__(self, *args: Any, **kwargs: Any):
-        BaseListener.__init__(self, *args, **kwargs)
-        self.to_gui_thread_queue = queue.Queue(maxsize=1000)    # Full load test peaks at 50
-        self.signals = self._Signals()
-        self.last_signal_perf_cnt_ns = time.perf_counter_ns()
-        self.emit_allowed = True
-        self.qt_event_rate_measurement = VariableRateExponentialAverager(time_estimation_window=0.1, tau=0.5, near_zero=0.1)
-        self.update_dropped_count = 0
-        self._last_drop_message_monotonic_time = None
-
-    def setup(self) -> None:
-        self.update_dropped_count = 0
-        self.qt_event_rate_measurement.enable()
-        self.emit_allowed = True
-
-    def teardown(self) -> None:
-        self.emit_allowed = False
-        self.qt_event_rate_measurement.disable()
-
-    def ready_for_next_update(self) -> None:
-        self.emit_allowed = True
-
-    def _emit_signal_if_possible(self) -> None:
-        tnow = time.perf_counter_ns()
-        tdiff = tnow - self.last_signal_perf_cnt_ns
-        expired = tdiff >= self.minimal_inter_signal_delay_ns or tdiff < 0  # Unclear if that counter can wrap. being careful here
-        if expired and self.emit_allowed:
-            self.qt_event_rate_measurement.add_data(1)
-            self.last_signal_perf_cnt_ns = tnow
-            self.emit_allowed = False
-            # The signal is created in the main thread, but used in the listener thread
-            # Even very improbable, there is a slight time window where
-            # this signal can be deleted before teardown is called. So suppress the exception for normal operation
-            with tools.LogException(self._logger, RuntimeError, "Failed to emit", str_level=logging.DEBUG, traceback_level=logging.DEBUG):
-                self.signals.data_received.emit()
-
-    def receive(self, updates: List[ValueUpdate]) -> None:
-        try:
-            self.to_gui_thread_queue.put(updates.copy(), block=False)
-        except queue.Full:
-            self.update_dropped_count += 1
-            if self._last_drop_message_monotonic_time is None or time.monotonic() - self._last_drop_message_monotonic_time > 1:
-                msg = f"Value update overrun. Total lost: {self.update_dropped_count} updates"
-                self._logger.error(msg)
-                UserMessagesManager.instance().register_message_thread_safe(USER_MSG_UPDATE_OVERRUN, msg, 3)
-                self._last_drop_message_monotonic_time = time.monotonic()
-
-        self._emit_signal_if_possible()
-
-    def process(self) -> None:
-        # Slow call rate. Called at rate defined by TARGET_PROCESS_INTERVAL
-        if self.gui_qsize > 0:
-            self._emit_signal_if_possible()  # Prune any remaining content if the server stops broadcasting
-        self.qt_event_rate_measurement.update()
-
-    def allow_subscription_changes_while_running(self) -> bool:
-        return True
-
-    @property
-    def gui_qsize(self) -> int:
-        """Return the number of value updates presently stored in the queue linking the listener thread and the QT GUI thread."""
-        return self.to_gui_thread_queue.qsize()
-
-    @property
-    def effective_event_rate(self) -> float:
-        """Returned the measured rate at which the ``data_received`` signal is being emitted"""
-        return self.qt_event_rate_measurement.get_value()
-
-
-class ClientRequestStore:
-    @dataclass(slots=True)
-    class ClientRequestEntry:
-        ui_callback: Callable[[Any, Optional[Exception]], None]
-        threaded_func_return_value: Any
-        error: Optional[Exception]
-
-    _next_id: int
-    _storage: Dict[int, ClientRequestEntry]
-    _lock: threading.Lock
-
-    def __init__(self) -> None:
-        self._next_id = 0
-        self._storage = dict()
-        self._lock = threading.Lock()
-
-    def clear(self) -> None:
-        with self._lock:
-            self._storage.clear()
-            self._next_id = 0
-
-    def register(self, entry: ClientRequestEntry) -> int:
-        """Register a request in the storage and return a unique, monotonic ID"""
-        with self._lock:
-            while self._next_id in self._storage:
-                self._next_id += 1
-            assigned_id = self._next_id
-            self._storage[assigned_id] = entry
-            self._next_id += 1
-
-        return assigned_id
-
-    def get(self, storage_id: int) -> Optional[ClientRequestEntry]:
-        try:
-            with self._lock:
-                entry = self._storage[storage_id]
-                del self._storage[storage_id]
-            return entry
-        except KeyError:
-            return None
 
 
 class ServerManager:
@@ -252,7 +111,6 @@ class ServerManager:
 
     class _InternalSignals(QObject):
         thread_exit_signal = Signal()
-        client_request_completed = Signal(int)
 
     class _Signals(QObject):    # QObject required for signals to work
         """Signals offered to the outside world"""
@@ -300,8 +158,8 @@ class ServerManager:
 
     _stop_pending: bool
     """Indicate if a stop is in progress. ``True`` between calls to stop() and emission of ``stopped`` signal"""
-    _client_request_store: ClientRequestStore
-    """A storage for SDK client request that are scheduled to run in a different thread. See ``schedule_client_request``"""
+    _client_task_reactor: ClientTaskReactor
+    """A reactor that can pipeline blocking requests to the server"""
     _listener: QtBufferedListener
     """A custom listener that passes the data from the SDK client thread to the QT GUI thread"""
     _status_update_received: int
@@ -349,9 +207,8 @@ class ServerManager:
         }
 
         self._internal_signals.thread_exit_signal.connect(self._qt_thread_join_thread_and_emit_stopped)
-        self._internal_signals.client_request_completed.connect(self._qt_client_request_completed)
         self._stop_pending = False
-        self._client_request_store = ClientRequestStore()
+        self._client_task_reactor = ClientTaskReactor(self._client, nb_thread=16, queue_max_size=100)
         self._registry.register_global_watch_callback(self._qt_registry_watch_callback, self._qt_registry_unwatch_callback)
 
         self._listener = QtBufferedListener()
@@ -687,7 +544,7 @@ class ServerManager:
     # region Private QT side methods
 
     def _request_update_rate_change(self, handle: WatchableHandle, update_rate: Optional[float]) -> None:
-        def _ephemerous_thread_change(client: ScrutinyClient) -> Optional[float]:
+        def _threaded_func_change(client: ScrutinyClient) -> Optional[float]:
             return handle.change_update_rate(update_rate)
 
         def _qt_thread_callback(effective_rate: Optional[float], error: Optional[Exception]) -> None:
@@ -697,7 +554,7 @@ class ServerManager:
 
         if self._logger.isEnabledFor(logging.DEBUG):
             self._logger.debug(f"Changing update rate of {handle.server_path} to {update_rate}")
-        self.schedule_client_request(_ephemerous_thread_change, _qt_thread_callback)
+        self.schedule_client_request(_threaded_func_change, _qt_thread_callback)
 
     def _qt_update_registration_from_watchable_handle(self,
                                                       registration_status: WatchableRegistrationStatus,
@@ -901,21 +758,6 @@ class ServerManager:
         self._registry.broadcast_value_updates_to_watchers(aggregated_updates)
         self._listener.ready_for_next_update()
 
-    def _qt_client_request_completed(self, store_id: int) -> None:
-        # This runs in the UI thread
-        entry = self._client_request_store.get(store_id)
-        if entry is None:
-            self._logger.debug("Client request completed, but entry not part of the store.")
-            return
-
-        if self._exit_in_progress:
-            # Prevents weird behavior on app exit, like accessing deleted resources
-            # The main window is expected to call exit() before exiting.
-            self._logger.debug("Client request completed, but the server manager has been stopped. Ignoring.")
-            return
-
-        entry.ui_callback(entry.threaded_func_return_value, entry.error)
-
     @enforce_thread(QT_THREAD_NAME)
     def _qt_thread_join_thread_and_emit_stopped(self) -> None:
         """Called when the stop process is completed. Triggered by the internal thread, executed in the QT thread"""
@@ -1062,37 +904,7 @@ class ServerManager:
                                 ) -> None:
         """Runs a client request in a separate thread and calls a callback in the UI thread when done."""
         # Thread safe. Can be called from any thread
-
-        def threaded_func() -> None:
-            # This runs in a separate thread
-            error: Optional[Exception] = None
-            return_val: Any = None
-            try:
-                return_val = user_func(self._client)
-            except Exception as e:
-                error = e
-
-            if self._exit_in_progress:
-                return
-
-            # A race condition is possible here when exiting the application
-            # Resources can be deleted between here and the end.
-
-            entry = ClientRequestStore.ClientRequestEntry(
-                ui_callback=ui_thread_callback,
-                threaded_func_return_value=return_val,
-                error=error
-            )
-            assigned_id = self._client_request_store.register(entry)
-            try:
-                self._internal_signals.client_request_completed.emit(assigned_id)
-            except Exception as e:
-                # Expected to fail if QT has deleted internal resources
-                if not self._exit_in_progress:
-                    self._logger.error(f"Failed to emit client_request_completed signal. {e}")
-
-        t = threading.Thread(target=threaded_func, daemon=True)
-        t.start()
+        self._client_task_reactor.put_task(user_func, ui_thread_callback)
 
     def get_server_state(self) -> sdk.ServerState:
         # Called from QT thread + Server thread. atomic
@@ -1181,10 +993,10 @@ class ServerManager:
         self._logger.debug("Starting server manager")
         self._set_device_info(None)
         self._set_loaded_sfd(None)
-        self._client_request_store.clear()
         self.signals.starting.emit()
         self._allow_auto_reconnect = True
         self._thread_stop_event.clear()
+        self._client_task_reactor.start()
         self._thread = threading.Thread(target=self._thread_func, args=[config], daemon=True)
         self._listener.reset_stats()
         self._thread.start()
@@ -1215,6 +1027,7 @@ class ServerManager:
         # Will cause the thread to exit and emit thread_exit_signal that triggers _qt_thread_join_thread_and_emit_stopped in the UI thread
         self._thread_stop_event.set()
         self._client.close_socket()   # Will cancel any pending request in the other thread
+        self._client_task_reactor.stop()
         self._logger.debug("Stop initiated")
 
     def is_running(self) -> bool:
