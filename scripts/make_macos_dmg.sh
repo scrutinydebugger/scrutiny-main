@@ -44,7 +44,7 @@ APP_NAME="Scrutiny GUI"
 PACKAGE_DIR="${TEMP_DIR}/${APP_NAME}.app"
 set -x
 cp -R "${APP_DIR}" "${PACKAGE_DIR}"
-ln -s "${PACKAGE_DIR}/Applications" ~/Desktop/Applications
+ln -s "~/Desktop/Applications" "${PACKAGE_DIR}/Applications"
 hdiutil create -volname "Scrutiny Debugger v${SCRUTINY_VERSION}" -srcfolder "${PACKAGE_DIR}" -ov -format UDZO "${DMG_FILE}"
 
 # Finish and cleanup
