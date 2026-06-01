@@ -19,7 +19,7 @@ from pathlib import Path
 import gc
 import functools
 
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QInputDialog, QLineEdit
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QInputDialog, QLineEdit, QApplication
 from PySide6.QtCore import Qt, QSize, QObject, Signal, QTimer
 from PySide6.QtGui import QKeyEvent, QContextMenuEvent, QMouseEvent
 
@@ -352,6 +352,7 @@ class Dashboard(QWidget):
 
 # region Public API
 
+
     @property
     def signals(self) -> _Signals:
         return self._signals
@@ -411,8 +412,7 @@ class Dashboard(QWidget):
             auto_hide_container.setSize(component.sizeHint().width())
 
         if show:
-            # Workaround for bug #739 : https://github.com/githubuser0xFFFF/Qt-Advanced-Docking-System/issues/739
-            is_autohide = dock_widget.dockAreaWidget().isAutoHide()     # Do not use dock_widdget.isAutoHide(), see bug above
+            is_autohide = self._is_autohide(dock_widget)    # Use this to avoid QtADS bug
 
             # The user may have moved it, no assumption on type of container.
             if is_autohide:
@@ -554,6 +554,10 @@ class Dashboard(QWidget):
 
 # region Internal
 
+    def _is_autohide(self, dock_widget: QtAds.CDockWidget) -> bool:
+        # Workaround for bug #739 : https://github.com/githubuser0xFFFF/Qt-Advanced-Docking-System/issues/739
+        return dock_widget.dockAreaWidget().isAutoHide()     # Do not use dock_widget.isAutoHide(), see bug above
+
     def _set_active_file(self, filepath: Optional[Path]) -> None:
         changed = False
         if filepath != self._active_file:
@@ -684,10 +688,28 @@ class Dashboard(QWidget):
         if component is None:
             self._logger.error("Dock widget has no component widget")
             return
+
         if isinstance(component, ScrutinyGUIBaseGlobalComponent):
             self._dock_manager.addAutoHideDockWidget(QtAds.SideBarRight, dock_widget)
         else:
-            self._dock_manager.addDockWidgetTab(QtAds.TopDockWidgetArea, dock_widget)
+            add_to_focused_area = False
+            focused_dock_widget = self._get_focused_dock_widget()
+            if focused_dock_widget is not None:
+                if not self._is_autohide(focused_dock_widget):    # Use this to avoid QtADS bug
+                    add_to_focused_area = True
+            if add_to_focused_area:
+                assert focused_dock_widget is not None
+                self._dock_manager.addDockWidgetTabToArea(dock_widget, focused_dock_widget.dockAreaWidget())
+            else:
+                self._dock_manager.addDockWidgetTab(QtAds.TopDockWidgetArea, dock_widget)
+
+    def _get_focused_dock_widget(self) -> Optional[QtAds.CDockWidget]:
+        widget = QApplication.focusWidget()
+        while widget is not None:
+            if isinstance(widget, QtAds.CDockWidget):
+                return widget
+            widget = cast(Optional[QWidget], widget.parent())
+        return None
 
     def _destroy_widget(self, dock_widget: QtAds.CDockWidget) -> None:
         """Handle deletion of widget. Either when "close" is clicked or programmatically removed with dock_manager.removeDockWidget()"""
