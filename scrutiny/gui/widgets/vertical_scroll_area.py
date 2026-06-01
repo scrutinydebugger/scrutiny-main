@@ -1,3 +1,11 @@
+#    vertical_scroll_area.py
+#        A ScrollArea that only scroll vertically, resize the underlying widget horizontally.
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
+
 from PySide6.QtGui import QResizeEvent
 from PySide6.QtWidgets import QScrollArea
 from PySide6.QtCore import Qt

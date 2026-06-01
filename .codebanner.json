@@ -1124,6 +1124,9 @@
         },
         "scrutiny/gui/core/server_manager/client_task_reactor.py": {
             "docstring": "A reactor that can pipeline blocking requests to the server using the synchronous SDK. Uses a threadpool"
+        },
+        "scrutiny/gui/widgets/vertical_scroll_area.py": {
+            "docstring": "A ScrollArea that only scroll vertically, resize the underlying widget horizontally."
         }
     },
     "authors": {}
