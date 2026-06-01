@@ -42,10 +42,11 @@ DMG_FILE=${OUTPUT_FOLDER}/${DMG_NAME}
 TEMP_DIR=$(mktemp -d)
 APP_NAME="Scrutiny GUI"
 DST_APP_DIR="${TEMP_DIR}/${APP_NAME}.app"
+ARCH=$(uname -m)
 set -x
 cp -R "${APP_DIR}" "${DST_APP_DIR}"
 ln -s "/Applications" "${TEMP_DIR}/Applications"
-hdiutil create -volname "Scrutiny Debugger v${SCRUTINY_VERSION}" -srcfolder "${TEMP_DIR}" -ov -format UDZO "${DMG_FILE}"
+hdiutil create -volname "Scrutiny Debugger v${SCRUTINY_VERSION} ${ARCH}" -srcfolder "${TEMP_DIR}" -ov -format UDZO "${DMG_FILE}"
 
 # Finish and cleanup
 assert_file "$DMG_FILE"
