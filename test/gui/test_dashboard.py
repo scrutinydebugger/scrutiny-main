@@ -10,7 +10,8 @@ import os
 import tempfile
 from pathlib import Path
 
-from PySide6.QtWidgets import QWidget
+from PySide6.QtWidgets import QWidget, QApplication
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon
 
 from test.gui.base_gui_test import ScrutinyBaseGuiTest
@@ -18,8 +19,6 @@ from test.gui.fake_server_manager import FakeServerManager
 from scrutiny.gui.core.watchable_registry import WatchableRegistry
 from scrutiny.tools.typing import *
 from scrutiny.gui.dashboard.dashboard import Dashboard
-from scrutiny.gui.app_settings import configure_unit_test_app_settings
-from scrutiny.gui.gui import ScrutinyQtGUI, SupportedTheme
 
 from scrutiny.gui.components.globals.base_global_component import ScrutinyGUIBaseGlobalComponent
 from scrutiny.gui.components.locals.base_local_component import ScrutinyGUIBaseLocalComponent
@@ -100,6 +99,8 @@ class TestDashboard(ScrutinyBaseGuiTest):
     def setUp(self):
         super().setUp()
         self.main_window = MainWindowStub()
+        self.main_window.show()
+        QApplication.setActiveWindow(self.main_window)  # Allow focus control
 
     def test_setup_teardown(self):
         dashboard = Dashboard(self.main_window)
@@ -441,3 +442,32 @@ class TestDashboard(ScrutinyBaseGuiTest):
         self.assertTrue(dock_widget.isFloating())   # This is fine
         self.assertFalse(dock_widget.dockAreaWidget().isAutoHide())  # This is fine
        # self.assertFalse(dock_widget.isAutoHide())  # This fails!
+
+    def test_add_on_focused_pane(self):
+        dashboard = Dashboard(self.main_window)
+        dw1 = dashboard.add_local_component(StubbedLocalComponent)
+        dw2 = dashboard.add_local_component(StubbedLocalComponent)
+        dw3 = dashboard.create_or_show_global_component(StubbedGlobalComponent)
+        dashboard.dock_manager().addDockWidget(QtAds.RightDockWidgetArea, dw2, dw1.dockAreaWidget())
+        assert dw1 is not None
+        assert dw2 is not None
+        assert dw3 is not None
+
+        dw1.widget().setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        dw2.widget().setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        dw3.widget().setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+
+        dw1.widget().setFocus()
+        self.assertTrue(dw1.widget().hasFocus())
+        dw4 = dashboard.add_local_component(StubbedLocalComponent)
+        dw2.widget().setFocus()
+        self.assertTrue(dw2.widget().hasFocus())
+        dw5 = dashboard.add_local_component(StubbedLocalComponent)
+
+        self.assertIs(dw1.dockAreaWidget(), dw4.dockAreaWidget())
+        self.assertIs(dw2.dockAreaWidget(), dw5.dockAreaWidget())
+
+        # Make sure we cannot add tabs to global components through focus
+        dw3.widget().setFocus()
+        dw6 = dashboard.add_local_component(StubbedLocalComponent)
+        self.assertIsNot(dw3.dockAreaWidget(), dw6.dockAreaWidget())
