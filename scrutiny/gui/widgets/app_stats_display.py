@@ -12,13 +12,14 @@ from PySide6.QtWidgets import QWidget, QFormLayout, QLabel, QGroupBox, QVBoxLayo
 from PySide6.QtCore import Qt
 from scrutiny import sdk
 from scrutiny.gui.core.server_manager.server_manager import ServerManager
+from scrutiny.gui.themes import scrutiny_get_theme
 from scrutiny.tools import format_eng_unit, format_sec_to_dhms
 from scrutiny.tools.typing import *
 
 
 def _configure_property_label(label: QLabel, has_tooltip: bool) -> None:
     if has_tooltip:
-        label.setCursor(Qt.CursorShape.WhatsThisCursor)
+        label.setCursor(scrutiny_get_theme().tooltip_cursor())
     label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
 
 
