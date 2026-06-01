@@ -175,7 +175,7 @@ class RadialGaugeHMIWidget(BaseHMIWidget):
 
         self._cmb_overflow_behavior = QComboBox()
         self._cmb_overflow_behavior.addItem("Clip", GaugeOverflowBehavior.CLIP)
-        self._cmb_overflow_behavior.addItem("Show Invalid", GaugeOverflowBehavior.SHOW_NA)
+        self._cmb_overflow_behavior.addItem("No value", GaugeOverflowBehavior.NO_VALUE)
 
         self._spn_major_ticks = QSpinBox()
         self._spn_major_ticks.setMinimum(0)
@@ -246,7 +246,7 @@ class RadialGaugeHMIWidget(BaseHMIWidget):
         overflow_behavior = cast(GaugeOverflowBehavior, self._cmb_overflow_behavior.currentData())
         clipped = False
         if ratio < 0 or ratio > 1:
-            if overflow_behavior == GaugeOverflowBehavior.SHOW_NA:
+            if overflow_behavior == GaugeOverflowBehavior.NO_VALUE:
                 return None
             else:
                 ratio = min(max(ratio, 0), 1)

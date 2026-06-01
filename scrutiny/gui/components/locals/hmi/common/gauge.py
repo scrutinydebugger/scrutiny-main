@@ -10,6 +10,8 @@ import enum
 
 
 class GaugeOverflowBehavior(enum.Enum):
-    """How to handle when a value is outside the min-max range.  CLIP Set to min or max. Show_NA : Remove the pointer and display N/A"""
+    """How to handle when a value is outside the min-max range.
+    CLIP Set to min or max.
+    NO_VALUE : Remove the pointer and display N/A if applicable"""
     CLIP = 1
-    SHOW_NA = 2
+    NO_VALUE = 2

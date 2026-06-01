@@ -327,7 +327,7 @@ class TestHMIWidgetSerialization(HMIComponentBaseTest):
             units='W',
         )
         gauge.set_number_formatting_config(config)
-        gauge.set_overflow_behavior(GaugeOverflowBehavior.SHOW_NA)
+        gauge.set_overflow_behavior(GaugeOverflowBehavior.NO_VALUE)
         color_spans = [
             ColorSpan(start=10, stop=30.5, color=HMIColor.HIGHLIGHT),
             ColorSpan(start=50.1, stop=90, color=HMIColor.WARNING)
@@ -365,7 +365,7 @@ class TestHMIWidgetSerialization(HMIComponentBaseTest):
 
         gauge.set_major_ticks(8)
         gauge.set_minor_ticks(4)
-        gauge.set_overflow_behavior(GaugeOverflowBehavior.SHOW_NA)
+        gauge.set_overflow_behavior(GaugeOverflowBehavior.NO_VALUE)
         color_spans = [
             ColorSpan(start=10, stop=30.5, color=HMIColor.HIGHLIGHT),
             ColorSpan(start=50.1, stop=90, color=HMIColor.WARNING)
@@ -380,7 +380,7 @@ class TestHMIWidgetSerialization(HMIComponentBaseTest):
         # Verify all getters directly
         self.assertEqual(gauge.get_major_ticks(), 8)
         self.assertEqual(gauge.get_minor_ticks(), 4)
-        self.assertEqual(gauge.get_overflow_behavior(), GaugeOverflowBehavior.SHOW_NA)
+        self.assertEqual(gauge.get_overflow_behavior(), GaugeOverflowBehavior.NO_VALUE)
         loaded_spans = gauge.get_color_spans()
         self.assertEqual(len(loaded_spans), 2)
         self.assertEqual(loaded_spans[0], color_spans[0])
@@ -1487,7 +1487,7 @@ class TestHMIWidgets(HMIComponentBaseTest):
         gauge.update()
         self._render_scene()
 
-        gauge.set_overflow_behavior(GaugeOverflowBehavior.SHOW_NA)
+        gauge.set_overflow_behavior(GaugeOverflowBehavior.NO_VALUE)
         gauge.configure_vslot_constant('val', 101)
         gauge.update()
         self._render_scene()
@@ -1526,7 +1526,7 @@ class TestHMIWidgets(HMIComponentBaseTest):
         gauge.update()
         self._render_scene()
 
-        gauge.set_overflow_behavior(GaugeOverflowBehavior.SHOW_NA)
+        gauge.set_overflow_behavior(GaugeOverflowBehavior.NO_VALUE)
         gauge.update()
         self._render_scene()
 
