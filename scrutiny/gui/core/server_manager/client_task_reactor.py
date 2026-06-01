@@ -155,4 +155,4 @@ class ClientTaskReactor:
                 self._logger.debug(f"Task #{entry.task_id} failed")
                 error = e
 
-            invoke_in_qt_thread(functools.partial(entry.ui_callback, result, error)) # Non blocking
+            invoke_in_qt_thread(functools.partial(entry.ui_callback, result, error))  # Non blocking

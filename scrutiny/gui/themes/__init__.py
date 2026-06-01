@@ -9,9 +9,11 @@ __all__ = [
 
 import enum
 import abc
+import sys
 
 from PySide6.QtWidgets import QApplication, QStyle, QWidget
 from PySide6.QtGui import QPalette, QIcon, QPixmap
+from PySide6.QtCore import Qt
 from scrutiny.gui import assets
 from scrutiny.tools.typing import *
 
@@ -106,6 +108,12 @@ class ScrutinyTheme(abc.ABC):
 
     def set_success_state(self, widget: QWidget) -> None:
         self.set_state(widget, "success")
+
+    def tooltip_cursor(self) -> Qt.CursorShape:
+        if sys.platform == 'darwin':
+            return Qt.CursorShape.ArrowCursor
+        else:
+            return Qt.CursorShape.WhatsThisCursor
 
     @abc.abstractmethod
     def get_val(self, prop: ScrutinyThemeProperties) -> Any:

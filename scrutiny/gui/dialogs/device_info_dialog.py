@@ -11,14 +11,15 @@ __all__ = ['DeviceInfoDialog']
 from PySide6.QtWidgets import QDialog, QFormLayout, QLabel, QWidget, QVBoxLayout, QGroupBox, QGridLayout
 from PySide6.QtCore import Qt
 
-from scrutiny.tools.typing import *
+from scrutiny.gui.themes import scrutiny_get_theme
 from scrutiny.sdk import DeviceInfo, SupportedFeatureMap, MemoryRegion, SamplingRate, FixedFreqSamplingRate, VariableFreqSamplingRate
+from scrutiny.tools.typing import *
 
 
 def _configure_property_label(label: QLabel, has_tooltip: bool) -> None:
     """Helper to create FormLayout content. Applied on the property label"""
     if has_tooltip:
-        label.setCursor(Qt.CursorShape.WhatsThisCursor)
+        label.setCursor(scrutiny_get_theme().tooltip_cursor())
     label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
 
 

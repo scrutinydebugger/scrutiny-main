@@ -11,6 +11,8 @@ __all__ = ['SFDContentDialog']
 
 from PySide6.QtWidgets import QDialog, QFormLayout, QLabel, QWidget, QVBoxLayout, QGroupBox
 from PySide6.QtCore import Qt
+
+from scrutiny.gui.themes import scrutiny_get_theme
 from scrutiny import sdk
 from scrutiny.tools.typing import *
 
@@ -45,7 +47,7 @@ class SFDContentDialog(QDialog):
                     value = field[1]
                 value_label = QLabel(value)
                 property_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-                property_label.setCursor(Qt.CursorShape.WhatsThisCursor)
+                property_label.setCursor(scrutiny_get_theme().tooltip_cursor())
                 value_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
                 value_label.setCursor(Qt.CursorShape.IBeamCursor)
                 layout.addRow(property_label, value_label)

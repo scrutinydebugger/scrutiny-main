@@ -24,6 +24,7 @@ from scrutiny.sdk.datalogging import (TriggerCondition, SamplingRate, FixedFreqS
                                       VariableFreqSamplingRate, DataloggingConfig)
 from scrutiny.sdk import EmbeddedDataType, DeviceInfo
 from scrutiny.sdk.watchable_handle import WatchableHandle
+from scrutiny.gui.themes import scrutiny_get_theme
 
 from scrutiny.tools.typing import *
 from scrutiny import tools
@@ -234,7 +235,7 @@ class GraphConfigWidget(QWidget):
             label = QLabel(txt)
             if tooltip is not None:
                 label.setToolTip(tooltip)
-                label.setCursor(Qt.CursorShape.WhatsThisCursor)
+                label.setCursor(scrutiny_get_theme().tooltip_cursor())
             layout.addRow(label, widget)
 
         # Layouts
