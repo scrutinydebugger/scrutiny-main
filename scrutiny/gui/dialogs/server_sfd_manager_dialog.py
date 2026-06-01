@@ -273,10 +273,8 @@ class ServerSFDManagerDialog(QDialog):
     """The QTableView displaying the list of SFD installed"""
     _feedback_label: FeedbackLabel
     """A label to display errors"""
-    _menubar: QMenuBar
-    """The dialog top menu bar"""
-    _install_action: QAction
-    """The Install button in the menu bar"""
+    _btn_install: QPushButton
+    """The Install button"""
     _logger: logging.Logger
     """The logger"""
     _active_transfer_req: Optional[Union[SFDUploadRequest, SFDDownloadRequest]]
@@ -289,9 +287,6 @@ class ServerSFDManagerDialog(QDialog):
         self.setWindowFlag(Qt.WindowType.WindowMaximizeButtonHint)
 
         self._server_manager = server_manager
-        self._menubar = QMenuBar(self)
-        install_menu = self._menubar.addMenu("Install")
-        self._install_action = install_menu.addAction("Browse")
         self._active_transfer_req = None
 
         def read_progress() -> float:
@@ -299,11 +294,13 @@ class ServerSFDManagerDialog(QDialog):
                 return 0
             return self._active_transfer_req.get_progress()
         self._progress_widget = ProgressWidget(self, read_progress)
+        self._btn_install = QPushButton("Install")
 
         def cancel_progress_slot() -> None:
             if self._active_transfer_req is not None:
                 self._active_transfer_req.cancel()
         self._progress_widget.signals.cancel.connect(cancel_progress_slot)
+        self._progress_widget.deactivate()
 
         self._logger = logging.getLogger(self.__class__.__name__)
         self._feedback_label = FeedbackLabel()
@@ -315,20 +312,17 @@ class ServerSFDManagerDialog(QDialog):
         self._sfd_table.signals.uninstall.connect(self._uninstall_sfds_slot)
         self._sfd_table.signals.save.connect(self._save_sfd_slot)
         self._sfd_table.signals.show_details.connect(self._show_sfd_details_slot)
-        self._install_action.triggered.connect(self._install_sfd_click_slot)
+        self._btn_install.clicked.connect(self._install_sfd_click_slot)
 
-        content = QWidget()
+        feedback_label_install_container = QWidget()
+        feedback_label_install_container_layout = QHBoxLayout(feedback_label_install_container)
+        feedback_label_install_container_layout.addWidget(self._feedback_label, stretch=1)
+        feedback_label_install_container_layout.addWidget(self._btn_install)
 
-        layout = QVBoxLayout(content)
-        layout.addWidget(self._feedback_label)
+        layout = QVBoxLayout(self)
+        layout.addWidget(feedback_label_install_container)
         layout.addWidget(self._sfd_table)
         layout.addWidget(self._progress_widget)
-
-        menubar_layout = QVBoxLayout(self)
-        menubar_layout.setContentsMargins(0, 0, 0, 0)
-        menubar_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-        menubar_layout.addWidget(self._menubar)
-        menubar_layout.addWidget(content)
 
         self._internal_signals = self._InternalSignals()
         self._internal_signals.sfd_transfer_started.connect(self.set_transfer_active)
@@ -341,13 +335,13 @@ class ServerSFDManagerDialog(QDialog):
 
     def _set_connected(self) -> None:
         """Enables the window when the server is connected"""
-        self._install_action.setEnabled(True)
+        self._btn_install.setEnabled(True)
         self._feedback_label.clear()
         self.download_sfd_list()
 
     def _set_disconnected(self) -> None:
         """Disable the window content when the server is disconnected"""
-        self._install_action.setDisabled(True)
+        self._btn_install.setDisabled(True)
         self._feedback_label.clear()
         self.set_transfer_inactive()
         self.clear_sfd_list()
@@ -561,14 +555,14 @@ class ServerSFDManagerDialog(QDialog):
     def set_transfer_active(self, req: Union[SFDDownloadRequest, SFDUploadRequest]) -> None:
         self._active_transfer_req = req
         self._sfd_table.allow_save(False)
-        self._install_action.setEnabled(False)
+        self._btn_install.setEnabled(False)
         self._progress_widget.activate()
 
     def set_transfer_inactive(self) -> None:
         self._active_transfer_req = None
         if self._server_manager.get_server_state() == sdk.ServerState.Connected:
             self._sfd_table.allow_save(True)
-            self._install_action.setEnabled(True)
+            self._btn_install.setEnabled(True)
             self._progress_widget.deactivate()
 
     def is_transfer_active(self) -> bool:
