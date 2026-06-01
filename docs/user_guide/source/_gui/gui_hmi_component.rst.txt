@@ -233,7 +233,7 @@ Parameters:
 - **Overflow** : How to handle an overflow.
 
   - Clip : Pointer stops at the minimum or maximum and changes color. The text display shows the real value.
-  - Show Invalid : Pointer is not drawn. Text display shows ``N/A``
+  - No value : Pointer is not drawn. Text display shows ``N/A``
 
 - **Label Size** : The size of the labels
 - **Major ticks** : Number of major tick markers (with labels) along the gauge
@@ -269,7 +269,7 @@ Parameters:
 - **Overflow** : How to handle an overflow.
 
   - Clip : Pointer stops at the minimum or maximum and changes color.
-  - Show Invalid : Pointer and fill color are not drawn.
+  - No value : Pointer and fill color are not drawn.
 
 - **Inverted** : When checked, the minimum is at the top of the gauge and the maximum at the bottom.
 - **Gauge Width** : Set the width of the gauge, giving more or less space for labels.

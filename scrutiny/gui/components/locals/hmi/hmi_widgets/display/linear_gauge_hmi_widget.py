@@ -442,7 +442,7 @@ class LinearGaugeHMIWidget(BaseHMIWidget):
 
         self._cmb_overflow_behavior = QComboBox()
         self._cmb_overflow_behavior.addItem("Clip", GaugeOverflowBehavior.CLIP)
-        self._cmb_overflow_behavior.addItem("Show Invalid", GaugeOverflowBehavior.SHOW_NA)
+        self._cmb_overflow_behavior.addItem("No value", GaugeOverflowBehavior.NO_VALUE)
 
         self._chk_inverted_axis = QCheckBox()
 
@@ -539,7 +539,7 @@ class LinearGaugeHMIWidget(BaseHMIWidget):
                 if overflow_behavior == GaugeOverflowBehavior.CLIP:
                     val = min(max(val, self._minval), self._maxval)
                     clipped = True
-                elif overflow_behavior == GaugeOverflowBehavior.SHOW_NA:
+                elif overflow_behavior == GaugeOverflowBehavior.NO_VALUE:
                     val = None
             minmax_range = self._maxval - self._minval
             if val is not None and minmax_range > 0:
