@@ -138,7 +138,51 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Mac OS app ${{ github.ref_name }}
+          name: Mac OS app arm64 ${{ github.ref_name }}
+          path: ./nuitka_build/installer/*.dmg
+          if-no-files-found: error
+
+  build-mac-os-x86:
+    needs: build-user-guide
+    runs-on: macos-26-intel
+    steps:
+      # Check-out repository
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      # Download the user guide from previous job
+      - name: Download User Guide
+        uses: actions/download-artifact@v4
+        with:
+          name: user_guide_${{ github.ref_name }}
+          path: ./scrutiny/
+
+      # Setup Python
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # Fetch all the build dependencies
+      - name: Install dependencies
+        run: pip install -e .[build]
+
+      # Launch Nuitka
+      - name: Nuitka build
+        env:
+          SCRUTINY_USER_GUIDE_PREBUILT: 1  # Prevent trying to rebuild the user guide.
+        run: ./scripts/nuitka_build.sh
+        shell: bash
+
+      # Create a DMG file
+      - name: Create package
+        run: ./scripts/make_macos_dmg.sh
+        shell: bash
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mac OS app x86 ${{ github.ref_name }}
           path: ./nuitka_build/installer/*.dmg
           if-no-files-found: error
 
