@@ -19,12 +19,13 @@ from dataclasses import dataclass
 from scrutiny.gui.components.locals.hmi.hmi_library import HMILibrary
 
 from PySide6.QtCore import Qt, QPoint, QSize, QRect, QMimeData, QByteArray, QPointF, QRectF
-from PySide6.QtWidgets import QVBoxLayout, QSplitter, QTabWidget, QWidget, QStackedLayout, QScrollArea, QGroupBox, QApplication
+from PySide6.QtWidgets import QVBoxLayout, QSplitter, QTabWidget, QWidget, QStackedLayout, QGroupBox, QApplication
 from PySide6.QtGui import QIcon, QKeyEvent, QMouseEvent
 
 from scrutiny.gui import assets
 from scrutiny.gui.themes import scrutiny_get_theme
 from scrutiny.gui.widgets.scrutiny_qmenu import ScrutinyQMenu
+from scrutiny.gui.widgets.vertical_scroll_area import VerticalScrollArea
 from scrutiny.gui.components.locals.base_local_component import ScrutinyGUIBaseLocalComponent
 
 from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget, ValueSlotStateDict
@@ -146,9 +147,10 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         self._library = HMILibrary()
         self._config_widget_container = QWidget()
 
-        config_scroll = QScrollArea()
+        config_scroll = VerticalScrollArea()
         config_scroll.setWidget(self._config_widget_container)
-        config_scroll.setWidgetResizable(True)
+        library_scroll = VerticalScrollArea()
+        library_scroll.setWidget(self._library)
         self._config_widget_container_layout = QStackedLayout(self._config_widget_container)
         self._config_widget_container_layout.setContentsMargins(0, 0, 0, 0)
         self._config_widget_container_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
@@ -156,7 +158,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         self._config_widget_container_layout.addWidget(QWidget())   # Empty widget at index 0
 
         self._edit_tab_widget = QTabWidget()
-        self._library_tab_index = self._edit_tab_widget.addTab(self._library, "Library")
+        self._library_tab_index = self._edit_tab_widget.addTab(library_scroll, "Library")
         self._configure_tab_index = self._edit_tab_widget.addTab(config_scroll, "Configure")
 
         self._edit_tab_widget.setMinimumWidth(192)
@@ -448,6 +450,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
 # endregion
 
 # region Private
+
 
     def _make_hmi_widget_state(self, hmiwidget: BaseHMIWidget) -> HMIWidgetStateDict:
         pos = hmiwidget.pos().toPoint()
