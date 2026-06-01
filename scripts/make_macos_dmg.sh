@@ -41,10 +41,11 @@ DMG_NAME="${PKG_NAME}.dmg"
 DMG_FILE=${OUTPUT_FOLDER}/${DMG_NAME}
 TEMP_DIR=$(mktemp -d)
 APP_NAME="Scrutiny GUI"
-PACKAGE_DIR="${TEMP_DIR}/${APP_NAME}.app"
+DST_APP_DIR="${TEMP_DIR}/${APP_NAME}.app"
 set -x
-cp -R "${APP_DIR}" "${PACKAGE_DIR}"
-hdiutil create -volname "Scrutiny Debugger v${SCRUTINY_VERSION}" -srcfolder "${PACKAGE_DIR}" -ov -format UDZO "${DMG_FILE}"
+cp -R "${APP_DIR}" "${DST_APP_DIR}"
+ln -s "/Applications" "${TEMP_DIR}/Applications"
+hdiutil create -volname "Scrutiny Debugger v${SCRUTINY_VERSION}" -srcfolder "${TEMP_DIR}" -ov -format UDZO "${DMG_FILE}"
 
 # Finish and cleanup
 assert_file "$DMG_FILE"
