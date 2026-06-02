@@ -352,7 +352,6 @@ class Dashboard(QWidget):
 
 # region Public API
 
-
     @property
     def signals(self) -> _Signals:
         return self._signals
@@ -447,9 +446,10 @@ class Dashboard(QWidget):
 
     def save(self, filepath: Path, exceptions: bool = False) -> None:
         """Export the actual dashboard to a file that can be reloaded later"""
+        saved_component_list: List[ScrutinyGUIBaseComponent] = []
         try:
             dashboard_struct = dashboard_file_format.SerializableDashboard(
-                main_container=dashboard_file_format.serialize_container(self._dock_manager),
+                main_container=dashboard_file_format.serialize_container(self._dock_manager, saved_component_list),
                 windows=[],  # Added below
                 file_version=1,
                 scrutiny_version=scrutiny.__version__,
@@ -460,7 +460,8 @@ class Dashboard(QWidget):
 
             ads_floating_dock_containers = self._dock_manager.floatingWidgets()
             for ads_floating_dock_container in ads_floating_dock_containers:
-                dashboard_struct.windows.append(dashboard_file_format.serialize_floating_container(ads_floating_dock_container))
+                serializable_window = dashboard_file_format.serialize_floating_container(ads_floating_dock_container, saved_component_list)
+                dashboard_struct.windows.append(serializable_window)
 
             dashboard_json = json.dumps(dashboard_struct.to_dict(), indent=None, separators=(',', ':'))
 
@@ -481,6 +482,15 @@ class Dashboard(QWidget):
             if exceptions:
                 raise e
             return
+
+        for component in saved_component_list:
+            try:
+                component.post_save()
+            except Exception as e:
+                tools.log_exception(self._logger, e, "Internal error while saving the dashboard")
+                prompt.exception_msgbox(title="Error while saving", exception=e, message="Internal error while saving the dashboard")
+                if exceptions:
+                    raise e
 
     def save_with_prompt(self, exceptions: bool = False) -> None:
         """Save the active dashboard to a new file. Ask the user for the file"""
@@ -612,9 +622,10 @@ class Dashboard(QWidget):
         if widget.instance_name in self._dock_manager.dockWidgetsMap():
             self._logger.error(f"Duplicate dashboard instance name {widget.instance_name}.")
         dock_widget.setObjectName(widget.instance_name)  # Name required to be unique by QT ADS.
-        dock_widget.setFeature(QtAds.CDockWidget.DockWidgetDeleteOnClose, True)
+        dock_widget.setFeature(QtAds.CDockWidget.CustomCloseHandling, True)
         dock_widget.setWidget(widget)
         dock_widget.visibilityChanged.connect(widget.visibilityChanged)  # Pass down the event
+        dock_widget.closeRequested.connect(functools.partial(self._dock_widget_close_requested_slot, dock_widget))
 
         try:
             self._logger.debug(f"Setuping component {widget.instance_name}")
@@ -743,6 +754,17 @@ class Dashboard(QWidget):
             if referer_count > 2:
                 self._logger.warning(
                     f"Component {component.instance_name} has {referer_count} referrer after teardown. Only 1 should remain.")
+
+    def _dock_widget_close_requested_slot(self, dock_widget: QtAds.CDockWidget) -> None:
+        component = cast(ScrutinyGUIBaseComponent, dock_widget.widget())
+        must_remove = True
+        if component.has_unsaved_changes():
+            must_remove = prompt.warning_yes_no_question(
+                f"Tab \"{dock_widget.windowTitle()}\" has unsaved change.\nAre you sure you want to close it?", "Are you sure?")
+
+        if must_remove:
+            self._dock_manager.removeDockWidget(dock_widget)    # Will invoke dockWidgetAboutToBeRemoved -> _destroy_widget()
+
 # endregion
 
 # region Restore

@@ -122,6 +122,7 @@ class ButtonHMIWidget(BaseHMIWidget):
 
     def _config_changed_slot(self) -> None:
         self.update()
+        self.invalidate_save()
 
     def _write_val(self, val: bool) -> None:
         # There will be (almost) no visual glitches during the duration of the write.

@@ -51,11 +51,12 @@ class LineHMIWidget(BaseHMIWidget):
         container_layout = TooltipFormLayout(container)
         container_layout.add_row_tooltip("Orientation", self._cmb_orientation, "The line orientation")
         layout.addWidget(container)
-        self._pen_config.signals.changed.connect(self._update)
-        self._cmb_orientation.currentIndexChanged.connect(self._update)
+        self._pen_config.signals.changed.connect(self._config_changed_slot)
+        self._cmb_orientation.currentIndexChanged.connect(self._config_changed_slot)
 
-    def _update(self, *args: Any, **kwargs: Any) -> None:
+    def _config_changed_slot(self, *args: Any, **kwargs: Any) -> None:
         self.update()
+        self.invalidate_save()
 
 # region Getters and Setters
     def set_border_pen(self, pen: QPen) -> None:

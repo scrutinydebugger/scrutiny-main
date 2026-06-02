@@ -268,6 +268,7 @@ class SliderHMIWidget(BaseHMIWidget):
     def _config_changed_slot(self) -> None:
         self._sld_vertical_width.setEnabled(self.get_orientation() == Qt.Orientation.Vertical)
         self.update()
+        self.invalidate_save()
 
     def _val_from_pos(self, pos: QPointF) -> Optional[float]:
         """Compute the value to write based on the position of the cursor"""

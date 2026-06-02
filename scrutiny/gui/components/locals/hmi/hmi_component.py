@@ -130,6 +130,8 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
     """Tab index of the configure tab"""
     _unittest_mode: bool
     """A flag enabling some unit test behavior"""
+    _has_unsaved_changes: bool
+    """A flag used to prompt the user for a confirmation on close if there are modifications """
 
 
 # region inherited methods
@@ -146,6 +148,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         self._workzone = HMIWorkZone(self._status_bar)
         self._library = HMILibrary()
         self._config_widget_container = QWidget()
+        self._has_unsaved_changes = False
 
         config_scroll = VerticalScrollArea()
         config_scroll.setWidget(self._config_widget_container)
@@ -187,6 +190,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         self._workzone.signals.double_click_edit_widget.connect(self._workzone_double_click_edit_widget_slot)
         self._workzone.signals.drop_widget_class.connect(self._workzone_drop_widget_class_slot)
         self._workzone.signals.selection_changed.connect(self._workzone_selection_changed_slot)
+        self._workzone.signals.modified.connect(self._invalidate_save)
         self._show_edit_menu(False)  # Necessary to set the menu to a size of 0, used for state checking
 
         self._show_config_of(None)
@@ -289,6 +293,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         self._reassign_packed_zvalues()
         self._resubscribe_all_hmi_widgets()
         self.set_mode(HMIInteractionMode.Display)
+        self._has_unsaved_changes = False
         return fully_loaded_ok
 
     def visibilityChanged(self, visible: bool) -> None:
@@ -296,6 +301,12 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
             self._resubscribe_all_hmi_widgets()
         else:
             self._unsubscribe_all_hmi_widgets()
+
+    def has_unsaved_changes(self) -> bool:
+        return self._has_unsaved_changes
+
+    def post_save(self) -> None:
+        self._has_unsaved_changes = False
 
     def keyPressEvent(self, event: QKeyEvent) -> None:
 
@@ -333,7 +344,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
     def add_hmi_widget(self, widget: BaseHMIWidget, scene_pos: Optional[QPoint] = None, zval: Optional[int] = None) -> None:
         """Add an HMI Widget to the workzone at the given position"""
         existing_widgets = sorted(list(self._workzone.iterate_hmi_widgets()), key=lambda w: w.zValue())
-        self._workzone.add_widget(widget, scene_pos)
+        self._workzone.add_widget(widget, scene_pos)    # Will emit "modified"
         self._create_config_widget_of(widget)
         self._show_config_of(widget)    # Show the config just created
 
@@ -347,10 +358,14 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
             else:
                 widget.setZValue(0)
 
+        widget.signals.modified.connect(self._invalidate_save)
+
     def delete_hmi_widgets(self, widgets: List[BaseHMIWidget]) -> None:
         """Delete multiple HMI widget from the work zone."""
         for widget in widgets:
-            self._workzone.remove_widget(widget)
+            widget.signals.modified.disconnect(self._invalidate_save)
+
+            self._workzone.remove_widget(widget)    # Will emit "modified"
             widget.destroy()
 
             # Remove the config pane
@@ -371,18 +386,21 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         gc.collect()
 
     def move_to_back(self, widget: BaseHMIWidget) -> None:
+        self._invalidate_save()
         all_z = [w.zValue() for w in self._workzone.iterate_hmi_widgets()]
         if len(all_z) > 0:
             widget.setZValue(min(all_z) - 1)
         self._reassign_packed_zvalues()
 
     def move_to_front(self, widget: BaseHMIWidget) -> None:
+        self._invalidate_save()
         all_z = [w.zValue() for w in self._workzone.iterate_hmi_widgets()]
         if len(all_z) > 0:
             widget.setZValue(max(all_z) + 1)
         self._reassign_packed_zvalues()
 
     def move_backward(self, widget: BaseHMIWidget) -> None:
+        self._invalidate_save()
         previous = sorted([w for w in self._workzone.iterate_hmi_widgets() if w.zValue() < widget.zValue()], key=lambda w: w.zValue())
         if len(previous) > 0:   # swap
             temp = previous[-1].zValue()
@@ -390,6 +408,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
             widget.setZValue(temp)
 
     def move_forward(self, widget: BaseHMIWidget) -> None:
+        self._invalidate_save()
         nexts = sorted([w for w in self._workzone.iterate_hmi_widgets() if w.zValue() > widget.zValue()], key=lambda w: w.zValue())
         if len(nexts) > 0:   # swap
             temp = nexts[0].zValue()
@@ -451,6 +470,8 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
 
 # region Private
 
+    def _invalidate_save(self) -> None:
+        self._has_unsaved_changes = True
 
     def _make_hmi_widget_state(self, hmiwidget: BaseHMIWidget) -> HMIWidgetStateDict:
         pos = hmiwidget.pos().toPoint()
