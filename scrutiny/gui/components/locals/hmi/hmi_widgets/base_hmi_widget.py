@@ -273,7 +273,7 @@ class BaseHMIWidget(QGraphicsItem):
     """The update rate requested to the server when subscribing to a watchable."""
 
     class _Signals(QObject):
-        pass
+        modified = Signal()
 
     _vslots: List[ValueSlot]
     """The value list of value slots. Each of them represent an input value passed to the draw function"""
@@ -597,6 +597,9 @@ class BaseHMIWidget(QGraphicsItem):
         else:
             return self._hit_zone.hit_test(pos)
 
+    def invalidate_save(self) -> None:
+        self._signals.modified.emit()
+
 # region Private
     def _set_hit_zone(self, zone: Optional[BaseHitZone]) -> None:
         """To be called by child HMI widget"""
@@ -646,6 +649,7 @@ class BaseHMIWidget(QGraphicsItem):
     def _text_update_callback(self, vslot: ValueSlot, value: WatchableValueType) -> None:
         """When the ValueSlot is assigned a text value"""
         self._slot_value_update_callback(vslot, value)
+        self.invalidate_save()
 
     def _watchable_update_callback(self, vslot: ValueSlot, watcher_id: WatcherIdType, updates: List[RegistryValueUpdate]) -> None:
         """When the ValueSlot is assigned a value from the server stream"""
@@ -662,10 +666,12 @@ class BaseHMIWidget(QGraphicsItem):
     def _vslot_configured_with_watchable_slot(self, vslot: ValueSlot, fqn: str) -> None:
         """When the user drops a watchable on a ValueSlot"""
         self._try_watch(vslot, fqn)
+        self.invalidate_save()
 
     def _vslot_config_cleared_slot(self, vslot: ValueSlot, fqn: str) -> None:
         """When the user removes watchable on a ValueSlot"""
         self._unwatch_vslot(vslot, fqn)
+        self.invalidate_save()
 
     def _try_watch(self, vslot: ValueSlot, fqn: str) -> None:
         """Try to subscribe to the WatchableRegistry (and the server)"""
@@ -766,6 +772,10 @@ class BaseHMIWidget(QGraphicsItem):
 
     def mouse_move(self, pos: QPointF) -> Qt.CursorShape:
         return Qt.CursorShape.ArrowCursor
+
+    def setZValue(self, val: float) -> None:
+        super().setZValue(val)
+        self.invalidate_save()
 
 # region Abstracts methods
 

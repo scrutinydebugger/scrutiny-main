@@ -130,6 +130,7 @@ class ColorIndicatorHMIWidget(BaseHMIWidget):
 
     def _config_changed_slot(self) -> None:
         self.update()
+        self.invalidate_save()
 
     def _active_behavior_changed(self) -> None:
         self._blink_enable_flag = True

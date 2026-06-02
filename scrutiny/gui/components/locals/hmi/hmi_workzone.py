@@ -109,6 +109,7 @@ class HMIWorkZone(QGraphicsView):
         drop_widget_class = Signal(type, QPoint)    # Class, QPoint
         selection_changed = Signal(list)            # List[BaseHMIWidget]
         double_click_edit_widget = Signal(object)
+        modified = Signal()
 
     _signals: _Signals
 
@@ -229,12 +230,14 @@ class HMIWorkZone(QGraphicsView):
         self.scene().removeItem(widget)
         if selection_changed:
             self._signals.selection_changed.emit(self._selected_widgets.copy())
+        self._signals.modified.emit()
 
     def add_widget(self, widget: BaseHMIWidget, scene_pos: Optional[QPoint] = None) -> None:
         """Adds a HMI widget to the work zone. No lifetime management, they are owned by the HMIComponent"""
         self.scene().addItem(widget)
         if scene_pos is not None:
             widget.setPos(self._snap_to_grid(scene_pos, widget.get_size()))
+        self._signals.modified.emit()
 
     def selected_widgets(self) -> List[BaseHMIWidget]:
         """Return the list of actually selected HMI widget"""
@@ -549,16 +552,22 @@ class HMIWorkZone(QGraphicsView):
                     else:
                         if self._mouse_down_widget is mouse_release_widget:  # Left click on a single HMI widget
                             has_moved = False
+                            has_resized = False
                             if self._mouse_edit_data is not None:
-                                if self._mouse_edit_data.action == WidgetMouseEditData.Action.Move:
-                                    if event.pos() != self._mouse_down_start:
+                                if event.pos() != self._mouse_down_start:
+                                    if self._mouse_edit_data.action == WidgetMouseEditData.Action.Move:
                                         has_moved = True
+                                    elif self._mouse_edit_data.action == WidgetMouseEditData.Action.Resize:
+                                        has_resized = True
 
                             if not has_moved:
                                 if mouse_release_widget is None:
                                     self.deselect_all_widgets()  # Will emit selection_changed
                             else:
                                 self._resize_scene()
+
+                            if has_resized or has_moved:
+                                self._signals.modified.emit()
 
                 elif self._mouse_down_widget is not None:
                     if mouse_release_widget is self._mouse_down_widget:

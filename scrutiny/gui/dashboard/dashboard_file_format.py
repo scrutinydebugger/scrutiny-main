@@ -424,12 +424,17 @@ class SerializableDashboard:
         assert isinstance(self.scrutiny_version, str)
 
 
-def _get_sidebar_components_from_container(container: QtAds.CDockContainerWidget) -> List[SerializableSideBarComponent]:
+def _get_sidebar_components_from_container(
+        container: QtAds.CDockContainerWidget,
+        out_component_list: Optional[List[ScrutinyGUIBaseComponent]]) -> List[SerializableSideBarComponent]:
     outlist: List[SerializableSideBarComponent] = []
     for ads_autohide_container in container.autoHideWidgets():
         ads_dock_widget = ads_autohide_container.dockWidget()
         scrutiny_component = cast(ScrutinyGUIBaseComponent, ads_dock_widget.widget())
         sidebar_location = SidebarLocation.from_ads(ads_autohide_container.sideBarLocation())
+
+        if out_component_list is not None:
+            out_component_list.append(scrutiny_component)
 
         size_hw = ads_dock_widget.dockAreaWidget().size()
         size = size_hw.width() if sidebar_location.is_left_right() else size_hw.height()
@@ -448,7 +453,10 @@ def _get_sidebar_components_from_container(container: QtAds.CDockContainerWidget
     return outlist
 
 
-def _get_container_splitter_recursive(parent: Union[QtAds.CDockSplitter, QtAds.CDockAreaWidget]) -> Union[SerializableSplitter, SerializableDockArea]:
+def _get_container_splitter_recursive(
+        parent: Union[QtAds.CDockSplitter, QtAds.CDockAreaWidget],
+        out_component_list: Optional[List[ScrutinyGUIBaseComponent]]
+) -> Union[SerializableSplitter, SerializableDockArea]:
     if isinstance(parent, QtAds.CDockSplitter):
         splitter = cast(QSplitter, parent)    # Better type hint
         out = SerializableSplitter(
@@ -458,7 +466,10 @@ def _get_container_splitter_recursive(parent: Union[QtAds.CDockSplitter, QtAds.C
         )
 
         for i in range(splitter.count()):
-            children = _get_container_splitter_recursive(cast(Union[QtAds.CDockSplitter, QtAds.CDockAreaWidget], splitter.widget(i)))
+            children = _get_container_splitter_recursive(
+                cast(Union[QtAds.CDockSplitter, QtAds.CDockAreaWidget], splitter.widget(i)),
+                out_component_list
+            )
             out.content.append(children)
         return out
     elif isinstance(parent, QtAds.CDockAreaWidget):
@@ -469,6 +480,8 @@ def _get_container_splitter_recursive(parent: Union[QtAds.CDockSplitter, QtAds.C
         for j in range(ads_dock_area.dockWidgetsCount()):
             ads_dock_widget = ads_dock_area.dockWidget(j)
             scrutiny_component = cast(ScrutinyGUIBaseComponent, ads_dock_widget.widget())
+            if out_component_list is not None:
+                out_component_list.append(scrutiny_component)
             dock_widget = SerializableDockWidget(
                 current_tab=ads_dock_widget.isCurrentTab(),
                 component=SerializableComponent(
@@ -482,16 +495,25 @@ def _get_container_splitter_recursive(parent: Union[QtAds.CDockSplitter, QtAds.C
     raise NotImplementedError("Unsupported widget type inside dock manager")
 
 
-def serialize_container(dock_container: QtAds.CDockContainerWidget) -> SerializableContainer:
+def serialize_container(
+        dock_container: QtAds.CDockContainerWidget,
+        out_component_list: Optional[List[ScrutinyGUIBaseComponent]] = None
+) -> SerializableContainer:
+
     return SerializableContainer(
-        root_splitter=cast(SerializableSplitter, _get_container_splitter_recursive(dock_container.rootSplitter())),     # type: ignore
-        sidebar_components=_get_sidebar_components_from_container(dock_container)
+        root_splitter=cast(SerializableSplitter, _get_container_splitter_recursive(
+            dock_container.rootSplitter(), out_component_list)),     # type: ignore
+        sidebar_components=_get_sidebar_components_from_container(dock_container, out_component_list)
     )
 
 
-def serialize_floating_container(floating_dock_container: QtAds.CFloatingDockContainer) -> SerializableWindow:
+def serialize_floating_container(
+        floating_dock_container: QtAds.CFloatingDockContainer,
+        out_component_list: Optional[List[ScrutinyGUIBaseComponent]] = None
+) -> SerializableWindow:
+
     return SerializableWindow(
-        container=serialize_container(floating_dock_container.dockContainer()),
+        container=serialize_container(floating_dock_container.dockContainer(), out_component_list),
         height=floating_dock_container.size().height(),
         width=floating_dock_container.size().width()
     )

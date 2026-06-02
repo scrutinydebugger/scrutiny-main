@@ -113,3 +113,9 @@ class ScrutinyGUIBaseComponent(QWidget):
     @abstractmethod
     def load_state(self, state: Dict[Any, Any]) -> bool:
         pass
+
+    def has_unsaved_changes(self) -> bool:
+        return False
+
+    def saved(self) -> None:
+        pass

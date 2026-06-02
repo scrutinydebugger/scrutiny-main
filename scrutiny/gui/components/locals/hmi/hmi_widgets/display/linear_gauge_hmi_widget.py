@@ -521,6 +521,7 @@ class LinearGaugeHMIWidget(BaseHMIWidget):
 
     def _config_changed_slot(self, *args: Any, **kwargs: Any) -> None:
         self.update()
+        self.invalidate_save()
 
     def _value_update_callback(self, val: Optional[Union[bool, int, float]]) -> None:
         self._process_new_val(val)

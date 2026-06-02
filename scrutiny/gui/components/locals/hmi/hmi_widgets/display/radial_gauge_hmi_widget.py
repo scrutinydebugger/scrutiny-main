@@ -233,6 +233,7 @@ class RadialGaugeHMIWidget(BaseHMIWidget):
 
     def _config_changed_slot(self) -> None:
         self.update()
+        self.invalidate_save()
 
     def _get_pointer_angle(self, val: Optional[Union[bool, int, float]]) -> Optional[PointerAngle]:
         """Tells what angle should the pointer be given an input value. ``None`` if no value to display"""

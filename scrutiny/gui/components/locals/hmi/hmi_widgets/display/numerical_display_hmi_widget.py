@@ -52,6 +52,7 @@ class NumericalDisplayHMIWidget(BaseHMIWidget):
 
     def _config_changed_slot(self) -> None:
         self.update()
+        self.invalidate_save()
 
 # region Getters and Setters
     def set_border_width(self, width: float) -> None:

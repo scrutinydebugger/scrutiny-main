@@ -51,11 +51,12 @@ class CircleHMIWidget(BaseHMIWidget):
         layout.addWidget(gb_border)
         layout.addWidget(gb_fill)
 
-        self._pen_config.signals.changed.connect(self._update)
-        self._brush_config.signals.changed.connect(self._update)
+        self._pen_config.signals.changed.connect(self._config_changed_slot)
+        self._brush_config.signals.changed.connect(self._config_changed_slot)
 
-    def _update(self, *args: Any, **kwargs: Any) -> None:
+    def _config_changed_slot(self, *args: Any, **kwargs: Any) -> None:
         self.update()
+        self.invalidate_save()
 
 # region Getters and Setters
     def set_border_pen(self, pen: QPen) -> None:

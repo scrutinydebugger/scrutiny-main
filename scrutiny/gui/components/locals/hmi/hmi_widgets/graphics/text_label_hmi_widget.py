@@ -79,13 +79,14 @@ class TextLabelHMIWidget(BaseHMIWidget):
         layout.addWidget(gb_border)
         layout.addWidget(gb_fill)
 
-        self._font_color_button.signals.changed.connect(self._update)
-        self._border_pen_config.signals.changed.connect(self._update)
-        self._fill_brush_config.signals.changed.connect(self._update)
-        self._txt_content.textChanged.connect(self._update)
+        self._font_color_button.signals.changed.connect(self._config_changed_slot)
+        self._border_pen_config.signals.changed.connect(self._config_changed_slot)
+        self._fill_brush_config.signals.changed.connect(self._config_changed_slot)
+        self._txt_content.textChanged.connect(self._config_changed_slot)
 
-    def _update(self, *args: Any, **kwargs: Any) -> None:
+    def _config_changed_slot(self, *args: Any, **kwargs: Any) -> None:
         self.update()
+        self.invalidate_save()
 
 # region Getters and Setters
     def set_border_pen(self, pen: QPen) -> None:
