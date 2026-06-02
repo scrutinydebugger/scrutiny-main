@@ -164,6 +164,9 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
     read_type_changed: bool
     """A flag that indicates if the read type change in the last process iteration"""
     entry_to_throttler_map: Dict[DatastoreEntry, Throttler]
+    """A dict mapping each entry to their throttler if they are rate limited"""
+    _last_process_produced_no_request:bool
+    """A flag to remember if calling process() failed to produce a request. Used to detect throttling condition to avoid keeping the CPU alive """
 
     def __init__(self, protocol: Protocol, dispatcher: RequestDispatcher, datastore: Datastore, request_priority: int):
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -304,6 +307,7 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
         self.entries_in_pending_read_var_request = []
         self.entries_in_pending_read_rpv_request = {}
         self.read_type_changed = True
+        self._last_process_produced_no_request = False
 
         for throttler in self.entry_to_throttler_map.values():
             throttler.reset()
@@ -335,6 +339,11 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
         if self.pending_request is not None:
             return False
 
+        # Avoid spin waiting when all entries are throttled.
+        # We could scan entry_to_throttler_map fully, but this would be CPU intensive.
+        if self._last_process_produced_no_request:
+            return False
+
         return (
             len(self.watched_var_entries) > 0
             or len(self.watched_rpv_entries) > 0
@@ -352,13 +361,15 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
             return
 
         read_type_considered: Set[ReadType] = set()
+        self._last_process_produced_no_request = False
+        no_request_beginning = (self.pending_request is None)
+
         while self.pending_request is None and len(read_type_considered) < len(ReadType):
             read_type_considered.add(self.actual_read_type)
 
             # We want to read everything in a round robin scheme. But we need to read memory and RPV as much without discrimination
             # So we need to do   ReadMem1, ReadMem2, ReadMem3, ReadRPV1, ReadRPV2  **WRAP**  ReadMem1, ReadMem2, etc
             # Also, pointed var needs to be read after vars with addresses (they include pointers)
-
             if self.actual_read_type == ReadType.Variable:
                 if self.read_type_changed:
                     self.active_watched_var_entries = sorted(self.watched_var_entries, key=lambda entry: entry.get_address_or_zero())
@@ -438,6 +449,11 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
             else:
                 raise Exception('Unknown read type.')
 
+        no_request_end = (self.pending_request is None)
+
+        if no_request_beginning and no_request_end:
+            self._last_process_produced_no_request = True
+
     def _dispatch(self, request: Request, success_params: Any = None, failure_params: Any = None) -> None:
         """Sends a request to the request dispatcher and assign the corrects completion callbacks"""
         self.dispatcher.register_request(
@@ -492,8 +508,6 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
             if candidate_entry in self.entry_to_throttler_map:               # Throttling is applied.
                 throttler = self.entry_to_throttler_map[candidate_entry]
                 throttler.process()
-                # if candidate_entry.display_path.endswith('y'):
-                #    print(f"Slow={throttler.estimated_rate_slow}. Fast={throttler.estimated_rate_fast}. since_last_estimation={throttler.consumed_since_last_estimation}")
                 if not throttler.allowed(1):
                     must_skip = True
 
