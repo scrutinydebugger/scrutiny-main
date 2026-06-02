@@ -773,6 +773,10 @@ class BaseHMIWidget(QGraphicsItem):
     def mouse_move(self, pos: QPointF) -> Qt.CursorShape:
         return Qt.CursorShape.ArrowCursor
 
+    def setZValue(self, val: float) -> None:
+        super().setZValue(val)
+        self.invalidate_save()
+
 # region Abstracts methods
 
     def draw(self,

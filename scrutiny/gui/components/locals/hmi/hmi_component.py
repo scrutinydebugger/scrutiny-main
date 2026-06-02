@@ -305,7 +305,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
     def has_unsaved_changes(self) -> bool:
         return self._has_unsaved_changes
 
-    def post_save(self) -> None:
+    def saved(self) -> None:
         self._has_unsaved_changes = False
 
     def keyPressEvent(self, event: QKeyEvent) -> None:
@@ -386,21 +386,18 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         gc.collect()
 
     def move_to_back(self, widget: BaseHMIWidget) -> None:
-        self._invalidate_save()
         all_z = [w.zValue() for w in self._workzone.iterate_hmi_widgets()]
         if len(all_z) > 0:
             widget.setZValue(min(all_z) - 1)
         self._reassign_packed_zvalues()
 
     def move_to_front(self, widget: BaseHMIWidget) -> None:
-        self._invalidate_save()
         all_z = [w.zValue() for w in self._workzone.iterate_hmi_widgets()]
         if len(all_z) > 0:
             widget.setZValue(max(all_z) + 1)
         self._reassign_packed_zvalues()
 
     def move_backward(self, widget: BaseHMIWidget) -> None:
-        self._invalidate_save()
         previous = sorted([w for w in self._workzone.iterate_hmi_widgets() if w.zValue() < widget.zValue()], key=lambda w: w.zValue())
         if len(previous) > 0:   # swap
             temp = previous[-1].zValue()
@@ -408,7 +405,6 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
             widget.setZValue(temp)
 
     def move_forward(self, widget: BaseHMIWidget) -> None:
-        self._invalidate_save()
         nexts = sorted([w for w in self._workzone.iterate_hmi_widgets() if w.zValue() > widget.zValue()], key=lambda w: w.zValue())
         if len(nexts) > 0:   # swap
             temp = nexts[0].zValue()

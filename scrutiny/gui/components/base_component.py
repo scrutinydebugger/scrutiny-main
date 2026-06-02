@@ -117,5 +117,5 @@ class ScrutinyGUIBaseComponent(QWidget):
     def has_unsaved_changes(self) -> bool:
         return False
 
-    def post_save(self) -> None:
+    def saved(self) -> None:
         pass

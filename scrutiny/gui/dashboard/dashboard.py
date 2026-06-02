@@ -485,7 +485,7 @@ class Dashboard(QWidget):
 
         for component in saved_component_list:
             try:
-                component.post_save()
+                component.saved()
             except Exception as e:
                 tools.log_exception(self._logger, e, "Internal error while saving the dashboard")
                 prompt.exception_msgbox(title="Error while saving", exception=e, message="Internal error while saving the dashboard")
