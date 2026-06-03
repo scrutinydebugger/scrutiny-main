@@ -52,7 +52,7 @@ class _DropZone(QLabel):
             logging.info("Drop received: Wrong data type")
             return
 
-        widget_class = HMILibrary.load_from_name(data.data_copy['class'])
+        widget_class = HMILibrary.load_from_class_name(data.data_copy['class'])
         if widget_class is None:
             logging.info("Drop received: Invalid class name")
             return None

@@ -23,6 +23,8 @@ from scrutiny.gui.themes.default_theme import DefaultTheme
 from scrutiny.gui.themes.fusion_theme import FusionTheme
 from scrutiny.gui.tools.invoker import CrossThreadInvoker
 from scrutiny.gui.core.qt import make_qt_app
+from scrutiny.gui.app_settings import configure_unit_test_app_settings
+from scrutiny.gui.gui import ScrutinyQtGUI, SupportedTheme
 
 from scrutiny.tools.signals import SignalExitHandler
 
@@ -31,6 +33,17 @@ def make_manual_test_app() -> QApplication:
     os.environ['SCRUTINY_MANUAL_TEST'] = '1'
     logging.basicConfig(level=logging.DEBUG)
     app = make_qt_app([])
+
+    settings = ScrutinyQtGUI.Settings(
+        debug_layout=False,
+        auto_connect=False,
+        opengl_enabled=False,
+        local_server_port=8765,
+        start_local_server=False,
+        theme=SupportedTheme.Default
+    )
+
+    configure_unit_test_app_settings(settings)
 
     theme_str = os.environ.get('SCRUTINY_THEME', 'default')
     if theme_str == 'default':
