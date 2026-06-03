@@ -165,7 +165,7 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
     """A flag that indicates if the read type change in the last process iteration"""
     entry_to_throttler_map: Dict[DatastoreEntry, Throttler]
     """A dict mapping each entry to their throttler if they are rate limited"""
-    _last_process_produced_no_request:bool
+    _last_process_produced_no_request: bool
     """A flag to remember if calling process() failed to produce a request. Used to detect throttling condition to avoid keeping the CPU alive """
 
     def __init__(self, protocol: Protocol, dispatcher: RequestDispatcher, datastore: Datastore, request_priority: int):

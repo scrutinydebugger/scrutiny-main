@@ -17,7 +17,8 @@ app = make_manual_test_app()
 
 import logging
 from PySide6.QtWidgets import QMainWindow, QPushButton, QVBoxLayout, QWidget, QGroupBox
-from scrutiny.gui.components.locals.hmi.common.color_span_editor import ColorSpanEditor, ColorSpan, SpanColor
+from scrutiny.gui.components.locals.hmi.common.color_span_editor import ColorSpanEditor, ColorSpan
+from scrutiny.gui.components.locals.hmi.common.hmi_colors import HMIColor
 
 
 window = QMainWindow()
@@ -38,14 +39,14 @@ def print_spans() -> None:
     spans = editor.get_span_objects()
     logging.info(f"get_span_objects() returned {len(spans)} span(s):")
     for i, span in enumerate(spans):
-        logging.info(f"  [{i}] min={span.min_val}, max={span.max_val}, color={span.color}")
+        logging.info(f"  [{i}] min={span.start}, max={span.stop}, color={span.color}")
 
 
 def load_preset() -> None:
     editor.set_from_spans_object([
-        ColorSpan(min_val=0, max_val=30, color=SpanColor.DANGER),
-        ColorSpan(min_val=30, max_val=70, color=SpanColor.WARNING),
-        ColorSpan(min_val=70, max_val=100, color=SpanColor.GOOD),
+        ColorSpan(start=0, stop=30, color=HMIColor.DANGER),
+        ColorSpan(start=30, stop=70, color=HMIColor.WARNING),
+        ColorSpan(start=70, stop=100, color=HMIColor.GOOD),
     ])
     logging.info("Preset loaded")
 
