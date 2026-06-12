@@ -919,7 +919,7 @@ class ElfDwarfVarExtractor:
         # We make the assumption that the endianness is the same at the binary level
 
         if arch == Architecture.TI_C28x:
-            return Endianness.Big
+            return Endianness.Little
 
         return Endianness.Little  # Little is the most common, default on this
 
