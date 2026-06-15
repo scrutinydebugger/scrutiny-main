@@ -89,3 +89,35 @@ class TestMakeVarMap_C2000_f280049C(ScrutinyUnitTest):
         self.assert_var('/static/file1.cpp/file1StaticFloat', EmbeddedDataType.float32, value_at_loc=1.23456789)
         self.assert_var('/static/file1.cpp/file1StaticDouble', EmbeddedDataType.float64, value_at_loc=9.87654321)
         self.assert_var('/static/file1.cpp/file1StaticBool', EmbeddedDataType.bool16, value_at_loc=True)
+
+        self.assert_var('/static/file1.cpp/file1StructAStaticInstance/structAMemberInt', EmbeddedDataType.sint16, value_at_loc=-789)
+        self.assert_var('/static/file1.cpp/file1StructAStaticInstance/structAMemberUInt', EmbeddedDataType.uint16, value_at_loc=1472)
+        self.assert_var('/static/file1.cpp/file1StructAStaticInstance/structAMemberFloat', EmbeddedDataType.float32, value_at_loc=88.88)
+        self.assert_var('/static/file1.cpp/file1StructAStaticInstance/structAMemberDouble', EmbeddedDataType.float64, value_at_loc=99.99)
+        self.assert_var('/static/file1.cpp/file1StructAStaticInstance/structAMemberBool', EmbeddedDataType.bool16, value_at_loc=True)
+
+        self.assert_var('/static/file1.cpp/NamespaceInFile1/NamespaceInFile1Nested1/file1StaticNestedVar1',
+                        EmbeddedDataType.uint32, value_at_loc=945612345)
+
+        self.assert_var('/global/file1StructAInstance/structAMemberInt', EmbeddedDataType.sint16, value_at_loc=-654)
+        self.assert_var('/global/file1StructAInstance/structAMemberUInt', EmbeddedDataType.uint16, value_at_loc=25814)
+        self.assert_var('/global/file1StructAInstance/structAMemberFloat', EmbeddedDataType.float32, value_at_loc=77.77)
+        self.assert_var('/global/file1StructAInstance/structAMemberDouble', EmbeddedDataType.float64, value_at_loc=66.66)
+        self.assert_var('/global/file1StructAInstance/structAMemberBool', EmbeddedDataType.bool16, value_at_loc=False)
+
+        self.assert_var('/global/file1StructBInstance/structBMemberInt', EmbeddedDataType.sint16, value_at_loc=5555)
+        self.assert_var('/global/file1StructBInstance/structBMemberStructA/structAMemberInt', EmbeddedDataType.sint16, value_at_loc=-19999)
+        self.assert_var('/global/file1StructBInstance/structBMemberStructA/structAMemberUInt', EmbeddedDataType.uint16, value_at_loc=33333)
+        self.assert_var('/global/file1StructBInstance/structBMemberStructA/structAMemberFloat', EmbeddedDataType.float32, value_at_loc=33.33)
+        self.assert_var('/global/file1StructBInstance/structBMemberStructA/structAMemberDouble', EmbeddedDataType.float64, value_at_loc=22.22)
+        self.assert_var('/global/file1StructBInstance/structBMemberStructA/structAMemberBool', EmbeddedDataType.bool16, value_at_loc=True)
+
+        self.assert_var('/global/file1StructCInstance/structCMemberInt', EmbeddedDataType.sint16, value_at_loc=8887)
+        self.assert_var('/global/file1StructCInstance/nestedStructInstance/nestedStructMemberInt', EmbeddedDataType.sint16, value_at_loc=22987)
+        self.assert_var('/global/file1StructCInstance/nestedStructInstance/nestedStructMemberFloat', EmbeddedDataType.float32, value_at_loc=-147.55)
+        self.assert_var('/global/file1StructCInstance/nestedStructInstance/nestedStructInstance2/nestedStructInstance2MemberDouble',
+                        EmbeddedDataType.float64, value_at_loc=654.654)
+
+        self.assert_var('/global/NamespaceInFile1/NamespaceInFile1Nested1/file1GlobalNestedVar1', EmbeddedDataType.uint32, value_at_loc=1111111111)
+
+        self.assert_var('/static/file1.cpp/funcInFile1(int, int)/staticLongInFuncFile1', EmbeddedDataType.sint64, value_at_loc=-0x123456789abcdef)

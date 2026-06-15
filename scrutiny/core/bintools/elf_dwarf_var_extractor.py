@@ -82,6 +82,7 @@ class Tags:
     DW_TAG_typedef = 'DW_TAG_typedef'
     DW_TAG_subrange_type = 'DW_TAG_subrange_type'
     DW_TAG_subroutine_type = 'DW_TAG_subroutine_type'
+    DW_TAG_subprogram = 'DW_TAG_subprogram'
     DW_TAG_unspecified_type = 'DW_TAG_unspecified_type'
 
 
@@ -1962,6 +1963,17 @@ class ElfDwarfVarExtractor:
             raise ElfParsingError("Impossible to process base type")
         return typename
 
+    def _find_parent_die_of_type(self, die: DIE, tag: str) -> Optional[DIE]:
+
+        parent = die.get_parent()
+        if parent is None:
+            return None
+        else:
+            if die.tag == tag:
+                return die
+            else:
+                return self._find_parent_die_of_type(parent, tag)
+
     def _make_varpath_recursive(self, die: DIE, varpath: Optional[VarPath] = None) -> VarPath:
         """Start from a variable DIE and go up the DWARF structure to build a path"""
 
@@ -1981,20 +1993,30 @@ class ElfDwarfVarExtractor:
                 array = self._get_array_def(var_typedesc.type_die, allow_dereferencing=True)
 
         # Check if we have a linkage name. Those are complete and no further scan is required if available.
-        name = self._get_demangled_linkage_name(die)
-        if name is not None:
-            parts = self.split_demangled_name(name)
-            parts = self._post_process_splitted_demangled_name(parts)
-            for i in range(len(parts) - 1, -1, -1):   # Need to prepend in reverse order to keep the order correct.
-                if array is not None and i == len(parts) - 1:
-                    varpath.prepend_segment(name=parts[i], array=array)
-                    varpath.prepend_segment(name=parts[i])   # Add a level to group the array elements togethers /aaa/bbb/ccc/ccc[0]
-                else:
-                    varpath.prepend_segment(name=parts[i])
-            return varpath
+        linkage_name = self._get_demangled_linkage_name(die)
+        name = self._get_die_name(die)
+        parent = die.get_parent()
+
+        if linkage_name is not None:
+            use_linkage_name = True
+            if die.tag == Tags.DW_TAG_variable and name is not None:    # C2000 behavior mostly, but should apply to others
+                parent_subprogram_die = self._find_parent_die_of_type(die, Tags.DW_TAG_subprogram)
+                if parent_subprogram_die is not None:
+                    if self._has_linkage_name(parent_subprogram_die):
+                        use_linkage_name = False
+
+            if use_linkage_name:
+                parts = self.split_demangled_name(linkage_name)
+                parts = self._post_process_splitted_demangled_name(parts)
+                for i in range(len(parts) - 1, -1, -1):   # Need to prepend in reverse order to keep the order correct.
+                    if array is not None and i == len(parts) - 1:
+                        varpath.prepend_segment(name=parts[i], array=array)
+                        varpath.prepend_segment(name=parts[i])   # Add a level to group the array elements togethers /aaa/bbb/ccc/ccc[0]
+                    else:
+                        varpath.prepend_segment(name=parts[i])
+                return varpath
 
         # Try to get the name of the die and use it as a level of the path
-        name = self._get_die_name(die)
         if name is None:
             if Attrs.DW_AT_specification in die.attributes:
                 spec_die = die.get_DIE_from_attribute(Attrs.DW_AT_specification)
@@ -2005,7 +2027,7 @@ class ElfDwarfVarExtractor:
             varpath.prepend_segment(name=name, array=array)
             if array is not None:
                 varpath.prepend_segment(name=name)  # Add a level to group the array elements togethers /aaa/bbb/ccc/ccc[0]
-            parent = die.get_parent()
+
             if parent is not None:
                 return self._make_varpath_recursive(parent, varpath)
 
