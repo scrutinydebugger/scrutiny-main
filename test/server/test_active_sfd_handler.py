@@ -169,7 +169,7 @@ class TestActiveSFDHandlerFromTestApp(ScrutinyUnitTest):
     def test_load_testapp_sfd(self):
         datastore = Datastore()
         datastore.add_entries([  # There are aliases to those in the test .sfd
-            DatastoreRPVEntry('/rpv/x5000', RuntimePublishedValue(0x5000, EmbeddedDataType.boolean)),
+            DatastoreRPVEntry('/rpv/x5000', RuntimePublishedValue(0x5000, EmbeddedDataType.bool8)),
             DatastoreRPVEntry('/rpv/x5001', RuntimePublishedValue(0x5001, EmbeddedDataType.uint16)),
         ])
 

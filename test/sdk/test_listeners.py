@@ -145,7 +145,7 @@ class TestListeners(ScrutinyUnitTest):
         self.w4._configure(sdk.BaseDetailedWatchableConfiguration(watchable_type=WatchableType.RuntimePublishedValue,
                            datatype=EmbeddedDataType.float64, server_id='w4', enum=None, server_path=self.w4.server_path))
         self.w5._configure(sdk.BaseDetailedWatchableConfiguration(watchable_type=WatchableType.RuntimePublishedValue,
-                           datatype=EmbeddedDataType.boolean, server_id='w5', enum=None, server_path=self.w5.server_path))
+                           datatype=EmbeddedDataType.bool8, server_id='w5', enum=None, server_path=self.w5.server_path))
 
     def test_listener_working_behavior(self):
         listener = WorkingTestListener()

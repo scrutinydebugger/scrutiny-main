@@ -70,9 +70,9 @@ class TestVariables(ScrutinyUnitTest):
         self.assertEqual(uint64_le.encode(0x1122334455667788)[0], struct.pack('<Q', 0x1122334455667788))
         self.assertEqual(uint64_be.encode(0xffeeddccbbaa9988)[0], struct.pack('>Q', 0xffeeddccbbaa9988))
 
-        # Booleans
-        bool_le = Variable(vartype=EmbeddedDataType.boolean, path_segments=['bool_le'], location=0, endianness=Endianness.Little)
-        bool_be = Variable(vartype=EmbeddedDataType.boolean, path_segments=['bool_be'], location=0, endianness=Endianness.Little)
+        # bool8s
+        bool_le = Variable(vartype=EmbeddedDataType.bool8, path_segments=['bool_le'], location=0, endianness=Endianness.Little)
+        bool_be = Variable(vartype=EmbeddedDataType.bool8, path_segments=['bool_be'], location=0, endianness=Endianness.Little)
 
         self.assertEqual(bool_le.encode(True)[0], struct.pack('<B', 1))
         self.assertEqual(bool_be.encode(True)[0], struct.pack('>B', 1))
@@ -129,9 +129,9 @@ class TestVariables(ScrutinyUnitTest):
         self.assertEqual(uint64_le.decode(struct.pack('<Q', 0x1122334455667788)), 0x1122334455667788)
         self.assertEqual(uint64_be.decode(struct.pack('>Q', 0xffeeddccbbaa9988)), 0xffeeddccbbaa9988)
 
-        # Booleans
-        bool_le = Variable(vartype=EmbeddedDataType.boolean, path_segments=['bool_le'], location=0, endianness=Endianness.Little)
-        bool_be = Variable(vartype=EmbeddedDataType.boolean, path_segments=['bool_be'], location=0, endianness=Endianness.Little)
+        # bool8s
+        bool_le = Variable(vartype=EmbeddedDataType.bool8, path_segments=['bool_le'], location=0, endianness=Endianness.Little)
+        bool_be = Variable(vartype=EmbeddedDataType.bool8, path_segments=['bool_be'], location=0, endianness=Endianness.Little)
 
         self.assertEqual(bool_le.decode(struct.pack('<B', 1)), True)
         self.assertEqual(bool_be.decode(struct.pack('>B', 1)), True)
@@ -155,8 +155,8 @@ class TestVariables(ScrutinyUnitTest):
         int32_be = Variable(vartype=EmbeddedDataType.sint32, path_segments=['int32_be'], location=0, endianness=Endianness.Big)
         int64_le = Variable(vartype=EmbeddedDataType.sint64, path_segments=['int64_le'], location=0, endianness=Endianness.Little)
         int64_be = Variable(vartype=EmbeddedDataType.sint64, path_segments=['int64_be'], location=0, endianness=Endianness.Big)
-        bool_le = Variable(vartype=EmbeddedDataType.boolean, path_segments=['bool_le'], location=0, endianness=Endianness.Little)
-        bool_be = Variable(vartype=EmbeddedDataType.boolean, path_segments=['bool_be'], location=0, endianness=Endianness.Little)
+        bool_le = Variable(vartype=EmbeddedDataType.bool8, path_segments=['bool_le'], location=0, endianness=Endianness.Little)
+        bool_be = Variable(vartype=EmbeddedDataType.bool8, path_segments=['bool_be'], location=0, endianness=Endianness.Little)
 
         self.assertEqual(uint8_le.get_bitfield_mask(), unhexlify('FF'))
         self.assertEqual(uint8_be.get_bitfield_mask(), unhexlify('FF'))
@@ -205,13 +205,13 @@ class TestVariables(ScrutinyUnitTest):
         self.assert_var_bitfield_mask(EmbeddedDataType.sint64, Endianness.Big, bitoffset=30,
                                       bitsize=33, expected_mask=unhexlify('7FFFFFFFC0000000'))
 
-        self.assert_var_bitfield_mask(EmbeddedDataType.boolean, Endianness.Little, bitoffset=5, bitsize=3, expected_mask=unhexlify('E0'))
-        self.assert_var_bitfield_mask(EmbeddedDataType.boolean, Endianness.Big, bitoffset=5, bitsize=3, expected_mask=unhexlify('E0'))
+        self.assert_var_bitfield_mask(EmbeddedDataType.bool8, Endianness.Little, bitoffset=5, bitsize=3, expected_mask=unhexlify('E0'))
+        self.assert_var_bitfield_mask(EmbeddedDataType.bool8, Endianness.Big, bitoffset=5, bitsize=3, expected_mask=unhexlify('E0'))
 
         exception_combinations = [
-            (EmbeddedDataType.boolean, 0, 9),
-            (EmbeddedDataType.boolean, 5, 0),
-            (EmbeddedDataType.boolean, 5, 4),
+            (EmbeddedDataType.bool8, 0, 9),
+            (EmbeddedDataType.bool8, 5, 0),
+            (EmbeddedDataType.bool8, 5, 4),
             (EmbeddedDataType.uint8, 5, 4),
             (EmbeddedDataType.sint8, 5, 4),
             (EmbeddedDataType.uint16, 5, 12),
@@ -235,8 +235,8 @@ class TestVariables(ScrutinyUnitTest):
                          endianness=Endianness.Big, bitoffset=combination[1], bitsize=combination[2])
 
         ok_combinations = [
-            (EmbeddedDataType.boolean, 0, 8),
-            (EmbeddedDataType.boolean, 5, 3),
+            (EmbeddedDataType.bool8, 0, 8),
+            (EmbeddedDataType.bool8, 5, 3),
             (EmbeddedDataType.uint8, 0, 8),
             (EmbeddedDataType.sint8, 7, 1),
             (EmbeddedDataType.uint16, 5, 11),

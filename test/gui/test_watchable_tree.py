@@ -769,11 +769,11 @@ class TestWatchTreeModel(BaseWatchableTreeTest):
         self.registry.clear()
         self.registry.write_content({
             sdk.WatchableType.Variable: {
-                'aaa': sdk.BriefWatchableConfiguration(sdk.WatchableType.Variable, sdk.EmbeddedDataType.boolean, None),
-                'bbb': sdk.BriefWatchableConfiguration(sdk.WatchableType.Variable, sdk.EmbeddedDataType.boolean, None),
-                'ccc/ddd': sdk.BriefWatchableConfiguration(sdk.WatchableType.Variable, sdk.EmbeddedDataType.boolean, None),
-                'eee': sdk.BriefWatchableConfiguration(sdk.WatchableType.Variable, sdk.EmbeddedDataType.boolean, None),
-                'fff': sdk.BriefWatchableConfiguration(sdk.WatchableType.Variable, sdk.EmbeddedDataType.boolean, None),
+                'aaa': sdk.BriefWatchableConfiguration(sdk.WatchableType.Variable, sdk.EmbeddedDataType.bool8, None),
+                'bbb': sdk.BriefWatchableConfiguration(sdk.WatchableType.Variable, sdk.EmbeddedDataType.bool8, None),
+                'ccc/ddd': sdk.BriefWatchableConfiguration(sdk.WatchableType.Variable, sdk.EmbeddedDataType.bool8, None),
+                'eee': sdk.BriefWatchableConfiguration(sdk.WatchableType.Variable, sdk.EmbeddedDataType.bool8, None),
+                'fff': sdk.BriefWatchableConfiguration(sdk.WatchableType.Variable, sdk.EmbeddedDataType.bool8, None),
             }
         })
 

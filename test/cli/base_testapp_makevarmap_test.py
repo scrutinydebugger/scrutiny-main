@@ -59,7 +59,7 @@ class BaseTestAppMakeVarmapTest(BaseVarmapTest):
         self.assert_var('/global/file1GlobalUnsignedLong', EmbeddedDataType.uint64, value_at_loc=100002)
         self.assert_var('/global/file1GlobalFloat', EmbeddedDataType.float32, value_at_loc=3.1415926)
         self.assert_var('/global/file1GlobalDouble', EmbeddedDataType.float64, value_at_loc=1.71)
-        self.assert_var('/global/file1GlobalBool', EmbeddedDataType.boolean, value_at_loc=True)
+        self.assert_var('/global/file1GlobalBool', EmbeddedDataType.bool8, value_at_loc=True)
 
     def test_file2_globals_basic_types(self):
         self.assert_var('/global/file2GlobalChar', EmbeddedDataType.sint8, value_at_loc=20)
@@ -72,7 +72,7 @@ class BaseTestAppMakeVarmapTest(BaseVarmapTest):
         self.assert_var('/global/file2GlobalUnsignedLong', EmbeddedDataType.uint64, value_at_loc=1234567)
         self.assert_var('/global/file2GlobalFloat', EmbeddedDataType.float32, value_at_loc=0.1)
         self.assert_var('/global/file2GlobalDouble', EmbeddedDataType.float64, value_at_loc=0.11111111111111)
-        self.assert_var('/global/file2GlobalBool', EmbeddedDataType.boolean, value_at_loc=False)
+        self.assert_var('/global/file2GlobalBool', EmbeddedDataType.bool8, value_at_loc=False)
 
     def test_file1_static_basic_types(self):
         self.assert_var('/static/file1.cpp/file1StaticChar', EmbeddedDataType.sint8, value_at_loc=99)
@@ -85,7 +85,7 @@ class BaseTestAppMakeVarmapTest(BaseVarmapTest):
         self.assert_var('/static/file1.cpp/file1StaticUnsignedLong', EmbeddedDataType.uint64, value_at_loc=321321)
         self.assert_var('/static/file1.cpp/file1StaticFloat', EmbeddedDataType.float32, value_at_loc=1.23456789)
         self.assert_var('/static/file1.cpp/file1StaticDouble', EmbeddedDataType.float64, value_at_loc=9.87654321)
-        self.assert_var('/static/file1.cpp/file1StaticBool', EmbeddedDataType.boolean, value_at_loc=True)
+        self.assert_var('/static/file1.cpp/file1StaticBool', EmbeddedDataType.bool8, value_at_loc=True)
 
     def test_file2_static_basic_types(self):
         self.assert_var('/static/file2.cpp/file2StaticChar', EmbeddedDataType.sint8, value_at_loc=-66)
@@ -98,7 +98,7 @@ class BaseTestAppMakeVarmapTest(BaseVarmapTest):
         self.assert_var('/static/file2.cpp/file2StaticUnsignedLong', EmbeddedDataType.uint64, value_at_loc=78)
         self.assert_var('/static/file2.cpp/file2StaticFloat', EmbeddedDataType.float32, value_at_loc=2.22222)
         self.assert_var('/static/file2.cpp/file2StaticDouble', EmbeddedDataType.float64, value_at_loc=3.3333)
-        self.assert_var('/static/file2.cpp/file2StaticBool', EmbeddedDataType.boolean, value_at_loc=True)
+        self.assert_var('/static/file2.cpp/file2StaticBool', EmbeddedDataType.bool8, value_at_loc=True)
 
     def test_func_static(self):
         self.assert_var('/static/file2.cpp/file2func1()/file2func1Var', EmbeddedDataType.sint32, value_at_loc=-88778877)
@@ -127,7 +127,7 @@ class BaseTestAppMakeVarmapTest(BaseVarmapTest):
         self.assert_var('/global/file1StructAInstance/structAMemberUInt', EmbeddedDataType.uint32, addr=v.get_address() + 4, value_at_loc=258147)
         self.assert_var('/global/file1StructAInstance/structAMemberFloat', EmbeddedDataType.float32, addr=v.get_address() + 8, value_at_loc=77.77)
         self.assert_var('/global/file1StructAInstance/structAMemberDouble', EmbeddedDataType.float64, addr=v.get_address() + 12, value_at_loc=66.66)
-        self.assert_var('/global/file1StructAInstance/structAMemberBool', EmbeddedDataType.boolean, addr=v.get_address() + 20, value_at_loc=False)
+        self.assert_var('/global/file1StructAInstance/structAMemberBool', EmbeddedDataType.bool8, addr=v.get_address() + 20, value_at_loc=False)
 
     def test_structB(self):
         v = self.assert_var('/global/file1StructBInstance/structBMemberInt', EmbeddedDataType.sint32, value_at_loc=55555)
@@ -140,7 +140,7 @@ class BaseTestAppMakeVarmapTest(BaseVarmapTest):
         self.assert_var('/global/file1StructBInstance/structBMemberStructA/structAMemberDouble',
                         EmbeddedDataType.float64, addr=v.get_address() + 16, value_at_loc=22.22)
         self.assert_var('/global/file1StructBInstance/structBMemberStructA/structAMemberBool',
-                        EmbeddedDataType.boolean, addr=v.get_address() + 24, value_at_loc=True)
+                        EmbeddedDataType.bool8, addr=v.get_address() + 24, value_at_loc=True)
 
     def test_structC(self):
         v = self.assert_var('/global/file1StructCInstance/structCMemberInt', EmbeddedDataType.sint32, value_at_loc=888874)
@@ -215,7 +215,7 @@ class BaseTestAppMakeVarmapTest(BaseVarmapTest):
                         value_at_loc=0x2A8, bitoffset=22, bitsize=10, enum='File3EnumInClass')
 
     def test_file4(self):
-        self.assert_var('/global/file4classB/some_bool', EmbeddedDataType.boolean, value_at_loc=True)
+        self.assert_var('/global/file4classB/some_bool', EmbeddedDataType.bool8, value_at_loc=True)
         self.assert_var('/global/file4classB/array_of_A2/array_of_A2[2][0]/xxx', EmbeddedDataType.uint32, value_at_loc=0xdeadbeef)
         self.assert_var('/global/file4classB/array_of_A2/array_of_A2[2][0]/yyy/yyy[0][0]', EmbeddedDataType.sint32, value_at_loc=0x10001111)
         self.assert_var('/global/file4classB/array_of_A2/array_of_A2[2][0]/yyy/yyy[0][1]', EmbeddedDataType.sint32, value_at_loc=0x20002222)
@@ -225,7 +225,7 @@ class BaseTestAppMakeVarmapTest(BaseVarmapTest):
         self.assert_var('/global/file4classB/array_of_A2/array_of_A2[2][0]/zzz/zzz[1][2][3]', EmbeddedDataType.uint16, value_at_loc=0x6789)
         self.assert_var('/global/file4classB/array_of_A2/array_of_A2[2][0]/A2enum', EmbeddedDataType.uint16, value_at_loc=456, enum='File4EnumA')
 
-        self.assert_var('/global/file4classB_array/file4classB_array[0]/some_bool', EmbeddedDataType.boolean, value_at_loc=True)
+        self.assert_var('/global/file4classB_array/file4classB_array[0]/some_bool', EmbeddedDataType.bool8, value_at_loc=True)
         self.assert_var('/global/file4classB_array/file4classB_array[0]/array_of_A2/array_of_A2[2][0]/xxx',
                         EmbeddedDataType.uint32, value_at_loc=0xdeadbeef + 1)
         self.assert_var(
@@ -243,7 +243,7 @@ class BaseTestAppMakeVarmapTest(BaseVarmapTest):
         self.assert_var('/global/file4classB_array/file4classB_array[0]/array_of_A2/array_of_A2[2][0]/A2enum',
                         EmbeddedDataType.uint16, value_at_loc=123, enum='File4EnumA')
 
-        self.assert_var('/global/file4classB_array/file4classB_array[1]/some_bool', EmbeddedDataType.boolean, value_at_loc=True)
+        self.assert_var('/global/file4classB_array/file4classB_array[1]/some_bool', EmbeddedDataType.bool8, value_at_loc=True)
         self.assert_var('/global/file4classB_array/file4classB_array[1]/array_of_A2/array_of_A2[2][0]/xxx',
                         EmbeddedDataType.uint32, value_at_loc=0xdeadbeef + 2)
         self.assert_var(
@@ -261,7 +261,7 @@ class BaseTestAppMakeVarmapTest(BaseVarmapTest):
         self.assert_var('/global/file4classB_array/file4classB_array[1]/array_of_A2/array_of_A2[2][0]/A2enum',
                         EmbeddedDataType.uint16, value_at_loc=123, enum='File4EnumA')
 
-        self.assert_var('/global/file4classB_array/file4classB_array[2]/some_bool', EmbeddedDataType.boolean, value_at_loc=False)
+        self.assert_var('/global/file4classB_array/file4classB_array[2]/some_bool', EmbeddedDataType.bool8, value_at_loc=False)
         self.assert_var('/global/file4classB_array/file4classB_array[2]/array_of_A2/array_of_A2[2][0]/xxx',
                         EmbeddedDataType.uint32, value_at_loc=0xdeadbeef + 3)
         self.assert_var(

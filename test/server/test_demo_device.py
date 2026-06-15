@@ -44,7 +44,7 @@ class TestActiveSFDHandler(ScrutinyUnitTest):
             self.assertEqual(v.get_type(), dtype)
 
         check_var("/static/main.cpp/counter", 0x1000, EmbeddedDataType.float32)
-        check_var("/static/main.cpp/counter_enable", 0x1004, EmbeddedDataType.boolean)
+        check_var("/static/main.cpp/counter_enable", 0x1004, EmbeddedDataType.bool8)
         check_var("/global/device/uptime", 0x1008, EmbeddedDataType.uint32)
         check_var("/global/sinewave_generator/output", 0x100c, EmbeddedDataType.float32)
         check_var("/global/sinewave_generator/frequency", 0x1010, EmbeddedDataType.float32)

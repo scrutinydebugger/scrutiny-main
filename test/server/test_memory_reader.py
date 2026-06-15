@@ -665,7 +665,7 @@ class TestMemoryReaderComplexReadOperation(ScrutinyUnitTest):
         entries += list(make_dummy_var_entries(address=0x1004, n=2, vartype=EmbeddedDataType.uint16))
         entries += list(make_dummy_var_entries(address=0x2000, n=0x100, vartype=EmbeddedDataType.sint8))
         entries += list(make_dummy_var_entries(address=0x2100, n=0x100, vartype=EmbeddedDataType.uint8))
-        entries += list(make_dummy_var_entries(address=0x2200, n=0x100, vartype=EmbeddedDataType.boolean))
+        entries += list(make_dummy_var_entries(address=0x2200, n=0x100, vartype=EmbeddedDataType.bool8))
         entries += list(make_dummy_var_entries(address=0x3000, n=0x100, vartype=EmbeddedDataType.uint32))
         entries += list(make_dummy_var_entries(address=0x4000, n=0x100, vartype=EmbeddedDataType.uint8))
         forbidden_entries = list(make_dummy_var_entries(address=0x4100, n=0x10, vartype=EmbeddedDataType.uint32))

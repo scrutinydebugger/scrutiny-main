@@ -42,7 +42,7 @@ class TestCSVLogger(ScrutinyUnitTest):
             watchable_type=WatchableType.Variable, datatype=EmbeddedDataType.sint32,
             server_id='id_w2', enum=None, server_path=self.w2.server_path))
         self.w3._configure(sdk.BaseDetailedWatchableConfiguration(
-            watchable_type=WatchableType.Variable, datatype=EmbeddedDataType.boolean,
+            watchable_type=WatchableType.Variable, datatype=EmbeddedDataType.bool8,
             server_id='id_w3', enum=None, server_path=self.w3.server_path))
 
     def _make_update(self, watchable: WatchableHandle, value, dt: datetime) -> ValueUpdate:
@@ -245,7 +245,7 @@ class TestCSVLogger(ScrutinyUnitTest):
             # First row should be the table headers directly
             self.assertEqual(rows[0][0], CSVLogger.DATETIME_HEADER)
 
-    # --- Boolean conversion ---
+    # --- bool8 conversion ---
 
     def test_bool_to_int_conversion(self):
         with TemporaryDirectory() as d:

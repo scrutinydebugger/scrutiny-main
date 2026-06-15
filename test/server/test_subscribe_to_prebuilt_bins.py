@@ -211,7 +211,7 @@ class TestSubscribeToPrebuiltBins(ScrutinyUnitTest):
 
     def test_subscribe_to_all_testapp_var_from_api(self):
         self.server.datastore.add_entries([  # There are aliases to those in the test .sfd
-            DatastoreRPVEntry('/rpv/x5000', RuntimePublishedValue(0x5000, EmbeddedDataType.boolean)),
+            DatastoreRPVEntry('/rpv/x5000', RuntimePublishedValue(0x5000, EmbeddedDataType.bool8)),
             DatastoreRPVEntry('/rpv/x5001', RuntimePublishedValue(0x5001, EmbeddedDataType.uint16)),
         ])
         test_sfd_filename = get_artifact('testapp_20260214.sfd')

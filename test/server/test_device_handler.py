@@ -44,7 +44,7 @@ class UnitTestEmulatedDevice(EmulatedDevice):
             0x1001: {'definition': RuntimePublishedValue(id=0x1001, datatype=EmbeddedDataType.float32), 'value': 3.1415926},
             0x1002: {'definition': RuntimePublishedValue(id=0x1002, datatype=EmbeddedDataType.uint16), 'value': 0x1234},
             0x1003: {'definition': RuntimePublishedValue(id=0x1003, datatype=EmbeddedDataType.sint8), 'value': -65},
-            0x1004: {'definition': RuntimePublishedValue(id=0x1004, datatype=EmbeddedDataType.boolean), 'value': True}
+            0x1004: {'definition': RuntimePublishedValue(id=0x1004, datatype=EmbeddedDataType.bool8), 'value': True}
         })
 
         self.configure_loops([
@@ -353,7 +353,7 @@ class TestDeviceHandler(ScrutinyUnitTest):
 
         vbool = DatastoreVariableEntry('dummy_bool',
                                        variable_def=Variable(
-                                           vartype=EmbeddedDataType.boolean,
+                                           vartype=EmbeddedDataType.bool8,
                                            path_segments=['dummy_bool'],
                                            location=0x10020,
                                            endianness=Endianness.Little)
