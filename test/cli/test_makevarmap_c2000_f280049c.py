@@ -121,3 +121,30 @@ class TestMakeVarMap_C2000_f280049C(ScrutinyUnitTest):
         self.assert_var('/global/NamespaceInFile1/NamespaceInFile1Nested1/file1GlobalNestedVar1', EmbeddedDataType.uint32, value_at_loc=1111111111)
 
         self.assert_var('/static/file1.cpp/funcInFile1(int, int)/staticLongInFuncFile1', EmbeddedDataType.sint64, value_at_loc=-0x123456789abcdef)
+
+    def test_file2(self):
+        self.assert_var('/global/file2GlobalChar', EmbeddedDataType.sint16, value_at_loc=20)
+        self.assert_var('/global/file2GlobalInt', EmbeddedDataType.sint16, value_at_loc=2000)
+        self.assert_var('/global/file2GlobalShort', EmbeddedDataType.sint16, value_at_loc=998)
+        self.assert_var('/global/file2GlobalLong', EmbeddedDataType.sint32, value_at_loc=555555)
+        self.assert_var('/global/file2GlobalUnsignedChar', EmbeddedDataType.uint16, value_at_loc=254)
+        self.assert_var('/global/file2GlobalUnsignedInt', EmbeddedDataType.uint16, value_at_loc=1234)
+        self.assert_var('/global/file2GlobalUnsignedShort', EmbeddedDataType.uint16, value_at_loc=12345)
+        self.assert_var('/global/file2GlobalUnsignedLong', EmbeddedDataType.uint32, value_at_loc=1234567)
+        self.assert_var('/global/file2GlobalFloat', EmbeddedDataType.float32, value_at_loc=0.1)
+        self.assert_var('/global/file2GlobalDouble', EmbeddedDataType.float64, value_at_loc=0.11111111111111)
+        self.assert_var('/global/file2GlobalBool', EmbeddedDataType.bool16, value_at_loc=False)
+
+        self.assert_var('/static/file2.cpp/file2StaticChar', EmbeddedDataType.sint16, value_at_loc=-66)
+        self.assert_var('/static/file2.cpp/file2StaticInt', EmbeddedDataType.sint16, value_at_loc=-8745)
+        self.assert_var('/static/file2.cpp/file2StaticShort', EmbeddedDataType.sint16, value_at_loc=-9876)
+        self.assert_var('/static/file2.cpp/file2StaticLong', EmbeddedDataType.sint32, value_at_loc=-12345678)
+        self.assert_var('/static/file2.cpp/file2StaticUnsignedChar', EmbeddedDataType.uint16, value_at_loc=12)
+        self.assert_var('/static/file2.cpp/file2StaticUnsignedInt', EmbeddedDataType.uint16, value_at_loc=34)
+        self.assert_var('/static/file2.cpp/file2StaticUnsignedShort', EmbeddedDataType.uint16, value_at_loc=56)
+        self.assert_var('/static/file2.cpp/file2StaticUnsignedLong', EmbeddedDataType.uint32, value_at_loc=78)
+        self.assert_var('/static/file2.cpp/file2StaticFloat', EmbeddedDataType.float32, value_at_loc=2.22222)
+        self.assert_var('/static/file2.cpp/file2StaticDouble', EmbeddedDataType.float64, value_at_loc=3.3333)
+        self.assert_var('/static/file2.cpp/file2StaticBool', EmbeddedDataType.bool16, value_at_loc=True)
+
+        self.assert_var('/global/NamespaceInFile2/instance_enumA', EmbeddedDataType.uint16)

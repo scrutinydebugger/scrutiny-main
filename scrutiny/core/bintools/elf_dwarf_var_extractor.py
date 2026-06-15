@@ -1121,7 +1121,9 @@ class ElfDwarfVarExtractor:
         enum = self._enum_die_map[enum_die]
         if Attrs.DW_AT_byte_size not in enum_die.attributes:
             raise ElfParsingError(f"Cannot determine enum size {enum_die}")
-        bytesize = enum_die.attributes[Attrs.DW_AT_byte_size].value
+
+        bytesize = self._get_size_from_type_die(enum_die)
+
         try:
             encoding = DwarfEncoding(cast(int, enum_die.attributes[Attrs.DW_AT_encoding].value))
         except Exception:
