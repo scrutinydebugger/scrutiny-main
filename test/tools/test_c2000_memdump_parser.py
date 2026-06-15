@@ -1,3 +1,11 @@
+#    test_c2000_memdump_parser.py
+#        A test suite to check the C2000 Memory Dump parser
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
+
 import tempfile
 import os
 import unittest

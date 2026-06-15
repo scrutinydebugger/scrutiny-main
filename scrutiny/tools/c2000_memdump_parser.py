@@ -1,3 +1,10 @@
+#    c2000_memdump_parser.py
+#        A class that parses a Code Composer memory dump in 16-Bit Hex - TI Style
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
 
 class OutOfRange(Exception):
     pass

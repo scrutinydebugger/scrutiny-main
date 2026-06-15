@@ -1,3 +1,11 @@
+#    test_makevarmap_c2000_f280049c.py
+#        A test suite that check the ability to make a varmap that correctly represent a .elf
+#        built with TI C2000 compiler
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
 
 from test import ScrutinyUnitTest
 from test.artifacts import get_artifact
@@ -53,7 +61,7 @@ class TestMakeVarMap_C2000_f280049C(ScrutinyUnitTest):
                 self.assertEqual(val, value_at_loc)
         return v
 
-    def test_char16bits(self):
+    def test_char_16bits(self):
         uchar_type = self.varmap.get_vartype_from_base_type('unsigned char')
         self.assertEqual(uchar_type, EmbeddedDataType.uint16),
 
@@ -69,3 +77,15 @@ class TestMakeVarMap_C2000_f280049C(ScrutinyUnitTest):
         self.assert_var('/global/file1GlobalFloat', EmbeddedDataType.float32, value_at_loc=3.1415926)
         self.assert_var('/global/file1GlobalDouble', EmbeddedDataType.float64, value_at_loc=1.71)
         self.assert_var('/global/file1GlobalBool', EmbeddedDataType.bool16, value_at_loc=True)
+
+        self.assert_var('/static/file1.cpp/file1StaticChar', EmbeddedDataType.sint16, value_at_loc=99)
+        self.assert_var('/static/file1.cpp/file1StaticInt', EmbeddedDataType.sint16, value_at_loc=9876)
+        self.assert_var('/static/file1.cpp/file1StaticShort', EmbeddedDataType.sint16, value_at_loc=-666)
+        self.assert_var('/static/file1.cpp/file1StaticLong', EmbeddedDataType.sint32, value_at_loc=-55555)
+        self.assert_var('/static/file1.cpp/file1StaticUnsignedChar', EmbeddedDataType.uint16, value_at_loc=44)
+        self.assert_var('/static/file1.cpp/file1StaticUnsignedInt', EmbeddedDataType.uint16, value_at_loc=3333)
+        self.assert_var('/static/file1.cpp/file1StaticUnsignedShort', EmbeddedDataType.uint16, value_at_loc=22222)
+        self.assert_var('/static/file1.cpp/file1StaticUnsignedLong', EmbeddedDataType.uint32, value_at_loc=321321)
+        self.assert_var('/static/file1.cpp/file1StaticFloat', EmbeddedDataType.float32, value_at_loc=1.23456789)
+        self.assert_var('/static/file1.cpp/file1StaticDouble', EmbeddedDataType.float64, value_at_loc=9.87654321)
+        self.assert_var('/static/file1.cpp/file1StaticBool', EmbeddedDataType.bool16, value_at_loc=True)

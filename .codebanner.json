@@ -1127,6 +1127,15 @@
         },
         "scrutiny/gui/widgets/vertical_scroll_area.py": {
             "docstring": "A ScrollArea that only scroll vertically, resize the underlying widget horizontally."
+        },
+        "test/cli/test_makevarmap_c2000_f280049c.py": {
+            "docstring": "A test suite that check the ability to make a varmap that correctly represent a .elf built with TI C2000 compiler"
+        },
+        "test/tools/test_c2000_memdump_parser.py": {
+            "docstring": "A test suite to check the C2000 Memory Dump parser"
+        },
+        "scrutiny/tools/c2000_memdump_parser.py": {
+            "docstring": "A class that parses a Code Composer memory dump in 16-Bit Hex - TI Style"
         }
     },
     "authors": {}
