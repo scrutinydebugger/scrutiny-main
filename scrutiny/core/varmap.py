@@ -255,6 +255,13 @@ class VarMap:
         if type_id not in self._content.typemap:
             raise KeyError(f'Type "{type_id}" refer to a type not in type map')
         typename = self._content.typemap[type_id]['type']
+
+        # ===== Backward compatibility ====
+        # booleans were assumed to be 8bits in 0.13 and below.
+        # varmap created in earlier versions have the string "boolean" in them.
+        if typename == 'boolean':
+            typename = EmbeddedDataType.bool8.name
+        # =========================================
         return EmbeddedDataType[typename]  # Enums support square brackets
 
     @classmethod

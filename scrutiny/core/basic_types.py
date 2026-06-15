@@ -198,8 +198,6 @@ class EmbeddedDataType(Enum):
         type_type = self.value & 0xF0
         return type_type == DataTypeType._bool.value
 
-
-
     @classmethod
     def make(cls, datatype_type: DataTypeType, size: Union[int, DataTypeSize]) -> "EmbeddedDataType":
         if isinstance(size, int):
