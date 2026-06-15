@@ -32,7 +32,7 @@ Its main purpose is to showcase how Scrutiny works without having to go through 
 ### Variables
 
   - ``/static/main.cpp/counter`` (float32) : A counter adding 0.1 at each thread iteration when enabled
-  - ``/static/main.cpp/counter_enable`` (boolean) : Enable counting of ``/static/main.cpp/counter``
+  - ``/static/main.cpp/counter_enable`` (bool8) : Enable counting of ``/static/main.cpp/counter``
   - ``/global/device/uptime`` (uint32) : A counter counting time in seconds since the emulated device is started
   - ``/global/sinewave_generator/output`` (float32) : A sine wave computed by the device
   - ``/global/sinewave_generator/frequency`` (float32) : The frequency of the sine wave at ``/global/sinewave_generator/output``. Can be edited

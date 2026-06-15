@@ -43,7 +43,7 @@ class TestTypes(ScrutinyUnitTest):
         self.assertEqual(EmbeddedDataType.cfloat128.get_size_byte(), 16)
         self.assertEqual(EmbeddedDataType.cfloat256.get_size_byte(), 32)
 
-        self.assertEqual(EmbeddedDataType.boolean.get_size_byte(), 1)
+        self.assertEqual(EmbeddedDataType.bool8.get_size_byte(), 1)
 
     def test_is_signed(self):
         self.assertTrue(EmbeddedDataType.sint8.is_signed())
@@ -74,7 +74,7 @@ class TestTypes(ScrutinyUnitTest):
         self.assertTrue(EmbeddedDataType.cfloat128.is_signed())
         self.assertTrue(EmbeddedDataType.cfloat256.is_signed())
 
-        self.assertFalse(EmbeddedDataType.boolean.is_signed())
+        self.assertFalse(EmbeddedDataType.bool8.is_signed())
 
     def test_is_integer(self):
         self.assertTrue(EmbeddedDataType.sint8.is_integer())
@@ -105,7 +105,7 @@ class TestTypes(ScrutinyUnitTest):
         self.assertFalse(EmbeddedDataType.cfloat128.is_integer())
         self.assertFalse(EmbeddedDataType.cfloat256.is_integer())
 
-        self.assertFalse(EmbeddedDataType.boolean.is_integer())
+        self.assertFalse(EmbeddedDataType.bool8.is_integer())
 
     def test_is_float(self):
         self.assertFalse(EmbeddedDataType.sint8.is_float())
@@ -136,7 +136,7 @@ class TestTypes(ScrutinyUnitTest):
         self.assertTrue(EmbeddedDataType.cfloat128.is_float())
         self.assertTrue(EmbeddedDataType.cfloat256.is_float())
 
-        self.assertFalse(EmbeddedDataType.boolean.is_float())
+        self.assertFalse(EmbeddedDataType.bool8.is_float())
 
 
 class TestCodecs(ScrutinyUnitTest):
@@ -210,17 +210,17 @@ class TestCodecs(ScrutinyUnitTest):
                 Codecs.make_value_valid(dtype, -math.inf)
 
     def test_make_valid_bool(self):
-        self.assertEqual(Codecs.make_value_valid(EmbeddedDataType.boolean, 1), True)
-        self.assertEqual(Codecs.make_value_valid(EmbeddedDataType.boolean, 0), False)
-        self.assertEqual(Codecs.make_value_valid(EmbeddedDataType.boolean, 0.0), False)
-        self.assertEqual(Codecs.make_value_valid(EmbeddedDataType.boolean, 10000000000), True)
+        self.assertEqual(Codecs.make_value_valid(EmbeddedDataType.bool8, 1), True)
+        self.assertEqual(Codecs.make_value_valid(EmbeddedDataType.bool8, 0), False)
+        self.assertEqual(Codecs.make_value_valid(EmbeddedDataType.bool8, 0.0), False)
+        self.assertEqual(Codecs.make_value_valid(EmbeddedDataType.bool8, 10000000000), True)
 
         with self.assertRaises(ValueError):
-            Codecs.make_value_valid(EmbeddedDataType.boolean, math.nan)
+            Codecs.make_value_valid(EmbeddedDataType.bool8, math.nan)
         with self.assertRaises(ValueError):
-            Codecs.make_value_valid(EmbeddedDataType.boolean, math.inf)
+            Codecs.make_value_valid(EmbeddedDataType.bool8, math.inf)
         with self.assertRaises(ValueError):
-            Codecs.make_value_valid(EmbeddedDataType.boolean, -math.inf)
+            Codecs.make_value_valid(EmbeddedDataType.bool8, -math.inf)
 
 
 if __name__ == '__main__':

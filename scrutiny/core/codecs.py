@@ -109,18 +109,16 @@ class FloatCodec(BaseCodec):
         return struct.pack(self.packstr, value)
 
 
-class BoolCodec(BaseCodec):
+class BoolCodec(UIntCodec):
     """A codec for boolean values"""
 
-    def __init__(self) -> None:
-        super().__init__()
-
     def decode(self, data: Union[bytes, bytearray]) -> bool:
-        return True if data[0] != 0 else False
+        uint_val = super().decode(data)
+        return True if uint_val != 0 else False
 
     def encode(self, value: Encodable) -> bytes:
         v = 1 if value else 0
-        return struct.pack('B', v)
+        return super().encode(v)
 
 
 class Codecs:
@@ -137,8 +135,8 @@ class Codecs:
             return UIntCodec(datasize, endianness=endianness)
         elif vartype in (EmbeddedDataType.float64, EmbeddedDataType.float32):
             return FloatCodec(datasize, endianness=endianness)
-        elif vartype in (EmbeddedDataType.boolean,):
-            return BoolCodec()
+        elif vartype.is_bool():
+            return BoolCodec(datasize, endianness=endianness)
         elif vartype in (EmbeddedDataType.ptr32, EmbeddedDataType.ptr8, EmbeddedDataType.ptr16, EmbeddedDataType.ptr64):
             return UIntCodec(datasize, endianness=endianness)
 
@@ -150,7 +148,7 @@ class Codecs:
 
         if not math.isfinite(val):
             raise ValueError("Does not support non-finite values")
-        if vartype == EmbeddedDataType.boolean:
+        if vartype.is_bool():
             return False if int(val) == 0 else True
 
         if isinstance(val, bool):

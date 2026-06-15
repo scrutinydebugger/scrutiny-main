@@ -2339,7 +2339,7 @@ class TestAPI(ScrutinyUnitTest):
                           'a', 'b', 'c', 'dummys32'], location=0x12345678, endianness=Endianness.Little)
         varu32 = Variable(vartype=EmbeddedDataType.uint32, path_segments=[
                           'a', 'b', 'c', 'dummyu32'], location=0x12345678, endianness=Endianness.Little)
-        varbool = Variable(vartype=EmbeddedDataType.boolean, path_segments=[
+        varbool = Variable(vartype=EmbeddedDataType.bool8, path_segments=[
                            'a', 'b', 'c', 'dummybool'], location=0x12345678, endianness=Endianness.Little)
 
         entryf32 = DatastoreVariableEntry(varf32.get_fullname(), variable_def=varf32)

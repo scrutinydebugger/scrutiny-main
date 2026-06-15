@@ -33,7 +33,7 @@ class DemoDeviceSFD(FirmwareDescription):
         varmap.register_base_type("float", EmbeddedDataType.float32)
         varmap.register_base_type("int32", EmbeddedDataType.sint32)
         varmap.register_base_type("uint32", EmbeddedDataType.uint32)
-        varmap.register_base_type("bool", EmbeddedDataType.boolean)
+        varmap.register_base_type("bool", EmbeddedDataType.bool8)
 
         varmap.add_variable(['static', 'main.cpp', "counter"], AbsoluteLocation(0x1000), "float")
         varmap.add_variable(['static', 'main.cpp', "counter_enable"], AbsoluteLocation(0x1004), "bool")

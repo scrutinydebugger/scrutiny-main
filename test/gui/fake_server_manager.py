@@ -47,7 +47,7 @@ DUMMY_DATASET_VAR = {
     '/var/var.b/var.b.a': sdk.BriefWatchableConfiguration(watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None),
     '/var/var.b/var.b.b': sdk.BriefWatchableConfiguration(watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None),
     '/var/var.b/var.b.c': sdk.BriefWatchableConfiguration(watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None),
-    '/var/some_bool': sdk.BriefWatchableConfiguration(watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.boolean, enum=None),
+    '/var/some_bool': sdk.BriefWatchableConfiguration(watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.bool8, enum=None),
 }
 
 

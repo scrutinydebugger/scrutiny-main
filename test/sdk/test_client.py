@@ -602,7 +602,7 @@ class TestClient(ScrutinyUnitTest):
 
         var2 = datastore.DatastoreVariableEntry('/a/b/var2',
                                                 core_Variable(
-                                                    vartype=EmbeddedDataType.boolean,
+                                                    vartype=EmbeddedDataType.bool8,
                                                     path_segments=['a', 'b', 'var2'],
                                                     location=0x4568,
                                                     endianness=Endianness.Little,
@@ -961,7 +961,7 @@ class TestClient(ScrutinyUnitTest):
         self.assertEqual(var2.type, sdk.WatchableType.Variable)
         self.assertEqual(var2.server_path, '/a/b/var2')
         self.assertEqual(var2.name, 'var2')
-        self.assertEqual(var2.datatype, sdk.EmbeddedDataType.boolean)
+        self.assertEqual(var2.datatype, sdk.EmbeddedDataType.bool8)
         self.assertEqual(var2.has_enum(), False)
         self.assertEqual(var2.var_details.address, 0x4568)
         self.assertEqual(var2.var_details.bitoffset, None)

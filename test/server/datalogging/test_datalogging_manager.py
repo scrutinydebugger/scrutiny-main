@@ -168,7 +168,7 @@ class TestDataloggingManager(ScrutinyUnitTest):
         self.var3_f64 = self.make_var_entry('/var/abc/var3_f64', 0x100008, EmbeddedDataType.float64)
         self.var4_s16 = self.make_var_entry('/var/abc/var4_s16', 0x100010, EmbeddedDataType.sint16)
 
-        self.rpv1000_bool = self.make_rpv_entry('/rpv/abc/rpv1000_bool', 0x1000, EmbeddedDataType.boolean)
+        self.rpv1000_bool = self.make_rpv_entry('/rpv/abc/rpv1000_bool', 0x1000, EmbeddedDataType.bool8)
         self.rpv2000_f32 = self.make_rpv_entry('/rpv/abc/rpv2000_f32', 0x2000, EmbeddedDataType.float32)
 
         self.alias_var1_u32 = DatastoreAliasEntry(
@@ -271,7 +271,7 @@ class TestDataloggingManager(ScrutinyUnitTest):
             for i in range(nb_points):
 
                 randval = random.random()
-                if dtype == EmbeddedDataType.boolean:
+                if dtype == EmbeddedDataType.bool8:
                     points.append(codec.encode(i % 2 == 0))
                 elif dtype.is_float():
                     points.append(codec.encode(randval))

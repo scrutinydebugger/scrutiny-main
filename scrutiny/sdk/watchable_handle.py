@@ -284,7 +284,7 @@ class WatchableHandle:
                 elif self.datatype.is_integer():
                     if int(value) == self.value_int:
                         break
-                elif self.datatype == EmbeddedDataType.boolean:
+                elif self.datatype.is_bool():
                     if bool(value) == self.value_bool:
                         break
 

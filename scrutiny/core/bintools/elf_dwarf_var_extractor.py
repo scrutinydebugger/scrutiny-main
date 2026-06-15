@@ -128,10 +128,10 @@ ENCODING_2_DTYPE_MAP: Dict[DwarfEncoding, Dict[int, EmbeddedDataType]] = {
         32: EmbeddedDataType.ptr256
     },
     DwarfEncoding.DW_ATE_boolean: {
-        1: EmbeddedDataType.boolean,
-        2: EmbeddedDataType.uint16,
-        4: EmbeddedDataType.uint32,
-        8: EmbeddedDataType.uint64
+        1: EmbeddedDataType.bool8,
+        2: EmbeddedDataType.bool16,
+        4: EmbeddedDataType.bool32,
+        8: EmbeddedDataType.bool64
     },
     DwarfEncoding.DW_ATE_complex_float: {
         1: EmbeddedDataType.cfloat8,
