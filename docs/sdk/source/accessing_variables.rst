@@ -137,7 +137,7 @@ The metadata content varies according to the watchable type.
 
 -----
 
-For convenience, 3 specialization of :meth:`get_watchable_info<scrutiny.sdk.client.ScrutinyClient.get_watchable_info>` are available for the case only
+For convenience, 3 specializations of :meth:`get_watchable_info<scrutiny.sdk.client.ScrutinyClient.get_watchable_info>` are available for the case only
 one watchable of a given type is of interest.
 
 
@@ -347,8 +347,8 @@ Following is the object returned :meth:`download_watchable_list<scrutiny.sdk.cli
 Controlling the update rate
 ---------------------------
 
-The server is can be instructed to poll a watchable at a reduced rate to avoid unnecessary bandwidth usage on the device link.
-This can be usefull if a comunication link is fast and the value does not ened to eb refreshed often (displayed on a screen for example).
+The server can be instructed to poll a watchable at a reduced rate to avoid unnecessary bandwidth usage on the device link.
+This can be useful if a communication link is fast and the value does not need to be refreshed often (displayed on a screen for example).
 
 When calling :meth:`ScrutinyClient.watch()<scrutiny.sdk.client.ScrutinyClient.watch>`, one can specify an optional ``update_rate`` value.
 This update rate can also be set or changed after the initial call to :meth:`ScrutinyClient.watch()<scrutiny.sdk.client.ScrutinyClient.watch>`,

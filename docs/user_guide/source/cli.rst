@@ -187,7 +187,7 @@ These tools perform two essential functions:
 
 The commands described in this section are used to perform these two steps.
 
-.. note:: scrutiny-embedded library has a CMake functions calleds ``scrutiny_postbuild`` that invoke those commands automatically when required.
+.. note:: scrutiny-embedded library has a CMake function called ``scrutiny_postbuild`` that invoke those commands automatically when required.
 
 .. image:: _static/build_toolchain.png
 
@@ -203,7 +203,7 @@ process, refer to the `online instrumentation guide <https://scrutinydebugger.co
   * - **get-firmware-id**
     - Extracts a unique hash from an untagged .elf file used for device identification.
   * - **tag-firmware-id**
-    - Writes the firmware ID into a freshly compiled binary (untaggedf).
+    - Writes the firmware ID into a freshly compiled binary (untagged).
   * - **elf2varmap**
     - Extracts variable definitions from an ELF file using DWARF debugging symbols.
   * - **add-alias**
@@ -328,7 +328,7 @@ See :ref:`The VarMap Format <varmap_file>` for more details about the VarMap fil
 
 **add-alias**
 
-As explained in the :ref:`Architecture section <page_architecture>`, a Scrutiny server can exposes Aliases when a device connect.
+As explained in the :ref:`Architecture section <page_architecture>`, a Scrutiny server can expose Aliases when a device connects.
 These aliases come from a file named ``alias.json`` embedded in the SFD file.
 
 This command can add one or more aliases to an SFD, whether the SFD is still being constructed or already installed on a server.
@@ -346,7 +346,7 @@ Instead of providing the input as a .json file, it is also possible to define a
 single alias directly from the command line by specifying each of its properties individually.
 
 When doing so, the ``--fullpath`` and ``--target`` options are mandatory.
-Optional parameter such as ``--gain``, ``--offset``, ``--min``, ``--max`` may also be provided.
+Optional parameters such as ``--gain``, ``--offset``, ``--min``, ``--max`` may also be provided.
 
 .. code-block:: bash
 
@@ -359,7 +359,7 @@ See the :ref:`Alias file format <alias_file>` for more details.
 
 **make-metadata**
 
-This command generate the :ref:`metadata file <metadata_file>` that goes in a .sfd.
+This command generates the :ref:`metadata file <metadata_file>` that goes in a .sfd.
 
 Example:
 
@@ -401,7 +401,7 @@ A few additional commands serve various purposes, generally intended for develop
 
 **runtest**
 
-Scrutiny's unit tests are built on PythonMs native ``unittest`` module. This command runs the test suite using a custom test runner.
+Scrutiny's unit tests are built on Python's native ``unittest`` module. This command runs the test suite using a custom test runner.
 
 Example:
 
@@ -454,7 +454,7 @@ There is a single command to launch the Graphical User Interface
 
     $ scrutiny gui
 
-This command support several options
+This command supports several options
 
 \-\-no-opengl
     Runs the GUI and disables the use of OpenGL for graphical acceleration.

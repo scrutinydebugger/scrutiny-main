@@ -26,7 +26,7 @@ Glossary
         A communication protocol used for microcontroller debugging.
 
     ELF  (Executable and Linkable File)
-        A file format containing compiled code. In this context, it mostly refer to the embedded firmware.
+        A file format containing compiled code. In this context, it mostly refers to the embedded firmware.
 
     GUI  (Graphical User Interface)
         A window-based software interface intended for use with a mouse or other pointing device.

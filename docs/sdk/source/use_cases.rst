@@ -64,7 +64,7 @@ End-Of-Line configuration
 EOL configuration is another interesting use case for the Scrutiny Python SDK. Let's consider a product that requires a configuration step after manufacturing.
 
 This configuration could be writing parameters and assembly information (model, serial number, etc) in a Non-Volatile Memory or burning a fuse in the processor.
-In most application, the :abbr:`NVM (Non-Volatile Memory)` is connected to the processor, making it accessible to the firmware or an advanced JTAG.
+In most applications, the :abbr:`NVM (Non-Volatile Memory)` is connected to the processor, making it accessible to the firmware or an advanced JTAG.
 
 In this example, we will show how we can add a hook in the firmware to let a remote user take control of a :abbr:`EEPROM (Electrically Erasable Programmable Read-Only Memory)`
 (a type of :abbr:`NVM (Non-Volatile Memory)`) through the SDK. We will abstract the EEPROM driver under a class that has a ``write()`` and a ``read()`` method.

@@ -8,7 +8,7 @@ b. A Firmware ID, which is used to match the SFD with the corresponding firmware
 c. The metadata about the firmware, such as its name, project version, author, build date, etc.
 d. Aliases definitions
 
-The :abbr:`SFD (Scrutiny Firmware Description)` must be installed on the server using one of the following method :
+The :abbr:`SFD (Scrutiny Firmware Description)` must be installed on the server using one of the following methods:
 
 - Through the :abbr:`CLI (Command Line Interface)`, using the ``install-sfd`` command. The command must be run on the server. (Example: `scrutiny install-sfd my_file.sfd`)
 - Through the SDK, using :meth:`init_sfd_upload()<scrutiny.sdk.client.ScrutinyClient.init_sfd_upload>`
@@ -80,7 +80,7 @@ Download an SFD from the server and save it to a file
     :language: python
     :encoding: utf-8
 
-Upload and SFD to the server and install it
+Upload an SFD to the server and install it
 
 .. literalinclude:: _static/code-examples/sfd_upload_download/upload_sfd.py
     :language: python

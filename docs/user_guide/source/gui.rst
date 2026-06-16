@@ -69,7 +69,7 @@ The available physical communication links are:
 - Serial (based on ``pySerial``)
 - :ref:`CAN<glossary>` / :ref:`CAN-FD<glossary>` (based on ``python-can``)
 - :ref:`UDP/IP<glossary>`
-- Jlink :ref:`RTT<glossary>` (based of pylink-square)
+- Jlink :ref:`RTT<glossary>` (based on pylink-square)
 
 Additionally, it is possible to request the server to run a virtual device to try the user interface.
 
