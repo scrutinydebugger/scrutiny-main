@@ -33,7 +33,7 @@ The first step before configuring the datalogger is knowing what the device is c
 - Is datalogging even supported?
 - What are the sampling rates?
 - What is the size of the buffer?
-- How many signal can I log?
+- How many signals can I log?
 - etc
 
 This information can be obtained using the :meth:`ScrutinyClient.get_device_info<scrutiny.sdk.client.ScrutinyClient.get_device_info>` method,
@@ -145,12 +145,12 @@ the :meth:`DataloggingAcquisition.to_csv()<scrutiny.core.datalogging.Datalogging
 Fetching an acquisition from the database
 -----------------------------------------
 
-The server maintain a local sqlite database of all the acquisition captured. In most use case relevant for this SDK, a user will want
+The server maintains a local sqlite database of all the acquisitions captured. In most use cases relevant to this SDK, a user will want
 to download an acquisition that just got triggered, but it is also possible to browse the database and download
 past acquisitions (which is also possible through the :abbr:`CLI (Command Line Interface)`)
 
 Each acquisition has a unique ID called the :attr:`reference_id<scrutiny.core.datalogging.DataloggingAcquisition.reference_id>`.
-On can list the acquisition available by calling :meth:`ScrutinyClient.list_stored_datalogging_acquisitions<scrutiny.sdk.client.ScrutinyClient.list_stored_datalogging_acquisitions>`
+One can list the acquisitions available by calling :meth:`ScrutinyClient.list_stored_datalogging_acquisitions<scrutiny.sdk.client.ScrutinyClient.list_stored_datalogging_acquisitions>`
 and once the :attr:`reference_id<scrutiny.core.datalogging.DataloggingAcquisition.reference_id>` is known, it can be passed to
 :meth:`ScrutinyClient.read_datalogging_acquisition()<scrutiny.sdk.client.ScrutinyClient.read_datalogging_acquisition>`
 

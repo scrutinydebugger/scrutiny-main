@@ -15,13 +15,13 @@ A SFD file is nothing more than a .zip archive containing the following files:
   - alias.json
   - metadata.json
 
-In this section, we will describe in details the content of each of these files.
+In this section, we will describe in detail the content of each of these files.
 Knowing their format is **NOT** required to use Scrutiny.
 They are documented here primarily to help readers better understand the overall Scrutiny ecosystem.
 
 .. _firmwareid_file:
 
-Firwmare ID
+Firmware ID
 -----------
 
 A text file containing the firmware hash in ASCII format.
@@ -34,7 +34,7 @@ The Firmware ID can be extracted with the :ref:`make_metadata <cmd_get-firmware-
 VarMap file
 -----------
 
-The VarMap is a JSON file that defines the memory mapping of a firmware, eessentially a simplified form of the debugging symbols.
+The VarMap is a JSON file that defines the memory mapping of a firmware, essentially a simplified form of the debugging symbols.
 It maps variables (each having an address, a type, and additional attributes) to a tree‑structured path represented in a flat format.
 
 Example :

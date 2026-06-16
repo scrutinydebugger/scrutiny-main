@@ -6,8 +6,8 @@ Architecture
 Scrutiny is a framework for debugging, testing and visualizing embedded C++ applications.
 It works through instrumentation, meaning that the access to the device requires a modified firmware to work.
 
-the design of the application uses a client/server architecture allowing multiple clients or processes to
-interract with an embedded device at the same time.
+The design of the application uses a client/server architecture allowing multiple clients or processes to
+interact with an embedded device at the same time.
 
 The architecture of the Scrutiny ecosystem is depicted as below
 
@@ -23,7 +23,7 @@ The architecture of the Scrutiny ecosystem is depicted as below
 Classical vs instrumentation based debugging
 --------------------------------------------
 
-Debugging by instrumentation is different from common classical debugging of embedded firwmares.
+Debugging by instrumentation is different from common classical debugging of embedded firmwares.
 
 In the traditional approach, the device is accessed through a dedicated debug port using a protocol such as
 :ref:`SWD<glossary>` or :ref:`JTAG<glossary>` using a debug probe.
@@ -53,7 +53,7 @@ Both methods have pros and cons. Here is a comparison
   "Memory accesses",                "Async with firmware (-)",  "Synchronous with firmware (+)"
 
 Debugging by instrumentation is an ideal tool for debugging a real-time baremetal application while it is running,
-but it's not suited to do the initial bootup of a new platform as it require a firmware that boots and can make a transceiver work.
+but it's not suited to do the initial bootup of a new platform as it requires a firmware that boots and can make a transceiver work.
 
 
 Update Stream Timing Diagram
@@ -66,7 +66,7 @@ Below is a timing diagram that depicts 2 clients subscribing to variables and re
 
     Value streaming timing diagram
 
-.. note:: Altough central, subscribing to an update stream is only a one of many features supported by Scrutiny.
+.. note:: Although central, subscribing to an update stream is only one of many features supported by Scrutiny.
 
 
 Device protocol

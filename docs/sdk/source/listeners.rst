@@ -8,7 +8,7 @@ Synchronous access to watchables (variables, aliases, and :abbr:`RPVs (Runtime P
 :ref:`Accessing Variables<page_accessing_variables>` section, can be useful.
 However, it has certain limitations, especially when monitoring multiple values simultaneously.
 
-For example, if one wants to log a list of watchables, it would required to continuously loop and monitor the
+For example, if one wants to log a list of watchables, it would be required to continuously loop and monitor the
 :attr:`udpate_counter<scrutiny.sdk.watchable_handle.WatchableHandle.update_counter>` property to detect changes.
 However, this approach does not guarantee that all changes will be noticed by the user thread.
 In addition to being unreliable, this technique will cause unnecessary CPU usage.
@@ -82,7 +82,7 @@ This behavior is controlled by overriding :meth:`allow_subscription_changes_whil
 
 Some listeners will allow it (like the :class:`TextStreamListener<scrutiny.sdk.listeners.text_stream_listener.TextStreamListener>`
 or the :class:`BufferedReaderListener<scrutiny.sdk.listeners.buffered_reader_listener.BufferedReaderListener>`)
-, but some does not (like the :class:`CSVFileListener<scrutiny.sdk.listeners.csv_file_listener.CSVFileListener>`).
+, but some do not (like the :class:`CSVFileListener<scrutiny.sdk.listeners.csv_file_listener.CSVFileListener>`).
 When not allowed, a :class:`NotAllowedError<scrutiny.sdk.exceptions.NotAllowedError>` will
 be raised if one of the following method is called after :meth:`start()<scrutiny.sdk.listeners.BaseListener.start>` has been called.
 
@@ -186,7 +186,7 @@ It is possible to get some interesting numbers about the performance of the list
 Available listeners
 -------------------
 
-There is a few listeners already available in the Scrutiny SDK.
+There are a few listeners already available in the Scrutiny SDK.
 
 TextStreamListener
 ##################

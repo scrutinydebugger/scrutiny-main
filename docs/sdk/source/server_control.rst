@@ -227,7 +227,7 @@ Serial
 
 -----
 
-Seger RTT
+Segger RTT
 #########
 
 .. autoclass:: scrutiny.sdk.RTTLinkConfig
