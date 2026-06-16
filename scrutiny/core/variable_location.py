@@ -32,7 +32,7 @@ class UnresolvedPathPointedLocation:
             self.array_segments = array_segments
 
         if not isinstance(self.pointer_path, str):
-            raise TypeError('Address pointer_path be a valid string')
+            raise TypeError('pointer_path must be a valid string')
         if not isinstance(self.pointer_offset, int):
             raise TypeError('pointer_offset must be a valid integer')
         if not isinstance(self.array_segments, dict):
@@ -61,7 +61,7 @@ class ResolvedPathPointedLocation:
 
     def __post_init__(self) -> None:
         if not isinstance(self.pointer_path, str):
-            raise TypeError('Address pointer_path be a valid string')
+            raise TypeError('pointer_path must be a valid string')
         if not isinstance(self.pointer_offset, int):
             raise TypeError('pointer_offset must be a valid integer')
 

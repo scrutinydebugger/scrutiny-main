@@ -36,13 +36,13 @@ RawMemoryWriteRequestCompletionCallback = Callable[["RawMemoryWriteRequest", boo
 
 
 class RawMemoryWriteRequest:
-    """An internal structure used to define a raw memory write, meaning a read not tied to a datastore entry.
-    Just the user that wants to dump the content"""
+    """An internal structure used to define a raw memory write, meaning a write not tied to a datastore entry.
+    Used when the user wants to write content directly."""
 
     address: int
-    """Address to read"""
+    """Address to write to"""
     data: bytes
-    """Size to read"""
+    """Data to write"""
     completed: bool
     """Indicates if the request is completed (failed or successful)"""
     success: bool
@@ -69,8 +69,8 @@ class RawMemoryWriteRequest:
 
 
 class MemoryWriter(BaseDeviceHandlerSubmodule):
-    """Class that request the device for its memory content or RPV to me modified according to
-    either a datastore entry value or a raw value requested by the user
+    """Class that requests the device to modify its memory content or RPV according to
+    either a datastore entry value or a raw value requested by the user.
     It treats Variable and RuntimePublishedValues differently as they use a different protocol command.
     """
 
@@ -543,7 +543,7 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
         self.pending_request = None
 
     def _dispatch(self, request: Request) -> None:
-        """Sends a request to the request dispatcher and assign the corrects completion callbacks"""
+        """Sends a request to the request dispatcher and assigns the correct completion callbacks"""
         if self.logger.isEnabledFor(logging.DEBUG):  # pragma: no cover
             self.logger.debug('Registering a MemoryWrite request. %s' % (request))
         self.dispatcher.register_request(

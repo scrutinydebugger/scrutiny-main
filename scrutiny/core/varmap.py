@@ -224,7 +224,7 @@ class VarMap:
         self._next_type_id = 0
         self._next_enum_id = 0
         self._typename2typeid_map = {}   # Maps the type id of this VarMap to the original name inside the binary.
-        self._enums_to_id_map = {}       # Maps a EmbeddedEnum object to it's internal id
+        self._enums_to_id_map = {}       # Maps an EmbeddedEnum object to its internal id
 
         # Build _typename2typeid_map
         for typeid_str in self._content.typemap:
@@ -432,7 +432,7 @@ class VarMap:
         return self._content.char_bit
 
     def get_char_bit_8bits_multiple(self) -> int:
-        """Return the size of a byte on this platform in multiple of 8bits packet"""
+        """Return the size of a byte on this platform as a multiple of 8-bit packets"""
         return (self._content.char_bit // 8)
 
     def write(self, filename: str, indent: Optional[Union[int, str]] = '\t') -> None:

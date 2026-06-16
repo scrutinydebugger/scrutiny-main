@@ -680,7 +680,7 @@ class ServerManager:
 
     @enforce_thread(QT_THREAD_NAME)
     def _qt_maybe_request_unwatch(self, watchable_type: sdk.WatchableType, server_path: str) -> None:
-        """Will request the server to unsubscribe to a watchif not already done or working on it."""
+        """Will request the server to unsubscribe from a watch if not already done or working on it."""
         if not server_path in self._registration_status_store[watchable_type]:
             self._registration_status_store[watchable_type][server_path] = self.WatchableRegistrationStatus(
                 active_state=self.WatchableRegistrationState.UNSUBSCRIBED,

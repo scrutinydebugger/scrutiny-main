@@ -61,7 +61,7 @@ class ActiveSFDHandler:
     loaded_callbacks: List[SFDLoadedCallback]
     """List of callbacks to call upon SFD loading."""
     unloaded_callbacks: List[SFDUnloadedCallback]
-    """List of callbacks to load upon SFD unloading."""
+    """List of callbacks to call upon SFD unloading."""
 
     def __init__(self, device_handler: DeviceHandler, datastore: Datastore, autoload: bool = True) -> None:
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -150,7 +150,7 @@ class ActiveSFDHandler:
 
             # populate datastore
             for element in self.sfd.get_vars_for_datastore():
-                # Garanteed that absolute addresses comes before pointed addresses by get_vars_for_datastore.
+                # Guaranteed that absolute addresses come before pointed addresses by get_vars_for_datastore.
                 # This is important as we cannot add a datastore entry that points to a missing entry
                 try:
                     if isinstance(element.var_or_factory, Variable):

@@ -49,7 +49,7 @@ class DummyLink(AbstractLink):
         self.from_device_data = queue.Queue()
 
     def initialize(self) -> None:
-        """Returns True if the Link object has been initialized"""
+        """Initialize the link and clear all buffers"""
         self.clear_all()
         self._initialized = True
 

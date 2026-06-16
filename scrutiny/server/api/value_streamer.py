@@ -135,7 +135,7 @@ class ValueStreamer:
             self._conn_data[conn_id] = ConnectionData()
 
     def clear_connection(self, conn_id: str) -> None:
-        """Called when the API looses a connection"""
+        """Called when the API loses a connection"""
         if conn_id in self._conn_data:
             del self._conn_data[conn_id]
 

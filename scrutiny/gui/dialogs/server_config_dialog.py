@@ -246,16 +246,16 @@ class LocalServerConfigurator(QWidget):
         self._feedback_label.setVisible(True)
 
     def clear_error(self) -> None:
-        """Clear the feedback label from its error emssage"""
+        """Clear the feedback label from its error message"""
         self._feedback_label.clear()
         self._feedback_label.setVisible(False)
 
     def is_running(self) -> bool:
-        """Return true if the subprocess is allive and well"""
+        """Return True if the subprocess is alive and well"""
         return self._runner.get_state() == LocalServerRunner.State.STARTED
 
     def get_running_port(self) -> Optional[int]:
-        """Return the port on which the subprocess is listening on. ``None`` if no subprocess is runinng"""
+        """Return the port on which the subprocess is listening on. ``None`` if no subprocess is running"""
         return self._runner.get_port()
 
     def get_ui_port(self) -> Optional[int]:

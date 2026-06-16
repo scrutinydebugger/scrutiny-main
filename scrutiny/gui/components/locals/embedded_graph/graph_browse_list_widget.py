@@ -262,7 +262,7 @@ class GraphBrowseListWidget(QWidget):
             self._treeview.resizeColumnToContents(i)
 
     def update_storage_entry(self, entry: datalogging.DataloggingStorageEntry) -> None:
-        """Request a change to an entry. Teh ``reference_id`` field is used to find the update target"""
+        """Request a change to an entry. The ``reference_id`` field is used to find the update target"""
         self._treeview.setSortingEnabled(False)
         self._treeview.update_storage_entry(entry)
         self._treeview.setSortingEnabled(True)

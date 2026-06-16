@@ -133,9 +133,9 @@ class CommHandler:
     def __init__(self, params: Optional[Dict[str, Any]] = None) -> None:
         if params is None:
             params = {}
-        self._active_request = None      # Contains the request object that has been sent to the device. When None, no request sent and we are standby
+        self._active_request = None      # Contains the request object that has been sent to the device. When None, no request sent and we are on standby
         self._received_response = None   # Indicates that a response has been received.
-        self._link = None                # Abstracted communication channel that implements  initialize, destroy, write, read
+        self._link = None                # Abstracted communication channel that implements initialize, destroy, write, read
         self._params = copy(self.DEFAULT_PARAMS)
         self._params.update(cast(CommHandler.Params, params))
 

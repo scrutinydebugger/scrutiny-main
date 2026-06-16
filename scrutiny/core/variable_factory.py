@@ -24,7 +24,7 @@ class VariableFactory:
     _layout: VariableLayout
     """The memory layout to apply to each variable created"""
     _access_name: str
-    """The path used to access this factory. All encoded information is striped from this path. e.g. array indices"""
+    """The path used to access this factory. All encoded information is stripped from this path. e.g. array indices"""
     _base_location: Union[AbsoluteLocation, UnresolvedPathPointedLocation]
     """A location used to generate a new location when instantiating variables"""
     _array_nodes: Dict[str, UntypedArray]

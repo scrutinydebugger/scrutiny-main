@@ -53,7 +53,7 @@ class TagFirmwareID(BaseCommand):
             binname = args.dst if args.dst is not None else src
             self.getLogger().info(f"Binary {binname} tagged with firmware ID: {parser.get_firmware_id_ascii()}")
         except Exception as e:
-            tools.log_exception(self.getLogger(), e, f"Failed to tag the firmware file with its a unique hash (firmware ID).")
+            tools.log_exception(self.getLogger(), e, f"Failed to tag the firmware file with a unique hash (firmware ID).")
             return 1
 
         return 0

@@ -464,7 +464,7 @@ def _read_map_of_detailed_watchable_info(
 
 
 def parse_subscribe_watchable_response(response: api_typing.S2C.SubscribeWatchable) -> Dict[str, sdk.DetailedWatchableConfiguration]:
-    """Parse a response to get_watchable_list and assume the request was for a single watchable"""
+    """Parse a response to subscribe_watchable and assume the request was for a single watchable"""
     assert isinstance(response, dict)
     assert 'cmd' in response
     cmd = response['cmd']
@@ -475,7 +475,7 @@ def parse_subscribe_watchable_response(response: api_typing.S2C.SubscribeWatchab
 
 
 def parse_get_watchable_info_response(response: api_typing.S2C.GetWatchableInfo) -> Dict[str, sdk.DetailedWatchableConfiguration]:
-    """Parse a response to get_watchable_list and assume the request was for a single watchable"""
+    """Parse a response to get_watchable_info and assume the request was for a single watchable"""
     assert isinstance(response, dict)
     assert 'cmd' in response
     cmd = response['cmd']

@@ -192,7 +192,7 @@ class DataloggingManager:
                         firmware_name = sfd_metadata.project_name
                         if sfd_metadata.version is not None:
                             firmware_name += " V%s" % sfd_metadata.version
-                # Crate the acquisition
+                # Create the acquisition
                 acquisition = DataloggingAcquisition(
                     name=self.active_request.api_request.name,
                     reference_id=uuid4().hex,
@@ -585,7 +585,7 @@ class DataloggingManager:
         return candidate
 
     def get_available_sampling_rates(self) -> List[api_datalogging.SamplingRate]:
-        """Get all sampling rates available on the actually connected device """
+        """Get all sampling rates available on the currently connected device"""
         output: List[api_datalogging.SamplingRate] = []
         device_status = self.device_handler.get_connection_status()
         if device_status == DeviceHandler.ConnectionStatus.CONNECTED_READY:
@@ -648,5 +648,5 @@ class DataloggingManager:
         return self.state == FsmState.DEVICE_CONNECTED_WITH_DATALOGGING
 
     def is_device_connected_without_datalogging(self) -> bool:
-        """Tells if the datalogging manager sees a device connected that without datalogging feature. """
+        """Tells if the datalogging manager sees a connected device that has no datalogging feature."""
         return self.state == FsmState.DEVICE_CONNECTED_NO_DATALOGGING

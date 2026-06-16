@@ -152,7 +152,7 @@ class GridConfiguration:
 class ScrutinyLineSeries(QLineSeries):
 
     def emphasize(self) -> None:
-        """Emphasize the line serie sby making it bolder"""
+        """Emphasize the line series by making it bolder"""
         pen = self.pen()
         pen.setWidth(scrutiny_get_theme_prop(ScrutinyThemeProperties.CHART_EMPHASIZED_SERIES_WIDTH))
         self.setPen(pen)
@@ -220,13 +220,13 @@ class ScrutinyValueAxis(QValueAxis):
         self.setTitleBrush(palette.text())
 
     def emphasize(self) -> None:
-        """Make the axis more visible. Expected t be triggered when a series is selected"""
+        """Make the axis more visible. Expected to be triggered when a series is selected"""
         font = self.titleFont()
         font.setBold(True)
         self.setTitleFont(font)
 
     def deemphasize(self) -> None:
-        """Put back the axis in its normal state. Expected t be triggered when a series is deselected"""
+        """Put back the axis in its normal state. Expected to be triggered when a series is deselected"""
         font = self.titleFont()
         font.setBold(False)
         self.setTitleFont(font)
@@ -618,7 +618,7 @@ class ScrutinyChartCallout(QGraphicsItem):
     """padding between text and callout border"""
 
     class DisplaySide(enum.Enum):
-        """Describe if the callout should eb shown above the point, or below"""
+        """Describe if the callout should be shown above the point, or below"""
         Above = enum.auto()
         Below = enum.auto()
 
@@ -854,7 +854,7 @@ class ScrutinyChartView(QChartView):
         zoombox_selected = Signal(QRectF)
         """When the zoom changes (through a wheel event or a rubber band)"""
         paint_finished = Signal()
-        """When the chartview has finished repainting. USed for throttling the update rate"""
+        """When the chartview has finished repainting. Used for throttling the update rate"""
         key_pressed = Signal(QKeyEvent)
         """Forwarding the keypress event"""
         resized = Signal(QResizeEvent)
@@ -889,7 +889,7 @@ class ScrutinyChartView(QChartView):
     _chart_cursor_x2: ChartCursor
     """The vertical value cursor (red line)"""
     _signal_tree: Optional[GraphSignalTree]
-    """An optional Singal tree (TreeView that displays the curves color/name/values) tied to the chart cursor"""
+    """An optional Signal tree (TreeView that displays the curves color/name/values) tied to the chart cursor"""
     _series_to_signal_tree_value_item: Dict[int, ValueItems]
     """A map that let us find the where to write a Y-value when moving the cursor using the QValueSeries as the key"""
     _last_mouse_pos: QPoint

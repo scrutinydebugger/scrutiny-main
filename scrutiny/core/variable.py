@@ -39,7 +39,7 @@ for offset in range(64):
 @dataclass(init=False, slots=True)
 class VariableLayout:
     """Contain the information necessary to decode or encode a variable in memory.
-    Does not contain it's location, just its bit format"""
+    Does not contain its location, just its bit format"""
 
     vartype: EmbeddedDataType
     """Type of variable"""
@@ -181,7 +181,7 @@ class Variable:
     It supports bitfields and variable endianness.
     """
     path_segments: List[str]
-    """Lits of all the path segments"""
+    """List of all the path segments"""
     location: Union[AbsoluteLocation, ResolvedPathPointedLocation]
     """Location of the variable in memory"""
     layout: VariableLayout
@@ -238,7 +238,7 @@ class Variable:
         return path_tools.join_segments(self.path_segments)
 
     def has_absolute_address(self) -> bool:
-        """Return ``True`` if the location is an absolute address, ``False`` otehrwise"""
+        """Return ``True`` if the location is an absolute address, ``False`` otherwise"""
         return isinstance(self.location, AbsoluteLocation)
 
     def has_pointed_address(self) -> bool:

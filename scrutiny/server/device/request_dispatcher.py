@@ -166,7 +166,7 @@ class RequestDispatcher:
 
     def is_in_error(self) -> bool:
         """Returns True if an error occurred. Will happen if a request has been enqueued that either
-        has a request or an expected response size bigger than what the device can handle"""
+        has a payload or an expected response size bigger than what the device can handle"""
         return self.critical_error
 
     def register_request(self,

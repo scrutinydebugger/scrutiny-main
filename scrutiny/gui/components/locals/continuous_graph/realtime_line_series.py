@@ -20,7 +20,7 @@ from scrutiny.tools.typing import *
 
 class RealTimeScrutinyLineSeries(ScrutinyLineSeries):
     """Extension of a LineSeries that is meant to display data in real time.
-    It has support for decimation and some fancy tricks to kep tracks of min/max
+    It has support for decimation and some fancy tricks to keep track of min/max
     value with minimal CPU computation"""
 
     _decimator: GraphMonotonicNonUniformMinMaxDecimator
@@ -99,14 +99,14 @@ class RealTimeScrutinyLineSeries(ScrutinyLineSeries):
         return buffer[0].x()
 
     def get_last_decimated_x(self) -> Optional[float]:
-        """Return the most recent point fromthe output buffer (decimated buffer)"""
+        """Return the most recent point from the output buffer (decimated buffer)"""
         buffer = self._decimator.get_decimated_buffer()
         if len(buffer) == 0:
             return None
         return buffer[-1].x()
 
     def get_first_decimated_x(self) -> Optional[float]:
-        """Return the oldest point fromthe output buffer (decimated buffer)"""
+        """Return the oldest point from the output buffer (decimated buffer)"""
         buffer = self._decimator.get_decimated_buffer()
         if len(buffer) == 0:
             return None
@@ -125,7 +125,7 @@ class RealTimeScrutinyLineSeries(ScrutinyLineSeries):
         return self._dirty
 
     def stop_decimator(self) -> None:
-        """Stops the decimator, Any input pointed being held for decimation will be moved to the output"""
+        """Stops the decimator, Any input points being held for decimation will be moved to the output"""
         self._decimator.force_flush_pending()
 
     def recompute_minmax(self) -> None:

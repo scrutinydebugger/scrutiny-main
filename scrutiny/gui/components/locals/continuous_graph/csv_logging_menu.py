@@ -88,7 +88,7 @@ class CsvLoggingMenuWidget(QWidget):
             self._gb_content.setVisible(False)
 
     def _browse_clicked_slot(self) -> None:
-        actual_folder: Optional[Path] = None  # USe last save dir if None
+        actual_folder: Optional[Path] = None  # Use last save dir if None
         if os.path.isdir(self._txt_folder.text()):
             actual_folder = Path(os.path.normpath(self._txt_folder.text()))
             actual_folder = actual_folder.absolute()

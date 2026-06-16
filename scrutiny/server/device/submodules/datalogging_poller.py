@@ -121,7 +121,7 @@ class DataloggingPoller(BaseDeviceHandlerSubmodule):
     configure_completed: bool
     """Flag indicating that the configuration stage has been successfully completed. Set by callback, read by FSM"""
     failure_counter: int
-    """Counter of that counts the number of time the device failed to respond to a request"""
+    """Counter that counts the number of times the device failed to respond to a request"""
     bytes_received: bytearray
     """Number of bytes received so far while reading an acquisition content"""
     read_rolling_counter: int
@@ -240,7 +240,7 @@ class DataloggingPoller(BaseDeviceHandlerSubmodule):
         return self.device_datalogging_state
 
     def get_download_progress_pu(self) -> Optional[float]:
-        """Return the a percentage of completion of the data download. None if no data transfer is in progress"""
+        """Return a percentage of completion of the data download. None if no data transfer is in progress"""
         if self.state not in (_FSMState.READ_METADATA, _FSMState.RETRIEVING_DATA, _FSMState.DATA_RETRIEVAL_FINISHED_SUCCESS):
             return None
 
@@ -257,7 +257,7 @@ class DataloggingPoller(BaseDeviceHandlerSubmodule):
         return min(1, max(0, ratio))    # Saturate just in case
 
     def get_completion_ratio(self) -> Optional[float]:
-        """Returns a value between 0 and 1 indicating how far the acquisition is frm being completed once the trigger event has been launched"""
+        """Returns a value between 0 and 1 indicating how far the acquisition is from being completed once the trigger event has been launched"""
         return self.completion_ratio
 
     def get_state_and_completion_ratio(self) -> Tuple[Optional[device_datalogging.DataloggerState], Optional[float]]:
@@ -320,7 +320,7 @@ class DataloggingPoller(BaseDeviceHandlerSubmodule):
             self.logger.debug("Cancel requested")
 
     def cancel_in_progress(self) -> bool:
-        """Tells if a cancel as been requested and is still processing"""
+        """Tells if a cancel has been requested and is still processing"""
         return self.cancel_requested
 
     def request_in_progress(self) -> bool:
@@ -613,7 +613,7 @@ class DataloggingPoller(BaseDeviceHandlerSubmodule):
             tools.log_exception(self.logger, e, "State machine error", str_level=logging.CRITICAL)
 
     def _dispatch(self, req: Request) -> None:
-        """Sends a request to the request dispatcher and assign the corrects completion callbacks"""
+        """Sends a request to the request dispatcher and assigns the correct completion callbacks"""
         subfn = DatalogSubfn(req.subfn)
         if self.request_pending[subfn]:    # We don't stack request (even if we could)
             raise RuntimeError(

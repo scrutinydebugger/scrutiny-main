@@ -70,7 +70,7 @@ class TCPClientHandler(AbstractClientHandler):
     """
 
     STREAM_MTU = 1024 * 1024
-    """Maximum Transmission Unit for a single datagram that travel through that stream"""
+    """Maximum Transmission Unit for a single datagram that travels through that stream"""
     STREAM_INTERCHUNK_TIMEOUT = 1.0
     """Timeout between stream chunks in seconds."""
     STREAM_USE_HASH = True
@@ -387,7 +387,7 @@ class TCPClientHandler(AbstractClientHandler):
             return list(self.id2sock_map.keys())
 
     def st_register_client(self, sock: socket.socket, sockaddr: str) -> str:
-        """Register a new client connection. Caleld by the Server Thread
+        """Register a new client connection. Called by the Server Thread
 
         :param sock: The client socket.
         :param sockaddr: The client address.

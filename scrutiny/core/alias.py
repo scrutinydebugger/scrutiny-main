@@ -170,7 +170,7 @@ class Alias:
         self.target_type = target_type
 
     def get_min(self) -> float:
-        """Return the max to apply on this Alias. Return -inf if no value is defined"""
+        """Return the min to apply on this Alias. Return -inf if no value is defined"""
         return self.min if self.min is not None else float('-inf')
 
     def get_max(self) -> float:

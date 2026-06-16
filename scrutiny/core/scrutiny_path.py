@@ -27,7 +27,7 @@ class ScrutinyPath:
     _raw_segments: List[str]
     """Copy of the segments, but without the path encoded information (array positions)"""
     _array_pos: List[Optional[Tuple[int, ...]]]
-    """The array position. The size fo this list must match the size of the segments. We can rebuild _segments from this attribute + _raw_segents"""
+    """The array position. The size of this list must match the size of the segments. We can rebuild _segments from this attribute + _raw_segments"""
     _dereference_index: Optional[int]
     """If the path is a pointed path, contains the segment index of the last pointer segment (where the asterisk is)"""
 

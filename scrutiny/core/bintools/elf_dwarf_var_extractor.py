@@ -400,7 +400,7 @@ class CuName:
 
     def make_unique_numbered_name(self, name_set: Set[str]) -> None:
         """Fallback solution to naming.
-        We can generated a numbered name if there are collisions with the source file naming"""
+        We can generate a numbered name if there are collisions with the source file naming"""
         i = 0
         while True:
             candidate = 'cu%d_%s' % (i, self._filename)
@@ -412,15 +412,15 @@ class CuName:
 
 @dataclass(slots=True)
 class Context:
-    """The context object that contains the parsing parameters. Those are globals when parsing"""
+    """The context object that contains the parsing parameters. These are globals when parsing"""
     arch: Architecture
     """The architecture the target the file is compiled for"""
     endianess: Endianness
-    """The endianess of the firmware"""
+    """The endianness of the firmware"""
     cu_compiler: Compiler
-    """The compiler of the actual CompileUnit """
+    """The compiler of the actual CompileUnit"""
     address_size: Optional[int]
-    """The size of a pointer. Sometime available at the CU level, sometime on the var itself. Act as a fallback when not specified on a var"""
+    """The size of a pointer. Sometimes available at the CU level, sometimes on the var itself. Acts as a fallback when not specified on a var"""
 
     def get_char_bit(self) -> Literal[8, 16]:
         if self.arch == Architecture.TI_C28x:
@@ -532,7 +532,7 @@ class ElfDwarfVarExtractor:
     _parse_errors: ParseErrors
     """List of parsing errors we got"""
     _context: Context
-    """The context object passed down during the recursive search stage of a compile unit scanning. Contains info such has compiler, architecture, endianness, etc."""
+    """The context object passed down during the recursive search stage of a compile unit scanning. Contains info such as compiler, architecture, endianness, etc."""
     _dwarfinfo: DWARFInfo
     """The dwarf info of the file being scanned"""
     _demangler: BaseDemangler
@@ -549,7 +549,7 @@ class ElfDwarfVarExtractor:
         self._varmap = VarMap()    # This is what we want to generate.
         self._die2vartype_map = {}
         self._anonymous_type_typedef_map = {}
-        self._cu_name_map = {}   # maps a CompileUnit object to it's unique display name
+        self._cu_name_map = {}   # maps a CompileUnit object to its unique display name
         self._enum_die_map = {}
         self._struct_die_cache_map = {}
         self._array_die_cache_map = {}
@@ -672,7 +672,7 @@ class ElfDwarfVarExtractor:
 
     # endregion
 
-    # region Prvate
+    # region Private
     def _make_name_for_log(self, die: Optional[DIE]) -> str:
         """For debug logging. Name used to identify a DIE """
         if die is None:
@@ -682,7 +682,7 @@ class ElfDwarfVarExtractor:
         return f'{die.tag} <{die.offset:x}> "{name}"'
 
     def _log_debug_process_die(self, die: DIE) -> None:
-        """When printing the full debug information, print that a function has been called with its stack depth represneted as indentation"""
+        """When printing the full debug information, print that a function has been called with its stack depth represented as indentation"""
         if self._logger.isEnabledFor(DUMPDATA_LOGLEVEL):  # pragma: no cover
             stack_depth = len(inspect.stack()) - self._initial_stack_depth - 1
             stack_depth = max(stack_depth, 1)
@@ -888,7 +888,7 @@ class ElfDwarfVarExtractor:
                 #  2. Then we extract the variables.
                 # 2 Passes are needed mostly because of how Tasking compiler connects typedefs together.
                 # Sometime the type name is on the typedef DIE, but a struct has a type attribute that points to the type die directly,
-                # without passing by the typedef first. In this case, we have no link tot he typedef, a new scan of the CU is needed to find it.
+                # without passing by the typedef first. In this case, we have no link to the typedef, a new scan of the CU is needed to find it.
                 # GCC and Clang does not do that. They map   struct -> typedef -> type
 
                 self._build_typedef_map_recursive(die)   # Scan every typedef to know where they point
@@ -927,7 +927,7 @@ class ElfDwarfVarExtractor:
         return Compiler.UNKNOWN
 
     def _identify_endianness(self, arch: Architecture) -> Endianness:
-        """Identify the endianness. Based of the architecture"""
+        """Identify the endianness. Based on the architecture"""
         # No easy way to know it. DW_AT_endianity is introduced in dwarf v4, but only applied on data block and not used by compilers...
         # We make the assumption that the endianness is the same at the binary level
 
@@ -948,7 +948,7 @@ class ElfDwarfVarExtractor:
         return allow
 
     def _build_typedef_map_recursive(self, die: DIE) -> None:
-        """Scan all typedef and create a reverse map so we can find a typedef from a type. Mostly encessary ebcause of Tasking compielr"""
+        """Scan all typedef and create a reverse map so we can find a typedef from a type. Mostly necessary because of the Tasking compiler"""
         if die.tag == Tags.DW_TAG_typedef:
             self._die_process_typedef(die)
 
@@ -1470,7 +1470,7 @@ class ElfDwarfVarExtractor:
             array_element_type = struct
             element_type_name = self._get_die_name_no_none(element_type.type_die)
 
-        elif element_type.type in (TypeOfVar.BaseType, TypeOfVar.EnumOnly):  # Array of abse types
+        elif element_type.type in (TypeOfVar.BaseType, TypeOfVar.EnumOnly):  # Array of base types
             element_type_name = self._process_and_get_basetype_or_enumonly_typename(element_type)
             array_element_type = self._varmap.get_vartype_from_base_type(element_type_name)
 
@@ -1504,7 +1504,7 @@ class ElfDwarfVarExtractor:
         """Reads a pointer DIE and return a Scrutiny pointer object.
 
         :param die: The pointer DIE to read
-        :param allow_dereferencing: Allow reading the poiintee type. If ``False``, will act liek this is a void*
+        :param allow_dereferencing: Allow reading the pointee type. If ``False``, will act like this is a void*
         """
         self._log_debug_process_die(die)
         if die.tag != Tags.DW_TAG_pointer_type:
@@ -1680,7 +1680,7 @@ class ElfDwarfVarExtractor:
                                     basic_type_enum: Optional[EmbeddedEnum] = None) -> None:
         """Common code to dereference struct member of type pointer or array of pointer. They are treated identically.
 
-        :param ptr: The scrutiy Pointer object
+        :param ptr: The Scrutiny Pointer object
         :param path_segments: The name segments gotten so far. They should go up to the pointer
         :param pointer_array_segments: The array segments that matches the name segments. they should stop at the pointer
         :param basic_type_enum: The enum in case we have a pointer to a base type. Leave None if non-applicable
@@ -1729,16 +1729,16 @@ class ElfDwarfVarExtractor:
                                           array_segments: ArraySegments) -> None:
         """Recursive function that digs through structure member and create entries in the varmap
 
-            :param path_segments: Path segements of the actual member
-            :param member:  The actual member we are scanning
-            :param base_location:   Location of the actual member
-            :param offset:  Offset to apply tot he abse location
-            :param array_segments:  Array segments matching the path segments so far
+            :param path_segments: Path segments of the actual member
+            :param member: The actual member we are scanning
+            :param base_location: Location of the actual member
+            :param offset: Offset to apply to the base location
+            :param array_segments: Array segments matching the path segments so far
         """
         if member.member_type == Struct.Member.MemberType.SubStruct:
             assert member.substruct is not None
             struct = member.substruct
-            # The actual member is a struct. For each submember, adjsut the path and location thenr ecurse
+            # The actual member is a struct. For each submember, adjust the path and location then recurse
             for name, submember in struct.members.items():
                 location = base_location.copy()
                 new_path_segments = path_segments.copy()
@@ -1769,7 +1769,7 @@ class ElfDwarfVarExtractor:
                     enum=member.embedded_enum
                 )
             elif isinstance(array.datatype, Struct):    # Array of struct/class/union
-                # Start digging into the struct, with adjsuted path and array segments
+                # Start digging into the struct, with adjusted path and array segments
                 substruct = array.datatype
                 member = Struct.Member(substruct.name, member_type=Struct.Member.MemberType.SubStruct,
                                        bitoffset=None, bitsize=None, substruct=substruct)
@@ -2024,7 +2024,7 @@ class ElfDwarfVarExtractor:
                 for i in range(len(parts) - 1, -1, -1):   # Need to prepend in reverse order to keep the order correct.
                     if array is not None and i == len(parts) - 1:
                         varpath.prepend_segment(name=parts[i], array=array)
-                        varpath.prepend_segment(name=parts[i])   # Add a level to group the array elements togethers /aaa/bbb/ccc/ccc[0]
+                        varpath.prepend_segment(name=parts[i])   # Add a level to group the array elements together /aaa/bbb/ccc/ccc[0]
                     else:
                         varpath.prepend_segment(name=parts[i])
                 return varpath
@@ -2039,7 +2039,7 @@ class ElfDwarfVarExtractor:
         if name is not None:
             varpath.prepend_segment(name=name, array=array)
             if array is not None:
-                varpath.prepend_segment(name=name)  # Add a level to group the array elements togethers /aaa/bbb/ccc/ccc[0]
+                varpath.prepend_segment(name=name)  # Add a level to group the array elements together /aaa/bbb/ccc/ccc[0]
 
             if parent is not None:
                 return self._make_varpath_recursive(parent, varpath)

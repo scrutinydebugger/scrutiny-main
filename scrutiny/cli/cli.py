@@ -78,8 +78,8 @@ class CLI:
         return msg
 
     def run(self, args: List[str], except_failed: bool = False) -> int:
-        """Run a command. Arguments must be passed as a list of strings (like they would be splitted in a shell)"""
-        if len(args) > 0:   # The help might be for a subcommand, so we take it only if it'S the first argument.
+        """Run a command. Arguments must be passed as a list of strings (like they would be split in a shell)"""
+        if len(args) > 0:   # The help might be for a subcommand, so we take it only if it's the first argument.
             if args[0] in ['-h', '--help']:
                 self.parser.print_help()
                 return 0

@@ -34,8 +34,8 @@ class CSVFileListener(BaseListener):
         :param folder: Folder in which to save the CSV file
         :param filename: Name of the file to create
         :param lines_per_file: Maximum number of lines per file, no limits if ``None``.  When this value is set to a valid integer, the file naming
-            pattern will be ``<filename>_XXXX.csv`` where ``XXXX`` is the the part number starting from 0. When no limit is specified, a single CSV file
-            will be created following with name ``<filename>.csv``
+            pattern will be ``<filename>_XXXX.csv`` where ``XXXX`` is the part number starting from 0. When no limit is specified, a single CSV file
+            will be created with name ``<filename>.csv``
         :param datetime_format: Format string for the datetime printed in the CSV file
         :param convert_bool_to_int: When ``True``, boolean values will be printed as 0 and 1 instead of ``False`` and ``True``. Convenience for Excel
         :param file_part_0pad: When ``lines_per_file`` is set, this parameter is the number of leading 0 used to pad the filename part suffix. A value of 4 will result

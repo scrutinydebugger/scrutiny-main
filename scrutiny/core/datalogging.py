@@ -183,10 +183,10 @@ class DataloggingAcquisition:
         self.xdata = xdata
 
     def add_data(self, dataseries: DataSeries, axis: AxisDefinition) -> None:
-        """Add a dataseries do the acquisition
+        """Add a dataseries to the acquisition
 
         :param dataseries: The dataseries to add
-        :param axis: The Y-Axis on which to attach this dataseries. This can axis can be a new axis or already part of the acquisition
+        :param axis: The Y-Axis on which to attach this dataseries. This axis can be a new axis or already part of the acquisition
         :raises TypeError: If ``dataseries`` is not a :class:`DataSeries` instance or ``axis`` is not an :class:`AxisDefinition` instance.
         :raises ValueError: If ``dataseries`` ID is corrupted.
         """
@@ -232,9 +232,9 @@ class DataloggingAcquisition:
         raise LookupError("Cannot find axis for given dataseries")
 
     def set_trigger_index(self, val: Optional[int]) -> None:
-        """Define at what sample the Trigger even has fired
+        """Define at what sample the Trigger event has fired
 
-        :raises ValueError: If ``val`` is not aa positive integer ranging from 0 to nb_points - 1.
+        :raises ValueError: If ``val`` is not a positive integer ranging from 0 to nb_points - 1.
         """
         if val is not None:
             if not isinstance(val, int):

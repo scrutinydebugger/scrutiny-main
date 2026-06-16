@@ -32,7 +32,7 @@ class GetFirmwareId(BaseCommand):
     def __init__(self, args: List[str], requested_log_level: Optional[str] = None):
         self.args = args
         self.parser = argparse.ArgumentParser(prog=self.get_prog())
-        self.parser.add_argument('filename', help='The binary fimware to read')
+        self.parser.add_argument('filename', help='The binary firmware to read')
         self.parser.add_argument('--output', default=None, help='The output path of the firmwareid file')
 
     def run(self) -> Optional[int]:

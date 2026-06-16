@@ -275,14 +275,14 @@ class WatchableListDownloadRequest(PendingRequest):
 
     def cancel(self) -> None:
         """Informs the client that this request can be canceled.
-         Subsequent server response will be ignored and this request will be marked as completed, but failed.
+        Subsequent server responses will be ignored and this request will be marked as completed, but failed.
 
         :raises TimeoutException: If the client fails to cancel the request. Should never happen
         :raises OperationFailure: If called on a completed request
         """
         self._client._cancel_download_watchable_list_request(self._request_id)
         try:
-            self.wait_for_completion(2)     # Expect to throw when the client mark us as fail.
+            self.wait_for_completion(2)     # Expect to throw when the client marks us as failed.
         except sdk.exceptions.OperationFailure:
             pass
 
@@ -290,7 +290,7 @@ class WatchableListDownloadRequest(PendingRequest):
         """
         Returns the definition of all the watchables obtained through this request, classified by type.
 
-        :raises InvalidValueError: If the data is not available yet (if the request did not completed successfully)
+        :raises InvalidValueError: If the data is not available yet (if the request did not complete successfully)
 
         :return: A dictionary of dictionary containing the definition of each watchable entry that matched the filters. `foo[type][server_path] = <definition>`
         """
@@ -438,12 +438,12 @@ class SFDUploadRequest(PendingRequest):
 
     @property
     def abs_filepath(self) -> str:
-        """Gives the absolute path the file being uploaded"""
+        """Gives the absolute path of the file being uploaded"""
         return str(self._filepath)
 
     @property
     def will_overwrite(self) -> bool:
-        """Indicate if the request will overwrite an existing SFD installed on the server. """
+        """Indicates if the request will overwrite an existing SFD installed on the server."""
         return self._will_overwrite
 
     def get_sfd_info(self) -> sdk.SFDInfo:
@@ -604,7 +604,7 @@ class ScrutinyClient:
 
         @dataclass(frozen=True, slots=True)
         class DeviceReadyEvent:
-            """Triggered when the server establish a communication with a device and the handshake phase is completed"""
+            """Triggered when the server establishes a communication with a device and the handshake phase is completed"""
             _filter_flag = 0x04
             """Bitmask used to match this event type against the ``_enabled_events`` flags"""
             session_id: str
@@ -616,7 +616,7 @@ class ScrutinyClient:
 
         @dataclass(frozen=True, slots=True)
         class DeviceGoneEvent:
-            """Triggered when the the communication between the server and a device stops"""
+            """Triggered when the communication between the server and a device stops"""
             _filter_flag = 0x08
             """Bitmask used to match this event type against the ``_enabled_events`` flags"""
             session_id: str
@@ -668,7 +668,7 @@ class ScrutinyClient:
 
         @dataclass(frozen=True, slots=True)
         class StatusUpdateEvent:
-            """Triggered when the a new server status is received"""
+            """Triggered when a new server status is received"""
 
             _filter_flag = 0x80
             """Bitmask used to match this event type against the ``_enabled_events`` flags"""
@@ -761,7 +761,7 @@ class ScrutinyClient:
     _name: Optional[str]
     """Optional human-readable name for this client instance, used in log messages"""
     _server_state: ServerState
-    """Current communication state with the server (disconnected, connecting, or connected."""
+    """Current communication state with the server (disconnected, connecting, or connected)."""
     _hostname: Optional[str]
     """Hostname of the server, set during :meth:`connect` and cleared on disconnect"""
     _port: Optional[int]
@@ -831,7 +831,7 @@ class ScrutinyClient:
     _listeners: List[listeners.BaseListener]
     """Registered listener objects that receive watchable-value update notifications"""
     _event_queue: "ScrutinyQueue[Events._ANY_EVENTS]"
-    """Thread-safe queue holding pending events for the user to consume via :meth:`read_event."""
+    """Thread-safe queue holding pending events for the user to consume via :meth:`read_event`."""
     _enabled_events: int
     """Bitmask of event types currently enabled, built from ``Events.LISTEN_*`` constants"""
     _datarate_measurements: DataRateMeasurements
@@ -1552,15 +1552,15 @@ class ScrutinyClient:
         self._last_server_info = self._server_info
 
     def close_socket(self) -> None:
-        """Forcefully attempt to close a socket to cancel any pending connection or requests"""
-        # Does not rexpect _sock_lock on purpose.
+        """Forcefully attempts to close a socket to cancel any pending connection or requests"""
+        # Does not respect _sock_lock on purpose.
         with tools.SuppressException():
             if self._sock is not None:
                 self._connection_cancel_request = True  # Simply to mask the connection error we will cause
                 self._sock.close()      # Try it. May fail, it's ok.
 
     def _wt_disconnect(self) -> None:
-        """Disconnect from a Scrutiny server, called by the Worker Thread .
+        """Disconnect from a Scrutiny server, called by the Worker Thread.
             Does not throw an exception in case of broken pipe
         """
         self.close_socket()
@@ -1633,7 +1633,7 @@ class ScrutinyClient:
                 del self._watchable_storage[server_id]
 
     def _wt_clear_all_pending_requests(self, failure_reason: str) -> None:
-        """Cancels and clear all request handles that may take a long time to respond.
+        """Cancels and clears all request handles that may take a long time to respond.
         These handles are passed to the users"""
         # Don't lock the main lock, supposed to be done beforehand
         self._memory_read_completion_dict.clear()
@@ -2094,7 +2094,7 @@ class ScrutinyClient:
 
     def try_get_existing_watch_handle_by_server_id(self, server_id: str) -> Optional[WatchableHandle]:
         """Retrieve an existing watchable handle created after a call to :meth:`watch()<watch>` if it exists, identified by its unique server_id.
-        This methods makes no request to the server and is therefore non-blocking.
+        This method makes no request to the server and is therefore non-blocking.
 
         :param server_id: The server_id assigned to the handle returned by :meth:`watch()<watch>`
 
@@ -2111,7 +2111,7 @@ class ScrutinyClient:
 
     def try_get_existing_watch_handle(self, path: str) -> Optional[WatchableHandle]:
         """Retrieve an existing watchable handle created after a call to :meth:`watch()<watch>` if it exists.
-        This methods makes no request to the server and is therefore non-blocking.
+        This method makes no request to the server and is therefore non-blocking.
 
         :param path: The path of the element being watched
 
@@ -2313,7 +2313,7 @@ class ScrutinyClient:
         :raises TypeError: Given parameter not of the expected type
         :raises ValueError: Given parameter has an invalid value
         :raises OperationFailure: If the request fails in any way
-        :raises BadTypeError: If the requested watchable is not an variable
+        :raises BadTypeError: If the requested watchable is not a variable
 
           """
         d = self.get_watchable_info([path])
@@ -2396,7 +2396,7 @@ class ScrutinyClient:
             raise sdk.exceptions.TimeoutException(f"Server status did not update within a {timeout} seconds delay")
 
     def request_server_status_update(self, wait: bool = False, timeout: Optional[float] = None) -> Optional[sdk.ServerInfo]:
-        """Request the server with an immediate status update. Avoid waiting for the periodic request to be sent.
+        """Request an immediate status update from the server. Avoids waiting for the periodic request to be sent.
 
         :param wait: Wait for the response if ``True``
         :param timeout: Amount of time to wait for the update. Have no effect if ``wait=False``. Use the SDK default timeout if ``None``
@@ -2529,7 +2529,7 @@ class ScrutinyClient:
                 f"Failed to uninstall the list of Scrutiny Firmware Description file. {future.error_str}")
 
     def download_sfd(self, firmware_id: str) -> SFDDownloadRequest:
-        """Download a Scrutiny Fiimware Description file from the server
+        """Download a Scrutiny Firmware Description file from the server
 
         :param firmware_id: A 32 char hex string that matches the wanted SFD firmware ID
         :return: A handle on the request that gives the status of the download and can be waited on
@@ -2558,12 +2558,12 @@ class ScrutinyClient:
 
     def init_sfd_upload(self, filepath: Union[str, Path]) -> SFDUploadRequest:
         """
-        Initialize the upload and isntall process of a Scrutiny Firmware Description (SFD) file to the server.
+        Initialize the upload and install process of a Scrutiny Firmware Description (SFD) file to the server.
         Calling this method will not transfer the data: calling :meth:`SFDUploadRequest.start()<scrutiny.sdk.client.SFDUploadRequest.start>` on the returned
         object is required to start the file transfer.
 
         :param filepath: The path to the SFD file to upload and install
-        :return: A handle on the request that gives the status of the uplaod and can be waited on
+        :return: A handle on the request that gives the status of the upload and can be waited on
 
         :raises TypeError: Given parameter not of the expected type
         :raises ValueError: Given file is invalid or too big
@@ -2714,16 +2714,16 @@ class ScrutinyClient:
         return completion.data
 
     def write_memory(self, address: int, data: bytes, timeout: Optional[float] = None) -> None:
-        """Write the device memory synchronously. This method will exit once the write is completed otherwise will throw an exception in case of failure
+        """Write the device memory synchronously. This method will exit once the write is completed, otherwise will throw an exception in case of failure
 
-        :param address: The start address of the region to read
+        :param address: The start address of the region to write
         :param data: The data to write
         :param timeout: Maximum amount of time to wait to get the write completion confirmation. If ``None``, the default write timeout value will be used
 
         :raises TypeError: Given parameter not of the expected type
         :raises ValueError: Given parameter has an invalid value
-        :raises OperationFailure: Failed to complete the reading
-        :raises TimeoutException: If the read operation does not complete within the given timeout value
+        :raises OperationFailure: Failed to complete the writing
+        :raises TimeoutException: If the write operation does not complete within the given timeout value
 
         """
 
@@ -2824,7 +2824,7 @@ class ScrutinyClient:
         return acquisition
 
     def start_datalog(self, config: sdk.datalogging.DataloggingConfig) -> sdk.datalogging.DataloggingRequest:
-        """Requires the device to make a datalogging acquisition based on the given configuration
+        """Requests the device to make a datalogging acquisition based on the given configuration
 
         :param config: The datalogging configuration including sampling rate, signals to log, trigger condition and operands, etc.
 
@@ -2832,7 +2832,7 @@ class ScrutinyClient:
         :raises ValueError: Bad parameter value
         :raises TypeError: Given parameter not of the expected type
 
-        :return: A `DataloggingRequest` handle that can provide the status of the acquisition process and used to fetch the data.
+        :return: A `DataloggingRequest` handle that can provide the status of the acquisition process and can be used to fetch the data.
          """
         validation.assert_type(config, 'config', sdk.datalogging.DataloggingConfig)
 
@@ -2937,7 +2937,7 @@ class ScrutinyClient:
         Acquisitions are returned ordered by acquisition time, from newest to oldest.
 
         :param firmware_id: When not ``None``, searches for acquisitions taken with this firmware ID
-        :param before_datetime: An optional upper limit for the acquisition time. Will download acquisition taken before this datetime. Meant ot be used for UI lazy-loading
+        :param before_datetime: An optional upper limit for the acquisition time. Will download acquisition taken before this datetime. Meant to be used for UI lazy-loading
         :param count: Maximum number of acquisition to fetch. Upper limit is 10000
         :param timeout: The request timeout value. The default client timeout will be used if set to ``None`` Defaults to ``None``
 
@@ -3047,7 +3047,7 @@ class ScrutinyClient:
 
     def user_command(self, subfunction: int, data: bytes = bytes()) -> sdk.UserCommandResponse:
         """
-        Sends a UserCommand request to the device with the given subfunction and data. UserCommand is a request that calls a user defined callback
+        Sends a UserCommand request to the device with the given subfunction and data. UserCommand is a request that calls a user-defined callback
         in the device firmware. It allows a developer to take advantage of the scrutiny protocol to communicate non-scrutiny data with its device.
 
         :param subfunction: Subfunction of the request. From 0x0 to 0x7F
@@ -3112,7 +3112,7 @@ class ScrutinyClient:
 
         :raises OperationFailure: If the request to the server fails
 
-        :return: The device informations or ``None`` if not device is connected
+        :return: The device information or ``None`` if no device is connected
         """
         req = self._make_request(API.Command.Client2Api.GET_DEVICE_INFO)
 
@@ -3171,7 +3171,7 @@ class ScrutinyClient:
 
     def get_watchable_count(self) -> Dict[ServerDatastoreContentType, int]:
         """
-        Request the server with the number of available watchable items, organized per type
+        Request from the server the number of available watchable items, organized per type
 
         :raises ValueError: Bad parameter value
         :raises TypeError: Given parameter not of the expected type
@@ -3210,7 +3210,7 @@ class ScrutinyClient:
             Request the server for the list of watchable items available in its datastore.
 
             The returned data includes the path to the watchable and the properties that are common to all types of watchable (data type and enum)
-            More information might be downlaoded from a watchable by either calling :meth:`watch<scrutiny.sdk.client.ScrutinyClient.watch>`
+            More information might be downloaded from a watchable by either calling :meth:`watch<scrutiny.sdk.client.ScrutinyClient.watch>`
             or :meth:`get_watchable_info<scrutiny.sdk.client.ScrutinyClient.get_watchable_info>`
 
             :param types: List of types to download. All of them if ``None``
@@ -3317,7 +3317,7 @@ class ScrutinyClient:
     def update_datalogging_acquisition(self, reference_id: str, name: str) -> None:
         """Update a single datalogging acquisition stored on the server.
 
-        :param reference_id: The unique ``reference_id`` of the acquisition to delete.
+        :param reference_id: The unique ``reference_id`` of the acquisition to update.
         :param name: New name for the acquisition.
 
         :raises OperationFailure: If the request to the server fails
@@ -3506,6 +3506,6 @@ class ScrutinyClient:
 
     @property
     def port(self) -> Optional[int]:
-        """Port of the the server is listening to"""
+        """Port the server is listening on"""
         with self._user_lock:
             return int(self._port) if self._port is not None else None

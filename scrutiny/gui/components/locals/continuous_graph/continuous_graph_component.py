@@ -196,7 +196,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
     _feedback_label: FeedbackLabel
     """A label to report error to the user"""
     _registryid2series: Dict[int, RealTimeScrutinyLineSeries]
-    """A dictionnary mapping server_id associated with ValueUpdates broadcast by the server to their respective signal (a tree item, which has a reference to the chart series) """
+    """A dictionary mapping server_id associated with ValueUpdates broadcast by the server to their respective signal (a tree item, which has a reference to the chart series) """
     _first_val_dt: Optional[datetime]
     """The server timestamp of the first value gotten. Used to offset the ValueUpdates timestamps to 0"""
     _graph_maintenance_timer: QTimer
@@ -204,7 +204,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
     _graph_max_width: float
     """The maximum width of the X-Axis (max-min). Used to delete expired data"""
     _y_minmax_recompute_index: int
-    """A persistent index used to recompute the minmax of all the Y serie sin round robin fashion. Used this index to reduce the CPU load by doing 1 series per call"""
+    """A persistent index used to recompute the minmax of all the Y series in round robin fashion. Used this index to reduce the CPU load by doing 1 series per call"""
     _x_resolution: float
     """The actual X resolution in sec. This value is given to the series decimator"""
     _stats: GraphStatistics
@@ -221,7 +221,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
     _csv_logger: Optional[CSVLogger]
     """The CSV logger that will save value update to disk in real time. Runs in the UI thread."""
     _teared_down: bool
-    """Flag indicating that we ahve teared down the component"""
+    """Flag indicating that we have torn down the component"""
 
     @classmethod
     def get_icon(cls) -> QIcon:
@@ -485,7 +485,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
         self._last_decimated_flush_paint_in_progress = False
 
     def stop_acquisition(self) -> None:
-        """Stop a an ongoing acquisition"""
+        """Stop an ongoing acquisition"""
         self._stop_periodic_graph_maintenance()     # Not required anymore
         self.app.watchable_registry.unwatch_all(self._watcher_id())  # Stops to flow of values
         self._state.acquiring = False
@@ -983,7 +983,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
         for series in self._all_series():
             last_x = series.get_last_x()
             if last_x is None:
-                continue    # Means serie sis empty.
+                continue    # Means series is empty.
             new_max_f = max(new_max_f, last_x)
 
         if not math.isfinite(new_max_f):
@@ -1082,7 +1082,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
         self._signal_tree.select_item(signal_item)
 
     def _graph_maintenance_timer_slot(self) -> None:
-        """Periodic callback meant to prune the graph and recompute the rang eof the axis.
+        """Periodic callback meant to prune the graph and recompute the range of the axis.
         Done periodically to reduce the strain on the CPU"""
         if not self._state.acquiring:
             return
