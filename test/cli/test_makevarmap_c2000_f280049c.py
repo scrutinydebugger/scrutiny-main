@@ -263,3 +263,73 @@ class TestMakeVarMap_C2000_f280049C(ScrutinyUnitTest):
         self.assert_var('/global/file3_test_class/m_file3_complex_struct/field3/field3_u16/p1', EmbeddedDataType.uint16, value_at_loc=0x7766)
         self.assert_var('/global/file3_test_class/m_file3_complex_struct/field3/field3_enum_bitfields/p0',
                         EmbeddedDataType.uint16, value_at_loc=2, enum='File3Enum')
+
+    def test_file4(self):
+        self.assert_var('/global/file4classB/some_bool', EmbeddedDataType.bool16, value_at_loc=True)
+        self.assert_var('/global/file4classB/array_of_A2/array_of_A2[2][0]/xxx', EmbeddedDataType.uint32, value_at_loc=0xdeadbeef)
+        self.assert_var('/global/file4classB/array_of_A2/array_of_A2[2][0]/yyy/yyy[0][0]', EmbeddedDataType.sint32, value_at_loc=0x10001111)
+        self.assert_var('/global/file4classB/array_of_A2/array_of_A2[2][0]/yyy/yyy[0][1]', EmbeddedDataType.sint32, value_at_loc=0x20002222)
+        self.assert_var('/global/file4classB/array_of_A2/array_of_A2[2][0]/yyy/yyy[0][2]', EmbeddedDataType.sint32, value_at_loc=0x30003333)
+        self.assert_var('/global/file4classB/array_of_A2/array_of_A2[2][0]/yyy/yyy[1][2]', EmbeddedDataType.sint32, value_at_loc=0x40004444)
+        self.assert_var('/global/file4classB/array_of_A2/array_of_A2[2][0]/zzz/zzz[0][0][0]', EmbeddedDataType.uint16, value_at_loc=0x5566)
+        self.assert_var('/global/file4classB/array_of_A2/array_of_A2[2][0]/zzz/zzz[1][2][3]', EmbeddedDataType.uint16, value_at_loc=0x6789)
+        self.assert_var('/global/file4classB/array_of_A2/array_of_A2[2][0]/A2enum', EmbeddedDataType.uint16, enum='File4EnumA', value_at_loc=456)
+
+        self.assert_var('/global/file4classB_array/file4classB_array[0]/some_bool', EmbeddedDataType.bool16, value_at_loc=True)
+        self.assert_var(
+            '/global/file4classB_array/file4classB_array[0]/array_of_A2/array_of_A2[2][0]/xxx', EmbeddedDataType.uint32, value_at_loc=0xdeadbeef + 1)
+        self.assert_var(
+            '/global/file4classB_array/file4classB_array[0]/array_of_A2/array_of_A2[2][0]/yyy/yyy[0][0]', EmbeddedDataType.sint32, value_at_loc=0x10001111 + 1)
+        self.assert_var(
+            '/global/file4classB_array/file4classB_array[0]/array_of_A2/array_of_A2[2][0]/yyy/yyy[0][1]', EmbeddedDataType.sint32, value_at_loc=0x20002222 + 1)
+        self.assert_var(
+            '/global/file4classB_array/file4classB_array[0]/array_of_A2/array_of_A2[2][0]/yyy/yyy[0][2]', EmbeddedDataType.sint32, value_at_loc=0x30003333 + 1)
+        self.assert_var(
+            '/global/file4classB_array/file4classB_array[0]/array_of_A2/array_of_A2[2][0]/yyy/yyy[1][2]', EmbeddedDataType.sint32, value_at_loc=0x40004444 + 1)
+        self.assert_var(
+            '/global/file4classB_array/file4classB_array[0]/array_of_A2/array_of_A2[2][0]/zzz/zzz[0][0][0]', EmbeddedDataType.uint16, value_at_loc=0x5566 + 1)
+        self.assert_var(
+            '/global/file4classB_array/file4classB_array[0]/array_of_A2/array_of_A2[2][0]/zzz/zzz[1][2][3]', EmbeddedDataType.uint16, value_at_loc=0x6789 + 1)
+        self.assert_var('/global/file4classB_array/file4classB_array[0]/array_of_A2/array_of_A2[2][0]/A2enum',
+                        EmbeddedDataType.uint16, enum='File4EnumA', value_at_loc=123)
+
+        self.assert_var('/global/file4classB_array/file4classB_array[1]/some_bool', EmbeddedDataType.bool16, value_at_loc=True)
+        self.assert_var(
+            '/global/file4classB_array/file4classB_array[1]/array_of_A2/array_of_A2[2][0]/xxx', EmbeddedDataType.uint32, value_at_loc=0xdeadbeef + 2)
+        self.assert_var(
+            '/global/file4classB_array/file4classB_array[1]/array_of_A2/array_of_A2[2][0]/yyy/yyy[0][0]', EmbeddedDataType.sint32, value_at_loc=0x10001111 + 2)
+        self.assert_var(
+            '/global/file4classB_array/file4classB_array[1]/array_of_A2/array_of_A2[2][0]/yyy/yyy[0][1]', EmbeddedDataType.sint32, value_at_loc=0x20002222 + 2)
+        self.assert_var(
+            '/global/file4classB_array/file4classB_array[1]/array_of_A2/array_of_A2[2][0]/yyy/yyy[0][2]', EmbeddedDataType.sint32, value_at_loc=0x30003333 + 2)
+        self.assert_var(
+            '/global/file4classB_array/file4classB_array[1]/array_of_A2/array_of_A2[2][0]/yyy/yyy[1][2]', EmbeddedDataType.sint32, value_at_loc=0x40004444 + 2)
+        self.assert_var(
+            '/global/file4classB_array/file4classB_array[1]/array_of_A2/array_of_A2[2][0]/zzz/zzz[0][0][0]', EmbeddedDataType.uint16, value_at_loc=0x5566 + 2)
+        self.assert_var(
+            '/global/file4classB_array/file4classB_array[1]/array_of_A2/array_of_A2[2][0]/zzz/zzz[1][2][3]', EmbeddedDataType.uint16, value_at_loc=0x6789 + 2)
+        self.assert_var('/global/file4classB_array/file4classB_array[1]/array_of_A2/array_of_A2[2][0]/A2enum',
+                        EmbeddedDataType.uint16, enum='File4EnumA', value_at_loc=123)
+
+        self.assert_var('/global/file4classB_array/file4classB_array[2]/some_bool', EmbeddedDataType.bool16, value_at_loc=False)
+        self.assert_var(
+            '/global/file4classB_array/file4classB_array[2]/array_of_A2/array_of_A2[2][0]/xxx', EmbeddedDataType.uint32, value_at_loc=0xdeadbeef + 3)
+        self.assert_var(
+            '/global/file4classB_array/file4classB_array[2]/array_of_A2/array_of_A2[2][0]/yyy/yyy[0][0]', EmbeddedDataType.sint32, value_at_loc=0x10001111 + 3)
+        self.assert_var(
+            '/global/file4classB_array/file4classB_array[2]/array_of_A2/array_of_A2[2][0]/yyy/yyy[0][1]', EmbeddedDataType.sint32, value_at_loc=0x20002222 + 3)
+        self.assert_var(
+            '/global/file4classB_array/file4classB_array[2]/array_of_A2/array_of_A2[2][0]/yyy/yyy[0][2]', EmbeddedDataType.sint32, value_at_loc=0x30003333 + 3)
+        self.assert_var(
+            '/global/file4classB_array/file4classB_array[2]/array_of_A2/array_of_A2[2][0]/yyy/yyy[1][2]', EmbeddedDataType.sint32, value_at_loc=0x40004444 + 3)
+        self.assert_var(
+            '/global/file4classB_array/file4classB_array[2]/array_of_A2/array_of_A2[2][0]/zzz/zzz[0][0][0]', EmbeddedDataType.uint16, value_at_loc=0x5566 + 3)
+        self.assert_var(
+            '/global/file4classB_array/file4classB_array[2]/array_of_A2/array_of_A2[2][0]/zzz/zzz[1][2][3]', EmbeddedDataType.uint16, value_at_loc=0x6789 + 3)
+        self.assert_var('/global/file4classB_array/file4classB_array[2]/array_of_A2/array_of_A2[2][0]/A2enum',
+                        EmbeddedDataType.uint16, enum='File4EnumA', value_at_loc=456)
+
+        self.assert_var('/global/file4classA3_array/file4classA3_array[0][0]/the_union/u32', EmbeddedDataType.uint32, value_at_loc=0x12345678)
+        self.assert_var('/global/file4classA3_array/file4classA3_array[0][1]/the_union/u32', EmbeddedDataType.uint32, value_at_loc=0xAABBCCDD)
+        self.assert_var('/global/file4classA3_array/file4classA3_array[1][0]/the_union/u32', EmbeddedDataType.uint32, value_at_loc=0x11223344)
+        self.assert_var('/global/file4classA3_array/file4classA3_array[1][1]/the_union/u32', EmbeddedDataType.uint32, value_at_loc=0x55667788)
