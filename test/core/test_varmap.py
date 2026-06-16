@@ -293,7 +293,7 @@ class TestVarmap(ScrutinyUnitTest):
         for key, arr in pointer_array_segments.items():
             self.assertIn(key, location.array_segments)
             self.assertEqual(location.array_segments[key].dims, arr.dims)
-            self.assertEqual(location.array_segments[key].get_element_byte_size(), arr.get_element_byte_size())
+            self.assertEqual(location.array_segments[key].get_element_char_size(), arr.get_element_char_size())
 
     def test_valid_state_after_load(self):
         varmap = VarMap()
