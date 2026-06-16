@@ -180,13 +180,13 @@ class Protocol:
     def read_rpv_response_required_size(self, rpvs: List[RuntimePublishedValue]) -> int:
         sum = 0
         for rpv in rpvs:
-            sum += 2 + rpv.datatype.get_size_byte()
+            sum += 2 + rpv.datatype.get_size_8bits()
         return sum
 
     def write_rpv_request_required_size(self, rpvs: List[RuntimePublishedValue]) -> int:
         sum = 0
         for rpv in rpvs:
-            sum += 2 + rpv.datatype.get_size_byte()
+            sum += 2 + rpv.datatype.get_size_8bits()
         return sum
 
     def write_rpv_response_required_size(self, rpvs: List[RuntimePublishedValue]) -> int:
@@ -248,7 +248,7 @@ class Protocol:
             if id not in self.rpv_map:
                 raise KeyError('Unknown RuntimePublishedValue ID 0x%x' % id)
             rpv = self.rpv_map[id]
-            typesize = rpv.datatype.get_size_byte()
+            typesize = rpv.datatype.get_size_8bits()
             assert typesize is not None
             expected_response_size += 2 + typesize
 
@@ -496,7 +496,7 @@ class Protocol:
 
                         rpv = self.rpv_map[id]
                         codec = Codecs.get(rpv.datatype, Endianness.Big)
-                        datasize = rpv.datatype.get_size_byte()
+                        datasize = rpv.datatype.get_size_8bits()
                         assert datasize is not None
                         value = codec.decode(req.payload[cursor:cursor + datasize])
                         cursor += datasize
@@ -816,7 +816,7 @@ class Protocol:
             if id not in self.rpv_map:
                 raise KeyError('Unknown RuntimePublishedValue ID %s' % id)
             rpv = self.rpv_map[id]
-            data += pack('>HB', id, rpv.datatype.get_size_byte())
+            data += pack('>HB', id, rpv.datatype.get_size_8bits())
 
         return Response(cmd.MemoryControl, cmd.MemoryControl.Subfunction.WriteRPV, Response.ResponseCode.OK, data)
 
@@ -1012,7 +1012,7 @@ class Protocol:
                             if id not in self.rpv_map:
                                 raise ProtocolParsingError('Unknown RuntimePublishedValue of ID 0x%x' % id)
                             rpv = self.rpv_map[id]
-                            typesize = rpv.datatype.get_size_byte()
+                            typesize = rpv.datatype.get_size_8bits()
                             assert typesize is not None
                             if len(response.payload) - cursor < typesize:
                                 raise ProtocolParsingError('Incomplete data for RPV with ID 0x%x' % id)

@@ -40,7 +40,7 @@ def extract_signal_from_data(
                     if signaldef.rpv_id not in rpv_map:
                         raise ValueError("RPV 0x%04X not part of given rpv_map" % signaldef.rpv_id)
                     rpv = rpv_map[signaldef.rpv_id]
-                    datasize = rpv.datatype.get_size_byte()
+                    datasize = rpv.datatype.get_size_8bits()
                 elif isinstance(signaldef, device_datalogging.TimeLoggableSignal):
                     datasize = 4    # Time is always uint32
                 else:

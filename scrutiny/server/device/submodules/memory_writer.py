@@ -327,7 +327,7 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
                         allowed = False
                     else:
                         # We don't check for bitfield size because the device will access the whole word anyway
-                        size = update_request.entry.get_data_type().get_size_byte()
+                        size = update_request.entry.get_data_type().get_size_8bits()
                         candidate_region = MemoryRegion(start=address, size=size)
                         for readonly_region in self.readonly_regions:
                             if candidate_region.touches(readonly_region):

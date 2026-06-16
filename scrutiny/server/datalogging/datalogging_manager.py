@@ -521,7 +521,7 @@ class DataloggingManager:
                 if watchable.variable_def.endianness == Endianness.Little:
                     address = watchable_addr + bitoffset // 8
                 else:
-                    address = (watchable_addr + watchable.get_data_type().get_size_byte()) - bitoffset // 8
+                    address = (watchable_addr + watchable.get_data_type().get_size_8bits()) - bitoffset // 8
 
                 signal = device_datalogging.MemoryLoggableSignal(address, size)
             else:

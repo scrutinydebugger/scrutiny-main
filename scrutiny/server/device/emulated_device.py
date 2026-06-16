@@ -160,7 +160,7 @@ class DataloggerEmulator:
                 elif isinstance(signal, device_datalogging.RPVLoggableSignal):
                     if signal.rpv_id not in self.rpv_map:
                         raise ValueError('RPV ID 0x%04X not in RPV map' % signal.rpv_id)
-                    self.entry_size += self.rpv_map[signal.rpv_id].datatype.get_size_byte()
+                    self.entry_size += self.rpv_map[signal.rpv_id].datatype.get_size_8bits()
                 elif isinstance(signal, device_datalogging.MemoryLoggableSignal):
                     self.entry_size += signal.size
                 else:
@@ -294,7 +294,7 @@ class DataloggerEmulator:
             return self.device.read_rpv(operand.rpv_id)
 
         if isinstance(operand, device_datalogging.VarOperand):
-            data = self.device.read_memory(operand.address, operand.datatype.get_size_byte())
+            data = self.device.read_memory(operand.address, operand.datatype.get_size_8bits())
             codec = Codecs.get(operand.datatype, Endianness.Little)
             return codec.decode(data)
 
@@ -302,8 +302,8 @@ class DataloggerEmulator:
             mask = 0
             for i in range(operand.bitoffset, operand.bitoffset + operand.bitsize):
                 mask |= (1 << i)
-            uint_codec = UIntCodec(operand.datatype.get_size_byte(), Endianness.Little)
-            data = self.device.read_memory(operand.address, operand.datatype.get_size_byte())
+            uint_codec = UIntCodec(operand.datatype.get_size_8bits(), Endianness.Little)
+            data = self.device.read_memory(operand.address, operand.datatype.get_size_8bits())
             codec = Codecs.get(operand.datatype, Endianness.Little)
             v = uint_codec.decode(data)
             v &= mask
