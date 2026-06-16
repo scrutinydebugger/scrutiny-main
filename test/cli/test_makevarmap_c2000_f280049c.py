@@ -16,6 +16,42 @@ from scrutiny.core.basic_types import *
 from scrutiny.tools.typing import *
 
 
+class KnownEnumTypedDictEntry(TypedDict):
+    name: str
+    values: Dict[str, int]
+
+
+KnownEnumTypedDict: TypeAlias = Dict[str, KnownEnumTypedDictEntry]
+
+
+KNOWN_ENUMS: KnownEnumTypedDict = {
+    'EnumA': {
+        'name': 'EnumA',
+        'values': {
+            "eVal1": 0,
+            "eVal2": 1,
+            "eVal3": 100,
+            "eVal4": 101
+        }
+    },
+    'File3EnumInClass': {
+        "name": "File3EnumInClass",
+        "values": {
+            "AAA": 0,
+            "BBB": 1,
+            "CCC": 2
+        }
+    },
+    'File4EnumA': {
+        "name": "File4EnumA",
+        "values": {
+            "XXX": 123,
+            "YYY": 456
+        }
+    }
+}
+
+
 class TestMakeVarMap_C2000_f280049C(ScrutinyUnitTest):
     ELF_FILE = get_artifact('20260604_ti_c2000_f280049c_test.elf')
     MEMDUMP_FILE = get_artifact('20260604_ti_c2000_f280049c_test.elf.memdump')
@@ -32,7 +68,8 @@ class TestMakeVarMap_C2000_f280049C(ScrutinyUnitTest):
                    bitsize=None,
                    bitoffset=None,
                    value_at_loc=None,
-                   float_tol: Optional[float] = None):
+                   float_tol: Optional[float] = None,
+                   enum: Optional[str] = None):
         v = self.varmap.get_var(fullname)
         self.assertTrue(v.get_size() % 2 == 0, "variable size not a multiple of 16bits")  # C2000 has a byte of 16bits.
 
@@ -46,6 +83,17 @@ class TestMakeVarMap_C2000_f280049C(ScrutinyUnitTest):
 
         if bitoffset is not None:
             self.assertEqual(v.bitoffset, bitoffset)
+
+        if enum is not None:
+            self.assertIn(enum, KNOWN_ENUMS)
+            self.assertIsNotNone(v.enum)
+            self.assertEqual(KNOWN_ENUMS[enum]['name'], v.enum.get_name())
+            for key, value in KNOWN_ENUMS[enum]['values'].items():
+                value2 = v.enum.get_value(key)
+                self.assertIsNotNone(value2)
+                self.assertEqual(value2, value)
+        else:
+            self.assertIsNone(v.enum)
 
         if value_at_loc is not None:
             if v.has_absolute_address():
@@ -147,4 +195,13 @@ class TestMakeVarMap_C2000_f280049C(ScrutinyUnitTest):
         self.assert_var('/static/file2.cpp/file2StaticDouble', EmbeddedDataType.float64, value_at_loc=3.3333)
         self.assert_var('/static/file2.cpp/file2StaticBool', EmbeddedDataType.bool16, value_at_loc=True)
 
-        self.assert_var('/global/NamespaceInFile2/instance_enumA', EmbeddedDataType.uint16)
+        self.assert_var('/global/NamespaceInFile2/instance_enumA', EmbeddedDataType.uint16, enum='EnumA', value_at_loc=1)
+        self.assert_var('/static/file2.cpp/NamespaceInFile2/staticInstance_enumA', EmbeddedDataType.uint16, enum='EnumA', value_at_loc=100)
+        self.assert_var('/global/instance2_enumA', EmbeddedDataType.uint16, enum='EnumA', value_at_loc=101)
+        self.assert_var('/static/file2.cpp/staticInstance2_enumA', EmbeddedDataType.uint16, enum='EnumA', value_at_loc=0)
+
+        self.assert_var('/global/file2GlobalArray1Int5/file2GlobalArray1Int5[0]', EmbeddedDataType.sint16, value_at_loc=1111)
+        self.assert_var('/global/file2GlobalArray1Int5/file2GlobalArray1Int5[1]', EmbeddedDataType.sint16, value_at_loc=2222)
+        self.assert_var('/global/file2GlobalArray1Int5/file2GlobalArray1Int5[2]', EmbeddedDataType.sint16, value_at_loc=3333)
+        self.assert_var('/global/file2GlobalArray1Int5/file2GlobalArray1Int5[3]', EmbeddedDataType.sint16, value_at_loc=4444)
+        self.assert_var('/global/file2GlobalArray1Int5/file2GlobalArray1Int5[4]', EmbeddedDataType.sint16, value_at_loc=5555)

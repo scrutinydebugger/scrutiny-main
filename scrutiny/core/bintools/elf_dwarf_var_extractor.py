@@ -422,6 +422,11 @@ class Context:
     address_size: Optional[int]
     """The size of a pointer. Sometime available at the CU level, sometime on the var itself. Act as a fallback when not specified on a var"""
 
+    def get_char_bit(self) -> Literal[8, 16]:
+        if self.arch == Architecture.TI_C28x:
+            return 16
+        return 8
+
 
 class ElfParsingError(Exception):
     pass
@@ -646,15 +651,16 @@ class ElfDwarfVarExtractor:
         return outname.split(';')
 
     @classmethod
-    def get_core_base_type(cls, encoding: DwarfEncoding, bytesize: int) -> EmbeddedDataType:
+    def get_core_base_type(cls, encoding: DwarfEncoding, bytesize: int, char_bit: Literal[8, 16]) -> EmbeddedDataType:
         """Convert a DWARF encoding into a Scrutiny EmbeddedDataType"""
         if encoding not in ENCODING_2_DTYPE_MAP:
             raise ValueError(f'Unknown encoding {encoding}')
 
-        if bytesize not in ENCODING_2_DTYPE_MAP[encoding]:
-            raise ValueError(f'Encoding {encoding} with {bytesize} bytes')
+        eight_bit_size = bytesize * (char_bit // 8)
+        if eight_bit_size not in ENCODING_2_DTYPE_MAP[encoding]:
+            raise ValueError(f'Encoding {encoding} with {eight_bit_size} 8bits bytes')
 
-        return ENCODING_2_DTYPE_MAP[encoding][bytesize]
+        return ENCODING_2_DTYPE_MAP[encoding][eight_bit_size]
 
     def get_errors(self) -> ParseErrors:
         """Returns all the errors registered during the parsing"""
@@ -844,6 +850,7 @@ class ElfDwarfVarExtractor:
             self._context.arch = self._identify_arch()
             self._context.endianess = self._identify_endianness(self._context.arch)
             self._varmap.set_endianness(self._context.endianess)
+            self._varmap.set_char_bit(self._context.get_char_bit())
 
             self._make_cu_name_map(self._dwarfinfo)
             self._demangler = GccDemangler(self._cppfilt)  # todo : adapt according to compile unit producer
@@ -894,6 +901,11 @@ class ElfDwarfVarExtractor:
             return Architecture.TI_C28x
 
         return Architecture.UNKNOWN
+
+    def _get_char_bit(self) -> Literal[8, 16]:
+        if self._context.arch == Architecture.TI_C28x:
+            return 16
+        return 8
 
     def _identify_compiler(self, cu: CompileUnit) -> Compiler:
         """Identify what compiler produced a compile unit. We can handle their little quirks"""
@@ -979,8 +991,6 @@ class ElfDwarfVarExtractor:
         if Attrs.DW_AT_byte_size not in die.attributes:
             raise ElfParsingError(f'Missing DW_AT_byte_size on type die {die}')
         val = cast(int, die.attributes[Attrs.DW_AT_byte_size].value)
-        if self._context.arch == Architecture.TI_C28x:
-            return val * 2    # char = 16 bits
 
         return val
 
@@ -1062,7 +1072,7 @@ class ElfDwarfVarExtractor:
             name = self._get_typename_from_die(die)
             encoding = DwarfEncoding(cast(int, die.attributes[Attrs.DW_AT_encoding].value))
             bytesize = self._get_size_from_type_die(die)
-            basetype = self.get_core_base_type(encoding, bytesize)
+            basetype = self.get_core_base_type(encoding, bytesize, self._context.get_char_bit())
             self._logger.debug(f"Registering base type: {name} as {basetype.name}")
             self._varmap.register_base_type(name, basetype)
 
@@ -1128,7 +1138,7 @@ class ElfDwarfVarExtractor:
             encoding = DwarfEncoding(cast(int, enum_die.attributes[Attrs.DW_AT_encoding].value))
         except Exception:
             encoding = DwarfEncoding.DW_ATE_signed if enum.has_signed_value() else DwarfEncoding.DW_ATE_unsigned
-        basetype = self.get_core_base_type(encoding, bytesize)
+        basetype = self.get_core_base_type(encoding, bytesize, self._context.get_char_bit())
         fakename = 'enum_default_'
         fakename += 's' if basetype.is_signed() else 'u'
         fakename += str(basetype.get_size_bit())
@@ -1483,6 +1493,7 @@ class ElfDwarfVarExtractor:
         array_out = TypedArray(
             dims=tuple(dims),
             datatype=array_element_type,
+            char_bit=self._context.get_char_bit(),
             element_type_name=element_type_name
         )
 

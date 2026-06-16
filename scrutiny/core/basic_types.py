@@ -156,12 +156,12 @@ class EmbeddedDataType(Enum):
     NA = DataTypeType._NA.value | DataTypeSize._NA.value
 
     def get_size_bit(self) -> int:
-        """Return the size fo the datatype in bits. Returns 0 if NA"""
+        """Return the size of the datatype in bits. Returns 0 if NA"""
         v = self.get_size_byte()
         return v * 8
 
     def get_size_byte(self) -> int:
-        """Return the size fo the datatype in bytes. Returns 0 if NA"""
+        """Return the size of the datatype in 8bits bytes. Returns 0 if NA"""
         vbytes = (self.value & 0xF)
         if DataTypeSize(vbytes) == DataTypeSize._NA:
             return 0
