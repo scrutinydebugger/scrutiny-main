@@ -219,8 +219,8 @@ class TestVarmap(ScrutinyUnitTest):
         varmap.register_base_type('ptr', ptr_type)
         varmap.register_base_type('uint32_t', EmbeddedDataType.uint32)
         pointer_array_segments = {
-            '/aaa/bbb/ccc': UntypedArray((2, 3), ptr_type.get_size_byte()),
-            '/aaa/bbb': UntypedArray((5, 4), 2 * 3 * ptr_type.get_size_byte()),
+            '/aaa/bbb/ccc': UntypedArray((2, 3), ptr_type.get_size_8bits()),
+            '/aaa/bbb': UntypedArray((5, 4), 2 * 3 * ptr_type.get_size_8bits()),
         }
         varmap.add_variable(
             ['aaa', 'bbb', 'ccc', 'pointer'],
@@ -243,7 +243,7 @@ class TestVarmap(ScrutinyUnitTest):
         self.assertEqual(v.get_type(), EmbeddedDataType.uint32)
         self.assertTrue(v.has_pointed_address())
 
-        s = ptr_type.get_size_byte()
+        s = ptr_type.get_size_8bits()
         ptr_v = varmap.get_var(v.get_pointer().pointer_path)
         self.assertEqual(ptr_v.get_address(), 0x1000 + s * (2 + 1 * 3 + 3 * 2 * 3 + 2 * 4 * 2 * 3))
         self.assertEqual(ptr_v.get_fullname(), "/aaa/bbb[2][3]/ccc[1][2]/pointer")
@@ -256,8 +256,8 @@ class TestVarmap(ScrutinyUnitTest):
         varmap.register_base_type('ptr', ptr_type)
         varmap.register_base_type('uint32_t', EmbeddedDataType.uint32)
         pointer_array_segments = {
-            '/aaa/bbb/ccc': UntypedArray((2, 3), ptr_type.get_size_byte()),
-            '/aaa/bbb': UntypedArray((5, 4), 2 * 3 * ptr_type.get_size_byte()),
+            '/aaa/bbb/ccc': UntypedArray((2, 3), ptr_type.get_size_8bits()),
+            '/aaa/bbb': UntypedArray((5, 4), 2 * 3 * ptr_type.get_size_8bits()),
         }
         varmap.add_variable(
             ['aaa', 'bbb', 'ccc', 'pointer'],
@@ -293,7 +293,7 @@ class TestVarmap(ScrutinyUnitTest):
         for key, arr in pointer_array_segments.items():
             self.assertIn(key, location.array_segments)
             self.assertEqual(location.array_segments[key].dims, arr.dims)
-            self.assertEqual(location.array_segments[key].get_element_char_size(), arr.get_element_char_size())
+            self.assertEqual(location.array_segments[key].get_element_byte_size(), arr.get_element_byte_size())
 
     def test_valid_state_after_load(self):
         varmap = VarMap()

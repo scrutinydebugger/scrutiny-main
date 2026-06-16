@@ -368,7 +368,7 @@ class GraphConfigWidget(QWidget):
         xaxis_type = cast(Optional[XAxisType], self._cmb_xaxis_type.currentData())
 
         if encoding == DataloggingEncoding.RAW:
-            sample_size = sum([dtype.get_size_byte() for dtype in signal_datatypes])
+            sample_size = sum([dtype.get_size_8bits() for dtype in signal_datatypes])
             if xaxis_type == XAxisType.MeasuredTime:
                 sample_size += 4    # uint32
             elif xaxis_type == XAxisType.Signal:
@@ -378,7 +378,7 @@ class GraphConfigWidget(QWidget):
                 watchable_node = self._watchable_registry.get_watchable_node_fqn(fqn_and_name.fqn)
                 if watchable_node is None:
                     return None
-                sample_size += watchable_node.configuration.datatype.get_size_byte()
+                sample_size += watchable_node.configuration.datatype.get_size_8bits()
 
             if sample_size == 0:
                 return None

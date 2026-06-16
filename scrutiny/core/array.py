@@ -43,7 +43,7 @@ class Array(abc.ABC):
         self._multipliers = tuple([math.prod(dims[i + 1:]) for i in range(len(dims))])    # No need to check boundaries, prod([]) = 1
 
     @abc.abstractmethod
-    def get_element_char_size(self) -> int:
+    def get_element_byte_size(self) -> int:
         raise NotImplementedError("Abstract method")
 
     def get_element_count(self) -> int:
@@ -52,7 +52,7 @@ class Array(abc.ABC):
 
     def get_total_byte_size(self) -> int:
         """Return the total size in bytes of the array"""
-        return self.get_element_count() * self.get_element_char_size()
+        return self.get_element_count() * self.get_element_byte_size()
 
     def position_of(self, pos: Tuple[int, ...]) -> int:
         """Return the linear index that can be used to address an element based on a N-dimension position"""
@@ -70,22 +70,22 @@ class Array(abc.ABC):
 
     def byte_position_of(self, pos: Tuple[int, ...]) -> int:
         """Return the linear bytes index that can be used to address an element based on a N-dimension position"""
-        return self.position_of(pos) * self.get_element_char_size()
+        return self.position_of(pos) * self.get_element_byte_size()
 
 
 class UntypedArray(Array):
     """Represent an N dimensions embedded array with no type, just a size available"""
-    __slots__ = ('element_char_size', )
+    __slots__ = ('element_byte_size', )
 
-    element_char_size: int
+    element_byte_size: int
 
-    def __init__(self, dims: Tuple[int, ...], element_char_size: int, element_type_name: str = "") -> None:
+    def __init__(self, dims: Tuple[int, ...], element_byte_size: int, element_type_name: str = "") -> None:
         super().__init__(dims, element_type_name)
-        self.element_char_size = element_char_size
+        self.element_byte_size = element_byte_size
 
-    def get_element_char_size(self) -> int:
+    def get_element_byte_size(self) -> int:
         """Return the size of a single element in bytes"""
-        return self.element_char_size
+        return self.element_byte_size
 
 
 TypedArrayType: TypeAlias = Union["Struct", EmbeddedDataType, Pointer]
@@ -105,7 +105,7 @@ class TypedArray(Array):
         self.datatype = datatype
         self.char_bit = char_bit
 
-    def get_element_char_size(self) -> int:
+    def get_element_byte_size(self) -> int:
         """Return the size of a single element in bytes"""
         from scrutiny.core.struct import Struct
 
@@ -122,6 +122,6 @@ class TypedArray(Array):
     def to_untyped_array(self) -> UntypedArray:
         return UntypedArray(
             self.dims,
-            element_char_size=self.get_element_char_size(),
+            element_byte_size=self.get_element_byte_size(),
             element_type_name=self.element_type_name,
         )

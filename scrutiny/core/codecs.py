@@ -127,7 +127,7 @@ class Codecs:
     """
     @staticmethod
     def get(vartype: EmbeddedDataType, endianness: Endianness) -> BaseCodec:
-        datasize = vartype.get_size_byte()
+        datasize = vartype.get_size_8bits()
 
         if vartype in (EmbeddedDataType.sint8, EmbeddedDataType.sint16, EmbeddedDataType.sint32, EmbeddedDataType.sint64):
             return SIntCodec(datasize, endianness=endianness)

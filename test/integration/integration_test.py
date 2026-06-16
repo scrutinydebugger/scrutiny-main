@@ -287,7 +287,7 @@ class ScrutinyIntegrationTest(ScrutinyUnitTest):
             self.assertEqual(valdict[expected[0].get_id()], expected[1])
 
     def read_device_var_entry(self, entry: DatastoreVariableEntry):
-        return self.emulated_device.read_memory(entry.get_address(), entry.get_data_type().get_size_byte(), check_access_rights=False)
+        return self.emulated_device.read_memory(entry.get_address(), entry.get_data_type().get_size_8bits(), check_access_rights=False)
 
     def read_device_rpv_entry(self, entry: DatastoreRPVEntry):
         return self.emulated_device.read_rpv(entry.rpv.id)

@@ -310,7 +310,7 @@ class DatastoreVariableEntry(DatastoreEntry):
 
     def get_size(self) -> int:
         """Return the variable data size"""
-        return self.variable_def.get_type().get_size_byte()
+        return self.variable_def.get_type().get_size_8bits()
 
     def has_enum(self) -> bool:
         """Returns True if the entry has an enum"""

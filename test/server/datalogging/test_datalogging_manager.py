@@ -421,7 +421,7 @@ class TestDataloggingManager(ScrutinyUnitTest):
                 assert isinstance(signals[signalmap[self.alias_var4_s16]], device_datalogging.MemoryLoggableSignal)
                 assert isinstance(alias.refentry, DatastoreVariableEntry)
                 self.assertEqual(signals[signalmap[self.alias_var4_s16]].address, alias.refentry.get_address())
-                self.assertEqual(signals[signalmap[self.alias_var4_s16]].size, alias.refentry.get_data_type().get_size_byte())
+                self.assertEqual(signals[signalmap[self.alias_var4_s16]].size, alias.refentry.get_data_type().get_size_8bits())
 
     def _process_until(self, fn, max_iter: int) -> None:
         i = 0

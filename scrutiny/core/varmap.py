@@ -352,7 +352,7 @@ class VarMap:
             dout[path] = UntypedArray(
                 dims=tuple(array_def['dims']),
                 element_type_name='',
-                element_char_size=array_def['byte_size']
+                element_byte_size=array_def['byte_size']
             )
         return dout
 
@@ -504,7 +504,7 @@ class VarMap:
                     entry['pointer']['array_segments'] = cast(Dict[str, ArrayDef], {})
                     for path, array in location.array_segments.items():
                         entry['pointer']['array_segments'][path] = {
-                            'byte_size': array.get_element_char_size(),
+                            'byte_size': array.get_element_byte_size(),
                             'dims': list(array.dims)
                         }
 
@@ -529,7 +529,7 @@ class VarMap:
             entry['array_segments'] = {}
             for path, array in array_segments.items():
                 entry['array_segments'][path] = {
-                    'byte_size': array.get_element_char_size(),
+                    'byte_size': array.get_element_byte_size(),
                     'dims': list(array.dims)
                 }
 
@@ -698,7 +698,7 @@ class VarMap:
                     for path, array_def in pointer_array_segments.items():
                         ptr_array_segments[path] = UntypedArray(
                             dims=tuple(array_def['dims']),
-                            element_char_size=array_def['byte_size']
+                            element_byte_size=array_def['byte_size']
                         )
 
                     location = UnresolvedPathPointedLocation(
@@ -734,7 +734,7 @@ class VarMap:
                     for path, array_def in array_segments.items():
                         arr = UntypedArray(
                             dims=tuple(array_def['dims']),
-                            element_char_size=array_def['byte_size']
+                            element_byte_size=array_def['byte_size']
                         )
                         factory.add_array_node(path, arr)
                 yield (fullname, factory)
@@ -771,7 +771,7 @@ class VarMap:
             for segment_path, array_def in array_def_dict.items():
                 array_segments[segment_path] = UntypedArray(
                     dims=tuple(array_def['dims']),
-                    element_char_size=array_def['byte_size'],
+                    element_byte_size=array_def['byte_size'],
                     element_type_name=''
                 )
 

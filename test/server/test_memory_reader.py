@@ -64,7 +64,7 @@ def generate_random_value(datatype: EmbeddedDataType) -> Encodable:
     if datatype in [EmbeddedDataType.float8, EmbeddedDataType.float16, EmbeddedDataType.float32, EmbeddedDataType.float64, EmbeddedDataType.float128, EmbeddedDataType.float256]:
         return codec.decode(codec.encode((random.random() - 0.5) * 1000))
 
-    bytestr = bytes([random.randint(0, 0xff) for i in range(datatype.get_size_byte())])
+    bytestr = bytes([random.randint(0, 0xff) for i in range(datatype.get_size_8bits())])
     return codec.decode(bytestr)
 
 
@@ -573,7 +573,7 @@ class TestMemoryReaderBasicReadOperation(ScrutinyUnitTest):
         block_list = []
         for block in request_data['blocks_to_read']:
             self.assertGreaterEqual(block['address'], 0x3000)
-            self.assertLessEqual(block['address'], 0x3000 + npointers * EmbeddedDataType.ptr64.get_size_byte())
+            self.assertLessEqual(block['address'], 0x3000 + npointers * EmbeddedDataType.ptr64.get_size_8bits())
             vals = [entries[i].get_address() for i in range(npointers)]
             block_list.append((block['address'], struct.pack(">" + "q" * len(vals), *vals)))
 
