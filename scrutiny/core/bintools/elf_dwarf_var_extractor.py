@@ -82,6 +82,7 @@ class Tags:
     DW_TAG_typedef = 'DW_TAG_typedef'
     DW_TAG_subrange_type = 'DW_TAG_subrange_type'
     DW_TAG_subroutine_type = 'DW_TAG_subroutine_type'
+    DW_TAG_subprogram = 'DW_TAG_subprogram'
     DW_TAG_unspecified_type = 'DW_TAG_unspecified_type'
 
 
@@ -421,6 +422,11 @@ class Context:
     address_size: Optional[int]
     """The size of a pointer. Sometime available at the CU level, sometime on the var itself. Act as a fallback when not specified on a var"""
 
+    def get_char_bit(self) -> Literal[8, 16]:
+        if self.arch == Architecture.TI_C28x:
+            return 16
+        return 8
+
 
 class ElfParsingError(Exception):
     pass
@@ -645,15 +651,16 @@ class ElfDwarfVarExtractor:
         return outname.split(';')
 
     @classmethod
-    def get_core_base_type(cls, encoding: DwarfEncoding, bytesize: int) -> EmbeddedDataType:
+    def get_core_base_type(cls, encoding: DwarfEncoding, bytesize: int, char_bit: Literal[8, 16]) -> EmbeddedDataType:
         """Convert a DWARF encoding into a Scrutiny EmbeddedDataType"""
         if encoding not in ENCODING_2_DTYPE_MAP:
             raise ValueError(f'Unknown encoding {encoding}')
 
-        if bytesize not in ENCODING_2_DTYPE_MAP[encoding]:
-            raise ValueError(f'Encoding {encoding} with {bytesize} bytes')
+        eight_bit_size = bytesize * (char_bit // 8)
+        if eight_bit_size not in ENCODING_2_DTYPE_MAP[encoding]:
+            raise ValueError(f'Encoding {encoding} with {eight_bit_size} 8bits bytes')
 
-        return ENCODING_2_DTYPE_MAP[encoding][bytesize]
+        return ENCODING_2_DTYPE_MAP[encoding][eight_bit_size]
 
     def get_errors(self) -> ParseErrors:
         """Returns all the errors registered during the parsing"""
@@ -843,6 +850,7 @@ class ElfDwarfVarExtractor:
             self._context.arch = self._identify_arch()
             self._context.endianess = self._identify_endianness(self._context.arch)
             self._varmap.set_endianness(self._context.endianess)
+            self._varmap.set_char_bit(self._context.get_char_bit())
 
             self._make_cu_name_map(self._dwarfinfo)
             self._demangler = GccDemangler(self._cppfilt)  # todo : adapt according to compile unit producer
@@ -893,6 +901,11 @@ class ElfDwarfVarExtractor:
             return Architecture.TI_C28x
 
         return Architecture.UNKNOWN
+
+    def _get_char_bit(self) -> Literal[8, 16]:
+        if self._context.arch == Architecture.TI_C28x:
+            return 16
+        return 8
 
     def _identify_compiler(self, cu: CompileUnit) -> Compiler:
         """Identify what compiler produced a compile unit. We can handle their little quirks"""
@@ -978,8 +991,6 @@ class ElfDwarfVarExtractor:
         if Attrs.DW_AT_byte_size not in die.attributes:
             raise ElfParsingError(f'Missing DW_AT_byte_size on type die {die}')
         val = cast(int, die.attributes[Attrs.DW_AT_byte_size].value)
-        if self._context.arch == Architecture.TI_C28x:
-            return val * 2    # char = 16 bits
 
         return val
 
@@ -1061,7 +1072,7 @@ class ElfDwarfVarExtractor:
             name = self._get_typename_from_die(die)
             encoding = DwarfEncoding(cast(int, die.attributes[Attrs.DW_AT_encoding].value))
             bytesize = self._get_size_from_type_die(die)
-            basetype = self.get_core_base_type(encoding, bytesize)
+            basetype = self.get_core_base_type(encoding, bytesize, self._context.get_char_bit())
             self._logger.debug(f"Registering base type: {name} as {basetype.name}")
             self._varmap.register_base_type(name, basetype)
 
@@ -1120,12 +1131,14 @@ class ElfDwarfVarExtractor:
         enum = self._enum_die_map[enum_die]
         if Attrs.DW_AT_byte_size not in enum_die.attributes:
             raise ElfParsingError(f"Cannot determine enum size {enum_die}")
-        bytesize = enum_die.attributes[Attrs.DW_AT_byte_size].value
+
+        bytesize = self._get_size_from_type_die(enum_die)
+
         try:
             encoding = DwarfEncoding(cast(int, enum_die.attributes[Attrs.DW_AT_encoding].value))
         except Exception:
             encoding = DwarfEncoding.DW_ATE_signed if enum.has_signed_value() else DwarfEncoding.DW_ATE_unsigned
-        basetype = self.get_core_base_type(encoding, bytesize)
+        basetype = self.get_core_base_type(encoding, bytesize, self._context.get_char_bit())
         fakename = 'enum_default_'
         fakename += 's' if basetype.is_signed() else 'u'
         fakename += str(basetype.get_size_bit())
@@ -1480,6 +1493,7 @@ class ElfDwarfVarExtractor:
         array_out = TypedArray(
             dims=tuple(dims),
             datatype=array_element_type,
+            char_bit=self._context.get_char_bit(),
             element_type_name=element_type_name
         )
 
@@ -1618,7 +1632,7 @@ class ElfDwarfVarExtractor:
                 bitoffset = 0   # Dwarf V4 allow this.
 
             if self._context.endianess == Endianness.Little:
-                bitoffset = (bytesize * 8) - bitoffset - bitsize
+                bitoffset = (bytesize * self._context.get_char_bit()) - bitoffset - bitsize
 
         member_type = Struct.Member.MemberType.BaseType
         if substruct is not None:
@@ -1962,6 +1976,17 @@ class ElfDwarfVarExtractor:
             raise ElfParsingError("Impossible to process base type")
         return typename
 
+    def _find_parent_die_of_type(self, die: DIE, tag: str) -> Optional[DIE]:
+
+        parent = die.get_parent()
+        if parent is None:
+            return None
+        else:
+            if die.tag == tag:
+                return die
+            else:
+                return self._find_parent_die_of_type(parent, tag)
+
     def _make_varpath_recursive(self, die: DIE, varpath: Optional[VarPath] = None) -> VarPath:
         """Start from a variable DIE and go up the DWARF structure to build a path"""
 
@@ -1981,20 +2006,30 @@ class ElfDwarfVarExtractor:
                 array = self._get_array_def(var_typedesc.type_die, allow_dereferencing=True)
 
         # Check if we have a linkage name. Those are complete and no further scan is required if available.
-        name = self._get_demangled_linkage_name(die)
-        if name is not None:
-            parts = self.split_demangled_name(name)
-            parts = self._post_process_splitted_demangled_name(parts)
-            for i in range(len(parts) - 1, -1, -1):   # Need to prepend in reverse order to keep the order correct.
-                if array is not None and i == len(parts) - 1:
-                    varpath.prepend_segment(name=parts[i], array=array)
-                    varpath.prepend_segment(name=parts[i])   # Add a level to group the array elements togethers /aaa/bbb/ccc/ccc[0]
-                else:
-                    varpath.prepend_segment(name=parts[i])
-            return varpath
+        linkage_name = self._get_demangled_linkage_name(die)
+        name = self._get_die_name(die)
+        parent = die.get_parent()
+
+        if linkage_name is not None:
+            use_linkage_name = True
+            if die.tag == Tags.DW_TAG_variable and name is not None:    # C2000 behavior mostly, but should apply to others
+                parent_subprogram_die = self._find_parent_die_of_type(die, Tags.DW_TAG_subprogram)
+                if parent_subprogram_die is not None:
+                    if self._has_linkage_name(parent_subprogram_die):
+                        use_linkage_name = False
+
+            if use_linkage_name:
+                parts = self.split_demangled_name(linkage_name)
+                parts = self._post_process_splitted_demangled_name(parts)
+                for i in range(len(parts) - 1, -1, -1):   # Need to prepend in reverse order to keep the order correct.
+                    if array is not None and i == len(parts) - 1:
+                        varpath.prepend_segment(name=parts[i], array=array)
+                        varpath.prepend_segment(name=parts[i])   # Add a level to group the array elements togethers /aaa/bbb/ccc/ccc[0]
+                    else:
+                        varpath.prepend_segment(name=parts[i])
+                return varpath
 
         # Try to get the name of the die and use it as a level of the path
-        name = self._get_die_name(die)
         if name is None:
             if Attrs.DW_AT_specification in die.attributes:
                 spec_die = die.get_DIE_from_attribute(Attrs.DW_AT_specification)
@@ -2005,7 +2040,7 @@ class ElfDwarfVarExtractor:
             varpath.prepend_segment(name=name, array=array)
             if array is not None:
                 varpath.prepend_segment(name=name)  # Add a level to group the array elements togethers /aaa/bbb/ccc/ccc[0]
-            parent = die.get_parent()
+
             if parent is not None:
                 return self._make_varpath_recursive(parent, varpath)
 

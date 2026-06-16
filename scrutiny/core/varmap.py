@@ -96,6 +96,8 @@ class VarMap:
 
         endianness: str
         """Endianness string (e.g. ``'little'`` or ``'big'``)"""
+        char_bit: int
+        """The size of a byte on this platform"""
         type_map: Dict[str, TypeEntry]
         """Mapping of type ID strings to ``TypeEntry`` records"""
         variables: VariableDict
@@ -107,9 +109,11 @@ class VarMap:
         """Mutable container holding the in-memory representation of a ``VarMap``'s data,
         with helpers for serialization and deserialization"""
 
-        __slots__ = ('endianness', 'typemap', 'variables', 'enums')
+        __slots__ = ('endianness', 'char_bit', 'typemap', 'variables', 'enums')
         endianness: Endianness
         """Target device endianness"""
+        char_bit: int
+        """Size of a byte on this platform"""
         typemap: Dict[str, TypeEntry]
         """Mapping of type ID strings to ``TypeEntry`` records"""
         variables: VariableDict
@@ -119,6 +123,7 @@ class VarMap:
 
         def __init__(self) -> None:
             self.endianness = Endianness.Little
+            self.char_bit = 8
             self.typemap = {}
             self.variables = {}
             self.enums = {}
@@ -127,6 +132,7 @@ class VarMap:
             """Serialize this content object to a JSON-compatible dictionary"""
             return {
                 'endianness': self.endianness.to_str(),
+                'char_bit': self.char_bit,
                 'type_map': self.typemap,
                 'variables': self.variables,
                 'enums': self.enums,
@@ -144,6 +150,10 @@ class VarMap:
             validation.assert_dict_key(d, 'enums', dict)
 
             self.endianness = Endianness.from_str(d['endianness'])
+            self.char_bit = d.get('char_bit', int(8))    # Backward compatibility with v0.13 and earlier. char was assumed 8bits
+            validation.assert_type(self.char_bit, 'char_bit', int)
+            if self.char_bit not in (8, 16):
+                raise ValueError(f"Unsupported char_bit {self.char_bit}")
             self.typemap = d['type_map']
             self.enums = d['enums']
             self.variables = d['variables']
@@ -342,7 +352,7 @@ class VarMap:
             dout[path] = UntypedArray(
                 dims=tuple(array_def['dims']),
                 element_type_name='',
-                element_byte_size=array_def['byte_size']
+                element_char_size=array_def['byte_size']
             )
         return dout
 
@@ -408,6 +418,22 @@ class VarMap:
     def get_endianness(self) -> Endianness:
         """Return the target device endianness"""
         return self._content.endianness
+
+    def set_char_bit(self, char_bit: int) -> None:
+        """Set the size of a byte.
+        :param char_bit: the size of a byte in bits. Should match the compiler CHAR_BIT macro
+        """
+        if char_bit not in (8, 16):
+            raise ValueError(f"Unsupported char_bit {char_bit}")
+        self._content.char_bit = char_bit
+
+    def get_char_bit(self) -> int:
+        """Return the size of a byte on this platform in bits"""
+        return self._content.char_bit
+
+    def get_char_bit_8bits_multiple(self) -> int:
+        """Return the size of a byte on this platform in multiple of 8bits packet"""
+        return (self._content.char_bit // 8)
 
     def write(self, filename: str, indent: Optional[Union[int, str]] = '\t') -> None:
         """Serialize the variable map to a UTF-8-encoded JSON file on disk.
@@ -478,7 +504,7 @@ class VarMap:
                     entry['pointer']['array_segments'] = cast(Dict[str, ArrayDef], {})
                     for path, array in location.array_segments.items():
                         entry['pointer']['array_segments'][path] = {
-                            'byte_size': array.get_element_byte_size(),
+                            'byte_size': array.get_element_char_size(),
                             'dims': list(array.dims)
                         }
 
@@ -503,7 +529,7 @@ class VarMap:
             entry['array_segments'] = {}
             for path, array in array_segments.items():
                 entry['array_segments'][path] = {
-                    'byte_size': array.get_element_byte_size(),
+                    'byte_size': array.get_element_char_size(),
                     'dims': list(array.dims)
                 }
 
@@ -672,7 +698,7 @@ class VarMap:
                     for path, array_def in pointer_array_segments.items():
                         ptr_array_segments[path] = UntypedArray(
                             dims=tuple(array_def['dims']),
-                            element_byte_size=array_def['byte_size']
+                            element_char_size=array_def['byte_size']
                         )
 
                     location = UnresolvedPathPointedLocation(
@@ -708,7 +734,7 @@ class VarMap:
                     for path, array_def in array_segments.items():
                         arr = UntypedArray(
                             dims=tuple(array_def['dims']),
-                            element_byte_size=array_def['byte_size']
+                            element_char_size=array_def['byte_size']
                         )
                         factory.add_array_node(path, arr)
                 yield (fullname, factory)
@@ -745,7 +771,7 @@ class VarMap:
             for segment_path, array_def in array_def_dict.items():
                 array_segments[segment_path] = UntypedArray(
                     dims=tuple(array_def['dims']),
-                    element_byte_size=array_def['byte_size'],
+                    element_char_size=array_def['byte_size'],
                     element_type_name=''
                 )
 

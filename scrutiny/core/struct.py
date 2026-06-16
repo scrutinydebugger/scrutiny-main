@@ -116,7 +116,7 @@ class Struct:
                 if not isinstance(bitoffset, int):
                     raise ValueError(f'bitoffset must be an integer value. Got {bitoffset.__class__.__name__}')
                 if bitoffset < 0:
-                    raise ValueError('bitoffset must be a positive integer')
+                    raise ValueError(f'bitoffset must be a positive integer: Got {bitoffset}')
 
             if bitsize is not None:
                 if not isinstance(bitsize, int):
