@@ -228,7 +228,7 @@ Serial
 -----
 
 Segger RTT
-#########
+##########
 
 .. autoclass:: scrutiny.sdk.RTTLinkConfig
     :exclude-members: __new__, __init__, JLinkInterface
