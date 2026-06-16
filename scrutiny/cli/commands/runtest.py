@@ -94,7 +94,7 @@ class RunTest(BaseCommand):
                     test_suite.addTests(loader.discover(test_root))
                 else:
                     # First we handle the folder case
-                    # no loader function discover all test in a folder based on the module path.
+                    # no loader function discovers all tests in a folder based on the module path.
                     for module_name in args.modules:
                         loaded_from_module_folder = False
                         try:

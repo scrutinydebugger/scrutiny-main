@@ -190,7 +190,7 @@ class SupportedFeatureMap:
     """Indicates if the device allows write to memory"""
 
     datalogging: bool
-    """Indicates if the device is able of doing datalogging"""
+    """Indicates if the device is capable of doing datalogging"""
 
     user_command: bool
     """Indicates if the device has a callback set for the user command"""
@@ -208,7 +208,7 @@ class DataloggingInfo:
     """The state of the datalogger in the device"""
 
     completion_ratio: Optional[float]
-    """The completion ratio of the actually running acquisition. ``None`` if no acquisition being captured"""
+    """The completion ratio of the currently running acquisition. ``None`` if no acquisition is being captured"""
 
 
 class DataloggingEncoding(enum.Enum):
@@ -283,7 +283,7 @@ class DeviceInfo:
     """(Immutable struct) Information about the device connected to the server"""
 
     session_id: str
-    """The unique ID assigned to the communication session between the server abd the device when this data was gathered"""
+    """The unique ID assigned to the communication session between the server and the device when this data was gathered"""
 
     device_id: str
     """A unique ID identifying the device and its software (Firmware ID). """
@@ -319,10 +319,10 @@ class DeviceInfo:
     """Features supported by the device"""
 
     forbidden_memory_regions: List[MemoryRegion]
-    """List of memory region that cannot be access"""
+    """List of memory regions that cannot be accessed"""
 
     readonly_memory_regions: List[MemoryRegion]
-    """List of memory region that are read-only"""
+    """List of memory regions that are read-only"""
 
     datalogging_capabilities: Optional[DataloggingCapabilities]
     """Contains the device datalogging capabilities. ``None`` if datalogging is not supported"""
@@ -475,7 +475,7 @@ class SerialLinkConfig(BaseLinkConfig):
     baudrate: int
     """Communication speed in baud/sec"""
     start_delay: float
-    """A delay of communication silence after opening the port. Accommodate devices that triggers a bootloader upon port open (like Arduino)."""
+    """A delay of communication silence after opening the port. Accommodates devices that trigger a bootloader upon port open (like Arduino)."""
     stopbits: StopBits = StopBits.ONE
     """Number of stop bits. 1, 1.5, 2"""
     databits: DataBits = DataBits.EIGHT
@@ -797,7 +797,7 @@ class DeviceLinkInfo:
 
 @dataclass(frozen=True, slots=True)
 class ServerInfo:
-    """(Immutable struct) A summary of everything going on on the server side. Status broadcast by the server to every client."""
+    """(Immutable struct) A summary of everything going on on the server side. Status is broadcast by the server to every client."""
 
     device_comm_state: DeviceCommState
     """Status of the communication between the server and the device"""
@@ -924,10 +924,10 @@ class DetailedAliasWatchableConfiguration(BaseDetailedWatchableConfiguration):
     """The type of watchable referenced by this alias"""
 
     gain: Optional[float]
-    """An optional gain. Scale the value when read or writen. Does not apply when ``None``"""
+    """An optional gain. Scale the value when read or written. Does not apply when ``None``"""
 
     offset: Optional[float]
-    """An optional offset. Add a bias to the value when read or writen. Does not apply when ``None``"""
+    """An optional offset. Add a bias to the value when read or written. Does not apply when ``None``"""
 
     min: Optional[float]
     """An optional lower bound that applies only when written. Does not apply when ``None``"""
@@ -1054,7 +1054,7 @@ class WatchableListContentPart:
     """The aliases in the server datastore """
 
     rpv: Dict[str, BriefWatchableConfiguration]
-    """The runtime Published values in the server datastore """
+    """The runtime published values in the server datastore"""
 
     var_factory: Dict[str, VariableFactoryInterface]
     """The Variable factories (to instantiate variables from arrays) in the server datastore """
@@ -1095,7 +1095,7 @@ class ServerStatistics:
     """Number of message sent, all clients summed together"""
 
     device_session_count: int
-    """Counter indicating how many new working connections has been established with a device """
+    """Counter indicating how many new working connections have been established with a device"""
 
     to_device_datarate_byte_per_sec: float
     """Datarate (byte/sec) traveling from the server to the device"""

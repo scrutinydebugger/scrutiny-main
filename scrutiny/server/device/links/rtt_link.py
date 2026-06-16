@@ -69,7 +69,7 @@ class RttLink(AbstractLink):
 
     @classmethod
     def get_jlink_interface(cls, s: str) -> int:
-        " Parse a jlink interface string and convert to JLinkInterfaces constant"
+        """Parse a jlink interface string and convert to a JLinkInterfaces constant"""
         s = str(s)
         s = s.strip().lower()
         if s not in cls.STR_TO_JLINK_INTERFACE:
@@ -215,7 +215,7 @@ class RttLink(AbstractLink):
                 raise ValueError('Missing ' + field)
 
         if not isinstance(config['target_device'], str):
-            raise ValueError('Tartget device must be a string')
+            raise ValueError('Target device must be a string')
 
         if 'jlink_interface' in config:
             RttLink.get_jlink_interface(config['jlink_interface'])       # raise an exception on bad value

@@ -201,7 +201,7 @@ class SerialLink(AbstractLink):
             raise ValueError('baudrate is not a valid integer')
 
         if baudrate <= 0:
-            raise ValueError('Baudrate  must be a positive integer greater than 0')
+            raise ValueError('Baudrate must be a positive integer greater than 0')
 
         if 'parity' in config:
             SerialLink.get_parity(config['parity'])       # raise an exception on bad value

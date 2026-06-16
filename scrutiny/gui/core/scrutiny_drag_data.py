@@ -141,7 +141,7 @@ class WatchableListDescriptor:
         return [x.to_serializable() for x in self.data]
 
     def to_drag_data(self, data_move: Optional[Any] = None) -> ScrutinyDragData:
-        """Create a :class:`ScrutinyDragData` object that contains a serializaed version of this data"""
+        """Create a :class:`ScrutinyDragData` object that contains a serialized version of this data"""
 
         return ScrutinyDragData(
             type=ScrutinyDragData.DataType.WatchableList,

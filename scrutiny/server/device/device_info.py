@@ -122,10 +122,10 @@ class DeviceInfo:
     """The maximum bitrate requested by the device."""
 
     rx_timeout_us: Optional[int]
-    """The amount of time, in microseconds that the device will wait before resetting it's internal reception state machine"""
+    """The amount of time, in microseconds, that the device will wait before resetting its internal reception state machine"""
 
     heartbeat_timeout_us: Optional[int]
-    """The number of time, in microseconds, that the device will wait without receiving a heartbeat before resetting the session"""
+    """The amount of time, in microseconds, that the device will wait without receiving a heartbeat before resetting the session"""
 
     address_size_bits: Optional[int]
     """Device address size in bits. Value of sizeof(void*)*8 """
@@ -137,7 +137,7 @@ class DeviceInfo:
     """Protocol version minor number"""
 
     supported_feature_map: Optional[SupportedFeatureMap]
-    """Dictionary listing all supported feature"""
+    """Dictionary listing all supported features"""
 
     forbidden_memory_regions: Optional[List[MemoryRegion]]
     """List of all memory regions that are forbidden to access broadcasted by the device"""

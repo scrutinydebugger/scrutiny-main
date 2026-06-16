@@ -85,7 +85,7 @@ class BaseWatchableRegistryTreeStandardItem(QStandardItem):
         raise NotImplementedError(f"Cannot serialize node of type {self.__class__.__name__}")
 
     def set_loaded(self) -> None:
-        """Mark this node as loaded. USed for (lazy loading)"""
+        """Mark this node as loaded. Used for (lazy loading)"""
         self._loaded = True
 
     def is_loaded(self) -> bool:

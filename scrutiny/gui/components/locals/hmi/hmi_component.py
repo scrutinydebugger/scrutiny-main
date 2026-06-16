@@ -236,7 +236,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
 
         widget_class = HMILibrary.load_from_unique_name(widget_state['unique_name'])
         if widget_class is None:
-            raise ValueError(f"Unknown HMI widget of with unique name : {widget_state['unique_name']}")
+            raise ValueError(f"Unknown HMI widget with unique name : {widget_state['unique_name']}")
 
         validation.assert_dict_key(widget_state, 'size', (list, tuple))
         validation.assert_dict_key(widget_state, 'pos', (list, tuple))
@@ -492,7 +492,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
             hmi_widget.try_watch_all_vslots()
 
     def _unsubscribe_all_hmi_widgets(self) -> None:
-        """Try to resubscribe each HMI Widget to their respective watchable (drag&dropped by the user) if possible"""
+        """Try to unsubscribe each HMI Widget to their respective watchable (drag&dropped by the user) if possible"""
         for hmi_widget in self._workzone.iterate_hmi_widgets():
             hmi_widget.unwatch_all_vslots()
 

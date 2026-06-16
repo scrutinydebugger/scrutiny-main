@@ -37,7 +37,7 @@ class ExportDatalog(BaseCommand):
 
         # Check if at least one of the supported is selected
         if not self.parsed_args.csv:
-            raise ValueError("At least one  export method must be specified")
+            raise ValueError("At least one export method must be specified")
 
         acquisition = DataloggingStorage.read(reference_id=self.parsed_args.reference_id)
 

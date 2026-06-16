@@ -54,7 +54,7 @@ class ValueDownloadResult(enum.Enum):
     TimedOut = enum.auto()
     """We waited for too long. We gave up on getting a value"""
     CancelledByUser = enum.auto()
-    """USer hit the cancel button"""
+    """User hit the cancel button"""
     Received = enum.auto()
     """Success: A value has been received."""
 
@@ -301,7 +301,7 @@ class ExportLogic:
             if not state.is_finished():
                 unfinished_count += 1
         if unfinished_count > 0:
-            self._logger.error("Not all watchable we processed fully.")
+            self._logger.error("Not all watchables were processed fully.")
         with tools.SuppressException(WatcherNotFoundError):   # Suppress if not registered
             self._watchable_registry.unregister_watcher(self._watcher_id)
         self._server_manager.signals.registry_changed.disconnect(self.stop)
@@ -593,7 +593,7 @@ class ValueExportDialog(QDialog):
             self.accept()
 
     def _btn_save_slot(self) -> None:
-        """UIser clicked on Save button"""
+        """User clicked on Save button"""
         self.accept()
 
     def _btn_cancel_slot(self) -> None:

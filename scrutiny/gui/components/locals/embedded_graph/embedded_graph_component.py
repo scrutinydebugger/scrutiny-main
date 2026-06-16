@@ -526,7 +526,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
                 hold_time_ms = 0
 
             # Extract the list of watchable from the right pane.
-            # Ignore if the content is coming from a reloaded graph. The goal is to restore a graph config, not reload what was brosed.
+            # Ignore if the content is coming from a reloaded graph. The goal is to restore a graph config, not reload what was browsed.
             # Allow "None" (graph in construction) or "ACQUIRED" (has an active graph coming from the acquire button)
             signals: List[State.AxisContent] = []
             if self._state.content_source != DisplaySource.RELOADED:    # "None" or "Acquired" will go through
@@ -981,7 +981,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
         def range_edit_slot() -> None:
             if self._xaxis is not None:
                 dialog = ChartRangeEditDialog(self._xaxis, self._yaxes)
-                dialog.exec()   # Exec because dialog ahs no parent. Will get destroyed when going out of scope
+                dialog.exec()   # Exec because dialog has no parent. Will get destroyed when going out of scope
         edit_range_action = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.YRange), "Axes range")
         edit_range_action.triggered.connect(range_edit_slot)
         edit_range_action.setEnabled(self._state.enable_edit_range_menu())
@@ -1183,7 +1183,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
             return client.start_datalog(config)
 
         def qt_thread_datalog_started(request: Optional[DataloggingRequest], error: Optional[Exception]) -> None:
-            # Callbak #1. The request is received and aknowledged by the server
+            # Callback #1. The request is received and acknowledged by the server
 
             if self._teared_down:
                 return  # Silent exit
@@ -1196,7 +1196,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
             self.logger.debug(f"Datalog accepted. Request {request.request_token}")
 
             if self._pending_datalogging_request is not None:
-                # We use a dict instead of a set of id to keep a reference to the object so it's kept alive and ther eis no id reuse issue.
+                # We use a dict instead of a set of id to keep a reference to the object so it's kept alive and there is no id reuse issue.
                 self._request_to_ignore_completions[id(self._pending_datalogging_request)] = self._pending_datalogging_request
             else:
                 self._request_to_ignore_completions.clear()
@@ -1341,7 +1341,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
             self._do_initial_graph_list_download()
 
     def _datalogging_storage_updated_slot(self, change_type: sdk.DataloggingListChangeType, reference_id: Optional[str]) -> None:
-        """The server informs us that a change was made to the datalogging storage. We use ths to update our list, even if this GUI
+        """The server informs us that a change was made to the datalogging storage. We use this to update our list, even if this GUI
         is the initiator of the change."""
 
         if change_type == sdk.DataloggingListChangeType.DELETE_ALL:

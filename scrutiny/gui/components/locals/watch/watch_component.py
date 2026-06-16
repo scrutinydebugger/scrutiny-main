@@ -215,7 +215,7 @@ class WatchComponent(ScrutinyGUIBaseLocalComponent):
         return self._tree_model.columnCount()
 
     def _state_node_to_dnd_serializable_node_recursive(self, state_item: Union[State.Folder, State.Watchable], level: int = 0) -> SerializableTreeDescriptor:
-        """Convert a node form the state dict to a serializable node used whil drag&dropping """
+        """Convert a node from the state dict to a serializable node used while drag&dropping """
         if State.KEY_TYPE not in state_item:
             raise ValueError(f"Missing key {State.KEY_TYPE} on node")
 

@@ -377,11 +377,11 @@ class FirmwareDescription:
         return json.dumps(dic, indent=4).encode('utf8')
 
     def get_firmware_id(self) -> bytes:
-        """Return the Firwmare ID of this FirmwareDescription"""
+        """Return the Firmware ID of this FirmwareDescription"""
         return self.firmwareid
 
     def get_firmware_id_ascii(self) -> str:
-        """Return the Firwmare ID of this FirmwareDescription as a ASCII format"""
+        """Return the Firmware ID of this FirmwareDescription as an ASCII string"""
         return self.firmwareid.hex().lower()
 
     def get_endianness(self) -> Endianness:
@@ -403,7 +403,7 @@ class FirmwareDescription:
                             (len(self.firmwareid), self.firmware_id_length()))
 
     def validate_metadata(self) -> None:
-        """Check the content of te metadata and raise warnings if something seems wrong"""
+        """Check the content of the metadata and raise warnings if something seems wrong"""
         if self.metadata.project_name is None:
             self.logger.warning(f'No valid project name defined in {self.METADATA_FILENAME}')
 
@@ -416,7 +416,7 @@ class FirmwareDescription:
     def get_vars_for_datastore(self) -> Generator[VarmapElement, None, None]:
         """Returns all variables in this SFD with a Generator to avoid consuming memory."""
         # We start by returning the absolute addressable variables first.
-        # This allow the consumer to know about pointers before receiving pointed engtries
+        # This allows the consumer to know about pointers before receiving pointed entries
         for path, var_or_factory in self.varmap.iterate_vars([VarMap.LocationType.ABSOLUTE]):
             yield VarmapElement(
                 path=path,

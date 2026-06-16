@@ -43,7 +43,7 @@ class XAxisType(Enum):
 
 @dataclass(frozen=True, slots=True)
 class SamplingRate:
-    """Represent a sampling rate that a use can select"""
+    """Represent a sampling rate that a user can select"""
     name: str
     frequency: Optional[float]
     rate_type: ExecLoopType

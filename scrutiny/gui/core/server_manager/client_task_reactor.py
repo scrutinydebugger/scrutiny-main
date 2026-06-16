@@ -46,7 +46,7 @@ class ClientTaskReactor:
     _task_queue: "queue.Queue[Optional[TaskQueueEntry]]"
     """The task queue filled by the different component and read by the thread pool"""
     _next_task_id: int
-    """A simple numerical ID to make sens eof the logs"""
+    """A simple numerical ID to make sense of the logs"""
     _logger: logging.Logger
     """The logger"""
 

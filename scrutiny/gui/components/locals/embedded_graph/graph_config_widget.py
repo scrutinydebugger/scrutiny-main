@@ -82,7 +82,7 @@ IsWithin: |x1-x2| < |x3|
 
 class GraphConfigWidget(QWidget):
     _get_signal_dtype_fn: Optional[GetSignalDatatypeFn]
-    """A function that returns the list of signal size. USed to compute the duration estimate"""
+    """A function that returns the list of signal size. Used to compute the duration estimate"""
     _watchable_registry: WatchableRegistry
     """A reference to the global watchable registry for validation"""
     _txt_acquisition_name: QLineEdit
@@ -98,7 +98,7 @@ class GraphConfigWidget(QWidget):
     _txt_acquisition_timeout: FloatValidableLineEdit
     """LineEdit: Acquisition timeout"""
     _cmb_trigger_condition: QComboBox
-    """ComboxBox: The type of trigger condition"""
+    """ComboBox: The type of trigger condition"""
     _txtw_trigger_operand1: WatchableLineEdit
     """Trigger operand 1"""
     _txtw_trigger_operand2: WatchableLineEdit

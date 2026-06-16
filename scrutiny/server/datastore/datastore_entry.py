@@ -274,7 +274,7 @@ class DatastoreEntry(abc.ABC):
 
 class DatastoreVariableEntry(DatastoreEntry):
     """
-    A datastore entry that represents  variable in memory. It is linked to a "Variable" object
+    A datastore entry that represents a variable in memory. It is linked to a "Variable" object
     that contains an address, a type, an endianness, optional bitfield, etc.
     """
     __slots__ = ('variable_def', 'codec')
@@ -355,7 +355,7 @@ class DatastorePointedVariableEntry(DatastoreVariableEntry):
         self.pointer_entry = pointer_entry
 
     def get_pointer_entry(self) -> DatastoreVariableEntry:
-        """Return the datastore entry that refer tothe pointer variable"""
+        """Return the datastore entry that refers to the pointer variable"""
         return self.pointer_entry
 
     def get_pointer_offset(self) -> int:
@@ -435,11 +435,11 @@ class DatastoreAliasEntry(DatastoreEntry):
     def set_value(self, *args: Any, **kwargs: Any) -> None:
         """Will raise an exception. Not supposed to be called"""
         # Just to make explicit that this is not supposed to happen
-        raise NotImplementedError('Cannot set value on a Alias variable')
+        raise NotImplementedError('Cannot set value on an Alias variable')
 
     def set_value_internal(self, value: Union[int, float, bool]) -> None:
         """Set the value of this alias object."""
-        # These function are meant to be used internally to make the alias mechanism work. Not to be used by a user.
+        # These functions are meant to be used internally to make the alias mechanism work. Not to be used by a user.
         new_value = self.aliasdef.compute_device_to_user(value)
         DatastoreEntry.set_value(self, new_value)
 
@@ -486,8 +486,8 @@ class DatastoreRPVEntry(DatastoreEntry):
         return False
 
     def get_enum(self) -> EmbeddedEnum:
-        """Returns the enum attached to the entry. Raise an exception if there is None"""
-        raise NotImplementedError('RuntimePublishedValues does not have enums')
+        """Returns the enum attached to the entry. Raises an exception if there is none"""
+        raise NotImplementedError('RuntimePublishedValues do not have enums')
 
     def encode(self, value: Encodable) -> Tuple[bytes, Optional[bytes]]:
         """Encode the value to a stream of bytes and a data mask.

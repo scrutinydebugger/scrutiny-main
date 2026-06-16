@@ -113,7 +113,7 @@ class SFDStorageManager:
         self.temporary_dir = None
 
     def get_storage_dir(self, create: bool = False) -> str:
-        """Ge the actual storage directory"""
+        """Get the actual storage directory"""
         if self.temporary_dir is not None:
             return self.temporary_dir.name
 

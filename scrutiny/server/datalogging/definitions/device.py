@@ -133,7 +133,7 @@ class VarBitOperand(Operand):
     bitoffset: int
     """The offset of the bitfield"""
     bitsize: int
-    """Number fo bit of the bitfield"""
+    """Number of bits of the bitfield"""
 
     def __init__(self, address: int, datatype: EmbeddedDataType, bitoffset: int, bitsize: int):
         if not isinstance(address, int):
@@ -302,7 +302,7 @@ class Configuration:
     """The condition that triggers the trigger graph"""
 
     _trigger_hold_time: float
-    """Amount of time, in seconds, that the trigger condition must be true for the trigger to triggered"""
+    """Amount of time, in seconds, that the trigger condition must be true for the trigger to fire"""
 
     _loggable_signals: List[LoggableSignal]
     """List of signals to log during the acquisition"""

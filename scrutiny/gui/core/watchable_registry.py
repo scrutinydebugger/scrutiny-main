@@ -379,7 +379,7 @@ class WatchableRegistry:
 
     @enforce_thread(QT_THREAD_NAME)
     def broadcast_value_updates_to_watchers(self, updates: List[ValueUpdate]) -> None:
-        """Broadcast a a list of SDK ValueUpdates created by a listener to all the registry watchers.
+        """Broadcast a list of SDK ValueUpdates created by a listener to all the registry watchers.
         This method will use the ValueUpdate server ID property to find the corresponding registry entry, then
         forward to every watchers of that entry
 

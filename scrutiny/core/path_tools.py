@@ -15,7 +15,7 @@ _rpv_path_regex = re.compile(r'^\/?rpv\/x\d+\/?$', re.IGNORECASE)
 
 
 def make_segments(path: str) -> List[str]:
-    """Splits a path string into an list of string segments"""
+    """Splits a path string into a list of string segments"""
     pieces = path.split('/')
     return [segment for segment in pieces if segment]
 

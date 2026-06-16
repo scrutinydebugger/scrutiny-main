@@ -37,7 +37,7 @@ CommParamCallback = Callable[[DeviceInfo], Any]
 
 
 class InfoPoller(BaseDeviceHandlerSubmodule):
-    """Class that will successfully sends polling request to the device
+    """Class that successively sends polling requests to the device
     to gather all of its internal parameters. Will fill a DeviceInformation structure"""
 
     logger: logging.Logger
@@ -64,17 +64,17 @@ class InfoPoller(BaseDeviceHandlerSubmodule):
     request_pending: bool
     """True when we are waiting for a request to complete"""
     request_failed: bool
-    """Flag indicating that a request have failed. Will make the"""
+    """Flag indicating that a request has failed."""
     forbidden_memory_region_count: Optional[int]
     """Number of forbidden memory region to read"""
     readonly_memory_region_count: Optional[int]
     """Number of readonly memory region to read"""
     rpv_count: Optional[int]
-    """Number of Runtime Published Values to reads"""
+    """Number of Runtime Published Values to read"""
     loop_count: Optional[int]
     """Number of execution loop (task) in the device"""
     error_message: str
-    """Detailed error of why it was impossible to poll al the data"""
+    """Detailed error message explaining why it was impossible to poll all the data"""
 
     class FsmState(enum.Enum):
         """Enum representing the InfoPoller State machine possible states"""
@@ -168,7 +168,7 @@ class InfoPoller(BaseDeviceHandlerSubmodule):
         return True
 
     def process(self) -> None:
-        """To be called  periodically to make the process move forward"""
+        """To be called periodically to make the process move forward"""
         if not self.started:
             self.reset()
             return
@@ -591,7 +591,7 @@ class InfoPoller(BaseDeviceHandlerSubmodule):
                 self.FsmState.GetRPVDefinition: 'Failed to get RuntimePublishedValues count',
                 self.FsmState.GetLoopCount: 'Failed to get loop count',
                 self.FsmState.GetLoopDefinition: 'Failed to get loop definition',
-                self.FsmState.GetDataloggingSetup: 'Failed to to read the embedded datalogger setup'
+                self.FsmState.GetDataloggingSetup: 'Failed to read the embedded datalogger setup'
             }
 
             self.error_message = error_message_map[self.fsm_state] if self.fsm_state in error_message_map else 'Internal error - Request failure'

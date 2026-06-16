@@ -156,7 +156,7 @@ class UdpLink(AbstractLink):
             raise ValueError('Missing hostname')
 
         if 'port' not in config:
-            raise ValueError('Missing hostname')
+            raise ValueError('Missing port')
 
         port = -1
         try:

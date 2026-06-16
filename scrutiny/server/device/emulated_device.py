@@ -1104,7 +1104,7 @@ class EmulatedDevice:
         return data
 
     def get_rpv_definition(self, rpv_id: int) -> RuntimePublishedValue:
-        """Get the the definition of a configured RPV by its ID"""
+        """Get the definition of a configured RPV by its ID"""
         try:
             rpv = self.rpvs[rpv_id]
         except KeyError:

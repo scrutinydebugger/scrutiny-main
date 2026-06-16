@@ -307,7 +307,7 @@ class CanBusLink(AbstractLink):
 
     @classmethod
     def make(cls, config: LinkConfig) -> "CanBusLink":
-        """ Return a serialLink instance from a config object"""
+        """Return a CanBusLink instance from a config object"""
         return cls(config)
 
     def __init__(self, config: LinkConfig):

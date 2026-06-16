@@ -1,5 +1,5 @@
 #    pending_request.py
-#        A base class for Future objects given to the suer
+#        A base class for Future objects given to the user
 #
 #   - License : MIT - See LICENSE file
 #   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
@@ -81,7 +81,7 @@ class PendingRequest:
         :param server_time_us: Server-side completion time in microseconds. When ``None``, the local wall clock is used.
         """
         # We use a lock in case there is 2 simultaneous failures, we keep the first one.
-        # Some client method can spawn an ephemerous thread to do client request, like upload_sfd
+        # Some client method can spawn an ephemeral thread to do client request, like upload_sfd
         with self._completion_lock:
             if not self._completed:
                 self._success = success

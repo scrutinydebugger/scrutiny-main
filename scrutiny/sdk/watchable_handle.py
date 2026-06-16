@@ -152,7 +152,7 @@ class WatchableHandle:
         """Clear the cached value and set a non-``Valid`` status.
 
         :param status: The new :class:`ValueStatus` to assign. Must not be ``ValueStatus.Valid``.
-        :param timestamp: Time at which the value as been set invalid.
+        :param timestamp: Time at which the value has been set invalid.
         """
         assert status != ValueStatus.Valid
 
@@ -466,7 +466,7 @@ class WatchableHandle:
     @property
     def status(self) -> ValueStatus:
         """Return the value status. Refer the :meth:`get_value_and_status()<scrutiny.sdk.watchable_handle.WatchableHandler.get_value_and_status>` to
-        read the value and the status together atomicly."""
+        read the value and the status together atomically."""
         return ValueStatus(self._status)
 
     @property

@@ -1,5 +1,5 @@
 #    elf2varmap.py
-#        CLI Command to read and .elf file and generate a Scrutiny VarMap file that will be
+#        CLI Command to read an .elf file and generate a Scrutiny VarMap file that will be
 #        included into the Firmware Description File.
 #
 #   - License : MIT - See LICENSE file
@@ -72,7 +72,7 @@ class Elf2VarMap(BaseCommand):
                     output_file = args.output
 
                 if os.path.isfile(output_file):
-                    logging.warning('File %s already exist. Overwritting' % output_file)
+                    logging.warning('File %s already exists. Overwriting' % output_file)
 
                 varmap.write(output_file, indent=indent)
                 self.getLogger().info(f"Varmap file {output_file} written")

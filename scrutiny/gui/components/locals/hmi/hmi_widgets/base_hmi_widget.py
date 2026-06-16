@@ -206,12 +206,12 @@ class ValueSlot:
 
 
 class EditSelectFrame(QGraphicsItem):
-    """The overlay with handles that can eb dragged for resizing a widget. Drawn over the real widget in edit mode"""
+    """The overlay with handles that can be dragged for resizing a widget. Drawn over the real widget in edit mode"""
     RESIZE_HANDLE_HW = 6
     HALF_RESIZE_HANDLE_HW = RESIZE_HANDLE_HW / 2
 
     def boundingRect(self) -> QRectF:
-        # REturn the bounding rect of the parent. Follow the widget size
+        # Return the bounding rect of the parent. Follow the widget size
         return self.parentItem().boundingRect()
 
     def resize_handles_coordinates(self) -> Dict[HandlePosition, QRectF]:
@@ -310,7 +310,7 @@ class BaseHMIWidget(QGraphicsItem):
     _del_callback: List[Callable[[], None]]
     """A list of callbacks to call when this object is garbage collected."""
     _hit_zone: Optional[BaseHitZone]
-    """Object used for knowing if a position is on a visible section of the drawing. Like QT Shape(), but owned but used by the Workzone"""
+    """Object used for knowing if a position is on a visible section of the drawing. Like QT Shape(), but owned and used by the Workzone"""
 
     def __init__(self, app: AbstractComponentAppInterface) -> None:
         super().__init__()
@@ -427,7 +427,7 @@ class BaseHMIWidget(QGraphicsItem):
         Add a value slot, allowing the user to specify a text value or drag a watchable on it.
         The values are given to the draw function.
 
-        :param display_name: The name shown int eh config widget
+        :param display_name: The name shown in the config widget
         :param value_update_callback: An optional callback that can be called each time a new value is received
         :param require_redraw: When ``False``, ``draw()`` is not called when the value changes. Expect to use ``value_update_callback`` when ``False``
         :param allow_constant: When ``True``, a constant numerical value can be given instead of a watchable

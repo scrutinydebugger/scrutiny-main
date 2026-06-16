@@ -101,7 +101,7 @@ class Cluster:
         """Grow a cluster size
 
         :param new_size: The new size the cluster must have
-        :delta_data: Data used to fill the new space created. Will fill with 0 if this is ``None``
+        :param delta_data: Data used to fill the new space created. Will fill with 0 if this is ``None``
 
         """
         delta_size = new_size - self.size
@@ -114,7 +114,7 @@ class Cluster:
                 delta_data = b'\x00' * delta_size
 
             if len(delta_data) != delta_size:
-                raise ValueError('Given data size does not match size fo given data')
+                raise ValueError('Given data size does not match size of given data')
 
             self.internal_data += delta_data
             self.size = new_size
@@ -167,14 +167,14 @@ class Cluster:
 class MemoryContent:
     """
     MemoryContent creates a representation of a memory content.
-    It keeps many non-contiguous memory chunk with data.
-    Basic operation such as read,write, delete are possible.
+    It keeps many non-contiguous memory chunks with data.
+    Basic operations such as read, write, delete are possible.
 
     All chunks of data that are contiguous are automatically agglomerated
-    into a single chunk
+    into a single chunk.
 
-    We will use the agglomeration feature of this class to converts
-    sparse subscription into a several contiguous read request for
+    We will use the agglomeration feature of this class to convert
+    sparse subscriptions into several contiguous read requests for
     communication optimization (avoid polling each variable individually).
     """
 

@@ -41,14 +41,14 @@ RawMemoryReadRequestCompletionCallback = Callable[["RawMemoryReadRequest", bool,
 
 class RawMemoryReadRequest:
     """An internal structure used to define a raw memory read, meaning a read not tied to a datastore entry.
-    Just the user that wants to dump the content"""
+    Used when the user wants to dump the content directly."""
 
     __slots__ = ('address', 'size', 'completed', 'success', 'completion_callback', 'completion_server_time_us')
 
     address: int
     """Address to read"""
     size: int
-    """Size of to read"""
+    """Size to read"""
     completed: bool
     """Indicates if the request is completed (failed or successful)"""
     success: bool
@@ -150,13 +150,13 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
     entries_in_pending_read_rpv_request: Dict[int, DatastoreRPVEntry]
     """List of RPV entries in the request we're waiting for. Stored in a dict with their ID as key"""
     actual_read_type: ReadType
-    """Tell wether we are doing RPV read or memory read request. We alternate from one another."""
+    """Tells whether we are doing an RPV read or a memory read request. We alternate between the two."""
     raw_read_request_queue: "ScrutinyQueue[RawMemoryReadRequest]"
     """A queue to store read request not tied to a datastore entry (user wants a raw dump)"""
     active_raw_read_request: Optional[RawMemoryReadRequest]
     """Store the read request that is presently being processed and waiting for a response"""
     active_raw_read_request_cursor: int
-    """A cursor used to split a raw read request into many small request tot he device. This cursor keep track of where we're at"""
+    """A cursor used to split a raw read request into many small requests to the device. This cursor keeps track of where we are"""
     active_raw_read_request_data: bytearray
     """A buffer to store the data of a raw read request while each chunk is being read"""
     unittest_crash_on_critical_error: bool

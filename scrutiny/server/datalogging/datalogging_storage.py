@@ -413,7 +413,7 @@ class DataloggingStorageManager:
         return listout
 
     def read(self, reference_id: str) -> DataloggingAcquisition:
-        """Reads a datalogging acquisition form the storage"""
+        """Reads a datalogging acquisition from the storage"""
         with self.get_session() as conn:
             sql = """
                 SELECT

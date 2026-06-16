@@ -1,5 +1,5 @@
 #    global_counters.py
-#        A file that provide some global counter atomic counter for unique ID generation
+#        A file that provides some global atomic counter for unique ID generation
 #
 #   - License : MIT - See LICENSE file
 #   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
@@ -14,7 +14,7 @@ int64_lock = threading.Lock()
 
 
 def global_i64_counter() -> int:
-    """Provide a unique 64bits integer atomically. Uniqueness is guaranteed for the lifetime of the process"""
+    """Provide a unique 64-bit integer atomically. Uniqueness is guaranteed for the lifetime of the process"""
     global int64
     with int64_lock:
         v = int64

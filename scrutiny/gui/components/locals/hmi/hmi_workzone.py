@@ -98,7 +98,7 @@ class DropPlaceholder(QGraphicsItem):
 
 
 class HMIWorkZone(QGraphicsView):
-    """The main work zone. this is the canvas on which every HMI widget are drawn, moved, resize and displayed"""
+    """The main work zone. this is the canvas on which every HMI widget is drawn, moved, resized and displayed"""
 
     MIN_RUBBERBAND_AREA = 5 * 5
     DOUBLE_CLICK_DELAY_NS = 500 * 1e6

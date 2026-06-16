@@ -69,7 +69,7 @@ class Datastore:
 
     def __init__(self) -> None:
         self._logger = logging.getLogger(self.__class__.__name__)
-        self._global_watch_callbacks = []    # When somebody starts watching an entry,m these callbacks are called
+        self._global_watch_callbacks = []    # When somebody starts watching an entry, these callbacks are called
         self._global_unwatch_callbacks = []  # When somebody stops watching an entry, these callbacks are called
         self._global_update_rate_change_callbacks = []
 
@@ -167,11 +167,11 @@ class Datastore:
                               var: Variable,
                               pointer_display_path: Optional[str]) -> DatastoreVariableEntry:
         """Create a DatastoreVariableEntry from a variable definition. If the variable has a pointed location,
-        will retorun a DatastorePointedVariableEntry instead, which is an extension of the former.
+        will return a DatastorePointedVariableEntry instead, which is an extension of the former.
 
         Centralize the logic to fill the datastore.
 
-        :param display_path: Path to assign to this enw entry
+        :param display_path: Path to assign to this new entry
         :param var: The Variable object for which we want to create an entry
         :param pointer_display_path: The path to the datastore entry that contains the pointer value.
 
@@ -498,7 +498,7 @@ class Datastore:
 
         watcher_paramset = self._watcher_map[watchable_type].get(entry_id, {}).get(watcher, None)
         if watcher_paramset is None:
-            raise RuntimeError(f"Not watching watching entry {entry.display_path} (ID: {entry.get_id()}")
+            raise RuntimeError(f"Not watching entry {entry.display_path} (ID: {entry.get_id()}")
 
         self._assert_update_rate_valid(entry, rate)
         watcher_paramset.update_rate = rate

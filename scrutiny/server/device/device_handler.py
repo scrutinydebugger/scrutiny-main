@@ -344,7 +344,7 @@ class DeviceHandler:
         self.datalogging_poller.reset()
 
     def is_ready_for_datalogging_acquisition_request(self) -> bool:
-        """Tells if the device is ready to receive to receive a datalogging acquisition request"""
+        """Tells if the device is ready to receive a datalogging acquisition request"""
         return self.datalogging_poller.is_ready_to_receive_new_request()
 
     def get_device_info(self) -> Optional[DeviceInfo]:
@@ -367,7 +367,7 @@ class DeviceHandler:
         return self.datalogging_poller.get_download_progress_pu()
 
     def get_datalogging_acquisition_completion_ratio(self) -> Optional[float]:
-        """Returns a value between 0 and 1 indicating how far the acquisition is frm being completed once the trigger event has been launched"""
+        """Returns a value between 0 and 1 indicating how far the acquisition is from being completed once the trigger event has been launched"""
         return self.datalogging_poller.get_completion_ratio()
 
     def get_comm_error_count(self) -> int:

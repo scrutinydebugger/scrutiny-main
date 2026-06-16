@@ -48,7 +48,7 @@ class VarListComponentTreeModel(WatchableTreeModel):
         # Statement below keeps the original order but does extra lookups in the unordered set
         items = [cast(Optional[BaseWatchableRegistryTreeStandardItem], self.itemFromIndex(x)) for x in indexes if x in indexes_without_nested_values]
 
-        # We first start use to most supported format of watchable list.
+        # We first use the most supported format of watchable list.
         drag_data = self.make_watchable_list_dragdata_if_possible(items)
 
         # If the item selection had folders in it, we can't make a WatchableList mime data.

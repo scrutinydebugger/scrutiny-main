@@ -221,7 +221,7 @@ class EmbeddedDataType(Enum):
 @dataclass(frozen=True, slots=True)
 class RuntimePublishedValue:
     """
-    (Immutable struct) A Runtime Published Value (RPV) is on of the basic element that can be read from a target device.
+    (Immutable struct) A Runtime Published Value (RPV) is one of the basic elements that can be read from a target device.
     RPVs are defined in the embedded code and known by the server by polling the device.
     They don't have a name, they are identified by a 16bits identifier.
     The user can add an Alias on a RPV to assign them a name

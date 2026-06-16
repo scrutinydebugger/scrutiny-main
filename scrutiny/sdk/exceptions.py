@@ -52,17 +52,17 @@ class NameNotFoundError(ScrutinySDKException):
 
 
 class BadEnumError(ScrutinySDKException):
-    """Raised when trying access an enum value that does not exists"""
+    """Raised when trying to access an enum value that does not exist"""
     pass
 
 
 class BadTypeError(ScrutinySDKException):
-    """Raised when trying access a property on a watchable that only exist on another type of watchable"""
+    """Raised when trying to access a property on a watchable that only exists on another type of watchable"""
     pass
 
 
 class NotAllowedError(ScrutinySDKException):
-    """Raise when an operation is not allowed by the SDK"""
+    """Raised when an operation is not allowed by the SDK"""
     pass
 
 
