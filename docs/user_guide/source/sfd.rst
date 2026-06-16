@@ -156,6 +156,8 @@ not have a direct address but instead contains a pointer field.
 The asterisk (*) is only a visual cue used to indicate that the variable is pointer-based;
 it has no effect on decoding or runtime behavior.
 
+.. note:: Note that ``byte_size`` is a size defined in multiple of CHAR_BIT. This value is 8 for most platforms, but not all.
+
 .. _alias_file:
 
 Alias file
