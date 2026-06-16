@@ -9,7 +9,7 @@
     "python.analysis.autoImportCompletions": false,
     "[python]": {
         "editor.defaultFormatter": "ms-python.autopep8",
-        "editor.formatOnSave": false
+        "editor.formatOnSave": true
     },
     "python.analysis.extraPaths": ["stubs"],
     "[docker]": {

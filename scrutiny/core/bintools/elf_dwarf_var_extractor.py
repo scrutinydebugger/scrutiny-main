@@ -1632,7 +1632,7 @@ class ElfDwarfVarExtractor:
                 bitoffset = 0   # Dwarf V4 allow this.
 
             if self._context.endianess == Endianness.Little:
-                bitoffset = (bytesize * 8) - bitoffset - bitsize
+                bitoffset = (bytesize * self._context.get_char_bit()) - bitoffset - bitsize
 
         member_type = Struct.Member.MemberType.BaseType
         if substruct is not None:

@@ -34,8 +34,8 @@ KNOWN_ENUMS: KnownEnumTypedDict = {
             "eVal4": 101
         }
     },
-    'File3EnumInClass': {
-        "name": "File3EnumInClass",
+    'File3Enum': {
+        "name": "File3Enum",
         "values": {
             "AAA": 0,
             "BBB": 1,
@@ -58,13 +58,20 @@ class TestMakeVarMap_C2000_f280049C(ScrutinyUnitTest):
 
     @classmethod
     def setUpClass(cls) -> None:
+        cls.extractor = ElfDwarfVarExtractor(cls.ELF_FILE)
         cls.memdump_parser = C2000MemdumpParser(cls.MEMDUMP_FILE)
-        cls.varmap = ElfDwarfVarExtractor(cls.ELF_FILE).get_varmap()
+        cls.varmap = cls.extractor.get_varmap()
         return super().setUpClass()
+
+    def setUp(self) -> None:
+        errors = self.extractor.get_errors()
+        self.assertEqual(errors.total_count(), 0, f"Errors while parsing {errors.get_first_exc()}")
+        return super().setUp()
 
     def assert_var(self,
                    fullname,
                    thetype: Optional[EmbeddedDataType] = None,
+                   addr: Optional[int] = None,
                    bitsize=None,
                    bitoffset=None,
                    value_at_loc=None,
@@ -83,6 +90,9 @@ class TestMakeVarMap_C2000_f280049C(ScrutinyUnitTest):
 
         if bitoffset is not None:
             self.assertEqual(v.bitoffset, bitoffset)
+
+        if addr is not None:
+            self.assertEqual(v.get_address(), addr)
 
         if enum is not None:
             self.assertIn(enum, KNOWN_ENUMS)
@@ -166,8 +176,17 @@ class TestMakeVarMap_C2000_f280049C(ScrutinyUnitTest):
         self.assert_var('/global/file1StructCInstance/nestedStructInstance/nestedStructInstance2/nestedStructInstance2MemberDouble',
                         EmbeddedDataType.float64, value_at_loc=654.654)
 
-        self.assert_var('/global/NamespaceInFile1/NamespaceInFile1Nested1/file1GlobalNestedVar1', EmbeddedDataType.uint32, value_at_loc=1111111111)
+        self.assert_var('/global/file1StructDInstance/bitfieldA', EmbeddedDataType.uint16, value_at_loc=13, bitoffset=0, bitsize=4)
+        address_A = self.varmap.get_var('/global/file1StructDInstance/bitfieldA').get_address()
+        self.assert_var('/global/file1StructDInstance/bitfieldB', EmbeddedDataType.uint16,
+                        value_at_loc=4100, addr=address_A + 1, bitoffset=0, bitsize=13)
+        self.assert_var('/global/file1StructDInstance/bitfieldC', EmbeddedDataType.uint16,
+                        value_at_loc=222, addr=address_A + 2, bitoffset=0, bitsize=8)
+        self.assert_var('/global/file1StructDInstance/bitfieldD', EmbeddedDataType.uint16, value_at_loc=12345, addr=address_A + 3)
+        self.assert_var('/global/file1StructDInstance/bitfieldE', EmbeddedDataType.uint16,
+                        value_at_loc=777, addr=address_A + 4, bitoffset=0, bitsize=10)
 
+        self.assert_var('/global/NamespaceInFile1/NamespaceInFile1Nested1/file1GlobalNestedVar1', EmbeddedDataType.uint32, value_at_loc=1111111111)
         self.assert_var('/static/file1.cpp/funcInFile1(int, int)/staticLongInFuncFile1', EmbeddedDataType.sint64, value_at_loc=-0x123456789abcdef)
 
     def test_file2(self):
@@ -205,3 +224,42 @@ class TestMakeVarMap_C2000_f280049C(ScrutinyUnitTest):
         self.assert_var('/global/file2GlobalArray1Int5/file2GlobalArray1Int5[2]', EmbeddedDataType.sint16, value_at_loc=3333)
         self.assert_var('/global/file2GlobalArray1Int5/file2GlobalArray1Int5[3]', EmbeddedDataType.sint16, value_at_loc=4444)
         self.assert_var('/global/file2GlobalArray1Int5/file2GlobalArray1Int5[4]', EmbeddedDataType.sint16, value_at_loc=5555)
+
+        self.assert_var('/global/file2GlobalArray2x2Float/file2GlobalArray2x2Float[0][0]', EmbeddedDataType.float32, value_at_loc=1.1)
+        self.assert_var('/global/file2GlobalArray2x2Float/file2GlobalArray2x2Float[0][1]', EmbeddedDataType.float32, value_at_loc=2.2)
+        self.assert_var('/global/file2GlobalArray2x2Float/file2GlobalArray2x2Float[1][0]', EmbeddedDataType.float32, value_at_loc=3.3)
+        self.assert_var('/global/file2GlobalArray2x2Float/file2GlobalArray2x2Float[1][1]', EmbeddedDataType.float32, value_at_loc=4.4)
+
+        self.assert_var('/global/file2ClassBInstance/intInClassB', EmbeddedDataType.sint16, value_at_loc=-11111)
+        self.assert_var('/global/file2ClassBInstance/nestedClassInstance/intInClassBA', EmbeddedDataType.sint16, value_at_loc=-22222)
+        self.assert_var('/global/file2ClassBInstance/nestedClassInstance/classAInstance/intInClassA', EmbeddedDataType.sint16, value_at_loc=-3333)
+
+        self.assert_var('/static/file2.cpp/file2ClassBStaticInstance/intInClassB', EmbeddedDataType.sint16, value_at_loc=-4444)
+        self.assert_var('/static/file2.cpp/file2ClassBStaticInstance/nestedClassInstance/intInClassBA', EmbeddedDataType.sint16, value_at_loc=-5555)
+        self.assert_var('/static/file2.cpp/file2ClassBStaticInstance/nestedClassInstance/classAInstance/intInClassA',
+                        EmbeddedDataType.sint16, value_at_loc=-6666)
+
+        self.assert_var('/static/file2.cpp/file2func1()/file2func1Var', EmbeddedDataType.sint16, value_at_loc=-8877)
+        self.assert_var('/static/file2.cpp/file2func1(int)/file2func1Var', EmbeddedDataType.float64, value_at_loc=963258741.123)
+
+    def test_file3(self):
+        self.assert_var('/global/file3_union/u64_var', EmbeddedDataType.uint64, value_at_loc=0x012345679988AABB)
+        self.assert_var('/global/file3_union/u32_var', EmbeddedDataType.uint32, value_at_loc=0x9988AABB)
+        self.assert_var('/global/file3_union/u16_var', EmbeddedDataType.uint16, value_at_loc=0xAABB)
+
+        # 0x0055 -> 0x0054 -> 0x0074
+        self.assert_var('/global/file3_anonbitfield_in_union/val', EmbeddedDataType.uint16, value_at_loc=0x0074)
+        self.assert_var('/global/file3_anonbitfield_in_union/bits/bit1', EmbeddedDataType.uint16, value_at_loc=0)
+        self.assert_var('/global/file3_anonbitfield_in_union/bits/bit5_8', EmbeddedDataType.uint16, value_at_loc=7)
+        self.assert_var('/global/file3_anonbitfield_in_union/bits/bit9_13', EmbeddedDataType.uint16, value_at_loc=0)
+
+        self.assert_var('/global/file3_test_class/m_file3testclass_inclassenum', EmbeddedDataType.uint16, value_at_loc=1, enum='File3Enum')
+
+        # 0x123456789abcdef0 -> 0x12345678AABBCCDD ->  0x123456787766CCDD -> 0x123456787766CCC2
+        self.assert_var('/global/file3_test_class/m_file3_complex_struct/field1', EmbeddedDataType.uint32, value_at_loc=0x11223344)
+        self.assert_var('/global/file3_test_class/m_file3_complex_struct/field2', EmbeddedDataType.uint32, value_at_loc=0x55667788)
+        self.assert_var('/global/file3_test_class/m_file3_complex_struct/field3/field3_u64', EmbeddedDataType.uint64, value_at_loc=0x123456787766CCC2)
+        self.assert_var('/global/file3_test_class/m_file3_complex_struct/field3/field3_u32/p0', EmbeddedDataType.uint32, value_at_loc=0x7766CCC2)
+        self.assert_var('/global/file3_test_class/m_file3_complex_struct/field3/field3_u16/p1', EmbeddedDataType.uint16, value_at_loc=0x7766)
+        self.assert_var('/global/file3_test_class/m_file3_complex_struct/field3/field3_enum_bitfields/p0',
+                        EmbeddedDataType.uint16, value_at_loc=2, enum='File3Enum')
