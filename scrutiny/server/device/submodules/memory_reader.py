@@ -512,7 +512,7 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
                     must_skip = True
 
             candidate_start = candidate_entry.get_address()
-            candidate_size = candidate_entry.get_size()
+            candidate_size = candidate_entry.get_size_bytes()
             if not must_skip:
                 # Check for forbidden region. They disallow read and write
                 is_in_forbidden_region = False
@@ -741,7 +741,7 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
                     addr = entry.get_address()
                     if addr is not None:    # Should always be True.
                         block_addr = self.protocol.get_truncated_address(addr)
-                        raw_data = temp_memory.read(block_addr, entry.get_size())
+                        raw_data = temp_memory.read(block_addr, entry.get_size_bytes())
                         entry.set_value_from_data(raw_data)
                     else:
                         # Unset addresses or Nullptr are skipped. Changing addresses are also skipped.

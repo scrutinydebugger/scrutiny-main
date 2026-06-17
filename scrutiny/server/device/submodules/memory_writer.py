@@ -272,6 +272,7 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
 
             is_in_forbidden_region = False
             is_in_readonly_region = False
+
             candidate_region = MemoryRegion(start=self.active_raw_write_request.address, size=len(self.active_raw_write_request.data))
             for readonly_region in self.readonly_regions:
                 if candidate_region.touches(readonly_region):
@@ -344,7 +345,7 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
                             self.logger.debug("Refusing write request %s accessing address %s with size %d" %
                                               (update_request.entry.display_path,
                                                addr_str,
-                                               update_request.entry.get_size()))
+                                               update_request.entry.get_size_bytes()))
                 if allowed:
                     self.target_update_request_being_processed = update_request
                     self.entry_being_updated = update_request.entry

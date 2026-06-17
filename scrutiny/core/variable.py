@@ -53,10 +53,13 @@ class VariableLayout:
     """Offset, in bits, of the bitfield. ``None`` if not a bitfield"""
     enum: Optional[EmbeddedEnum]
     """An enum to interpret the value. ``None`` If no enum"""
+    char_bit: Literal[8, 16]
+    """The size of a byte in bits."""
 
     def __init__(self,
                  vartype: EmbeddedDataType,
                  endianness: Endianness,
+                 char_bit: Literal[8, 16],
                  bitsize: Optional[int] = None,
                  bitoffset: Optional[int] = None,
                  enum: Optional[EmbeddedEnum] = None
@@ -65,6 +68,7 @@ class VariableLayout:
         self.vartype = vartype
         self.endianness = endianness
         self.enum = enum
+        self.char_bit = char_bit
 
         var_size_bits = self.vartype.get_size_bit()
         if bitoffset is not None and bitsize is None:
@@ -140,10 +144,15 @@ class VariableLayout:
         """Return the enum attached to the variable. None if it does not exists"""
         return self.enum
 
-    def get_size(self) -> int:
+    def get_size_8bits(self) -> int:
         """Returns the size of the variable in bytes"""
         size_bit = self.vartype.get_size_bit()
         return int(size_bit / 8)
+
+    def get_size_byte(self) -> int:
+        """Returns the size of the variable in bytes"""
+        size_bit = self.vartype.get_size_bit()
+        return int(size_bit / self.char_bit)
 
     def is_bitfield(self) -> bool:
         """Returns True if this variable is a bitfield"""
@@ -160,11 +169,11 @@ class VariableLayout:
     def get_bitfield_mask(self) -> bytes:
         """Returns a mask that covers the bits targeted by this variable. Used to do masked_write on the device"""
         if not self.bitfield:
-            return b'\xFF' * self.get_size()
+            return b'\xFF' * self.get_size_8bits()
         else:
             assert self.bitoffset is not None
             assert self.bitsize is not None
-            return UIntCodec(self.get_size(), self.endianness).encode(BITFIELD_MASK_MAP[self.bitoffset][self.bitsize])
+            return UIntCodec(self.get_size_8bits(), self.endianness).encode(BITFIELD_MASK_MAP[self.bitoffset][self.bitsize])
 
     def get_type(self) -> EmbeddedDataType:
         """Returns the data type of the variable"""
@@ -192,6 +201,7 @@ class Variable:
                  path_segments: List[str],
                  location: Union[int, AbsoluteLocation, ResolvedPathPointedLocation],
                  endianness: Endianness,
+                 char_bit: Literal[8, 16],
                  bitsize: Optional[int] = None,
                  bitoffset: Optional[int] = None,
                  enum: Optional[EmbeddedEnum] = None
@@ -210,6 +220,7 @@ class Variable:
         self.layout = VariableLayout(
             vartype=vartype,
             endianness=endianness,
+            char_bit=char_bit,
             bitsize=bitsize,
             bitoffset=bitoffset,
             enum=enum,
@@ -227,6 +238,7 @@ class Variable:
             path_segments=path_segments,
             location=location,
             vartype=layout.vartype,
+            char_bit=layout.char_bit,
             endianness=layout.endianness,
             bitsize=layout.bitsize,
             bitoffset=layout.bitoffset,
@@ -277,9 +289,17 @@ class Variable:
         """Return the enum attached to the variable. None if it does not exists"""
         return self.layout.get_enum()
 
-    def get_size(self) -> int:
-        """Returns the size of the variable in bytes"""
-        return self.layout.get_size()
+    def get_char_bit(self) -> Literal[8, 16]:
+        """Returns the size of a single byte in bits"""
+        return self.layout.char_bit
+
+    def get_size_8bits(self) -> int:
+        """Returns the size of the variable in multiple of 8bits"""
+        return self.layout.get_size_8bits()
+
+    def get_size_byte(self) -> int:
+        """Returns the size of the variable in bytes (respect CHAR_BIT)"""
+        return self.layout.get_size_byte()
 
     def is_bitfield(self) -> bool:
         """Returns True if this variable is a bitfield"""

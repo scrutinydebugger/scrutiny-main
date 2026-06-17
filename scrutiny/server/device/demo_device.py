@@ -68,7 +68,7 @@ class DemoDevice(EmulatedDevice):
 
     def _read_var(self, path: str) -> Encodable:
         v = self.sfd.varmap.get_var(path)
-        data = self.read_memory(v.get_address(), v.get_size())
+        data = self.read_memory(v.get_address(), v.get_size_8bits())
         return v.decode(data)
 
     def _write_var(self, path: str, val: Encodable) -> None:

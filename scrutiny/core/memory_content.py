@@ -20,12 +20,14 @@ class Cluster:
     """
     Represent a chunk of data with a location in memory.
     """
-    __slots__ = ('start_addr', 'size', 'internal_data', 'has_data')
+    __slots__ = ('start_addr', 'size', 'internal_data', 'has_data', '_8bits_per_byte')
 
     start_addr: int
     size: int
     internal_data: Optional[bytearray]
     has_data: bool
+
+    _8bits_per_byte: int
 
     @property
     def data(self) -> bytes:
@@ -34,6 +36,7 @@ class Cluster:
     def __init__(self,
                  start_addr: int,
                  size: int = 0,
+                 char_bit: int = 8,
                  has_data: bool = True,
                  data: Optional[Union[bytes, bytearray]] = None) -> None:
         if data is None:
@@ -41,6 +44,7 @@ class Cluster:
         self.start_addr = start_addr
         self.size = size
         self.has_data = has_data
+        self._8bits_per_byte = char_bit // 8
         if has_data:
             self.internal_data = bytearray(data)
         else:
@@ -61,16 +65,18 @@ class Cluster:
         if offset + size > self.size:
             raise IndexError('Index out of range 0x%x to 0x%x' % (offset, offset + size - 1))
 
+        size_8bits = size * self._8bits_per_byte
+        offset_8bits = offset * self._8bits_per_byte
         data_out: bytes
         if self.has_data:
             assert self.internal_data is not None
-            chunk = self.internal_data[offset:offset + size]
+            chunk = self.internal_data[offset_8bits:offset_8bits + size_8bits]
             if isinstance(chunk, int):
                 data_out = bytes([chunk])
             else:
                 data_out = bytes(chunk)
         else:
-            data_out = bytes(b'\x00' * size)
+            data_out = bytes(b'\x00' * size_8bits)
 
         return data_out
 
@@ -83,19 +89,25 @@ class Cluster:
         if offset < 0:
             raise ValueError('Offset cannot be negative %d' % offset)
 
-        if self.size - offset < len(data):
+        if len(data) % self._8bits_per_byte != 0:
+            raise IndexError("Data length must be a multiple of char_bit")
+
+        remaining_space_8bits = (self.size - offset) * self._8bits_per_byte
+        if remaining_space_8bits < len(data):
             raise IndexError('Data too long for cluster')
+
+        offset_8bits = offset * self._8bits_per_byte
 
         if self.has_data:
             assert self.internal_data is not None
-            self.internal_data[offset:offset + len(data)] = data
+            self.internal_data[offset_8bits:offset_8bits + len(data)] = data
 
     def shrink(self, new_size: int) -> None:
         """Reduce this cluster size to a new size"""
         self.size = new_size
         if self.has_data:
             assert self.internal_data is not None
-            self.internal_data = self.internal_data[0:new_size]
+            self.internal_data = self.internal_data[0:(new_size * self._8bits_per_byte)]
 
     def extend(self, new_size: int, delta_data: Optional[Union[bytearray, bytes]] = None) -> None:
         """Grow a cluster size
@@ -110,10 +122,11 @@ class Cluster:
 
         if self.has_data:
             assert self.internal_data is not None
+            delta_size_8bits = delta_size * self._8bits_per_byte
             if delta_data is None:
-                delta_data = b'\x00' * delta_size
+                delta_data = b'\x00' * delta_size_8bits
 
-            if len(delta_data) != delta_size:
+            if len(delta_data) != delta_size_8bits:
                 raise ValueError('Given data size does not match size of given data')
 
             self.internal_data += delta_data
@@ -180,11 +193,16 @@ class MemoryContent:
 
     clusters: Dict[int, Cluster]
     sorted_keys: List[int]          # Need 2 object to use bisect before python 3.10
+    retain_data: bool
+    char_bit: Literal[8, 16]
+    _8bits_per_byte: Literal[1, 2]
 
-    def __init__(self, filename: Optional[str] = None, retain_data: bool = True) -> None:
+    def __init__(self, filename: Optional[str] = None, retain_data: bool = True, char_bit: Literal[8, 16] = 8) -> None:
         self.clusters = {}
         self.sorted_keys = []
         self.retain_data = retain_data
+        self.char_bit = char_bit
+        self._8bits_per_byte = cast(Literal[1, 2], (char_bit // 8))
         if filename is not None:
             self.load(filename)
 
@@ -210,12 +228,14 @@ class MemoryContent:
 
                     if self.retain_data:
                         data = bytearray(bytes.fromhex(m.group(2)))
-                        cluster = Cluster(start_addr=addr, size=len(data), data=data, has_data=True)
+                        size_bytes = len(data) // (self.char_bit // 8)
+                        cluster = Cluster(start_addr=addr, size=size_bytes, data=data, has_data=True, char_bit=self.char_bit)
                     else:
-                        if len(m.group(2)) % 2 != 0:
-                            raise Exception('Odd number of character')
-                        size = int(len(m.group(2)) // 2)
-                        cluster = Cluster(start_addr=addr, size=size, has_data=False)
+                        character_per_byte = 2 * self._8bits_per_byte
+                        if len(m.group(2)) % character_per_byte != 0:
+                            raise ValueError(f'Each line should contain a multiple of {character_per_byte} character')
+                        size = int(len(m.group(2)) // character_per_byte)
+                        cluster = Cluster(start_addr=addr, size=size, has_data=False, char_bit=self.char_bit)
 
                     self.write_cluster(cluster)
 
@@ -243,7 +263,8 @@ class MemoryContent:
         :param addr: Address to write to
         :param data: data to write
         """
-        cluster = Cluster(start_addr=addr, size=len(data), data=data, has_data=self.retain_data)
+        size_byte = len(data) // self._8bits_per_byte
+        cluster = Cluster(start_addr=addr, size=size_byte, data=data, has_data=self.retain_data, char_bit=self.char_bit)
         self.write_cluster(cluster)
 
     def write_cluster(self, cluster: Cluster) -> None:
@@ -262,11 +283,11 @@ class MemoryContent:
         Writes 0 bytes where requested.
         """
         if self.retain_data == True:
-            data = b'\x00' * size
+            data = b'\x00' * (size * self._8bits_per_byte)
         else:
             data = b''
 
-        cluster = Cluster(start_addr=addr, size=size, data=data, has_data=self.retain_data)
+        cluster = Cluster(start_addr=addr, size=size, data=data, has_data=self.retain_data, char_bit=self.char_bit)
         self.write_cluster(cluster)
 
     def get_cluster_count(self) -> int:
@@ -279,7 +300,7 @@ class MemoryContent:
         Each entry of the list is a Cluster object which have a start address and a length.
         Clusters are sorted by address.
         """
-        cluster_list = [Cluster(start_addr=addr, size=len(self.clusters[addr]), has_data=False) for addr in self.clusters]
+        cluster_list = [Cluster(start_addr=addr, size=len(self.clusters[addr]), has_data=False, char_bit=self.char_bit) for addr in self.clusters]
         cluster_list.sort(key=lambda x: x.start_addr)
         return cluster_list
 
@@ -289,7 +310,7 @@ class MemoryContent:
         Each entry of the list is a Cluster object which have a start address and a length.
         Clusters are sorted by size.
         """
-        cluster_list = [Cluster(start_addr=addr, size=len(self.clusters[addr]), has_data=False) for addr in self.clusters]
+        cluster_list = [Cluster(start_addr=addr, size=len(self.clusters[addr]), has_data=False, char_bit=self.char_bit) for addr in self.clusters]
         cluster_list.sort(key=lambda x: x.size, reverse=True)
         return cluster_list
 
@@ -364,7 +385,7 @@ class MemoryContent:
 
                     self.sorted_keys.insert(cluster_to_edit_key + 1, new_chunk_start)
                     self.clusters[new_chunk_start] = Cluster(start_addr=new_chunk_start, size=new_chunk_size,
-                                                             data=new_chunk_data, has_data=self.retain_data)
+                                                             data=new_chunk_data, has_data=self.retain_data, char_bit=self.char_bit)
 
     def agglomerate(self, written_key_index: Optional[int] = None) -> None:
         """Merge clusters that are contiguous into a single larger cluster"""

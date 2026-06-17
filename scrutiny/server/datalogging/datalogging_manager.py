@@ -517,15 +517,16 @@ class DataloggingManager:
                 assert bitoffset is not None
                 assert bitsize is not None
 
-                size = math.ceil(bitsize / 8)
+                char_bit = watchable.variable_def.get_char_bit()
+                size = math.ceil(bitsize / char_bit)
                 if watchable.variable_def.endianness == Endianness.Little:
-                    address = watchable_addr + bitoffset // 8
+                    address = watchable_addr + bitoffset // char_bit
                 else:
-                    address = (watchable_addr + watchable.get_data_type().get_size_8bits()) - bitoffset // 8
+                    address = (watchable_addr + watchable.get_size_bytes()) - bitoffset // char_bit
 
                 signal = device_datalogging.MemoryLoggableSignal(address, size)
             else:
-                signal = device_datalogging.MemoryLoggableSignal(watchable_addr, watchable.get_size())
+                signal = device_datalogging.MemoryLoggableSignal(watchable_addr, watchable.get_size_bytes())
         elif isinstance(watchable, DatastoreRPVEntry):
             signal = device_datalogging.RPVLoggableSignal(watchable.get_rpv().id)
         else:
