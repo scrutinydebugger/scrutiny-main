@@ -149,12 +149,12 @@ class ActiveSFDHandler:
             sfd = SFDStorage.get(firmware_id)
 
             varmap_char_bit = sfd.varmap.get_char_bit()
-            device_char_bit = self.device_handler.get_device_info().char_bit
+            device_info = self.device_handler.get_device_info()
 
-            if varmap_char_bit != device_char_bit:
+            if device_info is not None and device_info.char_bit != varmap_char_bit:
                 if verbose:
                     self.logger.error(
-                        f"Cannot load SFD {sfd.get_firmware_id_ascii()}. Device has CHAR_BIT={device_char_bit} but the varmap in the SFD has CHAR_BIT={varmap_char_bit}")
+                        f"Cannot load SFD {sfd.get_firmware_id_ascii()}. Device has CHAR_BIT={device_info.char_bit} but the varmap in the SFD has CHAR_BIT={varmap_char_bit}")
             else:
                 self.sfd = sfd
 
