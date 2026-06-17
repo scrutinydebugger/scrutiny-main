@@ -22,10 +22,10 @@ if TYPE_CHECKING:
 
 @dataclass(slots=True)
 class Pointer:
-    size: int
+    size_byte: int
     pointed_type: Union[EmbeddedDataType, "Struct"]
     pointed_typename: Optional[str]
     enum: Optional[EmbeddedEnum]
 
-    def get_size(self) -> int:
-        return self.size
+    def get_size_byte(self) -> int:
+        return self.size_byte
