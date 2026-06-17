@@ -498,6 +498,7 @@ class InfoPoller(BaseDeviceHandlerSubmodule):
                 self.info.rx_timeout_us = response_data['rx_timeout_us']
                 self.info.heartbeat_timeout_us = response_data['heartbeat_timeout_us']
                 self.info.address_size_bits = response_data['address_size_byte'] * 8
+                self.info.char_bit = response_data['char_bit']
 
             elif self.fsm_state == self.FsmState.GetSupportedFeatures:
                 response_data = cast(protocol_typing.Response.GetInfo.GetSupportedFeatures, response_data)

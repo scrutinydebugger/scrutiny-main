@@ -6,7 +6,9 @@
 #
 #    Copyright (c) 2022 Scrutiny Debugger
 
+import copy
 from scrutiny.server.device.device_handler import DeviceHandler
+from scrutiny.server.device.device_info import DeviceInfo
 from scrutiny.server.active_sfd_handler import ActiveSFDHandler
 from scrutiny.server.datastore.datastore import Datastore
 from scrutiny.server.datastore.datastore_entry import DatastoreAliasEntry, DatastoreRPVEntry
@@ -19,21 +21,31 @@ from scrutiny.core.basic_types import WatchableType
 from scrutiny.core.demo_device_sfd import DEMO_DEVICE_FIRMWAREID_STR
 from test.artifacts import get_artifact
 from test import ScrutinyUnitTest
+from scrutiny.tools.typing import *
 
 
 class StubbedDeviceHandler:
     connection_status: DeviceHandler.ConnectionStatus
     device_id: str
+    device_info: Optional[DeviceInfo]
 
     def __init__(self, device_id, connection_status=DeviceHandler.ConnectionStatus.UNKNOWN):
         self.device_id = device_id
         self.connection_status = connection_status
+        self.device_info = DeviceInfo()
+        self.device_info.char_bit = 8
 
     def get_connection_status(self):
         return self.connection_status
 
     def get_device_id(self):
         return self.device_id
+
+    def get_device_info(self) -> Optional[DeviceInfo]:
+        return copy.copy(self.device_info)
+
+    def _set_device_info(self, info: Optional[DeviceInfo]) -> None:
+        self.device_info = copy.copy(info)
 
 
 class TestActiveSFDHandlerFromFile(ScrutinyUnitTest):
@@ -118,6 +130,23 @@ class TestActiveSFDHandlerFromFile(ScrutinyUnitTest):
         self.assertIsNotNone(self.sfd_handler.get_loaded_sfd())
         self.sfd_handler.process()
         self.assertIsNotNone(self.sfd_handler.get_loaded_sfd())
+
+    def test_refuse_to_load_char_bit_mismatch(self):
+        device_info = DeviceInfo()
+        device_info.char_bit = 16   # test1.sfd is 8bits char
+        self.device_handler._set_device_info(device_info)
+
+        self.sfd_handler = ActiveSFDHandler(self.device_handler, self.datastore, autoload=True)
+        self.sfd_handler.process()
+        self.assertEqual(self.datastore.get_entries_count(), 0)
+        self.assertIsNone(self.sfd_handler.get_loaded_sfd())
+        self.device_handler.connection_status = DeviceHandler.ConnectionStatus.CONNECTED_READY
+        self.sfd_handler.process()
+        self.assertIsNone(self.sfd_handler.get_loaded_sfd())
+        self.sfd_handler.process()
+        self.sfd_handler.process()
+        self.sfd_handler.process()
+        self.assertIsNone(self.sfd_handler.get_loaded_sfd())
 
 
 class TestActiveSFDHandler(ScrutinyUnitTest):

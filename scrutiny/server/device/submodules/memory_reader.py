@@ -167,6 +167,8 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
     """A dict mapping each entry to their throttler if they are rate limited"""
     _last_process_produced_no_request: bool
     """A flag to remember if calling process() failed to produce a request. Used to detect throttling condition to avoid keeping the CPU alive """
+    _char_bit: Literal[8, 16]
+    """Number of bits in a byte. Comes from the protocol"""
 
     def __init__(self, protocol: Protocol, dispatcher: RequestDispatcher, datastore: Datastore, request_priority: int):
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -202,6 +204,12 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
         """Set both maximum request and response payload size"""
         self.set_max_request_payload_size(max_request_payload_size)
         self.set_max_response_payload_size(max_response_payload_size)
+
+    def set_char_bit(self, char_bit: int) -> None:
+        """Sets the size of a byte in the device. Can be 8 or 16. Mostly to accommodate TI C28 family"""
+        if char_bit not in (8, 16):
+            raise ValueError(f"Unsupported char_bit {char_bit}")
+        self._char_bit = cast(Literal[8, 16], char_bit)
 
     def add_forbidden_region(self, start_addr: int, size: int) -> None:
         """Add a memory region to avoid touching. They normally are broadcasted by the device itself"""
@@ -327,6 +335,7 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
         """Erase the configuration coming from the device handler"""
         self.max_request_payload_size = self.DEFAULT_MAX_REQUEST_PAYLOAD_SIZE
         self.max_response_payload_size = self.DEFAULT_MAX_RESPONSE_PAYLOAD_SIZE
+        self._char_bit = 8
         self.forbidden_regions = []
 
     def would_send_data(self) -> bool:

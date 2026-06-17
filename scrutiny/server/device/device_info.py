@@ -103,7 +103,8 @@ class DeviceInfo:
         'readonly_memory_regions',
         'runtime_published_values',
         'loops',
-        'datalogging_setup'
+        'datalogging_setup',
+        'char_bit'
     )
 
     device_id: Optional[str]
@@ -129,6 +130,9 @@ class DeviceInfo:
 
     address_size_bits: Optional[int]
     """Device address size in bits. Value of sizeof(void*)*8 """
+
+    char_bit: Optional[int]
+    """Device size of a byte in bits, defined by CHAR_BIT"""
 
     protocol_major: Optional[int]
     """Protocol version major number"""

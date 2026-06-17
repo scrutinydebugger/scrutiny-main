@@ -146,43 +146,52 @@ class ActiveSFDHandler:
 
         if SFDStorage.is_installed_or_demo(firmware_id):
             self.logger.info('Loading firmware description file (SFD) for firmware ID %s' % firmware_id)
-            self.sfd = SFDStorage.get(firmware_id)
+            sfd = SFDStorage.get(firmware_id)
 
-            # populate datastore
-            for element in self.sfd.get_vars_for_datastore():
-                # Guaranteed that absolute addresses come before pointed addresses by get_vars_for_datastore.
-                # This is important as we cannot add a datastore entry that points to a missing entry
-                try:
-                    if isinstance(element.var_or_factory, Variable):
-                        pointer_path: Optional[str] = None
-                        if element.pointer_path_and_var is not None:
-                            pointer_path = element.pointer_path_and_var[0]
-                        entry = self.datastore.create_entry_from_var(
-                            display_path=element.path,
-                            var=element.var_or_factory,
-                            pointer_display_path=pointer_path
-                        )
-                        self.datastore.add_entry(entry)
+            varmap_char_bit = sfd.varmap.get_char_bit()
+            device_char_bit = self.device_handler.get_device_info().char_bit
 
-                    elif isinstance(element.var_or_factory, VariableFactory):
-                        self.datastore.register_var_factory(element.var_or_factory)
-                except Exception as e:
-                    tools.log_exception(self.logger, e, f"Cannot add entry {element.path}", str_level=logging.WARNING)
+            if varmap_char_bit != device_char_bit:
+                if verbose:
+                    self.logger.error(
+                        f"Cannot load SFD {sfd.get_firmware_id_ascii()}. Device has CHAR_BIT={device_char_bit} but the varmap in the SFD has CHAR_BIT={varmap_char_bit}")
+            else:
+                self.sfd = sfd
 
-            for fullname, alias in self.sfd.get_aliases_for_datastore():
-                try:
-                    refentry = self.datastore.get_entry_by_display_path(alias.get_target())
-                    entry_alias = DatastoreAliasEntry(aliasdef=alias, refentry=refentry)
-                    self.datastore.add_entry(entry_alias)
-                except Exception as e:
-                    tools.log_exception(self.logger, e, f"Cannot add entry {fullname}", str_level=logging.WARNING)
+                # populate datastore
+                for element in self.sfd.get_vars_for_datastore():
+                    # Guaranteed that absolute addresses come before pointed addresses by get_vars_for_datastore.
+                    # This is important as we cannot add a datastore entry that points to a missing entry
+                    try:
+                        if isinstance(element.var_or_factory, Variable):
+                            pointer_path: Optional[str] = None
+                            if element.pointer_path_and_var is not None:
+                                pointer_path = element.pointer_path_and_var[0]
+                            entry = self.datastore.create_entry_from_var(
+                                display_path=element.path,
+                                var=element.var_or_factory,
+                                pointer_display_path=pointer_path
+                            )
+                            self.datastore.add_entry(entry)
 
-            for callback in self.loaded_callbacks:
-                try:
-                    callback(self.sfd)
-                except Exception as e:
-                    tools.log_exception(self.logger, e, f"Error in SFD Load callback.", str_level=logging.CRITICAL)
+                        elif isinstance(element.var_or_factory, VariableFactory):
+                            self.datastore.register_var_factory(element.var_or_factory)
+                    except Exception as e:
+                        tools.log_exception(self.logger, e, f"Cannot add entry {element.path}", str_level=logging.WARNING)
 
+                for fullname, alias in self.sfd.get_aliases_for_datastore():
+                    try:
+                        refentry = self.datastore.get_entry_by_display_path(alias.get_target())
+                        entry_alias = DatastoreAliasEntry(aliasdef=alias, refentry=refentry)
+                        self.datastore.add_entry(entry_alias)
+                    except Exception as e:
+                        tools.log_exception(self.logger, e, f"Cannot add entry {fullname}", str_level=logging.WARNING)
+
+                for callback in self.loaded_callbacks:
+                    try:
+                        callback(self.sfd)
+                    except Exception as e:
+                        tools.log_exception(self.logger, e, f"Error in SFD Load callback.", str_level=logging.CRITICAL)
         else:
             if verbose:
                 self.logger.warning('No SFD file installed for device with firmware ID %s' % firmware_id)

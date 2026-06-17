@@ -115,6 +115,8 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
     """The raw write request presently being processed"""
     active_raw_write_request_remaining_data: Optional[bytearray]
     """The data of the raw memory write request being processed. Contains the remaining data and gets reduced for each chunk written"""
+    _char_bit: Literal[8, 16]
+    """Number of bits in a byte. Comes from the protocol"""
 
     def __init__(self, protocol: Protocol, dispatcher: RequestDispatcher, datastore: Datastore, request_priority: int):
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -141,6 +143,12 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
         """Set both maximum request and response payload size"""
         self.set_max_request_payload_size(max_request_payload_size)
         self.set_max_response_payload_size(max_response_payload_size)
+
+    def set_char_bit(self, char_bit: int) -> None:
+        """Sets the size of a byte in the device. Can be 8 or 16. Mostly to accommodate TI C28 family"""
+        if char_bit not in (8, 16):
+            raise ValueError(f"Unsupported char_bit {char_bit}")
+        self._char_bit = cast(Literal[8, 16], char_bit)
 
     def add_forbidden_region(self, start_addr: int, size: int) -> None:
         """Add a memory region to avoid touching. They normally are broadcasted by the device itself"""
@@ -206,6 +214,7 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
         """Erase the configuration coming from the device handler"""
         self.max_request_payload_size = self.DEFAULT_MAX_REQUEST_PAYLOAD_SIZE
         self.max_response_payload_size = self.DEFAULT_MAX_RESPONSE_PAYLOAD_SIZE
+        self._char_bit = 8
         self.forbidden_regions = []
         self.readonly_regions = []
         self.memory_write_allowed = True
