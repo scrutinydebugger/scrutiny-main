@@ -13,6 +13,7 @@ __all__ = [
 ]
 
 import logging
+import time
 
 from scrutiny.core.firmware_description import FirmwareDescription
 from scrutiny.server.sfd_storage import SFDStorage
@@ -42,6 +43,9 @@ class ActiveSFDHandler:
     :param datastore: Datastore that will be populated with the SFD content upon load.
     :param autoload: When ``True``, automatically loads an SFD upon device connection.
     """
+
+    RETRY_LOAD_DELAY_SEC = 1.0
+
     logger: logging.Logger
     """The logger."""
     device_handler: DeviceHandler
@@ -62,6 +66,8 @@ class ActiveSFDHandler:
     """List of callbacks to call upon SFD loading."""
     unloaded_callbacks: List[SFDUnloadedCallback]
     """List of callbacks to call upon SFD unloading."""
+    last_load_failure_timestamp_monotonic: Optional[float]
+    """A timestamp keeping track of when the last failure to load occurred."""
 
     def __init__(self, device_handler: DeviceHandler, datastore: Datastore, autoload: bool = True) -> None:
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -72,6 +78,7 @@ class ActiveSFDHandler:
         self.sfd = None
         self.previous_device_status = DeviceHandler.ConnectionStatus.UNKNOWN
         self.requested_firmware_id = None
+        self.last_load_failure_timestamp_monotonic = None
 
         self.loaded_callbacks = []
         self.unloaded_callbacks = []
@@ -111,14 +118,26 @@ class ActiveSFDHandler:
                 if self.sfd is not None:
                     self.logger.debug(f"Device status is {device_status.name}. Unloading SFD")
                 self.reset_active_sfd()     # Clear active SFD
+                self.last_load_failure_timestamp_monotonic = False
             else:
                 if self.sfd is None:    # if none loaded
-                    verbose = self.previous_device_status != device_status
+                    state_changed = self.previous_device_status != device_status
                     device_id = self.device_handler.get_device_id()
-                    if device_id is not None:
-                        self._try_load_sfd(device_id, verbose=verbose)   # Initiate loading. Will populate the datastore
-                    else:
+                    if device_id is None:
                         self.logger.critical('No device ID available when connected. This should not happen')
+                    else:
+                        should_try_load = False
+                        if state_changed:
+                            should_try_load = True
+                        if self.last_load_failure_timestamp_monotonic is None:
+                            should_try_load = True
+                        elif time.monotonic() - self.last_load_failure_timestamp_monotonic > self.RETRY_LOAD_DELAY_SEC:
+                            should_try_load = True
+
+                        if should_try_load:
+                            self._try_load_sfd(device_id, verbose=state_changed)   # Initiate loading. Will populate the datastore
+                            self.last_load_failure_timestamp_monotonic = time.monotonic() if self.sfd is None else None
+
                 else:
                     if not SFDStorage.is_installed_or_demo(self.sfd.get_firmware_id_ascii()):
                         self.reset_active_sfd()

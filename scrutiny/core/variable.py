@@ -201,7 +201,7 @@ class Variable:
                  path_segments: List[str],
                  location: Union[int, AbsoluteLocation, ResolvedPathPointedLocation],
                  endianness: Endianness,
-                 char_bit: Literal[8, 16],
+                 char_bit: Literal[8, 16] = 8,
                  bitsize: Optional[int] = None,
                  bitoffset: Optional[int] = None,
                  enum: Optional[EmbeddedEnum] = None

@@ -149,6 +149,7 @@ class FakeDeviceHandler:
         self.device_info.address_size_bits = 32
         self.device_info.protocol_major = 1
         self.device_info.protocol_minor = 0
+        self.device_info.char_bit = 8
         self.device_info.supported_feature_map = {
             'memory_write': True,
             'datalogging': True,
@@ -637,7 +638,7 @@ class TestClient(ScrutinyUnitTest):
         factory_abc = VariableFactory(
             '/aa/bb/cc',
             base_location=0x5555,
-            layout=core_VariableLayout(vartype=EmbeddedDataType.float32, endianness=Endianness.Little)
+            layout=core_VariableLayout(vartype=EmbeddedDataType.float32, endianness=Endianness.Little, char_bit=8)
         )
         factory_abc.add_array_node('/aa/bb', UntypedArray((2, 3, 4), 100))
 

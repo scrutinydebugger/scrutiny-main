@@ -30,18 +30,18 @@ import math
 from scrutiny.tools.typing import *
 
 
-def make_dummy_var_entries(address, n, vartype=EmbeddedDataType.float32) -> Generator[DatastoreVariableEntry, None, None]:
+def make_dummy_var_entries(address, n, vartype=EmbeddedDataType.float32, char_bit=8) -> Generator[DatastoreVariableEntry, None, None]:
     for i in range(n):
         dummy_var = Variable(vartype=vartype, path_segments=['a', 'b', 'c', 'dummy'],
-                             location=address + i * vartype.get_size_bit() // 8, endianness=Endianness.Little)
+                             location=address + i * vartype.get_size_bit() // char_bit, endianness=Endianness.Little, char_bit=char_bit)
         entry = DatastoreVariableEntry('path_%d' % i, variable_def=dummy_var)
         yield entry
 
 
-def make_dummy_pointed_var_entries(pointers, vartype=EmbeddedDataType.float32, subpath=[]):
+def make_dummy_pointed_var_entries(pointers, vartype=EmbeddedDataType.float32, subpath=[], char_bit=8):
     for i in range(len(pointers)):
         dummy_var = Variable(vartype=vartype, path_segments=subpath + ['dummy_pointed_var_%d' % i],
-                             location=ResolvedPathPointedLocation(pointers[i].get_display_path(), i * 4), endianness=Endianness.Little)
+                             location=ResolvedPathPointedLocation(pointers[i].get_display_path(), i * 4), endianness=Endianness.Little, char_bit=char_bit)
         entry = DatastorePointedVariableEntry(dummy_var.get_fullname(), variable_def=dummy_var, pointer_entry=pointers[i])
         yield entry
 

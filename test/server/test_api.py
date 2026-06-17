@@ -105,6 +105,7 @@ class StubbedDeviceHandler:
         self.device_info.address_size_bits = 32
         self.device_info.protocol_major = 1
         self.device_info.protocol_minor = 0
+        self.device_info.char_bit = 8
         self.device_info.supported_feature_map = {
             'memory_write': True,
             'datalogging': False,
@@ -512,6 +513,7 @@ class TestAPI(ScrutinyUnitTest):
             layout = VariableLayout(
                 vartype=EmbeddedDataType.float32,
                 endianness=Endianness.Little,
+                char_bit=8,
                 enum=enum
             )
 
@@ -643,7 +645,7 @@ class TestAPI(ScrutinyUnitTest):
                         '/x/y/z': UntypedArray((2, 3, 4), 32)
                 }
             ),
-            layout=VariableLayout(EmbeddedDataType.uint32, Endianness.Little)
+            layout=VariableLayout(EmbeddedDataType.uint32, Endianness.Little, char_bit=16)
         )
         complex_factory.add_array_node('/x/y/*z/A/B', UntypedArray((5, 6), 10))
 

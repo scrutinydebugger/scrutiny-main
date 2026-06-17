@@ -511,6 +511,7 @@ def parse_get_device_info(response: api_typing.S2C.GetDeviceInfo) -> Optional[sd
         _check_response_dict(cmd, response, 'device_info.address_size_bits', int)
         _check_response_dict(cmd, response, 'device_info.protocol_major', int)
         _check_response_dict(cmd, response, 'device_info.protocol_minor', int)
+        _check_response_dict(cmd, response, 'device_info.char_bit', int)
         _check_response_dict(cmd, response, 'device_info.supported_feature_map.memory_write', bool)
         _check_response_dict(cmd, response, 'device_info.supported_feature_map.datalogging', bool)
         _check_response_dict(cmd, response, 'device_info.supported_feature_map.user_command', bool)
@@ -601,6 +602,9 @@ def parse_get_device_info(response: api_typing.S2C.GetDeviceInfo) -> Optional[sd
                 sampling_rates=sampling_rates
             )
 
+        if device_info['char_bit'] not in (8, 16):
+            raise sdk.exceptions.BadResponseError(f'Unsupported value for char_bit: {device_info['char_bit']}')
+
         return sdk.DeviceInfo(
             session_id=device_info['session_id'],
             device_id=device_info['device_id'],
@@ -621,7 +625,8 @@ def parse_get_device_info(response: api_typing.S2C.GetDeviceInfo) -> Optional[sd
             ),
             forbidden_memory_regions=forbidden_regions,
             readonly_memory_regions=readonly_regions,
-            datalogging_capabilities=datalogging_capabilities
+            datalogging_capabilities=datalogging_capabilities,
+            char_bit=cast(Literal[8, 16], device_info['char_bit'])
         )
 
 

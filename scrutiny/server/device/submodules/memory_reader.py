@@ -243,6 +243,14 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
     def _the_watch_callback(self, entry_id: str) -> None:
         """Callback called by the datastore whenever somebody starts watching an entry."""
         entry = self.datastore.get_entry(entry_id)
+        if isinstance(entry, DatastoreVariableEntry):   # DatastorePointedVariableEntry is an extension of DatastoreVariableEntry
+            if entry.get_char_bit() != self._char_bit:
+                # SFD handler will not load a SFD if the CHAR_BIT doesn't match.
+                # We make things robust to avoid misusage
+                self.logger.error(
+                    f"Variable {entry.get_display_path()} has CHAR_BIT={entry.get_char_bit()} but device uses CHAR_BIT={self._char_bit}. This should not happen.")
+                return
+
         if isinstance(entry, DatastorePointedVariableEntry):
             self.watched_pointed_var_entries.add(entry)
         elif isinstance(entry, DatastoreVariableEntry):
@@ -259,12 +267,17 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
         """Callback called by the datastore  whenever somebody stops watching an entry"""
         entry = self.datastore.get_entry(entry_id)
         if len(self.datastore.get_watchers(entry_id)) == 0:
-            if isinstance(entry, DatastorePointedVariableEntry):
-                self.watched_pointed_var_entries.remove(entry)
-            elif isinstance(entry, DatastoreVariableEntry):
-                self.watched_var_entries.remove(entry)
-            elif isinstance(entry, DatastoreRPVEntry):
-                self.watched_rpv_entries.remove(entry)
+            try:
+                if isinstance(entry, DatastorePointedVariableEntry):
+                    self.watched_pointed_var_entries.remove(entry)
+                elif isinstance(entry, DatastoreVariableEntry):
+                    self.watched_var_entries.remove(entry)
+                elif isinstance(entry, DatastoreRPVEntry):
+                    self.watched_rpv_entries.remove(entry)
+            except KeyError:
+                # Should not happen, we log in case.
+                # Would happen only if the watch callback refused to read, but those conditions are prevented at higher level.
+                self.logger.debug(f"Cannot remove entry {entry.get_display_path()} from MemoryReader list")
 
         self._update_entry_update_rate(entry, rate=self.datastore.get_effective_update_rate(entry))
 
@@ -487,6 +500,7 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
         block_list: List[Tuple[int, int]] = []
         skipped_entries_count = 0
         clusters_in_request: List[Cluster] = []
+        size_multiplier = self._char_bit // 8   # Protocol is a 8bit protocol.
 
         if vartype == VarType.AbsoluteAddress:
             total_size = len(self.active_watched_var_entries)
@@ -499,7 +513,7 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
         else:
             raise NotImplementedError("Unsupported variable type")
 
-        memory_to_read = MemoryContent(retain_data=False)  # We'll use that for agglomeration
+        memory_to_read = MemoryContent(retain_data=False, char_bit=self._char_bit)  # We'll use that for agglomeration
         while len(entries_in_request) + skipped_entries_count < total_size:
             # .entry because we use a wrapper for SortedSet
             must_skip = False
@@ -520,13 +534,21 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
                 if not throttler.allowed(1):
                     must_skip = True
 
+            if candidate_entry.get_char_bit() != self._char_bit:
+                # SFD handler will not load a SFD if the CHAR_BIT doesn't match.
+                # The watch callback prevent this too
+                # We do a paranoid check here anyway. Should catch misusage of the MemoryReader in this codebase.
+                self.logger.error(
+                    f"Variable {candidate_entry.get_display_path()} has CHAR_BIT={candidate_entry.get_char_bit()} but device uses CHAR_BIT={self._char_bit}. This should not happen.")
+                must_skip = True
+
             candidate_start = candidate_entry.get_address()
-            candidate_size = candidate_entry.get_size_bytes()
+            candidate_size_bytes = candidate_entry.get_size_bytes()
             if not must_skip:
                 # Check for forbidden region. They disallow read and write
                 is_in_forbidden_region = False
                 assert candidate_start is not None
-                candidate_region = MemoryRegion(start=candidate_start, size=candidate_size)
+                candidate_region = MemoryRegion(start=candidate_start, size=candidate_size_bytes)
                 for forbidden_region in self.forbidden_regions:
                     if candidate_region.touches(forbidden_region):
                         is_in_forbidden_region = True
@@ -541,7 +563,7 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
                 skipped_entries_count += 1
             else:
                 assert candidate_start is not None
-                memory_to_read.add_empty(candidate_start, candidate_size)
+                memory_to_read.add_empty(candidate_start, candidate_size_bytes)
                 clusters_candidate = memory_to_read.get_cluster_list_no_data_by_address()
 
                 if len(clusters_candidate) > max_block_per_request:
@@ -551,7 +573,7 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
                 response_payload_size = 0
                 for cluster in clusters_candidate:
                     response_payload_size += self.protocol.read_memory_response_overhead_size_per_block()
-                    response_payload_size += cluster.size
+                    response_payload_size += cluster.size * size_multiplier
 
                 if response_payload_size > self.max_response_payload_size:
                     break   # No space in response
@@ -578,7 +600,7 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
 
         block_list = []
         for cluster in clusters_in_request:
-            block_list.append((cluster.start_addr, cluster.size))
+            block_list.append((cluster.start_addr, cluster.size * size_multiplier))
 
         request = self.protocol.read_memory_blocks(block_list) if len(block_list) > 0 else None
         return (request, entries_in_request, cursor_wrapped)
@@ -736,7 +758,7 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
             raise NotImplementedError("Impossible read type")
 
         try:
-            temp_memory = MemoryContent()
+            temp_memory = MemoryContent(char_bit=self._char_bit)
             for block in response_data['read_blocks']:
                 temp_memory.write(block['address'], block['data'])
 

@@ -1362,7 +1362,8 @@ class API:
                 'datalogging_capabilities': make_datalogging_capabilities(  # Capabilities = setup + sampling rate (loops)
                     device_info_input.datalogging_setup,
                     self.datalogging_manager.get_available_sampling_rates()
-                )
+                ),
+                'char_bit': cast(int, device_info_input.char_bit)
             }
 
         response: api_typing.S2C.GetDeviceInfo = {

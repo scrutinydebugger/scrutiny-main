@@ -316,6 +316,10 @@ class DatastoreVariableEntry(DatastoreEntry):
         """Return the variable data size in bytes (respect CHAR_BIT)"""
         return self.variable_def.get_type().get_size_bit() // self.variable_def.get_char_bit()
 
+    def get_char_bit(self) -> int:
+        """Return the number of bits in a byte for this variable (CHAR_BIT)"""
+        return self.variable_def.get_char_bit()
+
     def has_enum(self) -> bool:
         """Returns True if the entry has an enum"""
         return self.variable_def.has_enum()

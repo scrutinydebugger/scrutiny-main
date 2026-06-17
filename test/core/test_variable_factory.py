@@ -21,6 +21,7 @@ class TestVariableFactory(ScrutinyUnitTest):
             layout=VariableLayout(
                 vartype=EmbeddedDataType.float32,
                 endianness=Endianness.Little,
+                char_bit=16,
                 bitoffset=None,
                 bitsize=None,
                 enum=None
@@ -36,6 +37,9 @@ class TestVariableFactory(ScrutinyUnitTest):
         self.assertEqual(v.get_address(), 1000 + (1 * 3 + 0) * 100 + (2 * 5 + 3) * 4)
         self.assertEqual(v.get_fullname(), "/aaa/bbb[1][0]/ccc/ddd[2][3]")
         self.assertEqual(v.get_type(), EmbeddedDataType.float32)
+        self.assertEqual(v.get_char_bit(), 16)
+        self.assertEqual(v.get_size_byte(), 2)
+        self.assertEqual(v.get_size_8bits(), 4)
 
     def test_instantiate_out_of_bounds(self):
         factory = VariableFactory(
@@ -43,6 +47,7 @@ class TestVariableFactory(ScrutinyUnitTest):
             layout=VariableLayout(
                 vartype=EmbeddedDataType.float32,
                 endianness=Endianness.Little,
+                char_bit=8,
                 bitoffset=None,
                 bitsize=None,
                 enum=None
@@ -86,6 +91,7 @@ class TestVariableFactory(ScrutinyUnitTest):
             layout=VariableLayout(
                 vartype=EmbeddedDataType.float32,
                 endianness=Endianness.Little,
+                char_bit=8,
                 bitoffset=None,
                 bitsize=None,
                 enum=None

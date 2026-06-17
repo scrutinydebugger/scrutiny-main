@@ -163,6 +163,7 @@ class DeviceInfo(TypedDict):
     forbidden_memory_regions: List[Dict[Literal['start', 'size', 'end'], int]]
     readonly_memory_regions: List[Dict[Literal['start', 'size', 'end'], int]]
     datalogging_capabilities: Optional[DataloggingCapabilities]
+    char_bit: int
 
 
 class DeviceCommLinkDef(TypedDict):
