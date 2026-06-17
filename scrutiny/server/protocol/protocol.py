@@ -283,7 +283,7 @@ class Protocol:
 
     def comm_get_params(self) -> Request:
         # rx_buffer_size, tx_buffer_size, bitrate, heartbeat_timeout, rx_timeout, address_size
-        return Request(cmd.CommControl, cmd.CommControl.Subfunction.GetParams, response_payload_size=2 + 2 + 4 + 4 + 4 + 1)
+        return Request(cmd.CommControl, cmd.CommControl.Subfunction.GetParams, response_payload_size=2 + 2 + 4 + 4 + 4 + 1 + 1)
 
     def comm_connect(self) -> Request:
         return Request(cmd.CommControl, cmd.CommControl.Subfunction.Connect, cmd.CommControl.CONNECT_MAGIC, response_payload_size=4 + 4)  # Magic + Session id
@@ -644,6 +644,7 @@ class Protocol:
 
 # ======================== Response =================
 
+
     def respond_not_ok(self, req: Request, code: Union[int, Enum]) -> Response:
         return Response(req.command, req.subfn, Response.ResponseCode(code))
 
@@ -741,9 +742,15 @@ class Protocol:
                                 max_bitrate_bps: int,
                                 heartbeat_timeout_us: int,
                                 rx_timeout_us: int,
-                                address_size_byte: int
+                                address_size_byte: int,
+                                char_bit: Optional[int]
                                 ) -> Response:
-        data = pack('>HHLLLB', max_rx_data_size, max_tx_data_size, max_bitrate_bps, heartbeat_timeout_us, rx_timeout_us, address_size_byte)
+        # For backward compatibility with scrutiny-embedded v0.5 and below, support not providing the char_bit field.
+        if char_bit is None:
+            data = pack('>HHLLLB', max_rx_data_size, max_tx_data_size, max_bitrate_bps, heartbeat_timeout_us, rx_timeout_us, address_size_byte)
+        else:
+            data = pack('>HHLLLBB', max_rx_data_size, max_tx_data_size, max_bitrate_bps,
+                        heartbeat_timeout_us, rx_timeout_us, address_size_byte, char_bit)
         return Response(cmd.CommControl, cmd.CommControl.Subfunction.GetParams, Response.ResponseCode.OK, data)
 
     def respond_comm_connect(self, session_id: int) -> Response:
@@ -1122,6 +1129,15 @@ class Protocol:
                             data['rx_timeout_us'],
                             data['address_size_byte']
                          ) = unpack('>HHLLLB', response.payload[0:17])
+
+                        # For backward compatibility with scrutiny-embedded 0.5 and below. Assume 8 bits
+                        # if char_bit is not given
+                        data['char_bit'] = 8
+                        if len(response.payload) >= 18:
+                            data['char_bit'] = int(response.payload[17])
+
+                        if data['char_bit'] not in (8, 16):
+                            raise ProtocolParsingError(f"Received an invalid char_bit value. Expect 8 or 16, got {data['char_bit']}")
 
                     elif subfn == cmd.CommControl.Subfunction.Connect:
                         data = cast(protocol_typing.Response.CommControl.Connect, data)
