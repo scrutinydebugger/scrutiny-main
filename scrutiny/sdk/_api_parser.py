@@ -603,7 +603,7 @@ def parse_get_device_info(response: api_typing.S2C.GetDeviceInfo) -> Optional[sd
             )
 
         if device_info['char_bit'] not in (8, 16):
-            raise sdk.exceptions.BadResponseError(f'Unsupported value for char_bit: {device_info['char_bit']}')
+            raise sdk.exceptions.BadResponseError(f'Unsupported value for char_bit: {device_info["char_bit"]}')
 
         return sdk.DeviceInfo(
             session_id=device_info['session_id'],
