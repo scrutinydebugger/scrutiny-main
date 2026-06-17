@@ -54,6 +54,7 @@ DUMMY_DEVICE = sdk.DeviceInfo(
     protocol_major=1,
     protocol_minor=0,
     rx_timeout_us=500,
+    char_bit=8,
     supported_features=sdk.SupportedFeatureMap(
         memory_write=True,
         datalogging=True,

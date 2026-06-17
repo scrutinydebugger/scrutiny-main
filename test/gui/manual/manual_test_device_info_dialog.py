@@ -76,7 +76,8 @@ def make_device_info(config: Config) -> DeviceInfo:
         supported_features=supported_features,
         datalogging_capabilities=datalogging,
         readonly_memory_regions=ro_mem,
-        forbidden_memory_regions=forbidden_mem
+        forbidden_memory_regions=forbidden_mem,
+        char_bit=8
     )
 
 
