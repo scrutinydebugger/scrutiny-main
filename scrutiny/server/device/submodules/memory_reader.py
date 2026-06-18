@@ -371,6 +371,7 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
             or len(self.watched_rpv_entries) > 0
             or len(self.watched_pointed_var_entries) > 0
             or not self.raw_read_request_queue.empty()
+            or self.active_raw_read_request is not None
         )
 
     def process(self) -> None:
@@ -673,10 +674,10 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
             if self.active_raw_read_request.size > self.MAX_RAW_READ_SIZE:    # Hard limit
                 self.active_raw_read_request.set_completed(False, None, "Size too big")
                 self.clear_active_raw_read_request()
-            elif self.active_raw_read_request.size < 0 or self.active_raw_read_request.address < 0:
+            elif self.active_raw_read_request.size <= 0 or self.active_raw_read_request.address < 0:
                 self.active_raw_read_request.set_completed(False, None, "Bad request")
                 self.clear_active_raw_read_request()
-            elif self.active_raw_read_request.address + self.active_raw_read_request.size >= 2**self.protocol.get_address_size_bits():
+            elif self.active_raw_read_request.address + self.active_raw_read_request.size > 2**self.protocol.get_address_size_bits():
                 self.active_raw_read_request.set_completed(False, None, "Read out of bound")
                 self.clear_active_raw_read_request()
             elif is_in_forbidden_region:
@@ -689,7 +690,10 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
         # We assume tha the device can accept a request with a single read block. Otherwise nothing would work.
 
         overhead = self.protocol.read_memory_response_overhead_size_per_block()
-        size = min(self.max_response_payload_size - overhead, self.active_raw_read_request.size - self.active_raw_read_request_cursor)
+        max_response_data_bytes = self.max_response_payload_size - overhead
+        if max_response_data_bytes < 0:  # Should not happen. scrutiny-embedded require 32 bytes buffer minimum and overhead is less than that.
+            raise RuntimeError("max_response_payload_size is too small")
+        size = min(max_response_data_bytes, self.active_raw_read_request.size - self.active_raw_read_request_cursor)
         address = self.active_raw_read_request.address + self.active_raw_read_request_cursor
         device_request = self.protocol.read_single_memory_block(address=address, length=size)
         self.active_raw_read_request_cursor += size

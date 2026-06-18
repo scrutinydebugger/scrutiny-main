@@ -241,10 +241,12 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
             return False
         if self.stop_requested:
             return False
-        if self.pending_request:
+        if self.pending_request is not None:
             return False
 
-        return self.datastore.has_pending_target_update() or not self.raw_write_request_queue.empty()
+        return (self.datastore.has_pending_target_update()
+                or not self.raw_write_request_queue.empty()
+                or self.active_raw_write_request is not None)
 
     def process(self) -> None:
         """To be called periodically"""
@@ -279,7 +281,7 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
             self.clear_active_raw_write_request()
             self.active_raw_write_request = raw_write_request
 
-            is_in_forbidden_region = False
+            is_in_forbidden_region = False if self.memory_write_allowed else True
             is_in_readonly_region = False
             invalid_length = False
 
@@ -390,6 +392,7 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
             value_to_write = self.target_update_request_being_processed.get_value()
             if value_to_write is None:
                 self.logger.critical('Value to write is not available. This should never happen')
+                self.clear_active_entry_write_request()
             else:
                 if isinstance(self.entry_being_updated, DatastoreVariableEntry):
                     encoding_succeeded = True
@@ -409,8 +412,8 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
                             write_mask=write_mask
                         )
                     else:
-                        self.target_update_value_written = None
                         self.target_update_request_being_processed.complete(success=False)
+                        self.clear_active_entry_write_request()
                 elif isinstance(self.entry_being_updated, DatastoreRPVEntry):
                     rpv = self.entry_being_updated.get_rpv()
                     encoding_succeeded = True
@@ -423,8 +426,9 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
                         request = self.protocol.write_runtime_published_values((rpv.id, value_to_write))
                     else:
                         self.target_update_request_being_processed.complete(success=False)
+                        self.clear_active_entry_write_request()
                 else:
-                    raise RuntimeError('entry_being_updated should be of type %s' % self.entry_being_updated.__class__.__name__)
+                    raise RuntimeError('entry_being_updated is unexpected: %s' % self.entry_being_updated.__class__.__name__)
 
         return request
 
