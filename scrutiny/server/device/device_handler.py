@@ -458,6 +458,12 @@ class DeviceHandler:
         if not isinstance(partial_device_info.max_rx_data_size, int):
             raise Exception('Max RX data size gotten from device is invalid')
 
+        if not isinstance(partial_device_info.char_bit, int):
+            raise Exception('char_bit gotten from device is invalid')
+
+        if partial_device_info.char_bit not in (8, 16):
+            raise Exception(f'Unexpected char_bit value. Expect 8 or 16, got {partial_device_info.char_bit}')
+
         self.logger.info('Device has an address size of %d bits. Configuring protocol to encode/decode them accordingly.' %
                          partial_device_info.address_size_bits)
 
@@ -478,9 +484,21 @@ class DeviceHandler:
         max_response_payload_size = min(self.config['max_response_size'], partial_device_info.max_tx_data_size)
 
         # Will do a safety check before emitting a request
-        self.memory_reader.set_size_limits(max_request_payload_size=max_request_payload_size, max_response_payload_size=max_response_payload_size)
-        self.memory_writer.set_size_limits(max_request_payload_size=max_request_payload_size, max_response_payload_size=max_response_payload_size)
-        self.dispatcher.set_size_limits(max_request_payload_size=max_request_payload_size, max_response_payload_size=max_response_payload_size)
+        self.memory_reader.set_size_limits(
+            max_request_payload_size=max_request_payload_size,
+            max_response_payload_size=max_response_payload_size
+        )
+        self.memory_writer.set_size_limits(
+            max_request_payload_size=max_request_payload_size,
+            max_response_payload_size=max_response_payload_size
+        )
+        self.dispatcher.set_size_limits(
+            max_request_payload_size=max_request_payload_size,
+            max_response_payload_size=max_response_payload_size
+        )
+
+        self.memory_reader.set_char_bit(partial_device_info.char_bit)
+        self.memory_writer.set_char_bit(partial_device_info.char_bit)
         self.datalogging_poller.set_max_response_payload_size(max_response_payload_size)
         self.protocol.set_address_size_bits(partial_device_info.address_size_bits)
         self.heartbeat_generator.set_interval(max(0.5, float(partial_device_info.heartbeat_timeout_us) / 1000000.0 * 0.75))
@@ -594,9 +612,18 @@ class DeviceHandler:
         max_response_payload_size = self.config['max_response_size']
         self.memory_reader.clear_config()
         self.memory_writer.clear_config()
-        self.memory_reader.set_size_limits(max_request_payload_size=max_request_payload_size, max_response_payload_size=max_response_payload_size)
-        self.memory_writer.set_size_limits(max_request_payload_size=max_request_payload_size, max_response_payload_size=max_response_payload_size)
-        self.dispatcher.set_size_limits(max_request_payload_size=max_request_payload_size, max_response_payload_size=max_response_payload_size)
+        self.memory_reader.set_size_limits(
+            max_request_payload_size=max_request_payload_size,
+            max_response_payload_size=max_response_payload_size
+        )
+        self.memory_writer.set_size_limits(
+            max_request_payload_size=max_request_payload_size,
+            max_response_payload_size=max_response_payload_size
+        )
+        self.dispatcher.set_size_limits(
+            max_request_payload_size=max_request_payload_size,
+            max_response_payload_size=max_response_payload_size
+        )
         self.datalogging_poller.set_max_response_payload_size(max_response_payload_size)
 
         self.datastore.clear(watchable_type=WatchableType.RuntimePublishedValue)    # Device handler own RPVs

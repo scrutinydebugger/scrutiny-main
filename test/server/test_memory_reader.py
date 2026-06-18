@@ -68,18 +68,18 @@ def generate_random_value(datatype: EmbeddedDataType) -> Encodable:
     return codec.decode(bytestr)
 
 
-def make_dummy_var_entries(address, n, vartype=EmbeddedDataType.float32, subpath=[]):
+def make_dummy_var_entries(address, n, vartype=EmbeddedDataType.float32, char_bit=8, subpath=[]):
     for i in range(n):
         dummy_var = Variable(vartype=vartype, path_segments=subpath + ['dummy_var_%d' % i],
-                             location=address + i * vartype.get_size_bit() // 8, endianness=Endianness.Little)
+                             location=address + i * vartype.get_size_bit() // char_bit, endianness=Endianness.Little, char_bit=char_bit)
         entry = DatastoreVariableEntry(dummy_var.get_fullname(), variable_def=dummy_var)
         yield entry
 
 
-def make_dummy_pointed_var_entries(pointers, vartype=EmbeddedDataType.float32, subpath=[]):
+def make_dummy_pointed_var_entries(pointers, vartype=EmbeddedDataType.float32, subpath=[], char_bit=8):
     for i in range(len(pointers)):
         dummy_var = Variable(vartype=vartype, path_segments=subpath + ['dummy_pointed_var_%d' % i],
-                             location=ResolvedPathPointedLocation(pointers[i].get_display_path(), i * 4), endianness=Endianness.Little)
+                             location=ResolvedPathPointedLocation(pointers[i].get_display_path(), i * 4), endianness=Endianness.Little, char_bit=char_bit)
         entry = DatastorePointedVariableEntry(dummy_var.get_fullname(), variable_def=dummy_var, pointer_entry=pointers[i])
         yield entry
 
@@ -164,7 +164,8 @@ class TestMemoryReaderBasicReadOperation(ScrutinyUnitTest):
             base_location=0x100000,
             layout=VariableLayout(
                 vartype=EmbeddedDataType.float32,
-                endianness=Endianness.Little
+                endianness=Endianness.Little,
+                char_bit=8
             ))
         factory.add_array_node('/some/var/factory', UntypedArray((10,), 4))
 
@@ -195,6 +196,53 @@ class TestMemoryReaderBasicReadOperation(ScrutinyUnitTest):
         ds.stop_watching_all('unittest')
         reader.process()
 
+    def test_read_request_basic_behavior_charbit16(self):
+        # Here we have a set of datastore entries that are contiguous in memory.
+        # We read them all in a single block (no limitation) and make sure the values are good.
+        # We expect the datastore reader to keep asking for updates, so we run the sequence 5 times
+
+        nfloat = 100
+        address = 0x1000
+        ds = Datastore()
+        entries = list(make_dummy_var_entries(address=address, n=nfloat, vartype=EmbeddedDataType.float32, char_bit=16))
+        factory = VariableFactory(
+            access_name='/some/var/factory',
+            base_location=0x100000,
+            layout=VariableLayout(
+                vartype=EmbeddedDataType.float32,
+                endianness=Endianness.Little,
+                char_bit=16
+            ))
+        factory.add_array_node('/some/var/factory', UntypedArray((10,), EmbeddedDataType.float32.get_size_bit() // 16))
+
+        ds.add_entries(entries)
+        ds.register_var_factory(factory)
+
+        dispatcher = RequestDispatcher()
+
+        protocol = Protocol(1, 0)
+        protocol.set_address_size_bits(32)
+        reader = UnitTestMemoryReader(protocol, dispatcher=dispatcher, datastore=ds, request_priority=0)
+        reader.set_char_bit(16)
+        reader.set_max_request_payload_size(1024)  # big enough for all of them
+        reader.set_max_response_payload_size(1024)  # big enough for all of them
+        reader.start()
+
+        for entry in entries:
+            ds.start_watching(entry, 'unittest')
+        generated_entry = cast(DatastoreVariableEntry, ds.get_entry_by_display_path('/some/var/factory[5]'))
+        ds.start_watching(generated_entry, 'unittest')
+
+        # Read 1 block of variable + a generated Variable (array)
+        expected_blocks_sequence = [
+            [BlockToRead(address, nfloat, entries), BlockToRead(0x100000 + (5 * 4 // 2), 1, [generated_entry])]
+        ]
+
+        self.generic_test_read_block_sequence(expected_blocks_sequence, reader, dispatcher, protocol, niter=5)
+
+        ds.stop_watching_all('unittest')
+        reader.process()
+
     def test_read_request_multiple_blocks_2blocks_per_req(self):
         # Here, we define 3 non-contiguous block of memory and impose a limit on the request size to allow only 2 blocks read per request.
         # We make sure that blocks are completely read.
@@ -214,6 +262,7 @@ class TestMemoryReaderBasicReadOperation(ScrutinyUnitTest):
         dispatcher = RequestDispatcher()
         protocol = Protocol(1, 0)
         reader = UnitTestMemoryReader(protocol, dispatcher=dispatcher, datastore=ds, request_priority=0)
+
         reader.set_max_request_payload_size(protocol.read_memory_request_size_per_block() * 2)  # 2 block per request
         reader.set_max_response_payload_size(1024)  # Non-limiting here
         reader.start()
@@ -230,38 +279,71 @@ class TestMemoryReaderBasicReadOperation(ScrutinyUnitTest):
 
         self.generic_test_read_block_sequence(expected_blocks_sequence, reader, dispatcher, protocol, niter=5)
 
+    def test_read_request_multiple_blocks_charbit16_correct_merge(self):
+        # Here, we define 3 non-contiguous block of memory and impose a limit on the request size to allow only 2 blocks read per request.
+        # We make sure that blocks are completely read.
+
+        ds = Datastore()
+        entries = []
+        entries.extend(make_dummy_var_entries(address=0x1000, n=1, vartype=EmbeddedDataType.uint32, char_bit=16))
+        entries.extend(make_dummy_var_entries(address=0x1002, n=1, vartype=EmbeddedDataType.uint16, char_bit=16))
+
+        ds.add_entries(entries)
+        dispatcher = RequestDispatcher()
+        protocol = Protocol(1, 0)
+        reader = UnitTestMemoryReader(protocol, dispatcher=dispatcher, datastore=ds, request_priority=0)
+        reader.set_char_bit(16)
+        reader.set_max_request_payload_size(1024)  # Non-limiting
+        reader.set_max_response_payload_size(1024)  # Non-limiting
+        reader.start()
+
+        # Watch in non sequential
+        ds.start_watching(entries[1], 'unittest')
+        ds.start_watching(entries[0], 'unittest')
+
+        reader.process()
+        dispatcher.process()
+        req_record = dispatcher.pop_next()
+        self.assertIsNotNone(req_record)
+        request_data = cast(protocol_typing.Request.MemoryControl.Read, protocol.parse_request(req_record.request))
+        self.assertEqual(request_data, {'blocks_to_read': [{'address': 0x1000, 'length': 6}]})
+
     def test_read_request_multiple_blocks_limited_by_response_size(self):
         # Here we make read entries, but response has enough space for only 10 blocks of 1 entry.
         # Make sure this happens
 
-        nfloat = 15
-        entries = []
-        for i in range(nfloat):
-            entries += list(make_dummy_var_entries(address=i * 0x100, n=1, vartype=EmbeddedDataType.float32))
+        for char_bit in (8, 16):
+            with self.subTest(f'char_bit={char_bit}'):
+                nfloat = 15
+                entries = []
+                for i in range(nfloat):
+                    entries += list(make_dummy_var_entries(address=i * 0x100, n=1, vartype=EmbeddedDataType.float32, char_bit=char_bit))
 
-        ds = Datastore()
-        ds.add_entries(entries)
+                ds = Datastore()
+                ds.add_entries(entries)
 
-        dispatcher = RequestDispatcher()
-        protocol = Protocol(1, 0)
-        reader = UnitTestMemoryReader(protocol, dispatcher=dispatcher, datastore=ds, request_priority=0)
-        reader.set_max_request_payload_size(1024)  # Non-limiting here
-        reader.set_max_response_payload_size(protocol.read_memory_response_overhead_size_per_block() * 10 + 4 * 10)
-        reader.start()
+                dispatcher = RequestDispatcher()
+                protocol = Protocol(1, 0)
+                reader = UnitTestMemoryReader(protocol, dispatcher=dispatcher, datastore=ds, request_priority=0)
+                reader.set_char_bit(char_bit)
+                reader.set_max_request_payload_size(1024)  # Non-limiting here
+                # The protocol is 8bits, so the buffer limitation should be independent from char_bit
+                reader.set_max_response_payload_size(protocol.read_memory_response_overhead_size_per_block() * 10 + 4 * 10)
+                reader.start()
 
-        for entry in entries:
-            ds.start_watching(entry, 'unittest')
+                for entry in entries:
+                    ds.start_watching(entry, 'unittest')
 
-        # The expected sequence of block will be : 1,2 - 3,1 - 2,3 - 1,2 - etc
-        # Sorted by address.
-        expected_blocks_sequence = [
-            [BlockToRead(i * 0x100, 1, entries[i:i + 1]) for i in range(10)],
-            [BlockToRead((10 + i) * 0x100, 1, entries[10 + i:10 + i + 1])
-             for i in range(5)] + [BlockToRead(i * 0x100, 1, entries[i:i + 1]) for i in range(5)],
-            [BlockToRead((i + 5) * 0x100, 1, entries[5 + i:5 + i + 1]) for i in range(10)]
-        ]
+                # The expected sequence of block will be : 1,2 - 3,1 - 2,3 - 1,2 - etc
+                # Sorted by address.
+                expected_blocks_sequence = [
+                    [BlockToRead(i * 0x100, 1, entries[i:i + 1]) for i in range(10)],
+                    [BlockToRead((10 + i) * 0x100, 1, entries[10 + i:10 + i + 1])
+                     for i in range(5)] + [BlockToRead(i * 0x100, 1, entries[i:i + 1]) for i in range(5)],
+                    [BlockToRead((i + 5) * 0x100, 1, entries[5 + i:5 + i + 1]) for i in range(10)]
+                ]
 
-        self.generic_test_read_block_sequence(expected_blocks_sequence, reader, dispatcher, protocol, niter=5)
+                self.generic_test_read_block_sequence(expected_blocks_sequence, reader, dispatcher, protocol, niter=5)
 
     def test_request_size_limit(self):
         # Make sure the maximum request size is always respected
@@ -609,6 +691,28 @@ class TestMemoryReaderBasicReadOperation(ScrutinyUnitTest):
         # As long as the user doesn't get notified, we could allow updating the datastore without much consequences.
         # Better be strict..
         self.assertNotEqual(pointed[INDEX_TO_CHANGE].value, 0xAAAAAAAA)
+
+    def test_refuse_to_read_char_bit_mismatch(self):
+        ds = Datastore()
+        entries = list(make_dummy_var_entries(address=0x1000, n=1, vartype=EmbeddedDataType.float32, char_bit=8))
+        ds.add_entries(entries)
+
+        dispatcher = RequestDispatcher()
+        protocol = Protocol(1, 0)
+        protocol.set_address_size_bits(32)
+
+        reader = UnitTestMemoryReader(protocol, dispatcher=dispatcher, datastore=ds, request_priority=0)
+        reader.set_char_bit(16)  # mismatch
+        reader.start()
+
+        for entry in entries:
+            ds.start_watching(entry, 'unittest')
+
+        for i in range(10):
+            reader.process()
+            self.assertIsNone(dispatcher.pop_next())
+
+        ds.stop_watching_all('unittest')
 
 
 class TestMemoryReaderComplexReadOperation(ScrutinyUnitTest):

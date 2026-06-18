@@ -45,14 +45,14 @@ class TestSFD(ScrutinyUnitTest):
 
         self.assertEqual(var_as_dict["/path1/path2/some_int32"].get_address(), 1000)
         self.assertEqual(var_as_dict["/path1/path2/some_int32"].get_type(), EmbeddedDataType.sint32)
-        self.assertEqual(var_as_dict["/path1/path2/some_int32"].get_size(), 4)
+        self.assertEqual(var_as_dict["/path1/path2/some_int32"].get_size_8bits(), 4)
         self.assertEqual(var_as_dict["/path1/path2/some_int32"].get_fullname(), "/path1/path2/some_int32")
         self.assertFalse(var_as_dict["/path1/path2/some_int32"].has_enum())
         self.assertIsNone(var_as_dict["/path1/path2/some_int32"].get_enum())
 
         self.assertEqual(var_as_dict["/path1/path2/some_uint32"].get_address(), 1004)
         self.assertEqual(var_as_dict["/path1/path2/some_uint32"].get_type(), EmbeddedDataType.uint32)
-        self.assertEqual(var_as_dict["/path1/path2/some_uint32"].get_size(), 4)
+        self.assertEqual(var_as_dict["/path1/path2/some_uint32"].get_size_8bits(), 4)
         self.assertEqual(var_as_dict["/path1/path2/some_uint32"].get_fullname(), "/path1/path2/some_uint32")
         self.assertTrue(var_as_dict["/path1/path2/some_uint32"].has_enum())
         enum = var_as_dict["/path1/path2/some_uint32"].get_enum()
@@ -67,14 +67,14 @@ class TestSFD(ScrutinyUnitTest):
 
         self.assertEqual(var_as_dict["/path1/path2/some_float32"].get_address(), 1008)
         self.assertEqual(var_as_dict["/path1/path2/some_float32"].get_type(), EmbeddedDataType.float32)
-        self.assertEqual(var_as_dict["/path1/path2/some_float32"].get_size(), 4)
+        self.assertEqual(var_as_dict["/path1/path2/some_float32"].get_size_8bits(), 4)
         self.assertEqual(var_as_dict["/path1/path2/some_float32"].get_fullname(), "/path1/path2/some_float32")
         self.assertFalse(var_as_dict["/path1/path2/some_float32"].has_enum())
         self.assertIsNone(var_as_dict["/path1/path2/some_float32"].get_enum())
 
         self.assertEqual(var_as_dict["/path1/path2/some_float64"].get_address(), 1012)
         self.assertEqual(var_as_dict["/path1/path2/some_float64"].get_type(), EmbeddedDataType.float64)
-        self.assertEqual(var_as_dict["/path1/path2/some_float64"].get_size(), 8)
+        self.assertEqual(var_as_dict["/path1/path2/some_float64"].get_size_8bits(), 8)
         self.assertEqual(var_as_dict["/path1/path2/some_float64"].get_fullname(), "/path1/path2/some_float64")
         self.assertFalse(var_as_dict["/path1/path2/some_float64"].has_enum())
         self.assertIsNone(var_as_dict["/path1/path2/some_float64"].get_enum())

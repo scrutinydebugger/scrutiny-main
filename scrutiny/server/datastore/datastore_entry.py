@@ -308,9 +308,17 @@ class DatastoreVariableEntry(DatastoreEntry):
         addr = self.get_address()   # Implementation is different for pointed entries
         return addr if addr is not None else 0
 
-    def get_size(self) -> int:
-        """Return the variable data size"""
+    def get_size_8bits(self) -> int:
+        """Return the variable data size in multiple of 8bits"""
         return self.variable_def.get_type().get_size_8bits()
+
+    def get_size_bytes(self) -> int:
+        """Return the variable data size in bytes (respect CHAR_BIT)"""
+        return self.variable_def.get_type().get_size_bit() // self.variable_def.get_char_bit()
+
+    def get_char_bit(self) -> int:
+        """Return the number of bits in a byte for this variable (CHAR_BIT)"""
+        return self.variable_def.get_char_bit()
 
     def has_enum(self) -> bool:
         """Returns True if the entry has an enum"""

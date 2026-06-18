@@ -116,7 +116,7 @@ class TypedArray(Array):
                 return self.datatype.byte_size
             raise RuntimeError(f"No element size available for struct {self.datatype.name}")
         if isinstance(self.datatype, Pointer):
-            return self.datatype.get_size()
+            return self.datatype.get_size_byte()
         raise RuntimeError(f"Unsupported datatype {self.datatype.__class__.__name__}")
 
     def to_untyped_array(self) -> UntypedArray:

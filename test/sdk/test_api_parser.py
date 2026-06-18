@@ -365,6 +365,7 @@ class TestApiParser(ScrutinyUnitTest):
                     "address_size_bits": 64,
                     "protocol_major": 1,
                     "protocol_minor": 0,
+                    "char_bit": 8,
                     "supported_feature_map": {
                         "memory_write": True,
                         "datalogging": True,
@@ -414,6 +415,7 @@ class TestApiParser(ScrutinyUnitTest):
         self.assertEqual(device_info.address_size_bits, 64)
         self.assertEqual(device_info.protocol_major, 1)
         self.assertEqual(device_info.protocol_minor, 0)
+        self.assertEqual(device_info.char_bit, 8)
         self.assertEqual(device_info.supported_features.memory_write, True)
         self.assertEqual(device_info.supported_features.datalogging, True)
         self.assertEqual(device_info.supported_features.user_command, False)
@@ -488,7 +490,7 @@ class TestApiParser(ScrutinyUnitTest):
             parser.parse_get_device_info(msg)
 
         fields = ['max_tx_data_size', 'max_rx_data_size', 'max_bitrate_bps', 'rx_timeout_us', 'heartbeat_timeout_us',
-                  'address_size_bits', 'protocol_major', 'protocol_minor']
+                  'address_size_bits', 'protocol_major', 'protocol_minor', 'char_bit']
         for field in fields:
             vals = ['asd', 1.5, [], {}, ]   # bad values
             for val in vals:

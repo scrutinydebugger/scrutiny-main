@@ -1512,7 +1512,7 @@ class ElfDwarfVarExtractor:
 
         self._die_process_ptr_type(die)
         ptr_size = self._get_size_from_pointer_die(die)
-        VOID_PTR = Pointer(size=ptr_size, pointed_type=EmbeddedDataType.NA, pointed_typename=None, enum=None)
+        VOID_PTR = Pointer(size_byte=ptr_size, pointed_type=EmbeddedDataType.NA, pointed_typename=None, enum=None)
         if not allow_dereferencing:  # Pretend it's a void*. Breaks circular referencing if any
             return VOID_PTR
         pointee_typedesc = self._get_pointee_type_of_var(die)
@@ -1528,10 +1528,10 @@ class ElfDwarfVarExtractor:
                 self._die_process_enum(pointee_typedesc.enum_die)
                 embedded_enum = self._enum_die_map[pointee_typedesc.enum_die]
             embedded_type = self._varmap.get_vartype_from_base_type(pointed_typename)   # Read back type from varmap
-            return Pointer(size=ptr_size, pointed_type=embedded_type, pointed_typename=pointed_typename, enum=embedded_enum)
+            return Pointer(size_byte=ptr_size, pointed_type=embedded_type, pointed_typename=pointed_typename, enum=embedded_enum)
         elif pointee_typedesc.type in (TypeOfVar.Class, TypeOfVar.Struct, TypeOfVar.Union):
             struct = self._get_composite_type_def(pointee_typedesc.type_die, allow_dereferencing=False)  # Break dereferencing recursion
-            return Pointer(size=ptr_size, pointed_type=struct, pointed_typename=None, enum=None)
+            return Pointer(size_byte=ptr_size, pointed_type=struct, pointed_typename=None, enum=None)
         elif pointee_typedesc.type == TypeOfVar.Subroutine:  # Nothing we can do with this.
             return VOID_PTR
         elif pointee_typedesc.type == TypeOfVar.Pointer:    # No double dereferencing.
@@ -1539,7 +1539,7 @@ class ElfDwarfVarExtractor:
 
         # We should not reach this.
         self._logger.warning(f"Pointer to a unsupported pointee. Cannot dereference. Pointee: {pointee_typedesc.type.name}")
-        return Pointer(size=ptr_size, pointed_type=EmbeddedDataType.NA, pointed_typename=None, enum=None)
+        return Pointer(size_byte=ptr_size, pointed_type=EmbeddedDataType.NA, pointed_typename=None, enum=None)
 
     def _get_member_from_die(self, die: DIE, is_in_union: bool, allow_dereferencing: bool) -> Optional[Struct.Member]:
         """Read a member die and generate a Struct.Member that we will later on use to register a variable.
@@ -1805,7 +1805,7 @@ class ElfDwarfVarExtractor:
 
             was_added = self._maybe_register_variable(  # Create the pointer entry first
                 path_segments=path_segments,
-                original_type_name=self._make_ptr_typename(ptr.get_size()),
+                original_type_name=self._make_ptr_typename(ptr.get_size_byte()),
                 location=location,
                 bitoffset=member.bitoffset,
                 bitsize=member.bitsize,

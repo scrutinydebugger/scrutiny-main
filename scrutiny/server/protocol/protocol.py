@@ -38,7 +38,7 @@ class Protocol:
     class AddressFormat:
 
         nbits: int
-        nbytes: int
+        n8bits: int
         pack_char: str
         mask: int
 
@@ -54,12 +54,12 @@ class Protocol:
                 raise ValueError('Unsupported address format %s' % nbits)
 
             self.nbits = nbits
-            self.nbytes = int(nbits / 8)
+            self.n8bits = int(nbits / 8)
             self.pack_char = PACK_CHARS[nbits]
             self.mask = int((1 << nbits) - 1)
 
-        def get_address_size_bytes(self) -> int:
-            return self.nbytes
+        def get_address_size_8bits(self) -> int:
+            return self.n8bits
 
         def get_address_size_bits(self) -> int:
             return self.nbits
@@ -75,7 +75,7 @@ class Protocol:
             return pack('>%s' % self.get_pack_char(), address)
 
         def decode_address(self, buff: bytes) -> int:
-            return cast(int, unpack('>%s' % self.get_pack_char(), buff[0:self.get_address_size_bytes()])[0])
+            return cast(int, unpack('>%s' % self.get_pack_char(), buff[0:self.get_address_size_8bits()])[0])
 
     def __init__(self, version_major: int = 1, version_minor: int = 0, address_size_bits: int = 32):
         self.version_major = version_major
@@ -90,8 +90,8 @@ class Protocol:
     def set_address_size_bytes(self, address_size_byte: int) -> None:
         self.set_address_size_bits(address_size_byte * 8)
 
-    def get_address_size_bytes(self) -> int:
-        return self.address_format.get_address_size_bytes()
+    def get_address_size_8bits(self) -> int:
+        return self.address_format.get_address_size_8bits()
 
     def get_address_size_bits(self) -> int:
         return self.address_format.get_address_size_bits()
@@ -151,7 +151,7 @@ class Protocol:
         if isinstance(region_type, cmd.GetInfo.MemoryRangeType):
             region_type = region_type.value
         data = pack('BB', region_type, region_index)
-        return Request(cmd.GetInfo, cmd.GetInfo.Subfunction.GetSpecialMemoryRegionLocation, data, response_payload_size=2 + self.get_address_size_bytes() * 2)
+        return Request(cmd.GetInfo, cmd.GetInfo.Subfunction.GetSpecialMemoryRegionLocation, data, response_payload_size=2 + self.get_address_size_8bits() * 2)
 
     def get_rpv_count(self) -> Request:
         return Request(cmd.GetInfo, cmd.GetInfo.Subfunction.GetRuntimePublishedValuesCount, bytes(), response_payload_size=2)
@@ -193,10 +193,10 @@ class Protocol:
         return self.get_rpv_definition_response_size_per_rpv() * len(rpvs)
 
     def read_memory_request_size_per_block(self) -> int:
-        return self.get_address_size_bytes() + 2  # Address + 16 bits length
+        return self.get_address_size_8bits() + 2  # Address + 16 bits length
 
     def read_memory_response_overhead_size_per_block(self) -> int:
-        return self.get_address_size_bytes() + 2
+        return self.get_address_size_8bits() + 2
 
     def read_single_memory_block(self, address: int, length: int) -> Request:
         block_list = [(address, length)]
@@ -210,7 +210,7 @@ class Protocol:
             size = block[1]
             total_length += size
             data += self.encode_address(addr) + pack('>H', size)
-        return Request(cmd.MemoryControl, cmd.MemoryControl.Subfunction.Read, data, response_payload_size=(self.get_address_size_bytes() + 2) * len(block_list) + total_length)
+        return Request(cmd.MemoryControl, cmd.MemoryControl.Subfunction.Read, data, response_payload_size=(self.get_address_size_8bits() + 2) * len(block_list) + total_length)
 
     def write_single_memory_block(self, address: int, data: bytes, write_mask: Optional[bytes] = None) -> Request:
         if write_mask is None:
@@ -220,13 +220,16 @@ class Protocol:
             block_list_masked = [(address, data, write_mask)]
             return self.write_memory_blocks_masked(block_list_masked)
 
+    def write_memory_request_overhead_size_per_block(self) -> int:
+        return self.get_address_size_8bits() + 2
+
     def write_memory_blocks(self, block_list: List[Tuple[int, bytes]]) -> Request:
         data = bytes()
         for block in block_list:
             addr = block[0]
             mem_data = block[1]
             data += self.encode_address(addr) + pack('>H', len(mem_data)) + bytes(mem_data)
-        return Request(cmd.MemoryControl, cmd.MemoryControl.Subfunction.Write, data, response_payload_size=(self.get_address_size_bytes() + 2) * len(block_list))
+        return Request(cmd.MemoryControl, cmd.MemoryControl.Subfunction.Write, data, response_payload_size=(self.get_address_size_8bits() + 2) * len(block_list))
 
     def write_memory_blocks_masked(self, block_list: List[Tuple[int, bytes, bytes]]) -> Request:
         data = bytes()
@@ -237,7 +240,7 @@ class Protocol:
             if len(mem_data) != len(mask):
                 raise ValueError('Length of mask must match length of data')
             data += self.encode_address(addr) + pack('>H', len(mem_data)) + bytes(mem_data) + bytes(mask)
-        return Request(cmd.MemoryControl, cmd.MemoryControl.Subfunction.WriteMasked, data, response_payload_size=(self.get_address_size_bytes() + 2) * len(block_list))
+        return Request(cmd.MemoryControl, cmd.MemoryControl.Subfunction.WriteMasked, data, response_payload_size=(self.get_address_size_8bits() + 2) * len(block_list))
 
     def read_runtime_published_values(self, ids: Union[int, List[int]]) -> Request:
         if not isinstance(ids, List):
@@ -283,7 +286,7 @@ class Protocol:
 
     def comm_get_params(self) -> Request:
         # rx_buffer_size, tx_buffer_size, bitrate, heartbeat_timeout, rx_timeout, address_size
-        return Request(cmd.CommControl, cmd.CommControl.Subfunction.GetParams, response_payload_size=2 + 2 + 4 + 4 + 4 + 1)
+        return Request(cmd.CommControl, cmd.CommControl.Subfunction.GetParams, response_payload_size=2 + 2 + 4 + 4 + 4 + 1 + 1)
 
     def comm_connect(self) -> Request:
         return Request(cmd.CommControl, cmd.CommControl.Subfunction.Connect, cmd.CommControl.CONNECT_MAGIC, response_payload_size=4 + 4)  # Magic + Session id
@@ -418,10 +421,10 @@ class Protocol:
 
                 if subfn == cmd.MemoryControl.Subfunction.Read:                     # MemoryControl - Read
                     data = cast(protocol_typing.Request.MemoryControl.Read, data)
-                    block_size = (2 + self.get_address_size_bytes())
+                    block_size = (2 + self.get_address_size_8bits())
                     if len(req.payload) % block_size != 0:
                         raise ProtocolParsingError(
-                            'Request data length is not a multiple of %d bytes (address[%d] + length[2])' % (block_size, self.get_address_size_bytes()))
+                            'Request data length is not a multiple of %d bytes (address[%d] + length[2])' % (block_size, self.get_address_size_8bits()))
                     nblock = int(len(req.payload) / block_size)
                     data['blocks_to_read'] = []
                     for i in range(nblock):
@@ -433,7 +436,7 @@ class Protocol:
                     data = cast(protocol_typing.Request.MemoryControl.Write, data)
                     data['blocks_to_write'] = []
                     c = self.address_format.get_pack_char()
-                    address_length_size = 2 + self.get_address_size_bytes()
+                    address_length_size = 2 + self.get_address_size_8bits()
                     index = 0
                     while True:
                         if len(req.payload) < index + address_length_size:
@@ -454,7 +457,7 @@ class Protocol:
                     data = cast(protocol_typing.Request.MemoryControl.WriteMasked, data)
                     data['blocks_to_write'] = []
                     c = self.address_format.get_pack_char()
-                    address_length_size = 2 + self.get_address_size_bytes()
+                    address_length_size = 2 + self.get_address_size_8bits()
                     index = 0
                     while True:
                         if len(req.payload) < index + address_length_size:
@@ -546,26 +549,26 @@ class Protocol:
                             cursor += 2
 
                         elif operand_type == device_datalogging.OperandType.Var:
-                            if len(req.payload) < cursor + 1 + self.get_address_size_bytes():
+                            if len(req.payload) < cursor + 1 + self.get_address_size_8bits():
                                 raise ProtocolParsingError('Not enough data for operand #%d (Var). Cursor = %d' % (i, cursor))
                             datatype_id = req.payload[cursor]
                             cursor += 1
                             if datatype_id not in [v.value for v in EmbeddedDataType]:
                                 raise ProtocolParsingError("Unknown datatype for operand #%d (Var). Cursor=%d" % (i, cursor))
                             datatype = EmbeddedDataType(datatype_id)
-                            address = self.decode_address(req.payload[cursor:cursor + self.get_address_size_bytes()])
-                            cursor += self.get_address_size_bytes()
+                            address = self.decode_address(req.payload[cursor:cursor + self.get_address_size_8bits()])
+                            cursor += self.get_address_size_8bits()
                             operand = device_datalogging.VarOperand(address=address, datatype=datatype)
                         elif operand_type == device_datalogging.OperandType.VarBit:
-                            if len(req.payload) < cursor + 1 + self.get_address_size_bytes() + 1 + 1:
+                            if len(req.payload) < cursor + 1 + self.get_address_size_8bits() + 1 + 1:
                                 raise ProtocolParsingError('Not enough data for operand #%d (VarBit). Cursor = %d' % (i, cursor))
                             datatype_id = req.payload[cursor]
                             cursor += 1
                             if datatype_id not in [v.value for v in EmbeddedDataType]:
                                 raise ProtocolParsingError("Unknown datatype for operand #%d (VarBit). Cursor=%d" % (i, cursor))
                             datatype = EmbeddedDataType(datatype_id)
-                            address = self.decode_address(req.payload[cursor:cursor + self.get_address_size_bytes()])
-                            cursor += self.get_address_size_bytes()
+                            address = self.decode_address(req.payload[cursor:cursor + self.get_address_size_8bits()])
+                            cursor += self.get_address_size_8bits()
                             bitoffset = req.payload[cursor]
                             cursor += 1
                             bitsize = req.payload[cursor]
@@ -592,10 +595,10 @@ class Protocol:
 
                         signal: device_datalogging.LoggableSignal
                         if signal_type == device_datalogging.LoggableSignalType.MEMORY:
-                            if len(req.payload) < cursor + self.get_address_size_bytes() + 1:
+                            if len(req.payload) < cursor + self.get_address_size_8bits() + 1:
                                 raise ProtocolParsingError('Not enough data for signal #%d (%s). Cursor = %d' % (i, signal_type.name, cursor))
-                            address = self.decode_address(req.payload[cursor:cursor + self.get_address_size_bytes()])
-                            cursor += self.get_address_size_bytes()
+                            address = self.decode_address(req.payload[cursor:cursor + self.get_address_size_8bits()])
+                            cursor += self.get_address_size_8bits()
                             memory_size = req.payload[cursor]
                             cursor += 1
                             signal = device_datalogging.MemoryLoggableSignal(address=address, size=memory_size)
@@ -643,6 +646,7 @@ class Protocol:
 
 
 # ======================== Response =================
+
 
     def respond_not_ok(self, req: Request, code: Union[int, Enum]) -> Response:
         return Response(req.command, req.subfn, Response.ResponseCode(code))
@@ -741,9 +745,15 @@ class Protocol:
                                 max_bitrate_bps: int,
                                 heartbeat_timeout_us: int,
                                 rx_timeout_us: int,
-                                address_size_byte: int
+                                address_size_byte: int,
+                                char_bit: Optional[int]
                                 ) -> Response:
-        data = pack('>HHLLLB', max_rx_data_size, max_tx_data_size, max_bitrate_bps, heartbeat_timeout_us, rx_timeout_us, address_size_byte)
+        # For backward compatibility with scrutiny-embedded v0.5 and below, support not providing the char_bit field.
+        if char_bit is None:
+            data = pack('>HHLLLB', max_rx_data_size, max_tx_data_size, max_bitrate_bps, heartbeat_timeout_us, rx_timeout_us, address_size_byte)
+        else:
+            data = pack('>HHLLLBB', max_rx_data_size, max_tx_data_size, max_bitrate_bps,
+                        heartbeat_timeout_us, rx_timeout_us, address_size_byte, char_bit)
         return Response(cmd.CommControl, cmd.CommControl.Subfunction.GetParams, Response.ResponseCode.OK, data)
 
     def respond_comm_connect(self, session_id: int) -> Response:
@@ -906,7 +916,7 @@ class Protocol:
                         data['region_type'] = cmd.GetInfo.MemoryRangeType(response.payload[0])
                         data['region_index'] = response.payload[1]
                         data['start'] = self.decode_address(response.payload[2:])
-                        data['end'] = self.decode_address(response.payload[2 + self.get_address_size_bytes():])
+                        data['end'] = self.decode_address(response.payload[2 + self.get_address_size_8bits():])
 
                     elif subfn == cmd.GetInfo.Subfunction.GetRuntimePublishedValuesCount:
                         data = cast(protocol_typing.Response.GetInfo.GetRuntimePublishedValuesCount, data)
@@ -967,7 +977,7 @@ class Protocol:
                         data = cast(protocol_typing.Response.MemoryControl.Read, data)
                         data['read_blocks'] = []
                         index = 0
-                        addr_size = self.get_address_size_bytes()
+                        addr_size = self.get_address_size_8bits()
                         while True:
                             if len(response.payload[index:]) < addr_size + 2:
                                 raise ProtocolParsingError('Incomplete response payload')
@@ -986,7 +996,7 @@ class Protocol:
                         data = cast(protocol_typing.Response.MemoryControl.Write, data)
                         data['written_blocks'] = []
                         index = 0
-                        addr_size = self.get_address_size_bytes()
+                        addr_size = self.get_address_size_8bits()
                         while True:
                             if len(response.payload[index:]) < addr_size + 2:
                                 raise ProtocolParsingError('Incomplete response payload')
@@ -1122,6 +1132,15 @@ class Protocol:
                             data['rx_timeout_us'],
                             data['address_size_byte']
                          ) = unpack('>HHLLLB', response.payload[0:17])
+
+                        # For backward compatibility with scrutiny-embedded 0.5 and below. Assume 8 bits
+                        # if char_bit is not given
+                        data['char_bit'] = 8
+                        if len(response.payload) >= 18:
+                            data['char_bit'] = int(response.payload[17])
+
+                        if data['char_bit'] not in (8, 16):
+                            raise ProtocolParsingError(f"Received an invalid char_bit value. Expect 8 or 16, got {data['char_bit']}")
 
                     elif subfn == cmd.CommControl.Subfunction.Connect:
                         data = cast(protocol_typing.Response.CommControl.Connect, data)

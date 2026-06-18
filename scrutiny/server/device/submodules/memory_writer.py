@@ -115,6 +115,8 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
     """The raw write request presently being processed"""
     active_raw_write_request_remaining_data: Optional[bytearray]
     """The data of the raw memory write request being processed. Contains the remaining data and gets reduced for each chunk written"""
+    _char_bit: Literal[8, 16]
+    """Number of bits in a byte. Comes from the protocol"""
 
     def __init__(self, protocol: Protocol, dispatcher: RequestDispatcher, datastore: Datastore, request_priority: int):
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -141,6 +143,12 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
         """Set both maximum request and response payload size"""
         self.set_max_request_payload_size(max_request_payload_size)
         self.set_max_response_payload_size(max_response_payload_size)
+
+    def set_char_bit(self, char_bit: int) -> None:
+        """Sets the size of a byte in the device. Can be 8 or 16. Mostly to accommodate TI C28 family"""
+        if char_bit not in (8, 16):
+            raise ValueError(f"Unsupported char_bit {char_bit}")
+        self._char_bit = cast(Literal[8, 16], char_bit)
 
     def add_forbidden_region(self, start_addr: int, size: int) -> None:
         """Add a memory region to avoid touching. They normally are broadcasted by the device itself"""
@@ -206,6 +214,7 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
         """Erase the configuration coming from the device handler"""
         self.max_request_payload_size = self.DEFAULT_MAX_REQUEST_PAYLOAD_SIZE
         self.max_response_payload_size = self.DEFAULT_MAX_RESPONSE_PAYLOAD_SIZE
+        self._char_bit = 8
         self.forbidden_regions = []
         self.readonly_regions = []
         self.memory_write_allowed = True
@@ -232,10 +241,12 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
             return False
         if self.stop_requested:
             return False
-        if self.pending_request:
+        if self.pending_request is not None:
             return False
 
-        return self.datastore.has_pending_target_update() or not self.raw_write_request_queue.empty()
+        return (self.datastore.has_pending_target_update()
+                or not self.raw_write_request_queue.empty()
+                or self.active_raw_write_request is not None)
 
     def process(self) -> None:
         """To be called periodically"""
@@ -270,19 +281,29 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
             self.clear_active_raw_write_request()
             self.active_raw_write_request = raw_write_request
 
-            is_in_forbidden_region = False
+            is_in_forbidden_region = False if self.memory_write_allowed else True
             is_in_readonly_region = False
-            candidate_region = MemoryRegion(start=self.active_raw_write_request.address, size=len(self.active_raw_write_request.data))
-            for readonly_region in self.readonly_regions:
-                if candidate_region.touches(readonly_region):
-                    is_in_readonly_region = True
-                    break
-            for forbidden_region in self.forbidden_regions:
-                if candidate_region.touches(forbidden_region):
-                    is_in_forbidden_region = True
-                    break
+            invalid_length = False
 
-            if is_in_forbidden_region:
+            datalen_8bits = len(self.active_raw_write_request.data)
+            if datalen_8bits % (self._char_bit // 8) != 0:
+                invalid_length = True
+            else:
+                region_size_bytes = datalen_8bits // (self._char_bit // 8)
+                candidate_region = MemoryRegion(start=self.active_raw_write_request.address, size=region_size_bytes)
+                for readonly_region in self.readonly_regions:
+                    if candidate_region.touches(readonly_region):
+                        is_in_readonly_region = True
+                        break
+                for forbidden_region in self.forbidden_regions:
+                    if candidate_region.touches(forbidden_region):
+                        is_in_forbidden_region = True
+                        break
+
+            if invalid_length:
+                self.active_raw_write_request.set_completed(False, "Invalid data length")
+                self.clear_active_raw_write_request()
+            elif is_in_forbidden_region:
                 self.active_raw_write_request.set_completed(False, "Forbidden")
                 self.clear_active_raw_write_request()
             elif is_in_readonly_region:
@@ -294,7 +315,11 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
         if self.active_raw_write_request is not None:
             assert self.active_raw_write_request_remaining_data is not None
             cursor = len(self.active_raw_write_request.data) - len(self.active_raw_write_request_remaining_data)
-            n_to_write = min(self.max_request_payload_size, len(self.active_raw_write_request_remaining_data))
+            max_size = self.max_request_payload_size - self.protocol.write_memory_request_overhead_size_per_block()
+            if max_size < 0:    # Should not happen. embedded require at least 32 bytes buffers. Address size is at most 8
+                raise RuntimeError("max_request_payload_size is too small")
+            n_to_write = min(len(self.active_raw_write_request_remaining_data), max_size)
+            n_to_write &= (-(self._char_bit // 8))    # Mask size to be a multiple of a byte
             block = (self.active_raw_write_request.address + cursor, bytes(self.active_raw_write_request_remaining_data[:n_to_write]))
             self.active_raw_write_request_remaining_data = self.active_raw_write_request_remaining_data[n_to_write:]
             request = self.protocol.write_memory_blocks([block])
@@ -319,8 +344,16 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
                 allowed = True
                 if isinstance(update_request.entry, DatastoreVariableEntry):
                     allowed = self.memory_write_allowed
+
+                    if update_request.entry.get_char_bit() != self._char_bit:
+                        self.logger.error(
+                            f"Cannot write {update_request.entry.get_display_path()} with CHAR_BIT={update_request.entry.get_char_bit()}, device has CHAR_BIT={self._char_bit}")
+                        allowed = False
+
                     if isinstance(update_request.entry, DatastorePointedVariableEntry):  # subclass
-                        if update_request.entry.pointer_entry.get_value() == 0:
+                        if update_request.entry.pointer_entry.get_char_bit() != self._char_bit:
+                            allowed = False
+                        elif update_request.entry.pointer_entry.get_value() == 0:
                             allowed = False  # Do not write null pointers
                     address = update_request.entry.get_address()
                     if address is None:
@@ -344,7 +377,7 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
                             self.logger.debug("Refusing write request %s accessing address %s with size %d" %
                                               (update_request.entry.display_path,
                                                addr_str,
-                                               update_request.entry.get_size()))
+                                               update_request.entry.get_size_bytes()))
                 if allowed:
                     self.target_update_request_being_processed = update_request
                     self.entry_being_updated = update_request.entry
@@ -359,6 +392,7 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
             value_to_write = self.target_update_request_being_processed.get_value()
             if value_to_write is None:
                 self.logger.critical('Value to write is not available. This should never happen')
+                self.clear_active_entry_write_request()
             else:
                 if isinstance(self.entry_being_updated, DatastoreVariableEntry):
                     encoding_succeeded = True
@@ -378,8 +412,8 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
                             write_mask=write_mask
                         )
                     else:
-                        self.target_update_value_written = None
                         self.target_update_request_being_processed.complete(success=False)
+                        self.clear_active_entry_write_request()
                 elif isinstance(self.entry_being_updated, DatastoreRPVEntry):
                     rpv = self.entry_being_updated.get_rpv()
                     encoding_succeeded = True
@@ -392,8 +426,9 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
                         request = self.protocol.write_runtime_published_values((rpv.id, value_to_write))
                     else:
                         self.target_update_request_being_processed.complete(success=False)
+                        self.clear_active_entry_write_request()
                 else:
-                    raise RuntimeError('entry_being_updated should be of type %s' % self.entry_being_updated.__class__.__name__)
+                    raise RuntimeError('entry_being_updated is unexpected: %s' % self.entry_being_updated.__class__.__name__)
 
         return request
 

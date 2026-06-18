@@ -458,6 +458,7 @@ class TestDataStore(ScrutinyUnitTest):
             layout=VariableLayout(
                 vartype=EmbeddedDataType.float32,
                 endianness=Endianness.Little,
+                char_bit=8,
                 bitoffset=None,
                 bitsize=None,
                 enum=None

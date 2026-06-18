@@ -167,6 +167,8 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
     """A dict mapping each entry to their throttler if they are rate limited"""
     _last_process_produced_no_request: bool
     """A flag to remember if calling process() failed to produce a request. Used to detect throttling condition to avoid keeping the CPU alive """
+    _char_bit: Literal[8, 16]
+    """Number of bits in a byte. Comes from the protocol"""
 
     def __init__(self, protocol: Protocol, dispatcher: RequestDispatcher, datastore: Datastore, request_priority: int):
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -203,6 +205,12 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
         self.set_max_request_payload_size(max_request_payload_size)
         self.set_max_response_payload_size(max_response_payload_size)
 
+    def set_char_bit(self, char_bit: int) -> None:
+        """Sets the size of a byte in the device. Can be 8 or 16. Mostly to accommodate TI C28 family"""
+        if char_bit not in (8, 16):
+            raise ValueError(f"Unsupported char_bit {char_bit}")
+        self._char_bit = cast(Literal[8, 16], char_bit)
+
     def add_forbidden_region(self, start_addr: int, size: int) -> None:
         """Add a memory region to avoid touching. They normally are broadcasted by the device itself"""
         if start_addr >= 0 and size > 0:
@@ -235,6 +243,14 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
     def _the_watch_callback(self, entry_id: str) -> None:
         """Callback called by the datastore whenever somebody starts watching an entry."""
         entry = self.datastore.get_entry(entry_id)
+        if isinstance(entry, DatastoreVariableEntry):   # DatastorePointedVariableEntry is an extension of DatastoreVariableEntry
+            if entry.get_char_bit() != self._char_bit:
+                # SFD handler will not load a SFD if the CHAR_BIT doesn't match.
+                # We make things robust to avoid misusage
+                self.logger.error(
+                    f"Variable {entry.get_display_path()} has CHAR_BIT={entry.get_char_bit()} but device uses CHAR_BIT={self._char_bit}. This should not happen.")
+                return
+
         if isinstance(entry, DatastorePointedVariableEntry):
             self.watched_pointed_var_entries.add(entry)
         elif isinstance(entry, DatastoreVariableEntry):
@@ -251,12 +267,17 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
         """Callback called by the datastore  whenever somebody stops watching an entry"""
         entry = self.datastore.get_entry(entry_id)
         if len(self.datastore.get_watchers(entry_id)) == 0:
-            if isinstance(entry, DatastorePointedVariableEntry):
-                self.watched_pointed_var_entries.remove(entry)
-            elif isinstance(entry, DatastoreVariableEntry):
-                self.watched_var_entries.remove(entry)
-            elif isinstance(entry, DatastoreRPVEntry):
-                self.watched_rpv_entries.remove(entry)
+            try:
+                if isinstance(entry, DatastorePointedVariableEntry):
+                    self.watched_pointed_var_entries.remove(entry)
+                elif isinstance(entry, DatastoreVariableEntry):
+                    self.watched_var_entries.remove(entry)
+                elif isinstance(entry, DatastoreRPVEntry):
+                    self.watched_rpv_entries.remove(entry)
+            except KeyError:
+                # Should not happen, we log in case.
+                # Would happen only if the watch callback refused to read, but those conditions are prevented at higher level.
+                self.logger.debug(f"Cannot remove entry {entry.get_display_path()} from MemoryReader list")
 
         self._update_entry_update_rate(entry, rate=self.datastore.get_effective_update_rate(entry))
 
@@ -327,6 +348,7 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
         """Erase the configuration coming from the device handler"""
         self.max_request_payload_size = self.DEFAULT_MAX_REQUEST_PAYLOAD_SIZE
         self.max_response_payload_size = self.DEFAULT_MAX_RESPONSE_PAYLOAD_SIZE
+        self._char_bit = 8
         self.forbidden_regions = []
 
     def would_send_data(self) -> bool:
@@ -349,6 +371,7 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
             or len(self.watched_rpv_entries) > 0
             or len(self.watched_pointed_var_entries) > 0
             or not self.raw_read_request_queue.empty()
+            or self.active_raw_read_request is not None
         )
 
     def process(self) -> None:
@@ -478,6 +501,7 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
         block_list: List[Tuple[int, int]] = []
         skipped_entries_count = 0
         clusters_in_request: List[Cluster] = []
+        size_multiplier = self._char_bit // 8   # Protocol is a 8bit protocol.
 
         if vartype == VarType.AbsoluteAddress:
             total_size = len(self.active_watched_var_entries)
@@ -490,7 +514,7 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
         else:
             raise NotImplementedError("Unsupported variable type")
 
-        memory_to_read = MemoryContent(retain_data=False)  # We'll use that for agglomeration
+        memory_to_read = MemoryContent(retain_data=False, char_bit=self._char_bit)  # We'll use that for agglomeration
         while len(entries_in_request) + skipped_entries_count < total_size:
             # .entry because we use a wrapper for SortedSet
             must_skip = False
@@ -511,13 +535,21 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
                 if not throttler.allowed(1):
                     must_skip = True
 
+            if candidate_entry.get_char_bit() != self._char_bit:
+                # SFD handler will not load a SFD if the CHAR_BIT doesn't match.
+                # The watch callback prevent this too
+                # We do a paranoid check here anyway. Should catch misusage of the MemoryReader in this codebase.
+                self.logger.error(
+                    f"Variable {candidate_entry.get_display_path()} has CHAR_BIT={candidate_entry.get_char_bit()} but device uses CHAR_BIT={self._char_bit}. This should not happen.")
+                must_skip = True
+
             candidate_start = candidate_entry.get_address()
-            candidate_size = candidate_entry.get_size()
+            candidate_size_bytes = candidate_entry.get_size_bytes()
             if not must_skip:
                 # Check for forbidden region. They disallow read and write
                 is_in_forbidden_region = False
                 assert candidate_start is not None
-                candidate_region = MemoryRegion(start=candidate_start, size=candidate_size)
+                candidate_region = MemoryRegion(start=candidate_start, size=candidate_size_bytes)
                 for forbidden_region in self.forbidden_regions:
                     if candidate_region.touches(forbidden_region):
                         is_in_forbidden_region = True
@@ -532,7 +564,7 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
                 skipped_entries_count += 1
             else:
                 assert candidate_start is not None
-                memory_to_read.add_empty(candidate_start, candidate_size)
+                memory_to_read.add_empty(candidate_start, candidate_size_bytes)
                 clusters_candidate = memory_to_read.get_cluster_list_no_data_by_address()
 
                 if len(clusters_candidate) > max_block_per_request:
@@ -542,7 +574,7 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
                 response_payload_size = 0
                 for cluster in clusters_candidate:
                     response_payload_size += self.protocol.read_memory_response_overhead_size_per_block()
-                    response_payload_size += cluster.size
+                    response_payload_size += cluster.size * size_multiplier
 
                 if response_payload_size > self.max_response_payload_size:
                     break   # No space in response
@@ -569,7 +601,7 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
 
         block_list = []
         for cluster in clusters_in_request:
-            block_list.append((cluster.start_addr, cluster.size))
+            block_list.append((cluster.start_addr, cluster.size * size_multiplier))
 
         request = self.protocol.read_memory_blocks(block_list) if len(block_list) > 0 else None
         return (request, entries_in_request, cursor_wrapped)
@@ -642,10 +674,10 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
             if self.active_raw_read_request.size > self.MAX_RAW_READ_SIZE:    # Hard limit
                 self.active_raw_read_request.set_completed(False, None, "Size too big")
                 self.clear_active_raw_read_request()
-            elif self.active_raw_read_request.size < 0 or self.active_raw_read_request.address < 0:
+            elif self.active_raw_read_request.size <= 0 or self.active_raw_read_request.address < 0:
                 self.active_raw_read_request.set_completed(False, None, "Bad request")
                 self.clear_active_raw_read_request()
-            elif self.active_raw_read_request.address + self.active_raw_read_request.size >= 2**self.protocol.get_address_size_bits():
+            elif self.active_raw_read_request.address + self.active_raw_read_request.size > 2**self.protocol.get_address_size_bits():
                 self.active_raw_read_request.set_completed(False, None, "Read out of bound")
                 self.clear_active_raw_read_request()
             elif is_in_forbidden_region:
@@ -658,7 +690,10 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
         # We assume tha the device can accept a request with a single read block. Otherwise nothing would work.
 
         overhead = self.protocol.read_memory_response_overhead_size_per_block()
-        size = min(self.max_response_payload_size - overhead, self.active_raw_read_request.size - self.active_raw_read_request_cursor)
+        max_response_data_bytes = self.max_response_payload_size - overhead
+        if max_response_data_bytes < 0:  # Should not happen. scrutiny-embedded require 32 bytes buffer minimum and overhead is less than that.
+            raise RuntimeError("max_response_payload_size is too small")
+        size = min(max_response_data_bytes, self.active_raw_read_request.size - self.active_raw_read_request_cursor)
         address = self.active_raw_read_request.address + self.active_raw_read_request_cursor
         device_request = self.protocol.read_single_memory_block(address=address, length=size)
         self.active_raw_read_request_cursor += size
@@ -727,7 +762,7 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
             raise NotImplementedError("Impossible read type")
 
         try:
-            temp_memory = MemoryContent()
+            temp_memory = MemoryContent(char_bit=self._char_bit)
             for block in response_data['read_blocks']:
                 temp_memory.write(block['address'], block['data'])
 
@@ -741,7 +776,7 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
                     addr = entry.get_address()
                     if addr is not None:    # Should always be True.
                         block_addr = self.protocol.get_truncated_address(addr)
-                        raw_data = temp_memory.read(block_addr, entry.get_size())
+                        raw_data = temp_memory.read(block_addr, entry.get_size_bytes())
                         entry.set_value_from_data(raw_data)
                     else:
                         # Unset addresses or Nullptr are skipped. Changing addresses are also skipped.

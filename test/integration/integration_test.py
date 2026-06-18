@@ -111,7 +111,8 @@ class ScrutinyIntegrationTest(ScrutinyUnitTest):
     def assert_datastore_variable_entry(self, entry: DatastoreVariableEntry, address: int, dtype: EmbeddedDataType):
         self.assertEqual(entry.get_address(), address)
         self.assertEqual(entry.get_data_type(), dtype)
-        entry.get_size()
+        entry.get_size_8bits()
+        entry.get_size_bytes()
 
     def assert_datastore_rpv_entry(self, entry: DatastoreRPVEntry, id: int, dtype: EmbeddedDataType):
         self.assertEqual(entry.rpv.datatype, dtype)

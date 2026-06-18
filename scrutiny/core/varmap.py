@@ -112,7 +112,7 @@ class VarMap:
         __slots__ = ('endianness', 'char_bit', 'typemap', 'variables', 'enums')
         endianness: Endianness
         """Target device endianness"""
-        char_bit: int
+        char_bit: Literal[8, 16]
         """Size of a byte on this platform"""
         typemap: Dict[str, TypeEntry]
         """Mapping of type ID strings to ``TypeEntry`` records"""
@@ -150,7 +150,7 @@ class VarMap:
             validation.assert_dict_key(d, 'enums', dict)
 
             self.endianness = Endianness.from_str(d['endianness'])
-            self.char_bit = d.get('char_bit', int(8))    # Backward compatibility with v0.13 and earlier. char was assumed 8bits
+            self.char_bit = cast(Literal[8, 16], d.get('char_bit', int(8)))    # Backward compatibility with v0.13 and earlier. char was assumed 8bits
             validation.assert_type(self.char_bit, 'char_bit', int)
             if self.char_bit not in (8, 16):
                 raise ValueError(f"Unsupported char_bit {self.char_bit}")
@@ -419,7 +419,7 @@ class VarMap:
         """Return the target device endianness"""
         return self._content.endianness
 
-    def set_char_bit(self, char_bit: int) -> None:
+    def set_char_bit(self, char_bit: Literal[8, 16]) -> None:
         """Set the size of a byte.
         :param char_bit: the size of a byte in bits. Should match the compiler CHAR_BIT macro
         """
@@ -427,7 +427,7 @@ class VarMap:
             raise ValueError(f"Unsupported char_bit {char_bit}")
         self._content.char_bit = char_bit
 
-    def get_char_bit(self) -> int:
+    def get_char_bit(self) -> Literal[8, 16]:
         """Return the size of a byte on this platform in bits"""
         return self._content.char_bit
 
@@ -717,6 +717,7 @@ class VarMap:
 
             varlayout = VariableLayout(
                 vartype=self._get_type(vardef),
+                char_bit=self.get_char_bit(),
                 endianness=self.get_endianness(),
                 bitsize=self._get_bitsize(vardef),
                 bitoffset=self._get_bitoffset(vardef),
@@ -813,6 +814,7 @@ class VarMap:
             vartype=self._get_type(vardef),
             path_segments=parsed_path.get_segments(),
             location=location,
+            char_bit=self.get_char_bit(),
             endianness=self.get_endianness(),
             bitsize=self._get_bitsize(vardef),
             bitoffset=self._get_bitoffset(vardef),

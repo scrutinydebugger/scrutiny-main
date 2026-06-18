@@ -123,7 +123,7 @@ class TestProtocolV1_0(ScrutinyUnitTest):
         data = self.proto.parse_request(req)
         self.assertEqual(data['region_type'], cmd.GetInfo.MemoryRangeType.Forbidden)
         self.assertEqual(data['region_index'], 0x12)
-        self.check_expected_payload_size(req, 2 + self.proto.get_address_size_bytes() * 2)
+        self.check_expected_payload_size(req, 2 + self.proto.get_address_size_8bits() * 2)
 
     def test_req_get_rpv_count(self):
         req = self.proto.get_rpv_count()
@@ -583,8 +583,8 @@ class TestProtocolV1_0(ScrutinyUnitTest):
         req = self.proto.comm_get_params()
         self.assert_req_response_bytes(req, [2, 3, 0, 0])
         data = self.proto.parse_request(req)
-        # Rx_buffer_size, tx_buffer_size, bitrate, heartbeat_timeout, rx_timeout, address_size
-        self.check_expected_payload_size(req, 2 + 2 + 4 + 4 + 4 + 1)
+        # Rx_buffer_size, tx_buffer_size, bitrate, heartbeat_timeout, rx_timeout, address_size, char_bit
+        self.check_expected_payload_size(req, 2 + 2 + 4 + 4 + 4 + 1 + 1)
 
     def test_req_comm_connect(self):
         magic = bytes([0x82, 0x90, 0x22, 0x66])
@@ -1275,9 +1275,10 @@ class TestProtocolV1_0(ScrutinyUnitTest):
 
     def test_response_comm_get_params(self):
         response = self.proto.respond_comm_get_params(max_rx_data_size=0x1234, max_tx_data_size=0x4321,
-                                                      max_bitrate_bps=0x11223344, heartbeat_timeout_us=0x99887766, rx_timeout_us=0x98765432, address_size_byte=4);
-        self.assert_req_response_bytes(response, [0x82, 3, 0, 0, 17, 0x12, 0x34, 0x43, 0x21, 0x11, 0x22,
-                                       0x33, 0x44, 0x99, 0x88, 0x77, 0x66, 0x98, 0x76, 0x54, 0x32, 0x04]);
+                                                      max_bitrate_bps=0x11223344, heartbeat_timeout_us=0x99887766,
+                                                      rx_timeout_us=0x98765432, address_size_byte=4, char_bit=16)
+        self.assert_req_response_bytes(response, [0x82, 3, 0, 0, 18, 0x12, 0x34, 0x43, 0x21, 0x11, 0x22,
+                                       0x33, 0x44, 0x99, 0x88, 0x77, 0x66, 0x98, 0x76, 0x54, 0x32, 0x04, 0x10])
         data = self.proto.parse_response(response)
         self.assertEqual(data['max_rx_data_size'], 0x1234)
         self.assertEqual(data['max_tx_data_size'], 0x4321)
@@ -1285,6 +1286,23 @@ class TestProtocolV1_0(ScrutinyUnitTest):
         self.assertEqual(data['heartbeat_timeout_us'], 0x99887766)
         self.assertEqual(data['rx_timeout_us'], 0x98765432)
         self.assertEqual(data['address_size_byte'], 4)
+        self.assertEqual(data['char_bit'], 16)
+
+        # Remove char_bit for backward compatibility test.
+        # embedded lib v0.5 and below will not provide it.
+        response = self.proto.respond_comm_get_params(max_rx_data_size=0x1234, max_tx_data_size=0x4321,
+                                                      max_bitrate_bps=0x11223344, heartbeat_timeout_us=0x99887766,
+                                                      rx_timeout_us=0x98765432, address_size_byte=4, char_bit=None)
+        self.assert_req_response_bytes(response, [0x82, 3, 0, 0, 17, 0x12, 0x34, 0x43, 0x21, 0x11, 0x22,
+                                       0x33, 0x44, 0x99, 0x88, 0x77, 0x66, 0x98, 0x76, 0x54, 0x32, 0x04])
+        data = self.proto.parse_response(response)
+        self.assertEqual(data['max_rx_data_size'], 0x1234)
+        self.assertEqual(data['max_tx_data_size'], 0x4321)
+        self.assertEqual(data['max_bitrate_bps'], 0x11223344)
+        self.assertEqual(data['heartbeat_timeout_us'], 0x99887766)
+        self.assertEqual(data['rx_timeout_us'], 0x98765432)
+        self.assertEqual(data['address_size_byte'], 4)
+        self.assertEqual(data['char_bit'], 8)   # Default to 8 bits
 
     def test_response_comm_connect(self):
         magic = bytes([0x82, 0x90, 0x22, 0x66])

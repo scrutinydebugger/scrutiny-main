@@ -79,7 +79,7 @@ class TestMakeVarMap_C2000_f280049C(ScrutinyUnitTest):
                    float_tol: Optional[float] = None,
                    enum: Optional[str] = None):
         v = self.varmap.get_var(fullname)
-        self.assertTrue(v.get_size() % 2 == 0, "variable size not a multiple of 16bits")  # C2000 has a byte of 16bits.
+        self.assertTrue(v.get_size_8bits() % 2 == 0, "variable size not a multiple of 16bits")  # C2000 has a byte of 16bits.
 
         if thetype is not None:
             self.assertEqual(thetype, v.get_type())
@@ -118,13 +118,13 @@ class TestMakeVarMap_C2000_f280049C(ScrutinyUnitTest):
 
         if value_at_loc is not None:
             if v.has_absolute_address():
-                data = self.memdump_parser.read_little_endian(v.get_address(), v.get_size() // 2)
+                data = self.memdump_parser.read_little_endian(v.get_address(), v.get_size_byte())
             elif v.has_pointed_address():
                 ptr = v.get_pointer()
                 ptr_var = self.varmap.get_var(ptr.pointer_path)
-                ptr_data = self.memdump_parser.read_little_endian(ptr_var.get_address(), ptr_var.get_size() // 2)
+                ptr_data = self.memdump_parser.read_little_endian(ptr_var.get_address(), ptr_var.get_size_byte())
                 address = ptr_var.decode(ptr_data)
-                data = self.memdump_parser.read_little_endian(address + ptr.pointer_offset, v.get_size() // 2)
+                data = self.memdump_parser.read_little_endian(address + ptr.pointer_offset, v.get_size_byte())
             else:
                 raise NotImplementedError("Don't know how to fetch the data in the memdump")
             val = v.decode(data)

@@ -217,6 +217,7 @@ class Response:
             heartbeat_timeout_us: int
             rx_timeout_us: int
             address_size_byte: int
+            char_bit: int
 
         class Connect(TypedDict):
             magic: bytes

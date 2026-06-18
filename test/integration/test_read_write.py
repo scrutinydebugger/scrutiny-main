@@ -34,7 +34,7 @@ class TestReadWrite(ScrutinyIntegrationTestWithTestSFD1):
     def init_device_memory(self, entries: List[DatastoreEntry]):
         for entry in entries:
             if isinstance(entry, DatastoreVariableEntry):
-                self.emulated_device.write_memory(entry.get_address(), b'\x00' * entry.get_size())
+                self.emulated_device.write_memory(entry.get_address(), b'\x00' * entry.get_size_8bits())
 
     def test_read(self):
 
@@ -401,7 +401,7 @@ class TestReadMemoryForbidden(ScrutinyIntegrationTestWithTestSFD1):
         self.emulated_device.write_memory(0x1000, bytes([i for i in range(100)]), check_access_rights=False)
         for entry in entries:
             if isinstance(entry, DatastoreVariableEntry):
-                self.emulated_device.write_memory(entry.get_address(), b'\x00' * entry.get_size(), check_access_rights=False)
+                self.emulated_device.write_memory(entry.get_address(), b'\x00' * entry.get_size_8bits(), check_access_rights=False)
 
     def test_read_var_not_allowed(self):
         # In this test we make sure a write request is denied by the server when the device disables write.
@@ -455,7 +455,7 @@ class TestWriteMemoryNotAllowed(ScrutinyIntegrationTestWithTestSFD1):
     def init_device_memory(self, entries: List[DatastoreEntry]):
         for entry in entries:
             if isinstance(entry, DatastoreVariableEntry):
-                self.emulated_device.write_memory(entry.get_address(), b'\x00' * entry.get_size(), check_access_rights=False)
+                self.emulated_device.write_memory(entry.get_address(), b'\x00' * entry.get_size_8bits(), check_access_rights=False)
 
     def test_write_var_not_allowed(self):
         # In this test we make sure a write request is denied by the server when the device disables write.
@@ -568,7 +568,7 @@ class TestWriteMemoryInReadonlyRegions(ScrutinyIntegrationTestWithTestSFD1):
     def init_device_memory(self, entries: List[DatastoreEntry]):
         for entry in entries:
             if isinstance(entry, DatastoreVariableEntry):
-                self.emulated_device.write_memory(entry.get_address(), b'\x00' * entry.get_size(), check_access_rights=False)
+                self.emulated_device.write_memory(entry.get_address(), b'\x00' * entry.get_size_8bits(), check_access_rights=False)
 
     def test_write_var_not_allowed(self):
         # In this test we make sure a write request is denied by the server when the device disables write.
@@ -700,7 +700,7 @@ class TestWriteMemoryInForbiddenRegions(ScrutinyIntegrationTestWithTestSFD1):
     def init_device_memory(self, entries: List[DatastoreEntry]):
         for entry in entries:
             if isinstance(entry, DatastoreVariableEntry):
-                self.emulated_device.write_memory(entry.get_address(), b'\x00' * entry.get_size(), check_access_rights=False)
+                self.emulated_device.write_memory(entry.get_address(), b'\x00' * entry.get_size_8bits(), check_access_rights=False)
 
     def test_write_var_not_allowed(self):
         # In this test we make sure a write request is denied by the server when the device disables write.

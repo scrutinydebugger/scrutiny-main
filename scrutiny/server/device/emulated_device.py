@@ -693,7 +693,8 @@ class EmulatedDevice:
                 max_bitrate_bps=self.max_bitrate_bps,
                 heartbeat_timeout_us=self.heartbeat_timeout_us,
                 rx_timeout_us=self.rx_timeout_us,
-                address_size_byte=int(self.address_size_bits / 8)
+                address_size_byte=int(self.address_size_bits / 8),
+                char_bit=8
             )
 
         else:

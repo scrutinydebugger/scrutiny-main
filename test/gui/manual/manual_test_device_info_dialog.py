@@ -35,7 +35,7 @@ def make_device_info(config: Config) -> DeviceInfo:
 
     ro_mem: List[MemoryRegion] = []
     forbidden_mem: List[MemoryRegion] = []
-    datalogging: Optional[List[DataloggingCapabilities]] = None
+    datalogging: Optional[DataloggingCapabilities] = None
     sampling_rates: List[SamplingRate] = []
     supported_features = SupportedFeatureMap(
         datalogging=config.add_datalogging,
@@ -76,7 +76,8 @@ def make_device_info(config: Config) -> DeviceInfo:
         supported_features=supported_features,
         datalogging_capabilities=datalogging,
         readonly_memory_regions=ro_mem,
-        forbidden_memory_regions=forbidden_mem
+        forbidden_memory_regions=forbidden_mem,
+        char_bit=8
     )
 
 

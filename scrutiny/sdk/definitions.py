@@ -327,6 +327,9 @@ class DeviceInfo:
     datalogging_capabilities: Optional[DataloggingCapabilities]
     """Contains the device datalogging capabilities. ``None`` if datalogging is not supported"""
 
+    char_bit: Literal[8, 16]
+    """Number of bits in a byte"""
+
 
 @dataclass(frozen=True, slots=True)
 class SFDInfo:
