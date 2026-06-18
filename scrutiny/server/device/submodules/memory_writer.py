@@ -281,18 +281,27 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
 
             is_in_forbidden_region = False
             is_in_readonly_region = False
+            invalid_length = False
 
-            candidate_region = MemoryRegion(start=self.active_raw_write_request.address, size=len(self.active_raw_write_request.data))
-            for readonly_region in self.readonly_regions:
-                if candidate_region.touches(readonly_region):
-                    is_in_readonly_region = True
-                    break
-            for forbidden_region in self.forbidden_regions:
-                if candidate_region.touches(forbidden_region):
-                    is_in_forbidden_region = True
-                    break
+            datalen_8bits = len(self.active_raw_write_request.data)
+            if datalen_8bits % (self._char_bit // 8) != 0:
+                invalid_length = True
+            else:
+                region_size_bytes = datalen_8bits // (self._char_bit // 8)
+                candidate_region = MemoryRegion(start=self.active_raw_write_request.address, size=region_size_bytes)
+                for readonly_region in self.readonly_regions:
+                    if candidate_region.touches(readonly_region):
+                        is_in_readonly_region = True
+                        break
+                for forbidden_region in self.forbidden_regions:
+                    if candidate_region.touches(forbidden_region):
+                        is_in_forbidden_region = True
+                        break
 
-            if is_in_forbidden_region:
+            if invalid_length:
+                self.active_raw_write_request.set_completed(False, "Invalid data length")
+                self.clear_active_raw_write_request()
+            elif is_in_forbidden_region:
                 self.active_raw_write_request.set_completed(False, "Forbidden")
                 self.clear_active_raw_write_request()
             elif is_in_readonly_region:
@@ -304,7 +313,11 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
         if self.active_raw_write_request is not None:
             assert self.active_raw_write_request_remaining_data is not None
             cursor = len(self.active_raw_write_request.data) - len(self.active_raw_write_request_remaining_data)
-            n_to_write = min(self.max_request_payload_size, len(self.active_raw_write_request_remaining_data))
+            max_size = self.max_request_payload_size - self.protocol.write_memory_request_overhead_size_per_block()
+            if max_size < 0:    # Should not happen. embedded require at least 32 bytes buffers. Address size is at most 8
+                raise RuntimeError("max_request_payload_size is too small")
+            n_to_write = min(len(self.active_raw_write_request_remaining_data), max_size)
+            n_to_write &= (-(self._char_bit // 8))    # Mask size to be a multiple of a byte
             block = (self.active_raw_write_request.address + cursor, bytes(self.active_raw_write_request_remaining_data[:n_to_write]))
             self.active_raw_write_request_remaining_data = self.active_raw_write_request_remaining_data[n_to_write:]
             request = self.protocol.write_memory_blocks([block])
@@ -329,8 +342,16 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
                 allowed = True
                 if isinstance(update_request.entry, DatastoreVariableEntry):
                     allowed = self.memory_write_allowed
+
+                    if update_request.entry.get_char_bit() != self._char_bit:
+                        self.logger.error(
+                            f"Cannot write {update_request.entry.get_display_path()} with CHAR_BIT={update_request.entry.get_char_bit()}, device has CHAR_BIT={self._char_bit}")
+                        allowed = False
+
                     if isinstance(update_request.entry, DatastorePointedVariableEntry):  # subclass
-                        if update_request.entry.pointer_entry.get_value() == 0:
+                        if update_request.entry.pointer_entry.get_char_bit() != self._char_bit:
+                            allowed = False
+                        elif update_request.entry.pointer_entry.get_value() == 0:
                             allowed = False  # Do not write null pointers
                     address = update_request.entry.get_address()
                     if address is None:

@@ -64,53 +64,57 @@ class TestMemoryWriterBasicReadOperation(ScrutinyUnitTest):
 
     # Write a single datastore entry. Make sure the request is good.
     def test_simple_var_write(self):
-        nfloat = 1
-        address = 0x1000
-        ds = Datastore()
-        entries = list(make_dummy_var_entries(address=address, n=nfloat, vartype=EmbeddedDataType.float32))
-        ds.add_entries(entries)
-        dispatcher = RequestDispatcher()
 
-        protocol = Protocol(1, 0)
-        protocol.set_address_size_bits(32)
-        writer = MemoryWriter(protocol, dispatcher=dispatcher, datastore=ds, request_priority=0)
-        writer.set_max_request_payload_size(1024)  # big enough for all of them
-        writer.set_max_response_payload_size(1024)  # big enough for all of them
-        writer.start()
+        for char_bit in (8, 16):
+            with self.subTest(f'char_bit={char_bit}'):
+                nfloat = 1
+                address = 0x1000
+                ds = Datastore()
+                entries = list(make_dummy_var_entries(address=address, n=nfloat, vartype=EmbeddedDataType.float32, char_bit=char_bit))
+                ds.add_entries(entries)
+                dispatcher = RequestDispatcher()
 
-        entry_to_write = entries[0]
-        writer.process()
-        dispatcher.process()
-        self.assertIsNone(dispatcher.pop_next())
-        entry_to_write.set_value(0)
-        update_request = ds.update_target_value(entry_to_write, d2f(3.1415926), no_callback)
-        self.assertTrue(ds.has_pending_target_update())
-        writer.process()
-        dispatcher.process()
+                protocol = Protocol(1, 0)
+                protocol.set_address_size_bits(32)
+                writer = MemoryWriter(protocol, dispatcher=dispatcher, datastore=ds, request_priority=0)
+                writer.set_max_request_payload_size(1024)  # big enough for all of them
+                writer.set_max_response_payload_size(1024)  # big enough for all of them
+                writer.set_char_bit(char_bit)  # big enough for all of them
+                writer.start()
 
-        record = dispatcher.pop_next()
-        self.assertIsNotNone(record)
+                entry_to_write = entries[0]
+                writer.process()
+                dispatcher.process()
+                self.assertIsNone(dispatcher.pop_next())
+                entry_to_write.set_value(0)
+                update_request = ds.update_target_value(entry_to_write, d2f(3.1415926), no_callback)
+                self.assertTrue(ds.has_pending_target_update())
+                writer.process()
+                dispatcher.process()
 
-        self.assertEqual(record.request.command, MemoryControl)
-        self.assertEqual(MemoryControl.Subfunction(record.request.subfn), MemoryControl.Subfunction.Write)
+                record = dispatcher.pop_next()
+                self.assertIsNotNone(record)
 
-        request_data = cast(protocol_typing.Request.MemoryControl.Write, protocol.parse_request(record.request))
+                self.assertEqual(record.request.command, MemoryControl)
+                self.assertEqual(MemoryControl.Subfunction(record.request.subfn), MemoryControl.Subfunction.Write)
 
-        self.assertEqual(len(request_data['blocks_to_write']), 1)
-        self.assertEqual(request_data['blocks_to_write'][0]['address'], 0x1000)
-        self.assertEqual(request_data['blocks_to_write'][0]['data'], struct.pack('<f', d2f(3.1415926)))
+                request_data = cast(protocol_typing.Request.MemoryControl.Write, protocol.parse_request(record.request))
 
-        block_in_response = []
-        for block in request_data['blocks_to_write']:
-            block_in_response.append((block['address'], len(block['data'])))
+                self.assertEqual(len(request_data['blocks_to_write']), 1)
+                self.assertEqual(request_data['blocks_to_write'][0]['address'], 0x1000)
+                self.assertEqual(request_data['blocks_to_write'][0]['data'], struct.pack('<f', d2f(3.1415926)))
 
-        response = protocol.respond_write_memory_blocks(block_in_response)
+                block_in_response = []
+                for block in request_data['blocks_to_write']:
+                    block_in_response.append((block['address'], len(block['data'])))
 
-        record.complete(success=True, response=response)
-        self.assertFalse(ds.has_pending_target_update())
+                response = protocol.respond_write_memory_blocks(block_in_response)
 
-        self.assertTrue(update_request.is_complete())
-        self.assertTrue(update_request.is_success())
+                record.complete(success=True, response=response)
+                self.assertFalse(ds.has_pending_target_update())
+
+                self.assertTrue(update_request.is_complete())
+                self.assertTrue(update_request.is_success())
 
     def test_simple_pointed_var_write(self):
         npointers = 1
@@ -481,6 +485,46 @@ class TestMemoryWriterBasicReadOperation(ScrutinyUnitTest):
             self.assertIsNotNone(update_time_us, 'val=%d' % val)
             self.assertGreaterEqual(update_time_us, time_start_us, 'val=%d' % val)
 
+    def test_refuse_to_write_char_bit_mismatch(self):
+        ds = Datastore()
+        entries = list(make_dummy_var_entries(address=0x1000, n=1, vartype=EmbeddedDataType.float32, char_bit=8))
+        ds.add_entries(entries)
+        dispatcher = RequestDispatcher()
+
+        protocol = Protocol(1, 0)
+        protocol.set_address_size_bits(32)
+        writer = MemoryWriter(protocol, dispatcher=dispatcher, datastore=ds, request_priority=0)
+        writer.set_max_request_payload_size(1024)  # big enough for all of them
+        writer.set_max_response_payload_size(1024)  # big enough for all of them
+        writer.set_char_bit(16)  # mismatch
+        writer.start()
+
+        entry_to_write = entries[0]
+        writer.process()
+        dispatcher.process()
+        self.assertIsNone(dispatcher.pop_next())
+        entry_to_write.set_value(0)
+
+        callback_history = []
+
+        def callback(success: bool, entry: DatastoreEntry, timestamp: float):
+            callback_history.append((success, entry, timestamp))
+
+        update_request = ds.update_target_value(entry_to_write, d2f(3.1415926), callback)
+        self.assertTrue(ds.has_pending_target_update())
+        writer.process()
+        dispatcher.process()
+
+        self.assertIsNone(dispatcher.pop_next())    # Refused.
+        self.assertFalse(ds.has_pending_target_update())
+
+        self.assertTrue(update_request.is_complete())
+        self.assertFalse(update_request.is_success())
+
+        self.assertEqual(len(callback_history), 1)
+        self.assertEqual(callback_history[0][0], False)
+        self.assertIs(callback_history[0][1], entry_to_write)
+
     # Write a single datastore entry. Make sure the request is good.
 
     def test_simple_rpv_write(self):
@@ -704,7 +748,7 @@ class TestRawMemoryWrite(ScrutinyUnitTest):
         self.dispatcher = RequestDispatcher()
         self.protocol = Protocol(1, 0)
         self.writer = MemoryWriter(protocol=self.protocol, dispatcher=self.dispatcher, datastore=self.ds, request_priority=0)
-        self.writer.set_max_request_payload_size(128)
+        self.writer.set_max_request_payload_size(128 + self.protocol.write_memory_request_overhead_size_per_block())
         self.writer.set_max_response_payload_size(256)
         self.writer.start()
 
@@ -734,6 +778,44 @@ class TestRawMemoryWrite(ScrutinyUnitTest):
             record.complete(True, response)
 
             if i < 2:
+                self.assertEqual(callback_data.call_count, 0)
+            else:
+                self.assertEqual(callback_data.call_count, 1)
+                self.assertTrue(callback_data.success)
+                self.assertIsInstance(callback_data.server_time_us, float)
+                self.assertIsNotNone(callback_data.error)
+
+    def test_simple_write_no_overflow(self):
+        MAX_DATA_BYTES_PER_MSG = 64
+        REQ_SIZE_LIMIT = MAX_DATA_BYTES_PER_MSG + 2 + 4  # + length + address
+        self.protocol.set_address_size_bits(32)
+        self.writer.set_max_request_payload_size(REQ_SIZE_LIMIT)
+        for i in range(3):
+            self.writer.process()
+        self.assertIsNone(self.dispatcher.pop_next())
+
+        payload = bytes([random.randint(0, 255) for i in range(257)])
+
+        callback_data = self.CallbackDataContainer()
+        self.writer.request_memory_write(0x1000, payload, callback=functools.partial(self.the_callback, container=callback_data))
+
+        for i in range(5):
+            cursor = i * 64
+
+            self.writer.process()
+            record = self.dispatcher.pop_next()
+            self.assertIsNotNone(record)
+            self.assertEqual(record.request.command, MemoryControl)
+            self.assertEqual(MemoryControl.Subfunction(record.request.subfn), MemoryControl.Subfunction.Write)
+            self.assertLessEqual(record.request.data_size(), REQ_SIZE_LIMIT)    # No overflow
+            request_data = cast(protocol_typing.Request.MemoryControl.Write, self.protocol.parse_request(record.request))
+            self.assertEqual(len(request_data['blocks_to_write']), 1)
+            self.assertEqual(request_data['blocks_to_write'][0]['address'], 0x1000 + cursor)
+            self.assertEqual(request_data['blocks_to_write'][0]['data'], payload[cursor:cursor + 64])
+            response = self.protocol.respond_write_memory_blocks([(0x1000 + cursor, len(payload[cursor:cursor + 64]))])
+            record.complete(True, response)
+
+            if i < 4:
                 self.assertEqual(callback_data.call_count, 0)
             else:
                 self.assertEqual(callback_data.call_count, 1)
@@ -894,6 +976,149 @@ class TestRawMemoryWrite(ScrutinyUnitTest):
                     self.assertTrue(callback_data.success)
                     self.assertIsInstance(callback_data.server_time_us, float)
                     self.assertIsNotNone(callback_data.error)
+
+    def test_write_charbit16_invalid_size(self):
+        self.writer.set_char_bit(16)
+        self.writer.process()
+        self.assertIsNone(self.dispatcher.pop_next())
+        callback_data = self.CallbackDataContainer()
+        payload = bytes([random.randint(0, 255) for i in range(5)])  # Size is not a multiple of 16bits
+        self.writer.request_memory_write(0x1000, payload, callback=functools.partial(self.the_callback, container=callback_data))
+        self.writer.process()
+
+        self.assertIsNone(self.dispatcher.pop_next())
+        self.assertEqual(callback_data.call_count, 1)
+        self.assertFalse(callback_data.success)     # Failure detection
+        self.assertIsInstance(callback_data.server_time_us, float)
+        self.assertIsNotNone(callback_data.error)
+        self.assertGreater(len(callback_data.error), 0)
+
+    def test_write_charbit16_readonly_region_size_correctly_checked(self):
+        self.writer.set_char_bit(16)
+        self.writer.process()
+        self.assertIsNone(self.dispatcher.pop_next())
+
+        callback_data = self.CallbackDataContainer()
+        self.writer.add_readonly_region(0x1000, 15)
+
+        # Will be refused
+        payload = bytes([random.randint(0, 255) for i in range(128)])
+        self.writer.request_memory_write(0x1000, payload, callback=functools.partial(self.the_callback, container=callback_data))
+        self.assertEqual(callback_data.call_count, 0)
+        self.writer.process()
+        self.dispatcher.process()
+        self.assertIsNone(self.dispatcher.pop_next())
+        self.assertEqual(callback_data.call_count, 1)
+        self.assertFalse(callback_data.success)     # Failure detection
+        self.assertIsInstance(callback_data.server_time_us, float)
+        self.assertIsNotNone(callback_data.error)
+        self.assertGreater(len(callback_data.error), 0)
+
+        # Will be refused
+        callback_data = self.CallbackDataContainer()
+        self.writer.request_memory_write(0x1000 - 63, payload, callback=functools.partial(self.the_callback, container=callback_data))
+        self.writer.process()
+        self.dispatcher.process()
+        self.assertIsNone(self.dispatcher.pop_next())    # It went through!
+        self.assertIsNone(self.dispatcher.pop_next())
+        self.assertEqual(callback_data.call_count, 1)
+        self.assertFalse(callback_data.success)     # Failure detection
+        self.assertIsInstance(callback_data.server_time_us, float)
+        self.assertIsNotNone(callback_data.error)
+        self.assertGreater(len(callback_data.error), 0)
+
+        # Will be accepted
+        callback_data = self.CallbackDataContainer()
+        self.writer.request_memory_write(0x1000 - 64, payload, callback=functools.partial(self.the_callback, container=callback_data))
+        self.writer.process()
+        self.dispatcher.process()
+        record = self.dispatcher.pop_next()
+        self.assertIsNotNone(record)    # It went through!
+        request_data = cast(protocol_typing.Request.MemoryControl.Read, self.protocol.parse_request(record.request))
+        self.assertEqual(len(request_data['blocks_to_write']), 1)
+        self.assertEqual(request_data['blocks_to_write'][0]['address'], 0x1000 - 64)
+        self.assertEqual(request_data['blocks_to_write'][0]['data'], payload)
+
+    def test_write_charbit16_forbidden_region_size_correctly_checked(self):
+        self.writer.set_char_bit(16)
+        self.writer.process()
+        self.assertIsNone(self.dispatcher.pop_next())
+
+        callback_data = self.CallbackDataContainer()
+        self.writer.add_forbidden_region(0x1000, 15)
+
+        # Will be refused
+        payload = bytes([random.randint(0, 255) for i in range(128)])
+        self.writer.request_memory_write(0x1000, payload, callback=functools.partial(self.the_callback, container=callback_data))
+        self.assertEqual(callback_data.call_count, 0)
+        self.writer.process()
+        self.dispatcher.process()
+        self.assertIsNone(self.dispatcher.pop_next())
+        self.assertEqual(callback_data.call_count, 1)
+        self.assertFalse(callback_data.success)     # Failure detection
+        self.assertIsInstance(callback_data.server_time_us, float)
+        self.assertIsNotNone(callback_data.error)
+        self.assertGreater(len(callback_data.error), 0)
+
+        # Will be refused
+        callback_data = self.CallbackDataContainer()
+        self.writer.request_memory_write(0x1000 - 63, payload, callback=functools.partial(self.the_callback, container=callback_data))
+        self.writer.process()
+        self.dispatcher.process()
+        self.assertIsNone(self.dispatcher.pop_next())    # It went through!
+        self.assertIsNone(self.dispatcher.pop_next())
+        self.assertEqual(callback_data.call_count, 1)
+        self.assertFalse(callback_data.success)     # Failure detection
+        self.assertIsInstance(callback_data.server_time_us, float)
+        self.assertIsNotNone(callback_data.error)
+        self.assertGreater(len(callback_data.error), 0)
+
+        # Will be accepted
+        callback_data = self.CallbackDataContainer()
+        self.writer.request_memory_write(0x1000 - 64, payload, callback=functools.partial(self.the_callback, container=callback_data))
+        self.writer.process()
+        self.dispatcher.process()
+        record = self.dispatcher.pop_next()
+        self.assertIsNotNone(record)    # It went through!
+        request_data = cast(protocol_typing.Request.MemoryControl.Read, self.protocol.parse_request(record.request))
+        self.assertEqual(len(request_data['blocks_to_write']), 1)
+        self.assertEqual(request_data['blocks_to_write'][0]['address'], 0x1000 - 64)
+        self.assertEqual(request_data['blocks_to_write'][0]['data'], payload)
+
+    def test_charbit16_long_request_split_in_multiple_of_2(self):
+        self.protocol.set_address_size_bits(32)
+        self.writer.set_char_bit(16)
+        self.writer.set_max_request_payload_size(self.protocol.write_memory_request_overhead_size_per_block() + 65)
+        self.writer.process()
+        self.assertIsNone(self.dispatcher.pop_next())
+
+        payload = bytes([random.randint(0, 255) for i in range(128)])
+
+        callback_data = self.CallbackDataContainer()
+        self.writer.request_memory_write(0x1000, payload, callback=functools.partial(self.the_callback, container=callback_data))
+
+        for i in range(2):
+            cursor = i * 64
+
+            self.writer.process()
+            record = self.dispatcher.pop_next()
+            self.assertIsNotNone(record)
+            self.assertEqual(record.request.command, MemoryControl)
+            self.assertEqual(MemoryControl.Subfunction(record.request.subfn), MemoryControl.Subfunction.Write)
+            request_data = cast(protocol_typing.Request.MemoryControl.Write, self.protocol.parse_request(record.request))
+            self.assertEqual(len(request_data['blocks_to_write']), 1)
+            self.assertEqual(request_data['blocks_to_write'][0]['address'], 0x1000 + cursor)
+            self.assertEqual(request_data['blocks_to_write'][0]['data'], payload[cursor:cursor + 64])
+            response = self.protocol.respond_write_memory_blocks([(0x1000 + cursor, len(payload[cursor:cursor + 64]))])
+            record.complete(True, response)
+
+            if i < 1:
+                self.assertEqual(callback_data.call_count, 0)
+            else:
+                self.assertEqual(callback_data.call_count, 1)
+                self.assertTrue(callback_data.success)
+                self.assertIsInstance(callback_data.server_time_us, float)
+                self.assertIsNotNone(callback_data.error)
 
 
 if __name__ == '__main__':

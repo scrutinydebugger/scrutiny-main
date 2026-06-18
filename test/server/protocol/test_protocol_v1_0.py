@@ -123,7 +123,7 @@ class TestProtocolV1_0(ScrutinyUnitTest):
         data = self.proto.parse_request(req)
         self.assertEqual(data['region_type'], cmd.GetInfo.MemoryRangeType.Forbidden)
         self.assertEqual(data['region_index'], 0x12)
-        self.check_expected_payload_size(req, 2 + self.proto.get_address_size_bytes() * 2)
+        self.check_expected_payload_size(req, 2 + self.proto.get_address_size_8bits() * 2)
 
     def test_req_get_rpv_count(self):
         req = self.proto.get_rpv_count()
