@@ -164,7 +164,6 @@ class ActiveSFDHandler:
         self.datastore.clear(WatchableType.Alias)
 
         if SFDStorage.is_installed_or_demo(firmware_id):
-            self.logger.info('Loading firmware description file (SFD) for firmware ID %s' % firmware_id)
             sfd = SFDStorage.get(firmware_id)
 
             varmap_char_bit = sfd.varmap.get_char_bit()
@@ -175,6 +174,7 @@ class ActiveSFDHandler:
                     self.logger.error(
                         f"Cannot load SFD {sfd.get_firmware_id_ascii()}. Device has CHAR_BIT={device_info.char_bit} but the varmap in the SFD has CHAR_BIT={varmap_char_bit}")
             else:
+                self.logger.info('Loading firmware description file (SFD) for firmware ID %s' % firmware_id)
                 self.sfd = sfd
 
                 # populate datastore
