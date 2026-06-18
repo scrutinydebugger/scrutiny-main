@@ -340,6 +340,11 @@ class Datastore:
             return []
         return list(self._watcher_map[entry.get_type()][entry_id])
 
+    def get_watchers_no_internal(self, entry_or_entryid: Union[DatastoreEntry, str]) -> List[str]:
+        """ Get the list of watchers on a given entry that are not internal references (alias or pointers)"""
+        watchers = self.get_watchers(entry_or_entryid)
+        return [watcher for watcher in watchers if not self._is_internal_watcher(watcher)]
+
     def has_watchers(self, entry_or_entryid: Union[DatastoreEntry, str]) -> bool:
         """Tells if the entry has at least one watcher"""
         if isinstance(entry_or_entryid, str):
@@ -547,7 +552,6 @@ class Datastore:
 
 # region Private
 
-
     def _prune_unwatched_templated_entries(self) -> None:
         for wt in WatchableType.all():
             for entry in list(self._display_path_to_templated_entries_map[wt].values()):
@@ -565,6 +569,9 @@ class Datastore:
         """ When somebody subscribes to an alias or pointed variable, the datastore starts watching the referenced entry
         This method creates a watcher name based on the watcher ID"""
         return 'entry_' + entry.get_id()
+
+    def _is_internal_watcher(self, owner: str) -> bool:
+        return owner.startswith('entry_')
 
     def _alias_value_change_callback(self, owner: str, entry: DatastoreEntry, watching_entry: DatastoreAliasEntry) -> None:
         """ This callback is the one given when the datastore starts watching an entry because somebody wants to watch an alias."""

@@ -2224,7 +2224,7 @@ class API:
                                      completion_server_time_us: float) -> None:
         # This callback is given to the datastore when we make a write request (target update request)
         # It will be called once the request is completed.
-        watchers = self.datastore.get_watchers(datastore_entry)
+        watchers = self.datastore.get_watchers_no_internal(datastore_entry)
 
         msg: api_typing.S2C.WriteCompletion = {
             'cmd': self.Command.Api2Client.INFORM_WRITE_COMPLETION,
