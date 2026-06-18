@@ -334,7 +334,6 @@ class CommHandler:
         self._rx_datarate_measurement.disable()
         self._request_per_sec_measurement.disable()
         self.reset()
-        self._last_open_error = None
         self._opened = False
         self._logger.debug("Communication with device closed")
 
