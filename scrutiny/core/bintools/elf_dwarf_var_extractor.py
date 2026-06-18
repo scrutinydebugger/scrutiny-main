@@ -848,7 +848,7 @@ class ElfDwarfVarExtractor:
             self._dwarfinfo = elffile.get_dwarf_info()
 
             self._context.arch = self._identify_arch()
-            self._context.endianess = self._identify_endianness(self._context.arch)
+            self._context.endianess = self._identify_endianness(elffile)
             self._varmap.set_endianness(self._context.endianess)
             self._varmap.set_char_bit(self._context.get_char_bit())
 
@@ -926,15 +926,14 @@ class ElfDwarfVarExtractor:
 
         return Compiler.UNKNOWN
 
-    def _identify_endianness(self, arch: Architecture) -> Endianness:
-        """Identify the endianness. Based on the architecture"""
-        # No easy way to know it. DW_AT_endianity is introduced in dwarf v4, but only applied on data block and not used by compilers...
-        # We make the assumption that the endianness is the same at the binary level
+    def _identify_endianness(self, elffile: ELFFile) -> Endianness:
+        """Identify the endianness. Based on the elffile"""
+        # The endianness of an ELF file should match the target architecture in 99.99% of cases.
 
-        if arch == Architecture.TI_C28x:
+        if elffile.little_endian:
             return Endianness.Little
-
-        return Endianness.Little  # Little is the most common, default on this
+        else:
+            return Endianness.Big
 
     def _allowed_by_filters(self, fullname: str) -> bool:
         """Tells if we can register a variable to the varmap and log the reason for not allowing if applicable."""
