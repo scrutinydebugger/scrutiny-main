@@ -43,12 +43,14 @@ class RawMemoryReadRequest:
     """An internal structure used to define a raw memory read, meaning a read not tied to a datastore entry.
     Used when the user wants to dump the content directly."""
 
-    __slots__ = ('address', 'size', 'completed', 'success', 'completion_callback', 'completion_server_time_us')
+    __slots__ = ('address', 'size_8bits', 'size_bytes', 'completed', 'success', 'completion_callback', 'completion_server_time_us')
 
     address: int
     """Address to read"""
-    size: int
-    """Size to read"""
+    size_8bits: int
+    """Size to read in 8bits multiple"""
+    size_bytes: int
+    """Size to read in bytes (multiple of char_bit)"""
     completed: bool
     """Indicates if the request is completed (failed or successful)"""
     success: bool
@@ -58,9 +60,10 @@ class RawMemoryReadRequest:
     completion_server_time_us: Optional[float]
     """A timestamp of when the request completed"""
 
-    def __init__(self, address: int, size: int, callback: Optional[RawMemoryReadRequestCompletionCallback] = None) -> None:
+    def __init__(self, address: int, size_8bits: int, size_bytes: int, callback: Optional[RawMemoryReadRequestCompletionCallback] = None) -> None:
         self.address = address
-        self.size = size
+        self.size_8bits = size_8bits
+        self.size_bytes = size_bytes
         self.completed = False
         self.success = False
         self.completion_callback = callback
@@ -155,7 +158,7 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
     """A queue to store read request not tied to a datastore entry (user wants a raw dump)"""
     active_raw_read_request: Optional[RawMemoryReadRequest]
     """Store the read request that is presently being processed and waiting for a response"""
-    active_raw_read_request_cursor: int
+    active_raw_read_request_cursor_8bits: int
     """A cursor used to split a raw read request into many small requests to the device. This cursor keeps track of where we are"""
     active_raw_read_request_data: bytearray
     """A buffer to store the data of a raw read request while each chunk is being read"""
@@ -216,11 +219,15 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
         if start_addr >= 0 and size > 0:
             self.forbidden_regions.append(MemoryRegion(start=start_addr, size=size))
 
-    def request_memory_read(self, address: int, size: int, callback: Optional[RawMemoryReadRequestCompletionCallback] = None) -> RawMemoryReadRequest:
+    def _8bits_per_byte(self) -> int:
+        return self._char_bit // 8
+
+    def request_memory_read(self, address: int, size_8bits: int, callback: Optional[RawMemoryReadRequestCompletionCallback] = None) -> RawMemoryReadRequest:
         """Request the reader to read an arbitrary memory region with a callback to be called upon completion"""
         request = RawMemoryReadRequest(
             address=address,
-            size=size,
+            size_8bits=size_8bits,
+            size_bytes=size_8bits // self._8bits_per_byte(),
             callback=callback
         )
         self.raw_read_request_queue.put_nowait(request)
@@ -302,7 +309,7 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
     def clear_active_raw_read_request(self) -> None:
         self.active_raw_read_request = None
         self.active_raw_read_request_data = bytearray()
-        self.active_raw_read_request_cursor = 0
+        self.active_raw_read_request_cursor_8bits = 0
 
     def reset(self) -> None:
         """Put back the memory reader to its startup state"""
@@ -501,7 +508,7 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
         block_list: List[Tuple[int, int]] = []
         skipped_entries_count = 0
         clusters_in_request: List[Cluster] = []
-        size_multiplier = self._char_bit // 8   # Protocol is a 8bit protocol.
+        size_multiplier = self._8bits_per_byte()   # Protocol is a 8bit protocol.
 
         if vartype == VarType.AbsoluteAddress:
             total_size = len(self.active_watched_var_entries)
@@ -665,19 +672,20 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
             self.active_raw_read_request = request
 
             is_in_forbidden_region = False
-            candidate_region = MemoryRegion(start=self.active_raw_read_request.address, size=self.active_raw_read_request.size)
+            candidate_region = MemoryRegion(start=self.active_raw_read_request.address,
+                                            size=self.active_raw_read_request.size_8bits // self._8bits_per_byte())
             for forbidden_region in self.forbidden_regions:
                 if candidate_region.touches(forbidden_region):
                     is_in_forbidden_region = True
                     break
 
-            if self.active_raw_read_request.size > self.MAX_RAW_READ_SIZE:    # Hard limit
+            if self.active_raw_read_request.size_8bits > self.MAX_RAW_READ_SIZE:    # Hard limit
                 self.active_raw_read_request.set_completed(False, None, "Size too big")
                 self.clear_active_raw_read_request()
-            elif self.active_raw_read_request.size <= 0 or self.active_raw_read_request.address < 0:
+            elif self.active_raw_read_request.size_8bits <= 0 or self.active_raw_read_request.address < 0:
                 self.active_raw_read_request.set_completed(False, None, "Bad request")
                 self.clear_active_raw_read_request()
-            elif self.active_raw_read_request.address + self.active_raw_read_request.size > 2**self.protocol.get_address_size_bits():
+            elif self.active_raw_read_request.address + self.active_raw_read_request.size_bytes > 2**self.protocol.get_address_size_bits():
                 self.active_raw_read_request.set_completed(False, None, "Read out of bound")
                 self.clear_active_raw_read_request()
             elif is_in_forbidden_region:
@@ -693,11 +701,12 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
         max_response_data_bytes = self.max_response_payload_size - overhead
         if max_response_data_bytes < 0:  # Should not happen. scrutiny-embedded require 32 bytes buffer minimum and overhead is less than that.
             raise RuntimeError("max_response_payload_size is too small")
-        size = min(max_response_data_bytes, self.active_raw_read_request.size - self.active_raw_read_request_cursor)
-        address = self.active_raw_read_request.address + self.active_raw_read_request_cursor
-        device_request = self.protocol.read_single_memory_block(address=address, length=size)
-        self.active_raw_read_request_cursor += size
-        last = self.active_raw_read_request_cursor >= self.active_raw_read_request.size
+        size_8bits = min(max_response_data_bytes, self.active_raw_read_request.size_8bits - self.active_raw_read_request_cursor_8bits)
+        size_8bits &= -self._8bits_per_byte()
+        address = self.active_raw_read_request.address + (self.active_raw_read_request_cursor_8bits // self._8bits_per_byte())
+        device_request = self.protocol.read_single_memory_block(address=address, length=size_8bits)
+        self.active_raw_read_request_cursor_8bits += size_8bits
+        last = self.active_raw_read_request_cursor_8bits >= self.active_raw_read_request.size_8bits
 
         return device_request, last
 
@@ -806,12 +815,13 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
 
                 assert address == request_data['blocks_to_read'][0]['address'], "Memory block does not match with request"
                 assert len(data) == request_data['blocks_to_read'][0]['length'], "Memory block does not match with request"
-                assert address + len(data) == self.active_raw_read_request.address + \
-                    self.active_raw_read_request_cursor, "Memory block not the expected one"
+                next_address_from_response = address + len(data) // self._8bits_per_byte()
+                next_address_from_state = self.active_raw_read_request.address + self.active_raw_read_request_cursor_8bits // self._8bits_per_byte()
+                assert next_address_from_response == next_address_from_state, "Memory block not the expected one"
 
                 self.active_raw_read_request_data += data
 
-                if len(self.active_raw_read_request_data) >= self.active_raw_read_request.size:
+                if len(self.active_raw_read_request_data) >= self.active_raw_read_request.size_8bits:
                     self.active_raw_read_request.set_completed(True, bytes(self.active_raw_read_request_data))
                     self.clear_active_raw_read_request()
             except Exception as e:
