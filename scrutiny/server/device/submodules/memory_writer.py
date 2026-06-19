@@ -314,14 +314,15 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
 
         if self.active_raw_write_request is not None:
             assert self.active_raw_write_request_remaining_data is not None
-            cursor = len(self.active_raw_write_request.data) - len(self.active_raw_write_request_remaining_data)
-            max_size = self.max_request_payload_size - self.protocol.write_memory_request_overhead_size_per_block()
-            if max_size < 0:    # Should not happen. embedded require at least 32 bytes buffers. Address size is at most 8
+            sent_count_8bits = len(self.active_raw_write_request.data) - len(self.active_raw_write_request_remaining_data)
+            address_to_write = self.active_raw_write_request.address + sent_count_8bits // (self._char_bit // 8)
+            max_size_8bits = self.max_request_payload_size - self.protocol.write_memory_request_overhead_size_per_block()
+            if max_size_8bits < 0:    # Should not happen. embedded require at least 32 bytes buffers. Address size is at most 8
                 raise RuntimeError("max_request_payload_size is too small")
-            n_to_write = min(len(self.active_raw_write_request_remaining_data), max_size)
-            n_to_write &= (-(self._char_bit // 8))    # Mask size to be a multiple of a byte
-            block = (self.active_raw_write_request.address + cursor, bytes(self.active_raw_write_request_remaining_data[:n_to_write]))
-            self.active_raw_write_request_remaining_data = self.active_raw_write_request_remaining_data[n_to_write:]
+            n_to_write_8bits = min(len(self.active_raw_write_request_remaining_data), max_size_8bits)
+            n_to_write_8bits &= (-(self._char_bit // 8))    # Mask size to be a multiple of a byte
+            block = (address_to_write, bytes(self.active_raw_write_request_remaining_data[:n_to_write_8bits]))
+            self.active_raw_write_request_remaining_data = self.active_raw_write_request_remaining_data[n_to_write_8bits:]
             request = self.protocol.write_memory_blocks([block])
 
         return request

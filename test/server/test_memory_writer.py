@@ -1085,7 +1085,7 @@ class TestRawMemoryWrite(ScrutinyUnitTest):
         self.assertEqual(request_data['blocks_to_write'][0]['address'], 0x1000 - 64)
         self.assertEqual(request_data['blocks_to_write'][0]['data'], payload)
 
-    def test_charbit16_long_request_split_in_multiple_of_2(self):
+    def test_charbit16_long_request_split_correctly(self):
         self.protocol.set_address_size_bits(32)
         self.writer.set_char_bit(16)
         self.writer.set_max_request_payload_size(self.protocol.write_memory_request_overhead_size_per_block() + 65)
@@ -1098,7 +1098,8 @@ class TestRawMemoryWrite(ScrutinyUnitTest):
         self.writer.request_memory_write(0x1000, payload, callback=functools.partial(self.the_callback, container=callback_data))
 
         for i in range(2):
-            cursor = i * 64
+            cursor_8bits = i * 64
+            cursor_bytes = cursor_8bits // 2
 
             self.writer.process()
             record = self.dispatcher.pop_next()
@@ -1107,9 +1108,9 @@ class TestRawMemoryWrite(ScrutinyUnitTest):
             self.assertEqual(MemoryControl.Subfunction(record.request.subfn), MemoryControl.Subfunction.Write)
             request_data = cast(protocol_typing.Request.MemoryControl.Write, self.protocol.parse_request(record.request))
             self.assertEqual(len(request_data['blocks_to_write']), 1)
-            self.assertEqual(request_data['blocks_to_write'][0]['address'], 0x1000 + cursor)
-            self.assertEqual(request_data['blocks_to_write'][0]['data'], payload[cursor:cursor + 64])
-            response = self.protocol.respond_write_memory_blocks([(0x1000 + cursor, len(payload[cursor:cursor + 64]))])
+            self.assertEqual(request_data['blocks_to_write'][0]['address'], 0x1000 + cursor_bytes)
+            self.assertEqual(request_data['blocks_to_write'][0]['data'], payload[cursor_8bits:cursor_8bits + 64])
+            response = self.protocol.respond_write_memory_blocks([(0x1000 + cursor_bytes, len(payload[cursor_8bits:cursor_8bits + 64]))])
             record.complete(True, response)
 
             if i < 1:
