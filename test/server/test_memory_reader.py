@@ -900,6 +900,47 @@ class TestRawMemoryRead(ScrutinyUnitTest):
                 self.assertEqual(callback_data.data, payload)
                 self.assertIsNotNone(callback_data.error)
 
+    def test_simple_read_charbit16(self):
+        self.reader.set_char_bit(16)
+        max_payload_size_8bits = 129    # odd number on purpose.
+        self.reader.set_max_response_payload_size(max_payload_size_8bits + self.protocol.read_memory_response_overhead_size_per_block())
+
+        for i in range(3):
+            self.reader.process()
+        self.assertIsNone(self.dispatcher.pop_next())
+
+        max_bytes_per_request = (max_payload_size_8bits // 2)
+        PAYLOAD_SIZE = 2 * max_bytes_per_request * 2 + 2   # we should read 128 + 128 + 2 = 258 8bits = 129 bytes of 16bits
+        callback_data = self.CallbackDataContainer()
+        self.reader.request_memory_read(0x1000, PAYLOAD_SIZE, callback=functools.partial(self.the_callback, container=callback_data))
+        payload = bytes([random.randint(0, 255) for i in range(PAYLOAD_SIZE)])
+
+        for i in range(3):
+            cursor_bytes = i * max_bytes_per_request
+            cursor_8bits = cursor_bytes * 2
+            expected_size = max_bytes_per_request * 2 if i < 2 else 2
+
+            self.reader.process()
+            record = self.dispatcher.pop_next()
+            self.assertIsNotNone(record)
+            self.assertEqual(record.request.command, MemoryControl)
+            self.assertEqual(MemoryControl.Subfunction(record.request.subfn), MemoryControl.Subfunction.Read)
+            request_data = cast(protocol_typing.Request.MemoryControl.Read, self.protocol.parse_request(record.request))
+            self.assertEqual(len(request_data['blocks_to_read']), 1)
+            self.assertEqual(request_data['blocks_to_read'][0]['address'], 0x1000 + cursor_bytes)
+            self.assertEqual(request_data['blocks_to_read'][0]['length'], expected_size)
+            response = self.protocol.respond_read_memory_blocks(
+                [(0x1000 + cursor_bytes, payload[cursor_8bits:cursor_8bits + max_bytes_per_request * 2])])
+            record.complete(True, response)
+            if i < 2:
+                self.assertEqual(callback_data.call_count, 0)
+            else:
+                self.assertEqual(callback_data.call_count, 1)
+                self.assertTrue(callback_data.success)
+                self.assertIsInstance(callback_data.server_time_us, float)
+                self.assertEqual(callback_data.data, payload)
+                self.assertIsNotNone(callback_data.error)
+
     def test_read_failure(self):
         self.MAX_BYTES_PER_READ = 128 - self.protocol.read_memory_response_overhead_size_per_block()
         for i in range(3):
