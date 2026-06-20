@@ -296,7 +296,7 @@ class TestDataloggingManager(ScrutinyUnitTest):
         meta = device_datalogging.AcquisitionMetadata(
             acquisition_id=0,
             config_id=1,
-            data_size=data_size,
+            data_size_bytes=data_size,
             number_of_points=nb_points,
             points_after_trigger=nb_points // 2
         )
