@@ -109,6 +109,8 @@ class DataloggingPoller(BaseDeviceHandlerSubmodule):
     """A value between 0 and 1 indicating the percentage of completion of the acquisition. Only valid in TRIGGERED state. None when N/A"""
     max_response_payload_size: Optional[int]
     """Maximum size of a payload that the device can send to the server"""
+    max_request_payload_size: Optional[int]
+    """Maximum size of a payload that the device can receive from the server"""
     rpv_map: Dict[int, RuntimePublishedValue]
     """Map of RPV ID to their definition."""
 
@@ -156,6 +158,7 @@ class DataloggingPoller(BaseDeviceHandlerSubmodule):
         self.enabled = True
         self.actual_config_id = 0
         self.max_response_payload_size = None
+        self.max_request_payload_size = None
         self.update_status_timer = Timer(self.UPDATE_STATUS_INTERVAL_IDLE)
         self.rpv_map = {}
         self.request_pending = {}
@@ -212,7 +215,9 @@ class DataloggingPoller(BaseDeviceHandlerSubmodule):
 
         self.logger.debug("RPV map configured with %d RPV" % len(self.rpv_map))
 
-    def set_max_response_payload_size(self, max_response_payload_size: int) -> None:
+    def set_size_limits(self, max_request_payload_size: Optional[int], max_response_payload_size: Optional[int]) -> None:
+        """Set the device size limit. If a request is enqueued that doesn't fit these size, it will be dropped and an error will be reported"""
+        self.max_request_payload_size = max_request_payload_size
         self.max_response_payload_size = max_response_payload_size
 
     def start(self) -> None:
@@ -306,6 +311,8 @@ class DataloggingPoller(BaseDeviceHandlerSubmodule):
         """Request a new datalogging acquisition. Will interrupt any other request and will be processed as soon as possible """
         if not self.max_response_payload_size:
             raise ValueError("Maximum response payload size must be defined first")
+        if not self.max_request_payload_size:
+            raise ValueError("Maximum request payload size must be defined first")
 
         if not self.is_ready_to_receive_new_request():
             if not self.started:
@@ -434,15 +441,21 @@ class DataloggingPoller(BaseDeviceHandlerSubmodule):
                     elif not self.request_pending[DatalogSubfn.ConfigureDatalog]:
                         if self.acquisition_request is not None:   # Acquisition request pushed by DataloggingManager.
                             # Validation token associated with acquisition by the device.
+                            assert self.max_request_payload_size is not None
                             self.actual_config_id = (self.actual_config_id + 1) & 0xFFFF
                             request = self.protocol.datalogging_configure(
                                 loop_id=self.acquisition_request.loop_id,
                                 config_id=self.actual_config_id,
                                 config=self.acquisition_request.config
                             )
-                            self._dispatch(request)
-                            next_state = _FSMState.CONFIGURING
-                            self.configure_completed = False
+                            if request.size() > self.max_request_payload_size:
+                                self._mark_active_acquisition_failed_if_any(
+                                    f"Not enough room in the device receive buffer to configure this acquisition. {request.size()} is required, {self.max_request_payload_size} is available ")
+                                next_state = _FSMState.IDLE
+                            else:
+                                self._dispatch(request)
+                                next_state = _FSMState.CONFIGURING
+                                self.configure_completed = False
 
             elif self.state == _FSMState.CONFIGURING:    # Waiting on configuration completed
                 if self.cancel_requested:

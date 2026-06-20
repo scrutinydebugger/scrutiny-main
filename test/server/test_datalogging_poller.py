@@ -46,7 +46,7 @@ class TestDataloggingPoller(ScrutinyUnitTest):
             max_signal_count=32
         )
         self.poller.configure_datalogging_setup(setup)
-        self.poller.set_max_response_payload_size(128)
+        self.poller.set_size_limits(max_response_payload_size=128, max_request_payload_size=128)
 
         self.actual_status = DeviceStatus(device_datalogging.DataloggerState.IDLE, 0, 0)
 
@@ -190,7 +190,7 @@ class TestDataloggingPoller(ScrutinyUnitTest):
         self.assertEqual(signal_samples[1], raw_data[4:8])
 
     def test_buffer_fit_in_multiple_read_request(self) -> None:
-        self.poller.set_max_response_payload_size(32)
+        self.poller.set_size_limits(max_response_payload_size=32, max_request_payload_size=128)
 
         config = device_datalogging.Configuration()
         config.add_signal(device_datalogging.MemoryLoggableSignal(address=0x1000, size=2))
@@ -270,7 +270,7 @@ class TestDataloggingPoller(ScrutinyUnitTest):
 
     def test_buffer_fit_in_multiple_read_request_charbit_16(self) -> None:
         self.poller.set_char_bit(16)
-        self.poller.set_max_response_payload_size(32)   # 32 x 8bits
+        self.poller.set_size_limits(max_response_payload_size=32, max_request_payload_size=128)   # 32 x 8bits
 
         config = device_datalogging.Configuration()
         config.add_signal(device_datalogging.MemoryLoggableSignal(address=0x1000, size=2))  # Sizes are in device byte
