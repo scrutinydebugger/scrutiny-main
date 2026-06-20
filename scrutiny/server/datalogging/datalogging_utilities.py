@@ -18,7 +18,8 @@ def extract_signal_from_data(
         data: Union[bytes, bytearray],
         config: device_datalogging.Configuration,
         rpv_map: Dict[int, RuntimePublishedValue],
-        encoding: device_datalogging.Encoding) -> List[List[bytes]]:
+        encoding: device_datalogging.Encoding,
+        char_bit: int) -> List[List[bytes]]:
     """
     Takes data written in the format [s1[n], s2[n], s3[n], s1[n+1], s2[n+1], s3[n+1], s1[n+2] ...]
     and put it in the format [s1[n], s1[n+1], s1[n+2]],  [s2[n], s2[n+1], s2[n+2]], [s3[n], s3[n+1], s3[n+2]]
@@ -35,7 +36,7 @@ def extract_signal_from_data(
                 signaldef = signals_def[i]
 
                 if isinstance(signaldef, device_datalogging.MemoryLoggableSignal):
-                    datasize = signaldef.size
+                    datasize = signaldef.size * (char_bit // 8)
                 elif isinstance(signaldef, device_datalogging.RPVLoggableSignal):
                     if signaldef.rpv_id not in rpv_map:
                         raise ValueError("RPV 0x%04X not part of given rpv_map" % signaldef.rpv_id)

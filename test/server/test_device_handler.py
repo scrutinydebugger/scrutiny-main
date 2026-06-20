@@ -799,7 +799,8 @@ class TestDeviceHandler(ScrutinyUnitTest):
                 data=self.emulated_device.datalogger.get_acquisition_data(),
                 config=config,
                 rpv_map=self.emulated_device.get_rpv_definition_map(),
-                encoding=datalogging_setup.encoding
+                encoding=datalogging_setup.encoding,
+                char_bit=8
             )
             self.assertEqual(self.acquisition_complete_callback_data, signals, 'iteration=%d' % iteration)
             self.assertEqual(self.acquisition_complete_callback_metadata.data_size, len(self.emulated_device.datalogger.get_acquisition_data()))

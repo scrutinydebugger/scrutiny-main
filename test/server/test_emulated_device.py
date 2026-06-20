@@ -182,7 +182,8 @@ class TestEmulatedDatalogger(ScrutinyUnitTest):
             data=acquisition_data,
             config=self.datalogger.config,
             rpv_map=rpv_map,
-            encoding=device_datalogging.Encoding.RAW)
+            encoding=device_datalogging.Encoding.RAW,
+            char_bit=8)
 
         self.assertEqual(len(data_inflated), 3)  # 3 signals
         for i in range(len(data_inflated)):

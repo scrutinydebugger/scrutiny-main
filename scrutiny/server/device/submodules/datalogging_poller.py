@@ -293,7 +293,8 @@ class DataloggingPoller(BaseDeviceHandlerSubmodule):
                         data=data,
                         config=self.acquisition_request.config,
                         rpv_map=self.rpv_map,
-                        encoding=self.device_setup.encoding)
+                        encoding=self.device_setup.encoding,
+                        char_bit=self._char_bit)
                     self.acquisition_request.completion_callback(True, "", deinterleaved_data, acquisition_meta)
                 except Exception as e:
                     tools.log_exception(self.logger, e, "Failed to parse data received from device datalogging acquisition.")

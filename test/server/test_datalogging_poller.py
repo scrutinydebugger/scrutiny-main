@@ -344,9 +344,16 @@ class TestDataloggingPoller(ScrutinyUnitTest):
         signal1_samples = data[0]
         signal2_samples = data[1]
         signal3_samples = data[2]
-        self.assertEqual(len(signal1_samples), nb_points * 2)
-        self.assertEqual(len(signal2_samples), nb_points * 2)
-        self.assertEqual(len(signal3_samples), nb_points * 2)
+        self.assertEqual(len(signal1_samples), nb_points)
+        self.assertEqual(len(signal2_samples), nb_points)
+        self.assertEqual(len(signal3_samples), nb_points)
+
+        for sample in signal1_samples:
+            self.assertEqual(len(sample), 4)
+        for sample in signal2_samples:
+            self.assertEqual(len(sample), 4)
+        for sample in signal3_samples:
+            self.assertEqual(len(sample), 2)
 
 
 if __name__ == '__main__':
