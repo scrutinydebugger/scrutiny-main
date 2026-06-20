@@ -34,7 +34,7 @@
             "docstring": "Abstract class for all commands. Used to automatically find all available commands through reflection"
         },
         "scrutiny/cli/commands/elf2varmap.py": {
-            "docstring": "CLI Command to read and .elf file and generate a Scrutiny VarMap file that will be included into the Firmware Description File."
+            "docstring": "CLI Command to read an .elf file and generate a Scrutiny VarMap file that will be included into the Firmware Description File."
         },
         "scrutiny/cli/commands/get_firmware_id.py": {
             "docstring": "CLI Command to generate a unique ID from a .elf file and optionally writes that ID to the file by a search and replace approach so that the device can broadcast its ID once flashed by this firmware."
@@ -487,7 +487,7 @@
             "docstring": "A component to look at the value of watchable items broadcast by the server"
         },
         "scrutiny/sdk/pending_request.py": {
-            "docstring": "A base class for Future objects given to the suer"
+            "docstring": "A base class for Future objects given to the user"
         },
         "test/gui/manual/manual_test_device_info_dialog.py": {
             "docstring": "Create an environment to manually test the DeviceInfoDialog window"
@@ -586,7 +586,7 @@
             "docstring": "A component that makes a real time graphs of the values streamed by the server"
         },
         "scrutiny/tools/global_counters.py": {
-            "docstring": "A file that provide some global counter atomic counter for unique ID generation"
+            "docstring": "A file that provides some global atomic counter for unique ID generation"
         },
         "scrutiny/gui/widgets/base_chart.py": {
             "docstring": "Some customized extensions of the QT Charts for the Scrutiny GUI"
@@ -1136,6 +1136,9 @@
         },
         "scrutiny/tools/c2000_memdump_parser.py": {
             "docstring": "A class that parses a Code Composer memory dump in 16-Bit Hex - TI Style"
+        },
+        "test/server/test_datalogging_poller.py": {
+            "docstring": "A test suite for the datalogging poller"
         }
     },
     "authors": {}

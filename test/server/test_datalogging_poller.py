@@ -1,3 +1,11 @@
+#    test_datalogging_poller.py
+#        A test suite for the datalogging poller
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
+
 from dataclasses import dataclass
 from test import ScrutinyUnitTest
 
