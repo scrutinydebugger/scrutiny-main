@@ -799,10 +799,11 @@ class TestDeviceHandler(ScrutinyUnitTest):
                 data=self.emulated_device.datalogger.get_acquisition_data(),
                 config=config,
                 rpv_map=self.emulated_device.get_rpv_definition_map(),
-                encoding=datalogging_setup.encoding
+                encoding=datalogging_setup.encoding,
+                char_bit=8
             )
             self.assertEqual(self.acquisition_complete_callback_data, signals, 'iteration=%d' % iteration)
-            self.assertEqual(self.acquisition_complete_callback_metadata.data_size, len(self.emulated_device.datalogger.get_acquisition_data()))
+            self.assertEqual(self.acquisition_complete_callback_metadata.data_size_bytes, len(self.emulated_device.datalogger.get_acquisition_data()))
             self.assertIsInstance(self.acquisition_complete_callback_details, str)
             trigger_point_precision = 1 / self.acquisition_complete_callback_metadata.number_of_points
             computed_trigger_position = 1 - self.acquisition_complete_callback_metadata.points_after_trigger / self.acquisition_complete_callback_metadata.number_of_points
