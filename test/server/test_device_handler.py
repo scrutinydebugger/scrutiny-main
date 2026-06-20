@@ -803,7 +803,7 @@ class TestDeviceHandler(ScrutinyUnitTest):
                 char_bit=8
             )
             self.assertEqual(self.acquisition_complete_callback_data, signals, 'iteration=%d' % iteration)
-            self.assertEqual(self.acquisition_complete_callback_metadata.data_size, len(self.emulated_device.datalogger.get_acquisition_data()))
+            self.assertEqual(self.acquisition_complete_callback_metadata.data_size_bytes, len(self.emulated_device.datalogger.get_acquisition_data()))
             self.assertIsInstance(self.acquisition_complete_callback_details, str)
             trigger_point_precision = 1 / self.acquisition_complete_callback_metadata.number_of_points
             computed_trigger_position = 1 - self.acquisition_complete_callback_metadata.points_after_trigger / self.acquisition_complete_callback_metadata.number_of_points
