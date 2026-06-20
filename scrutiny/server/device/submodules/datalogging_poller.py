@@ -163,6 +163,10 @@ class DataloggingPoller(BaseDeviceHandlerSubmodule):
             self.request_failed[subfn] = False
         self.set_standby()
 
+    def enqueue_status_update_request(self) -> None:
+        """Request the poller to read the device status immediately. Mostly useful for speeding up unit testing"""
+        self.require_status_update = True
+
     def set_standby(self) -> None:
         """Put back the datalogging poller to an idle state without destroying important internal values"""
         self._mark_active_acquisition_failed_if_any("Datalogger is disabled")
@@ -429,11 +433,9 @@ class DataloggingPoller(BaseDeviceHandlerSubmodule):
                             )
                             self._dispatch(request)
                             next_state = _FSMState.CONFIGURING
+                            self.configure_completed = False
 
             elif self.state == _FSMState.CONFIGURING:    # Waiting on configuration completed
-                if state_entry:
-                    self.configure_completed = False
-
                 if self.cancel_requested:
                     if not self.request_pending[DatalogSubfn.ConfigureDatalog]:
                         next_state = _FSMState.REQUEST_RESET
@@ -446,11 +448,9 @@ class DataloggingPoller(BaseDeviceHandlerSubmodule):
                     assert self.request_pending[DatalogSubfn.ConfigureDatalog] == False
                     self._dispatch(self.protocol.datalogging_arm_trigger())
                     next_state = _FSMState.ARMING
-
-            elif self.state == _FSMState.ARMING:  # We arm as soon as configuration phase is complete
-                if state_entry:
                     self.arm_completed = False
 
+            elif self.state == _FSMState.ARMING:  # We arm as soon as configuration phase is complete
                 # New request interrupts the previous one. Callback already called at this point. (done directly in request_acquisition())
                 if self.cancel_requested:
                     if not self.request_pending[DatalogSubfn.ArmTrigger]:
