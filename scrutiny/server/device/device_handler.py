@@ -499,6 +499,7 @@ class DeviceHandler:
 
         self.memory_reader.set_char_bit(partial_device_info.char_bit)
         self.memory_writer.set_char_bit(partial_device_info.char_bit)
+        self.datalogging_poller.set_char_bit(partial_device_info.char_bit)
         self.datalogging_poller.set_max_response_payload_size(max_response_payload_size)
         self.protocol.set_address_size_bits(partial_device_info.address_size_bits)
         self.heartbeat_generator.set_interval(max(0.5, float(partial_device_info.heartbeat_timeout_us) / 1000000.0 * 0.75))
@@ -624,6 +625,7 @@ class DeviceHandler:
             max_request_payload_size=max_request_payload_size,
             max_response_payload_size=max_response_payload_size
         )
+        self.datalogging_poller.set_char_bit(8)  # Default value
         self.datalogging_poller.set_max_response_payload_size(max_response_payload_size)
 
         self.datastore.clear(watchable_type=WatchableType.RuntimePublishedValue)    # Device handler own RPVs

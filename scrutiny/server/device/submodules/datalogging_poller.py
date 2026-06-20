@@ -134,7 +134,11 @@ class DataloggingPoller(BaseDeviceHandlerSubmodule):
     """The config ID given to the acquisition presently being processed"""
 
     acquisition_metadata: Optional[device_datalogging.AcquisitionMetadata]
+    """The acquisition metadata fetched from the device. Has a value only after it is polled once an acquisition is complete"""
     received_data_chunk: Optional[_ReceivedChunk]
+    """A state variable to keep track of each chunk of data we have received so far"""
+    _char_bit: int
+    """Number of bits in a device byte"""
 
     def __init__(self, protocol: Protocol, dispatcher: RequestDispatcher, request_priority: int):
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -158,10 +162,14 @@ class DataloggingPoller(BaseDeviceHandlerSubmodule):
         self.request_failed = {}
         self.reset_completed = False
         self.device_setup = None
+        self._char_bit = 8
         for subfn in DatalogSubfn:
             self.request_pending[subfn] = False
             self.request_failed[subfn] = False
         self.set_standby()
+
+    def set_char_bit(self, char_bit: int) -> None:
+        self._char_bit = char_bit
 
     def enqueue_status_update_request(self) -> None:
         """Request the poller to read the device status immediately. Mostly useful for speeding up unit testing"""
@@ -251,13 +259,13 @@ class DataloggingPoller(BaseDeviceHandlerSubmodule):
         if self.acquisition_metadata is None:
             return 0
 
-        if self.acquisition_metadata.data_size == 0:
+        if self.acquisition_metadata.data_size_bytes == 0:
             return 0
 
         if self.state == _FSMState.DATA_RETRIEVAL_FINISHED_SUCCESS:
             return 1
 
-        ratio = len(self.bytes_received) / self.acquisition_metadata.data_size
+        ratio = len(self.bytes_received) / self.acquisition_metadata.data_size_bytes
         return min(1, max(0, ratio))    # Saturate just in case
 
     def get_completion_ratio(self) -> Optional[float]:
@@ -570,7 +578,7 @@ class DataloggingPoller(BaseDeviceHandlerSubmodule):
                                     data_read=len(self.bytes_received),
                                     encoding=self.device_setup.encoding,
                                     tx_buffer_size=self.max_response_payload_size,
-                                    total_size=self.acquisition_metadata.data_size
+                                    total_size=self.acquisition_metadata.data_size_bytes * (self._char_bit // 8)  # Put in same unit as "data_read"
                                 )
                                 self._dispatch(read_request)
                     self.received_data_chunk = None
@@ -584,7 +592,7 @@ class DataloggingPoller(BaseDeviceHandlerSubmodule):
                             data_read=len(self.bytes_received),
                             encoding=self.device_setup.encoding,
                             tx_buffer_size=self.max_response_payload_size,
-                            total_size=self.acquisition_metadata.data_size
+                            total_size=self.acquisition_metadata.data_size_bytes * (self._char_bit // 8)    # Put in same unit as "data_read"
                         )
                         self._dispatch(read_request)
 
@@ -715,7 +723,7 @@ class DataloggingPoller(BaseDeviceHandlerSubmodule):
         self.acquisition_metadata = device_datalogging.AcquisitionMetadata(
             acquisition_id=response_data['acquisition_id'],
             config_id=response_data['config_id'],
-            data_size=response_data['datasize'],
+            data_size_bytes=response_data['datasize'],
             number_of_points=response_data['nb_points'],
             points_after_trigger=response_data['points_after_trigger']
         )

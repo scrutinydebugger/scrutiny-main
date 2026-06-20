@@ -120,10 +120,6 @@ class TestDataloggingPoller(ScrutinyUnitTest):
         self.poller.enqueue_status_update_request()
 
     def test_normal_acquisition_flow(self) -> None:
-        protocol = self.protocol
-        dispatcher = self.dispatcher
-        poller = self.poller
-
         # Build a minimal acquisition config: 1 memory signal, 4 bytes per sample
         config = device_datalogging.Configuration()
         config.add_signal(device_datalogging.MemoryLoggableSignal(address=0x1000, size=4))
@@ -141,8 +137,8 @@ class TestDataloggingPoller(ScrutinyUnitTest):
         self._wait_for_subfn_and_respond_to_getstatus(None)  # Wait a bit, nothing should happen.
         self._assert_queue_empty()
 
-        poller.request_acquisition(loop_id=0, config=config, callback=completion_callback)
-        poller.process()
+        self.poller.request_acquisition(loop_id=0, config=config, callback=completion_callback)
+        self.poller.process()
         self._assert_queue_empty()
 
         self.bring_poller_to_completion()
@@ -150,7 +146,7 @@ class TestDataloggingPoller(ScrutinyUnitTest):
         meta_rec = self._wait_for_subfn_and_respond_to_getstatus(DatalogSubfn.GetAcquisitionMetadata)
         expected_config_id = 1
 
-        meta_rec.complete(success=True, response=protocol.respond_datalogging_get_acquisition_metadata(
+        meta_rec.complete(success=True, response=self.protocol.respond_datalogging_get_acquisition_metadata(
             acquisition_id=acquisition_id,
             config_id=expected_config_id,
             nb_points=nb_points,
@@ -160,7 +156,7 @@ class TestDataloggingPoller(ScrutinyUnitTest):
 
         read_rec = self._wait_for_subfn_and_respond_to_getstatus(DatalogSubfn.ReadAcquisition)
         data_crc = crc32(raw_data)
-        read_rec.complete(success=True, response=protocol.respond_datalogging_read_acquisition(
+        read_rec.complete(success=True, response=self.protocol.respond_datalogging_read_acquisition(
             finished=True,
             rolling_counter=0,
             acquisition_id=acquisition_id,
@@ -169,7 +165,7 @@ class TestDataloggingPoller(ScrutinyUnitTest):
         ))
 
         for i in range(5):
-            poller.process()
+            self.poller.process()
 
         # Make sure we got our callback invoked
         self.assertEqual(len(callback_results), 1)
@@ -182,7 +178,7 @@ class TestDataloggingPoller(ScrutinyUnitTest):
 
         self.assertEqual(metadata.acquisition_id, acquisition_id)
         self.assertEqual(metadata.config_id, expected_config_id)
-        self.assertEqual(metadata.data_size, len(raw_data))
+        self.assertEqual(metadata.data_size_bytes, len(raw_data))
         self.assertEqual(metadata.number_of_points, nb_points)
 
         # data is deinterleaved: list[signal_index] -> list[sample_bytes]
@@ -194,12 +190,8 @@ class TestDataloggingPoller(ScrutinyUnitTest):
         self.assertEqual(signal_samples[1], raw_data[4:8])
 
     def test_buffer_fit_in_multiple_read_request(self) -> None:
-        protocol = self.protocol
-        dispatcher = self.dispatcher
-        poller = self.poller
-        poller.set_max_response_payload_size(32)
+        self.poller.set_max_response_payload_size(32)
 
-        # Build a minimal acquisition config: 1 memory signal, 4 bytes per sample
         config = device_datalogging.Configuration()
         config.add_signal(device_datalogging.MemoryLoggableSignal(address=0x1000, size=2))
         config.add_signal(device_datalogging.MemoryLoggableSignal(address=0x1002, size=2))
@@ -214,8 +206,8 @@ class TestDataloggingPoller(ScrutinyUnitTest):
         def completion_callback(success: bool, detail: str, data: Optional[List[List[bytes]]], metadata: Optional[device_datalogging.AcquisitionMetadata]) -> None:
             callback_results.append((success, detail, data, metadata))
 
-        poller.request_acquisition(loop_id=0, config=config, callback=completion_callback)
-        poller.process()
+        self.poller.request_acquisition(loop_id=0, config=config, callback=completion_callback)
+        self.poller.process()
         self._assert_queue_empty()
 
         self.bring_poller_to_completion()
@@ -223,7 +215,7 @@ class TestDataloggingPoller(ScrutinyUnitTest):
         meta_rec = self._wait_for_subfn_and_respond_to_getstatus(DatalogSubfn.GetAcquisitionMetadata)
         expected_config_id = 1
 
-        meta_rec.complete(success=True, response=protocol.respond_datalogging_get_acquisition_metadata(
+        meta_rec.complete(success=True, response=self.protocol.respond_datalogging_get_acquisition_metadata(
             acquisition_id=acquisition_id,
             config_id=expected_config_id,
             nb_points=nb_points,
@@ -242,7 +234,7 @@ class TestDataloggingPoller(ScrutinyUnitTest):
                 finished = True
                 data_crc = crc32(raw_data)
 
-            read_rec.complete(success=True, response=protocol.respond_datalogging_read_acquisition(
+            read_rec.complete(success=True, response=self.protocol.respond_datalogging_read_acquisition(
                 finished=finished,
                 rolling_counter=i,
                 acquisition_id=acquisition_id,
@@ -252,7 +244,7 @@ class TestDataloggingPoller(ScrutinyUnitTest):
             cursor += chunk_size
 
         for i in range(5):
-            poller.process()
+            self.poller.process()
 
         # Make sure we got our callback invoked
         self.assertEqual(len(callback_results), 1)
@@ -265,18 +257,96 @@ class TestDataloggingPoller(ScrutinyUnitTest):
 
         self.assertEqual(metadata.acquisition_id, acquisition_id)
         self.assertEqual(metadata.config_id, expected_config_id)
-        self.assertEqual(metadata.data_size, len(raw_data))
+        self.assertEqual(metadata.data_size_bytes, len(raw_data))
         self.assertEqual(metadata.number_of_points, nb_points)
 
-        # data is deinterleaved: list[signal_index] -> list[sample_bytes]
-        # 1 signal, 2 samples of 4 bytes each
         self.assertEqual(len(data), 3)
         signal1_samples = data[0]
-        signal2_samples = data[0]
-        signal3_samples = data[0]
+        signal2_samples = data[1]
+        signal3_samples = data[2]
         self.assertEqual(len(signal1_samples), nb_points)
         self.assertEqual(len(signal2_samples), nb_points)
         self.assertEqual(len(signal3_samples), nb_points)
+
+    def test_buffer_fit_in_multiple_read_request_charbit_16(self) -> None:
+        self.poller.set_char_bit(16)
+        self.poller.set_max_response_payload_size(32)   # 32 x 8bits
+
+        config = device_datalogging.Configuration()
+        config.add_signal(device_datalogging.MemoryLoggableSignal(address=0x1000, size=2))  # Sizes are in device byte
+        config.add_signal(device_datalogging.MemoryLoggableSignal(address=0x1002, size=2))
+        config.add_signal(device_datalogging.MemoryLoggableSignal(address=0x1004, size=1))
+
+        raw_data = bytes([c & 0xFF for c in range(270)])
+        acquisition_id = 123
+        nb_points = 27      # 27 points of 5*2 bytes = 270 bytes
+
+        callback_results: list = []
+
+        def completion_callback(success: bool, detail: str, data: Optional[List[List[bytes]]], metadata: Optional[device_datalogging.AcquisitionMetadata]) -> None:
+            callback_results.append((success, detail, data, metadata))
+
+        self.poller.request_acquisition(loop_id=0, config=config, callback=completion_callback)
+        self.poller.process()
+        self._assert_queue_empty()
+
+        self.bring_poller_to_completion()
+
+        meta_rec = self._wait_for_subfn_and_respond_to_getstatus(DatalogSubfn.GetAcquisitionMetadata)
+        expected_config_id = 1
+
+        meta_rec.complete(success=True, response=self.protocol.respond_datalogging_get_acquisition_metadata(
+            acquisition_id=acquisition_id,
+            config_id=expected_config_id,
+            nb_points=nb_points,
+            datasize=len(raw_data) // 2,
+            points_after_trigger=1
+        ))
+
+        expected_chunk_size = [28, 28, 28, 28, 28, 28, 28, 28, 28, 19]
+
+        cursor = 0
+        for i, chunk_size in enumerate(expected_chunk_size):
+            read_rec = self._wait_for_subfn_and_respond_to_getstatus(DatalogSubfn.ReadAcquisition)
+            finished = False
+            data_crc = None
+            if i == len(expected_chunk_size) - 1:
+                finished = True
+                data_crc = crc32(raw_data)
+
+            read_rec.complete(success=True, response=self.protocol.respond_datalogging_read_acquisition(
+                finished=finished,
+                rolling_counter=i,
+                acquisition_id=acquisition_id,
+                data=raw_data[cursor:cursor + chunk_size],
+                crc=data_crc
+            ))
+            cursor += chunk_size
+
+        for i in range(5):
+            self.poller.process()
+
+        # Make sure we got our callback invoked
+        self.assertEqual(len(callback_results), 1)
+
+        success, detail, data, metadata = callback_results[0]
+
+        self.assertTrue(success)
+        self.assertIsNotNone(data)
+        self.assertIsNotNone(metadata)
+
+        self.assertEqual(metadata.acquisition_id, acquisition_id)
+        self.assertEqual(metadata.config_id, expected_config_id)
+        self.assertEqual(metadata.data_size_bytes, len(raw_data) // 2)
+        self.assertEqual(metadata.number_of_points, nb_points)
+
+        self.assertEqual(len(data), 3)
+        signal1_samples = data[0]
+        signal2_samples = data[1]
+        signal3_samples = data[2]
+        self.assertEqual(len(signal1_samples), nb_points * 2)
+        self.assertEqual(len(signal2_samples), nb_points * 2)
+        self.assertEqual(len(signal3_samples), nb_points * 2)
 
 
 if __name__ == '__main__':
