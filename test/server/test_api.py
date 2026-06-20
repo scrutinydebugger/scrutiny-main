@@ -189,7 +189,8 @@ class StubbedDeviceHandler:
     def read_memory(self, address: int, size: int, callback: Optional[RawMemoryReadRequestCompletionCallback]):
         req = RawMemoryReadRequest(
             address=address,
-            size=size,
+            size_8bits=size,
+            size_bytes=size,
             callback=callback
         )
         self.read_memory_queue.put(req)
@@ -2451,9 +2452,9 @@ class TestAPI(ScrutinyUnitTest):
         read_request = self.fake_device_handler.read_memory_queue.get_nowait()
         self.assertTrue(self.fake_device_handler.read_memory_queue.empty())
         self.assertEqual(read_request.address, read_address)
-        self.assertEqual(read_request.size, read_size)
+        self.assertEqual(read_request.size_8bits, read_size)
         self.assertIsNotNone(read_request.completion_callback)
-        payload = bytes([random.randint(0, 255) for x in range(read_request.size)])
+        payload = bytes([random.randint(0, 255) for x in range(read_request.size_8bits)])
         read_request.completion_callback(read_request, True, 1234.2, payload, "")
 
         response = cast(api_typing.S2C.ReadMemoryComplete, self.wait_and_load_response())
@@ -2489,7 +2490,7 @@ class TestAPI(ScrutinyUnitTest):
         read_request = self.fake_device_handler.read_memory_queue.get_nowait()
         self.assertTrue(self.fake_device_handler.read_memory_queue.empty())
         self.assertEqual(read_request.address, read_address)
-        self.assertEqual(read_request.size, read_size)
+        self.assertEqual(read_request.size_8bits, read_size)
         self.assertIsNotNone(read_request.completion_callback)
 
         read_request.completion_callback(read_request, False, 1234.2, None, "")  # Simulate failure

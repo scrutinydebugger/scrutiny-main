@@ -283,12 +283,12 @@ class FakeDeviceHandler:
             if request is None:
                 break
 
-            self.read_logs.append(ReadMemoryLog(request.address, request.size))
+            self.read_logs.append(ReadMemoryLog(request.address, request.size_bytes))
             if not self.read_allowed:
                 request.set_completed(False, None, str("Not allowed"))
             else:
                 try:
-                    data = self.fake_mem.read(request.address, request.size)
+                    data = self.fake_mem.read(request.address, request.size_bytes)
                     request.set_completed(True, data)
                 except Exception as e:
                     request.set_completed(False, None, str(e))
@@ -317,7 +317,8 @@ class FakeDeviceHandler:
     def read_memory(self, address: int, size: int, callback: Optional[RawMemoryReadRequestCompletionCallback]) -> RawMemoryReadRequest:
         req = RawMemoryReadRequest(
             address=address,
-            size=size,
+            size_8bits=size,
+            size_bytes=size,
             callback=callback
         )
         self.read_memory_queue.put(req, block=False)
