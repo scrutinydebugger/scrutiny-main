@@ -13,7 +13,7 @@ __all__ = [
 
 
 __name__ = 'scrutiny'
-__version__ = '0.13.0'
+__version__ = '0.14.0'
 __author__ = 'Scrutiny Debugger'
 __credits__ = ['Pier-Yves Lessard', 'Frédéric Morin', 'Joel Viau', 'Antoine Robidoux']
 __license__ = 'MIT'
