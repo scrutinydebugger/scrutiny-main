@@ -383,6 +383,7 @@ class GraphConfigWidget(QWidget):
             if sample_size == 0:
                 return None
 
+            sample_size = sample_size // (self._device_info.char_bit // 8)  # Take CHAR_BIT in account.
             nb_samples = buffer_size // sample_size
             duration = nb_samples / effective_rate
             truncated = False

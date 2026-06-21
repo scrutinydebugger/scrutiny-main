@@ -206,6 +206,8 @@ class DeviceInfoDialog(QDialog):
                              tooltip="A textual name hardcoded in the firmware")
         device_table.add_row("Addresses size", f"{info.address_size_bits} bits",
                              tooltip="The size of a void* in the firmware")
+        device_table.add_row("Byte size", f"{info.char_bit} bits",
+                             tooltip="The value of CHAR_BIT. 8 bits on most platforms.")
         device_table.add_row("Supported features", SupportedFeatureList(info.supported_features),
                              tooltip="List of configurable feature enabled or disabled at build time")
         device_table.add_row("Read-only memory regions",
