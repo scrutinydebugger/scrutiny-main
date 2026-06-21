@@ -633,7 +633,9 @@ class DeviceHandler:
             max_request_payload_size=max_request_payload_size,
             max_response_payload_size=max_response_payload_size
         )
-        self.datalogging_poller.set_char_bit(8)  # Default value
+        self.memory_reader.set_char_bit(8)
+        self.memory_writer.set_char_bit(8)
+        self.datalogging_poller.set_char_bit(8)
 
         self.datastore.clear(watchable_type=WatchableType.RuntimePublishedValue)    # Device handler own RPVs
         self.protocol.configure_rpvs([])    # Empty list
