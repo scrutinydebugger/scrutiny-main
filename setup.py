@@ -6,21 +6,21 @@
 #
 #   Copyright (c) 2021 Scrutiny Debugger
 
-#type: ignore
+# type: ignore
 
-from setuptools import setup, find_packages #type:ignore
+from setuptools import setup, find_packages  # type:ignore
 import sys
 import os
 
 os.chdir(os.path.dirname(__file__))
 
 import scrutiny
-ADD_ENTRY_POINTS=bool(int(os.environ.get('SCRUTINY_ADD_ENTRYPOINTS', 1)))
+ADD_ENTRY_POINTS = bool(int(os.environ.get('SCRUTINY_ADD_ENTRYPOINTS', 1)))
 print(f"ADD_ENTRY_POINTS={ADD_ENTRY_POINTS}")
 entry_points = {}
 
 if ADD_ENTRY_POINTS:
-    entry_points={
+    entry_points = {
         "console_scripts": [
             f"scrutiny=scrutiny.__main__:scrutiny_cli",
             f"scrutiny_server=scrutiny.__main__:scrutiny_server",
@@ -29,18 +29,17 @@ if ADD_ENTRY_POINTS:
     }
 
 
-
 dependencies = [
     'appdirs==1.4.4',
-    'pyelftools==0.32',
+    'pyelftools==0.33',
     'pyserial==3.5',
     'pylink-square==1.3.0',
-    'PySide6-QtAds==4.4.0',
-    'PySide6==6.9.0',
+    'PySide6-QtAds==4.5.0.5',
+    'PySide6==6.11.1',
     'python-can==4.5.0'
 ]
 
-if sys.version_info < (3,11):
+if sys.version_info < (3, 11):
     dependencies.append("typing-extensions==4.12.2")
 
 doc_dependencies = []
@@ -49,6 +48,7 @@ if (sys.version_info.major, sys.version_info.minor) >= (3, 9):
         'sphinx-book-theme==1.1.2',
         'sphinx==7.2.6'
     ]
+
 
 def get_gui_assets():
     asset_dir = os.path.abspath(os.path.join('scrutiny', 'gui', 'assets'))
@@ -62,9 +62,10 @@ def get_gui_assets():
                     yield os.path.join(dirpath, file)
     return list(generate())
 
+
 setup(
     name="scrutinydebugger",
-    python_requires='>=3.10,<3.14',
+    python_requires='>=3.10,<3.15',
     description='Scrutiny Debugger Python framework',
     url='https://github.com/scrutinydebugger/scrutiny-main',
     version=scrutiny.__version__,
@@ -72,7 +73,7 @@ setup(
     license=scrutiny.__license__,
 
     packages=find_packages(where='.', exclude=["test", "test.*"], include=['scrutiny', "scrutiny.*"]),
-    package_data = {
+    package_data={
         'scrutiny': ['py.typed'] + get_gui_assets() + [scrutiny.expected_user_guide_path()],
     },
 
@@ -81,13 +82,13 @@ setup(
     extras_require={
         'test': ['mypy', 'coverage'] + doc_dependencies,
         'dev': ['mypy', 'ipdb', 'autopep8', 'coverage'] + doc_dependencies,
-        'doc' : doc_dependencies,
+        'doc': doc_dependencies,
         'build': [
             'nuitka==2.6.9',    # 2.7.3- is broken on Linux/Mac.
             'imageio==2.37.0',
             'build==1.2.2',
             'pip-licenses==5.0.0'
-            ] + doc_dependencies
+        ] + doc_dependencies
     },
     entry_points=entry_points,
 )
