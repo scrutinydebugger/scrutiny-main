@@ -196,7 +196,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         self._show_config_of(None)
 
         self.app.server_manager.signals.registry_changed.connect(self._registry_changed_slot)
-        self._status_bar.signals.exit_edit_mode.connect(lambda: self.set_mode(HMIInteractionMode.Display))
+        self._status_bar.signals.exit_edit_mode.connect(self._exit_edit_mode_slot)
 
     def ready(self) -> None:
         if self._workzone.count_hmi_widgets() == 0:
@@ -211,12 +211,14 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
 
         self.delete_hmi_widgets(list(self._workzone.iterate_hmi_widgets()))
 
-        self._workzone.signals.right_click.disconnect()
-        self._workzone.signals.drop_widget_class.disconnect()
-        self._workzone.signals.selection_changed.disconnect()
-        self._workzone.signals.double_click_edit_widget.disconnect()
+        self._workzone.signals.right_click.disconnect(self._workzone_right_click_slot)
+        self._workzone.signals.double_click_edit_widget.disconnect(self._workzone_double_click_edit_widget_slot)
+        self._workzone.signals.drop_widget_class.disconnect(self._workzone_drop_widget_class_slot)
+        self._workzone.signals.selection_changed.disconnect(self._workzone_selection_changed_slot)
+        self._workzone.signals.modified.disconnect(self._invalidate_save)
+
         self.app.server_manager.signals.registry_changed.disconnect(self._registry_changed_slot)
-        self._status_bar.signals.exit_edit_mode.disconnect()
+        self._status_bar.signals.exit_edit_mode.disconnect(self._exit_edit_mode_slot)
 
         self._workzone.destroy()
 
@@ -481,6 +483,10 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
             'value_slots': hmiwidget.get_value_slots_state(),
             'implementation_config': hmiwidget.get_implementation_config_dict()
         }
+
+    def _exit_edit_mode_slot(self) -> None:
+        """Called when the user click wants to leave the edit mode"""
+        self.set_mode(HMIInteractionMode.Display)
 
     def _registry_changed_slot(self) -> None:
         """ Called when watchables are added/removed from the registry"""
