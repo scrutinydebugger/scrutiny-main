@@ -441,7 +441,7 @@ class TestDashboard(ScrutinyBaseGuiTest):
         dock_manager.addDockWidgetFloating(dock_widget)
         self.assertTrue(dock_widget.isFloating())   # This is fine
         self.assertFalse(dock_widget.dockAreaWidget().isAutoHide())  # This is fine
-       # self.assertFalse(dock_widget.isAutoHide())  # This fails!
+        self.assertFalse(dock_widget.isAutoHide())  # This fails in qtads 4.4.0 but passes in 4.5.0.5
 
     def test_add_on_focused_pane(self):
         dashboard = Dashboard(self.main_window)
