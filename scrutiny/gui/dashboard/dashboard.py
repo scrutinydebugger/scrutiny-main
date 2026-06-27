@@ -889,6 +889,12 @@ class Dashboard(QWidget):
                 if current_widget is not None:
                     ads_dock_areas[i].setCurrentDockWidget(current_widget)
 
+        # Required or segfault may happen after removing the placeholder.
+        # I don't fully undertstand this failure mode.
+        # Looks like  DockAreaTabBarPrivate::updateTabs() is called on a nullptr otherwise.
+        # Possibly a weakness in QtADS or a documented behavior I have not seen.
+        QApplication.processEvents()
+
         # Our splitter is fully created, remove the placeholders.
         for i in range(len(placeholder_widgets)):
             self._dock_manager.removeDockWidget(placeholder_widgets[i])
