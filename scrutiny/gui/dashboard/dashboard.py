@@ -81,8 +81,11 @@ class ScrutinyDockWidget(QtAds.CDockWidget):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
 
+        def set_focus() -> None:
+            if self.tabWidget().isActiveTab():
+                self.setFocus(Qt.FocusReason.ActiveWindowFocusReason)
         # When our tab is being shown, auto set the focus to the dock widget. Allow the user to do Ctrl+W, W, W, W
-        self.tabWidget().activeTabChanged.connect(self._set_focus, Qt.ConnectionType.QueuedConnection)
+        self.tabWidget().activeTabChanged.connect(set_focus, Qt.ConnectionType.QueuedConnection)
 
     def keyPressEvent(self, event: QKeyEvent) -> None:
         modifiers = event.modifiers()
@@ -96,6 +99,7 @@ class ScrutinyDockWidget(QtAds.CDockWidget):
     def _set_focus(self) -> None:
         if self.tabWidget().isActiveTab():
             self.setFocus(Qt.FocusReason.ActiveWindowFocusReason)
+
 
 @dataclass(slots=True)
 class SplitterAndSizePair:
@@ -304,7 +308,7 @@ class Dashboard(QWidget):
     _component_app_interface: ComponentAppInterface
 
     _active_file: Optional[Path]
-    _factory:CustomFactory
+    _factory: CustomFactory
 
     def __init__(self, main_window: "MainWindow") -> None:
         super().__init__(main_window)
