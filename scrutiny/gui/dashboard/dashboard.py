@@ -81,11 +81,8 @@ class ScrutinyDockWidget(QtAds.CDockWidget):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
 
-        def set_focus() -> None:
-            if self.tabWidget().isActiveTab():
-                self.setFocus(Qt.FocusReason.ActiveWindowFocusReason)
         # When our tab is being shown, auto set the focus to the dock widget. Allow the user to do Ctrl+W, W, W, W
-        self.tabWidget().activeTabChanged.connect(set_focus, Qt.ConnectionType.QueuedConnection)
+        self.tabWidget().activeTabChanged.connect(self._set_focus, Qt.ConnectionType.QueuedConnection)
 
     def keyPressEvent(self, event: QKeyEvent) -> None:
         modifiers = event.modifiers()
@@ -96,6 +93,9 @@ class ScrutinyDockWidget(QtAds.CDockWidget):
 
         super().keyPressEvent(event)
 
+    def _set_focus(self) -> None:
+        if self.tabWidget().isActiveTab():
+            self.setFocus(Qt.FocusReason.ActiveWindowFocusReason)
 
 @dataclass(slots=True)
 class SplitterAndSizePair:
@@ -793,7 +793,7 @@ class Dashboard(QWidget):
             ads_floating_container.resize(QSize(window.width, window.height))
             self._restore_splitpane_recursive(window.container.root_splitter, first_ads_dock_area=placeholder.dockAreaWidget())
             self._restore_sidebar_components(ads_floating_container.dockContainer(), window.container.sidebar_components)
-            placeholder.deleteDockWidget()
+            self._dock_manager.removeDockWidget(placeholder)
 
         self._set_active_file(filepath)
 
@@ -887,7 +887,7 @@ class Dashboard(QWidget):
 
         # Our splitter is fully created, remove the placeholders.
         for i in range(len(placeholder_widgets)):
-            placeholder_widgets[i].deleteDockWidget()
+            self._dock_manager.removeDockWidget(placeholder_widgets[i])
         placeholder_widgets.clear()
 
         # We're done creating/deleting containers and dock areas. Resizes every splitter now.
