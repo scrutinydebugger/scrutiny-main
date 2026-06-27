@@ -304,6 +304,7 @@ class Dashboard(QWidget):
     _component_app_interface: ComponentAppInterface
 
     _active_file: Optional[Path]
+    _factory:CustomFactory
 
     def __init__(self, main_window: "MainWindow") -> None:
         super().__init__(main_window)
@@ -325,9 +326,9 @@ class Dashboard(QWidget):
         QtAds.CDockManager.setConfigFlag(QtAds.CDockManager.FloatingContainerHasWidgetTitle)
         QtAds.CDockManager.setConfigFlag(QtAds.CDockManager.XmlCompressionEnabled, False)
         QtAds.CDockManager.setAutoHideConfigFlags(QtAds.CDockManager.DefaultAutoHideConfig)
-        self.factory = CustomFactory()
-        QtAds.CDockComponentsFactory.setFactory(self.factory)   # Set before the dock manager is created
         self._dock_manager = QtAds.CDockManager(dock_conainer)
+        self._factory = CustomFactory()
+        self._dock_manager.setComponentsFactory(self._factory)   # Set before the dock manager is created
         self._dock_manager.setStyleSheet("")
 
         def configure_new_window(win: QtAds.CFloatingDockContainer) -> None:
@@ -617,7 +618,7 @@ class Dashboard(QWidget):
             tools.log_exception(self._logger, e, f"Failed to create a dashboard component of type {component_class.__name__}")
             return None
 
-        dock_widget = ScrutinyDockWidget(component_class.get_name())
+        dock_widget = ScrutinyDockWidget(self._dock_manager, component_class.get_name())
         self._configure_new_dock_widget(dock_widget)
         if widget.instance_name in self._dock_manager.dockWidgetsMap():
             self._logger.error(f"Duplicate dashboard instance name {widget.instance_name}.")
@@ -669,7 +670,7 @@ class Dashboard(QWidget):
         # There is no public API to create the layout without inserting a widget
         if title is None:
             title = "placeholder"
-        dock_widget = QtAds.CDockWidget(title)
+        dock_widget = QtAds.CDockWidget(self._dock_manager, title)
         dock_widget.setObjectName(uuid4().hex)
         self._configure_new_dock_widget(dock_widget)
         return dock_widget

@@ -100,7 +100,8 @@ class TestDashboard(ScrutinyBaseGuiTest):
         super().setUp()
         self.main_window = MainWindowStub()
         self.main_window.show()
-        QApplication.setActiveWindow(self.main_window)  # Allow focus control
+        self.main_window.activateWindow()
+        self.process_events()
 
     def test_setup_teardown(self):
         dashboard = Dashboard(self.main_window)
@@ -434,14 +435,17 @@ class TestDashboard(ScrutinyBaseGuiTest):
         QtAds.CDockManager.setAutoHideConfigFlags(QtAds.CDockManager.DefaultAutoHideConfig)
         dock_conainer = QWidget()
         dock_manager = QtAds.CDockManager(dock_conainer)
-        dock_widget = QtAds.CDockWidget("foo", dock_manager)
+        dock_widget = QtAds.CDockWidget(dock_manager, "foo")
         dock_manager.addAutoHideDockWidget(QtAds.SideBarRight, dock_widget)
         self.assertFalse(dock_widget.isFloating())
         self.assertTrue(dock_widget.isAutoHide())
+        dock_manager.removeDockWidget(dock_widget)
         dock_manager.addDockWidgetFloating(dock_widget)
         self.assertTrue(dock_widget.isFloating())   # This is fine
         self.assertFalse(dock_widget.dockAreaWidget().isAutoHide())  # This is fine
         self.assertFalse(dock_widget.isAutoHide())  # This fails in qtads 4.4.0 but passes in 4.5.0.5
+        dock_manager.removeDockWidget(dock_widget)
+        self.process_events()
 
     def test_add_on_focused_pane(self):
         dashboard = Dashboard(self.main_window)
