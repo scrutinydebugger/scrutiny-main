@@ -295,7 +295,7 @@ class HMIWorkZone(QGraphicsView):
             if self._rubberband_active:     # User is making a selection with a rubber band
                 assert self._mouse_down_start is not None
                 self._rubberband.setVisible(True)
-                self._rubberband.setGeometry(self._compute_rubber_band_rect(self._mouse_down_start, event.position()))
+                self._rubberband.setGeometry(self._compute_rubber_band_rect(self._mouse_down_start, event.position().toPoint()))
             else:
                 if self._mouse_edit_data is not None:   # An action is presently in progress
                     if self._mouse_edit_data.action == WidgetMouseEditData.Action.Move:
@@ -318,7 +318,7 @@ class HMIWorkZone(QGraphicsView):
             else:
                 hmi_widget = self.hmi_widget_at(event.position(), perform_hit_test=True)
             if hmi_widget is not None:
-                cursor = hmi_widget.mouse_move(hmi_widget.mapFromScene(self.mapToScene(event.position())))
+                cursor = hmi_widget.mouse_move(hmi_widget.mapFromScene(self.mapToScene(event.position().toPoint())))
         self.setCursor(cursor)
 
     def _selection_changed_slot(self, widgets: List[BaseHMIWidget]) -> None:
@@ -345,9 +345,9 @@ class HMIWorkZone(QGraphicsView):
         assert self._mouse_edit_data is not None
         assert self._mouse_edit_data.move_data is not None
 
-        delta_since_start = self.mapToScene(event.position()).toPoint() - self._mouse_edit_data.move_data.cursor_start
+        delta_since_start = self.mapToScene(event.position().toPoint()) - self._mouse_edit_data.move_data.cursor_start
 
-        new_bounding_rect = self._mouse_edit_data.move_data.selection_bouding_rect.translated(delta_since_start)
+        new_bounding_rect = self._mouse_edit_data.move_data.selection_bouding_rect.translated(delta_since_start.toPoint())
         new_bounding_rect_top_left = self._snap_to_grid(new_bounding_rect.topLeft(), new_bounding_rect.size())
 
         for widget in self._selected_widgets:
@@ -374,8 +374,8 @@ class HMIWorkZone(QGraphicsView):
 
         # Clip event to grid limits
         clipped_event_pos = QPoint(
-            min(max(event.position().x(), 0), (self.width() // HMIEditGrid.GRID_SPACING) * HMIEditGrid.GRID_SPACING),
-            min(max(event.position().y(), 0), (self.height() // HMIEditGrid.GRID_SPACING) * HMIEditGrid.GRID_SPACING)
+            min(max(event.position().toPoint().x(), 0), (self.width() // HMIEditGrid.GRID_SPACING) * HMIEditGrid.GRID_SPACING),
+            min(max(event.position().toPoint().y(), 0), (self.height() // HMIEditGrid.GRID_SPACING) * HMIEditGrid.GRID_SPACING)
         )
 
         diff_point = self.mapToScene(clipped_event_pos).toPoint() - self._mouse_edit_data.resize_data.original_pos
@@ -433,7 +433,7 @@ class HMIWorkZone(QGraphicsView):
     def mousePressEvent(self, event: QMouseEvent) -> None:
         cursor = Qt.CursorShape.ArrowCursor
         event.accept()
-        self._mouse_down_start = event.position.toPoint()
+        self._mouse_down_start = event.position().toPoint()
         must_propagate_left_button = False
         self._mouse_down_widget = self.hmi_widget_at(event.position(), perform_hit_test=not self._edit_mode)
         double_click_start_candidate = False
@@ -573,7 +573,8 @@ class HMIWorkZone(QGraphicsView):
 
                 elif self._mouse_down_widget is not None:
                     if mouse_release_widget is self._mouse_down_widget:
-                        cursor = self._mouse_down_widget.left_mouse_up(self._mouse_down_widget.mapFromScene(self.mapToScene(event.position().toPoint())))
+                        cursor = self._mouse_down_widget.left_mouse_up(
+                            self._mouse_down_widget.mapFromScene(self.mapToScene(event.position().toPoint())))
                     else:
                         cursor = self._mouse_down_widget.left_mouse_up(None)
 
