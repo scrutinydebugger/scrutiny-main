@@ -118,7 +118,7 @@ class TestDashboard(ScrutinyBaseGuiTest):
 
         # Global ha a single instance
         global_dock_widget2 = dashboard.create_or_show_global_component(StubbedGlobalComponent)
-        self.assertIs(global_dock_widget2, global_dock_widget)
+        self.assertIs(global_dock_widget2.widget(), global_dock_widget.widget())
 
         local_dock_widget1 = dashboard.add_local_component(StubbedLocalComponent)
         local_dock_widget2 = dashboard.add_local_component(StubbedLocalComponent)
@@ -146,13 +146,13 @@ class TestDashboard(ScrutinyBaseGuiTest):
 
         dock_widget_map = dashboard.dock_manager().dockWidgetsMap()
         self.assertIn(global_component.instance_name, dock_widget_map)
-        self.assertIs(dock_widget_map[global_component.instance_name], global_dock_widget)
+        self.assertIs(dock_widget_map[global_component.instance_name].widget(), global_dock_widget.widget())
 
         self.assertIn(local_component1.instance_name, dock_widget_map)
-        self.assertIs(dock_widget_map[local_component1.instance_name], local_dock_widget1)
+        self.assertIs(dock_widget_map[local_component1.instance_name].widget(), local_dock_widget1.widget())
 
         self.assertIn(local_component2.instance_name, dock_widget_map)
-        self.assertIs(dock_widget_map[local_component2.instance_name], local_dock_widget2)
+        self.assertIs(dock_widget_map[local_component2.instance_name].widget(), local_dock_widget2.widget())
 
         dashboard.dock_manager().removeDockWidget(local_dock_widget1)
         self.assertTrue(local_component1.teardown_called)
@@ -182,15 +182,19 @@ class TestDashboard(ScrutinyBaseGuiTest):
         dw2 = dashboard.add_local_component(StubbedLocalComponent)
         dw3 = dashboard.add_local_component(StubbedLocalComponent)
 
+        component1 = cast(StubbedLocalComponent, dw1.widget())
+        component2 = cast(StubbedLocalComponent, dw2.widget())
+        component3 = cast(StubbedLocalComponent, dw3.widget())
+
         self.assertEqual(len(dashboard.dock_manager().dockWidgetsMap()), 3)
-        for dw in [dw1, dw2, dw3]:
-            self.assertFalse(cast(StubbedLocalComponent, dw.widget()).teardown_called)
+        for component in [component1, component2, component3]:
+            self.assertFalse(component.teardown_called)
 
         dashboard.clear()
         self.assertEqual(len(dashboard.dock_manager().dockWidgetsMap()), 0)
 
-        for dw in [dw1, dw2, dw3]:
-            self.assertTrue(cast(StubbedLocalComponent, dw.widget()).teardown_called)
+        for component in [component1, component2, component3]:
+            self.assertTrue(component.teardown_called)
 
     def test_save_reload(self):
         dashboard = Dashboard(self.main_window)
@@ -400,14 +404,14 @@ class TestDashboard(ScrutinyBaseGuiTest):
         dashboard.dock_manager().addDockWidgetFloating(dock_widget1)
         dock_widget3 = dashboard.create_or_show_global_component(StubbedGlobalComponent)
 
-        self.assertIs(dock_widget1, dock_widget3)
+        self.assertIs(dock_widget1.widget(), dock_widget3.widget())
         self.assertTrue(dock_widget3.isFloating())
         self.assertFalse(dock_widget1.dockAreaWidget().isAutoHide())    # Bug #739. check dockarea instead of dock_widget.isAutoHide
 
         dashboard.dock_manager().addDockWidgetTab(QtAds.CenterDockWidgetArea, dock_widget2)
         dock_widget4 = dashboard.create_or_show_global_component(StubbedGlobalComponent2)
 
-        self.assertIs(dock_widget2, dock_widget4)
+        self.assertIs(dock_widget2.widget(), dock_widget4.widget())
         self.assertFalse(dock_widget2.isFloating())
         self.assertFalse(dock_widget2.dockAreaWidget().isAutoHide())
         self.assertTrue(dock_widget2.isTabbed())    # Share tab with local component
