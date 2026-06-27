@@ -261,8 +261,10 @@ class HMIWorkZone(QGraphicsView):
         right = max(start.x(), end.x())
         return QRect(QPoint(left, top), QPoint(right, bottom))
 
-    def hmi_widget_at(self, pos: QPoint, perform_hit_test: bool = False) -> Optional[BaseHMIWidget]:
+    def hmi_widget_at(self, pos: Union[QPoint, QPointF], perform_hit_test: bool = False) -> Optional[BaseHMIWidget]:
         """Tells what HMI widget is at a location. Returns the one on the top (highest z-value) if many"""
+        if isinstance(pos, QPointF):
+            pos = pos.toPoint()
         for item in self.items(pos):
             if isinstance(item, BaseHMIWidget):
                 if not perform_hit_test:
@@ -289,11 +291,11 @@ class HMIWorkZone(QGraphicsView):
         event.accept()
         cursor = Qt.CursorShape.ArrowCursor
         if self._edit_mode:
-            scene_pos = self.mapToScene(event.pos())
+            scene_pos = self.mapToScene(event.position().toPoint())
             if self._rubberband_active:     # User is making a selection with a rubber band
                 assert self._mouse_down_start is not None
                 self._rubberband.setVisible(True)
-                self._rubberband.setGeometry(self._compute_rubber_band_rect(self._mouse_down_start, event.pos()))
+                self._rubberband.setGeometry(self._compute_rubber_band_rect(self._mouse_down_start, event.position()))
             else:
                 if self._mouse_edit_data is not None:   # An action is presently in progress
                     if self._mouse_edit_data.action == WidgetMouseEditData.Action.Move:
@@ -302,7 +304,7 @@ class HMIWorkZone(QGraphicsView):
                         cursor = self._view_mousemove_resize_widget(event)  # Handle resize action
                 else:   # Nothing is happening
                     # Check if we should display a resize cursor if used over a resize handle
-                    hmi_widget = self.hmi_widget_at(event.pos(), perform_hit_test=False)
+                    hmi_widget = self.hmi_widget_at(event.position(), perform_hit_test=False)
                     if hmi_widget is not None:
                         local_pos = hmi_widget.mapFromScene(scene_pos)
                         for handle, rect in hmi_widget.resize_handles_coordinates().items():
@@ -314,9 +316,9 @@ class HMIWorkZone(QGraphicsView):
             if self._mouse_down_widget is not None:
                 hmi_widget = self._mouse_down_widget
             else:
-                hmi_widget = self.hmi_widget_at(event.pos(), perform_hit_test=True)
+                hmi_widget = self.hmi_widget_at(event.position(), perform_hit_test=True)
             if hmi_widget is not None:
-                cursor = hmi_widget.mouse_move(hmi_widget.mapFromScene(self.mapToScene(event.pos())))
+                cursor = hmi_widget.mouse_move(hmi_widget.mapFromScene(self.mapToScene(event.position())))
         self.setCursor(cursor)
 
     def _selection_changed_slot(self, widgets: List[BaseHMIWidget]) -> None:
@@ -343,7 +345,7 @@ class HMIWorkZone(QGraphicsView):
         assert self._mouse_edit_data is not None
         assert self._mouse_edit_data.move_data is not None
 
-        delta_since_start = self.mapToScene(event.pos()).toPoint() - self._mouse_edit_data.move_data.cursor_start
+        delta_since_start = self.mapToScene(event.position()).toPoint() - self._mouse_edit_data.move_data.cursor_start
 
         new_bounding_rect = self._mouse_edit_data.move_data.selection_bouding_rect.translated(delta_since_start)
         new_bounding_rect_top_left = self._snap_to_grid(new_bounding_rect.topLeft(), new_bounding_rect.size())
@@ -372,8 +374,8 @@ class HMIWorkZone(QGraphicsView):
 
         # Clip event to grid limits
         clipped_event_pos = QPoint(
-            min(max(event.pos().x(), 0), (self.width() // HMIEditGrid.GRID_SPACING) * HMIEditGrid.GRID_SPACING),
-            min(max(event.pos().y(), 0), (self.height() // HMIEditGrid.GRID_SPACING) * HMIEditGrid.GRID_SPACING)
+            min(max(event.position().x(), 0), (self.width() // HMIEditGrid.GRID_SPACING) * HMIEditGrid.GRID_SPACING),
+            min(max(event.position().y(), 0), (self.height() // HMIEditGrid.GRID_SPACING) * HMIEditGrid.GRID_SPACING)
         )
 
         diff_point = self.mapToScene(clipped_event_pos).toPoint() - self._mouse_edit_data.resize_data.original_pos
@@ -431,9 +433,9 @@ class HMIWorkZone(QGraphicsView):
     def mousePressEvent(self, event: QMouseEvent) -> None:
         cursor = Qt.CursorShape.ArrowCursor
         event.accept()
-        self._mouse_down_start = event.pos()
+        self._mouse_down_start = event.position.toPoint()
         must_propagate_left_button = False
-        self._mouse_down_widget = self.hmi_widget_at(event.pos(), perform_hit_test=not self._edit_mode)
+        self._mouse_down_widget = self.hmi_widget_at(event.position(), perform_hit_test=not self._edit_mode)
         double_click_start_candidate = False
 
         if event.button() == Qt.MouseButton.LeftButton:
@@ -456,7 +458,7 @@ class HMIWorkZone(QGraphicsView):
 
                     resize_handles = self._mouse_down_widget.resize_handles_coordinates()
                     resize_handle: Optional[HandlePosition] = None
-                    pos_mapped_to_widget = self._mouse_down_widget.mapFromScene(self.mapToScene(event.pos()))
+                    pos_mapped_to_widget = self._mouse_down_widget.mapFromScene(self.mapToScene(event.position().toPoint()))
                     for handle, rect in resize_handles.items():
                         if rect.contains(pos_mapped_to_widget):
                             resize_handle = handle
@@ -497,7 +499,7 @@ class HMIWorkZone(QGraphicsView):
                         self._mouse_edit_data = WidgetMouseEditData(
                             action=WidgetMouseEditData.Action.Move,
                             move_data=WidgetMouseEditData.MoveData(
-                                cursor_start=self.mapToScene(event.pos()).toPoint(),
+                                cursor_start=self.mapToScene(event.position().toPoint()).toPoint(),
                                 widget_offset_to_bounding_rect=widget_offset,
                                 selection_bouding_rect=selection_bounding_rect.toRect()
                             )
@@ -511,7 +513,7 @@ class HMIWorkZone(QGraphicsView):
         # Prevent propagation if we took the event.
         # Prevents control widget to react when moving
         if must_propagate_left_button and self._mouse_down_widget is not None:
-            cursor = self._mouse_down_widget.left_mouse_down(self._mouse_down_widget.mapFromScene(self.mapToScene(event.pos())))
+            cursor = self._mouse_down_widget.left_mouse_down(self._mouse_down_widget.mapFromScene(self.mapToScene(event.position().toPoint())))
         self.setCursor(cursor)
 
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
@@ -519,7 +521,7 @@ class HMIWorkZone(QGraphicsView):
         event.accept()
         self._status_bar.set_resize_size(None)
         if self._mouse_down_start is not None:
-            mouse_release_widget = self.hmi_widget_at(event.pos(), perform_hit_test=not self._edit_mode)
+            mouse_release_widget = self.hmi_widget_at(event.position(), perform_hit_test=not self._edit_mode)
 
             # Check if right-click
             if event.button() == Qt.MouseButton.RightButton:
@@ -534,12 +536,12 @@ class HMIWorkZone(QGraphicsView):
 
             elif event.button() == Qt.MouseButton.LeftButton:
                 if self._edit_mode:
-                    if event.pos() == self._mouse_down_start:
+                    if event.position().toPoint() == self._mouse_down_start:
                         self._rubberband_active = False
 
                     if self._rubberband_active:  # Finished a rubberband
                         # Rubber band select logic
-                        rubberband_rect = self._compute_rubber_band_rect(self._mouse_down_start, event.pos())
+                        rubberband_rect = self._compute_rubber_band_rect(self._mouse_down_start, event.position().toPoint())
                         area = rubberband_rect.width() * rubberband_rect.height()
                         if area > self.MIN_RUBBERBAND_AREA:  # Drop if too small
                             selected: List[BaseHMIWidget] = []
@@ -554,7 +556,7 @@ class HMIWorkZone(QGraphicsView):
                             has_moved = False
                             has_resized = False
                             if self._mouse_edit_data is not None:
-                                if event.pos() != self._mouse_down_start:
+                                if event.position().toPoint() != self._mouse_down_start:
                                     if self._mouse_edit_data.action == WidgetMouseEditData.Action.Move:
                                         has_moved = True
                                     elif self._mouse_edit_data.action == WidgetMouseEditData.Action.Resize:
@@ -571,7 +573,7 @@ class HMIWorkZone(QGraphicsView):
 
                 elif self._mouse_down_widget is not None:
                     if mouse_release_widget is self._mouse_down_widget:
-                        cursor = self._mouse_down_widget.left_mouse_up(self._mouse_down_widget.mapFromScene(self.mapToScene(event.pos())))
+                        cursor = self._mouse_down_widget.left_mouse_up(self._mouse_down_widget.mapFromScene(self.mapToScene(event.position().toPoint())))
                     else:
                         cursor = self._mouse_down_widget.left_mouse_up(None)
 
@@ -629,7 +631,7 @@ class HMIWorkZone(QGraphicsView):
 
         self._drop_placeholder.set_size(widget_class.default_size())
         self._drop_placeholder.setVisible(True)
-        self._set_drop_placeholder_pos(self.mapToScene(event.pos()))
+        self._set_drop_placeholder_pos(self.mapToScene(event.position().toPoint()))
         event.accept()
         event.setDropAction(Qt.DropAction.CopyAction)
         event.acceptProposedAction()
@@ -639,12 +641,12 @@ class HMIWorkZone(QGraphicsView):
         event.accept()
 
     def dragMoveEvent(self, event: QDragMoveEvent) -> None:
-        self._set_drop_placeholder_pos(self.mapToScene(event.pos()))
+        self._set_drop_placeholder_pos(self.mapToScene(event.position().toPoint()))
         event.accept()
 
     def dropEvent(self, event: QDropEvent) -> None:
         self._drop_placeholder.setVisible(False)
-        self._set_drop_placeholder_pos(self.mapToScene(event.pos()))
+        self._set_drop_placeholder_pos(self.mapToScene(event.position().toPoint()))
         widget_class = self._read_drag_data(event.mimeData())
         if widget_class is None:
             return
