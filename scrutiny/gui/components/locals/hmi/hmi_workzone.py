@@ -13,7 +13,7 @@ import enum
 import time
 from dataclasses import dataclass
 
-from PySide6.QtCore import QRectF, Qt, Signal, QRect, QPoint, QObject, QMimeData, QSize, QPointF, QSizeF, Slot
+from PySide6.QtCore import QRectF, Qt, Signal, QRect, QPoint, QObject, QMimeData, QSize, QPointF, QSizeF
 from PySide6.QtWidgets import QGraphicsView, QGraphicsItem, QRubberBand, QGraphicsScene, QStyleOptionGraphicsItem, QWidget
 from PySide6.QtGui import QDragEnterEvent, QDragLeaveEvent, QDragMoveEvent, QDropEvent, QMouseEvent, QPainter, QResizeEvent
 
