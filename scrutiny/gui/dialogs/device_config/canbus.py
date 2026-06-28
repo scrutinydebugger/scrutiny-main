@@ -455,7 +455,7 @@ class CanBusConfigPane(BaseConfigPane):
 
     def _update_subconfig_pane(self) -> None:
         for i in range(self._subconfig_layout.count()):
-            subconfig_pane = self._subconfig_layout.widget(i)
+            subconfig_pane = cast(QWidget, self._subconfig_layout.widget(i))
             subconfig_pane.setVisible(False)
 
         self._get_active_subconfig_pane().setVisible(True)

@@ -81,11 +81,8 @@ class ScrutinyDockWidget(QtAds.CDockWidget):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
 
-        def set_focus() -> None:
-            if self.tabWidget().isActiveTab():
-                self.setFocus(Qt.FocusReason.ActiveWindowFocusReason)
         # When our tab is being shown, auto set the focus to the dock widget. Allow the user to do Ctrl+W, W, W, W
-        self.tabWidget().activeTabChanged.connect(set_focus, Qt.ConnectionType.QueuedConnection)
+        self.tabWidget().activeTabChanged.connect(self._set_focus, Qt.ConnectionType.QueuedConnection)
 
     def keyPressEvent(self, event: QKeyEvent) -> None:
         modifiers = event.modifiers()
@@ -95,6 +92,10 @@ class ScrutinyDockWidget(QtAds.CDockWidget):
                 event.accept()
 
         super().keyPressEvent(event)
+
+    def _set_focus(self) -> None:
+        if self.tabWidget().isActiveTab():
+            self.setFocus(Qt.FocusReason.ActiveWindowFocusReason)
 
 
 @dataclass(slots=True)
@@ -304,6 +305,7 @@ class Dashboard(QWidget):
     _component_app_interface: ComponentAppInterface
 
     _active_file: Optional[Path]
+    _factory: CustomFactory
 
     def __init__(self, main_window: "MainWindow") -> None:
         super().__init__(main_window)
@@ -325,9 +327,9 @@ class Dashboard(QWidget):
         QtAds.CDockManager.setConfigFlag(QtAds.CDockManager.FloatingContainerHasWidgetTitle)
         QtAds.CDockManager.setConfigFlag(QtAds.CDockManager.XmlCompressionEnabled, False)
         QtAds.CDockManager.setAutoHideConfigFlags(QtAds.CDockManager.DefaultAutoHideConfig)
-        self.factory = CustomFactory()
-        QtAds.CDockComponentsFactory.setFactory(self.factory)   # Set before the dock manager is created
         self._dock_manager = QtAds.CDockManager(dock_conainer)
+        self._factory = CustomFactory()
+        self._dock_manager.setComponentsFactory(self._factory)   # Set before the dock manager is created
         self._dock_manager.setStyleSheet("")
 
         def configure_new_window(win: QtAds.CFloatingDockContainer) -> None:
@@ -617,7 +619,7 @@ class Dashboard(QWidget):
             tools.log_exception(self._logger, e, f"Failed to create a dashboard component of type {component_class.__name__}")
             return None
 
-        dock_widget = ScrutinyDockWidget(component_class.get_name())
+        dock_widget = ScrutinyDockWidget(self._dock_manager, component_class.get_name())
         self._configure_new_dock_widget(dock_widget)
         if widget.instance_name in self._dock_manager.dockWidgetsMap():
             self._logger.error(f"Duplicate dashboard instance name {widget.instance_name}.")
@@ -669,7 +671,7 @@ class Dashboard(QWidget):
         # There is no public API to create the layout without inserting a widget
         if title is None:
             title = "placeholder"
-        dock_widget = QtAds.CDockWidget(title)
+        dock_widget = QtAds.CDockWidget(self._dock_manager, title)
         dock_widget.setObjectName(uuid4().hex)
         self._configure_new_dock_widget(dock_widget)
         return dock_widget
@@ -792,7 +794,7 @@ class Dashboard(QWidget):
             ads_floating_container.resize(QSize(window.width, window.height))
             self._restore_splitpane_recursive(window.container.root_splitter, first_ads_dock_area=placeholder.dockAreaWidget())
             self._restore_sidebar_components(ads_floating_container.dockContainer(), window.container.sidebar_components)
-            placeholder.deleteDockWidget()
+            self._dock_manager.removeDockWidget(placeholder)
 
         self._set_active_file(filepath)
 
@@ -884,9 +886,15 @@ class Dashboard(QWidget):
                 if current_widget is not None:
                     ads_dock_areas[i].setCurrentDockWidget(current_widget)
 
+        # Required or segfault may happen after removing the placeholder.
+        # I don't fully undertstand this failure mode.
+        # Looks like  DockAreaTabBarPrivate::updateTabs() is called on a nullptr otherwise.
+        # Possibly a weakness in QtADS or a documented behavior I have not seen.
+        QApplication.processEvents()
+
         # Our splitter is fully created, remove the placeholders.
         for i in range(len(placeholder_widgets)):
-            placeholder_widgets[i].deleteDockWidget()
+            self._dock_manager.removeDockWidget(placeholder_widgets[i])
         placeholder_widgets.clear()
 
         # We're done creating/deleting containers and dock areas. Resizes every splitter now.

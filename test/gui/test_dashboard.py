@@ -100,7 +100,8 @@ class TestDashboard(ScrutinyBaseGuiTest):
         super().setUp()
         self.main_window = MainWindowStub()
         self.main_window.show()
-        QApplication.setActiveWindow(self.main_window)  # Allow focus control
+        self.main_window.activateWindow()
+        self.process_events()
 
     def test_setup_teardown(self):
         dashboard = Dashboard(self.main_window)
@@ -181,15 +182,19 @@ class TestDashboard(ScrutinyBaseGuiTest):
         dw2 = dashboard.add_local_component(StubbedLocalComponent)
         dw3 = dashboard.add_local_component(StubbedLocalComponent)
 
+        component1 = cast(StubbedLocalComponent, dw1.widget())
+        component2 = cast(StubbedLocalComponent, dw2.widget())
+        component3 = cast(StubbedLocalComponent, dw3.widget())
+
         self.assertEqual(len(dashboard.dock_manager().dockWidgetsMap()), 3)
-        for dw in [dw1, dw2, dw3]:
-            self.assertFalse(cast(StubbedLocalComponent, dw.widget()).teardown_called)
+        for component in [component1, component2, component3]:
+            self.assertFalse(component.teardown_called)
 
         dashboard.clear()
         self.assertEqual(len(dashboard.dock_manager().dockWidgetsMap()), 0)
 
-        for dw in [dw1, dw2, dw3]:
-            self.assertTrue(cast(StubbedLocalComponent, dw.widget()).teardown_called)
+        for component in [component1, component2, component3]:
+            self.assertTrue(component.teardown_called)
 
     def test_save_reload(self):
         dashboard = Dashboard(self.main_window)
@@ -434,14 +439,17 @@ class TestDashboard(ScrutinyBaseGuiTest):
         QtAds.CDockManager.setAutoHideConfigFlags(QtAds.CDockManager.DefaultAutoHideConfig)
         dock_conainer = QWidget()
         dock_manager = QtAds.CDockManager(dock_conainer)
-        dock_widget = QtAds.CDockWidget("foo", dock_manager)
+        dock_widget = QtAds.CDockWidget(dock_manager, "foo")
         dock_manager.addAutoHideDockWidget(QtAds.SideBarRight, dock_widget)
         self.assertFalse(dock_widget.isFloating())
         self.assertTrue(dock_widget.isAutoHide())
+        dock_manager.removeDockWidget(dock_widget)
         dock_manager.addDockWidgetFloating(dock_widget)
         self.assertTrue(dock_widget.isFloating())   # This is fine
         self.assertFalse(dock_widget.dockAreaWidget().isAutoHide())  # This is fine
-       # self.assertFalse(dock_widget.isAutoHide())  # This fails!
+        # self.assertFalse(dock_widget.isAutoHide())  # This fails in qtads 4.4.0 but passes in 4.5.0.5
+        dock_manager.removeDockWidget(dock_widget)
+        self.process_events()
 
     def test_add_on_focused_pane(self):
         dashboard = Dashboard(self.main_window)
