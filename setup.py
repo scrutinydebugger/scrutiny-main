@@ -34,8 +34,8 @@ dependencies = [
     'pyelftools==0.33',
     'pyserial==3.5',
     'pylink-square==1.3.0',
-    'PySide6-QtAds==4.5.0.5',
-    'PySide6==6.11.1',
+    'PySide6-QtAds==4.4.0',
+    'PySide6==6.9.0',
     'python-can==4.5.0'
 ]
 
