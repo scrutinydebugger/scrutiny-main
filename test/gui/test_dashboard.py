@@ -486,7 +486,7 @@ class TestDashboard(ScrutinyBaseGuiTest):
         dock_manager.addDockWidgetFloating(dock_widget)
         self.assertTrue(dock_widget.isFloating())   # This is fine
         self.assertFalse(dock_widget.dockAreaWidget().isAutoHide())  # This is fine
-        # self.assertFalse(dock_widget.isAutoHide())  # This fails in qtads 4.4.0 but passes in 4.5.0.5
+        self.assertFalse(dock_widget.isAutoHide())  # This fails in qtads 4.4.0 but passes in 4.5.0.5
         dock_manager.removeDockWidget(dock_widget)
         self.process_events()
 
