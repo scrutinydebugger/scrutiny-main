@@ -1,4 +1,10 @@
-
+#    test_makevarmap_qemu_leon3_Gcc_13_3_0_dwarf4.py
+#        A test suite to test elf2varmap against Leon3 CPU (Big Endian)
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2022 Scrutiny Debugger
 
 import unittest
 from test.artifacts import get_artifact

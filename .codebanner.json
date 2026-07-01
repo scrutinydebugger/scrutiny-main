@@ -1139,6 +1139,9 @@
         },
         "test/server/test_datalogging_poller.py": {
             "docstring": "A test suite for the datalogging poller"
+        },
+        "test/cli/test_makevarmap_qemu_leon3_Gcc_13_3_0_dwarf4.py": {
+            "docstring": "A test suite to test elf2varmap against Leon3 CPU (Big Endian) "
         }
     },
     "authors": {}
