@@ -97,23 +97,27 @@ class VariableLayout:
 
         if self.bitfield:
             assert self.bitsize is not None
+            assert self.bitoffset is not None
             if len(data) > 8:
-                raise NotImplementedError('Does not support bitfield bigger than %dbits' % (8 * 8))
+                raise NotImplementedError('Does not support bitfield bigger than 64 bits')
+            if self.bitoffset + self.bitsize > 64:
+                raise ValueError("bitoffset and bitsize goes beyond 64 bits")
+
             initial_len = len(data)
 
             if self.endianness == Endianness.Little:
                 padded_data = bytearray(data + b'\x00' * (8 - initial_len))
-                uint_data = struct.unpack('<q', padded_data)[0]
+                uint_data = struct.unpack('<Q', padded_data)[0]
                 uint_data >>= self.bitoffset
                 uint_data &= MASK_MAP[self.bitsize]
-                data = struct.pack('<q', uint_data)
+                data = struct.pack('<Q', uint_data)
                 data = data[0:initial_len]
             else:
-                padded_data = bytearray(b'\x00' * (8 - initial_len) + data)
-                uint_data = struct.unpack('>q', padded_data)[0]
-                uint_data >>= self.bitoffset
+                padded_data = bytearray(data + b'\x00' * (8 - initial_len))
+                uint_data = struct.unpack('>Q', padded_data)[0]
+                uint_data >>= 64 - self.bitoffset - self.bitsize    # Overflow check done above
                 uint_data &= MASK_MAP[self.bitsize]
-                data = struct.pack('>q', uint_data)
+                data = struct.pack('>Q', uint_data)
                 data = data[-initial_len:]
 
         decoded = Codecs.get(self.vartype, endianness=self.endianness).decode(data)
