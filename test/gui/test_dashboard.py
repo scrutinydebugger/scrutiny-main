@@ -34,11 +34,14 @@ class TestDockWidget(QtAds.CDockWidget):
 class TestDockWidgetTab(QtAds.CDockWidgetTab):
     pass
 
+
 class TestDockAreaTitleBar(QtAds.CDockAreaTitleBar):
     pass
 
+
 class TestAutoHideTab(QtAds.ads.CAutoHideTab):
     pass
+
 
 class TestFactory(QtAds.CDockComponentsFactory):
     pass
@@ -61,6 +64,7 @@ class TestFactory(QtAds.CDockComponentsFactory):
         sidetab = TestAutoHideTab(DockWidget)
         self._storage.append(sidetab)
         return sidetab
+
 
 class StubbedComponent(ScrutinyGUIBaseComponent):
     setup_called: bool
@@ -527,9 +531,9 @@ class TestDashboard(ScrutinyBaseGuiTest):
         # https://github.com/githubuser0xFFFF/Qt-Advanced-Docking-System/issues/847
         self.assertIs(dw1, dw2, "Bad PySide6 binding, Check ADS Bug #847")  # Fails with 4.5.0.5 and PySide6.10+.  Should be the same.
 
-
     def test_ads_bug_847_slot_get_right_wrapper(self):
         dw_received = []
+
         def about_to_be_remove_slot(dw: TestDockWidget) -> None:
             dw_received.append(dw)
 
