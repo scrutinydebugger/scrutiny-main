@@ -69,7 +69,7 @@ class CSVLogger:
     _first_val_dt: Optional[datetime]
     _actual_file_basename: str
     _actual_file_handle: Optional[TextIO]
-    _csv_writer: Optional["_csv._writer"]
+    _csv_writer: Optional["_csv.Writer"]
     _actual_file_number: int
     _csv_config: CSVConfig
     _convert_bool_to_int: bool
@@ -316,7 +316,7 @@ class CSVLogger:
             raise FileExistsError(f"File {fullpath} already exists")
         return open(fullpath, 'w', encoding=self._csv_config.encoding, newline=self._csv_config.newline)
 
-    def _make_csv_writer(self) -> "_csv._writer":
+    def _make_csv_writer(self) -> "_csv.Writer":
         assert self._actual_file_handle is not None
 
         return csv.writer(
