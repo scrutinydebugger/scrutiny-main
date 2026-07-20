@@ -577,12 +577,21 @@ class API:
         """Stream all available data to connected clients."""
 
         def entry_to_update_dict(entry: DatastoreEntry) -> api_typing.WatchableUpdateRecord:
-            v = cast(Optional[Union[int, float, bool]], entry.get_value())
+            dsval = entry.get_value()
+            v: Optional[Union[int, float, bool]] = None
+            raw_data: Optional[bytes] = None
+            if dsval is not None:
+                v = dsval.decoded
+                raw_data = dsval.raw_data
+
             d: api_typing.WatchableUpdateRecord = {
                 'id': entry.get_id(),
                 'v': v,
                 't': entry.get_value_change_server_time_us(),
             }
+            if raw_data is not None:
+                d['d'] = b64encode(raw_data).decode()
+
             if v is None:
                 reason = entry.get_value_invalid_reason()
                 if reason is not None:

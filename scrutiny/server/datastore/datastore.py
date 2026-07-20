@@ -15,6 +15,7 @@ import functools
 import enum
 from dataclasses import dataclass
 from scrutiny.core.basic_types import WatchableType
+from scrutiny.core.codecs import Encodable
 from scrutiny.core.scrutiny_path import ScrutinyPath
 from scrutiny.server.datastore.datastore_entry import *
 from scrutiny.core.variable_factory import VariableFactory
@@ -422,13 +423,13 @@ class Datastore:
 
         return val
 
-    def set_value(self, entry_or_entryid: Union[DatastoreEntry, str], value: Any, invalid_reason: Optional[DatastoreEntryInvalidReason] = None) -> None:
+    def set_value(self, entry_or_entryid: Union[DatastoreEntry, str], value: Optional[DatastoreValue], invalid_reason: Optional[DatastoreEntryInvalidReason] = None) -> None:
         """ Sets the value on an entry"""
         entry_id = self._get_entry_id(entry_or_entryid)
         entry = self.get_entry(entry_id)
         entry.set_value(value, invalid_reason)
 
-    def update_target_value(self, entry_or_entryid: Union[DatastoreEntry, str], value: Any, callback: UpdateTargetRequestCallback) -> UpdateTargetRequest:
+    def update_target_value(self, entry_or_entryid: Union[DatastoreEntry, str], value: Encodable, callback: UpdateTargetRequestCallback) -> UpdateTargetRequest:
         """Enqueue a write request on the datastore entry. Will be picked up by the device side to be executed"""
         if isinstance(entry_or_entryid, DatastoreEntry):
             entry = entry_or_entryid

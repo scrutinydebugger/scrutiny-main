@@ -7,6 +7,7 @@
 #    Copyright (c) 2022 Scrutiny Debugger
 
 __all__ = [
+    'DatastoreValue',
     'DatastoreEntry',
     'DatastoreVariableEntry',
     'DatastoreAliasEntry',
@@ -22,6 +23,8 @@ import abc
 import queue
 import enum
 
+from dataclasses import dataclass
+
 from scrutiny.server.timebase import server_timebase
 from scrutiny.core import path_tools
 from scrutiny.core.basic_types import EmbeddedDataType, Endianness, WatchableType, RuntimePublishedValue
@@ -36,6 +39,12 @@ from scrutiny.tools.typing import *
 
 UpdateTargetRequestCallback = Callable[[bool, 'DatastoreEntry', float], None]   # callback(success, entry, timestamp)
 UserValueChangeCallback = Callable[[str, "DatastoreEntry"], None]
+
+
+@dataclass(slots=True)
+class DatastoreValue:
+    decoded: Encodable
+    raw_data: Optional[bytes] = None
 
 
 class DatastoreEntryInvalidReason(enum.Enum):
@@ -72,7 +81,7 @@ class UpdateTargetRequest:
     Represent a request to write an entry in the target device.
     Once this request is completed and successful, the datastore can be updated.
     """
-    value: Any
+    value: Encodable
     request_server_time_us: float
     completed: bool
     success: Optional[bool]
@@ -80,7 +89,7 @@ class UpdateTargetRequest:
     completion_callback: Optional[UpdateTargetRequestCallback]
     entry: 'DatastoreEntry'
 
-    def __init__(self, value: Any, entry: 'DatastoreEntry', callback: Optional[UpdateTargetRequestCallback] = None):
+    def __init__(self, value: Encodable, entry: 'DatastoreEntry', callback: Optional[UpdateTargetRequestCallback] = None):
         self.value = value
         self.request_server_time_us = server_timebase.get_micro()
         self.completed = False
@@ -116,7 +125,7 @@ class UpdateTargetRequest:
         """Returns the timestamp at which the request has been completed. None if incomplete"""
         return self.completion_server_time_us
 
-    def get_value(self) -> Any:
+    def get_value(self) -> Encodable:
         """Get the value requested"""
         return self.value
 
@@ -147,7 +156,7 @@ class DatastoreEntry(abc.ABC):
     value_change_callback: Dict[str, Callable[["DatastoreEntry"], Any]]
     target_update_callback: Dict[str, Callable[["DatastoreEntry"], Any]]
     display_path: str
-    value: Any
+    value: Optional[DatastoreValue]
     invalid_reason: Optional[DatastoreEntryInvalidReason]
     last_target_update_server_time_us: Optional[float]
     target_update_request_queue: "queue.Queue[UpdateTargetRequest]"
@@ -213,9 +222,16 @@ class DatastoreEntry(abc.ABC):
         """Get the tree-like display path of the datastore entry """
         return self.display_path
 
-    def get_value(self) -> Any:
+    def get_value(self) -> Optional[DatastoreValue]:
         """Returns the current entry value"""
         return self.value
+
+    def get_decoded_value(self) -> Optional[Encodable]:
+        """Returns the current entry value"""
+        if self.value is None:
+            return None
+
+        return self.value.decoded
 
     def get_value_invalid_reason(self) -> Optional[DatastoreEntryInvalidReason]:
         """Return the reason of invalidity. ``None`` if valid"""
@@ -223,7 +239,11 @@ class DatastoreEntry(abc.ABC):
 
     def set_value_from_data(self, data: bytes) -> None:
         """Converts bytes gotten from memory to a value"""
-        self.set_value(self.decode(data))
+        val = DatastoreValue(
+            decoded=self.decode(data),
+            raw_data=data
+        )
+        self.set_value(val)
 
     def execute_value_change_callback(self) -> None:
         """Run all the callbacks when the value is updated"""
@@ -249,11 +269,13 @@ class DatastoreEntry(abc.ABC):
         else:
             return (owner in self.value_change_callback)
 
-    def set_value(self, value: Any, invalid_reason: Optional[DatastoreEntryInvalidReason] = None) -> None:
+    def set_value(self, value: Optional[DatastoreValue], invalid_reason: Optional[DatastoreEntryInvalidReason] = None) -> None:
         """ Change the value in the datastore. Should be done by the device side of
          the datastore as callbacks are meant to propagate the update to the user (API side)"""
         if invalid_reason is not None:
             assert value is None    # We require a value to be None to be invalid
+        if value is not None:
+            assert isinstance(value, DatastoreValue)
         self.value = value
         self.invalid_reason = invalid_reason
         self.last_value_update_server_time_us = server_timebase.get_micro()
@@ -372,7 +394,7 @@ class DatastorePointedVariableEntry(DatastoreVariableEntry):
 
     def get_address(self) -> Optional[int]:
         """Return the variable address. Perform the pointer dereferencing from the pointer value already inside the datastore"""
-        base = self.pointer_entry.value  # Can be None if invalid
+        base = self.pointer_entry.get_decoded_value()  # Can be None if invalid
         if not isinstance(base, int):
             return None
         return base + self.get_pointer_offset()
@@ -445,11 +467,17 @@ class DatastoreAliasEntry(DatastoreEntry):
         # Just to make explicit that this is not supposed to happen
         raise NotImplementedError('Cannot set value on an Alias variable')
 
-    def set_value_internal(self, value: Union[int, float, bool]) -> None:
+    def set_value_internal(self, value: Optional[DatastoreValue]) -> None:
         """Set the value of this alias object."""
         # These functions are meant to be used internally to make the alias mechanism work. Not to be used by a user.
-        new_value = self.aliasdef.compute_device_to_user(value)
-        DatastoreEntry.set_value(self, new_value)
+        if value is not None:
+            val = DatastoreValue(
+                decoded=self.aliasdef.compute_device_to_user(value.decoded),
+                raw_data=value.raw_data
+            )
+            DatastoreEntry.set_value(self, val)
+        else:
+            DatastoreEntry.set_value(self, None)
 
     def compute_device_to_user(self, value: Union[int, float, bool]) -> Union[int, float, bool]:
         """Transform a value from the device side to the user side applying the alias configuration"""

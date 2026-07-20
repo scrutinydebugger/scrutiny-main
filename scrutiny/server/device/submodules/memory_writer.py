@@ -24,7 +24,7 @@ import scrutiny.server.protocol.typing as protocol_typing
 from scrutiny.server.device.request_dispatcher import RequestDispatcher
 from scrutiny.server.datastore.datastore import Datastore
 from scrutiny.server.datastore.datastore_entry import (
-    DatastoreEntry, DatastoreRPVEntry, DatastoreVariableEntry, UpdateTargetRequest, DatastorePointedVariableEntry)
+    DatastoreEntry, DatastoreRPVEntry, DatastoreVariableEntry, UpdateTargetRequest, DatastorePointedVariableEntry, DatastoreValue)
 from scrutiny.core.codecs import Codecs, Encodable
 from scrutiny.core.basic_types import MemoryRegion
 
@@ -109,6 +109,8 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
     """Update request attached to the entry being updated. It's what's coming from the API"""
     target_update_value_written: Optional[Encodable]
     """The value requested to be written. Has a value when an UpdateTargetRequest is active. ``None`` otherwise"""
+    target_update_data_written: Optional[bytes]
+    """The raw data requested to be written. Has a value when an UpdateTargetRequest is active, for variable only. ``None`` otherwise"""
     raw_write_request_queue: "ScrutinyQueue[RawMemoryWriteRequest]"
     """An internal queue that store the raw memory write request (direct memory access not tied to the datastore)"""
     active_raw_write_request: Optional[RawMemoryWriteRequest]
@@ -230,6 +232,7 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
         self.entry_being_updated = None
         self.target_update_request_being_processed = None
         self.target_update_value_written = None
+        self.target_update_data_written = None
 
     def reset(self) -> None:
         """Put back the memory writer to its startup state"""
@@ -354,8 +357,10 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
                     if isinstance(update_request.entry, DatastorePointedVariableEntry):  # subclass
                         if update_request.entry.pointer_entry.get_char_bit() != self._char_bit:
                             allowed = False
-                        elif update_request.entry.pointer_entry.get_value() == 0:
-                            allowed = False  # Do not write null pointers
+                        else:
+                            val = update_request.entry.pointer_entry.get_value()
+                            if val is None or val.decoded == 0:
+                                allowed = False  # Do not write null pointers
                     address = update_request.entry.get_address()
                     if address is None:
                         allowed = False
@@ -405,8 +410,16 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
                     address = self.entry_being_updated.get_address()    # Works with absolute and pointed address
                     assert address is not None  # Validated above.
                     if encoding_succeeded:
-                        self.target_update_value_written = value_to_write
                         encoded_value, write_mask = self.entry_being_updated.encode(value_to_write)
+                        self.target_update_value_written = value_to_write
+
+                        if write_mask is not None:
+                            # We do not assign raw data for bitfield as we need a new read to get the real data.
+                            # Raw data is for giving to the client if available only.
+                            self.target_update_data_written = None
+                        else:
+                            self.target_update_data_written = encoded_value
+
                         request = self.protocol.write_single_memory_block(
                             address=address,
                             data=encoded_value,
@@ -424,6 +437,7 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
                         encoding_succeeded = False
                     if encoding_succeeded:
                         self.target_update_value_written = value_to_write
+                        self.target_update_data_written = None  # Not applicable to RPV
                         request = self.protocol.write_runtime_published_values((rpv.id, value_to_write))
                     else:
                         self.target_update_request_being_processed.complete(success=False)
@@ -478,7 +492,11 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
 
             if response_match_request:
                 assert self.target_update_value_written is not None
-                self.entry_being_updated.set_value(self.target_update_value_written)
+                datastore_val = DatastoreValue(
+                    decoded=self.target_update_value_written,
+                    raw_data=self.target_update_data_written    # Can be None if not available. It's fine. Raw data is optional extra data
+                )
+                self.entry_being_updated.set_value(datastore_val)
                 self.target_update_request_being_processed.complete(success=True)
             else:
                 self.target_update_request_being_processed.complete(success=False)
@@ -540,7 +558,11 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
 
             if response_match_request:
                 assert self.target_update_value_written is not None
-                self.entry_being_updated.set_value(self.target_update_value_written)
+                datastore_val = DatastoreValue(
+                    decoded=self.target_update_value_written,
+                    raw_data=None    # Not applicable to RPV
+                )
+                self.entry_being_updated.set_value(datastore_val)
                 self.target_update_request_being_processed.complete(success=True)
             else:
                 self.target_update_request_being_processed.complete(success=False)

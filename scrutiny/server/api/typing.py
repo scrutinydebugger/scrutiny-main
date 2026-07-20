@@ -200,6 +200,7 @@ class WatchableUpdateRecord(TypedDict, total=False):
     # We want compact key names to save some bandwidth
     id: str
     t: float
+    d: Optional[str]
     v: Optional[Union[bool, float, int]]
     r: WatchableInvalidReason
 

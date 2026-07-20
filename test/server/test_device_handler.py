@@ -400,9 +400,9 @@ class TestDeviceHandler(ScrutinyUnitTest):
                                                                                                                                  init_memory_server_time_us + time_margin) and (vbool.get_value_change_server_time_us() > init_memory_server_time_us + time_margin)
 
                     if value_updated:
-                        self.assertEqual(vfloat32.get_value(), d2f(3.1415926), 'round=%d' % round_completed)
-                        self.assertEqual(vint64.get_value(), 0x123456789abcdef, 'round=%d' % round_completed)
-                        self.assertEqual(vbool.get_value(), True, 'round=%d' % round_completed)
+                        self.assertEqual(vfloat32.get_decoded_value(), d2f(3.1415926), 'round=%d' % round_completed)
+                        self.assertEqual(vint64.get_decoded_value(), 0x123456789abcdef, 'round=%d' % round_completed)
+                        self.assertEqual(vbool.get_decoded_value(), True, 'round=%d' % round_completed)
 
                         self.datastore.update_target_value(vfloat32, 2.7, no_callback)
                         self.datastore.update_target_value(vint64, 0x1122334455667788, no_callback)
@@ -424,9 +424,9 @@ class TestDeviceHandler(ScrutinyUnitTest):
                         vbool.get_last_target_update_server_time_us() > write_timestamp_server_time_us)
 
                     if value_updated:
-                        self.assertEqual(vfloat32.get_value(), d2f(2.7), 'round=%d' % round_completed)
-                        self.assertEqual(vint64.get_value(), 0x1122334455667788, 'round=%d' % round_completed)
-                        self.assertEqual(vbool.get_value(), False, 'round=%d' % round_completed)
+                        self.assertEqual(vfloat32.get_decoded_value(), d2f(2.7), 'round=%d' % round_completed)
+                        self.assertEqual(vint64.get_decoded_value(), 0x1122334455667788, 'round=%d' % round_completed)
+                        self.assertEqual(vbool.get_decoded_value(), False, 'round=%d' % round_completed)
 
                         self.assertEqual(self.emulated_device.read_memory(0x10000, 4), struct.pack('<f', d2f(2.7)))
                         self.assertEqual(self.emulated_device.read_memory(0x10010, 8), struct.pack('<q', 0x1122334455667788))
@@ -507,7 +507,7 @@ class TestDeviceHandler(ScrutinyUnitTest):
                             all_updated = False
                         else:
                             rpv = entry.get_rpv()
-                            self.assertEqual(entry.get_value(), written_values[rpv.id], "rpv=0x%04x" % rpv.id)
+                            self.assertEqual(entry.get_decoded_value(), written_values[rpv.id], "rpv=0x%04x" % rpv.id)
 
                     if all_updated:
                         written_values = {}
@@ -552,7 +552,7 @@ class TestDeviceHandler(ScrutinyUnitTest):
                 elif state == 'done':
                     for entry in all_entries:
                         rpv = entry.get_rpv()
-                        self.assertEqual(entry.get_value(), written_values[rpv.id], "rpv 0x%04x" % rpv.id)
+                        self.assertEqual(entry.get_decoded_value(), written_values[rpv.id], "rpv 0x%04x" % rpv.id)
                     written_values = {}
                     round_completed += 1
                     time.sleep(0.02)

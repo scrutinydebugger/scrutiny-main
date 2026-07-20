@@ -1068,7 +1068,7 @@ class TestAPI(ScrutinyUnitTest):
         self.assertEqual(self.datastore.get_effective_update_rate(subscribed_entry.get_id()), 10)
 
         self.datastore.start_batch('unittest')
-        self.datastore.set_value(subscribed_entry.get_id(), 1234)
+        self.datastore.set_value(subscribed_entry.get_id(), DatastoreValue(1234))
         self.datastore.stop_batch('unittest')
 
         var_update_msg = self.wait_and_load_response()
@@ -1291,7 +1291,7 @@ class TestAPI(ScrutinyUnitTest):
         self.assertEqual(response['cmd'], 'response_unsubscribe_watchable')
         self.assert_no_error(response)
 
-        self.datastore.set_value(subscribed_entry.get_id(), 1111)
+        self.datastore.set_value(subscribed_entry.get_id(), DatastoreValue(1111))
         self.assertIsNone(self.wait_for_response(0, timeout=0.1))
 
     # Make sure that the streamer send the value update once if many update happens before the value is outputted to the client.
@@ -1310,8 +1310,8 @@ class TestAPI(ScrutinyUnitTest):
         self.assert_no_error(response)
 
         self.datastore.start_batch('unittest')
-        self.datastore.set_value(subscribed_entry.get_id(), 1234)
-        self.datastore.set_value(subscribed_entry.get_id(), 4567)
+        self.datastore.set_value(subscribed_entry.get_id(), DatastoreValue(1234))
+        self.datastore.set_value(subscribed_entry.get_id(), DatastoreValue(4567))
         self.datastore.stop_batch('unittest')
 
         var_update_msg = self.wait_and_load_response()
@@ -3672,7 +3672,7 @@ class TestAPI(ScrutinyUnitTest):
         self.assert_no_error(response)
 
         self.datastore.start_batch('unittest')
-        subscribed_entry.set_value(123)
+        subscribed_entry.set_value(DatastoreValue(123))
 
         unsubscribe_cmd = {
             'cmd': 'unsubscribe_watchable',

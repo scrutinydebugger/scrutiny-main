@@ -158,21 +158,21 @@ class TestDataStore(ScrutinyUnitTest):
             for entry in entries:
                 self.assertValueChangeCallbackCalled(entry, owner, 0)
 
-            entries[0].set_value(0)
+            entries[0].set_value(DatastoreValue(0))
             self.assertValueChangeCallbackCalled(entries[0], owner, 1, "WatchableType=%s" % entry_type)
             self.assertValueChangeCallbackCalled(entries[1], owner, 0, "WatchableType=%s" % entry_type)
             self.assertValueChangeCallbackCalled(entries[2], owner, 0, "WatchableType=%s" % entry_type)
             self.assertValueChangeCallbackCalled(entries[3], owner, 0, "WatchableType=%s" % entry_type)
             self.assertValueChangeCallbackCalled(entries[4], owner, 0, "WatchableType=%s" % entry_type)
 
-            entries[0].set_value(1)
+            entries[0].set_value(DatastoreValue(1))
             self.assertValueChangeCallbackCalled(entries[0], owner, 2, "WatchableType=%s" % entry_type)
             self.assertValueChangeCallbackCalled(entries[1], owner, 0, "WatchableType=%s" % entry_type)
             self.assertValueChangeCallbackCalled(entries[2], owner, 0, "WatchableType=%s" % entry_type)
             self.assertValueChangeCallbackCalled(entries[3], owner, 0, "WatchableType=%s" % entry_type)
             self.assertValueChangeCallbackCalled(entries[4], owner, 0, "WatchableType=%s" % entry_type)
 
-            entries[2].set_value(2)
+            entries[2].set_value(DatastoreValue(2))
             self.assertValueChangeCallbackCalled(entries[0], owner, 2, "WatchableType=%s" % entry_type)
             self.assertValueChangeCallbackCalled(entries[1], owner, 0, "WatchableType=%s" % entry_type)
             self.assertValueChangeCallbackCalled(entries[2], owner, 1, "WatchableType=%s" % entry_type)
@@ -181,7 +181,7 @@ class TestDataStore(ScrutinyUnitTest):
 
             # Add a second callback on entry 3 with same owner. Should make 1 call on dirty, not 2
             ds.start_watching(entries[3].get_id(), watcher=owner, value_change_callback=self.value_change_callback)
-            entries[3].set_value(3)
+            entries[3].set_value(DatastoreValue(3))
             self.assertValueChangeCallbackCalled(entries[0], owner, 2, "WatchableType=%s" % entry_type)
             self.assertValueChangeCallbackCalled(entries[1], owner, 0, "WatchableType=%s" % entry_type)
             self.assertValueChangeCallbackCalled(entries[2], owner, 1, "WatchableType=%s" % entry_type)
@@ -192,7 +192,7 @@ class TestDataStore(ScrutinyUnitTest):
             ds.start_watching(entries[4].get_id(), watcher=owner, value_change_callback=self.value_change_callback)
             ds.start_watching(entries[4].get_id(), watcher=owner2,
                               value_change_callback=self.value_change_callback)
-            entries[4].set_value(4)
+            entries[4].set_value(DatastoreValue(4))
             self.assertValueChangeCallbackCalled(entries[0], owner, 2, "WatchableType=%s" % entry_type)
             self.assertValueChangeCallbackCalled(entries[1], owner, 0, "WatchableType=%s" % entry_type)
             self.assertValueChangeCallbackCalled(entries[2], owner, 1, "WatchableType=%s" % entry_type)
@@ -375,10 +375,10 @@ class TestDataStore(ScrutinyUnitTest):
             value_change_callback=self.value_change_callback
         )
 
-        ds.set_value(var_entries[2], 55)
-        self.assertEqual(var_entries[2].get_value(), 55)
-        self.assertEqual(alias_var_2.get_value(), 55)
-        self.assertEqual(alias_var_2_2.get_value(), 55)
+        ds.set_value(var_entries[2], DatastoreValue(55))
+        self.assertEqual(var_entries[2].get_decoded_value(), 55)
+        self.assertEqual(alias_var_2.get_decoded_value(), 55)
+        self.assertEqual(alias_var_2_2.get_decoded_value(), 55)
 
         self.assertValueChangeCallbackCalled(var_entries[2].get_id(), watcher, n=0)  # Not watching this one, so n=0
         self.assertValueChangeCallbackCalled(alias_var_2.get_id(), watcher, n=1)
@@ -594,7 +594,7 @@ class TestDataStore(ScrutinyUnitTest):
         ds = Datastore()
         entries = list(self.make_dummy_entries(3, WatchableType.Variable))
         ds.add_entries(entries)
-        entries[0].set_value(1234)
+        entries[0].set_value(DatastoreValue(1234))
         entries[1].set_value(None, DatastoreEntryInvalidReason.ForbiddenRegion)
         ds.start_watching(entries[0], 'unittest', value_change_callback=self.value_change_callback)
         ds.start_watching(entries[1], 'unittest', value_change_callback=self.value_change_callback)

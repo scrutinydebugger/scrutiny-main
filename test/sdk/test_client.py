@@ -40,6 +40,7 @@ from scrutiny.server.api import API, APIConfig
 from scrutiny.server.api.abstract_client_handler import AbstractClientHandler
 from scrutiny.server.protocol.comm_handler import CommHandler
 import scrutiny.server.datastore.datastore as datastore
+from scrutiny.server.datastore.datastore_entry import DatastoreValue
 from scrutiny.server.api.tcp_client_handler import TCPClientHandler
 from scrutiny.server.device.device_handler import (
     DeviceHandler, DeviceStateChangedCallback, RawMemoryReadRequest,
@@ -678,7 +679,7 @@ class TestClient(ScrutinyUnitTest):
             completed.wait(timeout)
 
     def set_entry_val(self, path, val):
-        self.datastore.get_entry_by_display_path(path).set_value(val)
+        self.datastore.get_entry_by_display_path(path).set_value(DatastoreValue(val))
 
     def set_value_and_wait_update(self, watchable: WatchableHandle, val: Any, timeout=2):
         counter = watchable.update_counter
@@ -1168,9 +1169,9 @@ class TestClient(ScrutinyUnitTest):
         self.client.register_listener(listener2)
 
         def update_all(vals: Tuple[float, int, bool]):
-            self.datastore.get_entry_by_display_path(rpv1000.server_path).set_value(vals[0])
-            self.datastore.get_entry_by_display_path(var1.server_path).set_value(vals[1])
-            self.datastore.get_entry_by_display_path(var2.server_path).set_value(vals[2])
+            self.datastore.get_entry_by_display_path(rpv1000.server_path).set_value(DatastoreValue(vals[0]))
+            self.datastore.get_entry_by_display_path(var1.server_path).set_value(DatastoreValue(vals[1]))
+            self.datastore.get_entry_by_display_path(var2.server_path).set_value(DatastoreValue(vals[2]))
 
         count = 10
         with listener1.start():
@@ -1530,7 +1531,7 @@ class TestClient(ScrutinyUnitTest):
         # But read and write of new handle is possible and working
         var1_2.value = 0x44444444
         self.assertEqual(var1_2.value, 0x44444444)
-        self.assertEqual(self.datastore.get_entry_by_display_path(var1_2.server_path).get_value(), 0x44444444)
+        self.assertEqual(self.datastore.get_entry_by_display_path(var1_2.server_path).get_decoded_value(), 0x44444444)
 
     def test_get_installed_sfds(self):
         with SFDStorage.use_temp_folder():
@@ -2985,9 +2986,9 @@ class TestClient(ScrutinyUnitTest):
 
     def test_write_single_watchable_no_handle(self):
         entry = self.datastore.get_entry_by_display_path('/rpv/x1000')
-        entry.set_value(0)
+        entry.set_value(DatastoreValue(0))
         self.client.write_watchable(entry.get_display_path(), 3.14)
-        self.assertAlmostEqual(entry.get_value(), d2f(3.14))
+        self.assertAlmostEqual(entry.get_decoded_value(), d2f(3.14))
 
         with self.assertRaises(Exception):
             self.client.write_watchable('/i/dont/exist', 0)

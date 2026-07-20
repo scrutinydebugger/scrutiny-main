@@ -148,7 +148,7 @@ class TestMemoryReaderBasicReadOperation(ScrutinyUnitTest):
                     values = data_lut[expected_block]  # Get back our value list
                     for j in range(len(expected_block.entries)):
                         # Let's validate that the datastore is updated
-                        self.assertEqual(expected_block.entries[j].get_value(), values[j], 'iter=%d, block=%d' % (i, j))
+                        self.assertEqual(expected_block.entries[j].get_decoded_value(), values[j], 'iter=%d, block=%d' % (i, j))
 
     def test_read_request_basic_behavior(self):
         # Here we have a set of datastore entries that are contiguous in memory.
@@ -484,7 +484,7 @@ class TestMemoryReaderBasicReadOperation(ScrutinyUnitTest):
         req_record.complete(True, response)
         # Make sure the pointer entries were updated by the reader
         for i in range(len(pointer_addresses)):
-            self.assertEqual(pointers3[i].value, pointer_addresses[i])
+            self.assertEqual(pointers3[i].get_decoded_value(), pointer_addresses[i])
 
         reader.process()    # Expect that the reader will go read the pointed variables next.
         dispatcher.process()
@@ -514,7 +514,7 @@ class TestMemoryReaderBasicReadOperation(ScrutinyUnitTest):
 
         # The pointed vars should be updated now
         for i in range(5):
-            self.assertEqual(entries3[i].value, v[i])
+            self.assertEqual(entries3[i].get_decoded_value(), v[i])
 
     def test_dont_read_null_pointer(self):
         ds = Datastore()
@@ -608,7 +608,7 @@ class TestMemoryReaderBasicReadOperation(ScrutinyUnitTest):
         # Do we really care about that?
         # As long as the user doesn't get notified, we could allow updating the datastore without much consequences.
         # Better be strict..
-        self.assertNotEqual(var_entries[INDEX_TO_UNWATCH].value, 0xAAAAAAAA)
+        self.assertNotEqual(var_entries[INDEX_TO_UNWATCH].get_decoded_value(), 0xAAAAAAAA)
 
     def test_address_changed_while_reading(self):
         WATCHER = 'unittest'
@@ -670,7 +670,7 @@ class TestMemoryReaderBasicReadOperation(ScrutinyUnitTest):
         req_record = dispatcher.pop_next()
         self.assertIsNotNone(req_record)
 
-        pointers[INDEX_TO_CHANGE].value = entries_after_change[INDEX_TO_CHANGE].get_address()
+        pointers[INDEX_TO_CHANGE].set_value(DatastoreValue(entries_after_change[INDEX_TO_CHANGE].get_address()))
 
         request_data = cast(protocol_typing.Request.MemoryControl.Read, protocol.parse_request(req_record.request))
         block_list = []
@@ -690,7 +690,7 @@ class TestMemoryReaderBasicReadOperation(ScrutinyUnitTest):
         # Do we really care about that?
         # As long as the user doesn't get notified, we could allow updating the datastore without much consequences.
         # Better be strict..
-        self.assertNotEqual(pointed[INDEX_TO_CHANGE].value, 0xAAAAAAAA)
+        self.assertNotEqual(pointed[INDEX_TO_CHANGE].get_decoded_value(), 0xAAAAAAAA)
 
     def test_refuse_to_read_char_bit_mismatch(self):
         ds = Datastore()
@@ -739,7 +739,7 @@ class TestMemoryReaderComplexReadOperation(ScrutinyUnitTest):
             self.callback_count_map[entry] = 0
 
         self.callback_count_map[entry] += 1
-        self.callback_received_val_map[entry].append(entry.value)
+        self.callback_received_val_map[entry].append(entry.get_decoded_value())
 
     def get_callback_count_min_max(self, exclude_entries=[]):
         low = None
@@ -1136,7 +1136,7 @@ class TestRPVReaderBasicReadOperation(ScrutinyUnitTest):
 
                 for rpv_entry in expected_rpv_entry_list:
                     rpv = rpv_entry.get_rpv()
-                    self.assertEqual(rpv_entry.get_value(), value_lut[rpv.id], 'iter=%d, RPV=0x%x' % (i, rpv.id))
+                    self.assertEqual(rpv_entry.get_decoded_value(), value_lut[rpv.id], 'iter=%d, RPV=0x%x' % (i, rpv.id))
 
     def test_read_request_basic_behavior(self):
         # Here we have a set of datastore entries that are contiguous in memory.
