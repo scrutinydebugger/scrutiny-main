@@ -172,7 +172,7 @@ class WatchableHandle:
 
         :raises InvalidValueError: If the value is ``None`` or the status is not ``ValueStatus.Valid``.
         """
-        val, data, val_status = self.get_value_and_status()   # Thread safe
+        val, data, val_status = self.get_atomic()   # Thread safe
         if val is None or val_status != ValueStatus.Valid:
             raise sdk_exceptions.InvalidValueError(f"Value of {self._shortname} is unusable. {val_status._get_error()}")
 
@@ -323,7 +323,7 @@ class WatchableHandle:
         assert self._configuration is not None
         return self._configuration.parse_enum_val(val)
 
-    def get_value_and_status(self) -> Tuple[Optional[ValType], Optional[bytes], ValueStatus]:
+    def get_atomic(self) -> Tuple[Optional[ValType], Optional[bytes], ValueStatus]:
         """Returns a tuple with the value and the value status.
         If the status is :attr:`Valid<scrutiny.sdk.ValueStatus.Valid>`, then the value is guaranteed to contain a value.
         If status != :attr:`Valid<scrutiny.sdk.ValueStatus.Valid>`, the value will be ``None``. This method does not raise an exception on invalid values.
@@ -472,7 +472,7 @@ class WatchableHandle:
 
     @property
     def status(self) -> ValueStatus:
-        """Return the value status. Refer the :meth:`get_value_and_status()<scrutiny.sdk.watchable_handle.WatchableHandler.get_value_and_status>` to
+        """Return the value status. Refer the :meth:`get_atomic()<scrutiny.sdk.watchable_handle.WatchableHandler.get_atomic>` to
         read the value and the status together atomically."""
         return ValueStatus(self._status)
 

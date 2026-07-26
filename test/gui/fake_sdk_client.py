@@ -131,7 +131,7 @@ class StubbedWatchableHandle(tools.UnitTestStub):
     def type(self) -> sdk.WatchableType:
         return self.configuration.watchable_type
 
-    def get_value_and_status(self) -> Tuple[Optional[_ValueType], Optional[bytes], sdk.ValueStatus]:
+    def get_atomic(self) -> Tuple[Optional[_ValueType], Optional[bytes], sdk.ValueStatus]:
         return self._value, self._data, self._status
 
     @property
