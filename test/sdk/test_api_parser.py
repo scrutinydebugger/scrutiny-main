@@ -1747,7 +1747,7 @@ class TestApiParser(ScrutinyUnitTest):
                 'cmd': 'watchable_update',
                 'req_id': None,
                 'updates': [
-                    dict(id='aaa', v=3.14159, t=1234.5),
+                    dict(id='aaa', v=3.14159, t=1234.5, d=b64encode(b'\x11\x22\x33\x44').decode()),
                     dict(id='bbb', v=1, t=5555),
                     dict(id='ccc', v=True, t=6666),
                     dict(id='ddd', v=None, t=7777, r='nullptr'),
@@ -1773,6 +1773,7 @@ class TestApiParser(ScrutinyUnitTest):
 
         self.assertEqual(updates[0].server_id, 'aaa')
         self.assertEqual(updates[0].value, 3.14159)
+        self.assertEqual(updates[0].data, b'\x11\x22\x33\x44')
         self.assertIsInstance(updates[0].value, float)
         self.assertEqual(updates[0].server_time_us, 1234.5)
         self.assertEqual(updates[0].value_status, ValueStatus.Valid)
@@ -1824,6 +1825,13 @@ class TestApiParser(ScrutinyUnitTest):
             msg = base()
             for i in range(len(msg['updates'])):
                 msg['updates'][i]['v'] = v
+                with self.assertRaises(sdk.exceptions.BadResponseError, msg=f"i={i}. v={v}"):
+                    parser.parse_watchable_update(msg)
+
+        for v in [{}, [], 1, "asd"]:
+            msg = base()
+            for i in range(len(msg['updates'])):
+                msg['updates'][i]['d'] = v
                 with self.assertRaises(sdk.exceptions.BadResponseError, msg=f"i={i}. v={v}"):
                     parser.parse_watchable_update(msg)
 

@@ -40,6 +40,7 @@ class WatchableHandle:
         '_lock',
         '_status',
         '_value',
+        '_data',
         '_last_value_dt',
         '_last_write_dt',
         '_update_counter',
@@ -63,6 +64,8 @@ class WatchableHandle:
 
     _value: Optional[ValType]
     """Contains the latest value gotten by the client"""
+    _data: Optional[bytes]
+    """Contains the latest raw data gotten by the client. May not always be available"""
     _last_value_dt: Optional[datetime]
     """Datetime of the last value update by the client"""
     _last_write_dt: Optional[datetime]
@@ -108,6 +111,7 @@ class WatchableHandle:
             self._configuration = config
             self._status = ValueStatus.NeverSet
             self._value = None
+            self._data = None
             self._last_value_dt = None
             self._update_counter = 0
 
@@ -122,7 +126,7 @@ class WatchableHandle:
         with self._lock:
             self._last_write_dt = dt
 
-    def _update_value(self, val: Optional[ValType], timestamp: Optional[datetime] = None) -> None:
+    def _update_value(self, val: Optional[ValType], data: Optional[bytes] = None, timestamp: Optional[datetime] = None) -> None:
         """Update the cached value and mark the status as ``ValueStatus.Valid``.
 
         No-op if the status is ``ValueStatus.ServerGone``.
@@ -135,6 +139,7 @@ class WatchableHandle:
             if self._status != ValueStatus.ServerGone:
                 self._status = ValueStatus.Valid
                 self._value = val
+                self._data = data
                 self._last_value_dt = timestamp if timestamp is not None else datetime.now()
                 self._update_counter += 1   # unbound in size in python 3
             else:
@@ -158,6 +163,7 @@ class WatchableHandle:
 
         with self._lock:
             self._value = None
+            self._data = None
             self._status = status
             self._last_value_dt = timestamp if timestamp is not None else datetime.now()
 
@@ -166,7 +172,7 @@ class WatchableHandle:
 
         :raises InvalidValueError: If the value is ``None`` or the status is not ``ValueStatus.Valid``.
         """
-        val, val_status = self.get_value_and_status()   # Thread safe
+        val, data, val_status = self.get_value_and_status()   # Thread safe
         if val is None or val_status != ValueStatus.Valid:
             raise sdk_exceptions.InvalidValueError(f"Value of {self._shortname} is unusable. {val_status._get_error()}")
 
@@ -317,16 +323,17 @@ class WatchableHandle:
         assert self._configuration is not None
         return self._configuration.parse_enum_val(val)
 
-    def get_value_and_status(self) -> Tuple[Optional[ValType], ValueStatus]:
+    def get_value_and_status(self) -> Tuple[Optional[ValType], Optional[bytes], ValueStatus]:
         """Returns a tuple with the value and the value status.
         If the status is :attr:`Valid<scrutiny.sdk.ValueStatus.Valid>`, then the value is guaranteed to contain a value.
         If status != :attr:`Valid<scrutiny.sdk.ValueStatus.Valid>`, the value will be ``None``. This method does not raise an exception on invalid values.
         """
         with self._lock:
             val = self._value
+            data = self._data
             val_status = self._status
 
-        return (val, val_status)
+        return (val, data, val_status)
 
     def change_update_rate(self, update_rate: Optional[float]) -> Optional[float]:
         """Request the server to change the target update rate for this watchable (optionally set when

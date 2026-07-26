@@ -1068,7 +1068,7 @@ class TestAPI(ScrutinyUnitTest):
         self.assertEqual(self.datastore.get_effective_update_rate(subscribed_entry.get_id()), 10)
 
         self.datastore.start_batch('unittest')
-        self.datastore.set_value(subscribed_entry.get_id(), DatastoreValue(1234))
+        self.datastore.set_value(subscribed_entry.get_id(), DatastoreValue(1234, raw_data=b'\xAA\xBB'))
         self.datastore.stop_batch('unittest')
 
         var_update_msg = self.wait_and_load_response()
@@ -1079,6 +1079,22 @@ class TestAPI(ScrutinyUnitTest):
 
         self.assertEqual(update['id'], subscribed_entry.get_id())
         self.assertEqual(update['v'], 1234)
+        self.assertEqual(update['d'], b64encode(b'\xAA\xBB').decode())
+
+        # Now we check that no raw data is fine. The value is guaranteed, not the data.
+        self.datastore.start_batch('unittest')
+        self.datastore.set_value(subscribed_entry.get_id(), DatastoreValue(4567, raw_data=None))
+        self.datastore.stop_batch('unittest')
+
+        var_update_msg = self.wait_and_load_response()
+        self.assert_valid_value_update_message(var_update_msg)
+        self.assertEqual(len(var_update_msg['updates']), 1)
+
+        update = var_update_msg['updates'][0]
+
+        self.assertEqual(update['id'], subscribed_entry.get_id())
+        self.assertEqual(update['v'], 4567)
+        self.assertNotIn('d', update)   # Data is optional
 
     def test_get_info_single_var(self):
         entries = self.make_dummy_entries(10, entry_type=WatchableType.Variable, prefix='var')

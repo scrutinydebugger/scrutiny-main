@@ -47,6 +47,7 @@ class StubbedWatchableHandle(tools.UnitTestStub):
     configuration: sdk.BaseDetailedWatchableConfiguration
     _invalid: bool
     _value: Optional[_ValueType]
+    _data: Optional[bytes]
     _status: sdk.ValueStatus
     _requested_update_rate: Optional[float]
 
@@ -71,6 +72,7 @@ class StubbedWatchableHandle(tools.UnitTestStub):
         )
         self._invalid = False
         self._value = 0
+        self._data = None
         self._last_update_timestamp = None
         self._status = sdk.ValueStatus.Valid
         self._requested_update_rate = requested_update_rate
@@ -129,8 +131,8 @@ class StubbedWatchableHandle(tools.UnitTestStub):
     def type(self) -> sdk.WatchableType:
         return self.configuration.watchable_type
 
-    def get_value_and_status(self) -> Tuple[Optional[_ValueType], sdk.ValueStatus]:
-        return self._value, self._status
+    def get_value_and_status(self) -> Tuple[Optional[_ValueType], Optional[bytes], sdk.ValueStatus]:
+        return self._value, self._data, self._status
 
     @property
     def requested_update_rate(self) -> Optional[float]:

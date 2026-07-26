@@ -155,11 +155,11 @@ class TestListeners(ScrutinyUnitTest):
         with listener.start():
             self.assertTrue(listener.is_started)
             # Simulate the client
-            self.w1._update_value(3.1415)
-            self.w2._update_value(-1234)
+            self.w1._update_value(3.1415, data=b'\x12\x34')
+            self.w2._update_value(-1234, data=b'\x56\x78')
             listener._broadcast_update([self.w1, self.w2])
 
-            self.w3._update_value(0x12345678)
+            self.w3._update_value(0x12345678, data=b'\x9a\xbc')
             self.w4._update_value(1.23456789)
             listener._broadcast_update([self.w3, self.w4])
 
@@ -190,14 +190,17 @@ class TestListeners(ScrutinyUnitTest):
         self.assertIs(listener.recv_list[0].watchable, self.w1)
         self.assertIsInstance(listener.recv_list[0].update_timestamp, datetime)
         self.assertEqual(listener.recv_list[0].value, 3.1415)
+        self.assertEqual(listener.recv_list[0].data, b'\x12\x34')
 
         self.assertIs(listener.recv_list[1].watchable, self.w2)
         self.assertIsInstance(listener.recv_list[1].update_timestamp, datetime)
         self.assertEqual(listener.recv_list[1].value, -1234)
+        self.assertEqual(listener.recv_list[1].data, b'\x56\x78')
 
         self.assertIs(listener.recv_list[2].watchable, self.w4)
         self.assertIsInstance(listener.recv_list[2].update_timestamp, datetime)
         self.assertEqual(listener.recv_list[2].value, 1.23456789)
+        self.assertEqual(listener.recv_list[2].data, None)
 
         self.assertIs(listener.recv_list[3].watchable, self.w1)
         self.assertIsInstance(listener.recv_list[3].update_timestamp, datetime)
@@ -415,16 +418,16 @@ class TestListeners(ScrutinyUnitTest):
 
                 for i in range(count):
                     new_dt = dt + timedelta(milliseconds=i)
-                    self.w1._update_value(i * 1.1, new_dt)
-                    self.w2._update_value(-2 * i, new_dt)
-                    self.w3._update_value(3 * i, new_dt)
-                    self.w5._update_value(i % 2 == 0, new_dt)
+                    self.w1._update_value(i * 1.1, timestamp=new_dt)
+                    self.w2._update_value(-2 * i, timestamp=new_dt)
+                    self.w3._update_value(3 * i, timestamp=new_dt)
+                    self.w5._update_value(i % 2 == 0, timestamp=new_dt)
                     if i == 6:
                         to_update = [self.w1, self.w5, self.w2]           # purposely out of order
                     else:
                         to_update = [self.w1, self.w2, self.w5, self.w3]  # purposely out of order
                         if i > 0:
-                            self.w4._update_value(4.4123 * i, new_dt)
+                            self.w4._update_value(4.4123 * i, timestamp=new_dt)
                             to_update.append(self.w4)
 
                     listener._broadcast_update(to_update)
