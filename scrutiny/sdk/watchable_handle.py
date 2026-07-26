@@ -324,9 +324,10 @@ class WatchableHandle:
         return self._configuration.parse_enum_val(val)
 
     def get_atomic(self) -> Tuple[Optional[ValType], Optional[bytes], ValueStatus]:
-        """Returns a tuple with the value and the value status.
+        """Returns a tuple with the value, data and the value status.
         If the status is :attr:`Valid<scrutiny.sdk.ValueStatus.Valid>`, then the value is guaranteed to contain a value.
-        If status != :attr:`Valid<scrutiny.sdk.ValueStatus.Valid>`, the value will be ``None``. This method does not raise an exception on invalid values.
+        If status != :attr:`Valid<scrutiny.sdk.ValueStatus.Valid>`, the value and data will be ``None``.
+        This method does not raise an exception on invalid values.
         """
         with self._lock:
             val = self._value
