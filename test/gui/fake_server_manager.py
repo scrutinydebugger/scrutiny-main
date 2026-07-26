@@ -275,7 +275,7 @@ class FakeServerManager:
             elif handle.server_path == '/rpv/rpv.b/rpv.b.a':
                 continue
 
-            update = ValueUpdate(handle, value, data=bytes([1, 2, 3]), status, datetime.now())
+            update = ValueUpdate(handle, value, data=bytes([1, 2, 3]), status=status, update_timestamp=datetime.now())
             updates.append(update)
         self._registry.broadcast_value_updates_to_watchers(updates)
 
@@ -287,5 +287,5 @@ class FakeServerManager:
                                  value: Union[int, float, bool],
                                  status: ValueStatus = ValueStatus.Valid):
         handle = self._handles[server_path]
-        update = ValueUpdate(handle, value, data=bytes([1, 2, 3]), status, datetime.now())
+        update = ValueUpdate(handle, value, data=bytes([1, 2, 3]), status=status, update_timestamp=datetime.now())
         self._registry.broadcast_value_updates_to_watchers([update])
