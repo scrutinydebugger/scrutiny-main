@@ -18,6 +18,7 @@ from datetime import datetime
 from scrutiny import sdk
 from scrutiny.sdk.client import WatchableListDownloadRequest, ScrutinyClient
 from scrutiny.sdk.listeners import BaseListener
+from scrutiny.sdk.watchable_handle import AtomicData
 from scrutiny.core.embedded_enum import EmbeddedEnum
 from scrutiny.core.basic_types import EmbeddedDataType
 from scrutiny import tools
@@ -131,8 +132,8 @@ class StubbedWatchableHandle(tools.UnitTestStub):
     def type(self) -> sdk.WatchableType:
         return self.configuration.watchable_type
 
-    def get_atomic(self) -> Tuple[Optional[_ValueType], Optional[bytes], sdk.ValueStatus]:
-        return self._value, self._data, self._status
+    def snapshot(self) -> AtomicData:
+        return AtomicData(value=self._value, raw_data=self._data, status=self._status)
 
     @property
     def requested_update_rate(self) -> Optional[float]:

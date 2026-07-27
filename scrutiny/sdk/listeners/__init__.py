@@ -140,12 +140,12 @@ class BaseListener(abc.ABC):
                 timestamp = watchable.last_update_timestamp
                 if timestamp is None:
                     timestamp = datetime.now()
-                val, data, status = watchable.get_atomic()
+                snapshot = watchable.snapshot()
                 update = ValueUpdate(
                     watchable=watchable,
-                    value=val,
-                    data=data,
-                    status=status,
+                    value=snapshot.value,
+                    data=snapshot.raw_data,
+                    status=snapshot.status,
                     update_timestamp=timestamp,
                 )
                 update_list.append(update)
