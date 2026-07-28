@@ -19,7 +19,7 @@ import enum
 from binascii import hexlify
 
 from PySide6.QtCore import QMimeData, QModelIndex, QPersistentModelIndex, Qt, Signal, QPoint, QObject, QAbstractItemModel
-from PySide6.QtWidgets import QWidget, QAbstractItemDelegate, QComboBox, QStyleOptionViewItem, QStyledItemDelegate
+from PySide6.QtWidgets import QWidget, QAbstractItemDelegate, QComboBox, QStyleOptionViewItem, QStyledItemDelegate, QLineEdit
 from PySide6.QtGui import (QStandardItem, QPalette, QContextMenuEvent, QDragMoveEvent, QDropEvent,
                            QDragEnterEvent, QKeyEvent)
 
@@ -71,6 +71,9 @@ class RawDataStandardItem(QStandardItem):
         if data_to_set is not None and len(data_to_set) > 0:
             data_txt = hexlify(data_to_set).decode().upper()
         self.setData(data_txt, Qt.ItemDataRole.EditRole)
+
+    def get_raw_data(self) -> Optional[bytes]:
+        return cast(Optional[bytes], self.data(RAW_DATA_ROLE))
 
 
 class ValueStandardItem(QStandardItem):
@@ -135,6 +138,21 @@ class SerializableTreeDescriptor(TypedDict):
     node: NodeSerializableData
     sortkey: int
     children: List["SerializableTreeDescriptor"]
+
+
+class RawDataEditDelegate(QStyledItemDelegate):
+    pass
+    # def setModelData(self, editor: QWidget, model: QAbstractItemModel, index: Union[QModelIndex, QPersistentModelIndex]) -> None:
+    #    print("setModelData", flush=True)
+    #    super().setModelData(editor, model, index)
+    #    assert isinstance(model, WatchableTreeModel)
+    #    item = model.itemFromIndex(index)
+    #    if not isinstance(item, RawDataStandardItem):
+    #        return
+#
+    #    assert isinstance(editor, QLineEdit)
+    #    data_str = editor.text()
+    #    print(data_str, flush=True)
 
 
 class ValueEditDelegate(QStyledItemDelegate):
@@ -202,6 +220,7 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
         self.set_header_labels(['', 'Value', 'Data (hex)', 'Type', 'Enum'])
         self.signals = self._Signals()
         self.setItemDelegateForColumn(self.model().value_col(), ValueEditDelegate())
+        self.setItemDelegateForColumn(self.model().raw_data_col(), RawDataEditDelegate())
         self._allow_export_vals = False
 
     def allow_export_vals(self, val: bool) -> None:
@@ -423,6 +442,13 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
                 fqn = watchable_item.fqn
                 value = item_written.get_value()
                 self.signals.value_written.emit(fqn, value)
+
+        elif isinstance(item_written, RawDataStandardItem):
+            watchable_item = model.itemFromIndex(item_written.index().siblingAtColumn(nesting_col))
+            if isinstance(watchable_item, WatchableStandardItem):   # paranoid check. Should never be false. Folders have no Value column
+                fqn = watchable_item.fqn
+                data = item_written.get_raw_data()
+                print(f"close : {data}")
 
         # Make arrow navigation easier because elements are nested on columns 0.
         # If current index is at another column, we can't go up in the tree with the keyboard
