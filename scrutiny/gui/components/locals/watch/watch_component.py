@@ -23,7 +23,7 @@ from scrutiny.gui.widgets.watchable_tree import WatchableTreeWidget, WatchableSt
 from scrutiny.gui.core.serializable_value_set import SerializableValueSet
 from scrutiny.gui.core.watchable_registry import WatchableRegistryNodeNotFoundError, WatcherNotFoundError, RegistryValueUpdate
 from scrutiny.gui.components.locals.base_local_component import ScrutinyGUIBaseLocalComponent
-from scrutiny.gui.components.locals.watch.watch_tree_model import WatchComponentTreeModel, ValueStandardItem, WatchComponentTreeWidget, SerializableTreeDescriptor
+from scrutiny.gui.components.locals.watch.watch_tree_model import WatchComponentTreeModel, ValueStandardItem, RawDataStandardItem, WatchComponentTreeWidget, SerializableTreeDescriptor
 from scrutiny.gui.dialogs.value_export_dialog import ValueExportDialog
 from scrutiny.gui.tools import prompt
 from scrutiny.gui.app_settings import app_settings
@@ -293,9 +293,10 @@ class WatchComponent(ScrutinyGUIBaseLocalComponent):
     def _register_watcher_for_row(self, item: WatchableStandardItem) -> None:
         """Take the given row and create a watcher on the registry for the row"""
         value_item = self._tree_model.get_value_item(item)
+        rawdata_item = self._tree_model.get_rawdata_item(item)
 
         def update_val_closure(watcher_id: Union[str, int], vals: List[RegistryValueUpdate]) -> None:
-            self._update_val_callback(value_item, watcher_id, vals)
+            self._update_val_callback(value_item, rawdata_item, watcher_id, vals)
 
         def unwatch_closure(watcher_id: Union[str, int], server_path: str, watchable_config: sdk.BriefWatchableConfiguration, registry_id: int) -> None:
             pass
@@ -394,18 +395,23 @@ class WatchComponent(ScrutinyGUIBaseLocalComponent):
 
         self._tree.map_to_watchable_node(update_func, start_node)
 
-    def _update_val_callback(self, item: ValueStandardItem, watcher_id: Union[str, int], vals: List[RegistryValueUpdate]) -> None:
+    def _update_val_callback(self,
+                             value_item: ValueStandardItem,
+                             rawdata_item: RawDataStandardItem,
+                             watcher_id: Union[str, int],
+                             updates: List[RegistryValueUpdate]) -> None:
         """The function called when we receive value updates from the server"""
-        assert len(vals) > 0
+        assert len(updates) > 0
         can_update = True
         nesting_col = self._tree_model.nesting_col()
         if self._tree.state() == WatchableTreeWidget.State.EditingState:
-            if item.index().siblingAtColumn(nesting_col) == self._tree.currentIndex().siblingAtColumn(nesting_col):
+            if value_item.index().siblingAtColumn(nesting_col) == self._tree.currentIndex().siblingAtColumn(nesting_col):
                 can_update = False  # Don't change the content. The user is writing something
 
         if can_update:
-            last = vals[-1]
-            item.set_value(last.sdk_update.value, last.sdk_update.status)
+            last = updates[-1]
+            value_item.set_value(last.sdk_update.value, last.sdk_update.status)
+            rawdata_item.set_raw_data(last.sdk_update.data)
 
     def _value_written_slot(self, fqn: str, value: Union[str, int, float, bool]) -> None:
         """The QT slot called when the user input a new value in a value field"""

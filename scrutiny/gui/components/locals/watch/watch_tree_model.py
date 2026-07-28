@@ -16,6 +16,7 @@ __all__ = [
 
 import logging
 import enum
+from binascii import hexlify
 
 from PySide6.QtCore import QMimeData, QModelIndex, QPersistentModelIndex, Qt, Signal, QPoint, QObject, QAbstractItemModel
 from PySide6.QtWidgets import QWidget, QAbstractItemDelegate, QComboBox, QStyleOptionViewItem, QStyledItemDelegate
@@ -53,6 +54,23 @@ WATCHER_ID_ROLE = Qt.ItemDataRole.UserRole + 3
 """A string put on the watchable name cell that stores the WatchableRegistry watcher ID. One ID per row"""
 ENUM_DATA_ROLE = Qt.ItemDataRole.UserRole + 4
 """An optional EmbeddedEnum object stored on the Value cell storing a copy of the enum from the registry. Used for combo box on edit"""
+RAW_DATA_ROLE = Qt.ItemDataRole.UserRole + 5
+"""The raw data associated with the value presently in REAL_DATA_ROLE"""
+
+
+class RawDataStandardItem(QStandardItem):
+
+    @tools.copy_type(QStandardItem.__init__)
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.setFont(assets.get_font(assets.ScrutinyFont.Monospaced))
+
+    def set_raw_data(self, data_to_set: Optional[bytes]) -> None:
+        self.setData(data_to_set, RAW_DATA_ROLE)
+        data_txt = ""
+        if data_to_set is not None and len(data_to_set) > 0:
+            data_txt = hexlify(data_to_set).decode().upper()
+        self.setData(data_txt, Qt.ItemDataRole.EditRole)
 
 
 class ValueStandardItem(QStandardItem):
@@ -181,7 +199,7 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
         self.setDragEnabled(True)
         self.setDropIndicatorShown(True)
         self.setDragDropMode(self.DragDropMode.DragDrop)
-        self.set_header_labels(['', 'Value', 'Type', 'Enum'])
+        self.set_header_labels(['', 'Value', 'Data (hex)', 'Type', 'Enum'])
         self.signals = self._Signals()
         self.setItemDelegateForColumn(self.model().value_col(), ValueEditDelegate())
         self._allow_export_vals = False
@@ -299,7 +317,7 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
             super().keyPressEvent(event)
 
     def _find_new_folder_position_from_selection(self) -> Tuple[Optional[QStandardItem], int]:
-        # Used by keyboard shortcut
+        """Find where to insert a new folder if created. Used by keyboard navigation"""
         model = self.model()
         nesting_col = self.model().nesting_col()
         selected_list = [index for index in self.selectedIndexes() if index.column() == nesting_col]
@@ -323,7 +341,7 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
         return parent, insert_row
 
     def _find_new_folder_position_from_position(self, position: QPoint) -> Tuple[Optional[QStandardItem], int]:
-        # Used by right-click
+        """Find where to insert a new folder if created. Used by right-click"""
         index = self.indexAt(position)
         if not index.isValid():
             return None, -1
@@ -339,6 +357,7 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
         return model.itemFromIndex(parent_index), index.row()
 
     def _new_folder(self, name: str, parent: Optional[QStandardItem], insert_row: int) -> None:
+        """Performs the action of creating a new folder"""
         model = self.model()
         new_row = model.make_folder_row(name, fqn=None, editable=True)
         model.add_row_to_parent(parent, insert_row, new_row)
@@ -418,8 +437,9 @@ class WatchComponentTreeModel(WatchableTreeModel):
     class Column(enum.Enum):
         # Item is always 0.
         VALUE = 1
-        DATATYPE = 2
-        ENUM = 3
+        RAW_DATA = 2
+        DATATYPE = 3
+        ENUM = 4
 
     logger: logging.Logger
     _available_palette: QPalette
@@ -465,7 +485,7 @@ class WatchComponentTreeModel(WatchableTreeModel):
     def get_watchable_extra_columns(self, fqn: str = "", watchable_config: Optional[BriefWatchableConfiguration] = None) -> List[QStandardItem]:
         # We don't use watchable_config here even if we could.
         # We update the value/type when an item is available by calling update_row_state
-        return [ValueStandardItem(), DataTypeStandardItem(), EnumNameStandardItem()]
+        return [ValueStandardItem(), RawDataStandardItem(), DataTypeStandardItem(), EnumNameStandardItem()]
 
     def _check_support_drag_data(self, drag_data: Optional[ScrutinyDragData], action: Qt.DropAction) -> bool:
         """Tells if a drop would be supported
@@ -803,6 +823,8 @@ class WatchComponentTreeModel(WatchableTreeModel):
                     item.setData(None, ENUM_DATA_ROLE)
                     item.setEditable(False)
                     item.setText('N/A')
+                elif isinstance(item, RawDataStandardItem):
+                    item.setText('N/A')
                 elif isinstance(item, DataTypeStandardItem):
                     item.setText('N/A')
                 elif isinstance(item, EnumNameStandardItem):
@@ -824,6 +846,8 @@ class WatchComponentTreeModel(WatchableTreeModel):
                         # Assign a copy of the enum on the item because the Delegate that creates the combo box
                         # does not have access to the registry nor the model
                         item.setData(watchable_config.enum, ENUM_DATA_ROLE)
+                elif isinstance(item, RawDataStandardItem):
+                    item.setEditable(True)
                 elif isinstance(item, DataTypeStandardItem):
                     item.setText(watchable_config.datatype.name)
                 elif isinstance(item, EnumNameStandardItem):
@@ -841,6 +865,11 @@ class WatchComponentTreeModel(WatchableTreeModel):
         assert isinstance(o, ValueStandardItem)
         return o
 
+    def get_rawdata_item(self, item: WatchableStandardItem) -> RawDataStandardItem:
+        o = self.itemFromIndex(item.index().siblingAtColumn(self.raw_data_col()))
+        assert isinstance(o, RawDataStandardItem)
+        return o
+
     def get_datatype_item(self, item: WatchableStandardItem) -> DataTypeStandardItem:
         o = self.itemFromIndex(item.index().siblingAtColumn(self.datatype_col()))
         assert isinstance(o, DataTypeStandardItem)
@@ -854,6 +883,10 @@ class WatchComponentTreeModel(WatchableTreeModel):
     @classmethod
     def value_col(cls) -> int:
         return cls.get_column_index(cls.Column.VALUE)
+
+    @classmethod
+    def raw_data_col(cls) -> int:
+        return cls.get_column_index(cls.Column.RAW_DATA)
 
     @classmethod
     def datatype_col(cls) -> int:
