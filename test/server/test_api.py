@@ -2291,8 +2291,12 @@ class TestAPI(ScrutinyUnitTest):
         dummy_var = Variable(vartype=EmbeddedDataType.uint32, path_segments=[
                              'a', 'b', 'c', 'dummy'], location=0x1000000, endianness=Endianness.Little)
         var_entry = DatastoreVariableEntry('var1', variable_def=dummy_var)
+        alias_entry = DatastoreAliasEntry(aliasdef=Alias('/aaa/bbb/ccc', dummy_var.get_fullname()), refentry=var_entry)
+        rpv_entry = DatastoreRPVEntry('/xxx/yyy/zzz', RuntimePublishedValue(0x1234, EmbeddedDataType.float32))
 
         self.datastore.add_entry(var_entry)
+        self.datastore.add_entry(alias_entry)
+        self.datastore.add_entry(rpv_entry)
 
         payload = bytes([0x12, 0x34, 0x56, 0x78])
 
@@ -2315,7 +2319,7 @@ class TestAPI(ScrutinyUnitTest):
             self.assertEqual(write_request.data, payload)
             write_request.completion_callback(write_request, True, 3.14159, "")
 
-            response = self.wait_and_load_response(cmd='response_write_single_watchable_by_data')
+            response = self.wait_and_load_response()
             self.assert_no_error(response)
             self.assertTrue(response['success'])
 
@@ -2329,13 +2333,14 @@ class TestAPI(ScrutinyUnitTest):
             self.assertTrue(self.fake_device_handler.write_memory_queue.empty())
             write_request.completion_callback(write_request, False, 3.14159, "")    # Emulate failure
 
-            response = self.wait_and_load_response(cmd='response_write_single_watchable_by_data')
+            response = self.wait_and_load_response()
             self.assert_no_error(response)
             self.assertFalse(response['success'])
 
         with self.subTest("Small payload OK"):
             req = base()
             req['data'] = b64encode(bytes([0x12, 0x34])).decode()
+            req['server_path'] = alias_entry.get_display_path()
             self.send_request(req, 0)
             self.process_all()
 
@@ -2345,9 +2350,17 @@ class TestAPI(ScrutinyUnitTest):
             self.assertEqual(write_request.data, bytes([0, 0, 0x12, 0x34]))    # Padded to 32bits by the API
             write_request.completion_callback(write_request, True, 3.14159, "")
 
-            response = self.wait_and_load_response(cmd='response_write_single_watchable_by_data')
+            response = self.wait_and_load_response()
             self.assert_no_error(response)
             self.assertTrue(response['success'])
+
+        with self.subTest("RPV not allowed"):
+            req = base()
+            req['server_path'] = rpv_entry.get_display_path()
+            self.send_request(req, 0)
+            self.process_all()
+            response = self.wait_and_load_response()
+            self.assert_is_error(response)
 
         for server_path in [123, 'idontexist', None, []]:
             req = base()
