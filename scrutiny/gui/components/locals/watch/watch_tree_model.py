@@ -16,7 +16,7 @@ __all__ = [
 
 import logging
 import enum
-from binascii import hexlify
+import binascii
 
 from PySide6.QtCore import QMimeData, QModelIndex, QPersistentModelIndex, Qt, Signal, QPoint, QObject, QAbstractItemModel
 from PySide6.QtWidgets import QWidget, QAbstractItemDelegate, QComboBox, QStyleOptionViewItem, QStyledItemDelegate, QLineEdit
@@ -69,7 +69,7 @@ class RawDataStandardItem(QStandardItem):
         self.setData(data_to_set, RAW_DATA_ROLE)
         data_txt = ""
         if data_to_set is not None and len(data_to_set) > 0:
-            data_txt = hexlify(data_to_set).decode().upper()
+            data_txt = binascii.hexlify(data_to_set).decode().upper()
         self.setData(data_txt, Qt.ItemDataRole.EditRole)
 
     def get_raw_data(self) -> Optional[bytes]:
@@ -141,18 +141,57 @@ class SerializableTreeDescriptor(TypedDict):
 
 
 class RawDataEditDelegate(QStyledItemDelegate):
-    pass
-    # def setModelData(self, editor: QWidget, model: QAbstractItemModel, index: Union[QModelIndex, QPersistentModelIndex]) -> None:
-    #    print("setModelData", flush=True)
-    #    super().setModelData(editor, model, index)
-    #    assert isinstance(model, WatchableTreeModel)
-    #    item = model.itemFromIndex(index)
-    #    if not isinstance(item, RawDataStandardItem):
-    #        return
-#
-    #    assert isinstance(editor, QLineEdit)
-    #    data_str = editor.text()
-    #    print(data_str, flush=True)
+    _last_set_model_data_success: bool
+    _logger: logging.Logger
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self._last_set_model_data_success = False
+        self._logger = logging.getLogger(self.__class__.__name__)
+
+    def last_insert_ok(self) -> bool:
+        return self._last_set_model_data_success
+
+    def setModelData(self, editor: QWidget, model: QAbstractItemModel, index: Union[QModelIndex, QPersistentModelIndex]) -> None:
+        print("setModelData", flush=True)
+        super().setModelData(editor, model, index)
+        self._last_set_model_data_success = False
+        assert isinstance(model, WatchableTreeModel)
+        item = model.itemFromIndex(index)
+        if not isinstance(item, RawDataStandardItem):
+            return
+        assert isinstance(editor, QLineEdit)
+        data_str = editor.text()
+
+        # That is a way of knowing if the watchable supports raw data write.
+        # Only variables and Alias to variables can. RPVs cannot.
+        # Checking wether we already have data seems like the most resilient way
+        # We could also check the WatchableType and let the server deny if needed.
+        actual_data = item.get_raw_data()
+        if actual_data is None:
+            return
+        if data_str.startswith('0x') or data_str.startswith('0X'):
+            data_str = data_str[2:]
+
+        if len(data_str) % 2 == 1:
+            data_str = '0' + data_str
+
+        try:
+            user_data = binascii.unhexlify(data_str)
+        except binascii.Error:
+            self._logger.warning(f"Invalid hexadecimal string given: {data_str}")
+            return
+
+        if len(user_data) > len(actual_data):
+            self._logger.warning(f"Given hexadecimal string is too long")
+            return
+
+        missing_bytes = (len(actual_data) - len(user_data))
+        assert missing_bytes >= 0
+
+        padded_data = bytes([0] * missing_bytes) + user_data
+        item.set_raw_data(padded_data)
+        self._last_set_model_data_success = True
 
 
 class ValueEditDelegate(QStyledItemDelegate):
@@ -206,6 +245,7 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
 
     class _Signals(QObject):
         value_written = Signal(str, object)    # fqn, value
+        raw_data_written = Signal(str, object)  # fqn, data
         request_reveal_fqn = Signal(str)
         export_val_to_file = Signal(object)  # set(QStandardItem)
 
@@ -219,8 +259,8 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
         self.setDragDropMode(self.DragDropMode.DragDrop)
         self.set_header_labels(['', 'Value', 'Data (hex)', 'Type', 'Enum'])
         self.signals = self._Signals()
-        self.setItemDelegateForColumn(self.model().value_col(), ValueEditDelegate())
-        self.setItemDelegateForColumn(self.model().raw_data_col(), RawDataEditDelegate())
+        self.setItemDelegateForColumn(self.model().value_col(), ValueEditDelegate(self))
+        self.setItemDelegateForColumn(self.model().raw_data_col(), RawDataEditDelegate(self))
         self._allow_export_vals = False
 
     def allow_export_vals(self, val: bool) -> None:
@@ -349,31 +389,33 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
         if selected_index.isValid():
             selected_item = model.itemFromIndex(selected_index)
             if isinstance(selected_item, WatchableStandardItem):
+                # Insert next to selected ite, same parent
                 insert_row = selected_item.row()
                 parent = selected_item.parent()
             elif isinstance(selected_item, FolderStandardItem):
+                # Insert at end of children list
                 insert_row = -1
                 parent = selected_item
             else:
                 raise NotImplementedError(f"Unknown item type for {selected_item}")
 
-        return parent, insert_row
+        return parent, insert_row   # Defaults at end (None, -1)
 
     def _find_new_folder_position_from_position(self, position: QPoint) -> Tuple[Optional[QStandardItem], int]:
         """Find where to insert a new folder if created. Used by right-click"""
         index = self.indexAt(position)
         if not index.isValid():
-            return None, -1
+            return None, -1  # Insert at end
         model = self.model()
         item = model.itemFromIndex(index)
         assert item is not None
 
         if isinstance(item, FolderStandardItem):
-            return item, -1
+            return item, -1  # Insert at end
         parent_index = index.parent()
         if not parent_index.isValid():
-            return None, index.row()
-        return model.itemFromIndex(parent_index), index.row()
+            return None, index.row()    # Insert next to selection
+        return model.itemFromIndex(parent_index), index.row()   # Insert next to selected child, under same parent.
 
     def _new_folder(self, name: str, parent: Optional[QStandardItem], insert_row: int) -> None:
         """Performs the action of creating a new folder"""
@@ -436,19 +478,23 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
 
         super().closeEditor(editor, hint)   # Call before emitting because combo box gets their value updated here
 
-        if isinstance(item_written, ValueStandardItem):
+        if isinstance(item_written, ValueStandardItem):  # User edited the value column
             watchable_item = model.itemFromIndex(item_written.index().siblingAtColumn(nesting_col))
             if isinstance(watchable_item, WatchableStandardItem):   # paranoid check. Should never be false. Folders have no Value column
                 fqn = watchable_item.fqn
                 value = item_written.get_value()
                 self.signals.value_written.emit(fqn, value)
 
-        elif isinstance(item_written, RawDataStandardItem):
+        elif isinstance(item_written, RawDataStandardItem):  # User edited the raw data column
             watchable_item = model.itemFromIndex(item_written.index().siblingAtColumn(nesting_col))
             if isinstance(watchable_item, WatchableStandardItem):   # paranoid check. Should never be false. Folders have no Value column
-                fqn = watchable_item.fqn
-                data = item_written.get_raw_data()
-                print(f"close : {data}")
+                delegate = cast(RawDataEditDelegate, self.itemDelegateForColumn(self.model().raw_data_col()))
+                if delegate.last_insert_ok():   # Check if the delegate approved the user input.
+                    fqn = watchable_item.fqn
+                    data = item_written.get_raw_data()  # Updated by the delegate setModelData()
+                    if data is not None:
+
+                        self.signals.raw_data_written.emit(fqn, data)
 
         # Make arrow navigation easier because elements are nested on columns 0.
         # If current index is at another column, we can't go up in the tree with the keyboard
