@@ -32,7 +32,7 @@ from scrutiny.tools.typing import *
 from scrutiny.tools.queue import ScrutinyQueue
 
 
-RawMemoryWriteRequestCompletionCallback = Callable[["RawMemoryWriteRequest", bool, float, str], None]
+RawMemoryWriteRequestCompletionCallback = Callable[["RawMemoryWriteRequest", bool, float, str], None]   # req, success, time, failure_reason
 
 
 class RawMemoryWriteRequest:

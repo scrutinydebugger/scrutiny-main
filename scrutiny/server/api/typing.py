@@ -331,6 +331,10 @@ class C2S:
         server_path: str
         value: Any
 
+    class WriteSingleWatchableByData(BaseC2SMessage):
+        server_path: str
+        data: bytes
+
     class RequestDataloggingAcquisition(BaseC2SMessage):
         name: Optional[str]
         sampling_rate_id: int
@@ -463,6 +467,9 @@ class S2C:
     class WriteSingleWatchable(BaseS2CMessage):
         success: bool
 
+    class WriteSingleWatchableByData(BaseS2CMessage):
+        success: bool
+
     class WriteCompletion(BaseS2CMessage):
         batch_index: int
         watchable: str
@@ -574,6 +581,8 @@ C2SMessage = Union[
     C2S.ReadMemory,
     C2S.WriteMemory,
     C2S.UserCommand,
+    C2S.WriteSingleWatchable,
+    C2S.WriteSingleWatchableByData,
 ]
 
 S2CMessage = Union[
@@ -608,4 +617,6 @@ S2CMessage = Union[
     S2C.WriteMemory,
     S2C.WriteMemoryComplete,
     S2C.UserCommand,
+    S2C.WriteSingleWatchable,
+    S2C.WriteSingleWatchableByData,
 ]

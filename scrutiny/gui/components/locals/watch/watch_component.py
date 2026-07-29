@@ -96,6 +96,7 @@ class WatchComponent(ScrutinyGUIBaseLocalComponent):
         self._tree_model.rowsAboutToBeRemoved.connect(self._row_about_to_be_removed_slot)
         self._tree_model.rowsMoved.connect(self._row_moved_slot)
         self._tree.signals.value_written.connect(self._value_written_slot)
+        self._tree.signals.raw_data_written.connect(self._raw_data_written_slot)
         self._tree.signals.request_reveal_fqn.connect(self._request_reveal_fqn_slot)
         self._tree.signals.export_val_to_file.connect(self._export_values_slot)
 
@@ -425,6 +426,15 @@ class WatchComponent(ScrutinyGUIBaseLocalComponent):
         # No need to parse strings. The server auto-converts
         # Supports : Number as strings. Hexadecimal with 0x prefix, true/false, etc.
         self.app.server_manager.qt_write_watchable_value(fqn, value, ui_callback)
+
+    def _raw_data_written_slot(self, fqn: str, raw_data: bytes) -> None:
+        """The QT slot called when the user input a new value in a raw data column"""
+        def ui_callback(exception: Optional[Exception]) -> None:
+            if exception is not None:
+                self.logger.warning(f"Failed to write data for {fqn}. {exception}")
+                self.logger.debug(tools.format_exception(exception))
+
+        self.app.server_manager.qt_write_watchable_memory(fqn, raw_data, ui_callback)
 
     def _request_reveal_fqn_slot(self, fqn: str) -> None:
         self.app.reveal_varlist_fqn(fqn)

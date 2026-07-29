@@ -13,6 +13,7 @@ import random
 import string
 import json
 import math
+import struct
 import logging
 from uuid import uuid4
 from scrutiny.core.basic_types import RuntimePublishedValue, MemoryRegion
@@ -54,8 +55,8 @@ from scrutiny.tools.typing import *
 from scrutiny.core import path_tools
 
 
-# todo
-# - Test rate limiter/data streamer
+def d2f(d):
+    return struct.unpack('f', struct.pack('f', d))[0]
 
 
 class StubbedDeviceHandler:
@@ -408,7 +409,7 @@ class TestAPI(ScrutinyUnitTest):
     def wait_true(self, fn, timeout=2):
         t1 = time.monotonic()
         val = fn()
-        while not val or time.monotonic() - t1 > timeout:
+        while not val and (time.monotonic() - t1) <= timeout:
             self.process_all()
             val = fn()
             time.sleep(0.001)
@@ -2280,6 +2281,87 @@ class TestAPI(ScrutinyUnitTest):
             self.assert_is_error(self.wait_and_load_response())
 
         for todelete in ['server_path', 'value']:
+            req = base()
+            del req[todelete]
+            self.send_request(req)
+            self.assert_is_error(self.wait_and_load_response())
+
+    def test_write_watchable_by_path_and_data_no_watch(self):
+
+        dummy_var = Variable(vartype=EmbeddedDataType.uint32, path_segments=[
+                             'a', 'b', 'c', 'dummy'], location=0x1000000, endianness=Endianness.Little)
+        var_entry = DatastoreVariableEntry('var1', variable_def=dummy_var)
+
+        self.datastore.add_entry(var_entry)
+
+        payload = bytes([0x12, 0x34, 0x56, 0x78])
+
+        def base():
+            return {
+                'cmd': 'write_single_watchable_by_data',
+                'server_path': var_entry.get_display_path(),
+                'data': b64encode(payload).decode()
+            }
+
+        with self.subTest("Write success"):
+            req = base()
+            self.send_request(req, 0)
+            self.process_all()
+
+            self.wait_true(lambda: not self.fake_device_handler.write_memory_queue.empty())
+            write_request = self.fake_device_handler.write_memory_queue.get_nowait()
+            self.assertTrue(self.fake_device_handler.write_memory_queue.empty())
+            self.assertEqual(write_request.address, var_entry.get_address())
+            self.assertEqual(write_request.data, payload)
+            write_request.completion_callback(write_request, True, 3.14159, "")
+
+            response = self.wait_and_load_response(cmd='response_write_single_watchable_by_data')
+            self.assert_no_error(response)
+            self.assertTrue(response['success'])
+
+        with self.subTest("Write failure"):
+            req = base()
+            self.send_request(req, 0)
+            self.process_all()
+
+            self.wait_true(lambda: not self.fake_device_handler.write_memory_queue.empty())
+            write_request = self.fake_device_handler.write_memory_queue.get_nowait()
+            self.assertTrue(self.fake_device_handler.write_memory_queue.empty())
+            write_request.completion_callback(write_request, False, 3.14159, "")    # Emulate failure
+
+            response = self.wait_and_load_response(cmd='response_write_single_watchable_by_data')
+            self.assert_no_error(response)
+            self.assertFalse(response['success'])
+
+        with self.subTest("Small payload OK"):
+            req = base()
+            req['data'] = b64encode(bytes([0x12, 0x34])).decode()
+            self.send_request(req, 0)
+            self.process_all()
+
+            self.wait_true(lambda: not self.fake_device_handler.write_memory_queue.empty())
+            write_request = self.fake_device_handler.write_memory_queue.get_nowait()
+            self.assertTrue(self.fake_device_handler.write_memory_queue.empty())
+            self.assertEqual(write_request.data, bytes([0, 0, 0x12, 0x34]))    # Padded to 32bits by the API
+            write_request.completion_callback(write_request, True, 3.14159, "")
+
+            response = self.wait_and_load_response(cmd='response_write_single_watchable_by_data')
+            self.assert_no_error(response)
+            self.assertTrue(response['success'])
+
+        for server_path in [123, 'idontexist', None, []]:
+            req = base()
+            req['server_path'] = server_path
+            self.send_request(req)
+            self.assert_is_error(self.wait_and_load_response())
+
+        for value in [[], None, {}, 'cannotbeparsed', b64decode(bytes([1, 2, 3, 4, 5])).decode()]:
+            req = base()
+            req['data'] = value
+            self.send_request(req)
+            self.assert_is_error(self.wait_and_load_response())
+
+        for todelete in ['server_path', 'data']:
             req = base()
             del req[todelete]
             self.send_request(req)
