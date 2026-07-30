@@ -466,9 +466,11 @@ class S2C:
 
     class WriteSingleWatchable(BaseS2CMessage):
         success: bool
+        failure_reason: str
 
     class WriteSingleWatchableByData(BaseS2CMessage):
         success: bool
+        failure_reason: str
 
     class WriteCompletion(BaseS2CMessage):
         batch_index: int
@@ -476,6 +478,7 @@ class S2C:
         success: bool
         request_token: str
         completion_server_time_us: float
+        failure_reason: str
 
     class RequestDataloggingAcquisition(BaseS2CMessage):
         request_token: str

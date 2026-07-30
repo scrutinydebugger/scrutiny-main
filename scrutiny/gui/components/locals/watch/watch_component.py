@@ -207,6 +207,7 @@ class WatchComponent(ScrutinyGUIBaseLocalComponent):
         """Return a map of the columns index identified by a name that can be serialized for state save/reload"""
         return {
             'value': self._tree_model.value_col(),
+            'raw_data': self._tree_model.raw_data_col(),
             'type': self._tree_model.datatype_col(),
             'enum': self._tree_model.enum_col(),
         }

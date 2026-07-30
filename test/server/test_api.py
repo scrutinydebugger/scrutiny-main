@@ -2222,8 +2222,8 @@ class TestAPI(ScrutinyUnitTest):
         self.assertEqual(req1.get_value(), 1234)
         self.assertEqual(req2.get_value(), 3.1415926)
 
-        req1.complete(True)
-        req2.complete(False)
+        req1.complete(True, failure_reason="")
+        req2.complete(False, failure_reason="Failed")
 
         for i in range(2):
             response = self.wait_and_load_response()
@@ -2241,6 +2241,7 @@ class TestAPI(ScrutinyUnitTest):
                 self.assertEqual(response['completion_server_time_us'], req1.get_completion_server_time_us(), 'i=%d' % i)
             elif response['watchable'] == subscribed_entry2.get_id():
                 self.assertEqual(response['success'], False, 'i=%d' % i)
+                self.assertEqual(response['failure_reason'], 'Failed', 'i=%d' % i)
                 self.assertEqual(response['request_token'], request_token, 'i=%d' % i)
                 self.assertEqual(response['completion_server_time_us'], req2.get_completion_server_time_us(), 'i=%d' % i)
 
@@ -2257,16 +2258,37 @@ class TestAPI(ScrutinyUnitTest):
                 'value': 1234
             }
 
-        req = base()
-        self.assertIsNone(self.datastore.pop_target_update_request())
-        self.send_request(req, 0)
-        self.wait_true(lambda: self.datastore.get_pending_target_update_count() > 0)
-        update = self.datastore.pop_target_update_request()
-        self.assertIsNotNone(update)
-        self.assertEqual(update.get_value(), 1234)
-        update.complete(True)
-        response = self.wait_and_load_response()
-        self.assert_no_error(response)
+        with self.subTest("success"):
+            req = base()
+            self.assertIsNone(self.datastore.pop_target_update_request())
+            self.send_request(req, 0)
+            self.wait_true(lambda: self.datastore.get_pending_target_update_count() > 0)
+            update = self.datastore.pop_target_update_request()
+            self.assertIsNotNone(update)
+            self.assertEqual(update.get_value(), 1234)
+            update.complete(True, failure_reason="")
+            response = self.wait_and_load_response()
+            self.assert_no_error(response)
+
+            self.assertIn('success', response)
+            self.assertTrue(response['success'])
+
+        with self.subTest("failure"):
+            req = base()
+            self.assertIsNone(self.datastore.pop_target_update_request())
+            self.send_request(req, 0)
+            self.wait_true(lambda: self.datastore.get_pending_target_update_count() > 0)
+            update = self.datastore.pop_target_update_request()
+            self.assertIsNotNone(update)
+            self.assertEqual(update.get_value(), 1234)
+            update.complete(False, failure_reason="Failed")
+            response = self.wait_and_load_response()
+            self.assert_no_error(response)
+
+            self.assertIn('success', response)
+            self.assertIn('failure_reason', response)
+            self.assertFalse(response['success'])
+            self.assertEqual(response['failure_reason'], "Failed")
 
         for server_path in [123, 'idontexist', None, []]:
             req = base()
@@ -2331,11 +2353,12 @@ class TestAPI(ScrutinyUnitTest):
             self.wait_true(lambda: not self.fake_device_handler.write_memory_queue.empty())
             write_request = self.fake_device_handler.write_memory_queue.get_nowait()
             self.assertTrue(self.fake_device_handler.write_memory_queue.empty())
-            write_request.completion_callback(write_request, False, 3.14159, "")    # Emulate failure
+            write_request.completion_callback(write_request, False, 3.14159, "Failed!")    # Emulate failure
 
             response = self.wait_and_load_response()
             self.assert_no_error(response)
             self.assertFalse(response['success'])
+            self.assertEqual(response['failure_reason'], "Failed!")
 
         with self.subTest("Small payload OK"):
             req = base()
@@ -2440,7 +2463,7 @@ class TestAPI(ScrutinyUnitTest):
 
         req1 = self.datastore.pop_target_update_request()
         self.assertIsNotNone(req1)
-        req1.complete(True)
+        req1.complete(True, failure_reason="")
         self.assertEqual(req1.get_value(), 1234)
 
         response = self.wait_and_load_response(cmd=API.Command.Api2Client.INFORM_WRITE_COMPLETION)

@@ -58,7 +58,7 @@ class TestDataStore(ScrutinyUnitTest):
 
         self.value_change_callback_call_history[owner][entry.get_id()] += 1
 
-    def target_update_callback(self, success: bool, entry: DatastoreEntry, timestamp: float):
+    def target_update_callback(self, success: bool, entry: DatastoreEntry, timestamp: float, failure_reason: str):
 
         if entry.get_id() not in self.target_update_callback_call_history:
             self.target_update_callback_call_history[entry.get_id()] = 0
@@ -220,7 +220,7 @@ class TestDataStore(ScrutinyUnitTest):
             update_request = ds.pop_target_update_request()
             self.assertEqual(update_request.get_value(), 123)
             self.assertIsNotNone(update_request)
-            update_request.complete(success=True)
+            update_request.complete(success=True, failure_reason="")
 
             self.assertTargetUpdateCallbackCalled(entries[0], 1, "WatchableType=%s" % entry_type)
             self.assertTargetUpdateCallbackCalled(entries[1], 0, "WatchableType=%s" % entry_type)
@@ -229,7 +229,7 @@ class TestDataStore(ScrutinyUnitTest):
             self.assertTargetUpdateCallbackCalled(entries[4], 0, "WatchableType=%s" % entry_type)
 
             ds.update_target_value(entries[0], 1, callback=self.target_update_callback)
-            ds.pop_target_update_request().complete(success=True)
+            ds.pop_target_update_request().complete(success=True, failure_reason="")
             self.assertTargetUpdateCallbackCalled(entries[0], 2, "WatchableType=%s" % entry_type)
             self.assertTargetUpdateCallbackCalled(entries[1], 0, "WatchableType=%s" % entry_type)
             self.assertTargetUpdateCallbackCalled(entries[2], 0, "WatchableType=%s" % entry_type)
@@ -237,7 +237,7 @@ class TestDataStore(ScrutinyUnitTest):
             self.assertTargetUpdateCallbackCalled(entries[4], 0, "WatchableType=%s" % entry_type)
 
             ds.update_target_value(entries[2], 2, callback=self.target_update_callback)
-            ds.pop_target_update_request().complete(success=True)
+            ds.pop_target_update_request().complete(success=True, failure_reason="")
             self.assertTargetUpdateCallbackCalled(entries[0], 2, "WatchableType=%s" % entry_type)
             self.assertTargetUpdateCallbackCalled(entries[1], 0, "WatchableType=%s" % entry_type)
             self.assertTargetUpdateCallbackCalled(entries[2], 1, "WatchableType=%s" % entry_type)
@@ -247,7 +247,7 @@ class TestDataStore(ScrutinyUnitTest):
             # Add a second callback on entry 3 with same owner. Should make 1 call on dirty, not 2
             ds.start_watching(entries[3].get_id(), watcher=owner)
             ds.update_target_value(entries[3], 3, callback=self.target_update_callback)
-            ds.pop_target_update_request().complete(success=True)
+            ds.pop_target_update_request().complete(success=True, failure_reason="")
             self.assertTargetUpdateCallbackCalled(entries[0], 2, "WatchableType=%s" % entry_type)
             self.assertTargetUpdateCallbackCalled(entries[1], 0, "WatchableType=%s" % entry_type)
             self.assertTargetUpdateCallbackCalled(entries[2], 1, "WatchableType=%s" % entry_type)
@@ -258,7 +258,7 @@ class TestDataStore(ScrutinyUnitTest):
             ds.start_watching(entries[4].get_id(), watcher=owner)
             ds.start_watching(entries[4].get_id(), watcher=owner2)
             ds.update_target_value(entries[4], 4, callback=self.target_update_callback)
-            ds.pop_target_update_request().complete(success=False)
+            ds.pop_target_update_request().complete(success=False, failure_reason="Failed")
             self.assertTargetUpdateCallbackCalled(entries[0], 2, "WatchableType=%s" % entry_type)
             self.assertTargetUpdateCallbackCalled(entries[1], 0, "WatchableType=%s" % entry_type)
             self.assertTargetUpdateCallbackCalled(entries[2], 1, "WatchableType=%s" % entry_type)
@@ -387,7 +387,7 @@ class TestDataStore(ScrutinyUnitTest):
         ds.update_target_value(alias_rpv_1, 123, self.target_update_callback)
         update_request = ds.pop_target_update_request()
         self.assertEqual(update_request.get_value(), 123)
-        update_request.complete(success=True)
+        update_request.complete(success=True, failure_reason="")
 
         self.assertTargetUpdateCallbackCalled(rpv_entries[1], n=0)
         self.assertTargetUpdateCallbackCalled(alias_rpv_1, n=1)
@@ -396,7 +396,7 @@ class TestDataStore(ScrutinyUnitTest):
         ds.update_target_value(alias_rpv_1_2, 321, self.target_update_callback)
         update_request = ds.pop_target_update_request()
         self.assertEqual(update_request.get_value(), 321)
-        update_request.complete(success=False)
+        update_request.complete(success=False, failure_reason="Failed")
 
         self.assertTargetUpdateCallbackCalled(rpv_entries[1], n=0)
         self.assertTargetUpdateCallbackCalled(alias_rpv_1, n=1)

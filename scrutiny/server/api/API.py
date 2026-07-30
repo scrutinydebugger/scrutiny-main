@@ -1488,11 +1488,12 @@ class API:
         except KeyError:
             raise InvalidRequestException(req, f"Unknown watchable path {req['server_path']}")
 
-        def _callback(success: bool, entry: DatastoreEntry, timestamp: float) -> None:
+        def _callback(success: bool, entry: DatastoreEntry, timestamp: float, failure_reason: str) -> None:
             response: api_typing.S2C.WriteSingleWatchable = {
                 'cmd': self.Command.Api2Client.WRITE_SINGLE_WATCHABLE_RESPONSE,
                 'reqid': self.get_req_id(req),
-                'success': success
+                'success': success,
+                'failure_reason': failure_reason
             }
 
             self.client_handler.send(ClientHandlerMessage(conn_id=conn_id, obj=response))
@@ -1604,7 +1605,8 @@ class API:
             response: api_typing.S2C.WriteSingleWatchableByData = {
                 'cmd': self.Command.Api2Client.WRITE_SINGLE_WATCHABLE_BY_DATA_RESPONSE,
                 'reqid': self.get_req_id(req),
-                'success': success
+                'success': success,
+                "failure_reason": failure_reason
             }
             self.client_handler.send(ClientHandlerMessage(conn_id=conn_id, obj=response))
 
@@ -2286,7 +2288,8 @@ class API:
                                      initiator_conn_id: str,
                                      success: bool,
                                      datastore_entry: DatastoreEntry,
-                                     completion_server_time_us: float) -> None:
+                                     completion_server_time_us: float,
+                                     failure_reason: str) -> None:
         # This callback is given to the datastore when we make a write request (target update request)
         # It will be called once the request is completed.
         watchers = self.datastore.get_watchers_no_internal(datastore_entry)
@@ -2298,7 +2301,8 @@ class API:
             'request_token': request_token,
             'batch_index': batch_index,
             'success': success,
-            'completion_server_time_us': completion_server_time_us
+            'completion_server_time_us': completion_server_time_us,
+            'failure_reason': failure_reason
         }
 
         to_be_informed = set(watchers)

@@ -207,7 +207,7 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
             request.set_completed(False, "Stopping communication with device")
 
         if self.target_update_request_being_processed is not None:
-            self.target_update_request_being_processed.complete(False)
+            self.target_update_request_being_processed.complete(False, failure_reason="Stopped")
 
         self.clear_active_entry_write_request()
         self.clear_active_raw_write_request()
@@ -390,7 +390,7 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
                     break
                 else:
                     # Fails right away and try to get another request
-                    update_request.complete(False)
+                    update_request.complete(False, failure_reason="Not allowed")
 
         # A datastore entry has been elected for write.
         # Make an actual device request from it
@@ -426,7 +426,7 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
                             write_mask=write_mask
                         )
                     else:
-                        self.target_update_request_being_processed.complete(success=False)
+                        self.target_update_request_being_processed.complete(success=False, failure_reason="Failed to encode")
                         self.clear_active_entry_write_request()
                 elif isinstance(self.entry_being_updated, DatastoreRPVEntry):
                     rpv = self.entry_being_updated.get_rpv()
@@ -440,7 +440,7 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
                         self.target_update_data_written = None  # Not applicable to RPV
                         request = self.protocol.write_runtime_published_values((rpv.id, value_to_write))
                     else:
-                        self.target_update_request_being_processed.complete(success=False)
+                        self.target_update_request_being_processed.complete(success=False, failure_reason="Failed to encode")
                         self.clear_active_entry_write_request()
                 else:
                     raise RuntimeError('entry_being_updated is unexpected: %s' % self.entry_being_updated.__class__.__name__)
@@ -497,13 +497,13 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
                     raw_data=self.target_update_data_written    # Can be None if not available. It's fine. Raw data is optional extra data
                 )
                 self.entry_being_updated.set_value(datastore_val)
-                self.target_update_request_being_processed.complete(success=True)
+                self.target_update_request_being_processed.complete(success=True, failure_reason="")
             else:
-                self.target_update_request_being_processed.complete(success=False)
+                self.target_update_request_being_processed.complete(success=False, failure_reason="Communication mismatch")
                 self.logger.error('Received a WriteMemory response that does not match the request')
         else:
             self.logger.warning('Response for WriteMemory has been refused with response code %s.' % response.code)
-            self.target_update_request_being_processed.complete(False)
+            self.target_update_request_being_processed.complete(False, failure_reason="Refused by the device")
 
         self.clear_active_entry_write_request()
 
@@ -563,13 +563,13 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
                     raw_data=None    # Not applicable to RPV
                 )
                 self.entry_being_updated.set_value(datastore_val)
-                self.target_update_request_being_processed.complete(success=True)
+                self.target_update_request_being_processed.complete(success=True, failure_reason="")
             else:
-                self.target_update_request_being_processed.complete(success=False)
+                self.target_update_request_being_processed.complete(success=False, failure_reason="Communication mismatch")
                 self.logger.error('Received a WriteRPV response that does not match the request')
         else:
             self.logger.warning('Response for WriteRPV has been refused with response code %s.' % response.code)
-            self.target_update_request_being_processed.complete(success=False)
+            self.target_update_request_being_processed.complete(success=False, failure_reason="Refused by the device")
 
         self.clear_active_entry_write_request()
 
@@ -587,7 +587,7 @@ class MemoryWriter(BaseDeviceHandlerSubmodule):
             self.logger.critical('Got a response for a request we did not send. Not supposed to happen!')
 
         if self.target_update_request_being_processed is not None:
-            self.target_update_request_being_processed.complete(success=False)
+            self.target_update_request_being_processed.complete(success=False, failure_reason="No response")
             self.clear_active_entry_write_request()
 
         if self.active_raw_write_request is not None:

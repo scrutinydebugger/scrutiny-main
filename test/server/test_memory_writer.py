@@ -199,14 +199,16 @@ class TestMemoryWriterBasicReadOperation(ScrutinyUnitTest):
             success: bool = False
             entry: Optional[DatastoreEntry] = None
             timestamp: float = 0
+            failure_reason: str = ""
 
         cbdata = CallbackData()
 
-        def update_callback(success, entry, timestamp):
+        def update_callback(success, entry, timestamp, failure_reason):
             cbdata.called = True
             cbdata.success = success
             cbdata.entry = entry
             cbdata.timestamp = timestamp
+            cbdata.failure_reason = failure_reason
 
         update_request = ds.update_target_value(entry_to_write, 1234, update_callback)
         self.assertTrue(ds.has_pending_target_update())
@@ -507,8 +509,8 @@ class TestMemoryWriterBasicReadOperation(ScrutinyUnitTest):
 
         callback_history = []
 
-        def callback(success: bool, entry: DatastoreEntry, timestamp: float):
-            callback_history.append((success, entry, timestamp))
+        def callback(success: bool, entry: DatastoreEntry, timestamp: float, failure_reason: str):
+            callback_history.append((success, entry, timestamp, failure_reason))
 
         update_request = ds.update_target_value(entry_to_write, d2f(3.1415926), callback)
         self.assertTrue(ds.has_pending_target_update())

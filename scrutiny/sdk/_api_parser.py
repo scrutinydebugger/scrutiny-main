@@ -116,6 +116,12 @@ class UploadSFDDataResponse:
     sfd_info: Optional[sdk.SFDInfo]
 
 
+@dataclass(slots=True)
+class WriteSingleWatchableResponse:
+    success: bool
+    failure_reason: str
+
+
 T = TypeVar('T', str, int, float, bool)
 WATCHABLE_TYPE_KEY = Literal['rpv', 'alias', 'var']
 
@@ -963,6 +969,38 @@ def parse_write_value_response(response: api_typing.S2C.WriteValue) -> WriteConf
     return WriteConfirmation(
         request_token=response['request_token'],
         count=response['count']
+    )
+
+
+def parse_write_single_watchable_response(response: api_typing.S2C.WriteSingleWatchable) -> WriteSingleWatchableResponse:
+    assert isinstance(response, dict)
+    assert 'cmd' in response
+    cmd = response['cmd']
+    assert cmd == API.Command.Api2Client.WRITE_SINGLE_WATCHABLE_RESPONSE
+
+    _check_response_dict(cmd, response, 'success', bool)
+    if 'failure_reason' in response:
+        _check_response_dict(cmd, response, 'failure_reason', str)
+
+    return WriteSingleWatchableResponse(
+        success=response['success'],
+        failure_reason=response.get('failure_reason', "")
+    )
+
+
+def parse_write_single_watchable_by_data_response(response: api_typing.S2C.WriteSingleWatchableByData) -> WriteSingleWatchableResponse:
+    assert isinstance(response, dict)
+    assert 'cmd' in response
+    cmd = response['cmd']
+    assert cmd == API.Command.Api2Client.WRITE_SINGLE_WATCHABLE_BY_DATA_RESPONSE
+
+    _check_response_dict(cmd, response, 'success', bool)
+    if 'failure_reason' in response:
+        _check_response_dict(cmd, response, 'failure_reason', str)
+
+    return WriteSingleWatchableResponse(
+        success=response['success'],
+        failure_reason=response.get('failure_reason', "")
     )
 
 

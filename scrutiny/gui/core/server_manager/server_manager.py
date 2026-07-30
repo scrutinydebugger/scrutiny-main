@@ -967,7 +967,7 @@ class ServerManager:
         parsed_fqn = WatchableRegistry.FQN.parse(fqn)
 
         def threaded_func(client: ScrutinyClient) -> None:
-            return client.write_memory_watchable(parsed_fqn.path, data)
+            return client.write_watchable_memory(parsed_fqn.path, data)
 
         def ui_callback(_: None, exception: Optional[Exception]) -> None:
             callback(exception)

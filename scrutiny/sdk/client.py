@@ -3462,6 +3462,15 @@ class ScrutinyClient:
             raise sdk.exceptions.OperationFailure(f"Failed to configure the server throttling. {future.error_str}")
 
     def write_watchable(self, server_path: str, value: Union[int, float, bool, str]) -> None:
+        """Write a watchable value without subscribing to it.
+        :param server_path: The path to the watchable to write
+        :param value: The numerical value to write.  If a string is given, it will be parsed by the server
+            just like writing :attr:`WatchableHandle::value<scrutiny.sdk.watchable_handle.WatchableHandle.value>`
+
+        :raises TypeError: Given parameter not of the expected type
+        :raises OperationFailure: If the request to the server fails
+
+        """
         validation.assert_type(server_path, 'server_path', str)
         validation.assert_type(value, 'value', (int, float, bool, str))
 
@@ -3472,15 +3481,70 @@ class ScrutinyClient:
                    })
                    )
 
+        @dataclass(slots=True)
+        class Container:
+            obj: Optional[api_parser.WriteSingleWatchableResponse]
+        cb_data: Container = Container(obj=None)  # Force pass by ref
+
         def callback(state: CallbackState, response: Optional[api_typing.S2CMessage]) -> None:
-            pass
+            if response is not None and state == CallbackState.OK:
+                cb_data.obj = api_parser.parse_write_single_watchable_response(
+                    cast(api_typing.S2C.WriteSingleWatchable, response)
+                )
 
         future = self._send(req, callback)
         assert future is not None
         future.wait(self._timeout)
 
-        if future.state != CallbackState.OK:
+        if future.state != CallbackState.OK or cb_data.obj is None:
             raise sdk.exceptions.OperationFailure(f"Failed to write the watchable {server_path}. {future.error_str}")
+
+        if cb_data.obj.success == False:
+            raise sdk.exceptions.OperationFailure(f"Failed to write the watchable {server_path}. {cb_data.obj.failure_reason}")
+
+    def write_watchable_memory(self, server_path: str, data: bytes) -> None:
+        """
+        Directly writes to a watchable's memory without subscribing to it.
+        The server will accept the request only if the watchable has an associated memory region,
+        which is true for variables and aliases to variables, but false for RPVs and aliases to RPVs.
+
+        :param server_path: The path to the watchable to write
+        :param data: The raw data to write without numerical interpretation. Data will be padded to the
+            correct size if too small, or rejected if too big.
+
+        :raises TypeError: Given parameter not of the expected type
+        :raises OperationFailure: If the request to the server fails
+        """
+        validation.assert_type(server_path, 'server_path', str)
+        validation.assert_type(data, 'value', bytes)
+
+        req = cast(api_typing.C2S.WriteSingleWatchable,
+                   self._make_request(API.Command.Client2Api.WRITE_SINGLE_WATCHABLE_BY_DATA, {
+                       'server_path': server_path,
+                       'data': b64encode(data).decode(),
+                   })
+                   )
+
+        @dataclass(slots=True)
+        class Container:
+            obj: Optional[api_parser.WriteSingleWatchableResponse]
+        cb_data: Container = Container(obj=None)  # Force pass by ref
+
+        def callback(state: CallbackState, response: Optional[api_typing.S2CMessage]) -> None:
+            if response is not None and state == CallbackState.OK:
+                cb_data.obj = api_parser.parse_write_single_watchable_by_data_response(
+                    cast(api_typing.S2C.WriteSingleWatchable, response)
+                )
+
+        future = self._send(req, callback)
+        assert future is not None
+        future.wait(self._timeout)
+
+        if future.state != CallbackState.OK or cb_data.obj is None:
+            raise sdk.exceptions.OperationFailure(f"Failed to write the watchable {server_path}. {future.error_str}")
+
+        if cb_data.obj.success == False:
+            raise sdk.exceptions.OperationFailure(f"Failed to write the watchable {server_path}. {cb_data.obj.failure_reason}")
 
     @property
     def logger(self) -> logging.Logger:

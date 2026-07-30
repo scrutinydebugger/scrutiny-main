@@ -37,7 +37,7 @@ from scrutiny.tools.global_counters import global_i64_counter
 from scrutiny.tools.typing import *
 
 
-UpdateTargetRequestCallback = Callable[[bool, 'DatastoreEntry', float], None]   # callback(success, entry, timestamp)
+UpdateTargetRequestCallback = Callable[[bool, 'DatastoreEntry', float, str], None]   # callback(success, entry, timestamp, failure_reason)
 UserValueChangeCallback = Callable[[str, "DatastoreEntry"], None]
 
 
@@ -98,7 +98,7 @@ class UpdateTargetRequest:
         self.completion_callback = callback
         self.entry = entry
 
-    def complete(self, success: bool) -> None:
+    def complete(self, success: bool, failure_reason: str) -> None:
         """ Mark a request as completed. Success or not. Call the registered callbacks."""
         self.completed = True
         self.success = success
@@ -107,7 +107,7 @@ class UpdateTargetRequest:
             self.entry.set_last_target_update_server_time_us(self.completion_server_time_us)
 
         if self.completion_callback is not None:
-            self.completion_callback(success, self.entry, self.completion_server_time_us)
+            self.completion_callback(success, self.entry, self.completion_server_time_us, failure_reason)
 
     def is_complete(self) -> bool:
         """Returns True if the request has been marked as completed (success or failure)"""
@@ -457,10 +457,14 @@ class DatastoreAliasEntry(DatastoreEntry):
         """Decode a stream of bytes into a Python value"""
         return self.aliasdef.compute_device_to_user(self.refentry.decode(data))
 
-    def alias_target_update_callback(self, alias_request: UpdateTargetRequest, success: bool, entry: DatastoreEntry, timestamp: float) -> None:
+    def alias_target_update_callback(self,
+                                     alias_request: UpdateTargetRequest,
+                                     success: bool, entry: DatastoreEntry,
+                                     timestamp: float,
+                                     failure_reason: str) -> None:
         """Callback used by an alias to grab the result of the target update and apply it to its own"""
         # entry is a var or a RPV
-        alias_request.complete(success=success)
+        alias_request.complete(success=success, failure_reason=failure_reason)
 
     def set_value(self, *args: Any, **kwargs: Any) -> None:
         """Will raise an exception. Not supposed to be called"""

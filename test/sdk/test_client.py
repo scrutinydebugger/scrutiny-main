@@ -40,7 +40,7 @@ from scrutiny.server.api import API, APIConfig
 from scrutiny.server.api.abstract_client_handler import AbstractClientHandler
 from scrutiny.server.protocol.comm_handler import CommHandler
 import scrutiny.server.datastore.datastore as datastore
-from scrutiny.server.datastore.datastore_entry import DatastoreValue
+from scrutiny.server.datastore.datastore_entry import DatastoreValue, DatastoreRPVEntry, DatastoreVariableEntry
 from scrutiny.server.api.tcp_client_handler import TCPClientHandler
 from scrutiny.server.device.device_handler import (
     DeviceHandler, DeviceStateChangedCallback, RawMemoryReadRequest,
@@ -253,7 +253,7 @@ class FakeDeviceHandler:
             if self.ignore_write:
                 pass
             elif not self.write_allowed:
-                update_request.complete(False)
+                update_request.complete(False, failure_reason="Not allowed")
             else:
                 try:
                     entry = update_request.entry
@@ -273,9 +273,9 @@ class FakeDeviceHandler:
                         raise NotImplementedError("Should not happen")
 
                     entry.set_value_from_data(data)
-                    update_request.complete(True)
+                    update_request.complete(True, failure_reason="")
                 except Exception as e:
-                    update_request.complete(False)
+                    update_request.complete(False, failure_reason=str(e))
                     logging.error(str(e))
                     logging.debug(traceback.format_exc())
 
@@ -3001,6 +3001,52 @@ class TestClient(ScrutinyUnitTest):
 
         with self.assertRaises(Exception):
             self.client.write_watchable([], 0)
+
+        # Should fail if write does not succeeed in the device.
+        self.device_handler.write_allowed = False
+        with self.assertRaises(Exception) as ctx:
+            self.client.write_watchable(entry.get_display_path(), 3.14)
+        self.assertIn("not allowed", str(ctx.exception).lower())    # Make sure the error bubbles back to the client side
+
+    def test_write_single_watchable_by_data_no_handle(self):
+        rpv_entry = self.datastore.get_entry_by_display_path('/rpv/x1000')  # float32
+        rpv_entry.set_value(DatastoreValue(0))
+        var_entry = self.datastore.get_entry_by_display_path('/a/b/var1')  # uint32_t
+        var_entry.set_value(DatastoreValue(0))
+
+        assert isinstance(rpv_entry, DatastoreRPVEntry)
+        assert isinstance(var_entry, DatastoreVariableEntry)
+
+        with self.subTest("Simple write"):
+            self.client.write_watchable_memory(var_entry.get_display_path(), bytes([1, 2, 3, 4]))
+            data_readback = self.device_handler.fake_mem.read(var_entry.get_address(), var_entry.get_data_type().get_size_8bits())
+            self.assertEqual(data_readback, bytes([1, 2, 3, 4]))
+
+        with self.subTest("Pad data"):
+            self.client.write_watchable_memory(var_entry.get_display_path(), bytes([5, 6]))
+            data_readback = self.device_handler.fake_mem.read(var_entry.get_address(), var_entry.get_data_type().get_size_8bits())
+            self.assertEqual(data_readback, bytes([0, 0, 5, 6]))
+
+        with self.assertRaises(Exception):
+            self.client.write_watchable_memory(var_entry.get_display_path(), bytes([1, 2, 3, 4, 5]))    # Too long
+
+        with self.assertRaises(Exception):
+            self.client.write_watchable_memory('/i/dont/exist', bytes([1, 2, 3, 4]))
+
+        with self.assertRaises(Exception):
+            self.client.write_watchable_memory(var_entry.get_display_path(), None)
+
+        with self.assertRaises(Exception):
+            self.client.write_watchable_memory(var_entry.get_display_path(), 'invalid_expr')
+
+        with self.assertRaises(Exception):
+            self.client.write_watchable_memory([], 0)
+
+        # Should fail if write does not succeeed in the device.
+        self.device_handler.write_allowed = False
+        with self.assertRaises(sdk.exceptions.OperationFailure) as ctx:
+            self.client.write_watchable_memory(var_entry.get_display_path(), bytes([1, 2, 3, 4]))
+        self.assertIn("not allowed", str(ctx.exception).lower())    # Make sure the error bubbles back to the client side
 
 
 if __name__ == '__main__':
