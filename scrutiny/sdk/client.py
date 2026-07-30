@@ -3463,6 +3463,7 @@ class ScrutinyClient:
 
     def write_watchable(self, server_path: str, value: Union[int, float, bool, str]) -> None:
         """Write a watchable value without subscribing to it.
+
         :param server_path: The path to the watchable to write
         :param value: The numerical value to write.  If a string is given, it will be parsed by the server
             just like writing :attr:`WatchableHandle::value<scrutiny.sdk.watchable_handle.WatchableHandle.value>`
