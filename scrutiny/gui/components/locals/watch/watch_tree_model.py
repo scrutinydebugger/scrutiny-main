@@ -16,9 +16,10 @@ __all__ = [
 
 import logging
 import enum
+import binascii
 
 from PySide6.QtCore import QMimeData, QModelIndex, QPersistentModelIndex, Qt, Signal, QPoint, QObject, QAbstractItemModel
-from PySide6.QtWidgets import QWidget, QAbstractItemDelegate, QComboBox, QStyleOptionViewItem, QStyledItemDelegate
+from PySide6.QtWidgets import QWidget, QAbstractItemDelegate, QComboBox, QStyleOptionViewItem, QStyledItemDelegate, QLineEdit
 from PySide6.QtGui import (QStandardItem, QPalette, QContextMenuEvent, QDragMoveEvent, QDropEvent,
                            QDragEnterEvent, QKeyEvent)
 
@@ -53,6 +54,26 @@ WATCHER_ID_ROLE = Qt.ItemDataRole.UserRole + 3
 """A string put on the watchable name cell that stores the WatchableRegistry watcher ID. One ID per row"""
 ENUM_DATA_ROLE = Qt.ItemDataRole.UserRole + 4
 """An optional EmbeddedEnum object stored on the Value cell storing a copy of the enum from the registry. Used for combo box on edit"""
+RAW_DATA_ROLE = Qt.ItemDataRole.UserRole + 5
+"""The raw data associated with the value presently in REAL_DATA_ROLE"""
+
+
+class RawDataStandardItem(QStandardItem):
+
+    @tools.copy_type(QStandardItem.__init__)
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.setFont(assets.get_font(assets.ScrutinyFont.Monospaced))
+
+    def set_raw_data(self, data_to_set: Optional[bytes]) -> None:
+        self.setData(data_to_set, RAW_DATA_ROLE)
+        data_txt = ""
+        if data_to_set is not None and len(data_to_set) > 0:
+            data_txt = binascii.hexlify(data_to_set).decode().upper()
+        self.setData(data_txt, Qt.ItemDataRole.EditRole)
+
+    def get_raw_data(self) -> Optional[bytes]:
+        return cast(Optional[bytes], self.data(RAW_DATA_ROLE))
 
 
 class ValueStandardItem(QStandardItem):
@@ -119,6 +140,60 @@ class SerializableTreeDescriptor(TypedDict):
     children: List["SerializableTreeDescriptor"]
 
 
+class RawDataEditDelegate(QStyledItemDelegate):
+    _last_set_model_data_success: bool
+    _logger: logging.Logger
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self._last_set_model_data_success = False
+        self._logger = logging.getLogger(self.__class__.__name__)
+
+    def last_insert_ok(self) -> bool:
+        return self._last_set_model_data_success
+
+    def setModelData(self, editor: QWidget, model: QAbstractItemModel, index: Union[QModelIndex, QPersistentModelIndex]) -> None:
+        print("setModelData", flush=True)
+        super().setModelData(editor, model, index)
+        self._last_set_model_data_success = False
+        assert isinstance(model, WatchableTreeModel)
+        item = model.itemFromIndex(index)
+        if not isinstance(item, RawDataStandardItem):
+            return
+        assert isinstance(editor, QLineEdit)
+        data_str = editor.text()
+
+        # That is a way of knowing if the watchable supports raw data write.
+        # Only variables and Alias to variables can. RPVs cannot.
+        # Checking wether we already have data seems like the most resilient way
+        # We could also check the WatchableType and let the server deny if needed.
+        actual_data = item.get_raw_data()
+        if actual_data is None:
+            return
+        if data_str.startswith('0x') or data_str.startswith('0X'):
+            data_str = data_str[2:]
+
+        if len(data_str) % 2 == 1:
+            data_str = '0' + data_str
+
+        try:
+            user_data = binascii.unhexlify(data_str)
+        except binascii.Error:
+            self._logger.warning(f"Invalid hexadecimal string given: {data_str}")
+            return
+
+        if len(user_data) > len(actual_data):
+            self._logger.warning(f"Given hexadecimal string is too long")
+            return
+
+        missing_bytes = (len(actual_data) - len(user_data))
+        assert missing_bytes >= 0
+
+        padded_data = bytes([0] * missing_bytes) + user_data
+        item.set_raw_data(padded_data)
+        self._last_set_model_data_success = True
+
+
 class ValueEditDelegate(QStyledItemDelegate):
     """Class invoked by the tree view when an action needs to be done on the model.
     We use this delegate to manage watchables that has an enum, editing with a combo box instead of a text box"""
@@ -170,6 +245,7 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
 
     class _Signals(QObject):
         value_written = Signal(str, object)    # fqn, value
+        raw_data_written = Signal(str, object)  # fqn, data
         request_reveal_fqn = Signal(str)
         export_val_to_file = Signal(object)  # set(QStandardItem)
 
@@ -181,9 +257,10 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
         self.setDragEnabled(True)
         self.setDropIndicatorShown(True)
         self.setDragDropMode(self.DragDropMode.DragDrop)
-        self.set_header_labels(['', 'Value', 'Type', 'Enum'])
+        self.set_header_labels(['', 'Value', 'Data (hex)', 'Type', 'Enum'])
         self.signals = self._Signals()
-        self.setItemDelegateForColumn(self.model().value_col(), ValueEditDelegate())
+        self.setItemDelegateForColumn(self.model().value_col(), ValueEditDelegate(self))
+        self.setItemDelegateForColumn(self.model().raw_data_col(), RawDataEditDelegate(self))
         self._allow_export_vals = False
 
     def allow_export_vals(self, val: bool) -> None:
@@ -299,7 +376,7 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
             super().keyPressEvent(event)
 
     def _find_new_folder_position_from_selection(self) -> Tuple[Optional[QStandardItem], int]:
-        # Used by keyboard shortcut
+        """Find where to insert a new folder if created. Used by keyboard navigation"""
         model = self.model()
         nesting_col = self.model().nesting_col()
         selected_list = [index for index in self.selectedIndexes() if index.column() == nesting_col]
@@ -312,33 +389,36 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
         if selected_index.isValid():
             selected_item = model.itemFromIndex(selected_index)
             if isinstance(selected_item, WatchableStandardItem):
+                # Insert next to selected ite, same parent
                 insert_row = selected_item.row()
                 parent = selected_item.parent()
             elif isinstance(selected_item, FolderStandardItem):
+                # Insert at end of children list
                 insert_row = -1
                 parent = selected_item
             else:
                 raise NotImplementedError(f"Unknown item type for {selected_item}")
 
-        return parent, insert_row
+        return parent, insert_row   # Defaults at end (None, -1)
 
     def _find_new_folder_position_from_position(self, position: QPoint) -> Tuple[Optional[QStandardItem], int]:
-        # Used by right-click
+        """Find where to insert a new folder if created. Used by right-click"""
         index = self.indexAt(position)
         if not index.isValid():
-            return None, -1
+            return None, -1  # Insert at end
         model = self.model()
         item = model.itemFromIndex(index)
         assert item is not None
 
         if isinstance(item, FolderStandardItem):
-            return item, -1
+            return item, -1  # Insert at end
         parent_index = index.parent()
         if not parent_index.isValid():
-            return None, index.row()
-        return model.itemFromIndex(parent_index), index.row()
+            return None, index.row()    # Insert next to selection
+        return model.itemFromIndex(parent_index), index.row()   # Insert next to selected child, under same parent.
 
     def _new_folder(self, name: str, parent: Optional[QStandardItem], insert_row: int) -> None:
+        """Performs the action of creating a new folder"""
         model = self.model()
         new_row = model.make_folder_row(name, fqn=None, editable=True)
         model.add_row_to_parent(parent, insert_row, new_row)
@@ -398,12 +478,23 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
 
         super().closeEditor(editor, hint)   # Call before emitting because combo box gets their value updated here
 
-        if isinstance(item_written, ValueStandardItem):
+        if isinstance(item_written, ValueStandardItem):  # User edited the value column
             watchable_item = model.itemFromIndex(item_written.index().siblingAtColumn(nesting_col))
             if isinstance(watchable_item, WatchableStandardItem):   # paranoid check. Should never be false. Folders have no Value column
                 fqn = watchable_item.fqn
                 value = item_written.get_value()
                 self.signals.value_written.emit(fqn, value)
+
+        elif isinstance(item_written, RawDataStandardItem):  # User edited the raw data column
+            watchable_item = model.itemFromIndex(item_written.index().siblingAtColumn(nesting_col))
+            if isinstance(watchable_item, WatchableStandardItem):   # paranoid check. Should never be false. Folders have no Value column
+                delegate = cast(RawDataEditDelegate, self.itemDelegateForColumn(self.model().raw_data_col()))
+                if delegate.last_insert_ok():   # Check if the delegate approved the user input.
+                    fqn = watchable_item.fqn
+                    data = item_written.get_raw_data()  # Updated by the delegate setModelData()
+                    if data is not None:
+
+                        self.signals.raw_data_written.emit(fqn, data)
 
         # Make arrow navigation easier because elements are nested on columns 0.
         # If current index is at another column, we can't go up in the tree with the keyboard
@@ -418,8 +509,9 @@ class WatchComponentTreeModel(WatchableTreeModel):
     class Column(enum.Enum):
         # Item is always 0.
         VALUE = 1
-        DATATYPE = 2
-        ENUM = 3
+        RAW_DATA = 2
+        DATATYPE = 3
+        ENUM = 4
 
     logger: logging.Logger
     _available_palette: QPalette
@@ -465,7 +557,7 @@ class WatchComponentTreeModel(WatchableTreeModel):
     def get_watchable_extra_columns(self, fqn: str = "", watchable_config: Optional[BriefWatchableConfiguration] = None) -> List[QStandardItem]:
         # We don't use watchable_config here even if we could.
         # We update the value/type when an item is available by calling update_row_state
-        return [ValueStandardItem(), DataTypeStandardItem(), EnumNameStandardItem()]
+        return [ValueStandardItem(), RawDataStandardItem(), DataTypeStandardItem(), EnumNameStandardItem()]
 
     def _check_support_drag_data(self, drag_data: Optional[ScrutinyDragData], action: Qt.DropAction) -> bool:
         """Tells if a drop would be supported
@@ -803,6 +895,8 @@ class WatchComponentTreeModel(WatchableTreeModel):
                     item.setData(None, ENUM_DATA_ROLE)
                     item.setEditable(False)
                     item.setText('N/A')
+                elif isinstance(item, RawDataStandardItem):
+                    item.setText('N/A')
                 elif isinstance(item, DataTypeStandardItem):
                     item.setText('N/A')
                 elif isinstance(item, EnumNameStandardItem):
@@ -824,6 +918,8 @@ class WatchComponentTreeModel(WatchableTreeModel):
                         # Assign a copy of the enum on the item because the Delegate that creates the combo box
                         # does not have access to the registry nor the model
                         item.setData(watchable_config.enum, ENUM_DATA_ROLE)
+                elif isinstance(item, RawDataStandardItem):
+                    item.setEditable(True)
                 elif isinstance(item, DataTypeStandardItem):
                     item.setText(watchable_config.datatype.name)
                 elif isinstance(item, EnumNameStandardItem):
@@ -841,6 +937,11 @@ class WatchComponentTreeModel(WatchableTreeModel):
         assert isinstance(o, ValueStandardItem)
         return o
 
+    def get_rawdata_item(self, item: WatchableStandardItem) -> RawDataStandardItem:
+        o = self.itemFromIndex(item.index().siblingAtColumn(self.raw_data_col()))
+        assert isinstance(o, RawDataStandardItem)
+        return o
+
     def get_datatype_item(self, item: WatchableStandardItem) -> DataTypeStandardItem:
         o = self.itemFromIndex(item.index().siblingAtColumn(self.datatype_col()))
         assert isinstance(o, DataTypeStandardItem)
@@ -854,6 +955,10 @@ class WatchComponentTreeModel(WatchableTreeModel):
     @classmethod
     def value_col(cls) -> int:
         return cls.get_column_index(cls.Column.VALUE)
+
+    @classmethod
+    def raw_data_col(cls) -> int:
+        return cls.get_column_index(cls.Column.RAW_DATA)
 
     @classmethod
     def datatype_col(cls) -> int:

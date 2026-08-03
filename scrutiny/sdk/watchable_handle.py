@@ -21,12 +21,20 @@ from scrutiny.sdk.write_request import WriteRequest
 from scrutiny.tools import validation, deprecated
 from scrutiny.tools.typing import *
 from scrutiny.core import path_tools
+from dataclasses import dataclass
 
 if TYPE_CHECKING:
     from scrutiny.sdk.client import ScrutinyClient
 
 
 ValType = Union[int, float, bool]
+
+
+@dataclass(slots=True)
+class ValueSnapshot:
+    status: ValueStatus
+    value: Optional[ValType]
+    raw_data: Optional[bytes]
 
 
 class WatchableHandle:
@@ -40,6 +48,7 @@ class WatchableHandle:
         '_lock',
         '_status',
         '_value',
+        '_data',
         '_last_value_dt',
         '_last_write_dt',
         '_update_counter',
@@ -63,6 +72,8 @@ class WatchableHandle:
 
     _value: Optional[ValType]
     """Contains the latest value gotten by the client"""
+    _data: Optional[bytes]
+    """Contains the latest raw data gotten by the client. May not always be available"""
     _last_value_dt: Optional[datetime]
     """Datetime of the last value update by the client"""
     _last_write_dt: Optional[datetime]
@@ -108,6 +119,7 @@ class WatchableHandle:
             self._configuration = config
             self._status = ValueStatus.NeverSet
             self._value = None
+            self._data = None
             self._last_value_dt = None
             self._update_counter = 0
 
@@ -122,7 +134,7 @@ class WatchableHandle:
         with self._lock:
             self._last_write_dt = dt
 
-    def _update_value(self, val: Optional[ValType], timestamp: Optional[datetime] = None) -> None:
+    def _update_value(self, val: Optional[ValType], data: Optional[bytes] = None, timestamp: Optional[datetime] = None) -> None:
         """Update the cached value and mark the status as ``ValueStatus.Valid``.
 
         No-op if the status is ``ValueStatus.ServerGone``.
@@ -135,6 +147,7 @@ class WatchableHandle:
             if self._status != ValueStatus.ServerGone:
                 self._status = ValueStatus.Valid
                 self._value = val
+                self._data = data
                 self._last_value_dt = timestamp if timestamp is not None else datetime.now()
                 self._update_counter += 1   # unbound in size in python 3
             else:
@@ -158,6 +171,7 @@ class WatchableHandle:
 
         with self._lock:
             self._value = None
+            self._data = None
             self._status = status
             self._last_value_dt = timestamp if timestamp is not None else datetime.now()
 
@@ -166,11 +180,11 @@ class WatchableHandle:
 
         :raises InvalidValueError: If the value is ``None`` or the status is not ``ValueStatus.Valid``.
         """
-        val, val_status = self.get_value_and_status()   # Thread safe
-        if val is None or val_status != ValueStatus.Valid:
-            raise sdk_exceptions.InvalidValueError(f"Value of {self._shortname} is unusable. {val_status._get_error()}")
+        snapshot = self.snapshot()   # Thread safe
+        if snapshot.value is None or snapshot.status != ValueStatus.Valid:
+            raise sdk_exceptions.InvalidValueError(f"Value of {self._shortname} is unusable. {snapshot.status._get_error()}")
 
-        return val
+        return snapshot.value
 
     def _write(self, val: Union[ValType, str], parse_enum: bool) -> WriteRequest:
         """Submit a value write to the server and wait for it to complete (unless a batch write is active).
@@ -317,16 +331,18 @@ class WatchableHandle:
         assert self._configuration is not None
         return self._configuration.parse_enum_val(val)
 
-    def get_value_and_status(self) -> Tuple[Optional[ValType], ValueStatus]:
-        """Returns a tuple with the value and the value status.
+    def snapshot(self) -> ValueSnapshot:
+        """Returns an object with  value, data and the value status, all taken in an atomic operation.
         If the status is :attr:`Valid<scrutiny.sdk.ValueStatus.Valid>`, then the value is guaranteed to contain a value.
-        If status != :attr:`Valid<scrutiny.sdk.ValueStatus.Valid>`, the value will be ``None``. This method does not raise an exception on invalid values.
+        If status != :attr:`Valid<scrutiny.sdk.ValueStatus.Valid>`, the value and data will be ``None``.
+        This method does not raise an exception on invalid values.
         """
         with self._lock:
-            val = self._value
-            val_status = self._status
-
-        return (val, val_status)
+            return ValueSnapshot(
+                value=self._value,
+                raw_data=self._data,
+                status=self._status
+            )
 
     def change_update_rate(self, update_rate: Optional[float]) -> Optional[float]:
         """Request the server to change the target update rate for this watchable (optionally set when
@@ -395,6 +411,9 @@ class WatchableHandle:
         ``hypot``, ``degrees``, ``radians``,
         ``cos``, ``cosh``, ``acos``, ``sin``, ``sinh``, ``asin``, ``tan``, ``tanh``, ``atan``, ``atan2``
 
+        Refer the :meth:`snapshot()<scrutiny.sdk.watchable_handle.WatchableHandler.snapshot>` to
+        read the value, data and the status together atomically.
+
         :raises InvalidValueError: When reading, if the value has never been set or the handle is no longer valid.
         :raises OperationFailure: When writing, if the server fails to complete the write.
         """
@@ -418,6 +437,14 @@ class WatchableHandle:
     def value_float(self) -> float:
         """The value cast as ``float``"""
         return float(self.value)
+
+    @property
+    def raw_data(self) -> Optional[bytes]:
+        """the raw data that generated the value. May be ``None`` even if a value is available for non-variable watchables.
+
+        Refer the :meth:`snapshot()<scrutiny.sdk.watchable_handle.WatchableHandler.snapshot>` to
+        read the value, raw data and the status together atomically."""
+        return self._data
 
     @property
     def value_enum(self) -> str:
@@ -465,8 +492,8 @@ class WatchableHandle:
 
     @property
     def status(self) -> ValueStatus:
-        """Return the value status. Refer the :meth:`get_value_and_status()<scrutiny.sdk.watchable_handle.WatchableHandler.get_value_and_status>` to
-        read the value and the status together atomically."""
+        """Return the value status. Refer the :meth:`snapshot()<scrutiny.sdk.watchable_handle.WatchableHandler.snapshot>` to
+        read the value, raw data and the status together atomically."""
         return ValueStatus(self._status)
 
     @property

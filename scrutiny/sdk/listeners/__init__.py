@@ -32,7 +32,8 @@ class ValueUpdate:
     value: Optional[Union[int, float, bool]]
     """Value received in the update. If ``None``, refer to :attr:`status<ValueUpdate.status>` to know why.
     Guaranteed to have a value if :attr:`status<ValueUpdate.status>`=:attr:`Valid<scrutiny.sdk.ValueStatus.Valid>` """
-
+    data: Optional[bytes]
+    """Raw data associated with the value. Will only be available for Variables. ``None`` if not available."""
     status: ValueStatus
     """The status of the value. """
 
@@ -139,11 +140,12 @@ class BaseListener(abc.ABC):
                 timestamp = watchable.last_update_timestamp
                 if timestamp is None:
                     timestamp = datetime.now()
-                val, status = watchable.get_value_and_status()  # Atomic
+                snapshot = watchable.snapshot()
                 update = ValueUpdate(
                     watchable=watchable,
-                    value=val,
-                    status=status,
+                    value=snapshot.value,
+                    data=snapshot.raw_data,
+                    status=snapshot.status,
                     update_timestamp=timestamp,
                 )
                 update_list.append(update)

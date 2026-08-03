@@ -27,20 +27,21 @@ from scrutiny.tools.typing import *
 import typing
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(slots=True)
 class WelcomeData:
     server_time_zero_timestamp: float
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(slots=True)
 class WatchableUpdate:
     server_id: str
     value: Optional[Union[bool, int, float]]
+    data: Optional[bytes]
     server_time_us: float
     value_status: sdk.ValueStatus
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(slots=True)
 class WriteCompletion:
     request_token: str
     watchable: str
@@ -49,13 +50,13 @@ class WriteCompletion:
     batch_index: int
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(slots=True)
 class WriteConfirmation:
     request_token: str
     count: int
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(slots=True)
 class MemoryReadCompletion:
     request_token: str
     success: bool
@@ -65,7 +66,7 @@ class MemoryReadCompletion:
     local_monotonic_timestamp: float
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(slots=True)
 class MemoryWriteCompletion:
     request_token: str
     success: bool
@@ -74,7 +75,7 @@ class MemoryWriteCompletion:
     local_monotonic_timestamp: float
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(slots=True)
 class DataloggingCompletion:
     request_token: str
     reference_id: Optional[str]
@@ -82,19 +83,19 @@ class DataloggingCompletion:
     detail_msg: str
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(slots=True)
 class GetWatchableListResponse:
     done: bool
     data: sdk.WatchableListContentPart
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(slots=True)
 class DataloggingListChangeResponse:
     action: sdk.DataloggingListChangeType
     reference_id: Optional[str]
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(slots=True)
 class SFDDownloadChunk:
     firmware_id: str
     data: bytes
@@ -102,17 +103,23 @@ class SFDDownloadChunk:
     total_size: int
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(slots=True)
 class UploadSFDInitResponse:
     token: str
     will_overwrite: bool
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(slots=True)
 class UploadSFDDataResponse:
     completed: bool
     actual_size: int
     sfd_info: Optional[sdk.SFDInfo]
+
+
+@dataclass(slots=True)
+class WriteSingleWatchableResponse:
+    success: bool
+    failure_reason: str
 
 
 T = TypeVar('T', str, int, float, bool)
@@ -915,6 +922,7 @@ def parse_watchable_update(response: api_typing.S2C.WatchableUpdate) -> List[Wat
         _check_response_dict(cmd, element, 't', (float, int))
 
         v = element['v']
+        d: Optional[bytes] = None
         value_status = sdk.ValueStatus.Valid
         if v is None:   # None means Invalid value
             value_status = sdk.ValueStatus.ServerSetInvalidWithoutReason  # default
@@ -925,10 +933,17 @@ def parse_watchable_update(response: api_typing.S2C.WatchableUpdate) -> List[Wat
                     value_status = sdk.ValueStatus.NullPtrDereferenced
                 elif reason == 'forbidden':
                     value_status = sdk.ValueStatus.ForbiddenRegion
+        d_raw = element.get('d', None)
+        if d_raw is not None:
+            try:
+                d = b64decode(d_raw, validate=True)
+            except (binascii.Error, TypeError) as e:
+                raise sdk.exceptions.BadResponseError(f"Server returned a invalid base64 data block. {e}")
 
         outlist.append(WatchableUpdate(
             server_id=element['id'],
             value=v,
+            data=d,
             server_time_us=float(element['t']),
             value_status=value_status
         ))
@@ -954,6 +969,38 @@ def parse_write_value_response(response: api_typing.S2C.WriteValue) -> WriteConf
     return WriteConfirmation(
         request_token=response['request_token'],
         count=response['count']
+    )
+
+
+def parse_write_single_watchable_response(response: api_typing.S2C.WriteSingleWatchable) -> WriteSingleWatchableResponse:
+    assert isinstance(response, dict)
+    assert 'cmd' in response
+    cmd = response['cmd']
+    assert cmd == API.Command.Api2Client.WRITE_SINGLE_WATCHABLE_RESPONSE
+
+    _check_response_dict(cmd, response, 'success', bool)
+    if 'failure_reason' in response:
+        _check_response_dict(cmd, response, 'failure_reason', str)
+
+    return WriteSingleWatchableResponse(
+        success=response['success'],
+        failure_reason=response.get('failure_reason', "")
+    )
+
+
+def parse_write_single_watchable_by_data_response(response: api_typing.S2C.WriteSingleWatchableByData) -> WriteSingleWatchableResponse:
+    assert isinstance(response, dict)
+    assert 'cmd' in response
+    cmd = response['cmd']
+    assert cmd == API.Command.Api2Client.WRITE_SINGLE_WATCHABLE_BY_DATA_RESPONSE
+
+    _check_response_dict(cmd, response, 'success', bool)
+    if 'failure_reason' in response:
+        _check_response_dict(cmd, response, 'failure_reason', str)
+
+    return WriteSingleWatchableResponse(
+        success=response['success'],
+        failure_reason=response.get('failure_reason', "")
     )
 
 

@@ -956,6 +956,24 @@ class ServerManager:
 
         self.schedule_client_request(threaded_func, ui_callback)
 
+    def qt_write_watchable_memory(self, fqn: str, data: bytes, callback: Callable[[Optional[Exception]], None]) -> None:
+        """Request the server manager to write the memory associated with a node in the registry, identified by its Fully Qualified Name.
+        Must be called from QT thread.
+        If no memory region is associated with that watchable, the server may deny the request.
+
+        :param fqn: The Fully Qualified Name of the watchable
+        :param callback: A callback to call on completion. If the single parameter is None, completed successfully, otherwise will be the exception raised
+        """
+        parsed_fqn = WatchableRegistry.FQN.parse(fqn)
+
+        def threaded_func(client: ScrutinyClient) -> None:
+            return client.write_watchable_memory(parsed_fqn.path, data)
+
+        def ui_callback(_: None, exception: Optional[Exception]) -> None:
+            callback(exception)
+
+        self.schedule_client_request(threaded_func, ui_callback)
+
     def get_stats(self) -> Statistics:
         """Return some internal metrics for diagnostic"""
         return self.Statistics(

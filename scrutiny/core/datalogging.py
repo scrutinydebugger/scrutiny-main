@@ -248,7 +248,7 @@ class DataloggingAcquisition:
 
         self.trigger_index = val
 
-    def write_csv(self, writer: '_csv._writer') -> None:
+    def write_csv(self, writer: '_csv.Writer') -> None:
         """Export the acquisition to a CSV file
 
         :param writer: The CSV writer to use

@@ -13,6 +13,7 @@ import random
 import string
 import json
 import math
+import struct
 import logging
 from uuid import uuid4
 from scrutiny.core.basic_types import RuntimePublishedValue, MemoryRegion
@@ -54,8 +55,8 @@ from scrutiny.tools.typing import *
 from scrutiny.core import path_tools
 
 
-# todo
-# - Test rate limiter/data streamer
+def d2f(d):
+    return struct.unpack('f', struct.pack('f', d))[0]
 
 
 class StubbedDeviceHandler:
@@ -408,7 +409,7 @@ class TestAPI(ScrutinyUnitTest):
     def wait_true(self, fn, timeout=2):
         t1 = time.monotonic()
         val = fn()
-        while not val or time.monotonic() - t1 > timeout:
+        while not val and (time.monotonic() - t1) <= timeout:
             self.process_all()
             val = fn()
             time.sleep(0.001)
@@ -1068,7 +1069,7 @@ class TestAPI(ScrutinyUnitTest):
         self.assertEqual(self.datastore.get_effective_update_rate(subscribed_entry.get_id()), 10)
 
         self.datastore.start_batch('unittest')
-        self.datastore.set_value(subscribed_entry.get_id(), 1234)
+        self.datastore.set_value(subscribed_entry.get_id(), DatastoreValue(1234, raw_data=b'\xAA\xBB'))
         self.datastore.stop_batch('unittest')
 
         var_update_msg = self.wait_and_load_response()
@@ -1079,6 +1080,22 @@ class TestAPI(ScrutinyUnitTest):
 
         self.assertEqual(update['id'], subscribed_entry.get_id())
         self.assertEqual(update['v'], 1234)
+        self.assertEqual(update['d'], b64encode(b'\xAA\xBB').decode())
+
+        # Now we check that no raw data is fine. The value is guaranteed, not the data.
+        self.datastore.start_batch('unittest')
+        self.datastore.set_value(subscribed_entry.get_id(), DatastoreValue(4567, raw_data=None))
+        self.datastore.stop_batch('unittest')
+
+        var_update_msg = self.wait_and_load_response()
+        self.assert_valid_value_update_message(var_update_msg)
+        self.assertEqual(len(var_update_msg['updates']), 1)
+
+        update = var_update_msg['updates'][0]
+
+        self.assertEqual(update['id'], subscribed_entry.get_id())
+        self.assertEqual(update['v'], 4567)
+        self.assertNotIn('d', update)   # Data is optional
 
     def test_get_info_single_var(self):
         entries = self.make_dummy_entries(10, entry_type=WatchableType.Variable, prefix='var')
@@ -1291,7 +1308,7 @@ class TestAPI(ScrutinyUnitTest):
         self.assertEqual(response['cmd'], 'response_unsubscribe_watchable')
         self.assert_no_error(response)
 
-        self.datastore.set_value(subscribed_entry.get_id(), 1111)
+        self.datastore.set_value(subscribed_entry.get_id(), DatastoreValue(1111))
         self.assertIsNone(self.wait_for_response(0, timeout=0.1))
 
     # Make sure that the streamer send the value update once if many update happens before the value is outputted to the client.
@@ -1310,8 +1327,8 @@ class TestAPI(ScrutinyUnitTest):
         self.assert_no_error(response)
 
         self.datastore.start_batch('unittest')
-        self.datastore.set_value(subscribed_entry.get_id(), 1234)
-        self.datastore.set_value(subscribed_entry.get_id(), 4567)
+        self.datastore.set_value(subscribed_entry.get_id(), DatastoreValue(1234))
+        self.datastore.set_value(subscribed_entry.get_id(), DatastoreValue(4567))
         self.datastore.stop_batch('unittest')
 
         var_update_msg = self.wait_and_load_response()
@@ -2205,8 +2222,8 @@ class TestAPI(ScrutinyUnitTest):
         self.assertEqual(req1.get_value(), 1234)
         self.assertEqual(req2.get_value(), 3.1415926)
 
-        req1.complete(True)
-        req2.complete(False)
+        req1.complete(True, failure_reason="")
+        req2.complete(False, failure_reason="Failed")
 
         for i in range(2):
             response = self.wait_and_load_response()
@@ -2224,6 +2241,7 @@ class TestAPI(ScrutinyUnitTest):
                 self.assertEqual(response['completion_server_time_us'], req1.get_completion_server_time_us(), 'i=%d' % i)
             elif response['watchable'] == subscribed_entry2.get_id():
                 self.assertEqual(response['success'], False, 'i=%d' % i)
+                self.assertEqual(response['failure_reason'], 'Failed', 'i=%d' % i)
                 self.assertEqual(response['request_token'], request_token, 'i=%d' % i)
                 self.assertEqual(response['completion_server_time_us'], req2.get_completion_server_time_us(), 'i=%d' % i)
 
@@ -2240,16 +2258,37 @@ class TestAPI(ScrutinyUnitTest):
                 'value': 1234
             }
 
-        req = base()
-        self.assertIsNone(self.datastore.pop_target_update_request())
-        self.send_request(req, 0)
-        self.wait_true(lambda: self.datastore.get_pending_target_update_count() > 0)
-        update = self.datastore.pop_target_update_request()
-        self.assertIsNotNone(update)
-        self.assertEqual(update.get_value(), 1234)
-        update.complete(True)
-        response = self.wait_and_load_response()
-        self.assert_no_error(response)
+        with self.subTest("success"):
+            req = base()
+            self.assertIsNone(self.datastore.pop_target_update_request())
+            self.send_request(req, 0)
+            self.wait_true(lambda: self.datastore.get_pending_target_update_count() > 0)
+            update = self.datastore.pop_target_update_request()
+            self.assertIsNotNone(update)
+            self.assertEqual(update.get_value(), 1234)
+            update.complete(True, failure_reason="")
+            response = self.wait_and_load_response()
+            self.assert_no_error(response)
+
+            self.assertIn('success', response)
+            self.assertTrue(response['success'])
+
+        with self.subTest("failure"):
+            req = base()
+            self.assertIsNone(self.datastore.pop_target_update_request())
+            self.send_request(req, 0)
+            self.wait_true(lambda: self.datastore.get_pending_target_update_count() > 0)
+            update = self.datastore.pop_target_update_request()
+            self.assertIsNotNone(update)
+            self.assertEqual(update.get_value(), 1234)
+            update.complete(False, failure_reason="Failed")
+            response = self.wait_and_load_response()
+            self.assert_no_error(response)
+
+            self.assertIn('success', response)
+            self.assertIn('failure_reason', response)
+            self.assertFalse(response['success'])
+            self.assertEqual(response['failure_reason'], "Failed")
 
         for server_path in [123, 'idontexist', None, []]:
             req = base()
@@ -2264,6 +2303,101 @@ class TestAPI(ScrutinyUnitTest):
             self.assert_is_error(self.wait_and_load_response())
 
         for todelete in ['server_path', 'value']:
+            req = base()
+            del req[todelete]
+            self.send_request(req)
+            self.assert_is_error(self.wait_and_load_response())
+
+    def test_write_watchable_by_path_and_data_no_watch(self):
+
+        dummy_var = Variable(vartype=EmbeddedDataType.uint32, path_segments=[
+                             'a', 'b', 'c', 'dummy'], location=0x1000000, endianness=Endianness.Little)
+        var_entry = DatastoreVariableEntry('var1', variable_def=dummy_var)
+        alias_entry = DatastoreAliasEntry(aliasdef=Alias('/aaa/bbb/ccc', dummy_var.get_fullname()), refentry=var_entry)
+        rpv_entry = DatastoreRPVEntry('/xxx/yyy/zzz', RuntimePublishedValue(0x1234, EmbeddedDataType.float32))
+
+        self.datastore.add_entry(var_entry)
+        self.datastore.add_entry(alias_entry)
+        self.datastore.add_entry(rpv_entry)
+
+        payload = bytes([0x12, 0x34, 0x56, 0x78])
+
+        def base():
+            return {
+                'cmd': 'write_single_watchable_by_data',
+                'server_path': var_entry.get_display_path(),
+                'data': b64encode(payload).decode()
+            }
+
+        with self.subTest("Write success"):
+            req = base()
+            self.send_request(req, 0)
+            self.process_all()
+
+            self.wait_true(lambda: not self.fake_device_handler.write_memory_queue.empty())
+            write_request = self.fake_device_handler.write_memory_queue.get_nowait()
+            self.assertTrue(self.fake_device_handler.write_memory_queue.empty())
+            self.assertEqual(write_request.address, var_entry.get_address())
+            self.assertEqual(write_request.data, payload)
+            write_request.completion_callback(write_request, True, 3.14159, "")
+
+            response = self.wait_and_load_response()
+            self.assert_no_error(response)
+            self.assertTrue(response['success'])
+
+        with self.subTest("Write failure"):
+            req = base()
+            self.send_request(req, 0)
+            self.process_all()
+
+            self.wait_true(lambda: not self.fake_device_handler.write_memory_queue.empty())
+            write_request = self.fake_device_handler.write_memory_queue.get_nowait()
+            self.assertTrue(self.fake_device_handler.write_memory_queue.empty())
+            write_request.completion_callback(write_request, False, 3.14159, "Failed!")    # Emulate failure
+
+            response = self.wait_and_load_response()
+            self.assert_no_error(response)
+            self.assertFalse(response['success'])
+            self.assertEqual(response['failure_reason'], "Failed!")
+
+        with self.subTest("Small payload OK"):
+            req = base()
+            req['data'] = b64encode(bytes([0x12, 0x34])).decode()
+            req['server_path'] = alias_entry.get_display_path()
+            self.send_request(req, 0)
+            self.process_all()
+
+            self.wait_true(lambda: not self.fake_device_handler.write_memory_queue.empty())
+            write_request = self.fake_device_handler.write_memory_queue.get_nowait()
+            self.assertTrue(self.fake_device_handler.write_memory_queue.empty())
+            self.assertEqual(write_request.data, bytes([0, 0, 0x12, 0x34]))    # Padded to 32bits by the API
+            write_request.completion_callback(write_request, True, 3.14159, "")
+
+            response = self.wait_and_load_response()
+            self.assert_no_error(response)
+            self.assertTrue(response['success'])
+
+        with self.subTest("RPV not allowed"):
+            req = base()
+            req['server_path'] = rpv_entry.get_display_path()
+            self.send_request(req, 0)
+            self.process_all()
+            response = self.wait_and_load_response()
+            self.assert_is_error(response)
+
+        for server_path in [123, 'idontexist', None, []]:
+            req = base()
+            req['server_path'] = server_path
+            self.send_request(req)
+            self.assert_is_error(self.wait_and_load_response())
+
+        for value in [[], None, {}, 'cannotbeparsed', b64decode(bytes([1, 2, 3, 4, 5])).decode()]:
+            req = base()
+            req['data'] = value
+            self.send_request(req)
+            self.assert_is_error(self.wait_and_load_response())
+
+        for todelete in ['server_path', 'data']:
             req = base()
             del req[todelete]
             self.send_request(req)
@@ -2329,7 +2463,7 @@ class TestAPI(ScrutinyUnitTest):
 
         req1 = self.datastore.pop_target_update_request()
         self.assertIsNotNone(req1)
-        req1.complete(True)
+        req1.complete(True, failure_reason="")
         self.assertEqual(req1.get_value(), 1234)
 
         response = self.wait_and_load_response(cmd=API.Command.Api2Client.INFORM_WRITE_COMPLETION)
@@ -3672,7 +3806,7 @@ class TestAPI(ScrutinyUnitTest):
         self.assert_no_error(response)
 
         self.datastore.start_batch('unittest')
-        subscribed_entry.set_value(123)
+        subscribed_entry.set_value(DatastoreValue(123))
 
         unsubscribe_cmd = {
             'cmd': 'unsubscribe_watchable',

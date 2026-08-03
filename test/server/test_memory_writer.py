@@ -86,7 +86,7 @@ class TestMemoryWriterBasicReadOperation(ScrutinyUnitTest):
                 writer.process()
                 dispatcher.process()
                 self.assertIsNone(dispatcher.pop_next())
-                entry_to_write.set_value(0)
+                entry_to_write.set_value(DatastoreValue(0))
                 update_request = ds.update_target_value(entry_to_write, d2f(3.1415926), no_callback)
                 self.assertTrue(ds.has_pending_target_update())
                 writer.process()
@@ -134,12 +134,12 @@ class TestMemoryWriterBasicReadOperation(ScrutinyUnitTest):
         writer.set_max_response_payload_size(1024)  # big enough for all of them
         writer.start()
 
-        pointers[0].set_value(pointee_address)
+        pointers[0].set_value(DatastoreValue(pointee_address))
         entry_to_write = entries[0]
         writer.process()
         dispatcher.process()
         self.assertIsNone(dispatcher.pop_next())
-        entry_to_write.set_value(0)
+        entry_to_write.set_value(DatastoreValue(0))
         update_request = ds.update_target_value(entry_to_write, val_to_write, no_callback)
         self.assertTrue(ds.has_pending_target_update())
         writer.process()
@@ -186,9 +186,9 @@ class TestMemoryWriterBasicReadOperation(ScrutinyUnitTest):
         writer.set_max_response_payload_size(1024)  # big enough for all of them
         writer.start()
 
-        pointers[0].set_value(0)    # Null pointer.
+        pointers[0].set_value(DatastoreValue(0))    # Null pointer.
         entry_to_write = entries[0]
-        entry_to_write.set_value(0)
+        entry_to_write.set_value(DatastoreValue(0))
         writer.process()
         dispatcher.process()
         self.assertIsNone(dispatcher.pop_next())
@@ -199,14 +199,16 @@ class TestMemoryWriterBasicReadOperation(ScrutinyUnitTest):
             success: bool = False
             entry: Optional[DatastoreEntry] = None
             timestamp: float = 0
+            failure_reason: str = ""
 
         cbdata = CallbackData()
 
-        def update_callback(success, entry, timestamp):
+        def update_callback(success, entry, timestamp, failure_reason):
             cbdata.called = True
             cbdata.success = success
             cbdata.entry = entry
             cbdata.timestamp = timestamp
+            cbdata.failure_reason = failure_reason
 
         update_request = ds.update_target_value(entry_to_write, 1234, update_callback)
         self.assertTrue(ds.has_pending_target_update())
@@ -238,7 +240,7 @@ class TestMemoryWriterBasicReadOperation(ScrutinyUnitTest):
         writer.process()
         dispatcher.process()
         self.assertIsNone(dispatcher.pop_next())
-        entry_to_write.set_value(0)
+        entry_to_write.set_value(DatastoreValue(0))
         update_request = ds.update_target_value(entry_to_write, "BAD VALUE", no_callback)
         self.assertTrue(ds.has_pending_target_update())
         writer.process()
@@ -282,7 +284,7 @@ class TestMemoryWriterBasicReadOperation(ScrutinyUnitTest):
             writer.process()
             dispatcher.process()
             self.assertIsNone(dispatcher.pop_next())
-            entry_to_write.set_value(0)
+            entry_to_write.set_value(DatastoreValue(0))
             update_request = ds.update_target_value(entry_to_write, d2f(3.1415926), no_callback)
             self.assertTrue(ds.has_pending_target_update())
             writer.process()
@@ -340,7 +342,7 @@ class TestMemoryWriterBasicReadOperation(ScrutinyUnitTest):
             writer.process()
             dispatcher.process()
             self.assertIsNone(dispatcher.pop_next())
-            entry_to_write.set_value(0)
+            entry_to_write.set_value(DatastoreValue(0))
             update_request = ds.update_target_value(entry_to_write, d2f(3.1415926), no_callback)
             self.assertTrue(ds.has_pending_target_update())
             writer.process()
@@ -391,7 +393,7 @@ class TestMemoryWriterBasicReadOperation(ScrutinyUnitTest):
 
         # Request a data write on  all data store entries
         for i in range(ndouble):
-            entries[i].set_value(0)
+            entries[i].set_value(DatastoreValue(0))
             ds.update_target_value(entries[i], i, no_callback)
 
         self.assertEqual(ds.get_pending_target_update_count(), len(entries))  # Make sure the write request are there
@@ -450,7 +452,7 @@ class TestMemoryWriterBasicReadOperation(ScrutinyUnitTest):
         self.assertIsNone(dispatcher.pop_next())
 
         # Request a data write on  all data store entries
-        entry.set_value(0)
+        entry.set_value(DatastoreValue(0))
         vals = [100, 200, 300]
 
         # We do burst writes. We expect the memory writer to do them all in order. No skip
@@ -480,7 +482,7 @@ class TestMemoryWriterBasicReadOperation(ScrutinyUnitTest):
             response = protocol.respond_write_memory_blocks(block_in_response)
             record.complete(success=True, response=response)    # This should trigger the datastore write callback
 
-            self.assertEqual(entry.get_value(), val)
+            self.assertEqual(entry.get_decoded_value(), val)
             update_time_us = entry.get_last_target_update_server_time_us()
             self.assertIsNotNone(update_time_us, 'val=%d' % val)
             self.assertGreaterEqual(update_time_us, time_start_us, 'val=%d' % val)
@@ -503,12 +505,12 @@ class TestMemoryWriterBasicReadOperation(ScrutinyUnitTest):
         writer.process()
         dispatcher.process()
         self.assertIsNone(dispatcher.pop_next())
-        entry_to_write.set_value(0)
+        entry_to_write.set_value(DatastoreValue(0))
 
         callback_history = []
 
-        def callback(success: bool, entry: DatastoreEntry, timestamp: float):
-            callback_history.append((success, entry, timestamp))
+        def callback(success: bool, entry: DatastoreEntry, timestamp: float, failure_reason: str):
+            callback_history.append((success, entry, timestamp, failure_reason))
 
         update_request = ds.update_target_value(entry_to_write, d2f(3.1415926), callback)
         self.assertTrue(ds.has_pending_target_update())
@@ -546,7 +548,7 @@ class TestMemoryWriterBasicReadOperation(ScrutinyUnitTest):
         writer.process()
         dispatcher.process()
         self.assertIsNone(dispatcher.pop_next())
-        entry_to_write.set_value(0)
+        entry_to_write.set_value(DatastoreValue(0))
         update_request = ds.update_target_value(entry_to_write, 3.1415926, no_callback)   # Will be converted to float32
         self.assertFalse(update_request.is_complete())
         self.assertTrue(ds.has_pending_target_update())
@@ -591,7 +593,7 @@ class TestMemoryWriterBasicReadOperation(ScrutinyUnitTest):
         writer.process()
         dispatcher.process()
         self.assertIsNone(dispatcher.pop_next())
-        entry_to_write.set_value(0)
+        entry_to_write.set_value(DatastoreValue(0))
         update_request = ds.update_target_value(entry_to_write, "BAD VALUE", no_callback)   # Will be converted to float32
         self.assertFalse(update_request.is_complete())
         self.assertTrue(ds.has_pending_target_update())
@@ -627,7 +629,7 @@ class TestMemoryWriterBasicReadOperation(ScrutinyUnitTest):
 
         # Request a data write on  all data store entries
         for i in range(ndouble):
-            entries[i].set_value(0)
+            entries[i].set_value(DatastoreValue(0))
             ds.update_target_value(entries[i], i, no_callback)
 
         self.assertEqual(ds.get_pending_target_update_count(), len(entries))  # Make sure the write request are there
@@ -657,7 +659,7 @@ class TestMemoryWriterBasicReadOperation(ScrutinyUnitTest):
             update_time = entries[i].get_last_target_update_server_time_us()
             self.assertIsNotNone(update_time, 'i=%d' % i)
             self.assertGreaterEqual(update_time, time_start_server_time_us, 'i=%d' % i)
-            self.assertEqual(entries[i].get_value(), i)
+            self.assertEqual(entries[i].get_decoded_value(), i)
 
     def test_multiple_mixed_write(self):
         ds = Datastore()
@@ -686,7 +688,7 @@ class TestMemoryWriterBasicReadOperation(ScrutinyUnitTest):
         value_dict = {}
         for i in range(len(all_entries)):
             val = i + 10
-            all_entries[i].set_value(0)
+            all_entries[i].set_value(DatastoreValue(0))
             ds.update_target_value(all_entries[i], val, no_callback)
             value_dict[all_entries[i].get_id()] = val
 
@@ -726,7 +728,7 @@ class TestMemoryWriterBasicReadOperation(ScrutinyUnitTest):
             update_time = all_entries[i].get_last_target_update_server_time_us()
             self.assertIsNotNone(update_time, 'i=%d' % i)
             self.assertGreaterEqual(update_time, time_start_server_time_us, 'i=%d' % i)
-            self.assertEqual(all_entries[i].get_value(), value_dict[all_entries[i].get_id()])
+            self.assertEqual(all_entries[i].get_decoded_value(), value_dict[all_entries[i].get_id()])
 
 
 class TestRawMemoryWrite(ScrutinyUnitTest):

@@ -200,6 +200,7 @@ class WatchableUpdateRecord(TypedDict, total=False):
     # We want compact key names to save some bandwidth
     id: str
     t: float
+    d: Optional[str]
     v: Optional[Union[bool, float, int]]
     r: WatchableInvalidReason
 
@@ -329,6 +330,10 @@ class C2S:
     class WriteSingleWatchable(BaseC2SMessage):
         server_path: str
         value: Any
+
+    class WriteSingleWatchableByData(BaseC2SMessage):
+        server_path: str
+        data: bytes
 
     class RequestDataloggingAcquisition(BaseC2SMessage):
         name: Optional[str]
@@ -461,6 +466,11 @@ class S2C:
 
     class WriteSingleWatchable(BaseS2CMessage):
         success: bool
+        failure_reason: str
+
+    class WriteSingleWatchableByData(BaseS2CMessage):
+        success: bool
+        failure_reason: str
 
     class WriteCompletion(BaseS2CMessage):
         batch_index: int
@@ -468,6 +478,7 @@ class S2C:
         success: bool
         request_token: str
         completion_server_time_us: float
+        failure_reason: str
 
     class RequestDataloggingAcquisition(BaseS2CMessage):
         request_token: str
@@ -573,6 +584,8 @@ C2SMessage = Union[
     C2S.ReadMemory,
     C2S.WriteMemory,
     C2S.UserCommand,
+    C2S.WriteSingleWatchable,
+    C2S.WriteSingleWatchableByData,
 ]
 
 S2CMessage = Union[
@@ -607,4 +620,6 @@ S2CMessage = Union[
     S2C.WriteMemory,
     S2C.WriteMemoryComplete,
     S2C.UserCommand,
+    S2C.WriteSingleWatchable,
+    S2C.WriteSingleWatchableByData,
 ]

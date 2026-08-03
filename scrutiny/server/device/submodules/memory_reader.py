@@ -27,7 +27,7 @@ import scrutiny.server.protocol.typing as protocol_typing
 from scrutiny.server.device.request_dispatcher import RequestDispatcher
 from scrutiny.server.datastore.datastore import Datastore
 from scrutiny.server.datastore.datastore_entry import (DatastoreVariableEntry, DatastorePointedVariableEntry,
-                                                       DatastoreRPVEntry, DatastoreEntryInvalidReason, DatastoreEntry)
+                                                       DatastoreRPVEntry, DatastoreEntryInvalidReason, DatastoreEntry, DatastoreValue)
 from scrutiny.core.memory_content import MemoryContent, Cluster
 from scrutiny.core.basic_types import MemoryRegion
 from scrutiny.tools.queue import ScrutinyQueue
@@ -530,7 +530,7 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
             elif vartype == VarType.PointedAddress:
                 candidate_entry = self.active_watched_pointed_var_entries[self.pointed_var_read_cursor]
                 ptr_val = candidate_entry.pointer_entry.get_value()
-                if ptr_val is None or ptr_val == 0:
+                if ptr_val is None or ptr_val.decoded == 0:
                     must_skip = True  # We refuse to read anything from a pointer to null
                     candidate_entry.set_value(None, DatastoreEntryInvalidReason.NullPtrDereference)
             else:
@@ -786,7 +786,7 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
                     if addr is not None:    # Should always be True.
                         block_addr = self.protocol.get_truncated_address(addr)
                         raw_data = temp_memory.read(block_addr, entry.get_size_bytes())
-                        entry.set_value_from_data(raw_data)
+                        entry.set_value_from_data(raw_data)  # Will set the decoded value & raw data
                     else:
                         # Unset addresses or Nullptr are skipped. Changing addresses are also skipped.
                         # We should never reach this.
@@ -847,7 +847,7 @@ class MemoryReader(BaseDeviceHandlerSubmodule):
                     self.logger.error('Received data for RPV ID=0x%x but this Id was not requested' % (read_rpv['id']))
                 else:
                     entry = self.entries_in_pending_read_rpv_request[read_rpv['id']]
-                    entry.set_value(read_rpv['data'])
+                    entry.set_value(DatastoreValue(decoded=read_rpv['data'], raw_data=None))
         except Exception as e:
             tools.log_exception(self.logger, e, 'Error while writing datastore.', str_level=logging.CRITICAL)
             if self.unittest_crash_on_critical_error:

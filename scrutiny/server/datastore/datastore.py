@@ -15,6 +15,7 @@ import functools
 import enum
 from dataclasses import dataclass
 from scrutiny.core.basic_types import WatchableType
+from scrutiny.core.codecs import Encodable
 from scrutiny.core.scrutiny_path import ScrutinyPath
 from scrutiny.server.datastore.datastore_entry import *
 from scrutiny.core.variable_factory import VariableFactory
@@ -422,13 +423,13 @@ class Datastore:
 
         return val
 
-    def set_value(self, entry_or_entryid: Union[DatastoreEntry, str], value: Any, invalid_reason: Optional[DatastoreEntryInvalidReason] = None) -> None:
+    def set_value(self, entry_or_entryid: Union[DatastoreEntry, str], value: Optional[DatastoreValue], invalid_reason: Optional[DatastoreEntryInvalidReason] = None) -> None:
         """ Sets the value on an entry"""
         entry_id = self._get_entry_id(entry_or_entryid)
         entry = self.get_entry(entry_id)
         entry.set_value(value, invalid_reason)
 
-    def update_target_value(self, entry_or_entryid: Union[DatastoreEntry, str], value: Any, callback: UpdateTargetRequestCallback) -> UpdateTargetRequest:
+    def update_target_value(self, entry_or_entryid: Union[DatastoreEntry, str], value: Encodable, callback: UpdateTargetRequestCallback) -> UpdateTargetRequest:
         """Enqueue a write request on the datastore entry. Will be picked up by the device side to be executed"""
         if isinstance(entry_or_entryid, DatastoreEntry):
             entry = entry_or_entryid
@@ -441,7 +442,7 @@ class Datastore:
             nested_callback = functools.partial(self._alias_target_update_callback, update_request)
             new_request = self.update_target_value(entry.resolve(), new_value, callback=nested_callback)
             if new_request.is_complete():  # Edge case if failed to enqueue request.
-                new_request.complete(success=update_request.is_complete())
+                new_request.complete(success=update_request.is_complete(), failure_reason="Internal error")
             return update_request
         else:
             self._target_update_request_queue.append(update_request)
@@ -552,6 +553,7 @@ class Datastore:
 
 # region Private
 
+
     def _prune_unwatched_templated_entries(self) -> None:
         for wt in WatchableType.all():
             for entry in list(self._display_path_to_templated_entries_map[wt].values()):
@@ -580,10 +582,15 @@ class Datastore:
     def _pointer_value_change_callback(self, owner: str, entry: DatastoreEntry, watching_entry: DatastoreVariableEntry) -> None:
         pass    # Nothing to do here. Empty on purpose
 
-    def _alias_target_update_callback(self, alias_request: UpdateTargetRequest, success: bool, entry: DatastoreEntry, timestamp: float) -> None:
+    def _alias_target_update_callback(self,
+                                      alias_request: UpdateTargetRequest,
+                                      success: bool,
+                                      entry: DatastoreEntry,
+                                      timestamp: float,
+                                      failure_reason: str) -> None:
         """Callback used by an alias to grab the result of the target update and apply it to its own"""
         # entry is a var or a RPV
-        alias_request.complete(success=success)
+        alias_request.complete(success=success, failure_reason=failure_reason)
 
     def _assert_update_rate_valid(self, entry: DatastoreEntry, rate: Optional[float]) -> None:
         if rate is not None:

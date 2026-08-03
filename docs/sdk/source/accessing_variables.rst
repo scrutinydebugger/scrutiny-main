@@ -267,6 +267,22 @@ Example
 
 -----
 
+Writing without watching
+------------------------
+
+In some cases, it may be desirable to write to a watchable without having the server poll for it.
+Watching it solely to obtain a handle and then immediately stopping the watch would be inefficient.
+The following methods allow writing directly to a watchable without calling
+:meth:`watch()<scrutiny.sdk.client.ScrutinyClient.watch>` first.
+
+.. automethod:: scrutiny.sdk.client.ScrutinyClient.write_watchable
+
+-----
+
+.. automethod:: scrutiny.sdk.client.ScrutinyClient.write_watchable_memory
+
+-----
+
 Accessing the raw memory
 ------------------------
 
