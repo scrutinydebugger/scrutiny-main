@@ -254,7 +254,8 @@ class GraphSignalModel(BaseTreeModel):
         for item in item_list:
             item_descriptors.append(SingleWatchableDescriptor(
                 fqn=item.fqn,
-                text=item.text()
+                text=item.text(),
+                custom_data=None
             ))
         move_data = [self.make_serializable_item_index_descriptor(item) for item in item_list]
         drag_data = WatchableListDescriptor(item_descriptors).to_drag_data(move_data)

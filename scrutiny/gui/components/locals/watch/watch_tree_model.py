@@ -17,13 +17,14 @@ __all__ = [
 import logging
 import enum
 import binascii
+import functools
 
 from PySide6.QtCore import QMimeData, QModelIndex, QPersistentModelIndex, Qt, Signal, QPoint, QObject, QAbstractItemModel
 from PySide6.QtWidgets import QWidget, QAbstractItemDelegate, QComboBox, QStyleOptionViewItem, QStyledItemDelegate, QLineEdit
 from PySide6.QtGui import (QStandardItem, QPalette, QContextMenuEvent, QDragMoveEvent, QDropEvent,
                            QDragEnterEvent, QKeyEvent)
 
-from scrutiny.sdk import BriefWatchableConfiguration, EmbeddedEnum, ValueStatus
+from scrutiny.sdk import BriefWatchableConfiguration, EmbeddedEnum, ValueStatus, EmbeddedDataType
 from scrutiny.gui.core.scrutiny_drag_data import ScrutinyDragData, WatchableListDescriptor
 from scrutiny.gui.core.watchable_registry import WatchableRegistry
 from scrutiny.gui.widgets.watchable_tree import (
@@ -33,7 +34,8 @@ from scrutiny.gui.widgets.watchable_tree import (
     FolderStandardItem,
     WatchableStandardItem,
     BaseWatchableRegistryTreeStandardItem,
-    item_from_serializable_data
+    item_from_serializable_data,
+    custom_data_from_serializable_data
 )
 from scrutiny.gui.widgets.base_tree import SerializableItemIndexDescriptor
 from scrutiny.gui.widgets.scrutiny_qmenu import ScrutinyQMenu
@@ -56,9 +58,41 @@ ENUM_DATA_ROLE = Qt.ItemDataRole.UserRole + 4
 """An optional EmbeddedEnum object stored on the Value cell storing a copy of the enum from the registry. Used for combo box on edit"""
 RAW_DATA_ROLE = Qt.ItemDataRole.UserRole + 5
 """The raw data associated with the value presently in REAL_DATA_ROLE"""
+NUMERIC_FORMAT_ROLE = Qt.ItemDataRole.UserRole + 6
+"""The numeric format (decimal, hex, binary)"""
+
+SERIALIZATION_CUSTOM_DATA_NUMERIC_FORMAT_KEY = 'fmt'
+
+
+class NumericFormat(enum.Enum):
+    Decimal = 1
+    Hexadecimal = 2
+    Binary = 3
+
+    def to_str(self) -> str:
+        if self == NumericFormat.Decimal:
+            return 'dec'
+        elif self == NumericFormat.Hexadecimal:
+            return 'hex'
+        elif self == NumericFormat.Binary:
+            return 'bin'
+        else:
+            raise ValueError(f"Unsupported NumericFormat {self}")
+
+    @classmethod
+    def from_str(cls, s: str) -> "NumericFormat":
+        if s == 'dec':
+            return NumericFormat.Decimal
+        if s == 'bin':
+            return NumericFormat.Binary
+        if s == 'hex':
+            return NumericFormat.Hexadecimal
+
+        raise ValueError("Invalid Numeric Format string")
 
 
 class RawDataStandardItem(QStandardItem):
+    """The tree item that stores the raw data (memory view)"""
 
     @tools.copy_type(QStandardItem.__init__)
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -79,12 +113,37 @@ class RawDataStandardItem(QStandardItem):
 class ValueStandardItem(QStandardItem):
     """The tree item that stores a watchable value."""
 
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.setFont(assets.get_font(assets.ScrutinyFont.Monospaced))
+
+    def _get_display_txt(self, val: int, numeric_format: NumericFormat) -> str:
+        if numeric_format == NumericFormat.Decimal:
+            display_txt = str(val)
+        elif numeric_format == NumericFormat.Hexadecimal:
+            display_txt = '%X (hex)' % val
+        elif numeric_format == NumericFormat.Binary:
+            display_txt = bin(val)[2:] + ' (bin)'  # Adds the prefix 0b
+        else:
+            raise NotImplementedError("Unsupported numeric format")
+
+        return display_txt
+
+    def set_numeric_format(self, format: NumericFormat) -> None:
+        self.setData(format, NUMERIC_FORMAT_ROLE)
+
+    def get_numeric_format(self) -> NumericFormat:
+        format: Optional[NumericFormat] = self.data(NUMERIC_FORMAT_ROLE)
+        if format is None:
+            return NumericFormat.Decimal
+        return format
+
     def set_value(self, value_to_set: Optional[ValType], status: ValueStatus = ValueStatus.Valid) -> None:
         """Set the value of the item. Stores the real data + compute a text representation for the UI."""
         self.setData(value_to_set, REAL_DATA_ROLE)
 
         value_enum = cast(Optional[EmbeddedEnum], self.data(ENUM_DATA_ROLE))
-        display_txt = str(value_to_set)
+        display_txt: Optional[str] = None
         if value_to_set is None:
             display_txt = f"N/A"
             if status == ValueStatus.NullPtrDereferenced:
@@ -93,6 +152,8 @@ class ValueStandardItem(QStandardItem):
                 display_txt += " (forbidden)"
         elif isinstance(value_to_set, float):
             display_txt = '%g' % value_to_set
+        elif isinstance(value_to_set, bool):
+            pass
         elif isinstance(value_to_set, int):
             if value_enum is not None:
                 name = value_enum.get_first_value_name_match(value_to_set)
@@ -101,10 +162,13 @@ class ValueStandardItem(QStandardItem):
                 else:
                     pass  # Can happen if the data has a value not defined in the enum. Default to string cast
             else:
-                pass
+                display_txt = self._get_display_txt(value_to_set, self.get_numeric_format())
         else:
             pass
-        self.setData(display_txt, Qt.ItemDataRole.EditRole)
+
+        if display_txt is None:
+            display_txt = str(value_to_set)
+        self.setData(display_txt, Qt.ItemDataRole.DisplayRole)
 
     def get_value(self) -> Optional[ValType]:
         """Return the data in its original data type that has been stored with set_value"""
@@ -119,10 +183,21 @@ class ValueStandardItem(QStandardItem):
 
 class DataTypeStandardItem(QStandardItem):
     """The tree item that stores a watchable embedded data type."""
+
+    datatype: EmbeddedDataType
+
     @tools.copy_type(QStandardItem.__init__)
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.setEditable(False)
+        self.datatype = EmbeddedDataType.NA
+
+    def set_datatype(self, datatype: EmbeddedDataType) -> None:
+        self.datatype = datatype
+        self.setData(datatype.name, Qt.ItemDataRole.EditRole)
+
+    def get_datatype(self) -> EmbeddedDataType:
+        return self.datatype
 
 
 class EnumNameStandardItem(QStandardItem):
@@ -153,7 +228,6 @@ class RawDataEditDelegate(QStyledItemDelegate):
         return self._last_set_model_data_success
 
     def setModelData(self, editor: QWidget, model: QAbstractItemModel, index: Union[QModelIndex, QPersistentModelIndex]) -> None:
-        print("setModelData", flush=True)
         super().setModelData(editor, model, index)
         self._last_set_model_data_success = False
         assert isinstance(model, WatchableTreeModel)
@@ -211,17 +285,26 @@ class ValueEditDelegate(QStyledItemDelegate):
     def setEditorData(self, editor: QWidget, index: Union[QModelIndex, QPersistentModelIndex]) -> None:
         enum_data = cast(Optional[EmbeddedEnum], index.data(ENUM_DATA_ROLE))
 
-        if enum_data is None or not isinstance(editor, QComboBox):
-            super().setEditorData(editor, index)
-            return
+        if isinstance(editor, QLineEdit):
+            data = index.data(REAL_DATA_ROLE)
+            numeric_format = index.data(NUMERIC_FORMAT_ROLE)    # Can be None
+            if isinstance(data, int):
+                if numeric_format == NumericFormat.Hexadecimal:
+                    editor.setText(hex(data))
+                    return
+                elif numeric_format == NumericFormat.Binary:
+                    editor.setText(bin(data))
+                    return
 
-        loaded_val = cast(Optional[ValType], index.data(REAL_DATA_ROLE))
-        for val in enum_data.vals.values():
-            if val == loaded_val:
-                editor.setCurrentIndex(editor.findData(loaded_val))  # Default value is fine if not found.
-                return
+        elif enum_data is not None and isinstance(editor, QComboBox):
+            loaded_val = cast(Optional[ValType], index.data(REAL_DATA_ROLE))
+            for val in enum_data.vals.values():
+                if val == loaded_val:
+                    editor.setCurrentIndex(editor.findData(loaded_val))  # Default value is fine if not found.
+                    return
+            # Default do nothing, leaves the combo box takes its default value. shouldn't happen normally
 
-        # Default do nothing, leaves the combo box takes its default value. shouldn't happen normally
+        super().setEditorData(editor, index)
 
     def setModelData(self, editor: QWidget, model: QAbstractItemModel, index: Union[QModelIndex, QPersistentModelIndex]) -> None:
         assert isinstance(model, WatchableTreeModel)
@@ -338,6 +421,36 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
         export_vals_action.triggered.connect(export_slot)
 
         export_vals_action.setEnabled(self._allow_export_vals and len(selected_items_no_nested_unordered) > 0)
+
+        numeric_format_menu = context_menu.addMenu("Integer numeric format")
+
+        numeric_format_decimal_action = numeric_format_menu.addAction("Decimal")
+        numeric_format_hex_action = numeric_format_menu.addAction("Hexadecimal")
+        numeric_format_binary_action = numeric_format_menu.addAction("Binary")
+
+        def apply_format_to_watchable(format: NumericFormat, item: WatchableStandardItem, visible: bool) -> None:
+            self.model().get_value_item(item).set_numeric_format(format)
+
+        def set_numeric_format_format_slot(format: NumericFormat) -> None:
+            for item in selected_items_no_nested_unordered:
+                self.map_to_watchable_node(functools.partial(apply_format_to_watchable, format), parent=item)
+
+        numeric_format_decimal_action.triggered.connect(functools.partial(set_numeric_format_format_slot, NumericFormat.Decimal))
+        numeric_format_hex_action.triggered.connect(functools.partial(set_numeric_format_format_slot, NumericFormat.Hexadecimal))
+        numeric_format_binary_action.triggered.connect(functools.partial(set_numeric_format_format_slot, NumericFormat.Binary))
+
+        numeric_format_menu_enabled = False
+        for item in selected_items_no_nested_unordered:
+            if isinstance(item, FolderStandardItem):
+                numeric_format_menu_enabled = True
+                break
+            if isinstance(item, WatchableStandardItem):
+                datatype_item = self.model().get_datatype_item(item)
+                if datatype_item.get_datatype().is_integer() or datatype_item.get_datatype().is_pointer():
+                    numeric_format_menu_enabled = True
+                    break
+
+        numeric_format_menu.setEnabled(numeric_format_menu_enabled)
 
         self.display_context_menu_and_disconnect_triggered(context_menu, event.pos())
         event.accept()
@@ -595,10 +708,14 @@ class WatchComponentTreeModel(WatchableTreeModel):
         """Generate a serializable description of a tree without references"""
         assert top_level_item is not None
 
+        custom_data = None
+        if isinstance(top_level_item, WatchableStandardItem):
+            custom_data = self._make_serialization_custom_data(top_level_item)
+
         dict_out: SerializableTreeDescriptor = {
-            'node': top_level_item.to_serialized_data(),
+            'node': top_level_item.to_serialized_data(custom_data),
             'sortkey': sortkey,
-            'children': []
+            'children': [],
         }
 
         nesting_col = self.nesting_col()
@@ -607,6 +724,28 @@ class WatchComponentTreeModel(WatchableTreeModel):
             dict_out['children'].append(self._make_serializable_tree_descriptor(child, sortkey=row_index))
 
         return dict_out
+
+    def _make_serialization_custom_data(self, item: WatchableStandardItem) -> Optional[Dict[Any, Any]]:
+        numeric_format = self.get_value_item(item).get_numeric_format()
+        if numeric_format == NumericFormat.Decimal:
+            return None     # Default
+        return {
+            SERIALIZATION_CUSTOM_DATA_NUMERIC_FORMAT_KEY: numeric_format.to_str()
+        }
+
+    def _read_numeric_format_from_serialized_custom_data(self, custom_data: Optional[Dict[Any, Any]]) -> Optional[NumericFormat]:
+        if not isinstance(custom_data, dict):
+            return None
+
+        fmt_str = custom_data.get(SERIALIZATION_CUSTOM_DATA_NUMERIC_FORMAT_KEY, None)
+        if not isinstance(fmt_str, str):
+            return None
+
+        fmt: Optional[NumericFormat] = None
+        with tools.LogException(self.logger, Exception, "Bad Numeric Format"):
+            fmt = NumericFormat.from_str(fmt_str)
+
+        return fmt
 
     def mimeData(self, indexes: Sequence[QModelIndex]) -> QMimeData:
         """Generate the mimeData when a drag&drop starts"""
@@ -624,7 +763,11 @@ class WatchComponentTreeModel(WatchableTreeModel):
 
         self.sort_items_by_path(top_level_items, top_to_bottom=True)    # Reorganize the items  so that nested elements are consecutive
         move_data = [self.make_serializable_item_index_descriptor(item) for item in top_level_items]
-        drag_data = self.make_watchable_list_dragdata_if_possible(top_level_items, data_move=move_data)
+        drag_data = self.make_watchable_list_dragdata_if_possible(
+            top_level_items,
+            data_move=move_data,
+            custom_data_maker=self._make_serialization_custom_data
+        )
 
         # We have a tree or many elements, propagate as such
         if drag_data is None:
@@ -681,6 +824,8 @@ class WatchComponentTreeModel(WatchableTreeModel):
         assert drag_data is not None
 
         log_prefix = f"Drop [{drag_data.type.name}]"
+
+        # Comes from the varlist only
         if drag_data.type == ScrutinyDragData.DataType.WatchableTreeNodesTiedToRegistry:
             if action == Qt.DropAction.CopyAction:
                 self.logger.debug(f"{log_prefix}: Varlist data with {len(drag_data.data_copy)} nodes")
@@ -688,21 +833,23 @@ class WatchComponentTreeModel(WatchableTreeModel):
             else:
                 return False
 
+        # Comes from a Watch Component. Contains a tree with folders and watchables.
         elif drag_data.type == ScrutinyDragData.DataType.WatchableFullTree:
-            if action == Qt.DropAction.MoveAction:
+            if action == Qt.DropAction.MoveAction:  # Comes from this Watch Component
                 self.logger.debug(f"{log_prefix}: Watch internal move with {len(drag_data.data_move)} nodes")
                 return self.handle_internal_move(parent, row_index, cast(List[SerializableItemIndexDescriptor], drag_data.data_move))
-            elif action == Qt.DropAction.CopyAction:
+            elif action == Qt.DropAction.CopyAction:    # Comes from another Watch Component
                 self.logger.debug(f"{log_prefix}: Watch external copy with {len(drag_data.data_copy)} nodes")
                 return self.load_serialized_tree_descriptor(parent, row_index, cast(List[SerializableTreeDescriptor], drag_data.data_copy))
             else:
                 return False
 
+        # Can be given by any component. Contains only watchables
         elif drag_data.type == ScrutinyDragData.DataType.WatchableList:
-            if action == Qt.DropAction.MoveAction:
+            if action == Qt.DropAction.MoveAction:  # Comes from this Watch Component
                 self.logger.debug(f"{log_prefix}: Watch internal move with list of individual elements")
                 return self.handle_internal_move(parent, row_index, cast(List[SerializableItemIndexDescriptor], drag_data.data_move))
-            elif action == Qt.DropAction.CopyAction:
+            elif action == Qt.DropAction.CopyAction:    # Comes from somewhere else.
                 self.logger.debug(f"{log_prefix}: Watch external copy with list of individual elements")
                 watchable_elements = WatchableListDescriptor.from_drag_data(drag_data)
                 if watchable_elements is None:
@@ -778,11 +925,17 @@ class WatchComponentTreeModel(WatchableTreeModel):
             if parent is not None:
                 parent.set_loaded()
             item = item_from_serializable_data(descriptor['node'])
+            custom_data = custom_data_from_serializable_data(descriptor['node'])  # Optional, may or may not be there
             if isinstance(item, FolderStandardItem):
                 row = self.make_folder_row_existing_item(item, editable=True)
             elif isinstance(item, WatchableStandardItem):
                 self._assign_unique_watcher_id(item)
                 row = self.make_watchable_row_from_existing_item(item, editable=True, extra_columns=self.get_watchable_extra_columns())
+                numeric_format = self._read_numeric_format_from_serialized_custom_data(custom_data)
+                if numeric_format is not None and numeric_format != NumericFormat.Decimal:  # Skip default
+                    value_item = row[self.value_col()]
+                    assert isinstance(value_item, ValueStandardItem)
+                    value_item.set_numeric_format(numeric_format)
             else:
                 raise NotImplementedError("Unsupported item type")
 
@@ -835,6 +988,14 @@ class WatchComponentTreeModel(WatchableTreeModel):
                 editable=True,
                 extra_columns=self.get_watchable_extra_columns()
             )
+
+            if isinstance(descriptor.custom_data, dict):
+                fmt = self._read_numeric_format_from_serialized_custom_data(descriptor.custom_data)
+                if fmt is not None:
+                    value_item = row[self.value_col()]
+                    assert isinstance(value_item, ValueStandardItem)
+                    value_item.set_numeric_format(fmt)
+
             rows.append(row)
 
         self.add_multiple_rows_to_parent(dest_parent, dest_row_index, rows)
@@ -898,7 +1059,7 @@ class WatchComponentTreeModel(WatchableTreeModel):
                 elif isinstance(item, RawDataStandardItem):
                     item.setText('N/A')
                 elif isinstance(item, DataTypeStandardItem):
-                    item.setText('N/A')
+                    item.set_datatype(EmbeddedDataType.NA)
                 elif isinstance(item, EnumNameStandardItem):
                     item.setText('')
 
@@ -921,7 +1082,7 @@ class WatchComponentTreeModel(WatchableTreeModel):
                 elif isinstance(item, RawDataStandardItem):
                     item.setEditable(True)
                 elif isinstance(item, DataTypeStandardItem):
-                    item.setText(watchable_config.datatype.name)
+                    item.set_datatype(watchable_config.datatype)
                 elif isinstance(item, EnumNameStandardItem):
                     if watchable_config.enum is not None:
                         item.setText(watchable_config.enum.name)
