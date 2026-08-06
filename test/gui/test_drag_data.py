@@ -62,13 +62,13 @@ class TestDragData(ScrutinyUnitTest):
         self.assertIsNone(SingleWatchableDescriptor.from_serializable({'text': 123, 'fqn': 'hello'}))
         self.assertIsNone(SingleWatchableDescriptor.from_serializable({'text': 'hello', 'fqn': 123}))
 
-        self.assertIsNotNone(SingleWatchableDescriptor.from_serializable({'text': 'hello', 'fqn': "/a/b/c"}))
+        self.assertIsNotNone(SingleWatchableDescriptor.from_serializable({'text': 'hello', 'fqn': "/a/b/c", "custom_data": "aaa"}))
 
         desc3 = WatchableListDescriptor(
             data=[
-                SingleWatchableDescriptor(text='aaa', fqn='xxx'),
-                SingleWatchableDescriptor(text='bbb', fqn='yyy'),
-                SingleWatchableDescriptor(text='ccc', fqn='zzz'),
+                SingleWatchableDescriptor(text='aaa', fqn='xxx', custom_data={"a": 1, "b": [2, 3, 4]}),
+                SingleWatchableDescriptor(text='bbb', fqn='yyy', custom_data=None),
+                SingleWatchableDescriptor(text='ccc', fqn='zzz', custom_data="asd"),
             ]
         )
 
@@ -80,7 +80,10 @@ class TestDragData(ScrutinyUnitTest):
         self.assertIsNone(WatchableListDescriptor.from_serializable({}))
         self.assertIsNone(WatchableListDescriptor.from_serializable([None, None]))
         self.assertIsNone(WatchableListDescriptor.from_serializable([{}, {}]))
-        self.assertIsNotNone(WatchableListDescriptor.from_serializable([{'text': 'hello', 'fqn': "/a/b/c"}, {'text': 'hello2', 'fqn': "/a/b/c2"}]))
+        self.assertIsNotNone(WatchableListDescriptor.from_serializable([
+            {'text': 'hello', 'fqn': "/a/b/c", 'custom_data': {"a": "b"}},
+            {'text': 'hello2', 'fqn': "/a/b/c2", "custom_data": None}])
+        )
 
         self.assertIsNone(WatchableListDescriptor.from_drag_data(None))
         self.assertIsNone(WatchableListDescriptor.from_drag_data(ScrutinyDragData(type=ScrutinyDragData.DataType.WatchableFullTree)))
