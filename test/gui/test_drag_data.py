@@ -45,7 +45,7 @@ class TestDragData(ScrutinyUnitTest):
         self.assertIsNotNone(ScrutinyDragData.from_mime(mime_data))
 
     def test_serializable_watchable_elements(self):
-        desc = SingleWatchableDescriptor(fqn='a/b/c', text='hello')
+        desc = SingleWatchableDescriptor(fqn='a/b/c', text='hello', custom_data=None)
         d = desc.to_serializable()
         self.assertIsInstance(d, dict)
         self.assertEqual(d['fqn'], desc.fqn)
