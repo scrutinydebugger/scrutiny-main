@@ -350,6 +350,7 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
         self._allow_export_vals = val
 
     def contextMenuEvent(self, event: QContextMenuEvent) -> None:
+        theme = scrutiny_get_theme()
         context_menu = ScrutinyQMenu()
         selected_indexes = self.selectedIndexes()
         selected_indexes_no_nested_unordered = self.model().remove_nested_indexes_unordered(selected_indexes)
@@ -376,10 +377,10 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
             if len(selected_watchable_items_unordered) == 1 and allow_reveal_fqn:
                 self.signals.request_reveal_fqn.emit(selected_watchable_items_unordered[0].fqn)
 
-        new_folder_action = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.Folder), "New Folder")
+        new_folder_action = context_menu.addAction(theme.load_tiny_icon(assets.Icons.Folder), "New Folder")
         new_folder_action.triggered.connect(new_folder_action_slot)
 
-        remove_action = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.RedX), "Remove")
+        remove_action = context_menu.addAction(theme.load_tiny_icon(assets.Icons.RedX), "Remove")
         remove_action.setEnabled(len(selected_items_no_nested_unordered) > 0)
         remove_action.triggered.connect(remove_action_slot)
 
@@ -399,7 +400,7 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
                 break
 
         # Reveal in varlist
-        reveal_in_varlist_action = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.Eye), "Reveal in Variable List")
+        reveal_in_varlist_action = context_menu.addAction(theme.load_tiny_icon(assets.Icons.Eye), "Reveal in Variable List")
         reveal_in_varlist_action.setEnabled(allow_reveal_fqn)
         reveal_in_varlist_action.triggered.connect(reveal_fqn_slot)
 
@@ -417,16 +418,15 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
                     raise NotImplementedError(f"Unknown item type {item.__class__.__name__}")
 
             self.signals.export_val_to_file.emit(watchable_item_list)
-        export_vals_action = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.FileSCVAL), "Export to file")
-        export_vals_action.triggered.connect(export_slot)
 
+        export_vals_action = context_menu.addAction(theme.load_tiny_icon(assets.Icons.FileSCVAL), "Export to file")
+        export_vals_action.triggered.connect(export_slot)
         export_vals_action.setEnabled(self._allow_export_vals and len(selected_items_no_nested_unordered) > 0)
 
-        numeric_format_menu = context_menu.addMenu("Integer numeric format")
-
-        numeric_format_decimal_action = numeric_format_menu.addAction("Decimal")
-        numeric_format_hex_action = numeric_format_menu.addAction("Hexadecimal")
-        numeric_format_binary_action = numeric_format_menu.addAction("Binary")
+        numeric_format_menu = context_menu.addMenu(theme.load_tiny_icon(assets.Icons.NumericFormat), "Integer numeric format")
+        numeric_format_decimal_action = numeric_format_menu.addAction(theme.load_tiny_icon(assets.Icons.NumericFormatDecimal), "Decimal")
+        numeric_format_hex_action = numeric_format_menu.addAction(theme.load_tiny_icon(assets.Icons.NumericFormatHexadecimal), "Hexadecimal")
+        numeric_format_binary_action = numeric_format_menu.addAction(theme.load_tiny_icon(assets.Icons.NumericFormatBinary), "Binary")
 
         def apply_format_to_watchable(format: NumericFormat, item: WatchableStandardItem, visible: bool) -> None:
             self.model().get_value_item(item).set_numeric_format(format)

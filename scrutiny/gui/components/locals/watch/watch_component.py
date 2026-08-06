@@ -39,6 +39,7 @@ class State:
 
     FMT_HEX = 'hex'
     FMT_BIN = 'bin'
+    FMT_DEC = 'dec'
 
     # I don't know why, but mypy doesn't understand that this is a literal without a Literal[] type hint
     # Could not reproduce in a different file... possibly a mypy bug ?
@@ -293,8 +294,10 @@ class WatchComponent(ScrutinyGUIBaseLocalComponent):
                     fmt = NumericFormat.Hexadecimal
                 elif fmt_str == State.FMT_BIN:
                     fmt = NumericFormat.Binary
+                elif fmt_str == State.FMT_DEC:
+                    fmt = NumericFormat.Decimal
                 else:
-                    fmt = None  # Decimal is default, so None
+                    fmt = None
 
                 if fmt is not None:
                     serializable_watchable['custom_data'] = {
