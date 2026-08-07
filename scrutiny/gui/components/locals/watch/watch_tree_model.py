@@ -123,7 +123,7 @@ class ValueStandardItem(QStandardItem):
         elif numeric_format == NumericFormat.Hexadecimal:
             display_txt = '%X (hex)' % val
         elif numeric_format == NumericFormat.Binary:
-            display_txt = bin(val)[2:] + ' (bin)'  # Adds the prefix 0b
+            display_txt = bin(val)[2:] + ' (bin)'  # Skip the prefix 0b
         else:
             raise NotImplementedError("Unsupported numeric format")
 
@@ -290,10 +290,10 @@ class ValueEditDelegate(QStyledItemDelegate):
             numeric_format = index.data(NUMERIC_FORMAT_ROLE)    # Can be None
             if isinstance(data, int):
                 if numeric_format == NumericFormat.Hexadecimal:
-                    editor.setText(hex(data))
+                    editor.setText(hex(data))   # We want a value with 0x prefix because that is what the server supports
                     return
                 elif numeric_format == NumericFormat.Binary:
-                    editor.setText(bin(data))
+                    editor.setText(bin(data))   # We want a value with 0b prefix because that is what the server supports
                     return
 
         elif enum_data is not None and isinstance(editor, QComboBox):
@@ -445,8 +445,8 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
                 numeric_format_menu_enabled = True
                 break
             if isinstance(item, WatchableStandardItem):
-                datatype_item = self.model().get_datatype_item(item)
-                if datatype_item.get_datatype().is_integer() or datatype_item.get_datatype().is_pointer():
+                val = self.model().get_value_item(item).get_value()
+                if isinstance(val, int):
                     numeric_format_menu_enabled = True
                     break
 
