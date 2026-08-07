@@ -340,7 +340,7 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
         self.setDragEnabled(True)
         self.setDropIndicatorShown(True)
         self.setDragDropMode(self.DragDropMode.DragDrop)
-        self.set_header_labels(['', 'Value', 'Data (hex)', 'Type', 'Enum'])
+        self.set_header_labels(['', 'Value', 'Memory (hex)', 'Type', 'Enum'])
         self.signals = self._Signals()
         self.setItemDelegateForColumn(self.model().value_col(), ValueEditDelegate(self))
         self.setItemDelegateForColumn(self.model().raw_data_col(), RawDataEditDelegate(self))
