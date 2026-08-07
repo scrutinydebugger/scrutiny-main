@@ -25,6 +25,7 @@ from scrutiny.gui.tools.invoker import CrossThreadInvoker
 from scrutiny.gui.core.qt import make_qt_app
 from scrutiny.gui.app_settings import configure_unit_test_app_settings
 from scrutiny.gui.gui import ScrutinyQtGUI, SupportedTheme
+from scrutiny.gui import assets
 
 from scrutiny.tools.signals import SignalExitHandler
 
@@ -50,6 +51,8 @@ def make_manual_test_app() -> QApplication:
         scrutiny_set_theme(app, DefaultTheme())
     elif theme_str == 'fusion':
         scrutiny_set_theme(app, FusionTheme())
+
+    assets.initialize_fonts()
 
     app._scrutiny_check_signal_timer = QTimer()
     app._scrutiny_check_signal_timer.setInterval(500)

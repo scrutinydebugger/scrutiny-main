@@ -236,6 +236,9 @@ class WatchComponent(ScrutinyGUIBaseLocalComponent):
         """Return the number of columns"""
         return self._tree_model.columnCount()
 
+    def internal_model_for_unit_test(self) -> WatchComponentTreeModel:
+        return self._tree_model
+
     def _state_node_to_dnd_serializable_node_recursive(self, state_item: Union[State.Folder, State.Watchable], level: int = 0) -> SerializableTreeDescriptor:
         """Convert a node from the state dict to a serializable node used while drag&dropping
         Goal is to reuse the same code that we already have to populate the component and avoid

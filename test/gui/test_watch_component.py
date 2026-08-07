@@ -85,7 +85,7 @@ class TestWatchComponent(ScrutinyBaseGuiTest):
             SingleWatchableDescriptor("bbb", "var:/xxx/yyy/zzz", custom_data={'fmt': 'bin'}),
             SingleWatchableDescriptor("bbb", "var:/xxx/yyy/zzz2", custom_data={'fmt': 'dec'})
         ])
-        model = self.watch1._tree_model
+        model = self.watch1.internal_model_for_unit_test()
 
         mime_data = watchable_list_desc.to_mime()
         model.dropMimeData(mime_data, Qt.DropAction.CopyAction, -1, 0, QModelIndex())
@@ -108,7 +108,7 @@ class TestWatchComponent(ScrutinyBaseGuiTest):
             self.assertIn(list_desc.data[2].custom_data['fmt'], ['dec', None])
 
     def test_numeric_format_carried_in_drag_fulltree(self):
-        model = self.watch1._tree_model
+        model = self.watch1.internal_model_for_unit_test()
 
         serializable_tree_descriptors: List[SerializableTreeDescriptor] = [
             {
