@@ -431,7 +431,9 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
         def apply_format_to_watchable(format: NumericFormat, item: WatchableStandardItem, visible: bool) -> None:
             value_item = self.model().get_value_item(item)
             value_item.set_numeric_format(format)
-            value_item.set_value(value_item.get_value())  # Refresh display text
+            val = value_item.get_value()
+            if val is not None:
+                value_item.set_value(val)  # Refresh display text
 
         def set_numeric_format_format_slot(format: NumericFormat) -> None:
             for item in selected_items_no_nested_unordered:
