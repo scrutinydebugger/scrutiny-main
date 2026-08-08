@@ -145,6 +145,11 @@ class Icons(enum.Enum):
     HMIButton = "hmi_button"
     HMISlider = "hmi_slider"
 
+    NumericFormatBinary = "numeric_format_bin"
+    NumericFormatHexadecimal = "numeric_format_hex"
+    NumericFormatDecimal = "numeric_format_dec"
+    NumericFormat = "numeric_format"
+
 
 _filename_cache: Dict[Tuple[Icons, IconFormat, IconSet], Path] = {}
 

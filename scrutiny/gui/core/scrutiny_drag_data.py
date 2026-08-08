@@ -93,6 +93,7 @@ class SerializableWatchableElement(TypedDict):
     """Representation of a single watchable element through a serializable dict"""
     text: str
     fqn: str
+    custom_data: Optional[Dict[Any, Any]]  # A bucket to pass optional custom data across components
 
 
 @dataclass(frozen=True, slots=True)
@@ -101,12 +102,14 @@ class SingleWatchableDescriptor:
 
     text: str
     fqn: str
+    custom_data: Optional[Dict[Any, Any]]
 
     def to_serializable(self) -> SerializableWatchableElement:
         """Creates a serializable version of this descriptor using a dict"""
         return {
             'text': self.text,
-            'fqn': self.fqn
+            'fqn': self.fqn,
+            'custom_data': self.custom_data
         }
 
     @classmethod
@@ -120,12 +123,14 @@ class SingleWatchableDescriptor:
 
         text = data['text']
         fqn = data['fqn']
+        custom_data = data.get('custom_data', None)  # Optional
         if not isinstance(text, str) or not isinstance(fqn, str):
             return None
 
         return SingleWatchableDescriptor(
             text=text,
-            fqn=fqn
+            fqn=fqn,
+            custom_data=custom_data
         )
 
 

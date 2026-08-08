@@ -9,7 +9,6 @@
 __all__ = ['WatchComponent']
 
 import logging
-import os
 
 from PySide6.QtCore import QModelIndex, Qt, QModelIndex, Signal
 from PySide6.QtWidgets import QVBoxLayout
@@ -23,7 +22,9 @@ from scrutiny.gui.widgets.watchable_tree import WatchableTreeWidget, WatchableSt
 from scrutiny.gui.core.serializable_value_set import SerializableValueSet
 from scrutiny.gui.core.watchable_registry import WatchableRegistryNodeNotFoundError, WatcherNotFoundError, RegistryValueUpdate
 from scrutiny.gui.components.locals.base_local_component import ScrutinyGUIBaseLocalComponent
-from scrutiny.gui.components.locals.watch.watch_tree_model import WatchComponentTreeModel, ValueStandardItem, RawDataStandardItem, WatchComponentTreeWidget, SerializableTreeDescriptor
+from scrutiny.gui.components.locals.watch.watch_tree_model import (
+    WatchComponentTreeModel, ValueStandardItem, RawDataStandardItem, WatchComponentTreeWidget, SerializableTreeDescriptor, NumericFormat,
+    SERIALIZATION_CUSTOM_DATA_NUMERIC_FORMAT_KEY)
 from scrutiny.gui.dialogs.value_export_dialog import ValueExportDialog
 from scrutiny.gui.tools import prompt
 from scrutiny.gui.app_settings import app_settings
@@ -36,11 +37,16 @@ class State:
     TYPE_WATCHABLE = 'w'
     TYPE_FOLDER = 'f'
 
+    FMT_HEX = 'hex'
+    FMT_BIN = 'bin'
+    FMT_DEC = 'dec'
+
     # I don't know why, but mypy doesn't understand that this is a literal without a Literal[] type hint
     # Could not reproduce in a different file... possibly a mypy bug ?
     KEY_TYPE: Literal['type'] = 'type'
     KEY_TEXT: Literal['txt'] = 'txt'
     KEY_FQN: Literal['fqn'] = 'fqn'
+    KEY_NUMERIC_FORMAT: Literal['fmt'] = 'fmt'
     KEY_CHILDREN: Literal['children'] = 'children'
     KEY_EXPANDED: Literal['expand'] = 'expand'
 
@@ -50,10 +56,11 @@ class State:
         expand: bool
         children: List[Union["State.Watchable", "State.Folder"]]
 
-    class Watchable(TypedDict):
+    class Watchable(TypedDict, total=False):
         type: str
         fqn: str
         txt: str
+        fmt: str
 
 
 class WatchComponent(ScrutinyGUIBaseLocalComponent):
@@ -122,11 +129,24 @@ class WatchComponent(ScrutinyGUIBaseLocalComponent):
             for i in range(row_count):
                 item = self._get_item(parent_index, i)
                 if isinstance(item, WatchableStandardItem):
-                    yield cast(State.Watchable, {
+
+                    obj = cast(State.Watchable, {
                         State.KEY_TYPE: State.TYPE_WATCHABLE,
                         State.KEY_TEXT: item.text(),
-                        State.KEY_FQN: item.fqn
+                        State.KEY_FQN: item.fqn,
                     })
+
+                    value_item = self._tree_model.get_value_item(item)
+                    numeric_format = value_item.get_numeric_format()
+                    if numeric_format is not None and numeric_format != NumericFormat.Decimal:
+                        if numeric_format == NumericFormat.Hexadecimal:
+                            obj['fmt'] = State.FMT_HEX
+                        elif numeric_format == NumericFormat.Binary:
+                            obj['fmt'] = State.FMT_BIN
+                        else:
+                            self.logger.warning(f"Unsupported numeric format {numeric_format}")
+                    yield obj
+
                 elif isinstance(item, FolderStandardItem):
                     yield cast(State.Folder, {
                         State.KEY_TYPE: State.TYPE_FOLDER,
@@ -216,8 +236,14 @@ class WatchComponent(ScrutinyGUIBaseLocalComponent):
         """Return the number of columns"""
         return self._tree_model.columnCount()
 
+    def internal_model_for_unit_test(self) -> WatchComponentTreeModel:
+        return self._tree_model
+
     def _state_node_to_dnd_serializable_node_recursive(self, state_item: Union[State.Folder, State.Watchable], level: int = 0) -> SerializableTreeDescriptor:
-        """Convert a node from the state dict to a serializable node used while drag&dropping """
+        """Convert a node from the state dict to a serializable node used while drag&dropping
+        Goal is to reuse the same code that we already have to populate the component and avoid
+        duplicating the code for both dashboard reload and drag&drop
+        """
         if State.KEY_TYPE not in state_item:
             raise ValueError(f"Missing key {State.KEY_TYPE} on node")
 
@@ -243,6 +269,7 @@ class WatchComponent(ScrutinyGUIBaseLocalComponent):
                 'expanded': expanded,
                 'fqn': None,
                 'type': FolderStandardItem.serialized_node_type(),
+                'custom_data': None
             }
 
             serializable_item['node'] = serializable_folder
@@ -260,8 +287,25 @@ class WatchComponent(ScrutinyGUIBaseLocalComponent):
             serializable_watchable: WatchableItemSerializableData = {
                 'text': state_item[State.KEY_TEXT],
                 'fqn': state_item[State.KEY_FQN],
-                'type': WatchableStandardItem.serialized_node_type()
+                'type': WatchableStandardItem.serialized_node_type(),
+                'custom_data': None
             }
+
+            fmt_str = state_item.get(State.KEY_NUMERIC_FORMAT, None)
+            if fmt_str is not None:
+                if fmt_str == State.FMT_HEX:
+                    fmt = NumericFormat.Hexadecimal
+                elif fmt_str == State.FMT_BIN:
+                    fmt = NumericFormat.Binary
+                elif fmt_str == State.FMT_DEC:
+                    fmt = NumericFormat.Decimal
+                else:
+                    fmt = None
+
+                if fmt is not None:
+                    serializable_watchable['custom_data'] = {
+                        SERIALIZATION_CUSTOM_DATA_NUMERIC_FORMAT_KEY: fmt.to_str()
+                    }
 
             serializable_item['node'] = serializable_watchable
 

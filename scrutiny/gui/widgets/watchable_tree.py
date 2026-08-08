@@ -17,7 +17,8 @@ __all__ = [
     'WatchableStandardItem',
     'item_from_serializable_data',
     'WatchableTreeModel',
-    'WatchableTreeWidget'
+    'WatchableTreeWidget',
+    'custom_data_from_serializable_data'
 ]
 
 from scrutiny.sdk import WatchableType, BriefWatchableConfiguration
@@ -35,6 +36,8 @@ from scrutiny.tools.typing import *
 
 _watchable_icon_cache: Dict[WatchableType, QIcon] = {}
 _watchable_icon_cache_init = False
+
+CustomDataType: TypeAlias = Optional[Dict[Any, Any]]
 
 
 def get_watchable_icon(wt: WatchableType) -> QIcon:
@@ -55,6 +58,7 @@ class NodeSerializableData(TypedDict):
     type: NodeSerializableType
     text: str
     fqn: Optional[str]
+    custom_data: CustomDataType
 
 
 class WatchableItemSerializableData(NodeSerializableData):
@@ -81,7 +85,7 @@ class BaseWatchableRegistryTreeStandardItem(QStandardItem):
         self._loaded = False
         super().__init__(*args, **kwargs)
 
-    def to_serialized_data(self) -> NodeSerializableData:
+    def to_serialized_data(self, custom_data: CustomDataType = None) -> NodeSerializableData:
         raise NotImplementedError(f"Cannot serialize node of type {self.__class__.__name__}")
 
     def set_loaded(self) -> None:
@@ -126,13 +130,14 @@ class FolderStandardItem(BaseWatchableRegistryTreeStandardItem):
     def serialized_node_type(cls) -> NodeSerializableType:
         return cls._NODE_TYPE
 
-    def to_serialized_data(self) -> FolderItemSerializableData:
+    def to_serialized_data(self, custom_data: CustomDataType = None) -> FolderItemSerializableData:
         """Create a serializable version of this node (using a dict). Used for Drag&Drop"""
         return {
             'type': self.serialized_node_type(),
             'text': self.text(),
             'expanded': self._expanded,
-            'fqn': self._fqn
+            'fqn': self._fqn,
+            'custom_data': custom_data
         }
 
     @classmethod
@@ -178,12 +183,13 @@ class WatchableStandardItem(BaseWatchableRegistryTreeStandardItem):
     def serialized_node_type(cls) -> NodeSerializableType:
         return cls._NODE_TYPE
 
-    def to_serialized_data(self) -> WatchableItemSerializableData:
+    def to_serialized_data(self, custom_data: CustomDataType = None) -> WatchableItemSerializableData:
         """Create a serializable version of this node (using a dict). Used for Drag&Drop"""
         return {
             'type': self._NODE_TYPE,
             'text': self.text(),
-            'fqn': self.fqn
+            'fqn': self.fqn,
+            'custom_data': custom_data
         }
 
     @classmethod
@@ -217,6 +223,10 @@ def item_from_serializable_data(data: NodeSerializableData) -> BaseWatchableRegi
         return WatchableStandardItem.from_serializable_data(cast(WatchableItemSerializableData, data))
 
     raise NotImplementedError(f"Cannot create an item from serializable data of type {data['type']}")
+
+
+def custom_data_from_serializable_data(data: NodeSerializableData) -> CustomDataType:
+    return cast(CustomDataType, data.get('custom_data', None))
 
 
 class WatchableTreeModel(BaseTreeModel):
@@ -405,7 +415,8 @@ class WatchableTreeModel(BaseTreeModel):
 
     def make_watchable_list_dragdata_if_possible(self,
                                                  items: Iterable[Optional[BaseWatchableRegistryTreeStandardItem]],
-                                                 data_move: Optional[Any] = None
+                                                 data_move: Optional[Any] = None,
+                                                 custom_data_maker: Optional[Callable[[WatchableStandardItem], CustomDataType]] = None
                                                  ) -> Optional[ScrutinyDragData]:
         """Converts a list of tree nodes to a ScrutinyDragData that contains a list of watchable
         only if the given indexes points to watchables (leaf) nodes only. Return ``None`` if any of the element is not a watchable node
@@ -424,8 +435,10 @@ class WatchableTreeModel(BaseTreeModel):
 
         if watchables_only:
             watchable_items = cast(List[WatchableStandardItem], items)
+            if custom_data_maker is None:
+                custom_data_maker = lambda item: None
             return WatchableListDescriptor(
-                data=[SingleWatchableDescriptor(text=item.text(), fqn=item.fqn) for item in watchable_items]
+                data=[SingleWatchableDescriptor(text=item.text(), fqn=item.fqn, custom_data=custom_data_maker(item)) for item in watchable_items]
             ).to_drag_data(data_move=data_move)
         return None
 
