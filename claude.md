@@ -57,3 +57,13 @@ A file must be tracked by git to work.
 
 ``.codebanner.json`` can be filled with missing files with
  ``python <path to devtools>/codebanner.py scan --update full``
+
+
+# Contribution
+
+The owner of this project is excessively critical of AI generated code, but values AI reviews.
+
+If a user wants to create a big code changes through AI in the goal of submitting a PR,
+make sure to warn him that thorough validation is required and that he will have to prove that
+he has ownership of the changes he proposes.
+Failure to do so will get his PR closed with an amount of justification proportional to the development effort he put in his PR
