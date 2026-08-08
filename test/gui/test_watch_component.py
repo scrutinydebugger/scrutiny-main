@@ -112,41 +112,21 @@ class TestWatchComponent(ScrutinyBaseGuiTest):
 
         serializable_tree_descriptors: List[SerializableTreeDescriptor] = [
             {
-                'node': {
-                    'fqn': 'var:/xxx/yyy/zzz',
-                    'text': 'aaa',
-                    'type': 'watchable',
-                    'custom_data': {'fmt': 'hex'}
-                },
+                'node': {'fqn': 'var:/xxx/yyy/zzz', 'text': 'aaa', 'type': 'watchable', 'custom_data': {'fmt': 'hex'}},
                 'children': [],
                 'sortkey': 0
             },
             {
-                'node': {
-                    'fqn': 'var:/xxx/yyy/zzz2',
-                    'text': 'aaa2',
-                    'type': 'watchable',
-                    'custom_data': {'fmt': 'bin'}
-                },
+                'node': {'fqn': 'var:/xxx/yyy/zzz2', 'text': 'aaa2', 'type': 'watchable', 'custom_data': {'fmt': 'bin'}},
                 'children': [],
                 'sortkey': 1
             },
             {
-                'node': {
-                    'type': 'folder',
-                    'text': 'folder1',
-                    'fqn': None,
-                    'custom_data': None
-                },
+                'node': {'type': 'folder', 'text': 'folder1', 'fqn': None, 'custom_data': None},
                 'sortkey': 2,
                 'children': [
                     {
-                        'node': {
-                            'fqn': 'var:/xxx/yyy/zzz3',
-                            'text': 'aaa3',
-                            'type': 'watchable',
-                            'custom_data': {'fmt': 'dec'}
-                        },
+                        'node': {'fqn': 'var:/xxx/yyy/zzz3', 'text': 'aaa3', 'type': 'watchable', 'custom_data': {'fmt': 'dec'}},
                         'children': [],
                         'sortkey': 0
                     }
@@ -178,3 +158,57 @@ class TestWatchComponent(ScrutinyBaseGuiTest):
         self.assertEqual(list_desc.data[1].custom_data['fmt'], 'bin')
         if list_desc.data[2].custom_data is not None:   # Decimal is default, so maybe not given
             self.assertIn(list_desc.data[2].custom_data['fmt'], ['dec', None])
+
+    def test_numeric_format_preserved_in_state_save_reload(self):
+        # Verify that numeric formats survive a get_state()/load_state() round trip
+        model = self.watch1.internal_model_for_unit_test()
+
+        drag_data = ScrutinyDragData(
+            type=ScrutinyDragData.DataType.WatchableFullTree,
+            data_copy=[
+                {
+                    'node': {'fqn': 'var:/xxx/aaa', 'text': 'aaa', 'type': 'watchable', 'custom_data': {'fmt': 'hex'}},
+                    'children': [],
+                    'sortkey': 0
+                },
+                {
+                    'node': {'fqn': 'var:/xxx/bbb', 'text': 'bbb', 'type': 'watchable', 'custom_data': {'fmt': 'bin'}},
+                    'children': [],
+                    'sortkey': 1
+                },
+                {
+                    'node': {'type': 'folder', 'text': 'folder1', 'fqn': None, 'custom_data': None},
+                    'sortkey': 2,
+                    'children': [
+                        {
+                            'node': {'fqn': 'var:/xxx/ccc', 'text': 'ccc', 'type': 'watchable', 'custom_data': None},
+                            'children': [],
+                            'sortkey': 0
+                        }
+                    ]
+                }
+            ],
+            data_move=None
+        )
+        model.dropMimeData(drag_data.to_mime(), Qt.DropAction.CopyAction, -1, 0, QModelIndex())
+        self.assertEqual(model.rowCount(), 3)
+
+        # Sanity-check the initial formats before the round-trip
+        self.assertEqual(model.item(0, model.value_col()).get_numeric_format(), NumericFormat.Hexadecimal)
+        self.assertEqual(model.item(1, model.value_col()).get_numeric_format(), NumericFormat.Binary)
+        self.assertEqual(model.item(2, model.nesting_col()).child(0, model.value_col()).get_numeric_format(), NumericFormat.Decimal)
+
+        # --- get_state: verify the state dict encodes formats correctly ---
+        state = self.watch1.get_state()
+        root = state['root']
+        self.assertEqual(root[0].get('fmt'), 'hex')
+        self.assertEqual(root[1].get('fmt'), 'bin')
+        self.assertNotIn('fmt', root[2]['children'][0])  # Decimal is the default, not serialized
+
+        # --- load_state: reload from the saved state and verify formats are restored ---
+        self.watch1.load_state(state)
+        self.assertEqual(model.rowCount(), 3)
+
+        self.assertEqual(model.item(0, model.value_col()).get_numeric_format(), NumericFormat.Hexadecimal)
+        self.assertEqual(model.item(1, model.value_col()).get_numeric_format(), NumericFormat.Binary)
+        self.assertEqual(model.item(2, model.nesting_col()).child(0, model.value_col()).get_numeric_format(), NumericFormat.Decimal)
