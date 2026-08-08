@@ -123,7 +123,7 @@ class ValueStandardItem(QStandardItem):
         elif numeric_format == NumericFormat.Hexadecimal:
             display_txt = '%X (hex)' % val
         elif numeric_format == NumericFormat.Binary:
-            display_txt = bin(val)[2:] + ' (bin)'  # Skip the prefix 0b
+            display_txt = bin(val).replace('0b', '') + ' (bin)'  # Skip the prefix 0b
         else:
             raise NotImplementedError("Unsupported numeric format")
 
@@ -429,7 +429,9 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
         numeric_format_binary_action = numeric_format_menu.addAction(theme.load_tiny_icon(assets.Icons.NumericFormatBinary), "Binary")
 
         def apply_format_to_watchable(format: NumericFormat, item: WatchableStandardItem, visible: bool) -> None:
-            self.model().get_value_item(item).set_numeric_format(format)
+            value_item = self.model().get_value_item(item)
+            value_item.set_numeric_format(format)
+            value_item.set_value(value_item.get_value())  # Refresh display text
 
         def set_numeric_format_format_slot(format: NumericFormat) -> None:
             for item in selected_items_no_nested_unordered:
@@ -446,7 +448,7 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
                 break
             if isinstance(item, WatchableStandardItem):
                 val = self.model().get_value_item(item).get_value()
-                if isinstance(val, int):
+                if isinstance(val, int) and not isinstance(val, bool):
                     numeric_format_menu_enabled = True
                     break
 

@@ -144,7 +144,7 @@ class WatchComponent(ScrutinyGUIBaseLocalComponent):
                         elif numeric_format == NumericFormat.Binary:
                             obj['fmt'] = State.FMT_BIN
                         else:
-                            self.logger.warning(f"Unsupported numeric format {format}")
+                            self.logger.warning(f"Unsupported numeric format {numeric_format}")
                     yield obj
 
                 elif isinstance(item, FolderStandardItem):
