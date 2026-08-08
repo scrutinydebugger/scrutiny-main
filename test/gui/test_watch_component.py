@@ -198,14 +198,12 @@ class TestWatchComponent(ScrutinyBaseGuiTest):
         self.assertEqual(model.item(1, model.value_col()).get_numeric_format(), NumericFormat.Binary)
         self.assertEqual(model.item(2, model.nesting_col()).child(0, model.value_col()).get_numeric_format(), NumericFormat.Decimal)
 
-        # --- get_state: verify the state dict encodes formats correctly ---
         state = self.watch1.get_state()
         root = state['root']
         self.assertEqual(root[0].get('fmt'), 'hex')
         self.assertEqual(root[1].get('fmt'), 'bin')
         self.assertNotIn('fmt', root[2]['children'][0])  # Decimal is the default, not serialized
 
-        # --- load_state: reload from the saved state and verify formats are restored ---
         self.watch1.load_state(state)
         self.assertEqual(model.rowCount(), 3)
 
