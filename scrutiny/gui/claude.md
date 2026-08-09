@@ -60,7 +60,7 @@ It stores the watchables, their metadata and offer a mechanism for watchers subs
 Contrary to the server ``Datastore``, the ``WatchableRegistry`` only stores what is exposed by the server API, does not keep the latest values received and the watchables are organized in a tree structure.
 
 Watchables in the registry have a type (Variable/Alias/RPV) and a path. We used a Fully Qualified Name (referred to as FQN) to describe the element with a single string.
-A FQN should point to single entry in the registry. the entry does not have to be present, it can be missing oif the device is disconnected for example.
+A FQN should point to single entry in the registry. the entry does not have to be present, it can be missing if the device is disconnected for example.
 
 ## Dashboard components
 
@@ -85,8 +85,8 @@ this object has a reference to the ``ServerManager`` and the ``WatchableRegistry
 
 # QT ADS integration
 
-The integration of QT ADS has few quirks that needs to eb mentioned. The state of the dashboard does not use the native state export provided by QTADS.
-The reason is that this feature exports the configuration flags of the widget and does not allow to add custom data. We want to eb able to change the docking
+The integration of QT ADS has few quirks that need to be mentioned. The state of the dashboard does not use the native state export provided by QTADS.
+The reason is that this feature exports the configuration flags of the widget and does not allow to add custom data. We want to be able to change the docking
 behavior between software updates and still be compatible with dashboards saved from previous version. Also, custom data such as component type and configuration
 was not easily exportable.
 

@@ -56,7 +56,7 @@ The role of each states are:
  - ``INIT`` : Entry point
  - ``WAIT_COMM_LINK`` : Waits for the device link to be opened and operational
  - ``WAIT_CLEAN_STATE`` : Wait for all submodule to report a "ready" state
- - ``DISCOVERING`` : Runs the ``DeviceSearcher`` until a device if found. This submodule periodically emits ``DISCOVER`` requests
+ - ``DISCOVERING`` : Runs the ``DeviceSearcher`` until a device is found. This submodule periodically emits ``DISCOVER`` requests
  - ``CONNECTING`` : Runs the ``SessionInitializer`` until a connection is accepted by the device. This submodule periodically sends ``CONNECT`` requests to the device until it accepts it. The device may respond with a BUSY error code if another server has reserved it. When exiting this state, the ``HeartbeatGenerator`` is enabled to keep the session active.
  - ``POLLING_INFO`` : Runs the ``InfoPoller`` to complete the handshake phase. This submodule will gather a series of information from the device, including (but not limited to) :
    - Firmware ID
