@@ -17,6 +17,7 @@ logging.getLogger("pylink").setLevel(logging.WARNING)
 
 from scrutiny.server.device.links.abstract_link import AbstractLink, LinkConfig
 from scrutiny.server.device.links.typing import RttConfigDict
+from scrutiny import tools
 from scrutiny.tools.typing import *
 
 # Hook for unit tests.
@@ -89,6 +90,7 @@ class RttLink(AbstractLink):
         self._write_thread = None
         self._write_queue = queue.Queue()
         self._request_thread_exit = False
+        self._write_error = False
 
         self.config = cast(RttConfigDict, {
             'target_device': str(config['target_device']),
@@ -119,6 +121,7 @@ class RttLink(AbstractLink):
         self.port.set_tif(jlink_interface)
         self.port.connect(target_device)
         self.port.rtt_start(None)
+        self._write_error = False
 
         if self.port.target_connected():
             self._write_thread.start()
@@ -134,8 +137,12 @@ class RttLink(AbstractLink):
             data = self._write_queue.get()  # Blocking get to avoid using all the CPU in this thread
             if data is not None:
                 while len(data) > 0:
-                    written_count = cast(int, self.port.rtt_write(0, data))
-                    data = data[written_count:]
+                    try:
+                        written_count = cast(int, self.port.rtt_write(0, data))
+                        data = data[written_count:]
+                    except pylink.errors.JLinkRTTException as e:
+                        tools.log_exception(self.logger, e, "Failed to write to JLink")
+                        self._write_error = True
             else:
                 pass  # Other thread wanted to wake us up. Do nothing, we should exit
 
@@ -154,7 +161,8 @@ class RttLink(AbstractLink):
         self._write_queue = queue.Queue()
         self._write_thread = None
 
-        self._initialized = False
+        self._initialized =  False
+        self._write_error = False
 
     def operational(self) -> bool:
         """ Tells if this comm channel is in proper state to be functional"""
@@ -168,6 +176,7 @@ class RttLink(AbstractLink):
             and self.port.target_connected()
             and self._write_thread is not None
             and self._write_thread.is_alive()
+            and not self._write_error
         )
 
     def read(self, timeout: Optional[float] = None) -> Optional[bytes]:
