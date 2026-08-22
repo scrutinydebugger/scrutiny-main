@@ -19,6 +19,7 @@ from scrutiny.server.device.links.abstract_link import AbstractLink, LinkConfig
 from scrutiny.server.device.links.typing import RttConfigDict
 from scrutiny import tools
 from scrutiny.tools.typing import *
+from scrutiny.tools import validation
 
 # Hook for unit tests.
 # Allow to change the Jlink class with a stub
@@ -94,7 +95,8 @@ class RttLink(AbstractLink):
 
         self.config = cast(RttConfigDict, {
             'target_device': str(config['target_device']),
-            'jlink_interface': str(config.get('jlink_interface', 'swd'))
+            'jlink_interface': str(config.get('jlink_interface', 'swd')),
+            'buffer_index': int(config.get('buffer_index', 0))
         })
 
     def get_config(self) -> LinkConfig:
@@ -133,12 +135,13 @@ class RttLink(AbstractLink):
 
     def _write_thread_func(self) -> None:
         assert self.port is not None
+        buffer_index = self.config['buffer_index']
         while not self._request_thread_exit:
             data = self._write_queue.get()  # Blocking get to avoid using all the CPU in this thread
             if data is not None:
                 while len(data) > 0:
                     try:
-                        written_count = cast(int, self.port.rtt_write(0, data))
+                        written_count = cast(int, self.port.rtt_write(buffer_index, data))
                         data = data[written_count:]
                     except pylink.errors.JLinkRTTException as e:
                         tools.log_exception(self.logger, e, "Failed to write to JLink")
@@ -161,7 +164,7 @@ class RttLink(AbstractLink):
         self._write_queue = queue.Queue()
         self._write_thread = None
 
-        self._initialized =  False
+        self._initialized = False
         self._write_error = False
 
     def operational(self) -> bool:
@@ -187,7 +190,7 @@ class RttLink(AbstractLink):
         assert self.port is not None    # For mypy
         data: Optional[bytes] = None
         try:
-            bytesArray = self.port.rtt_read(0, 1024)
+            bytesArray = self.port.rtt_read(self.config['buffer_index'], 1024)
             data = bytes(bytesArray)
         except Exception:
             self.logger.debug("Cannot read data.")
@@ -228,3 +231,6 @@ class RttLink(AbstractLink):
 
         if 'jlink_interface' in config:
             RttLink.get_jlink_interface(config['jlink_interface'])       # raise an exception on bad value
+
+        if 'buffer_index' in config:
+            validation.assert_int_range(config['buffer_index'], name='buffer_index', minval=0)

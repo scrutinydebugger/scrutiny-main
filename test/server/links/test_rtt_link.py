@@ -13,8 +13,8 @@ import time
 
 
 class FakeRTTPort:
-    data_written: bytearray
-    data_to_read: bytearray
+    data_written: Dict[int, bytearray]
+    data_to_read: Dict[int, bytearray]
     write_chunk_size: int
 
     _opened: bool
@@ -24,8 +24,8 @@ class FakeRTTPort:
     _target_device: Optional[str]
 
     def __init__(self, write_chunk_size: int = 15) -> None:
-        self.data_written = bytearray()
-        self.data_to_read = bytearray()
+        self.data_written = {}
+        self.data_to_read = {}
         self.write_chunk_size = write_chunk_size
         self._opened = False
         self._connected = False
@@ -57,13 +57,17 @@ class FakeRTTPort:
         return self._target_connected
 
     def rtt_write(self, buffer_index: int, data: bytes) -> int:
+        if buffer_index not in self.data_written:
+            self.data_written[buffer_index] = bytearray()
         chunked = data[0:self.write_chunk_size]
-        self.data_written.extend(chunked)
+        self.data_written[buffer_index].extend(chunked)
         return len(chunked)
 
     def rtt_read(self, buffer_index: int, max_size: int) -> bytearray:
-        read = self.data_to_read[0:max_size]
-        self.data_to_read = self.data_to_read[len(read):]
+        if buffer_index not in self.data_to_read:
+            self.data_to_read[buffer_index] = bytearray()
+        read = self.data_to_read[buffer_index][0:max_size]
+        self.data_to_read[buffer_index] = self.data_to_read[buffer_index][len(read):]
         return read
 
     @property
@@ -103,7 +107,8 @@ class TestRTTLink(ScrutinyUnitTest):
     def test_open_close(self):
         config = {
             'target_device': "CORTEX-M0",
-            'jlink_interface': "SWD"
+            'jlink_interface': "SWD",
+            'buffer_index': 1
         }
 
         link = rtt_link.RttLink(config)
@@ -115,7 +120,8 @@ class TestRTTLink(ScrutinyUnitTest):
     def test_write_read(self):
         config = {
             'target_device': "CORTEX-M0",
-            'jlink_interface': "SWD"
+            'jlink_interface': "SWD",
+            'buffer_index': 2
         }
         link = rtt_link.RttLink(config)
         link.initialize()
@@ -124,17 +130,21 @@ class TestRTTLink(ScrutinyUnitTest):
         self.assertIsInstance(port, FakeRTTPort)
         assert isinstance(port, FakeRTTPort)   # mypy
 
-        port.data_to_read.extend(b'abcdef')
+        port.data_to_read[1] = bytearray()
+        port.data_to_read[1].extend(b'xxxxx')
+        port.data_to_read[2] = bytearray()
+        port.data_to_read[2].extend(b'abcdef')
         data = link.read(timeout=1)
         self.assertIsNotNone(data)
         self.assertEqual(data, b'abcdef')
-        self.assertEqual(len(port.data_to_read), 0)
+        self.assertEqual(len(port.data_to_read[2]), 0)
 
         payload = b'abcdefghijk'
         port.write_chunk_size = 5   # Emulate internal buffer size
         link.write(payload)
-        self.wait_true(lambda: len(port.data_written) == len(payload), 1)
-        self.assertEqual(bytes(port.data_written), payload)
+
+        self.wait_true(lambda: 2 in port.data_written and len(port.data_written[2]) == len(payload), 1)
+        self.assertEqual(bytes(port.data_written[2]), payload)
 
     def test_error_on_bad_interface(self):
         with self.assertRaises(Exception):

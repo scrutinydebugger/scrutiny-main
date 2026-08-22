@@ -106,5 +106,6 @@ class RttConfigDict(TypedDict):
     """
     target_device: str
     jlink_interface: str
+    buffer_index: int
 
 # endregion
