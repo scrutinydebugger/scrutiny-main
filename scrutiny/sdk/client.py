@@ -840,6 +840,8 @@ class ScrutinyClient:
     """Converts server-relative microsecond timestamps to absolute ``datetime`` values"""
     _force_fail_request: bool
     """When ``True``, all outgoing requests are immediately failed. Used in unit tests"""
+    _server_status_invalidated: bool
+    """When ``True``, indicates that the latest status received by the server may have changed and is not to be trusted until the next update."""
 
     def __enter__(self) -> "ScrutinyClient":
         """Enter the context manager and return this client instance"""
@@ -904,6 +906,7 @@ class ScrutinyClient:
         self._pending_watchable_download_request = {}
         self._pending_sfd_download_requests = {}
         self._pending_sfd_upload_requests = {}
+        self._server_status_invalidated = False
 
         self._watchable_storage = {}
         self._watchable_path_to_id_map = {}
@@ -1029,6 +1032,7 @@ class ScrutinyClient:
         with self._main_lock:
             self._server_info = info
             self._threading_events.server_status_updated.set()
+            self._server_status_invalidated = False
         self._trigger_event(self.Events.StatusUpdateEvent(info=info))
 
     def _wt_process_msg_watchable_update(self, msg: api_typing.S2C.WatchableUpdate, reqid: Optional[int]) -> None:
@@ -1222,6 +1226,10 @@ class ScrutinyClient:
             req._set_sfd_info(content.sfd_info)
             req._mark_complete(success=True)
 
+    def _wt_process_msg_set_link_config_response(self, msg: api_typing.S2C.SetLinkConfig, reqid: Optional[int]) -> None:
+        with self._main_lock:
+            self._server_status_invalidated = True
+
     def _wt_process_next_server_status_update(self) -> None:
         """Periodically request a server-status update when the polling timer has elapsed or an immediate update was requested"""
         if self._request_status_timer.is_timed_out() or self._require_status_update:
@@ -1336,6 +1344,8 @@ class ScrutinyClient:
                     self._wt_process_msg_download_sfd_response(cast(api_typing.S2C.DownloadSFD, msg), reqid)
                 elif cmd == API.Command.Api2Client.UPLOAD_SFD_DATA_RESPONSE:
                     self._wt_process_msg_upload_sfd_data_response(cast(api_typing.S2C.UploadSFDData, msg), reqid)
+                elif cmd == API.Command.Api2Client.SET_LINK_CONFIG_RESPONSE:
+                    self._wt_process_msg_set_link_config_response(cast(api_typing.S2C.SetLinkConfig, msg), reqid)
             except sdk.exceptions.BadResponseError as e:
                 tools.log_exception(self._logger, e, "Bad message from server")
 
@@ -2434,7 +2444,8 @@ class ScrutinyClient:
         t1 = time.perf_counter()
         while True:
             server_status = self.get_latest_server_status()
-            if server_status is not None:
+            status_invalidated = self._server_status_invalidated
+            if server_status is not None and not status_invalidated:
                 if server_status.device_comm_state == sdk.DeviceCommState.ConnectedReady:
                     break
             consumed_time = time.perf_counter() - t1
