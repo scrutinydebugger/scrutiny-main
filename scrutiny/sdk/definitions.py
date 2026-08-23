@@ -551,14 +551,19 @@ class RTTLinkConfig(BaseLinkConfig):
     jlink_interface: JLinkInterface
     """The type of JLink interface"""
 
+    buffer_index: int
+    """The RTT buffer index"""
+
     def __post_init__(self) -> None:
         validation.assert_type(self.target_device, 'target_device', str)
         validation.assert_type(self.jlink_interface, 'jlink_interface', self.JLinkInterface)
+        validation.assert_int_range(self.buffer_index, 'buffer_index', minval=0)
 
     def _to_api_format(self) -> Dict[str, Any]:
         return {
             'target_device': self.target_device,
-            'jlink_interface': self.jlink_interface.value
+            'jlink_interface': self.jlink_interface.value,
+            'buffer_index': self.buffer_index
         }
 
 # region CAN bus

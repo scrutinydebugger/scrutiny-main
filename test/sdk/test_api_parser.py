@@ -637,7 +637,8 @@ class TestApiParser(ScrutinyUnitTest):
         msg["device_comm_link"]["link_type"] = 'rtt'
         msg["device_comm_link"]["link_config"] = {
             "jlink_interface": "icsp",
-            "target_device": "some_device"
+            "target_device": "some_device",
+            'buffer_index': 0
         }
         info = parser.parse_inform_server_status(msg)
         self.assertEqual(info.device_link.type, DeviceLinkType.RTT)
@@ -650,7 +651,8 @@ class TestApiParser(ScrutinyUnitTest):
             msg["device_comm_link"]["link_type"] = 'rtt'
             msg["device_comm_link"]["link_config"] = {
                 "jlink_interface": val,
-                "target_device": "some_device"
+                "target_device": "some_device",
+                'buffer_index': 0
             }
             parser.parse_inform_server_status(msg)  # no error
 
@@ -659,7 +661,8 @@ class TestApiParser(ScrutinyUnitTest):
             msg["device_comm_link"]["link_type"] = 'rtt'
             msg["device_comm_link"]["link_config"] = {
                 "jlink_interface": "notvalid",  # Cause a failure
-                "target_device": "some_device"
+                "target_device": "some_device",
+                'buffer_index': 0
             }
             parser.parse_inform_server_status(msg)
 
@@ -669,7 +672,8 @@ class TestApiParser(ScrutinyUnitTest):
                 msg["device_comm_link"]["link_type"] = 'rtt'
                 msg["device_comm_link"]["link_config"] = {
                     "jlink_interface": "jtag",
-                    "target_device": "some_device"
+                    "target_device": "some_device",
+                    'buffer_index': 0
                 }
 
                 if isinstance(val, Delete):
@@ -678,6 +682,23 @@ class TestApiParser(ScrutinyUnitTest):
                     msg["device_comm_link"]['link_config'][field] = val
 
                 with self.assertRaises(sdk.exceptions.BadResponseError, msg=f"field={field}. val={val}"):
+                    parser.parse_inform_server_status(msg)
+
+            for val in [None, 1.5, True, [], Delete(), -1]:
+                msg = base()
+                msg["device_comm_link"]["link_type"] = 'rtt'
+                msg["device_comm_link"]["link_config"] = {
+                    "jlink_interface": "jtag",
+                    "target_device": "some_device",
+                    'buffer_index': 0
+                }
+
+                if isinstance(val, Delete):
+                    del msg["device_comm_link"]['link_config']['buffer_index']
+                else:
+                    msg["device_comm_link"]['link_config']['buffer_index'] = val
+
+                with self.assertRaises(sdk.exceptions.BadResponseError):
                     parser.parse_inform_server_status(msg)
 
         # Test bad UDP vals
