@@ -22,7 +22,8 @@ with client.connect('localhost', 8765):
         link_type=sdk.DeviceLinkType.RTT,
         link_config=sdk.RTTLinkConfig(
             jlink_interface=sdk.RTTLinkConfig.JLinkInterface.SWD,
-            target_device='cortex-M0'
+            target_device='cortex-M0',
+            buffer_index=0
         )
     )
 
