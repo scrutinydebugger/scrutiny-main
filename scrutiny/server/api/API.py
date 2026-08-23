@@ -1628,7 +1628,10 @@ class API:
                 raise InvalidRequestException(req, '"data" field is not a valid base64 string')
 
         callback = cast(UserCommandCallback, functools.partial(self.user_command_callback, req, conn_id))
-        self.device_handler.request_user_command(req['subfunction'], data, callback)
+        try:
+            self.device_handler.request_user_command(req['subfunction'], data, callback)
+        except Exception as e:
+            self.client_handler.send(ClientHandlerMessage(conn_id=conn_id, obj=self.make_error_response(req, f"Failed to request User Command: {e}")))
 
     def user_command_callback(self, req: api_typing.C2S.UserCommand, conn_id: str, success: bool, subfunction: int, data: Optional[bytes], error: Optional[str]) -> None:
         if success:
