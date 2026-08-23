@@ -557,6 +557,9 @@ class S2C:
         enabled: bool
         update_rate: Optional[float]
 
+    class SetLinkConfig(BaseS2CMessage):
+        pass
+
 
 C2SMessage = Union[
     C2S.Echo,
