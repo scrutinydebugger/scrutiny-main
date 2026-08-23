@@ -8,7 +8,7 @@
 
 __all__ = ['RTTConfigPane']
 
-from PySide6.QtWidgets import QLabel, QFormLayout, QWidget, QComboBox
+from PySide6.QtWidgets import QLabel, QFormLayout, QWidget, QComboBox, QSpinBox
 
 from scrutiny import sdk
 from scrutiny.gui.core.persistent_data import gui_persistent_data
@@ -24,9 +24,11 @@ class RTTConfigPane(BaseConfigPane):
     class PersistentDataKeys:
         TARGET_DEVICE = 'target_device'
         JLINK_INTERFACE = 'jlink_interface'
+        BUFFER_INDEX = 'buffer_index'
 
     _target_device_text_box: ValidableLineEdit
     _jlink_interface_combo_box: QComboBox
+    _buffer_index_spinbox: QSpinBox
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
@@ -43,8 +45,12 @@ class RTTConfigPane(BaseConfigPane):
         self._jlink_interface_combo_box.addItem("SPI", sdk.RTTLinkConfig.JLinkInterface.SPI)
         self._jlink_interface_combo_box.addItem("C2", sdk.RTTLinkConfig.JLinkInterface.C2)
 
+        self._buffer_index_spinbox = QSpinBox()
+        self._buffer_index_spinbox.setMinimum(0)
+
         layout.addRow(QLabel("Interface: "), self._jlink_interface_combo_box)
         layout.addRow(QLabel("Target Device: "), self._target_device_text_box)
+        layout.addRow(QLabel("Buffer index: "), self._buffer_index_spinbox)
 
         # Make sure the red background disappear when we type (fixing the invalid content)
         self._target_device_text_box.textChanged.connect(self._target_device_text_box.validate_expect_not_wrong_default_slot)
@@ -58,7 +64,8 @@ class RTTConfigPane(BaseConfigPane):
 
         return sdk.RTTLinkConfig(
             target_device=target_device,
-            jlink_interface=interface
+            jlink_interface=interface,
+            buffer_index=self._buffer_index_spinbox.value()
         )
 
     def load_config(self, config: Optional[sdk.BaseLinkConfig]) -> None:
@@ -73,7 +80,8 @@ class RTTConfigPane(BaseConfigPane):
         assert isinstance(config, sdk.RTTLinkConfig)
         return sdk.RTTLinkConfig(
             target_device="<device>" if len(config.target_device) == 0 else config.target_device,
-            jlink_interface=config.jlink_interface
+            jlink_interface=config.jlink_interface,
+            buffer_index=max(0, config.buffer_index)
         )
 
     def visual_validation(self) -> None:
@@ -97,5 +105,6 @@ class RTTConfigPane(BaseConfigPane):
             jlink_interface=sdk.RTTLinkConfig.JLinkInterface.from_str(
                 namespace.get_str(cls.PersistentDataKeys.JLINK_INTERFACE, sdk.RTTLinkConfig.JLinkInterface.SWD.to_str()),
                 sdk.RTTLinkConfig.JLinkInterface.SWD
-            )
+            ),
+            buffer_index=namespace.get_int(cls.PersistentDataKeys.BUFFER_INDEX, 0)
         )

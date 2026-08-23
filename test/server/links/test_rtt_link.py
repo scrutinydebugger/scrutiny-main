@@ -189,6 +189,23 @@ class TestRTTLink(ScrutinyUnitTest):
 
         link.destroy()
 
+    def test_bad_config(self):
+        def base():
+            return {
+                'target_device': "CORTEX-M0",
+                'jlink_interface': "SWD",
+                'buffer_index': 0
+            }
+        with self.assertRaises(Exception):
+            config = base()
+            config['buffer_index'] = 'aaa'
+            rtt_link.RttLink(config)
+
+        with self.assertRaises(Exception):
+            config = base()
+            config['jlink_interface'] = 'asd'
+            rtt_link.RttLink(config)
+
     def tearDown(self) -> None:
         rtt_link._set_jlink_class(self._old_port_func)
         return super().tearDown()

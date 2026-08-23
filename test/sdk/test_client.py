@@ -2183,7 +2183,8 @@ class TestClient(ScrutinyUnitTest):
     def test_configure_device_link_rtt(self):
         configin = sdk.RTTLinkConfig(
             target_device="CORTEX-M0",
-            jlink_interface=sdk.RTTLinkConfig.JLinkInterface.SWD
+            jlink_interface=sdk.RTTLinkConfig.JLinkInterface.SWD,
+            buffer_index=2
         )
 
         self.client.configure_device_link(sdk.DeviceLinkType.RTT, configin)
@@ -2196,11 +2197,13 @@ class TestClient(ScrutinyUnitTest):
         self.assertEqual(link_type, 'rtt')
         self.assertEqual(configout['target_device'], 'CORTEX-M0')
         self.assertEqual(configout['jlink_interface'], 'swd')
+        self.assertEqual(configout['buffer_index'], 2)
 
         with self.assertRaises(sdk.exceptions.OperationFailure):
             configin = sdk.RTTLinkConfig(
                 target_device='raise',   # Special string that will make the DeviceHandler stub throw an exception
-                jlink_interface=sdk.RTTLinkConfig.JLinkInterface.SWD
+                jlink_interface=sdk.RTTLinkConfig.JLinkInterface.SWD,
+                buffer_index=0
             )
 
             self.client.configure_device_link(sdk.DeviceLinkType.RTT, configin)
@@ -2208,7 +2211,8 @@ class TestClient(ScrutinyUnitTest):
         with self.assertRaises(TypeError):
             configin = sdk.RTTLinkConfig(
                 target_device="CORTEX-M0",
-                jlink_interface=sdk.RTTLinkConfig.JLinkInterface.SWD
+                jlink_interface=sdk.RTTLinkConfig.JLinkInterface.SWD,
+                buffer_index=0
             )
 
             self.client.configure_device_link(sdk.DeviceLinkType.Serial, configin)
@@ -2216,13 +2220,29 @@ class TestClient(ScrutinyUnitTest):
         with self.assertRaises(TypeError):
             sdk.RTTLinkConfig(
                 target_device=123,
-                jlink_interface=sdk.RTTLinkConfig.JLinkInterface.SWD
+                jlink_interface=sdk.RTTLinkConfig.JLinkInterface.SWD,
+                buffer_index=0
             )
 
         with self.assertRaises(TypeError):
             sdk.RTTLinkConfig(
                 target_device="CORTEX-M0",
-                jlink_interface=123
+                jlink_interface=123,
+                buffer_index=0
+            )
+
+        with self.assertRaises(TypeError):
+            sdk.RTTLinkConfig(
+                target_device="CORTEX-M0",
+                jlink_interface=sdk.RTTLinkConfig.JLinkInterface.SWD,
+                buffer_index='aaa'
+            )
+
+        with self.assertRaises(ValueError):
+            sdk.RTTLinkConfig(
+                target_device="CORTEX-M0",
+                jlink_interface=sdk.RTTLinkConfig.JLinkInterface.SWD,
+                buffer_index=-1
             )
 
     def test_configure_device_link_can_socketcan(self):

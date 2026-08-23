@@ -780,6 +780,8 @@ def parse_inform_server_status(response: api_typing.S2C.InformServerStatus) -> s
     elif link_type == sdk.DeviceLinkType.RTT:
         _check_response_dict(cmd, response, 'device_comm_link.link_config.jlink_interface', str)
         _check_response_dict(cmd, response, 'device_comm_link.link_config.target_device', str)
+        _check_response_dict(cmd, response, 'device_comm_link.link_config.buffer_index', int)
+
         rtt_config = cast(api_typing.RttLinkConfig, response['device_comm_link']['link_config'])
         interface_name = rtt_config['jlink_interface']
         try:
@@ -787,10 +789,15 @@ def parse_inform_server_status(response: api_typing.S2C.InformServerStatus) -> s
         except ValueError:
             raise sdk.exceptions.BadResponseError(f'Invalid JLink Interface "{interface_name}"')
 
-        link_config = sdk.RTTLinkConfig(
-            target_device=rtt_config['target_device'],
-            jlink_interface=jlink_interface
-        )
+        try:
+            link_config = sdk.RTTLinkConfig(
+                target_device=rtt_config['target_device'],
+                jlink_interface=jlink_interface,
+                buffer_index=rtt_config['buffer_index']
+            )
+        except Exception as e:
+            raise sdk.exceptions.BadResponseError(f'Invalid RTT configuration') from e
+
     elif link_type == sdk.DeviceLinkType.CAN:
         _check_response_dict(cmd, response, 'device_comm_link.link_config.interface', str)
         _check_response_dict(cmd, response, 'device_comm_link.link_config.txid', int)
