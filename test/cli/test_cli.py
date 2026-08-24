@@ -310,13 +310,14 @@ class TestCLI(ScrutinyUnitTest):
             self.assertEqual(alias.get_max(), 100.0)
 
     def test_datalog_info(self):
+        now = datetime.datetime.now()
         with DataloggingStorage.use_temp_storage():
-            acq1 = DataloggingAcquisition(firmware_id="firmwareid1", name="Acquisition #1", acq_time=datetime.datetime.now())
+            acq1 = DataloggingAcquisition(firmware_id="firmwareid1", name="Acquisition #1", acq_time=now)
             axis1 = AxisDefinition("Axis-1", 111)
             acq1.set_xdata(DataSeries([random.random() for x in range(10)]))
             acq1.add_data(DataSeries([random.random() for x in range(10)], logged_watchable=LoggedWatchable("/a/b", WatchableType.Variable)), axis1)
             acq2 = DataloggingAcquisition(firmware_id="firmwareid1", name="Acquisition #2",
-                                          acq_time=datetime.datetime.now() - datetime.timedelta(seconds=30))
+                                          acq_time=now - datetime.timedelta(seconds=30))
             acq2.set_xdata(DataSeries([random.random() for x in range(10)]))
             acq2.add_data(DataSeries([random.random() for x in range(10)], logged_watchable=LoggedWatchable("/a/b", WatchableType.Variable)), axis1)
 
