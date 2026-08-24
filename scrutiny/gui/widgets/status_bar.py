@@ -465,7 +465,7 @@ class StatusBar(QStatusBar):
             self._device_comm_link_label.set_text(f"{prefix} Serial {line}")
         elif link_type == DeviceLinkType.RTT:
             config = cast(sdk.RTTLinkConfig, config)
-            self._device_comm_link_label.set_text(f"{prefix} RTT {config.jlink_interface.name} ({config.target_device})")
+            self._device_comm_link_label.set_text(f"{prefix} RTT {config.jlink_interface.name} ({config.target_device}) #{config.buffer_index}")
         elif link_type == DeviceLinkType.CAN:
             config = cast(sdk.CANLinkConfig, config)
             if config.extended_id:
