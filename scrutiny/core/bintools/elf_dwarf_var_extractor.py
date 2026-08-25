@@ -1028,18 +1028,16 @@ class ElfDwarfVarExtractor:
             if not isinstance(dieloc, list):
                 return None
 
-            if len(dieloc) < 1:
+            if len(dieloc) < 2:
+                self._logger.warning(f'die location is too small: {dieloc}')
                 return None
 
             if dieloc[0] == self.DW_OP_addr:
-                if len(dieloc) < 2:
-                    self._logger.warning(f'die location is too small: {dieloc}')
-                    return None
-
                 return AbsoluteLocation.from_bytes(dieloc[1:], self._context.endianess)
+
             elif dieloc[0] == self.DW_OP_addrx:
-                offset = tools.uleb128_decode(bytes(dieloc[1:]))
-                address = self._dwarfinfo.get_addr(die.cu, offset)
+                addr_index = tools.uleb128_decode(bytes(dieloc[1:]))
+                address = self._dwarfinfo.get_addr(die.cu, addr_index)
                 return AbsoluteLocation(address)
 
         return None
