@@ -500,8 +500,9 @@ class ElfDwarfVarExtractor:
     STATIC = 'static'
     GLOBAL = 'global'
     MAX_CU_DISPLAY_NAME_LENGTH = 64
-    DW_OP_ADDR = 3
+    DW_OP_addr = 3
     DW_OP_plus_uconst = 0x23
+    DW_OP_addrx = 0xa1
 
     _varmap: VarMap
     """The VarMap that we try to build"""
@@ -720,6 +721,7 @@ class ElfDwarfVarExtractor:
 
     def _get_cu_name(self, die: DIE) -> str:
         """Return the name of the CompileUnit in which this DIE is part of"""
+        assert isinstance(die.cu, CompileUnit)
         return self._cu_name_map[die.cu]
 
     def _get_enum_from_type_descriptor(self, type_desc: TypeDescriptor) -> Optional[EmbeddedEnum]:
@@ -1029,14 +1031,17 @@ class ElfDwarfVarExtractor:
             if len(dieloc) < 1:
                 return None
 
-            if dieloc[0] != self.DW_OP_ADDR:
-                return None
+            if dieloc[0] == self.DW_OP_addr:
+                if len(dieloc) < 2:
+                    self._logger.warning(f'die location is too small: {dieloc}')
+                    return None
 
-            if len(dieloc) < 2:
-                self._logger.warning(f'die location is too small: {dieloc}')
-                return None
+                return AbsoluteLocation.from_bytes(dieloc[1:], self._context.endianess)
+            elif dieloc[0] == self.DW_OP_addrx:
+                offset = tools.uleb128_decode(bytes(dieloc[1:]))
+                address = self._dwarfinfo.get_addr(die.cu, offset)
+                return AbsoluteLocation(address)
 
-            return AbsoluteLocation.from_bytes(dieloc[1:], self._context.endianess)
         return None
 
     def _is_forward_declaration(self, die: DIE) -> bool:
@@ -1622,16 +1627,25 @@ class ElfDwarfVarExtractor:
                 raise ElfParsingError(f'Missing {Attrs.DW_AT_bit_size} for bitfield {name}')
 
             bitsize = int(die.attributes[Attrs.DW_AT_bit_size].value)
+            byte_bitsize = (bytesize * self._context.get_char_bit())
 
-            if Attrs.DW_AT_bit_offset in die.attributes:
+            must_reverse = (self._context.endianess == Endianness.Little)
+            if Attrs.DW_AT_bit_offset in die.attributes:    # Deprecated in DWARF V5
+                # Offset depend on endianness
                 bitoffset = int(die.attributes[Attrs.DW_AT_bit_offset].value)
+
             elif Attrs.DW_AT_data_bit_offset in die.attributes:
+                # Offset is always specified from start.
+                # Can grow bigger than byte size.
                 bitoffset = int(die.attributes[Attrs.DW_AT_data_bit_offset].value)
+                byte_offset += (bitoffset // byte_bitsize) * bytesize
+                bitoffset = bitoffset % byte_bitsize
+                must_reverse = False
             else:
                 bitoffset = 0   # Dwarf V4 allow this.
 
-            if self._context.endianess == Endianness.Little:
-                bitoffset = (bytesize * self._context.get_char_bit()) - bitoffset - bitsize
+            if must_reverse:
+                bitoffset = byte_bitsize - bitoffset - bitsize
 
         member_type = Struct.Member.MemberType.BaseType
         if substruct is not None:
