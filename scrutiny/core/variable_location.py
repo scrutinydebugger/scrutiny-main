@@ -114,14 +114,15 @@ class AbsoluteLocation:
         if len(data) < 1:
             raise ValueError('Empty data')
 
-        byteorder_map: Dict[Endianness, Literal['little', 'big']] = {
-            Endianness.Little: 'little',
-            Endianness.Big: 'big'
-        }
-        if endianness not in byteorder_map:
+        int_byteorder:Literal['little', 'big']
+        if endianness == Endianness.Little:
+            int_byteorder = 'little'
+        elif endianness == Endianness.Big:
+            int_byteorder = 'big'
+        else:
             raise ValueError(f'Invalid endianness "{endianness}" ')
 
-        address = int.from_bytes(data, byteorder=byteorder_map[endianness], signed=False)
+        address = int.from_bytes(data, byteorder=int_byteorder, signed=False)
         return cls(address)
 
     def copy(self) -> 'AbsoluteLocation':

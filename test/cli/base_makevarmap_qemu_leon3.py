@@ -43,10 +43,8 @@ KNOWN_ENUMS: KnownEnumTypedDict = {
 }
 
 
-class TestMakeVarMap_CPP_QEMU_LEON3_Gcc_13_3_0_Dwarf4(BaseVarmapTest, ScrutinyUnitTest):
+class BaseTestMakeVarMap_CPP_QEMU_LEON3(BaseVarmapTest):
     known_enums = KNOWN_ENUMS
-    bin_filename = get_artifact(os.path.join('qemu_memdump_test', 'memdump_testapp_leon3_gcc_13_3_0_dwarfv4.elf'))
-    memdump_filename = get_artifact(os.path.join('qemu_memdump_test', 'memdump_testapp_leon3_gcc_13_3_0_dwarfv4.memdump'))
 
     def test_endianness(self):
         self.assertEqual(self.varmap.get_endianness(), Endianness.Big)
