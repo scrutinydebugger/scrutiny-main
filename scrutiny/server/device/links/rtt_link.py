@@ -11,6 +11,7 @@ __all__ = ['RttLink']
 import logging
 import threading
 import queue
+import time
 
 import pylink   # type: ignore
 logging.getLogger("pylink").setLevel(logging.WARNING)
@@ -192,6 +193,10 @@ class RttLink(AbstractLink):
         try:
             bytesArray = self.port.rtt_read(self.config['buffer_index'], 1024)
             data = bytes(bytesArray)
+            if len(data) == 0:
+                # RTT drivers have no facilities to do a proper blocking read.
+                # So we need to sleep to avoid bloating the CPU.
+                time.sleep(0.001)
         except Exception:
             self.logger.debug("Cannot read data.")
             self.port.close()
