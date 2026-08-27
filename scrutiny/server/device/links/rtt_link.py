@@ -144,7 +144,7 @@ class RttLink(AbstractLink):
                     try:
                         written_count = cast(int, self.port.rtt_write(buffer_index, data))
                         data = data[written_count:]
-                    except pylink.errors.JLinkRTTException as e:
+                    except pylink.errors.JLinkException as e:
                         tools.log_exception(self.logger, e, "Failed to write to JLink")
                         self._write_error = True
             else:
