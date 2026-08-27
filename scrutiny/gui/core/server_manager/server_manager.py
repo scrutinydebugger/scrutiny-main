@@ -664,7 +664,7 @@ class ServerManager:
 
             def ui_callback(expected_error: Optional[Exception], unexpected_error: Optional[Exception]) -> None:
                 if unexpected_error is not None:
-                    tools.log_exception(self._logger, unexpected_error, str_level=logging.CRITICAL)    # Not supposed to happen
+                    tools.log_exception(self._logger, unexpected_error, "Failed to watch", str_level=logging.CRITICAL)    # Not supposed to happen
                 else:
                     self._qt_watch_unwatch_ui_callback(
                         attempted_action=self.WatchableRegistrationAction.SUBSCRIBE,
@@ -715,7 +715,7 @@ class ServerManager:
 
             def ui_callback(expected_error: Optional[Exception], unexpected_error: Optional[Exception]) -> None:
                 if unexpected_error is not None:
-                    tools.log_exception(self._logger, unexpected_error, str_level=logging.CRITICAL)    # Not supposed to happen
+                    tools.log_exception(self._logger, unexpected_error, "Failed to unwatch", str_level=logging.CRITICAL)    # Not supposed to happen
                 else:
                     self._qt_watch_unwatch_ui_callback(
                         attempted_action=self.WatchableRegistrationAction.UNSUBSCRIBE,
@@ -861,8 +861,7 @@ class ServerManager:
                         valid = True
         else:
             if error is not None:
-                self._logger.error(f"Failed to download the SFD details: {error}")
-                tools.log_exception(self._logger, error)
+                tools.log_exception(self._logger, error, f"Failed to download the SFD details: {error}")
 
         if valid:
             assert loaded_sfd is not None
