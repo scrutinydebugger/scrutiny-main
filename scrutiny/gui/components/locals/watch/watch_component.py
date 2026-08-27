@@ -388,7 +388,6 @@ class WatchComponent(ScrutinyGUIBaseLocalComponent):
     def _node_expanded_slot(self, index: QModelIndex) -> None:
         # Added at the end of the event loop because it is a queuedConnection
         # Expanding with star requires that
-        self.logger.debug(f"{self.__class__.__name__} - _node_expanded_slot")
         self._col_resize_timer.start()
         self.update_all_watchable_state(start_node=self._tree_model.itemFromIndex(index.siblingAtColumn(self._tree_model.nesting_col())))
 
