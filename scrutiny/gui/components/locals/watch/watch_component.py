@@ -10,7 +10,7 @@ __all__ = ['WatchComponent']
 
 import logging
 
-from PySide6.QtCore import QModelIndex, Qt, QModelIndex, Signal
+from PySide6.QtCore import QModelIndex, QModelIndex, QTimer
 from PySide6.QtWidgets import QVBoxLayout
 from PySide6.QtGui import QIcon
 
@@ -73,7 +73,8 @@ class WatchComponent(ScrutinyGUIBaseLocalComponent):
     _tree_model: WatchComponentTreeModel
     _teared_down: bool
 
-    expand_if_needed = Signal()
+    _col_resize_timer: QTimer
+
     WATCH_COMPONENT_UPDATE_RATE: Optional[float]
 
     @classmethod
@@ -90,7 +91,10 @@ class WatchComponent(ScrutinyGUIBaseLocalComponent):
         layout = QVBoxLayout(self)
         layout.addWidget(self._tree)
 
-        self.expand_if_needed.connect(self._tree.expand_first_column_to_content, Qt.ConnectionType.QueuedConnection)
+        self._col_resize_timer = QTimer()
+        self._col_resize_timer.setSingleShot(True)
+        self._col_resize_timer.setInterval(200)  # Debounce time
+        self._col_resize_timer.timeout.connect(self._tree.expand_first_column_to_content)
 
         self._tree.expanded.connect(self._node_expanded_slot)
         self._tree.collapsed.connect(self._node_collapsed_slot)
@@ -384,7 +388,7 @@ class WatchComponent(ScrutinyGUIBaseLocalComponent):
     def _node_expanded_slot(self, index: QModelIndex) -> None:
         # Added at the end of the event loop because it is a queuedConnection
         # Expanding with star requires that
-        self.expand_if_needed.emit()
+        self._col_resize_timer.start()
         self.update_all_watchable_state(start_node=self._tree_model.itemFromIndex(index.siblingAtColumn(self._tree_model.nesting_col())))
 
     def _node_collapsed_slot(self, index: QModelIndex) -> None:
