@@ -735,11 +735,9 @@ class ServerManager:
 
         elif registration_status.active_state == self.WatchableRegistrationState.UNSUBSCRIBED:
             # Proceed with subscription
-
             registration_status.pending_action = self.WatchableRegistrationAction.SUBSCRIBE
             registration_status.pending_update_rate = update_rate
 
-            # self._qt_do_request_watch(watchable_type, server_path, update_rate, registration_status)
         else:   # pragma: no cover
             raise NotImplementedError(f"Unsupported state: {registration_status.active_state}")
 
@@ -807,7 +805,6 @@ class ServerManager:
         elif registration_status.active_state == self.WatchableRegistrationState.SUBSCRIBED:
             # Proceed with unsubscription
             registration_status.pending_action = self.WatchableRegistrationAction.UNSUBSCRIBE
-            # self._do_request_unwatch(watchable_type, server_path, registration_status)
 
         else:   # pragma: no cover
             raise NotImplementedError(f"Unsupported state: {registration_status.active_state}")
