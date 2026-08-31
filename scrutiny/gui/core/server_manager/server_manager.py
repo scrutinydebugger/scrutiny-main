@@ -188,16 +188,12 @@ class ServerManager:
     """A throttler that prune the listener of dead handles once per seconds max."""
     _dangling_subscription_prune_timer: QTimer
     """Last layer of defense that cleanup a mess where we are still subscribed to a watchable but nobody listen for it"""
-
-    _dangling_subscription_prune_timer: QTimer
-    """Last layer of defense that cleanup a mess where we are still subscribed to a watchable but nobody listen for it"""
     _commit_pending_subscriptions_task: SignalThrottler
     """A throttler that fill the ClientTaskReactor queue of watch/unwatch request"""
     _pending_registration_sets: Dict[sdk.WatchableType, Set[str]]
     """A set containing the path to all the subscription that have a pending state."""
 
     _partial_watchable_downloaded_data: Dict[sdk.WatchableType, Dict[str, sdk.BriefWatchableConfiguration]]
-
 
     def __init__(self, watchable_registry: WatchableRegistry, client: Optional[ScrutinyClient] = None) -> None:
         super().__init__()  # Required for signals to work
