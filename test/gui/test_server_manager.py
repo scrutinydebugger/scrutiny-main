@@ -584,7 +584,10 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
         return super().tearDown()
 
     def get_watch_request(self, timeout: float = 2, assert_single: bool = True, allow_none: bool = False):
-        self.wait_true(lambda: len(self.fake_client._pending_watch_request) > 0, timeout=timeout, no_assert=allow_none)
+        self.wait_true(fn=lambda: len(self.fake_client._pending_watch_request) > 0,
+                       timeout=timeout,
+                       no_assert=allow_none,
+                       msg="Never got the watch request")
         if len(self.fake_client._pending_watch_request) == 0:
             if allow_none:
                 return None
@@ -596,7 +599,10 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
         return request
 
     def get_unwatch_request(self, timeout: float = 2, assert_single: bool = True, allow_none: bool = False):
-        self.wait_true(lambda: len(self.fake_client._pending_unwatch_request) > 0, timeout=timeout, no_assert=allow_none)
+        self.wait_true(fn=lambda: len(self.fake_client._pending_unwatch_request) > 0,
+                       timeout=timeout,
+                       no_assert=allow_none,
+                       msg="Never received an unwatch request")
         if len(self.fake_client._pending_unwatch_request) == 0:
             if allow_none:
                 return None
@@ -880,13 +886,13 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
             rewatch_request = self.get_watch_request(assert_single=True)
             self.assertEqual(rewatch_request.update_rate, 50)
 
-        call_count = self.server_manager._qt_watch_unwatch_ui_callback_call_count
-        rewatch_request.simulate_success(watchable_config)
-        self.wait_true_with_events(lambda: call_count != self.server_manager._qt_watch_unwatch_ui_callback_call_count, timeout=2)
+            call_count = self.server_manager._qt_watch_unwatch_ui_callback_call_count
+            rewatch_request.simulate_success(watchable_config)
+            self.wait_true_with_events(lambda: call_count != self.server_manager._qt_watch_unwatch_ui_callback_call_count, timeout=2)
 
-        self.registry.unwatch(watcher1, sdk.WatchableType.Variable, 'a/b/c')
-        unwatch_request = self.get_unwatch_request(assert_single=True)
-        unwatch_request.simulate_success()
+            self.registry.unwatch(watcher1, sdk.WatchableType.Variable, 'a/b/c')
+            unwatch_request = self.get_unwatch_request(assert_single=True)
+            unwatch_request.simulate_success()
 
     def test_update_rate_not_lost_with_fast_watches(self):
         self.registry._add_watchable('a/b/c', sdk.BriefWatchableConfiguration(
