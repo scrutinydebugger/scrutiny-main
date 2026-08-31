@@ -29,6 +29,7 @@ from scrutiny.gui.core.server_manager.qt_buffered_listener import QtBufferedList
 from scrutiny.gui.core.server_manager.client_task_reactor import ClientTaskReactor
 from scrutiny.gui.core.threads import QT_THREAD_NAME, SERVER_MANAGER_THREAD_NAME
 from scrutiny.gui.tools.invoker import invoke_in_qt_thread_synchronized, invoke_later
+from scrutiny.gui.tools.signal_throttler import SignalThrottler
 
 from scrutiny import tools
 from scrutiny.tools.thread_enforcer import thread_func, enforce_thread
@@ -179,6 +180,8 @@ class ServerManager:
     """Contains all the info about the actually connected device. ``None`` if not available"""
     _loaded_sfd: Optional[sdk.SFDInfo]
     """Contains all the info about the actually loaded Scrutiny Firmware Description. ``None`` if not available"""
+    _listener_cleanup_task: SignalThrottler
+    """A throttler that prune the listener of dead handles once per seconds max."""
 
     _partial_watchable_downloaded_data: Dict[sdk.WatchableType, Dict[str, sdk.BriefWatchableConfiguration]]
 
@@ -250,6 +253,9 @@ class ServerManager:
 
         self._device_info = None
         self._loaded_sfd = None
+
+        self._listener_cleanup_task = SignalThrottler(1000)
+        self._listener_cleanup_task.triggered.connect(self._listener.prune_subscriptions)
 
         # Logging logic
         if self._logger.isEnabledFor(DUMPDATA_LOGLEVEL):    # pragma: no cover
@@ -596,7 +602,7 @@ class ServerManager:
             assert client_handle is not None
             self._registry.assign_serverid_to_node(client_handle.type, server_path, client_handle.server_id)
             self._listener.subscribe(client_handle)
-        self._listener.prune_subscriptions()    # Delete dead handles
+        self._listener_cleanup_task.request()
 
         # We tried to unsubscribe, succeeded and nothing else to do. Cleanup
         if (registration_status.active_state == self.WatchableRegistrationState.UNSUBSCRIBED
