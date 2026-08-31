@@ -387,18 +387,27 @@ class WatchableRegistry:
         """
 
         # First, lookup the registry ID of each value update.
-        update_with_registry_id: List[Tuple[int, ValueUpdate]] = []
+        update_by_registry_id: Dict[int, ValueUpdate] = {}
         for update in updates:
             registry_id = self._serverid_map[update.watchable.type].get_registry_id_or_none(update.watchable.server_id)
             if registry_id is not None:  # Ignore the update if there is no server ID associated
-                update_with_registry_id.append((registry_id, update))
+                update_by_registry_id[registry_id] = update
 
         # Then broadcast to every watchers
         for watcher_id, watcher in self._watchers.items():
             filtered_updates: List[RegistryValueUpdate] = []
-            for registry_id, update in update_with_registry_id:
-                if registry_id in watcher.subscribed_registry_id:
-                    filtered_updates.append(RegistryValueUpdate(update, registry_id))
+            # Here loop on the smallest dataset and lookup the biggest one.
+            # Basically, if we have 1 update and a watcher with 1000 subscription
+            # or a watcher with 1 subscription and 1000 updates.
+            if len(update_by_registry_id) < len(watcher.subscribed_registry_id):
+                for registry_id, update in update_by_registry_id.items():
+                    if registry_id in watcher.subscribed_registry_id:
+                        filtered_updates.append(RegistryValueUpdate(update, registry_id))
+            else:
+                for registry_id in watcher.subscribed_registry_id:
+                    if registry_id in update_by_registry_id:
+                        filtered_updates.append(RegistryValueUpdate(update_by_registry_id[registry_id], registry_id))
+
             if len(filtered_updates) > 0:
                 watcher.value_update_callback(watcher_id, filtered_updates)
 
