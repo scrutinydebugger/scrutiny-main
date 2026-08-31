@@ -17,7 +17,7 @@ import enum
 from copy import copy
 from dataclasses import dataclass
 
-from PySide6.QtCore import Signal, QObject
+from PySide6.QtCore import Signal, QObject, QTimer
 
 from scrutiny.core.logging import DUMPDATA_LOGLEVEL
 from scrutiny.sdk.listeners import BaseListener, ValueUpdate
@@ -182,6 +182,8 @@ class ServerManager:
     """Contains all the info about the actually loaded Scrutiny Firmware Description. ``None`` if not available"""
     _listener_cleanup_task: SignalThrottler
     """A throttler that prune the listener of dead handles once per seconds max."""
+    _dangling_subscription_prune_timer: QTimer
+    """Last layer of defense that cleanup a mess where we are still subscribed to a watchable but nobody listen for it"""
 
     _partial_watchable_downloaded_data: Dict[sdk.WatchableType, Dict[str, sdk.BriefWatchableConfiguration]]
 
@@ -257,6 +259,10 @@ class ServerManager:
         self._listener_cleanup_task = SignalThrottler(1000)
         self._listener_cleanup_task.triggered.connect(self._listener.prune_subscriptions)
 
+        self._dangling_subscription_prune_timer = QTimer()
+        self._dangling_subscription_prune_timer.setInterval(1000)
+        self._dangling_subscription_prune_timer.timeout.connect(self._qt_prune_dangling_subscription)
+
         # Logging logic
         if self._logger.isEnabledFor(DUMPDATA_LOGLEVEL):    # pragma: no cover
             self._signals.server_connected.connect(lambda: self._logger.log(DUMPDATA_LOGLEVEL, "+Signal: server_connected"))
@@ -285,6 +291,8 @@ class ServerManager:
         self.SERVER_THROTTLING_RATE = app_settings().SCRUTINY_GUI_SERVER_THROTTLING_RATE
         self.VAR_FACTORY_MAX_WATCHABLE = app_settings().SCRUTINY_GUI_MAX_GENERATED_VAR_PER_ELEMENT
         self.VAR_FACTORY_MAX_TOTAL_GENERATED_VAR = app_settings().SCRUTINY_GUI_MAX_TOTAL_GENERATED_VAR
+
+        self._dangling_subscription_prune_timer.start()
 
     # region Private - internal thread
 
@@ -548,6 +556,35 @@ class ServerManager:
     # endregion
 
     # region Private QT side methods
+
+    @enforce_thread(QT_THREAD_NAME)
+    def _qt_prune_dangling_subscription(self) -> None:
+        """Last layer of defense to cleanup a mess if we left a subscription active but nobody listen for it in the registry.
+        Should never have to do anything, but we leave it to find bugs.
+        """
+        dangling_subscription = self._qt_find_dangling_subscriptions(50)
+        for watchable_type, server_path in dangling_subscription:
+            self._logger.warning(f"Found dangling subscriptions for {server_path}. Pruning")
+            self._qt_maybe_request_unwatch(watchable_type, server_path)
+
+    def _qt_find_dangling_subscriptions(self, max_count: int) -> List[Tuple[sdk.WatchableType, str]]:
+        """This method is a fallback mechanism. If for some reason, an unwatch failed, we may have subscriptions for watchables that have no watchers.
+         Trigger a new unwatch request."""
+        outlist: List[Tuple[sdk.WatchableType, str]] = []
+        for watchable_type, store in self._registration_status_store.items():
+            for server_path, registration_status in store.items():
+                if registration_status.active_state == self.WatchableRegistrationState.SUBSCRIBED:
+                    if registration_status.pending_action == self.WatchableRegistrationAction.NONE:
+                        node = self._registry.get_watchable_node(watchable_type, server_path)
+                        if node is not None:
+                            if node.get_watcher_count() == 0:
+                                outlist.append((watchable_type, server_path))
+
+                if len(outlist) >= max_count:
+                    return outlist
+
+        return outlist
+
 
     def _request_update_rate_change(self, handle: WatchableHandle, update_rate: Optional[float]) -> None:
         def _threaded_func_change(client: ScrutinyClient) -> Optional[float]:
