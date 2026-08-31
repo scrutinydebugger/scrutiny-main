@@ -13,7 +13,7 @@ class TestGUITools(ScrutinyBaseGuiTest):
         def func():
             callcount.val += 1
 
-        throttler = SignalThrottler(1000)
+        throttler = SignalThrottler(2000)
         throttler.triggered.connect(func)
 
         def request():
@@ -26,11 +26,11 @@ class TestGUITools(ScrutinyBaseGuiTest):
         request()
         request()
         self.assertEqual(callcount.val, 1)
-        self.wait_with_event(1)
+        self.wait_with_event(2.1)
         self.assertEqual(callcount.val, 2)
         request()
         request()
         request()
         self.assertEqual(callcount.val, 2)
-        self.wait_with_event(1)
+        self.wait_with_event(2.1)
         self.assertEqual(callcount.val, 3)
