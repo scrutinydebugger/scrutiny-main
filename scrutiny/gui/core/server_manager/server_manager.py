@@ -190,11 +190,14 @@ class ServerManager:
     """Last layer of defense that cleanup a mess where we are still subscribed to a watchable but nobody listen for it"""
 
     _dangling_subscription_prune_timer: QTimer
-    commit_pending_subscriptions_task: SignalThrottler
+    """Last layer of defense that cleanup a mess where we are still subscribed to a watchable but nobody listen for it"""
+    _commit_pending_subscriptions_task: SignalThrottler
+    """A throttler that fill the ClientTaskReactor queue of watch/unwatch request"""
+    _pending_registration_sets: Dict[sdk.WatchableType, Set[str]]
+    """A set containing the path to all the subscription that have a pending state."""
 
     _partial_watchable_downloaded_data: Dict[sdk.WatchableType, Dict[str, sdk.BriefWatchableConfiguration]]
 
-    _pending_registration_sets: Dict[sdk.WatchableType, Set[str]]
 
     def __init__(self, watchable_registry: WatchableRegistry, client: Optional[ScrutinyClient] = None) -> None:
         super().__init__()  # Required for signals to work
@@ -282,8 +285,8 @@ class ServerManager:
         self._dangling_subscription_prune_timer.setInterval(1000)
         self._dangling_subscription_prune_timer.timeout.connect(self._qt_prune_dangling_subscription)
 
-        self.commit_pending_subscriptions_task = SignalThrottler(20)
-        self.commit_pending_subscriptions_task.triggered.connect(self._qt_commit_pending_subscriptions)
+        self._commit_pending_subscriptions_task = SignalThrottler(20)
+        self._commit_pending_subscriptions_task.triggered.connect(self._qt_commit_pending_subscriptions)
 
         # Logging logic
         if self._logger.isEnabledFor(DUMPDATA_LOGLEVEL):    # pragma: no cover
@@ -641,7 +644,7 @@ class ServerManager:
     def _qt_update_registration_set(self, watchable_type: sdk.WatchableType, server_path: str, registration_status: WatchableRegistrationStatus) -> None:
         if registration_status.pending_action != self.WatchableRegistrationAction.NONE:
             self._pending_registration_sets[watchable_type].add(server_path)
-            self.commit_pending_subscriptions_task.request()
+            self._commit_pending_subscriptions_task.request()
         else:
             with tools.SuppressException():
                 self._pending_registration_sets[watchable_type].remove(server_path)
@@ -865,6 +868,7 @@ class ServerManager:
                             processed = True
 
                     elif registration_status.pending_action == self.WatchableRegistrationAction.NONE:
+                        # Should never go here. If it does, we screwed up
                         processed = True
                         self._logger.warning("_qt_commit_pending_subscriptions called on a item with no pending action. Not supposed to happen.")
                     else:
@@ -878,7 +882,7 @@ class ServerManager:
 
         if not complete:
             self._logger.debug("Could not commit the full list of pending elements. Committed=%d", total_committed)
-            self.commit_pending_subscriptions_task.request()
+            self._commit_pending_subscriptions_task.request()
 
     @enforce_thread(QT_THREAD_NAME)
     def _qt_registry_watch_callback(self, data: GlobalWatchCallbackData) -> None:
