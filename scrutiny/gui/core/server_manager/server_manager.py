@@ -45,6 +45,10 @@ class ServerConfig:
     port: int
 
 
+class LoopExit(Exception):
+    pass
+
+
 class ServerManager:
     """Runs a thread for the synchronous SDK and emit QT events when something interesting happens"""
 
@@ -136,6 +140,7 @@ class ServerManager:
     VAR_FACTORY_MAX_WATCHABLE: int
     VAR_FACTORY_MAX_TOTAL_GENERATED_VAR: int
     SERVER_THROTTLING_RATE: int
+    SUBSCRIPTION_REQUEST_MAX_QUEUE_PERCENT = 0.6
 
     _client: ScrutinyClient
     """The SDK client object that talks with the server"""
@@ -184,6 +189,10 @@ class ServerManager:
     """A throttler that prune the listener of dead handles once per seconds max."""
     _dangling_subscription_prune_timer: QTimer
     """Last layer of defense that cleanup a mess where we are still subscribed to a watchable but nobody listen for it"""
+    _commit_pending_subscriptions_task: SignalThrottler
+    """A throttler that fill the ClientTaskReactor queue of watch/unwatch request"""
+    _pending_registration_sets: Dict[sdk.WatchableType, Set[str]]
+    """A set containing the path to all the subscription that have a pending state."""
 
     _partial_watchable_downloaded_data: Dict[sdk.WatchableType, Dict[str, sdk.BriefWatchableConfiguration]]
 
@@ -213,7 +222,7 @@ class ServerManager:
 
         self._internal_signals.thread_exit_signal.connect(self._qt_thread_join_thread_and_emit_stopped)
         self._stop_pending = False
-        self._client_task_reactor = ClientTaskReactor(self._client, nb_thread=16, queue_max_size=100)
+        self._client_task_reactor = ClientTaskReactor(self._client, nb_thread=16, queue_max_size=200)
         self._registry.register_global_watch_callback(self._qt_registry_watch_callback, self._qt_registry_unwatch_callback)
 
         self._listener = QtBufferedListener()
@@ -232,17 +241,27 @@ class ServerManager:
             sdk.WatchableType.Alias: {},
             sdk.WatchableType.RuntimePublishedValue: {}
         }
+        self._pending_registration_sets = {
+            sdk.WatchableType.Variable: set(),
+            sdk.WatchableType.Alias: set(),
+            sdk.WatchableType.RuntimePublishedValue: set()
+        }
 
         def clear_rpv_registration_status() -> None:
             self._registration_status_store[sdk.WatchableType.RuntimePublishedValue].clear()
+            self._pending_registration_sets[sdk.WatchableType.RuntimePublishedValue].clear()
 
         def clear_var_alias_registration_status() -> None:
             self._registration_status_store[sdk.WatchableType.Variable].clear()
             self._registration_status_store[sdk.WatchableType.Alias].clear()
+            self._pending_registration_sets[sdk.WatchableType.Variable].clear()
+            self._pending_registration_sets[sdk.WatchableType.Alias].clear()
 
         def clear_all_registration_status() -> None:
             for k in self._registration_status_store:
                 self._registration_status_store[k].clear()
+            for k in self._pending_registration_sets:
+                self._pending_registration_sets[k].clear()
 
         self._signals.device_disconnected.connect(clear_rpv_registration_status)
         self._signals.sfd_unloaded.connect(clear_var_alias_registration_status)
@@ -262,6 +281,9 @@ class ServerManager:
         self._dangling_subscription_prune_timer = QTimer()
         self._dangling_subscription_prune_timer.setInterval(1000)
         self._dangling_subscription_prune_timer.timeout.connect(self._qt_prune_dangling_subscription)
+
+        self._commit_pending_subscriptions_task = SignalThrottler(50)
+        self._commit_pending_subscriptions_task.triggered.connect(self._qt_commit_pending_subscriptions)
 
         # Logging logic
         if self._logger.isEnabledFor(DUMPDATA_LOGLEVEL):    # pragma: no cover
@@ -584,9 +606,9 @@ class ServerManager:
                     return outlist
 
         return outlist
-
-
-    def _request_update_rate_change(self, handle: WatchableHandle, update_rate: Optional[float]) -> None:
+    
+    def _qt_do_request_update_rate_change(self, handle: WatchableHandle, update_rate: Optional[float]) -> None:
+        """Request the server for an update rate change"""
         def _threaded_func_change(client: ScrutinyClient) -> Optional[float]:
             return handle.change_update_rate(update_rate)
 
@@ -599,6 +621,7 @@ class ServerManager:
             self._logger.debug(f"Changing update rate of {handle.server_path} to {update_rate}")
         self.schedule_client_request(_threaded_func_change, _qt_thread_callback)
 
+    @enforce_thread(QT_THREAD_NAME)
     def _qt_update_registration_from_watchable_handle(self,
                                                       registration_status: WatchableRegistrationStatus,
                                                       handle: Optional[WatchableHandle]) -> None:
@@ -615,12 +638,28 @@ class ServerManager:
             registration_status.active_state = self.WatchableRegistrationState.UNSUBSCRIBED
             registration_status.last_requested_rate = None
 
+    @enforce_thread(QT_THREAD_NAME)
+    def _qt_update_registration_set(self, watchable_type: sdk.WatchableType, server_path: str, registration_status: WatchableRegistrationStatus) -> None:
+        """Add or remove watchables in a set to indicates that they have a pending action. Allows faster lookup for these """
+        if registration_status.pending_action != self.WatchableRegistrationAction.NONE:
+            self._pending_registration_sets[watchable_type].add(server_path)
+            self._commit_pending_subscriptions_task.request()
+        else:
+            with tools.SuppressException():
+                self._pending_registration_sets[watchable_type].remove(server_path)
+
+    @enforce_thread(QT_THREAD_NAME)
     def _qt_watch_unwatch_ui_callback(self,
                                       attempted_action: WatchableRegistrationAction,
                                       watchable_type: sdk.WatchableType,
                                       server_path: str,
                                       registration_status: WatchableRegistrationStatus,
                                       error: Optional[Exception]) -> None:
+        """The callback invoked after a watch or unwatch request"""
+        # Update state based on SDK client
+        client_handle = self._client.try_get_existing_watch_handle(server_path)
+        self._qt_update_registration_from_watchable_handle(registration_status, client_handle)
+
         if error is not None:
             if attempted_action == self.WatchableRegistrationAction.SUBSCRIBE:
                 tools.log_exception(self._logger, error, f"Failed to watch {server_path}")
@@ -628,30 +667,29 @@ class ServerManager:
                 tools.log_exception(self._logger, error, f"Failed to unwatch {server_path}")
             else:
                 raise NotImplementedError("Unsupported attempted action")
-
-        # Update state based on SDK client
-        client_handle = self._client.try_get_existing_watch_handle(server_path)
-        self._qt_update_registration_from_watchable_handle(registration_status, client_handle)
-
-        # We tried to subscribe and succeeded . Inform the listener
-        if (attempted_action == self.WatchableRegistrationAction.SUBSCRIBE
-                and registration_status.active_state == self.WatchableRegistrationState.SUBSCRIBED):
-            assert client_handle is not None
-            self._registry.assign_serverid_to_node(client_handle.type, server_path, client_handle.server_id)
-            self._listener.subscribe(client_handle)
-        self._listener_cleanup_task.request()
-
-        # We tried to unsubscribe, succeeded and nothing else to do. Cleanup
-        if (registration_status.active_state == self.WatchableRegistrationState.UNSUBSCRIBED
-                and registration_status.pending_action == self.WatchableRegistrationAction.NONE):
-            if server_path in self._registration_status_store[watchable_type]:
-                del self._registration_status_store[watchable_type][server_path]    # Save some memory.
-            self._registry.clear_serverid_from_node(watchable_type, server_path)
         else:
-            if registration_status.pending_action == self.WatchableRegistrationAction.SUBSCRIBE:
-                self._qt_maybe_request_watch(watchable_type, server_path, registration_status.pending_update_rate)
-            elif registration_status.pending_action == self.WatchableRegistrationAction.UNSUBSCRIBE:
-                self._qt_maybe_request_unwatch(watchable_type, server_path)
+            # We tried to subscribe and succeeded . Inform the listener
+            if attempted_action == self.WatchableRegistrationAction.SUBSCRIBE:
+                if registration_status.active_state == self.WatchableRegistrationState.SUBSCRIBED:
+                    assert client_handle is not None
+                    self._registry.assign_serverid_to_node(client_handle.type, server_path, client_handle.server_id)
+                    self._listener.subscribe(client_handle)
+            elif attempted_action == self.WatchableRegistrationAction.UNSUBSCRIBE:
+                if (registration_status.active_state == self.WatchableRegistrationState.UNSUBSCRIBED
+                        and registration_status.pending_action == self.WatchableRegistrationAction.NONE):
+
+                    if server_path in self._registration_status_store[watchable_type]:
+                        del self._registration_status_store[watchable_type][server_path]    # Save some memory.
+                    self._registry.clear_serverid_from_node(watchable_type, server_path)
+            self._listener_cleanup_task.request()
+
+        if registration_status.pending_action == self.WatchableRegistrationAction.SUBSCRIBE:
+            self._qt_maybe_request_watch(watchable_type, server_path, registration_status.pending_update_rate)
+        elif registration_status.pending_action == self.WatchableRegistrationAction.UNSUBSCRIBE:
+            self._qt_maybe_request_unwatch(watchable_type, server_path)
+        elif registration_status.pending_action == self.WatchableRegistrationAction.NONE:
+            with tools.SuppressException():
+                self._pending_registration_sets[watchable_type].remove(server_path)
 
         if self._unit_test:
             self._qt_watch_unwatch_ui_callback_call_count += 1
@@ -681,7 +719,7 @@ class ServerManager:
             if update_rate != registration_status.last_requested_rate:
                 client_handle = self._client.try_get_existing_watch_handle(server_path)
                 if client_handle is not None:
-                    self._request_update_rate_change(client_handle, update_rate)
+                    self._qt_do_request_update_rate_change(client_handle, update_rate)
                     registration_status.last_requested_rate = update_rate
                 else:
                     registration_status.pending_action = self.WatchableRegistrationAction.SUBSCRIBE
@@ -694,32 +732,49 @@ class ServerManager:
 
         elif registration_status.active_state == self.WatchableRegistrationState.UNSUBSCRIBED:
             # Proceed with subscription
-            registration_status.pending_action = self.WatchableRegistrationAction.NONE
-            registration_status.pending_update_rate = None
-            registration_status.active_state = self.WatchableRegistrationState.SUBSCRIBING
+            registration_status.pending_action = self.WatchableRegistrationAction.SUBSCRIBE
+            registration_status.pending_update_rate = update_rate
 
-            def func(client: ScrutinyClient) -> Optional[Exception]:
-                try:
-                    client.watch(server_path, update_rate=update_rate)
-                except sdk.exceptions.ScrutinySDKException as e:
-                    return e   # Exception others than SDKException are not normal.
-                return None
-
-            def ui_callback(expected_error: Optional[Exception], unexpected_error: Optional[Exception]) -> None:
-                if unexpected_error is not None:
-                    tools.log_exception(self._logger, unexpected_error, "Failed to watch", str_level=logging.CRITICAL)    # Not supposed to happen
-                else:
-                    self._qt_watch_unwatch_ui_callback(
-                        attempted_action=self.WatchableRegistrationAction.SUBSCRIBE,
-                        watchable_type=watchable_type,
-                        server_path=server_path,
-                        registration_status=registration_status,
-                        error=expected_error)
-
-            self.schedule_client_request(func, ui_callback)
-            registration_status.last_requested_rate = update_rate
         else:   # pragma: no cover
             raise NotImplementedError(f"Unsupported state: {registration_status.active_state}")
+
+        self._qt_update_registration_set(watchable_type, server_path, registration_status)
+
+    @enforce_thread(QT_THREAD_NAME)
+    def _qt_do_request_watch(self,
+                             watchable_type: sdk.WatchableType,
+                             server_path: str,
+                             update_rate: Optional[float],
+                             registration_status: WatchableRegistrationStatus
+                             ) -> None:
+        registration_status.pending_action = self.WatchableRegistrationAction.NONE
+        registration_status.pending_update_rate = None
+        registration_status.active_state = self.WatchableRegistrationState.SUBSCRIBING
+
+        def func(client: ScrutinyClient) -> Optional[Exception]:
+            try:
+                client.watch(server_path, update_rate=update_rate)
+            except sdk.exceptions.ScrutinySDKException as e:
+                return e   # Exception others than SDKException are not normal.
+            return None
+
+        def ui_callback(sdk_exception: Optional[Exception], unexpected_error: Optional[Exception]) -> None:
+            error = sdk_exception
+            if unexpected_error is not None:
+                error = unexpected_error
+                if not isinstance(unexpected_error, ClientTaskReactor.ReactorBaseException):   # The reactor will log it itself.
+                    # Not supposed to happen
+                    tools.log_exception(self._logger, unexpected_error, "Unexpected error while trying to watch", str_level=logging.CRITICAL)
+
+            self._qt_watch_unwatch_ui_callback(
+                attempted_action=self.WatchableRegistrationAction.SUBSCRIBE,
+                watchable_type=watchable_type,
+                server_path=server_path,
+                registration_status=registration_status,
+                error=error)
+
+        self.schedule_client_request(func, ui_callback)
+        registration_status.last_requested_rate = update_rate
 
     @enforce_thread(QT_THREAD_NAME)
     def _qt_maybe_request_unwatch(self, watchable_type: sdk.WatchableType, server_path: str) -> None:
@@ -746,30 +801,84 @@ class ServerManager:
             registration_status.pending_action = self.WatchableRegistrationAction.UNSUBSCRIBE
         elif registration_status.active_state == self.WatchableRegistrationState.SUBSCRIBED:
             # Proceed with unsubscription
-            registration_status.pending_action = self.WatchableRegistrationAction.NONE
-            registration_status.active_state = self.WatchableRegistrationState.UNSUBSCRIBING
+            registration_status.pending_action = self.WatchableRegistrationAction.UNSUBSCRIBE
 
-            def func(client: ScrutinyClient) -> Optional[Exception]:
-                try:
-                    client.unwatch(server_path)
-                except sdk.exceptions.ScrutinySDKException as e:
-                    return e   # Exception others than SDKException are not normal.
-                return None
-
-            def ui_callback(expected_error: Optional[Exception], unexpected_error: Optional[Exception]) -> None:
-                if unexpected_error is not None:
-                    tools.log_exception(self._logger, unexpected_error, "Failed to unwatch", str_level=logging.CRITICAL)    # Not supposed to happen
-                else:
-                    self._qt_watch_unwatch_ui_callback(
-                        attempted_action=self.WatchableRegistrationAction.UNSUBSCRIBE,
-                        watchable_type=watchable_type,
-                        server_path=server_path,
-                        registration_status=registration_status,
-                        error=expected_error)
-
-            self.schedule_client_request(func, ui_callback)
         else:   # pragma: no cover
             raise NotImplementedError(f"Unsupported state: {registration_status.active_state}")
+
+        self._qt_update_registration_set(watchable_type, server_path, registration_status)
+
+    @enforce_thread(QT_THREAD_NAME)
+    def _qt_do_request_unwatch(self, watchable_type: sdk.WatchableType, server_path: str, registration_status: WatchableRegistrationStatus) -> None:
+        registration_status.pending_action = self.WatchableRegistrationAction.NONE
+        registration_status.active_state = self.WatchableRegistrationState.UNSUBSCRIBING
+
+        def func(client: ScrutinyClient) -> Optional[Exception]:
+            try:
+                client.unwatch(server_path)
+            except sdk.exceptions.ScrutinySDKException as e:
+                return e   # Exception others than SDKException are not normal.
+            return None
+
+        def ui_callback(sdk_exception: Optional[Exception], unexpected_error: Optional[Exception]) -> None:
+            error = sdk_exception
+            if unexpected_error is not None:
+                error = unexpected_error
+                if not isinstance(unexpected_error, ClientTaskReactor.ReactorBaseException):  # The reactor will log it itself.
+                    # Not supposed to happen
+                    tools.log_exception(self._logger, unexpected_error, "Unexpected error while trying to unwatch", str_level=logging.CRITICAL)
+
+            self._qt_watch_unwatch_ui_callback(
+                attempted_action=self.WatchableRegistrationAction.UNSUBSCRIBE,
+                watchable_type=watchable_type,
+                server_path=server_path,
+                registration_status=registration_status,
+                error=error)
+
+        self.schedule_client_request(func, ui_callback)
+
+    @enforce_thread(QT_THREAD_NAME)
+    def _qt_commit_pending_subscriptions(self) -> None:
+        margin = int(self._client_task_reactor.queue_max_size() * (1 - self.SUBSCRIPTION_REQUEST_MAX_QUEUE_PERCENT))
+
+        available_task_room = max(0, self._client_task_reactor.available_space() - margin)
+        total_committed = 0
+        complete = True
+        try:
+            for watchable_type in self._pending_registration_sets:
+                if total_committed >= available_task_room:
+                    raise LoopExit()
+                theset = self._pending_registration_sets[watchable_type]
+                for server_path in list(theset):    # Make a copy
+                    registration_status = self._registration_status_store[watchable_type][server_path]
+                    if total_committed >= available_task_room:
+                        raise LoopExit()
+                    processed = False
+                    if registration_status.pending_action == self.WatchableRegistrationAction.SUBSCRIBE:
+                        if registration_status.active_state == self.WatchableRegistrationState.UNSUBSCRIBED:
+                            self._qt_do_request_watch(watchable_type, server_path, registration_status.pending_update_rate, registration_status)
+                            processed = True
+                    elif registration_status.pending_action == self.WatchableRegistrationAction.UNSUBSCRIBE:
+                        if registration_status.active_state == self.WatchableRegistrationState.SUBSCRIBED:
+                            self._qt_do_request_unwatch(watchable_type, server_path, registration_status)
+                            processed = True
+
+                    elif registration_status.pending_action == self.WatchableRegistrationAction.NONE:
+                        # Should never go here. If it does, we screwed up
+                        processed = True
+                        self._logger.warning("_qt_commit_pending_subscriptions called on a item with no pending action. Not supposed to happen.")
+                    else:
+                        raise NotImplementedError("Unknown action")
+
+                    if processed:
+                        total_committed += 1
+                        theset.remove(server_path)
+        except LoopExit:
+            complete = False
+
+        if not complete:
+            self._logger.debug("Could not commit the full list of pending elements. Committed=%d", total_committed)
+            self._commit_pending_subscriptions_task.request()
 
     @enforce_thread(QT_THREAD_NAME)
     def _qt_registry_watch_callback(self, data: GlobalWatchCallbackData) -> None:
@@ -789,7 +898,7 @@ class ServerManager:
             if handle is not None:
                 # Slow down the update rate if necessary
                 if data.highest_update_rate != handle.requested_update_rate:
-                    self._request_update_rate_change(handle, data.highest_update_rate)
+                    self._qt_do_request_update_rate_change(handle, data.highest_update_rate)
 
     def _qt_value_update_received(self) -> None:
         # Called in the QT thread when a value update is received by the listener (the client)
@@ -1098,4 +1207,6 @@ class ServerManager:
         """Returns ``True`` if ``stop()`` has been called but the internal thread has not yet exited."""
         return self._stop_pending
 
+    def get_client_task_reactor_for_test(self) -> ClientTaskReactor:
+        return self._client_task_reactor
     # endregion

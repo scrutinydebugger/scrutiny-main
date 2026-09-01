@@ -30,11 +30,17 @@ class TaskQueueEntry:
     ui_callback: UICallbackFunc
 
 
-class StoppedException(Exception):
-    pass
-
-
 class ClientTaskReactor:
+
+    class ReactorBaseException(Exception):
+        pass
+
+    class StoppedException(ReactorBaseException):
+        pass
+
+    class QueueFullException(ReactorBaseException):
+        pass
+
     _client: ScrutinyClient
     """Reference to a ScrutinyClient that the user can use in its task"""
     _threads: List[threading.Thread]
@@ -70,8 +76,9 @@ class ClientTaskReactor:
             entry = TaskQueueEntry(task_id, task, ui_callback)
             self._task_queue.put_nowait(entry)
         except queue.Full as e:
-            self._logger.error("Task queue is full")
-            ui_callback(None, e)
+            msg = "Task queue is full"
+            self._logger.error(msg)
+            ui_callback(None, self.QueueFullException(msg))
 
     @enforce_thread(QT_THREAD_NAME)
     def start(self) -> None:
@@ -115,7 +122,7 @@ class ClientTaskReactor:
                     continue
                 if self._logger.isEnabledFor(logging.DEBUG):
                     self._logger.debug(f"Cancelling task #{entry.task_id}")
-                entry.ui_callback(None, StoppedException("Reactor stopped"))
+                entry.ui_callback(None, self.StoppedException("Reactor stopped"))
         except queue.Empty:
             pass
 
@@ -156,3 +163,9 @@ class ClientTaskReactor:
                 error = e
 
             invoke_in_qt_thread(functools.partial(entry.ui_callback, result, error))  # Non blocking
+
+    def available_space(self) -> int:
+        return self._task_queue.maxsize - self._task_queue.qsize()
+
+    def queue_max_size(self) -> int:
+        return self._task_queue.maxsize

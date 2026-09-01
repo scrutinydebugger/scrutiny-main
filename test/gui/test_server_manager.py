@@ -15,6 +15,7 @@ from test.gui.base_gui_test import ScrutinyBaseGuiTest, EventType
 import time
 from test import logger
 from scrutiny import tools
+from uuid import uuid4
 
 from scrutiny.tools.typing import *
 
@@ -584,10 +585,10 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
         return super().tearDown()
 
     def get_watch_request(self, timeout: float = 2, assert_single: bool = True, allow_none: bool = False):
-        self.wait_true(fn=lambda: len(self.fake_client._pending_watch_request) > 0,
-                       timeout=timeout,
-                       no_assert=allow_none,
-                       msg="Never got the watch request")
+        self.wait_true_with_events(fn=lambda: len(self.fake_client._pending_watch_request) > 0,
+                                   timeout=timeout,
+                                   no_assert=allow_none,
+                                   msg="Never got the watch request")
         if len(self.fake_client._pending_watch_request) == 0:
             if allow_none:
                 return None
@@ -599,10 +600,10 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
         return request
 
     def get_unwatch_request(self, timeout: float = 2, assert_single: bool = True, allow_none: bool = False):
-        self.wait_true(fn=lambda: len(self.fake_client._pending_unwatch_request) > 0,
-                       timeout=timeout,
-                       no_assert=allow_none,
-                       msg="Never received an unwatch request")
+        self.wait_true_with_events(fn=lambda: len(self.fake_client._pending_unwatch_request) > 0,
+                                   timeout=timeout,
+                                   no_assert=allow_none,
+                                   msg="Never received an unwatch request")
         if len(self.fake_client._pending_unwatch_request) == 0:
             if allow_none:
                 return None
@@ -931,6 +932,72 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
             update_rate_request = self.get_change_update_rate_request(assert_single=True)
             self.assertEqual(update_rate_request.requested_rate, 30)   # Keep fastest
             update_rate_request.simulate_success()
+
+    def test_do_not_overflow_reactor_queue_with_watch_request(self):
+        watcher = 'unittest'
+        self.registry.register_watcher(watcher, lambda *x, **y: None, lambda *x, **y: None)
+        reactor = self.server_manager.get_client_task_reactor_for_test()
+
+        nb_element = reactor.queue_max_size() * 2
+        for i in range(nb_element):
+            self.registry._add_watchable(f'a/b/c{i}', sdk.BriefWatchableConfiguration(
+                datatype=sdk.EmbeddedDataType.float32,
+                enum=None,
+                watchable_type=sdk.WatchableType.Variable
+            ))
+
+        for i in range(nb_element):
+            self.registry.watch(watcher, sdk.WatchableType.Variable, f'a/b/c{i}')
+
+        THRESHOLD = int(reactor.queue_max_size() * (1 - self.server_manager.SUBSCRIPTION_REQUEST_MAX_QUEUE_PERCENT)) - 1
+        self.wait_true_with_events(lambda: reactor.available_space() < THRESHOLD, timeout=1, no_assert=True)
+        self.assertGreater(reactor.available_space(), THRESHOLD)
+
+        gotten_request = 0
+        TIMEOUT = 10
+        t1 = time.monotonic()
+        timed_out = False
+        queue_usage_pu_peak = 0
+        while gotten_request < nb_element:
+            if time.monotonic() - t1 > TIMEOUT:
+                timed_out = True
+                break
+
+            request = self.get_watch_request(assert_single=False)
+            self.assertIsNotNone(request)
+            gotten_request += 1
+            watchable_config = sdk.BaseDetailedWatchableConfiguration(
+                sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None, server_id=uuid4().hex, server_path=request.requested_path
+            )
+            request.simulate_success(watchable_config)
+
+            queue_usage_pu = 1 - reactor.available_space() / reactor.queue_max_size()
+            queue_usage_pu_peak = max(queue_usage_pu_peak, queue_usage_pu)
+
+            self.assertGreater(reactor.available_space(), THRESHOLD)
+
+        self.assertEqual(gotten_request, nb_element)
+        self.assertFalse(timed_out)
+        self.assertLessEqual(queue_usage_pu_peak, self.server_manager.SUBSCRIPTION_REQUEST_MAX_QUEUE_PERCENT)
+        logger.debug("Peak usage = %0.2f%%", queue_usage_pu_peak * 100)
+
+        self.assertIsNone(self.get_watch_request(timeout=0.5, allow_none=True))
+
+    def test_no_watch_retry_on_server_refusal(self):
+        watcher = 'unittest'
+        self.registry.register_watcher(watcher, lambda *x, **y: None, lambda *x, **y: None)
+
+        self.registry._add_watchable('a/b/c', sdk.BriefWatchableConfiguration(
+            datatype=sdk.EmbeddedDataType.float32,
+            enum=None,
+            watchable_type=sdk.WatchableType.Variable
+        ))
+        self.registry.watch(watcher, sdk.WatchableType.Variable, 'a/b/c')
+        request = self.get_watch_request(assert_single=False)
+        self.assertIsNotNone(request)
+        request.simulate_failure()
+
+        self.assertIsNone(self.get_watch_request(timeout=1, allow_none=True))
 
 
 class TestQtListener(ScrutinyBaseGuiTest):
