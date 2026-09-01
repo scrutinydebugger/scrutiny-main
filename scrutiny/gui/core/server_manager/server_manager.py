@@ -606,7 +606,7 @@ class ServerManager:
                     return outlist
 
         return outlist
-
+    
     def _qt_do_request_update_rate_change(self, handle: WatchableHandle, update_rate: Optional[float]) -> None:
         """Request the server for an update rate change"""
         def _threaded_func_change(client: ScrutinyClient) -> Optional[float]:
@@ -839,7 +839,7 @@ class ServerManager:
 
     @enforce_thread(QT_THREAD_NAME)
     def _qt_commit_pending_subscriptions(self) -> None:
-        margin = int(self._client_task_reactor.queue_max_size() * self.SUBSCRIPTION_REQUEST_MAX_QUEUE_PERCENT)
+        margin = int(self._client_task_reactor.queue_max_size() * (1 - self.SUBSCRIPTION_REQUEST_MAX_QUEUE_PERCENT))
 
         available_task_room = max(0, self._client_task_reactor.available_space() - margin)
         total_committed = 0
