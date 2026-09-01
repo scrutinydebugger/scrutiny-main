@@ -32,13 +32,13 @@ class TaskQueueEntry:
 
 class ClientTaskReactor:
 
-    class BaseException(Exception):
+    class ReactorBaseException(Exception):
         pass
 
-    class StoppedException(BaseException):
+    class StoppedException(ReactorBaseException):
         pass
 
-    class QueueFullException(BaseException):
+    class QueueFullException(ReactorBaseException):
         pass
 
     _client: ScrutinyClient

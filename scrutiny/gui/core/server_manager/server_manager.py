@@ -254,7 +254,7 @@ class ServerManager:
         def clear_var_alias_registration_status() -> None:
             self._registration_status_store[sdk.WatchableType.Variable].clear()
             self._registration_status_store[sdk.WatchableType.Alias].clear()
-            self._pending_registration_sets[sdk.WatchableType.Alias].clear()
+            self._pending_registration_sets[sdk.WatchableType.Variable].clear()
             self._pending_registration_sets[sdk.WatchableType.Alias].clear()
 
         def clear_all_registration_status() -> None:
@@ -824,7 +824,7 @@ class ServerManager:
             error = sdk_exception
             if unexpected_error is not None:
                 error = unexpected_error
-                if isinstance(unexpected_error, ClientTaskReactor.BaseException):  # The reactor will log it itself.
+                if not isinstance(unexpected_error, ClientTaskReactor.ReactorBaseException):  # The reactor will log it itself.
                     # Not supposed to happen
                     tools.log_exception(self._logger, unexpected_error, "Unexpected error while trying to unwatch", str_level=logging.CRITICAL)
 
