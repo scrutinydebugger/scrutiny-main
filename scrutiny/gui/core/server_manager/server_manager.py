@@ -140,6 +140,7 @@ class ServerManager:
     VAR_FACTORY_MAX_WATCHABLE: int
     VAR_FACTORY_MAX_TOTAL_GENERATED_VAR: int
     SERVER_THROTTLING_RATE: int
+    SUBSCRIPTION_REQUEST_MAX_QUEUE_PERCENT = 0.6
 
     _client: ScrutinyClient
     """The SDK client object that talks with the server"""
@@ -606,7 +607,8 @@ class ServerManager:
 
         return outlist
 
-    def _request_update_rate_change(self, handle: WatchableHandle, update_rate: Optional[float]) -> None:
+    def _qt_do_request_update_rate_change(self, handle: WatchableHandle, update_rate: Optional[float]) -> None:
+        """Request the server for an update rate change"""
         def _threaded_func_change(client: ScrutinyClient) -> Optional[float]:
             return handle.change_update_rate(update_rate)
 
@@ -638,6 +640,7 @@ class ServerManager:
 
     @enforce_thread(QT_THREAD_NAME)
     def _qt_update_registration_set(self, watchable_type: sdk.WatchableType, server_path: str, registration_status: WatchableRegistrationStatus) -> None:
+        """Add or remove watchables in a set to indicates that they have a pending action. Allows faster lookup for these """
         if registration_status.pending_action != self.WatchableRegistrationAction.NONE:
             self._pending_registration_sets[watchable_type].add(server_path)
             self._commit_pending_subscriptions_task.request()
@@ -652,6 +655,7 @@ class ServerManager:
                                       server_path: str,
                                       registration_status: WatchableRegistrationStatus,
                                       error: Optional[Exception]) -> None:
+        """The callback invoked after a watch or unwatch request"""
         # Update state based on SDK client
         client_handle = self._client.try_get_existing_watch_handle(server_path)
         self._qt_update_registration_from_watchable_handle(registration_status, client_handle)
@@ -663,9 +667,6 @@ class ServerManager:
                 tools.log_exception(self._logger, error, f"Failed to unwatch {server_path}")
             else:
                 raise NotImplementedError("Unsupported attempted action")
-
-            if registration_status.pending_action == self.WatchableRegistrationAction.NONE:
-                registration_status.pending_action = attempted_action  # Retry
         else:
             # We tried to subscribe and succeeded . Inform the listener
             if attempted_action == self.WatchableRegistrationAction.SUBSCRIBE:
@@ -718,7 +719,7 @@ class ServerManager:
             if update_rate != registration_status.last_requested_rate:
                 client_handle = self._client.try_get_existing_watch_handle(server_path)
                 if client_handle is not None:
-                    self._request_update_rate_change(client_handle, update_rate)
+                    self._qt_do_request_update_rate_change(client_handle, update_rate)
                     registration_status.last_requested_rate = update_rate
                 else:
                     registration_status.pending_action = self.WatchableRegistrationAction.SUBSCRIBE
@@ -838,7 +839,9 @@ class ServerManager:
 
     @enforce_thread(QT_THREAD_NAME)
     def _qt_commit_pending_subscriptions(self) -> None:
-        available_task_room = int(self._client_task_reactor.available_space() * 0.6)  # Leaves 40% free
+        margin = int(self._client_task_reactor.queue_max_size() * self.SUBSCRIPTION_REQUEST_MAX_QUEUE_PERCENT)
+
+        available_task_room = max(0, self._client_task_reactor.available_space() - margin)
         total_committed = 0
         complete = True
         try:
@@ -895,7 +898,7 @@ class ServerManager:
             if handle is not None:
                 # Slow down the update rate if necessary
                 if data.highest_update_rate != handle.requested_update_rate:
-                    self._request_update_rate_change(handle, data.highest_update_rate)
+                    self._qt_do_request_update_rate_change(handle, data.highest_update_rate)
 
     def _qt_value_update_received(self) -> None:
         # Called in the QT thread when a value update is received by the listener (the client)
@@ -1204,4 +1207,6 @@ class ServerManager:
         """Returns ``True`` if ``stop()`` has been called but the internal thread has not yet exited."""
         return self._stop_pending
 
+    def get_client_task_reactor_for_test(self) -> ClientTaskReactor:
+        return self._client_task_reactor
     # endregion

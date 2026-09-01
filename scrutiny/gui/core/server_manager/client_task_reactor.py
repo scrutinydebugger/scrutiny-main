@@ -166,3 +166,6 @@ class ClientTaskReactor:
 
     def available_space(self) -> int:
         return self._task_queue.maxsize - self._task_queue.qsize()
+
+    def queue_max_size(self) -> int:
+        return self._task_queue.maxsize
