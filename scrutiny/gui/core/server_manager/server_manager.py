@@ -762,7 +762,7 @@ class ServerManager:
             error = sdk_exception
             if unexpected_error is not None:
                 error = unexpected_error
-                if not isinstance(unexpected_error, ClientTaskReactor.BaseException):   # The reactor will log it itself.
+                if not isinstance(unexpected_error, ClientTaskReactor.ReactorBaseException):   # The reactor will log it itself.
                     # Not supposed to happen
                     tools.log_exception(self._logger, unexpected_error, "Unexpected error while trying to watch", str_level=logging.CRITICAL)
 
