@@ -584,10 +584,10 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
         return super().tearDown()
 
     def get_watch_request(self, timeout: float = 2, assert_single: bool = True, allow_none: bool = False):
-        self.wait_true(fn=lambda: len(self.fake_client._pending_watch_request) > 0,
-                       timeout=timeout,
-                       no_assert=allow_none,
-                       msg="Never got the watch request")
+        self.wait_true_with_events(fn=lambda: len(self.fake_client._pending_watch_request) > 0,
+                                   timeout=timeout,
+                                   no_assert=allow_none,
+                                   msg="Never got the watch request")
         if len(self.fake_client._pending_watch_request) == 0:
             if allow_none:
                 return None
@@ -599,10 +599,10 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
         return request
 
     def get_unwatch_request(self, timeout: float = 2, assert_single: bool = True, allow_none: bool = False):
-        self.wait_true(fn=lambda: len(self.fake_client._pending_unwatch_request) > 0,
-                       timeout=timeout,
-                       no_assert=allow_none,
-                       msg="Never received an unwatch request")
+        self.wait_true_with_events(fn=lambda: len(self.fake_client._pending_unwatch_request) > 0,
+                                   timeout=timeout,
+                                   no_assert=allow_none,
+                                   msg="Never received an unwatch request")
         if len(self.fake_client._pending_unwatch_request) == 0:
             if allow_none:
                 return None

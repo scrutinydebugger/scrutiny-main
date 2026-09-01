@@ -221,7 +221,7 @@ class ServerManager:
 
         self._internal_signals.thread_exit_signal.connect(self._qt_thread_join_thread_and_emit_stopped)
         self._stop_pending = False
-        self._client_task_reactor = ClientTaskReactor(self._client, nb_thread=16, queue_max_size=100)
+        self._client_task_reactor = ClientTaskReactor(self._client, nb_thread=16, queue_max_size=200)
         self._registry.register_global_watch_callback(self._qt_registry_watch_callback, self._qt_registry_unwatch_callback)
 
         self._listener = QtBufferedListener()
@@ -281,7 +281,7 @@ class ServerManager:
         self._dangling_subscription_prune_timer.setInterval(1000)
         self._dangling_subscription_prune_timer.timeout.connect(self._qt_prune_dangling_subscription)
 
-        self._commit_pending_subscriptions_task = SignalThrottler(20)
+        self._commit_pending_subscriptions_task = SignalThrottler(50)
         self._commit_pending_subscriptions_task.triggered.connect(self._qt_commit_pending_subscriptions)
 
         # Logging logic
@@ -838,7 +838,7 @@ class ServerManager:
 
     @enforce_thread(QT_THREAD_NAME)
     def _qt_commit_pending_subscriptions(self) -> None:
-        available_task_room = int(self._client_task_reactor.available_space() * 0.9)  # Leaves 10% free
+        available_task_room = int(self._client_task_reactor.available_space() * 0.6)  # Leaves 40% free
         total_committed = 0
         complete = True
         try:
