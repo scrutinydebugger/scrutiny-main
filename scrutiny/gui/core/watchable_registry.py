@@ -177,6 +177,10 @@ class WatchableRegistryEntryNode:
             return None
         return max(cast(Sequence[float], rates))
 
+    def iterate_watchers(self) -> Generator[WatcherIdType, None, None]:
+        for watcher_id in self._watcher_data.keys():
+            yield watcher_id
+
 
 @dataclass(frozen=True, slots=True)
 class WatchableRegistryIntermediateNode:
@@ -385,22 +389,23 @@ class WatchableRegistry:
 
         :param updates: List of ValueUpdates
         """
-
-        # First, lookup the registry ID of each value update.
-        update_with_registry_id: List[Tuple[int, ValueUpdate]] = []
+        update_by_watchers: Dict[Union[str, int], List[RegistryValueUpdate]] = {}
         for update in updates:
             registry_id = self._serverid_map[update.watchable.type].get_registry_id_or_none(update.watchable.server_id)
-            if registry_id is not None:  # Ignore the update if there is no server ID associated
-                update_with_registry_id.append((registry_id, update))
+            try:
+                if registry_id is None:  # Ignore the update if there is no server ID associated
+                    continue
+                node = self._watched_entries[registry_id]
+            except KeyError:
+                continue
 
-        # Then broadcast to every watchers
-        for watcher_id, watcher in self._watchers.items():
-            filtered_updates: List[RegistryValueUpdate] = []
-            for registry_id, update in update_with_registry_id:
-                if registry_id in watcher.subscribed_registry_id:
-                    filtered_updates.append(RegistryValueUpdate(update, registry_id))
-            if len(filtered_updates) > 0:
-                watcher.value_update_callback(watcher_id, filtered_updates)
+            for watcher_id in node.iterate_watchers():
+                if watcher_id not in update_by_watchers:
+                    update_by_watchers[watcher_id] = []
+                update_by_watchers[watcher_id].append(RegistryValueUpdate(update, registry_id))
+
+        for watcher_id, filtered_updates in update_by_watchers.items():
+            self._watchers[watcher_id].value_update_callback(watcher_id, filtered_updates)
 
     @enforce_thread(QT_THREAD_NAME)
     def register_watcher(self,
