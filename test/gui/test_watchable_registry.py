@@ -21,6 +21,9 @@ from test.gui.fake_sdk_client import FakeSDKClient
 from datetime import datetime
 from scrutiny.tools.typing import *
 from uuid import uuid4
+import random
+import time
+from test import logger
 
 DUMMY_DATASET_RPV = {
     '/rpv/rpv1000': sdk.BriefWatchableConfiguration(watchable_type=sdk.WatchableType.RuntimePublishedValue, datatype=sdk.EmbeddedDataType.float32, enum=None),
@@ -339,9 +342,9 @@ class TestWatchableRegistry(ScrutinyUnitTest):
         self.assertEqual(len(update_val_callback_history['watcher2']), 0)
 
         # Check value updates broadcast
-        update1_1 = ValueUpdate(var1_sdk_handle, 123, data=bytes([1, 2, 3]), status=sdk.ValueStatus.Valid, update_timestamp=datetime.now(),)
-        update1_2 = ValueUpdate(var1_sdk_handle, 456, data=bytes([4, 5, 6]), status=sdk.ValueStatus.Valid, update_timestamp=datetime.now(),)
-        update2_1 = ValueUpdate(var2_sdk_handle, 789, data=bytes([7, 8, 9]), status=sdk.ValueStatus.Valid, update_timestamp=datetime.now(),)
+        update1_1 = ValueUpdate(var1_sdk_handle, 123, data=bytes([1, 2, 3]), status=sdk.ValueStatus.Valid, update_timestamp=datetime.now())
+        update1_2 = ValueUpdate(var1_sdk_handle, 456, data=bytes([4, 5, 6]), status=sdk.ValueStatus.Valid, update_timestamp=datetime.now())
+        update2_1 = ValueUpdate(var2_sdk_handle, 789, data=bytes([7, 8, 9]), status=sdk.ValueStatus.Valid, update_timestamp=datetime.now())
         self.registry.broadcast_value_updates_to_watchers([update1_1, update1_2])
         self.assertEqual(len(update_val_callback_history['watcher1']), 1)
         self.assertEqual(len(update_val_callback_history['watcher2']), 1)
@@ -386,6 +389,46 @@ class TestWatchableRegistry(ScrutinyUnitTest):
 
         with self.assertRaises(WatcherNotFoundError):
             self.registry.watch_fqn('unknownwatcher', var1fqn)  # Watcher is not registered
+
+    def test_broadcast_keep_order(self):
+        watcher = 'unittest'
+        history = []
+
+        def update_val_callback(watcher, value_list):
+            history.extend(value_list)
+
+        self.registry.register_watcher(watcher, update_val_callback, lambda *x, **y: None)
+
+        nb_element = 100
+        handles = {}
+        for i in range(nb_element):
+            path = f'/a/b/c{i}'
+            fqn = WatchableRegistry.FQN.make(sdk.WatchableType.Variable, path)
+            self.registry._add_watchable(path, sdk.BriefWatchableConfiguration(
+                datatype=sdk.EmbeddedDataType.float32,
+                enum=None,
+                watchable_type=sdk.WatchableType.Variable
+            ))
+            handles[fqn] = self.make_fake_watchable_from_registry(fqn)
+            self.registry.assign_serverid_to_node_fqn(fqn, handles[fqn].server_id)
+            self.registry.watch_fqn(watcher, fqn)
+
+        nb_update = nb_element * 5  # We want duplicates to make sure they don't get discarded
+        updates = []
+        for i in range(nb_update):
+            index = random.randint(0, nb_element - 1)
+            fqn = WatchableRegistry.FQN.make(sdk.WatchableType.Variable, f'/a/b/c{index}')
+            update = ValueUpdate(
+                handles[fqn],
+                random.random(),
+                data=random.randbytes(4),
+                status=sdk.ValueStatus.Valid,
+                update_timestamp=datetime.now()
+            )
+            updates.append(update)
+
+        self.registry.broadcast_value_updates_to_watchers(updates)
+        self.assertEqual([id(u) for u in updates], [id(u.sdk_update) for u in history])
 
     def test_unwatch_on_unregister(self):
         self.registry.write_content(All_DUMMY_DATA)

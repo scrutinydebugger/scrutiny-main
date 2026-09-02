@@ -389,8 +389,6 @@ class WatchableRegistry:
 
         :param updates: List of ValueUpdates
         """
-
-        # First, lookup the registry ID of each value update.
         update_by_watchers: Dict[Union[str, int], List[RegistryValueUpdate]] = {}
         for update in updates:
             registry_id = self._serverid_map[update.watchable.type].get_registry_id_or_none(update.watchable.server_id)
