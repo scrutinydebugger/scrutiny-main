@@ -1,3 +1,11 @@
+#    signal_throttler.py
+#        A throttling mechanism for QT signals that could be fired too many times
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
+
 from PySide6.QtCore import QObject, Signal, QTimer
 from scrutiny.tools.typing import *
 

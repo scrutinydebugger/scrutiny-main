@@ -1,4 +1,10 @@
-
+#    test_tools.py
+#        A test suite for GUI tools
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
 
 from test.gui.base_gui_test import ScrutinyBaseGuiTest
 from scrutiny.gui.tools.signal_throttler import SignalThrottler
