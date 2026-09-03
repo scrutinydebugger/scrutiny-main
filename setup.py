@@ -33,7 +33,7 @@ dependencies = [
     'appdirs==1.4.4',
     'pyelftools==0.33',
     'pyserial==3.5',
-    'pylink-square==1.3.0',
+    'pylink-square==2.0.1',
     'PySide6-QtAds==4.4.0',
     'PySide6==6.9.0',
     'python-can==4.5.0'

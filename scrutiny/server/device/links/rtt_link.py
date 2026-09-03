@@ -137,30 +137,41 @@ class RttLink(AbstractLink):
     def _write_thread_func(self) -> None:
         assert self.port is not None
         buffer_index = self.config['buffer_index']
-        while not self._request_thread_exit:
+        while not self._request_thread_exit and not self._write_error:
             data = self._write_queue.get()  # Blocking get to avoid using all the CPU in this thread
             if data is not None:
                 while len(data) > 0:
                     try:
                         written_count = cast(int, self.port.rtt_write(buffer_index, data))
                         data = data[written_count:]
-                    except pylink.errors.JLinkException as e:
+                    except Exception as e:
                         tools.log_exception(self.logger, e, "Failed to write to JLink")
+                        # pylink may crash the process if we close the handle while writing from a different thread.
+                        # Prevent writing once things are broken
                         self._write_error = True
+                        break
             else:
                 pass  # Other thread wanted to wake us up. Do nothing, we should exit
 
     def destroy(self) -> None:
         """ Put the comm channel to a resource-free non-working state"""
-        if self.port is not None:
-            if self.port.opened():
-                self.port.close()
-
-        self._request_thread_exit = True
-        self._write_queue.put(None)  # Will wake the thread
+        # Exit the write thread first.
+        # We cannot close while writing in another thread
+        self._request_thread_exit = True    # Atomic
+        self._write_queue.put(None)         # Will wake the thread
         if self._write_thread is not None:
             if self._write_thread.is_alive():
-                self._write_thread.join(2)
+                self._write_thread.join(5)
+
+            if self._write_thread.is_alive():
+                self.logger.critical("JLink write thread did not join")
+
+        if self.port is not None:
+            try:
+                if self.port.opened():
+                    self.port.close()
+            except Exception as e:
+                tools.log_exception(self.logger, e, "Failed to close the JLink port")
 
         self._write_queue = queue.Queue()
         self._write_thread = None
