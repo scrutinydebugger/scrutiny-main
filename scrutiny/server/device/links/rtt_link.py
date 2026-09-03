@@ -140,7 +140,7 @@ class RttLink(AbstractLink):
         while not self._request_thread_exit and not self._write_error:
             data = self._write_queue.get()  # Blocking get to avoid using all the CPU in this thread
             if data is not None:
-                while len(data) > 0 and not self._write_error:
+                while len(data) > 0:
                     try:
                         written_count = cast(int, self.port.rtt_write(buffer_index, data))
                         data = data[written_count:]
