@@ -780,24 +780,6 @@
         "stubs/PySide6QtAds.pyi": {
             "docstring": "A stub file for the PySide6-QtAds module."
         },
-        "stubs/elftools/__init__.pyi": {
-            "docstring": "A stub file for the pyelftools package"
-        },
-        "stubs/elftools/dwarf/dwarfinfo.pyi": {
-            "docstring": "A stub file for the pyelftools package"
-        },
-        "stubs/elftools/dwarf/compileunit.pyi": {
-            "docstring": "A stub file for the pyelftools package"
-        },
-        "stubs/elftools/dwarf/die.pyi": {
-            "docstring": "A stub file for the pyelftools package"
-        },
-        "stubs/elftools/elf/__init__.pyi": {
-            "docstring": "A stub file for the pyelftools package"
-        },
-        "stubs/elftools/elf/elffile/__init__.pyi": {
-            "docstring": "A stub file for the pyelftools package"
-        },
         "stubs/appdirs.pyi": {
             "docstring": "A stub file for the appdirs module"
         },
@@ -1140,8 +1122,23 @@
         "test/server/test_datalogging_poller.py": {
             "docstring": "A test suite for the datalogging poller"
         },
-        "test/cli/test_makevarmap_qemu_leon3_Gcc_13_3_0_dwarf4.py": {
-            "docstring": "A test suite to test elf2varmap against Leon3 CPU (Big Endian) "
+        "test/cli/base_makevarmap_qemu_leon3.py": {
+            "docstring": "A test suite for testing elf2varmap on a leon3 binary"
+        },
+        "test/cli/test_makevarmap_Linux_LE_x64_Clang_14_0_0_dwarf5.py": {
+            "docstring": "Test suite for symbol extraction. clang dwarf V5"
+        },
+        "test/cli/test_makevarmap_qemu_leon3_Gcc_13_3_0.py": {
+            "docstring": "Test suite for symbol extraction. GCC for Leon3 dwarf V4"
+        },
+        "test/cli/test_makevarmap_Linux_LE_x64_Gcc_11_4_0_dwarf5.py": {
+            "docstring": "Test suite for symbol extraction. GCC dwarf V3"
+        },
+        "test/gui/test_tools.py": {
+            "docstring": "A test suite for GUI tools"
+        },
+        "scrutiny/gui/tools/signal_throttler.py": {
+            "docstring": "A throttling mechanism for QT signals that could be fired too many times"
         }
     },
     "authors": {}

@@ -1,5 +1,5 @@
-#    test_makevarmap_qemu_leon3_Gcc_13_3_0_dwarf4.py
-#        A test suite to test elf2varmap against Leon3 CPU (Big Endian)
+#    base_makevarmap_qemu_leon3.py
+#        A test suite for testing elf2varmap on a leon3 binary
 #
 #   - License : MIT - See LICENSE file
 #   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)

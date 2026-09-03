@@ -1,3 +1,11 @@
+#    test_makevarmap_Linux_LE_x64_Gcc_11_4_0_dwarf5.py
+#        Test suite for symbol extraction. GCC dwarf V3
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
+
 import unittest
 from test.artifacts import get_artifact
 from test.cli.base_testapp_makevarmap_test import BaseTestAppMakeVarmapTest
