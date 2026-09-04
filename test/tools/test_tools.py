@@ -6,7 +6,7 @@
 #
 #    Copyright (c) 2022 Scrutiny Debugger
 
-from scrutiny.tools import Throttler, SuppressException
+from scrutiny.tools import Throttler, SuppressException, uleb128_decode, uleb128_parse
 from scrutiny.tools.thread_enforcer import enforce_thread, register_thread, thread_func
 from scrutiny.tools.timebase import RelativeTimebase
 from scrutiny.tools.sorted_set import SortedSet
@@ -305,6 +305,13 @@ class TestSortedSet(ScrutinyUnitTest):
         self.assertEqual(list(s), [10])
         s.remove(10)
         self.assertEqual(list(s), [])
+
+
+class TestUleb128(ScrutinyUnitTest):
+    def test_decode(self):
+        self.assertEqual(uleb128_parse(bytes([0xE5, 0x8E, 0x26])), (624485, 3))
+        # Junk after is ignored.
+        self.assertEqual(uleb128_parse(bytes([0xE5, 0x8E, 0x26, 0xFF, 0xab, 0x02])), (624485, 3))
 
 
 if __name__ == '__main__':
