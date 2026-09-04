@@ -1036,7 +1036,12 @@ class ElfDwarfVarExtractor:
                 return AbsoluteLocation.from_bytes(dieloc[1:], self._context.endianess)
 
             elif dieloc[0] == self.DW_OP_addrx:
-                addr_index = tools.uleb128_decode(bytes(dieloc[1:]))
+                addr_index, bytesize = tools.uleb128_parse(bytes(dieloc[1:]))
+                if bytesize != len(dieloc) - 1:
+                    # Data encoded after the uleb128 constant.
+                    # I don't think it is possible as per my interpretation of  DWARF V5
+                    raise ElfParsingError("Unsupported address encoding")
+
                 address = self._dwarfinfo.get_addr(die.cu, addr_index)
                 return AbsoluteLocation(address)
 
