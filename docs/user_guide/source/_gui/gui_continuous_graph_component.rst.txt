@@ -12,7 +12,7 @@ The continuous graph is generated entirely by the GUI. The server and the device
 
 When an acquisition is started, the GUI subscribes to the requested watchable elements on the server and plots,
 in real time, the values broadcast by the server until the acquisition is stopped. The subscription to the server
-required the highest update rate possible.
+requires the highest update rate possible.
 
 Watchable elements (Variables, Aliases, and RPVs) can be dragged and dropped onto the axes region.
 Both axes and watchable elements can be renamed freely for the duration of the acquisition.

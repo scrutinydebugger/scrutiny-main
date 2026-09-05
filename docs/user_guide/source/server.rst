@@ -162,5 +162,5 @@ device.link_config
     Configuration for the device link. This must be a dictionary whose structure depends on the value of ``device.link_type`` parameter.
     Each link type defines its own configuration schema.
 
-    The possible configuration fields for each link type are not detailed here, as they mirror the options provided by the
+    The possible configuration fields for each link type are not detailed here, as they mirror the options the
     :ref:`Python SDK<page_sdk>` offers.

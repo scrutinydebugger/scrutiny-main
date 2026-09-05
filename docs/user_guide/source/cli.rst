@@ -30,7 +30,7 @@ Here is an example of log output produced from the command line:
   * - **Timestamp (ms)**
     - 1388.657
   * - **Thread ID**
-    - 1403306169
+    - 14033069
   * - **Log Level**
     - Debug
   * - **Logger Name**
