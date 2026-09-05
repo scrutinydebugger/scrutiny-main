@@ -217,7 +217,7 @@ class VectorSubConfig(BaseSubconfig):
 # endregion
 
 
-ANY_SUBCONFIG: TypeAlias = Union[SocketCanSubconfig, VectorSubConfig, KVaserCanSubconfig, PCANCanSubconfig, ETASCanSubconfig]
+ANY_SUBCONFIG: TypeAlias = Union[SocketCanSubconfig, VectorSubConfig, KVaserCanSubconfig, PCANCanSubconfig, ETASCanSubconfig, VirtualCanSubConfig]
 
 
 @dataclass(slots=True)
@@ -274,7 +274,12 @@ class CanBusConfig:
                 raise ValueError(f"Unsupported parameter {k}")
 
         subcfg_class: Optional[Type[Any]] = None
-        for class_candidate in BaseSubconfig.__subclasses__():
+        # Do not use BaseSubconfig.__subclasses__(). slots=True causes problem. See issue #419
+        SUPPORTED_SUBCONFIGS: List[Type[BaseSubconfig]] = [SocketCanSubconfig, VectorSubConfig,
+                                                           KVaserCanSubconfig, PCANCanSubconfig,
+                                                           ETASCanSubconfig, VirtualCanSubConfig
+                                                           ]
+        for class_candidate in SUPPORTED_SUBCONFIGS:
             if class_candidate.get_type_name() == d['interface']:
                 subcfg_class = class_candidate
                 break
