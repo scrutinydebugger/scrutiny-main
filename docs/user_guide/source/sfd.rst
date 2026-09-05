@@ -27,7 +27,7 @@ Firmware ID
 A text file containing the firmware hash in ASCII format.
 The hash is a 128 bits value expressed as a hexadecimal string, and therefore must contain exactly 32 characters.
 
-The Firmware ID can be extracted with the :ref:`make_metadata <cmd_get-firmware-id>` command.
+The Firmware ID can be extracted with the :ref:`get-firmware-id <cmd_get-firmware-id>` command.
 
 .. _varmap_file:
 
@@ -89,7 +89,7 @@ Below is an example of a multidimensional array of structs, where each struct co
     struct MyStruct {
         int32_t some_int32[5][6][7];
     };
-    MyStruct my_struct_array[4][5];
+    MyStruct my_struct_array[3][4];
 
 .. code-block:: json
 
@@ -209,7 +209,7 @@ The modifiers are applied according to the following rules.
     - Reading: value_sent_to_client = ``value_read * gain + offset``
     - Writing: value_written_to_device = ``(SATURATE(client_input, min, max) - offset) / gain``
 
-The alias file can be populated with the :ref:`make_metadata <cmd_add-alias>` command.
+The alias file can be populated with the :ref:`add-alias <cmd_add-alias>` command.
 
 .. _metadata_file:
 

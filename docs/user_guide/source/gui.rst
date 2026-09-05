@@ -4,7 +4,7 @@ Graphical User Interface (GUI)
 The graphical user interface (GUI) is included in the Scrutiny package and can be launched using the command ``scrutiny gui``.
 
 The GUI is implemented in Python and built with the Qt framework through the PySide6 package.
-It acts as a Scrutiny client and communicates with the server using the `Python SDK <page_sdk>`.
+It acts as a Scrutiny client and communicates with the server using the :ref:`Python SDK <page_sdk>`.
 Anything you can do in the GUI can also be performed programmatically through a script.
 
 Let's take a first look at the GUI.

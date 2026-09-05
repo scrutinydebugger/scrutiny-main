@@ -46,7 +46,7 @@ Buffer length
     Length of the acquisition defined by the datalogging buffer size and the number/type of the logged signals.
 
 Trigger position
-    Position of the trigger event inside the acquisition window specified in percentage where 0% is leftmos 50% center and 100% rightmost. When on left, the user can see what happened after the event, and before the event when on right.
+    Position of the trigger event inside the acquisition window specified in percentage where 0% is leftmost, 50% center and 100% rightmost. When on left, the user can see what happened after the event, and before the event when on right.
 
 The parameters described above can be configured as shown below:
 
@@ -106,6 +106,6 @@ Finally, every acquisition taken by the server can be reloaded from a database
 
     Embedded graph storage navigation
 
-Stored acquisition can be loaded or delete. When checking the "Loaded firmware only", the list
-of displayed acquisition will be filtered to only show those with a Frimware ID matching the actually
+Stored acquisitions can be loaded or deleted. When checking the "Loaded firmware only", the list
+of displayed acquisitions will be filtered to only show those with a Firmware ID matching the currently
 loaded :ref:`SFD <page_sfd>` file on the server.
