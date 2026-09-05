@@ -310,11 +310,11 @@ class CommHandler:
         except Exception as e:
             self._opened = False
             err = str(e)
-            full_error = f'Cannot initialize device through "{self.get_link_type()}". {err}'
+            full_error = f'Cannot initialize device through "{self.get_link_type()}". {e.__class__.__name__}:{err}'
             if self._last_open_error != err:
                 self._logger.error(full_error)
             elif self._logger.isEnabledFor(logging.DEBUG):  # pragma: no cover
-                self._logger.debug(full_error)
+                tools.log_exception(self._logger, e, msg=full_error)
             self._last_open_error = err
             self.close()
 
