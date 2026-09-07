@@ -471,9 +471,6 @@
         "scrutiny/gui/core/exceptions.py": {
             "docstring": "Exceptions related to the GUI"
         },
-        "scrutiny/gui/core/watchable_registry.py": {
-            "docstring": "A storage object that keeps a local copy of all the watchable (Variable/Alias/RPV) available on the server. \nLots of overlapping feature with the server datastore, with few fundamentals differences."
-        },
         "scrutiny/gui/components/base_component.py": {
             "docstring": "A base class for a component that can be added to the GUI (globally or on the dashboard)"
         },
@@ -1139,6 +1136,27 @@
         },
         "scrutiny/gui/tools/signal_throttler.py": {
             "docstring": "A throttling mechanism for QT signals that could be fired too many times"
+        },
+        "scrutiny/gui/core/watchable_registry/server_registry_bidirectional_map.py": {
+            "docstring": "A bidirectional mapping between server IDs and GUI registry IDs"
+        },
+        "scrutiny/gui/core/watchable_registry/errors.py": {
+            "docstring": "Watcahble Registry related errors "
+        },
+        "scrutiny/gui/core/watchable_registry/fqn.py": {
+            "docstring": "Tools to parse/make a Fully Qualified Name, e.g. a string that can point to an item in the registry."
+        },
+        "scrutiny/gui/core/watchable_registry/watchable_registry.py": {
+            "docstring": "The Watchable Registry, a class analog to the server datastore. It stores the available watchables and allow a subscribe/broadcast mechanism. Data is stored in a tree"
+        },
+        "scrutiny/gui/core/watchable_registry/watcher.py": {
+            "docstring": "A class that represent a watcher subscribed to the WatchableRegistry"
+        },
+        "scrutiny/gui/core/watchable_registry/nodes.py": {
+            "docstring": "Nodes of the tree structure used by the WatcahbleRegistry"
+        },
+        "scrutiny/gui/core/watchable_registry/common.py": {
+            "docstring": "Common definitions related to the WatchableRegistry that have no dependencies"
         }
     },
     "authors": {}

@@ -14,7 +14,8 @@ from scrutiny.gui.widgets.watchable_tree import WatchableTreeModel
 from scrutiny.gui.components.globals.varlist.varlist_component import VarListComponentTreeModel
 from scrutiny.gui.components.locals.watch.watch_component import WatchComponentTreeModel
 from scrutiny.gui.widgets.watchable_tree import FolderStandardItem, WatchableStandardItem
-from scrutiny.gui.core.watchable_registry import WatchableRegistry
+from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
+from scrutiny.gui.core.watchable_registry.fqn import FQN
 from scrutiny.gui.core.scrutiny_drag_data import ScrutinyDragData
 from test.gui.base_gui_test import ScrutinyBaseGuiTest
 
@@ -40,9 +41,9 @@ DUMMY_DATASET_VAR = {
 
 TreeItem = Union[FolderStandardItem, WatchableStandardItem]
 
-var_fqn = lambda x: WatchableRegistry.FQN.make(sdk.WatchableType.Variable, x)
-alias_fqn = lambda x: WatchableRegistry.FQN.make(sdk.WatchableType.Alias, x)
-rpv_fqn = lambda x: WatchableRegistry.FQN.make(sdk.WatchableType.RuntimePublishedValue, x)
+var_fqn = lambda x: FQN.make(sdk.WatchableType.Variable, x)
+alias_fqn = lambda x: FQN.make(sdk.WatchableType.Alias, x)
+rpv_fqn = lambda x: FQN.make(sdk.WatchableType.RuntimePublishedValue, x)
 
 
 class BaseWatchableTreeTest(ScrutinyBaseGuiTest):
@@ -66,9 +67,9 @@ class BaseWatchableTreeTest(ScrutinyBaseGuiTest):
         })
 
     def load_root_nodes(self):
-        var_row = self.model.make_folder_row('Var', WatchableRegistry.FQN.make(sdk.WatchableType.Variable, '/'), editable=True)
-        alias_row = self.model.make_folder_row('Alias', WatchableRegistry.FQN.make(sdk.WatchableType.Alias, '/'), editable=True)
-        rpv_row = self.model.make_folder_row('RPV', WatchableRegistry.FQN.make(sdk.WatchableType.RuntimePublishedValue, '/'), editable=True)
+        var_row = self.model.make_folder_row('Var', FQN.make(sdk.WatchableType.Variable, '/'), editable=True)
+        alias_row = self.model.make_folder_row('Alias', FQN.make(sdk.WatchableType.Alias, '/'), editable=True)
+        rpv_row = self.model.make_folder_row('RPV', FQN.make(sdk.WatchableType.RuntimePublishedValue, '/'), editable=True)
 
         self.model.appendRow(var_row)
         self.model.appendRow(alias_row)
@@ -101,7 +102,7 @@ class TestWatchableTree(BaseWatchableTreeTest):
     MODEL_CLASS = WatchableTreeModel
 
     def test_fill_from_registry(self):
-        var_row = self.model.make_folder_row('Var', WatchableRegistry.FQN.make(sdk.WatchableType.Variable, '/'), editable=True)
+        var_row = self.model.make_folder_row('Var', FQN.make(sdk.WatchableType.Variable, '/'), editable=True)
         root_node = var_row[0]
         self.model.appendRow(var_row)
         self.model.fill_from_index_recursive(root_node, sdk.WatchableType.Variable, '/')
@@ -941,9 +942,9 @@ class TestVarlistToWatchDrop(ScrutinyBaseGuiTest):
             sdk.WatchableType.Variable: DUMMY_DATASET_VAR,
         })
 
-        var_row = self.varlist_model.make_folder_row('Var', WatchableRegistry.FQN.make(sdk.WatchableType.Variable, '/'), editable=True)
-        alias_row = self.varlist_model.make_folder_row('Alias', WatchableRegistry.FQN.make(sdk.WatchableType.Alias, '/'), editable=True)
-        rpv_row = self.varlist_model.make_folder_row('RPV', WatchableRegistry.FQN.make(sdk.WatchableType.RuntimePublishedValue, '/'), editable=True)
+        var_row = self.varlist_model.make_folder_row('Var', FQN.make(sdk.WatchableType.Variable, '/'), editable=True)
+        alias_row = self.varlist_model.make_folder_row('Alias', FQN.make(sdk.WatchableType.Alias, '/'), editable=True)
+        rpv_row = self.varlist_model.make_folder_row('RPV', FQN.make(sdk.WatchableType.RuntimePublishedValue, '/'), editable=True)
 
         self.varlist_model.appendRow(var_row)
         self.varlist_model.appendRow(alias_row)

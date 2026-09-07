@@ -12,7 +12,7 @@ from test.gui.base_gui_test import ScrutinyBaseGuiTest
 from scrutiny.tools.typing import *
 
 from scrutiny.gui.components.globals.varlist.varlist_search import SearchResultWidget
-from scrutiny.gui.core.watchable_registry import WatchableRegistry
+from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
 from scrutiny import sdk
 
 

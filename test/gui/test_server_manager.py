@@ -9,7 +9,7 @@
 from scrutiny import sdk
 from scrutiny.gui.core.server_manager.server_manager import ServerManager, ServerConfig
 from scrutiny.gui.core.server_manager.qt_buffered_listener import QtBufferedListener
-from scrutiny.gui.core.watchable_registry import WatchableRegistry
+from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
 from test.gui.fake_sdk_client import FakeSDKClient, StubbedWatchableHandle
 from test.gui.base_gui_test import ScrutinyBaseGuiTest, EventType
 import time

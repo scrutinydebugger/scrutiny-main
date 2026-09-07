@@ -11,7 +11,9 @@ __all__ = ['VarListComponentTreeModel']
 from PySide6.QtGui import QStandardItem
 from PySide6.QtCore import QModelIndex, QMimeData
 
-from scrutiny.gui.core.watchable_registry import WatchableRegistry
+from scrutiny.core import path_tools
+from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
+from scrutiny.gui.core.watchable_registry.fqn import FQN
 from scrutiny.gui.core.scrutiny_drag_data import ScrutinyDragData
 from scrutiny.gui.widgets.watchable_tree import (
     BaseWatchableRegistryTreeStandardItem,
@@ -72,7 +74,7 @@ class VarListComponentTreeModel(WatchableTreeModel):
         if not node.is_loaded():
             fqn = node.fqn
             assert fqn is not None  # All data is coming from the index, so it has an Fully Qualified Name
-            parsed_fqn = WatchableRegistry.FQN.parse(fqn)
+            parsed_fqn = FQN.parse(fqn)
             self.lazy_load(node, parsed_fqn.watchable_type, parsed_fqn.path)
 
     def find_item_by_fqn(self, fqn: str) -> Optional[BaseWatchableRegistryTreeStandardItem]:
@@ -89,14 +91,14 @@ class VarListComponentTreeModel(WatchableTreeModel):
         # We do not expect the application to query this data model
         # with a WatchableRegistry path, it will query the registry directly.
 
-        parsed = WatchableRegistry.FQN.parse(fqn)
-        path_parts = WatchableRegistry.split_path(parsed.path)
+        parsed = FQN.parse(fqn)
+        path_parts = path_tools.make_segments(parsed.path)
 
         if len(path_parts) == 0:
             return None
 
-        empty_fqn = WatchableRegistry.FQN.make(parsed.watchable_type, '')
-        first_fqn = WatchableRegistry.FQN.extend(empty_fqn, [path_parts.pop(0)])
+        empty_fqn = FQN.make(parsed.watchable_type, '')
+        first_fqn = FQN.extend(empty_fqn, [path_parts.pop(0)])
 
         def find_item_recursive(
                 item: BaseWatchableRegistryTreeStandardItem,
@@ -112,10 +114,10 @@ class VarListComponentTreeModel(WatchableTreeModel):
                     continue
                 self.load_node_if_needed(child)
 
-                if WatchableRegistry.FQN.is_equal(child.fqn, wanted_fqn):
+                if FQN.is_equal(child.fqn, wanted_fqn):
                     if len(remaining_parts) == 0:
                         return child
-                    new_fqn = WatchableRegistry.FQN.extend(wanted_fqn, [remaining_parts.pop(0)])
+                    new_fqn = FQN.extend(wanted_fqn, [remaining_parts.pop(0)])
                     return find_item_recursive(child, new_fqn, remaining_parts.copy())
 
             return None
@@ -125,7 +127,7 @@ class VarListComponentTreeModel(WatchableTreeModel):
             start_node = cast(Optional[BaseWatchableRegistryTreeStandardItem], self.item(i, 0))
             if start_node is not None:
                 if start_node.fqn is not None:
-                    if WatchableRegistry.FQN.parse(start_node.fqn).watchable_type == parsed.watchable_type:
+                    if FQN.parse(start_node.fqn).watchable_type == parsed.watchable_type:
                         result = find_item_recursive(start_node, first_fqn, path_parts.copy())
                         if result is not None:
                             return result

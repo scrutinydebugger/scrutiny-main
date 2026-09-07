@@ -23,7 +23,9 @@ from scrutiny.core.logging import DUMPDATA_LOGLEVEL
 from scrutiny.sdk.listeners import BaseListener, ValueUpdate
 from scrutiny.sdk.watchable_handle import WatchableHandle
 from scrutiny.sdk.client import ScrutinyClient, WatchableListDownloadRequest
-from scrutiny.gui.core.watchable_registry import WatchableRegistry, GlobalWatchCallbackData
+from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
+from scrutiny.gui.core.watchable_registry.common import GlobalWatchCallbackData
+from scrutiny.gui.core.watchable_registry.fqn import FQN
 from scrutiny.gui.core.user_messages_manager import UserMessagesManager
 from scrutiny.gui.core.server_manager.qt_buffered_listener import QtBufferedListener
 from scrutiny.gui.core.server_manager.client_task_reactor import ClientTaskReactor
@@ -606,7 +608,7 @@ class ServerManager:
                     return outlist
 
         return outlist
-    
+
     def _qt_do_request_update_rate_change(self, handle: WatchableHandle, update_rate: Optional[float]) -> None:
         """Request the server for an update rate change"""
         def _threaded_func_change(client: ScrutinyClient) -> Optional[float]:
@@ -1115,7 +1117,7 @@ class ServerManager:
         :param fqn: The Fully Qualified Name of the watchable
         :param callback: A callback to call on completion. If the single parameter is None, completed successfully, otherwise will be the exception raised
         """
-        parsed_fqn = WatchableRegistry.FQN.parse(fqn)
+        parsed_fqn = FQN.parse(fqn)
 
         def threaded_func(client: ScrutinyClient) -> None:
             return client.write_watchable_memory(parsed_fqn.path, data)

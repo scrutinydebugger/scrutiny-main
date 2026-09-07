@@ -26,7 +26,7 @@ from PySide6.QtCharts import QLineSeries, QAbstractSeries, QValueAxis
 
 from scrutiny.gui import assets
 from scrutiny.gui.themes import scrutiny_get_theme
-from scrutiny.gui.core.watchable_registry import WatchableRegistry
+from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
 from scrutiny.gui.core.scrutiny_drag_data import ScrutinyDragData, WatchableListDescriptor, SingleWatchableDescriptor
 from scrutiny.gui.widgets.watchable_tree import WatchableStandardItem, get_watchable_icon
 from scrutiny.gui.widgets.base_tree import BaseTreeModel, BaseTreeView, SerializableItemIndexDescriptor

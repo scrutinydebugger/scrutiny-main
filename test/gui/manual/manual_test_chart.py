@@ -26,7 +26,7 @@ from scrutiny import sdk
 from scrutiny.gui.widgets.base_chart import *
 from scrutiny.gui.widgets.scrutiny_qmenu import ScrutinyQMenu
 from scrutiny.gui.widgets.graph_signal_tree import GraphSignalTree, ChartSeriesWatchableStandardItem
-from scrutiny.gui.core.watchable_registry import WatchableRegistry
+from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
 from test.gui.fake_server_manager import FakeServerManager, ServerConfig
 from scrutiny.core.basic_types import WatchableType
 from scrutiny.tools.typing import *

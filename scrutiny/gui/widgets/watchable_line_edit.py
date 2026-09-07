@@ -19,7 +19,7 @@ from PySide6.QtCore import Qt, QSize, QPoint, QRect, QObject, Signal
 from scrutiny.sdk import WatchableType
 
 from scrutiny.gui.core.scrutiny_drag_data import WatchableListDescriptor
-from scrutiny.gui.core.watchable_registry import WatchableRegistry
+from scrutiny.gui.core.watchable_registry.fqn import FQN
 from scrutiny.gui.themes import scrutiny_get_theme_prop, ScrutinyThemeProperties, scrutiny_get_theme
 from scrutiny.gui.tools import watchabletype_2_icon
 from scrutiny.gui import assets
@@ -116,7 +116,7 @@ class WatchableLineEdit(QLineEdit):
         if watchables is not None:
             if len(watchables.data) == 1:
                 watchable = watchables.data[0]
-                parsed_fqn = WatchableRegistry.FQN.parse(watchable.fqn)
+                parsed_fqn = FQN.parse(watchable.fqn)
                 self.set_watchable_mode(watchable_type=parsed_fqn.watchable_type, path=parsed_fqn.path, name=watchable.text)
                 emit_drop_fqn = watchable.fqn
         super().dropEvent(event)
@@ -136,7 +136,7 @@ class WatchableLineEdit(QLineEdit):
         self._mode = self.Mode.WATCHABLE
         self._adjust_watchable_mode_margins()
         self._loaded_watchable = WatchableFQNAndName(
-            fqn=WatchableRegistry.FQN.make(watchable_type, path),
+            fqn=FQN.make(watchable_type, path),
             name=name)
         self.set_watchable_available(available)
         self._update_cursor()
@@ -306,7 +306,7 @@ class WatchableLineEdit(QLineEdit):
                 assert isinstance(v['watchable_name'], str)
 
                 try:
-                    parsed = WatchableRegistry.FQN.parse(v['watchable_fqn'])
+                    parsed = FQN.parse(v['watchable_fqn'])
                 except Exception:
                     return
                 self.set_watchable_mode(parsed.watchable_type, parsed.path, v['watchable_name'])

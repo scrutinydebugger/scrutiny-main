@@ -8,7 +8,7 @@
 
 import abc
 
-from scrutiny.gui.core.watchable_registry import WatchableRegistry
+from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
 from scrutiny.gui.core.server_manager.server_manager import ServerManager
 
 

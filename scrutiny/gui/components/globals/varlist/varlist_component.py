@@ -20,7 +20,7 @@ from PySide6.QtCore import QModelIndex, Qt, QItemSelectionModel
 
 from scrutiny.gui import assets
 from scrutiny.gui.themes import scrutiny_get_theme
-from scrutiny.gui.core.watchable_registry import WatchableRegistry
+from scrutiny.gui.core.watchable_registry.fqn import FQN
 from scrutiny.gui.widgets.watchable_tree import WatchableStandardItem
 from scrutiny.gui.widgets.scrutiny_qmenu import ScrutinyQMenu
 from scrutiny.gui.widgets import mixins as gui_mixins
@@ -61,7 +61,7 @@ class VarlistComponentTreeWidget(WatchableTreeWidget):
 
         def get_selected_paths() -> Generator[str, None, None]:
             for item in selected_items:
-                yield WatchableRegistry.FQN.parse(item.fqn).path
+                yield FQN.parse(item.fqn).path
 
         copy_path_clipboard_action = gui_mixins.qmenu_add_copy_path_action(context_menu, get_selected_paths())
         copy_path_clipboard_action.setEnabled(len(selected_items) > 0)
@@ -110,9 +110,9 @@ class VarListComponent(ScrutinyGUIBaseGlobalComponent):
         self._search_controls.signals.search_string_updated.connect(self._search_string_updated_slot)
         self._search_controls.signals.search_string_cleared.connect(self._search_string_cleared_slot)
 
-        var_row = self._tree_model.make_folder_row("Var", WatchableRegistry.FQN.make(WatchableType.Variable, '/'), editable=False)
-        alias_row = self._tree_model.make_folder_row("Alias", WatchableRegistry.FQN.make(WatchableType.Alias, '/'), editable=False)
-        rpv_row = self._tree_model.make_folder_row("RPV", WatchableRegistry.FQN.make(WatchableType.RuntimePublishedValue, '/'), editable=False)
+        var_row = self._tree_model.make_folder_row("Var", FQN.make(WatchableType.Variable, '/'), editable=False)
+        alias_row = self._tree_model.make_folder_row("Alias", FQN.make(WatchableType.Alias, '/'), editable=False)
+        rpv_row = self._tree_model.make_folder_row("RPV", FQN.make(WatchableType.RuntimePublishedValue, '/'), editable=False)
 
         self._tree.model().appendRow(var_row)
         self._tree.model().appendRow(alias_row)

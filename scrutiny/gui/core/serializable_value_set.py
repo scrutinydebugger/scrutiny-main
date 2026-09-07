@@ -13,7 +13,7 @@ from scrutiny.tools.typing import *
 import json
 from pathlib import Path
 from scrutiny.tools import validation
-from scrutiny.gui.core.watchable_registry import WatchableRegistry
+from scrutiny.gui.core.watchable_registry.fqn import FQN
 
 ValType: TypeAlias = Union[int, float, bool]
 
@@ -33,7 +33,7 @@ class SerializableValueSet:
         validation.assert_type(fqn, 'fqn', str)
         validation.assert_type(value, 'value', (int, float, bool))
 
-        WatchableRegistry.FQN.parse(fqn)    # Validate
+        FQN.parse(fqn)    # Validate
 
         self._storage[fqn] = value
 

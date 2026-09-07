@@ -15,7 +15,9 @@ from PySide6.QtCore import Qt, QObject, Signal, QTimer
 from scrutiny.gui.components.globals.varlist.varlist_tree_model import VarListComponentTreeModel
 from scrutiny.gui.widgets.watchable_tree import WatchableStandardItem, WatchableTreeWidget
 from scrutiny.gui.widgets.scrutiny_qmenu import ScrutinyQMenu
-from scrutiny.gui.core.watchable_registry import WatchableRegistry, WatchableRegistryIntermediateNode
+from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
+from scrutiny.gui.core.watchable_registry.nodes import WatchableRegistryIntermediateNode
+from scrutiny.gui.core.watchable_registry.fqn import FQN
 from scrutiny.gui.themes import scrutiny_get_theme
 from scrutiny.gui import assets
 from scrutiny.core import path_tools
@@ -37,12 +39,12 @@ class SearchCriteria:
     text: str
 
     def match(self, candidate: SingleResult) -> bool:
-        return self.text in WatchableRegistry.FQN.parse(candidate.fqn).path
+        return self.text in FQN.parse(candidate.fqn).path
 
 
 class SearchResultTreeModel(VarListComponentTreeModel):
     def get_watchable_extra_columns(self, fqn: str, watchable_config: Optional[sdk.BriefWatchableConfiguration] = None) -> List[QStandardItem]:
-        outlist: List[QStandardItem] = [QStandardItem(WatchableRegistry.FQN.parse(fqn).path)]
+        outlist: List[QStandardItem] = [QStandardItem(FQN.parse(fqn).path)]
 
         if watchable_config is not None:
             typecol = QStandardItem(watchable_config.datatype.name)
@@ -58,7 +60,7 @@ class SearchResultTreeModel(VarListComponentTreeModel):
         return outlist
 
     def append_result(self, result: SingleResult) -> None:
-        parsed = WatchableRegistry.FQN.parse(result.fqn)
+        parsed = FQN.parse(result.fqn)
         name_last_part = path_tools.make_segments(parsed.path)[-1]
         row = self.make_watchable_row(
             name=name_last_part,
@@ -107,7 +109,7 @@ class SearchResultTreeWidget(WatchableTreeWidget):
         reveal_in_varlist_action.setEnabled(len(selected_items) == 1)
         reveal_in_varlist_action.triggered.connect(reveal_in_varlist_slot)
 
-        selected_paths = [WatchableRegistry.FQN.parse(item.fqn).path for item in selected_items]
+        selected_paths = [FQN.parse(item.fqn).path for item in selected_items]
         copy_path_clipboard_action = gui_mixins.qmenu_add_copy_path_action(context_menu, selected_paths)
         copy_path_clipboard_action.setEnabled(False)
         for index in selected_indexes:
@@ -278,7 +280,7 @@ class SearchResultWidget(QWidget):
                 yield PauseSearch()
 
             candidate = SingleResult(
-                fqn=WatchableRegistry.FQN.make(watchable_type, path + '/' + node_name),
+                fqn=FQN.make(watchable_type, path + '/' + node_name),
                 config=watchable_node.configuration
             )
 

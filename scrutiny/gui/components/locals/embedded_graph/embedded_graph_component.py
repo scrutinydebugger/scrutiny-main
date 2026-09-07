@@ -51,6 +51,7 @@ from scrutiny.tools import validation
 from scrutiny.tools.typing import *
 from scrutiny.gui.tools.invoker import invoke_in_qt_thread
 from scrutiny.gui.core.export_chart_csv import export_chart_csv_threaded
+from scrutiny.gui.core.watchable_registry.fqn import FQN
 
 
 class DisplaySource(enum.Enum):
@@ -624,7 +625,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
                 for signal in axis_content["signals"]:
                     validation.assert_dict_key(signal, 'fqn', str)
                     validation.assert_dict_key(signal, 'text', str)
-                    parsed = self.app.watchable_registry.FQN.parse(signal["fqn"])
+                    parsed = FQN.parse(signal["fqn"])
                     series_item = ChartSeriesWatchableStandardItem(
                         fqn=signal["fqn"],
                         watchable_type=parsed.watchable_type,
@@ -845,7 +846,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
             wpath = ydata.series.logged_watchable.path
             wtype = ydata.series.logged_watchable.type
             series_item = ChartSeriesWatchableStandardItem(
-                fqn=self.app.watchable_registry.FQN.make(watchable_type=wtype, path=wpath),
+                fqn=FQN.make(watchable_type=wtype, path=wpath),
                 watchable_type=wtype,
                 text=ydata.series.name
             )
@@ -1156,7 +1157,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
                 result.config.add_signal(
                     axis=sdk_axis,
                     name=signal_item.text(),
-                    signal=self.app.watchable_registry.FQN.parse(signal_item.fqn).path
+                    signal=FQN.parse(signal_item.fqn).path
                 )
 
         if nb_signals == 0:

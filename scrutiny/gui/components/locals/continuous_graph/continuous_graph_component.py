@@ -29,7 +29,9 @@ from scrutiny.gui.app_settings import app_settings
 from scrutiny.gui.tools import prompt
 from scrutiny.gui.tools.invoker import invoke_later, invoke_in_qt_thread
 from scrutiny.gui.core.export_chart_csv import export_chart_csv_threaded, make_csv_headers
-from scrutiny.gui.core.watchable_registry import WatchableRegistryNodeNotFoundError, RegistryValueUpdate
+from scrutiny.gui.core.watchable_registry.common import RegistryValueUpdate
+from scrutiny.gui.core.watchable_registry.errors import WatchableRegistryNodeNotFoundError
+from scrutiny.gui.core.watchable_registry.fqn import FQN
 from scrutiny.gui.widgets.feedback_label import FeedbackLabel
 from scrutiny.gui.widgets.graph_signal_tree import GraphSignalTree, ChartSeriesWatchableStandardItem, AxisContent
 from scrutiny.gui.dialogs.chart_range_edit_dialog import ChartRangeEditDialog
@@ -47,7 +49,6 @@ from scrutiny.sdk.listeners.csv_logger import CSVLogger
 from scrutiny.gui.components.common import chart_mixins
 
 from scrutiny.tools.typing import *
-import shiboken6
 
 
 class State:
@@ -430,7 +431,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
                     for signal in axis_content["signals"]:
                         validation.assert_dict_key(signal, 'fqn', str)
                         validation.assert_dict_key(signal, 'text', str)
-                        parsed = self.app.watchable_registry.FQN.parse(signal["fqn"])
+                        parsed = FQN.parse(signal["fqn"])
                         series_item = ChartSeriesWatchableStandardItem(
                             fqn=signal["fqn"],
                             watchable_type=parsed.watchable_type,

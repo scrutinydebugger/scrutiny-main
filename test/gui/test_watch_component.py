@@ -11,7 +11,7 @@ from PySide6.QtCore import Qt, QModelIndex
 from test.gui.fake_server_manager import FakeServerManager
 from test.gui.base_gui_test import ScrutinyBaseGuiTest
 from scrutiny.gui.components.locals.watch.watch_component import WatchComponent, WatchComponentTreeModel, NumericFormat, SerializableTreeDescriptor
-from scrutiny.gui.core.watchable_registry import WatchableRegistry
+from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
 from scrutiny.gui.component_app_interface import AbstractComponentAppInterface
 from scrutiny.gui.core.scrutiny_drag_data import WatchableListDescriptor, SingleWatchableDescriptor, ScrutinyDragData
 
