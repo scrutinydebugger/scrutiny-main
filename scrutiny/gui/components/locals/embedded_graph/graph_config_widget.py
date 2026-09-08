@@ -18,7 +18,8 @@ from PySide6.QtGui import QStandardItemModel
 from PySide6.QtCore import Qt
 from scrutiny.gui.widgets.validable_line_edit import FloatValidableLineEdit
 from scrutiny.gui.widgets.watchable_line_edit import WatchableLineEdit
-from scrutiny.gui.core.watchable_registry import WatchableRegistry
+from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
+from scrutiny.gui.core.watchable_registry.fqn import FQN
 from scrutiny.gui.tools.validators import QStandardNotationDoubleValidator
 from scrutiny.sdk.datalogging import (TriggerCondition, SamplingRate, FixedFreqSamplingRate, DataloggingEncoding, XAxisType,
                                       VariableFreqSamplingRate, DataloggingConfig)
@@ -559,7 +560,7 @@ class GraphConfigWidget(QWidget):
                     output.valid = False
                     return output
 
-                operands.append(WatchableRegistry.FQN.parse(fqn_and_name.fqn).path)
+                operands.append(FQN.parse(fqn_and_name.fqn).path)
             else:
                 raise NotImplementedError("Unknown mode")
 
@@ -594,7 +595,7 @@ class GraphConfigWidget(QWidget):
                 output.error = "X-Axis signal is not available"
                 return output
 
-            config.configure_xaxis(xaxis_type, signal=self._watchable_registry.FQN.parse(fqn_and_name.fqn).path, name=fqn_and_name.name)
+            config.configure_xaxis(xaxis_type, signal=FQN.parse(fqn_and_name.fqn).path, name=fqn_and_name.name)
         elif xaxis_type == XAxisType.Indexed:
             config.configure_xaxis(xaxis_type, name="X-Axis")
         elif xaxis_type == XAxisType.IdealTime:

@@ -44,7 +44,7 @@ from scrutiny.gui.components.globals.metrics.metrics_component import MetricsCom
 
 from scrutiny.gui.core.user_messages_manager import UserMessagesManager
 from scrutiny.gui.core.server_manager.server_manager import ServerManager
-from scrutiny.gui.core.watchable_registry import WatchableRegistry
+from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
 
 from scrutiny import tools
 from scrutiny.tools.typing import *

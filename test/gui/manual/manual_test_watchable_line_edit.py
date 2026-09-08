@@ -21,7 +21,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QDoubleValidator
 from scrutiny.gui.widgets.watchable_line_edit import WatchableLineEdit
 from scrutiny.gui.components.globals.varlist.varlist_component import VarListComponent
-from scrutiny.gui.core.watchable_registry import WatchableRegistry
+from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
 from scrutiny.gui.component_app_interface import AbstractComponentAppInterface
 
 from scrutiny.sdk import WatchableType, BriefWatchableConfiguration, EmbeddedDataType

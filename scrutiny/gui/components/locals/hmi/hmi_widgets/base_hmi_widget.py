@@ -25,7 +25,9 @@ from scrutiny.gui.widgets.tooltip_form_layout import TooltipFormLayout
 from scrutiny.gui.components.locals.hmi.hmi_edit_grid import HMIEditGrid
 from scrutiny.gui.components.locals.hmi.hmi_theme import HMITheme
 from scrutiny.gui.components.locals.hmi.common.hit_zones import BaseHitZone
-from scrutiny.gui.core.watchable_registry import WatcherIdType, RegistryValueUpdate, WatchableRegistry, WatchableRegistryNodeNotFoundError
+from scrutiny.gui.core.watchable_registry.fqn import FQN
+from scrutiny.gui.core.watchable_registry.common import WatcherIdType, RegistryValueUpdate
+from scrutiny.gui.core.watchable_registry.errors import WatchableRegistryNodeNotFoundError
 from scrutiny.gui.component_app_interface import AbstractComponentAppInterface
 from scrutiny.gui.tools.invoker import invoke_later
 from scrutiny.gui.themes import scrutiny_get_theme
@@ -195,7 +197,7 @@ class ValueSlot:
             validation.assert_dict_key(state, 'data.name', str)
 
             data = cast(WatchableStateDict, state['data'])
-            parsed_fqn = WatchableRegistry.FQN.parse(data['fqn'])
+            parsed_fqn = FQN.parse(data['fqn'])
             self.watchable_line_edit.set_watchable_mode(
                 name=data['name'],
                 watchable_type=parsed_fqn.watchable_type,
@@ -570,7 +572,7 @@ class BaseHMIWidget(QGraphicsItem):
 
     def configure_vslot_watchable(self, name: str, fqn: str, watchable_name: str) -> None:
         vslot = self._get_vslot_by_name_or_raise(name)
-        parsed = WatchableRegistry.FQN.parse(fqn)
+        parsed = FQN.parse(fqn)
         vslot.watchable_line_edit.set_watchable_mode(
             watchable_type=parsed.watchable_type,
             path=parsed.path,

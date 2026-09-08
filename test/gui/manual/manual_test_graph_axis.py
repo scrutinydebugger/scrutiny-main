@@ -19,7 +19,7 @@ from PySide6.QtWidgets import QMainWindow, QWidget, QHBoxLayout
 
 from scrutiny.gui.components.globals.varlist.varlist_component import VarListComponent
 from scrutiny.gui.components.locals.watch.watch_component import WatchComponent
-from scrutiny.gui.core.watchable_registry import WatchableRegistry
+from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
 from scrutiny.gui.widgets.graph_signal_tree import GraphSignalTree
 from scrutiny.gui.component_app_interface import AbstractComponentAppInterface
 

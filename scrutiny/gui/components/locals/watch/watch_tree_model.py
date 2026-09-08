@@ -26,7 +26,8 @@ from PySide6.QtGui import (QStandardItem, QPalette, QContextMenuEvent, QDragMove
 
 from scrutiny.sdk import BriefWatchableConfiguration, EmbeddedEnum, ValueStatus, EmbeddedDataType
 from scrutiny.gui.core.scrutiny_drag_data import ScrutinyDragData, WatchableListDescriptor
-from scrutiny.gui.core.watchable_registry import WatchableRegistry
+from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
+from scrutiny.gui.core.watchable_registry.fqn import FQN
 from scrutiny.gui.widgets.watchable_tree import (
     WatchableTreeWidget,
     WatchableTreeModel,
@@ -389,7 +390,7 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
             for index in selected_indexes:
                 item = self.model().itemFromIndex(index)
                 if isinstance(item, WatchableStandardItem):
-                    yield WatchableRegistry.FQN.parse(item.fqn).path
+                    yield FQN.parse(item.fqn).path
 
         copy_path_clipboard_action = gui_mixins.qmenu_add_copy_path_action(context_menu, iterate_items())
         copy_path_clipboard_action.setEnabled(False)
@@ -877,7 +878,7 @@ class WatchComponentTreeModel(WatchableTreeModel):
                 assert 'text' in node
                 assert 'fqn' in node
                 assert node['fqn'] is not None  # Varlist component guarantees a FQN
-                parsed_fqn = WatchableRegistry.FQN.parse(node['fqn'])
+                parsed_fqn = FQN.parse(node['fqn'])
 
                 parent = self.itemFromIndex(parent_index)
                 if node['type'] == 'folder':
@@ -984,7 +985,7 @@ class WatchComponentTreeModel(WatchableTreeModel):
         dest_parent = self.itemFromIndex(dest_parent_index)
         rows: List[List[QStandardItem]] = []
         for descriptor in descriptors.data:
-            watchable_type = WatchableRegistry.FQN.parse(descriptor.fqn).watchable_type
+            watchable_type = FQN.parse(descriptor.fqn).watchable_type
             row = self.make_watchable_row(
                 watchable_type=watchable_type,
                 name=descriptor.text,

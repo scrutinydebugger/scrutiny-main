@@ -23,7 +23,10 @@ from PySide6.QtGui import QContextMenuEvent
 
 from scrutiny import sdk
 from scrutiny.gui.core.serializable_value_set import SerializableValueSet
-from scrutiny.gui.core.watchable_registry import WatchableRegistry, WatcherNotFoundError, RegistryValueUpdate, WatchableRegistryError, ParsedFullyQualifiedName
+from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
+from scrutiny.gui.core.watchable_registry.common import RegistryValueUpdate
+from scrutiny.gui.core.watchable_registry.errors import WatchableRegistryError, WatcherNotFoundError
+from scrutiny.gui.core.watchable_registry.fqn import FQN, ParsedFullyQualifiedName
 from scrutiny.gui.widgets.watchable_tree import get_watchable_icon
 from scrutiny.gui.widgets.scrutiny_qmenu import ScrutinyQMenu
 from scrutiny.gui.core.server_manager.server_manager import ServerManager
@@ -91,7 +94,7 @@ class PathItem(QTableWidgetItem):
     _parsed_fqn: ParsedFullyQualifiedName
 
     def __init__(self, fqn: str) -> None:
-        self._parsed_fqn = WatchableRegistry.FQN.parse(fqn)
+        self._parsed_fqn = FQN.parse(fqn)
         super().__init__(get_watchable_icon(self._parsed_fqn.watchable_type), self._parsed_fqn.path)
         self.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         self.setToolTip(self._parsed_fqn.path)

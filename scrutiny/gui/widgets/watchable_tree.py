@@ -26,7 +26,9 @@ from PySide6.QtGui import QStandardItem, QIcon, QKeyEvent
 from PySide6.QtWidgets import QWidget
 from PySide6.QtCore import Qt, QModelIndex
 from scrutiny.gui import assets
-from scrutiny.gui.core.watchable_registry import WatchableRegistry, WatchableRegistryIntermediateNode
+from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
+from scrutiny.gui.core.watchable_registry.nodes import WatchableRegistryIntermediateNode
+from scrutiny.gui.core.watchable_registry.fqn import FQN
 from scrutiny.gui.core.scrutiny_drag_data import WatchableListDescriptor, SingleWatchableDescriptor, ScrutinyDragData
 from scrutiny.gui.tools import watchabletype_2_icon
 from scrutiny.gui.themes import scrutiny_get_theme
@@ -197,7 +199,7 @@ class WatchableStandardItem(BaseWatchableRegistryTreeStandardItem):
         """Loads from a serializable dict. Used for Drag&Drop"""
         assert data['type'] == cls._NODE_TYPE
         assert data['fqn'] is not None
-        parsed = WatchableRegistry.FQN.parse(data['fqn'])
+        parsed = FQN.parse(data['fqn'])
 
         return cls(
             watchable_type=parsed.watchable_type,
@@ -208,7 +210,7 @@ class WatchableStandardItem(BaseWatchableRegistryTreeStandardItem):
     @classmethod
     def from_drag_watchable_descriptor(cls, desc: SingleWatchableDescriptor) -> "Self":
         """Create from global representation of a watchable defined in the global drag n' drop module"""
-        parsed = WatchableRegistry.FQN.parse(desc.fqn)
+        parsed = FQN.parse(desc.fqn)
         return cls(
             watchable_type=parsed.watchable_type,
             text=desc.text,
@@ -374,7 +376,7 @@ class WatchableTreeModel(BaseTreeModel):
             subtree_path = f'{path}/{name}'
             folder_fqn: Optional[str] = None
             if keep_folder_fqn:
-                folder_fqn = WatchableRegistry.FQN.make(watchable_type, subtree_path)
+                folder_fqn = FQN.make(watchable_type, subtree_path)
             row = self.make_folder_row(
                 name=name,
                 fqn=folder_fqn,
@@ -384,7 +386,7 @@ class WatchableTreeModel(BaseTreeModel):
 
         for name, watchable_node in content.watchables.items():
             watchable_path = f'{path}/{name}'
-            fqn = WatchableRegistry.FQN.make(watchable_type, watchable_path)
+            fqn = FQN.make(watchable_type, watchable_path)
             row = self.make_watchable_row(
                 name=name,
                 watchable_type=watchable_node.configuration.watchable_type,

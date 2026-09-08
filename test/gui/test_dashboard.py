@@ -16,7 +16,7 @@ from PySide6.QtGui import QIcon
 
 from test.gui.base_gui_test import ScrutinyBaseGuiTest
 from test.gui.fake_server_manager import FakeServerManager
-from scrutiny.gui.core.watchable_registry import WatchableRegistry
+from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
 from scrutiny.tools.typing import *
 from scrutiny.gui.dashboard.dashboard import Dashboard
 

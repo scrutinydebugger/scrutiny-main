@@ -27,10 +27,9 @@ from scrutiny.gui.components.locals.hmi.hmi_widgets.controls.slider_hmi_widget i
 from scrutiny.gui.components.locals.hmi.common.hmi_colors import HMIColor
 from test.gui.fake_server_manager import FakeServerManager
 from test.gui.base_gui_test import ScrutinyBaseGuiTest
-from scrutiny.gui.core.watchable_registry import WatchableRegistry
+from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
+from scrutiny.gui.core.watchable_registry.fqn import FQN
 from scrutiny.gui.component_app_interface import AbstractComponentAppInterface
-from scrutiny.gui.gui import ScrutinyQtGUI, SupportedTheme
-from scrutiny.gui.app_settings import configure_unit_test_app_settings
 from scrutiny.tools.typing import *
 
 
@@ -1121,7 +1120,7 @@ class TestWorkZone(HMIComponentBaseTest):
         self.hmi_component.add_hmi_widget(display)
 
         self.assertEqual(self.app_interface.watchable_registry.node_watcher_count(sdk.WatchableType.Variable, '/var/aaa'), 0)
-        display.configure_vslot_watchable('val', WatchableRegistry.FQN.make(sdk.WatchableType.Variable, '/var/aaa'), 'test')
+        display.configure_vslot_watchable('val', FQN.make(sdk.WatchableType.Variable, '/var/aaa'), 'test')
         self.assertEqual(self.app_interface.watchable_registry.node_watcher_count(sdk.WatchableType.Variable, '/var/aaa'), 1)
         self.hmi_component.visibilityChanged(False)
         self.assertEqual(self.app_interface.watchable_registry.node_watcher_count(sdk.WatchableType.Variable, '/var/aaa'), 0)

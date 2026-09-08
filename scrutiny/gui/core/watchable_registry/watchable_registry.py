@@ -10,14 +10,6 @@
 
 __all__ = [
     'WatchableRegistry',
-    'WatchableRegistryError',
-    'WatchableRegistryNodeNotFoundError',
-    'WatchableRegistryIntermediateNode',
-    'WatcherValueUpdateCallback',
-    'GlobalWatchCallback',
-    'GlobalUnwatchCallback',
-    'ValueUpdate',
-    'GlobalWatchCallbackData'
 ]
 
 
@@ -30,190 +22,15 @@ from scrutiny.gui.core.threads import QT_THREAD_NAME
 from scrutiny import tools
 from scrutiny.tools.thread_enforcer import enforce_thread
 from scrutiny.tools.typing import *
-
-WatcherIdType = Union[str, int]
-
-
-class ServerRegistryBidirectionalMap:
-    __slots__ = ('r2s', 's2r')
-
-    r2s: Dict[int, str]
-    s2r: Dict[str, int]
-
-    def __init__(self) -> None:
-        self.r2s = {}
-        self.s2r = {}
-
-    def get_server_id(self, registry_id: int) -> str:
-        return self.r2s[registry_id]
-
-    def get_registry_id(self, server_id: str) -> int:
-        return self.s2r[server_id]
-
-    def get_server_id_or_none(self, registry_id: int) -> Optional[str]:
-        if registry_id in self.r2s:
-            return self.r2s[registry_id]
-        return None
-
-    def get_registry_id_or_none(self, server_id: str) -> Optional[int]:
-        if server_id in self.s2r:
-            return self.s2r[server_id]
-        return None
-
-    def map(self, registry_id: int, server_id: str) -> None:
-        self.r2s[registry_id] = server_id
-        self.s2r[server_id] = registry_id
-
-    def unmap_by_registry_id(self, registry_id: int) -> None:
-        with tools.SuppressException(KeyError):
-            server_id = self.r2s[registry_id]
-            with tools.SuppressException(KeyError):
-                del self.s2r[server_id]
-            del self.r2s[registry_id]
-
-    def unmap_by_server_id(self, server_id: str) -> None:
-        with tools.SuppressException(KeyError):
-            registry_id = self.s2r[server_id]
-            with tools.SuppressException(KeyError):
-                del self.r2s[registry_id]
-            del self.s2r[server_id]
-
-    def clear(self) -> None:
-        self.s2r.clear()
-        self.r2s.clear()
-
-    def __len__(self) -> int:
-        return len(self.s2r)
-
-
-@dataclass(slots=True)
-class GlobalWatchCallbackData:
-    watcher_id: WatcherIdType
-    server_path: str
-    watchable_config: sdk.BriefWatchableConfiguration
-    registry_id: int
-    watcher_count: int
-    highest_update_rate: Optional[float]
-
-
-@dataclass(frozen=True, slots=True)
-class RegistryValueUpdate:
-    sdk_update: ValueUpdate
-    registry_id: int
-
-
-@dataclass(slots=True)
-class ParsedFullyQualifiedName:
-    watchable_type: sdk.WatchableType
-    path: str
-
-
-class WatchableRegistryError(Exception):
-    pass
-
-
-class WatchableRegistryNodeNotFoundError(WatchableRegistryError):
-    pass
-
-
-class WatcherNotFoundError(Exception):
-    pass
-
-
-TYPESTR_MAP_S2WT = {
-    'var': sdk.WatchableType.Variable,
-    'alias': sdk.WatchableType.Alias,
-    'rpv': sdk.WatchableType.RuntimePublishedValue,
-}
-
-TYPESTR_MAP_WT2S: Dict[sdk.WatchableType, str] = {v: k for k, v in TYPESTR_MAP_S2WT.items()}
-
-
-WatcherValueUpdateCallback = Callable[[WatcherIdType, List[RegistryValueUpdate]], None]
-UnwatchCallback = Callable[[WatcherIdType, str, sdk.BriefWatchableConfiguration, int], None]
-GlobalWatchCallback = Callable[[GlobalWatchCallbackData], None]
-GlobalUnwatchCallback = Callable[[GlobalWatchCallbackData], None]
-
-
-@dataclass(slots=True)
-class WatcherData:
-    update_rate: Optional[float]
-
-
-@dataclass(init=False, slots=True)
-class WatchableRegistryEntryNode:
-    """Leaf node in the tree that is a single watchable"""
-    configuration: sdk.BriefWatchableConfiguration
-    server_path: str
-    registry_id: int
-    _watcher_data: Dict[WatcherIdType, WatcherData]
-
-    def __init__(self, registry: "WatchableRegistry", server_path: str, config: sdk.BriefWatchableConfiguration) -> None:
-        self.server_path = server_path
-        self.configuration = config
-        self._watcher_data = {}
-        self.registry_id = registry._make_node_id()
-
-    def get_watcher_count(self) -> int:
-        return len(self._watcher_data)
-
-    def add_watcher(self, watcher_id: WatcherIdType, update_rate: Optional[float]) -> None:
-        if watcher_id in self._watcher_data:
-            raise WatchableRegistryError(f"Watcher {watcher_id} already added to node {self.server_path}")
-        self._watcher_data[watcher_id] = WatcherData(
-            update_rate=update_rate
-        )
-
-    def remove_watcher(self, watcher_id: WatcherIdType) -> None:
-        if watcher_id not in self._watcher_data:
-            raise WatchableRegistryError(f"Watcher {watcher_id} not watching node {self.server_path}")
-        del self._watcher_data[watcher_id]
-
-    def get_highest_update_rate(self) -> Optional[float]:
-        rates = [data.update_rate for data in self._watcher_data.values()]
-        if len(rates) == 0:
-            return None
-        if None in rates:
-            return None
-        return max(cast(Sequence[float], rates))
-
-    def iterate_watchers(self) -> Generator[WatcherIdType, None, None]:
-        for watcher_id in self._watcher_data.keys():
-            yield watcher_id
-
-
-@dataclass(frozen=True, slots=True)
-class WatchableRegistryIntermediateNode:
-    """An intermediate node that contains watchable and other subnodes"""
-
-    watchables: Dict[str, WatchableRegistryEntryNode]
-    subtree: List[str]
-
-
-@dataclass(init=False, slots=True)
-class Watcher:
-    watcher_id: WatcherIdType
-    value_update_callback: WatcherValueUpdateCallback
-    unwatch_callback: UnwatchCallback
-
-    subscribed_registry_id: Set[int]
-
-    def __init__(self,
-                 watcher_id: WatcherIdType,
-                 value_update_callback: WatcherValueUpdateCallback,
-                 unwatch_callback: UnwatchCallback
-                 ) -> None:
-        if not isinstance(watcher_id, (str, int)):
-            raise ValueError("watcher_id is not a string or an int")
-        if not callable(value_update_callback):
-            raise ValueError("value_update_callback is not a function")
-        if not callable(unwatch_callback):
-            raise ValueError("unwatch_callback is not a function")
-
-        self.watcher_id = watcher_id
-        self.value_update_callback = value_update_callback
-        self.unwatch_callback = unwatch_callback
-        self.subscribed_registry_id = set()
+from scrutiny.core import path_tools
+from scrutiny.gui.core.watchable_registry.server_registry_bidirectional_map import ServerRegistryBidirectionalMap
+from scrutiny.gui.core.watchable_registry.common import WatcherIdType
+from scrutiny.gui.core.watchable_registry.errors import WatchableRegistryNodeNotFoundError, WatcherNotFoundError
+from scrutiny.gui.core.watchable_registry.common import RegistryValueUpdate, GlobalWatchCallback, GlobalUnwatchCallback, WatcherValueUpdateCallback, UnwatchCallback, GlobalWatchCallbackData
+from scrutiny.gui.core.watchable_registry.nodes import WatchableRegistryEntryNode, WatchableRegistryIntermediateNode
+from scrutiny.gui.core.watchable_registry.watcher import Watcher
+from scrutiny.gui.core.watchable_registry.errors import WatchableRegistryError
+from scrutiny.gui.core.watchable_registry.fqn import FQN
 
 
 class WatchableRegistry:
@@ -250,16 +67,6 @@ class WatchableRegistry:
     _serverid_map: Dict[sdk.WatchableType, ServerRegistryBidirectionalMap]
     """Bidirectional maps, mapping Server ID to Registry ID, grouped by watchable types"""
 
-    @staticmethod
-    def split_path(path: str) -> List[str]:
-        """Split a tree path in parts"""
-        return [x for x in path.split('/') if x]
-
-    @staticmethod
-    def join_path(pieces: List[str]) -> str:
-        """Merge tree path together"""
-        return '/'.join([x for x in pieces if x])
-
     def __init__(self) -> None:
         self._trees = {}
         self._tree_change_counters = {}
@@ -294,7 +101,7 @@ class WatchableRegistry:
         :param config: Watchable config object. Represent a set of watchable properties
 
         """
-        parts = self.split_path(path)
+        parts = path_tools.make_segments(path)
         if len(parts) == 0:
             raise WatchableRegistryError(f"Empty path : {path}")
         node = self._trees[config.watchable_type]
@@ -306,7 +113,7 @@ class WatchableRegistry:
         if parts[-1] in node:
             raise WatchableRegistryError(f"Cannot insert a watchable at location {path}. Another watchable already uses that path.")
         node[parts[-1]] = WatchableRegistryEntryNode(
-            self,
+            self._make_node_id(),
             server_path=path,  # Required for proper error messages.
             config=config
         )
@@ -315,7 +122,7 @@ class WatchableRegistry:
     @enforce_thread(QT_THREAD_NAME)
     def _get_node(self, watchable_type: sdk.WatchableType, path: str) -> Union[WatchableRegistryIntermediateNode, WatchableRegistryEntryNode]:
         """Read a node in the tree and locks the tree while doing it."""
-        parts = self.split_path(path)
+        parts = path_tools.make_segments(path)
         node = self._trees[watchable_type]
         for part in parts:
             if part not in node:
@@ -364,7 +171,7 @@ class WatchableRegistry:
         :param fqn: The node Fully Qualified Name
         :param server_id: The server ID to assign
         """
-        parsed = self.FQN.parse(fqn)
+        parsed = FQN.parse(fqn)
         self.assign_serverid_to_node(parsed.watchable_type, parsed.path, server_id)
 
     @enforce_thread(QT_THREAD_NAME)
@@ -456,7 +263,7 @@ class WatchableRegistry:
         :param update_rate: The update rate to request the server with. ``None`` means as fast as possible
         :return: The registry ID assigned to the value updates that will be broadcast for that item
         """
-        parsed = self.FQN.parse(fqn)
+        parsed = FQN.parse(fqn)
         return self.watch(watcher_id, parsed.watchable_type, parsed.path, update_rate)
 
     @enforce_thread(QT_THREAD_NAME)
@@ -512,7 +319,7 @@ class WatchableRegistry:
         removed_list: List[WatchableRegistryEntryNode] = []
         for node in nodes:
             if node.registry_id in watcher.subscribed_registry_id:
-                fqn = WatchableRegistry.FQN.make(node.configuration.watchable_type, node.server_path)
+                fqn = FQN.make(node.configuration.watchable_type, node.server_path)
                 try:
                     watcher.unwatch_callback(watcher.watcher_id, fqn, node.configuration, node.registry_id)
                 except Exception as e:
@@ -583,7 +390,7 @@ class WatchableRegistry:
         :param watchable_type: The watchable type
         :param path: The watchable tree path
         """
-        parsed = self.FQN.parse(fqn)
+        parsed = FQN.parse(fqn)
         self.unwatch(watcher_id, parsed.watchable_type, parsed.path)
 
     def watcher_count_by_registry_id(self, registry_id: int) -> int:
@@ -604,7 +411,7 @@ class WatchableRegistry:
         :param fqn: The watchable fully qualified name
         :return: The number of watchers
         """
-        parsed = self.FQN.parse(fqn)
+        parsed = FQN.parse(fqn)
         return self.node_watcher_count(parsed.watchable_type, parsed.path)
 
     def node_watcher_count(self, watchable_type: sdk.WatchableType, path: str) -> Optional[int]:
@@ -648,7 +455,7 @@ class WatchableRegistry:
 
         :return: The node content. Either a watchable or a description of the subnodes
         """
-        parsed = self.FQN.parse(fqn)
+        parsed = FQN.parse(fqn)
         return self.read(parsed.watchable_type, parsed.path)
 
     def get_watchable_node_fqn(self, fqn: str) -> Optional[WatchableRegistryEntryNode]:
@@ -684,7 +491,7 @@ class WatchableRegistry:
           :param fqn: The node Fully Qualified Name
           :return: The server ID of the node or ``None`` if not available
           """
-        parsed = self.FQN.parse(fqn)
+        parsed = FQN.parse(fqn)
         return self.get_server_id(parsed.watchable_type, parsed.path)
 
     def get_server_id(self, watchable_type: sdk.WatchableType, path: str) -> Optional[str]:
@@ -840,81 +647,3 @@ class WatchableRegistry:
             watched_entries_count=self.watched_entries_count(),
             registered_watcher_count=self.registered_watcher_count()
         )
-
-    class FQN:
-        @staticmethod
-        def parse(fqn: str) -> ParsedFullyQualifiedName:
-            """Parses a fully qualified name and return the information needed to query the registry.
-
-            :param fqn: The fully qualified name
-
-            :return: An object containing the type and the tree path separated
-            """
-            colon_position = fqn.find(':')
-            if colon_position == -1:
-                raise WatchableRegistryError(f"Bad fully qualified name {fqn}")
-            typestr = fqn[0:colon_position]
-            if typestr not in TYPESTR_MAP_S2WT:
-                raise WatchableRegistryError(f"Unknown watchable type {typestr}")
-
-            return ParsedFullyQualifiedName(
-                watchable_type=TYPESTR_MAP_S2WT[typestr],
-                path=fqn[colon_position + 1:]
-            )
-
-        @staticmethod
-        def make(watchable_type: sdk.WatchableType, path: str) -> str:
-            """Create a string representation that conveys enough information to find a specific element in the registry.
-            Contains the type and the tree path.
-
-            :param watchable_type: The SDK watchable type
-            :param path: The tree path
-
-            :return: A fully qualified name containing the type and the tree path
-            """
-            return f"{TYPESTR_MAP_WT2S[watchable_type]}:{path}"
-
-        @staticmethod
-        def extend(fqn: str, pieces: Union[str, List[str]]) -> str:
-            """Add one or many path parts to an existing Fully Qualified Name
-            Ex. var:/a/b/c + ['x', 'y'] = var:/a/b/c/x/y
-
-            :param fqn: The Fully Qualified Name to extend
-            :param pieces: The parts to add
-            """
-            if isinstance(pieces, str):
-                pieces = [pieces]
-            parsed = WatchableRegistry.FQN.parse(fqn)
-            path_parts = WatchableRegistry.split_path(parsed.path)
-            prefix = ''
-            if len(path_parts) > 0:
-                index = parsed.path.find(path_parts[0])
-                if index >= 0:
-                    prefix = parsed.path[0:index]
-            return WatchableRegistry.FQN.make(parsed.watchable_type, prefix + WatchableRegistry.join_path(path_parts + pieces))
-
-        @staticmethod
-        def is_equal(fqn1: str, fqn2: str) -> bool:
-            """Compares 2 Fully Qualified Names and return ``True`` if they point to the same node
-
-            :param fqn1: First operand
-            :param fqn2: Second operand
-
-            :return: ``True`` if equals
-            """
-            parsed1 = WatchableRegistry.FQN.parse(fqn1)
-            parsed2 = WatchableRegistry.FQN.parse(fqn2)
-
-            if parsed1.watchable_type != parsed2.watchable_type:
-                return False
-
-            path1 = WatchableRegistry.split_path(parsed1.path)
-            path2 = WatchableRegistry.split_path(parsed2.path)
-
-            if len(path1) != len(path2):
-                return False
-            for i in range(len(path1)):
-                if path1[i] != path2[i]:
-                    return False
-
-            return True

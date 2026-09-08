@@ -9,21 +9,20 @@
 from scrutiny import sdk
 from scrutiny.core.basic_types import EmbeddedDataType
 from scrutiny.core.embedded_enum import EmbeddedEnum
-from scrutiny.gui.core.watchable_registry import (WatchableRegistry, WatchableRegistryError, WatchableRegistryEntryNode,
-                                                  WatchableRegistryIntermediateNode, ValueUpdate, WatcherNotFoundError,
-                                                  WatchableRegistryNodeNotFoundError, ServerRegistryBidirectionalMap,
-                                                  GlobalWatchCallbackData)
+from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
+from scrutiny.gui.core.watchable_registry.errors import WatchableRegistryError, WatcherNotFoundError, WatchableRegistryNodeNotFoundError
+from scrutiny.gui.core.watchable_registry.common import ValueUpdate, GlobalWatchCallbackData
+from scrutiny.gui.core.watchable_registry.nodes import WatchableRegistryEntryNode, WatchableRegistryIntermediateNode
+from scrutiny.gui.core.watchable_registry.fqn import FQN
+from scrutiny.gui.core.watchable_registry.server_registry_bidirectional_map import ServerRegistryBidirectionalMap
 from scrutiny.tools.thread_enforcer import ThreadEnforcer
 from scrutiny.gui.core.threads import QT_THREAD_NAME
 
 from test import ScrutinyUnitTest
-from test.gui.fake_sdk_client import FakeSDKClient
 from datetime import datetime
 from scrutiny.tools.typing import *
 from uuid import uuid4
 import random
-import time
-from test import logger
 
 DUMMY_DATASET_RPV = {
     '/rpv/rpv1000': sdk.BriefWatchableConfiguration(watchable_type=sdk.WatchableType.RuntimePublishedValue, datatype=sdk.EmbeddedDataType.float32, enum=None),
@@ -96,7 +95,7 @@ class TestWatchableRegistry(ScrutinyUnitTest):
         node = self.registry.read_fqn(fqn)
         assert isinstance(node, WatchableRegistryEntryNode)
         return RegistryStubbedWatchableHandle(
-            server_path=WatchableRegistry.FQN.parse(fqn).path,
+            server_path=FQN.parse(fqn).path,
             watchable_type=node.configuration.watchable_type,
             datatype=node.configuration.datatype,
             server_id=uuid4().hex,
@@ -115,27 +114,27 @@ class TestWatchableRegistry(ScrutinyUnitTest):
 
     def test_fqn(self):
         for wt in sdk.WatchableType.all():
-            fqn = WatchableRegistry.FQN.make(wt, '/a/b/c')
-            o = WatchableRegistry.FQN.parse(fqn)
+            fqn = FQN.make(wt, '/a/b/c')
+            o = FQN.parse(fqn)
             self.assertEqual(o.watchable_type, wt)
             self.assertEqual(o.path, '/a/b/c')
 
         with self.assertRaises(WatchableRegistryError):
-            WatchableRegistry.FQN.parse('unknown:/a/b/c')
+            FQN.parse('unknown:/a/b/c')
 
         with self.assertRaises(WatchableRegistryError):
-            WatchableRegistry.FQN.parse('/a/b/c')
+            FQN.parse('/a/b/c')
 
-        self.assertEqual(WatchableRegistry.FQN.extend('var:/a/b/c', ['x', 'y']), 'var:/a/b/c/x/y')
-        self.assertEqual(WatchableRegistry.FQN.extend('var:/a/b/c', 'x'), 'var:/a/b/c/x')
-        self.assertEqual(WatchableRegistry.FQN.extend('var:', ['x', 'y']), 'var:x/y')
+        self.assertEqual(FQN.extend('var:/a/b/c', ['x', 'y']), 'var:/a/b/c/x/y')
+        self.assertEqual(FQN.extend('var:/a/b/c', 'x'), 'var:/a/b/c/x')
+        self.assertEqual(FQN.extend('var:', ['x', 'y']), 'var:/x/y')
 
-        self.assertTrue(WatchableRegistry.FQN.is_equal('var:/a/b/c', 'var:a/b//c/'))
-        self.assertFalse(WatchableRegistry.FQN.is_equal('var:/a/b/c', 'alias:a/b//c/'))
-        self.assertFalse(WatchableRegistry.FQN.is_equal('var:/a/b/c', 'alias:/a/b/c'))
+        self.assertTrue(FQN.is_equal('var:/a/b/c', 'var:a/b//c/'))
+        self.assertFalse(FQN.is_equal('var:/a/b/c', 'alias:a/b//c/'))
+        self.assertFalse(FQN.is_equal('var:/a/b/c', 'alias:/a/b/c'))
 
-        self.assertFalse(WatchableRegistry.FQN.is_equal('var:/a/b/c', 'var:/a/c'))
-        self.assertFalse(WatchableRegistry.FQN.is_equal('var:/a/b/c', 'var:/a/b/d'))
+        self.assertFalse(FQN.is_equal('var:/a/b/c', 'var:/a/c'))
+        self.assertFalse(FQN.is_equal('var:/a/b/c', 'var:/a/b/d'))
 
     def test_internal_direct_add_get(self):
         obj1 = sdk.BriefWatchableConfiguration(
@@ -403,7 +402,7 @@ class TestWatchableRegistry(ScrutinyUnitTest):
         handles = {}
         for i in range(nb_element):
             path = f'/a/b/c{i}'
-            fqn = WatchableRegistry.FQN.make(sdk.WatchableType.Variable, path)
+            fqn = FQN.make(sdk.WatchableType.Variable, path)
             self.registry._add_watchable(path, sdk.BriefWatchableConfiguration(
                 datatype=sdk.EmbeddedDataType.float32,
                 enum=None,
@@ -417,7 +416,7 @@ class TestWatchableRegistry(ScrutinyUnitTest):
         updates = []
         for i in range(nb_update):
             index = random.randint(0, nb_element - 1)
-            fqn = WatchableRegistry.FQN.make(sdk.WatchableType.Variable, f'/a/b/c{index}')
+            fqn = FQN.make(sdk.WatchableType.Variable, f'/a/b/c{index}')
             update = ValueUpdate(
                 handles[fqn],
                 random.random(),
@@ -772,7 +771,7 @@ class TestWatchableRegistry(ScrutinyUnitTest):
         self.assertEqual(self.registry.watched_entries_count(), 4)
 
         def fqn_to_args(fqn):
-            parsed = WatchableRegistry.FQN.parse(fqn)
+            parsed = FQN.parse(fqn)
             return (parsed.watchable_type, parsed.path)
 
         self.assertEqual(self.registry.node_watcher_count(*fqn_to_args(var1fqn)), 2)
@@ -782,11 +781,11 @@ class TestWatchableRegistry(ScrutinyUnitTest):
 
         self.assertEqual(len(global_watch_callback_list), 5)
         self.assertCountEqual(global_watch_callback_list, [
-            ('watcher1', WatchableRegistry.FQN.parse(var1fqn).path),
-            ('watcher1', WatchableRegistry.FQN.parse(alias2fqn).path),
-            ('watcher2', WatchableRegistry.FQN.parse(var1fqn).path),
-            ('watcher2', WatchableRegistry.FQN.parse(var2fqn).path),
-            ('watcher2', WatchableRegistry.FQN.parse(alias1fqn).path)
+            ('watcher1', FQN.parse(var1fqn).path),
+            ('watcher1', FQN.parse(alias2fqn).path),
+            ('watcher2', FQN.parse(var1fqn).path),
+            ('watcher2', FQN.parse(var2fqn).path),
+            ('watcher2', FQN.parse(alias1fqn).path)
         ])
 
         self.assertEqual(len(global_unwatch_callback_list), 0)
@@ -796,8 +795,8 @@ class TestWatchableRegistry(ScrutinyUnitTest):
 
         self.registry.clear_content_by_type(sdk.WatchableType.Alias)
         self.assertCountEqual(global_unwatch_callback_list, [
-            ('watcher1', WatchableRegistry.FQN.parse(alias2fqn).path),
-            ('watcher2', WatchableRegistry.FQN.parse(alias1fqn).path)
+            ('watcher1', FQN.parse(alias2fqn).path),
+            ('watcher2', FQN.parse(alias1fqn).path)
         ])
         self.assertCountEqual(watcher_unwatch_list['watcher1'], [alias2fqn])
         self.assertCountEqual(watcher_unwatch_list['watcher2'], [alias1fqn])
@@ -814,9 +813,9 @@ class TestWatchableRegistry(ScrutinyUnitTest):
 
         self.registry.clear_content_by_type(sdk.WatchableType.Variable)
         self.assertCountEqual(global_unwatch_callback_list, [
-            ('watcher1', WatchableRegistry.FQN.parse(var1fqn).path),
-            ('watcher2', WatchableRegistry.FQN.parse(var1fqn).path),
-            ('watcher2', WatchableRegistry.FQN.parse(var2fqn).path)
+            ('watcher1', FQN.parse(var1fqn).path),
+            ('watcher2', FQN.parse(var1fqn).path),
+            ('watcher2', FQN.parse(var2fqn).path)
         ])
         self.assertCountEqual(watcher_unwatch_list['watcher1'], [var1fqn])
         self.assertCountEqual(watcher_unwatch_list['watcher2'], [var1fqn, var2fqn])

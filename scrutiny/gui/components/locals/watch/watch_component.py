@@ -20,7 +20,8 @@ from scrutiny.gui.themes import scrutiny_get_theme
 from scrutiny.gui.widgets.watchable_tree import FolderItemSerializableData, WatchableItemSerializableData
 from scrutiny.gui.widgets.watchable_tree import WatchableTreeWidget, WatchableStandardItem, FolderStandardItem, BaseWatchableRegistryTreeStandardItem
 from scrutiny.gui.core.serializable_value_set import SerializableValueSet
-from scrutiny.gui.core.watchable_registry import WatchableRegistryNodeNotFoundError, WatcherNotFoundError, RegistryValueUpdate
+from scrutiny.gui.core.watchable_registry.common import RegistryValueUpdate
+from scrutiny.gui.core.watchable_registry.errors import WatchableRegistryNodeNotFoundError, WatcherNotFoundError
 from scrutiny.gui.components.locals.base_local_component import ScrutinyGUIBaseLocalComponent
 from scrutiny.gui.components.locals.watch.watch_tree_model import (
     WatchComponentTreeModel, ValueStandardItem, RawDataStandardItem, WatchComponentTreeWidget, SerializableTreeDescriptor, NumericFormat,
