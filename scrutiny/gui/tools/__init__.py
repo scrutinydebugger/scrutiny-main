@@ -1,16 +1,18 @@
 
-__all__ = ['watchabletype_2_icon']
+__all__ = ['nodetype_2_icon']
 
-from scrutiny.sdk import WatchableType
+from scrutiny.gui.core.watchable_registry.common import RegistryNodeType
 from scrutiny.gui import assets
 
 
-def watchabletype_2_icon(wt: WatchableType) -> assets.Icons:
+def nodetype_2_icon(node_type: RegistryNodeType) -> assets.Icons:
     """Return the proper icon for a given watchable type (var, alias, rpv)"""
-    if wt == WatchableType.Variable:
+    if node_type == RegistryNodeType.Variable:
         return assets.Icons.Var
-    if wt == WatchableType.Alias:
+    if node_type == RegistryNodeType.Alias:
         return assets.Icons.Alias
-    if wt == WatchableType.RuntimePublishedValue:
+    if node_type == RegistryNodeType.RuntimePublishedValue:
         return assets.Icons.Rpv
-    raise NotImplementedError(f"Unsupported icon for {wt}")
+    if node_type == RegistryNodeType.Math:
+        return assets.Icons.Math
+    raise NotImplementedError(f"Unsupported icon for {node_type}")

@@ -24,10 +24,11 @@ from PySide6.QtWidgets import QWidget, QAbstractItemDelegate, QComboBox, QStyleO
 from PySide6.QtGui import (QStandardItem, QPalette, QContextMenuEvent, QDragMoveEvent, QDropEvent,
                            QDragEnterEvent, QKeyEvent)
 
-from scrutiny.sdk import BriefWatchableConfiguration, EmbeddedEnum, ValueStatus, EmbeddedDataType
+from scrutiny.sdk import EmbeddedEnum, ValueStatus, EmbeddedDataType
 from scrutiny.gui.core.scrutiny_drag_data import ScrutinyDragData, WatchableListDescriptor
 from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
 from scrutiny.gui.core.watchable_registry.fqn import FQN
+from scrutiny.gui.core.watchable_registry.common import RegistryNodeConfiguration
 from scrutiny.gui.widgets.watchable_tree import (
     WatchableTreeWidget,
     WatchableTreeModel,
@@ -672,7 +673,7 @@ class WatchComponentTreeModel(WatchableTreeModel):
     def itemFromIndex(self, index: Union[QModelIndex, QPersistentModelIndex]) -> BaseWatchableRegistryTreeStandardItem:
         return cast(BaseWatchableRegistryTreeStandardItem, super().itemFromIndex(index))
 
-    def get_watchable_extra_columns(self, fqn: str = "", watchable_config: Optional[BriefWatchableConfiguration] = None) -> List[QStandardItem]:
+    def get_watchable_extra_columns(self, fqn: str = "", watchable_config: Optional[RegistryNodeConfiguration] = None) -> List[QStandardItem]:
         # We don't use watchable_config here even if we could.
         # We update the value/type when an item is available by calling update_row_state
         return [ValueStandardItem(), RawDataStandardItem(), DataTypeStandardItem(), EnumNameStandardItem()]
@@ -885,12 +886,12 @@ class WatchComponentTreeModel(WatchableTreeModel):
                     folder_row = self.make_folder_row(node['text'], fqn=None, editable=True)
                     first_col = cast(BaseWatchableRegistryTreeStandardItem, folder_row[0])
                     self.add_row_to_parent(parent, row_index, folder_row)
-                    self.fill_from_index_recursive(first_col, parsed_fqn.watchable_type, parsed_fqn.path, keep_folder_fqn=False, editable=True)
+                    self.fill_from_index_recursive(first_col, parsed_fqn.node_type, parsed_fqn.path, keep_folder_fqn=False, editable=True)
                     # No need to call update_row_state() here as the content comes directly from varlist so it's available.
 
                 elif node['type'] == 'watchable':
                     watchable_row = self.make_watchable_row(node['text'],
-                                                            watchable_type=parsed_fqn.watchable_type,
+                                                            node_type=parsed_fqn.node_type,
                                                             fqn=node['fqn'],
                                                             editable=True,
                                                             extra_columns=self.get_watchable_extra_columns())
@@ -985,9 +986,9 @@ class WatchComponentTreeModel(WatchableTreeModel):
         dest_parent = self.itemFromIndex(dest_parent_index)
         rows: List[List[QStandardItem]] = []
         for descriptor in descriptors.data:
-            watchable_type = FQN.parse(descriptor.fqn).watchable_type
+            node_type = FQN.parse(descriptor.fqn).node_type
             row = self.make_watchable_row(
-                watchable_type=watchable_type,
+                node_type=node_type,
                 name=descriptor.text,
                 fqn=descriptor.fqn,
                 editable=True,
@@ -1041,9 +1042,9 @@ class WatchComponentTreeModel(WatchableTreeModel):
         When the watchable referred by an element is not in the registry, becomes "unavailable" (grayed out).
         """
         watchable_node = self._watchable_registry.get_watchable_node_fqn(watchable_item.fqn)
-        watchable_config = watchable_node.configuration if watchable_node is not None else None
-        if watchable_config is not None:
-            self.set_available(watchable_item, watchable_config)
+        node_config = watchable_node.configuration if watchable_node is not None else None
+        if node_config is not None:
+            self.set_available(watchable_item, node_config)
         else:
             self.set_unavailable(watchable_item)
 
@@ -1068,7 +1069,7 @@ class WatchComponentTreeModel(WatchableTreeModel):
                 elif isinstance(item, EnumNameStandardItem):
                     item.setText('')
 
-    def set_available(self, arg_item: WatchableStandardItem, watchable_config: BriefWatchableConfiguration) -> None:
+    def set_available(self, arg_item: WatchableStandardItem, node_config: RegistryNodeConfiguration) -> None:
         """Make an item in the tree available (normal color)"""
         background_color = self._available_palette.color(QPalette.ColorRole.Base)
         forground_color = self._available_palette.color(QPalette.ColorRole.Text)
@@ -1080,17 +1081,17 @@ class WatchComponentTreeModel(WatchableTreeModel):
                 item.setForeground(forground_color)
                 if isinstance(item, ValueStandardItem):
                     item.setEditable(True)
-                    if watchable_config.enum is not None:
+                    if node_config.enum is not None:
                         # Assign a copy of the enum on the item because the Delegate that creates the combo box
                         # does not have access to the registry nor the model
-                        item.setData(watchable_config.enum, ENUM_DATA_ROLE)
+                        item.setData(node_config.enum, ENUM_DATA_ROLE)
                 elif isinstance(item, RawDataStandardItem):
                     item.setEditable(True)
                 elif isinstance(item, DataTypeStandardItem):
-                    item.set_datatype(watchable_config.datatype)
+                    item.set_datatype(node_config.datatype)
                 elif isinstance(item, EnumNameStandardItem):
-                    if watchable_config.enum is not None:
-                        item.setText(watchable_config.enum.name)
+                    if node_config.enum is not None:
+                        item.setText(node_config.enum.name)
 
     def is_available(self, arg_item: WatchableStandardItem) -> bool:
         v = cast(Optional[bool], arg_item.data(AVAILABLE_DATA_ROLE))
