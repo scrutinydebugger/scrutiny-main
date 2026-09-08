@@ -21,7 +21,6 @@ __all__ = [
     'custom_data_from_serializable_data'
 ]
 
-from scrutiny.sdk import WatchableType, BriefWatchableConfiguration
 from PySide6.QtGui import QStandardItem, QIcon, QKeyEvent
 from PySide6.QtWidgets import QWidget
 from PySide6.QtCore import Qt, QModelIndex
@@ -29,27 +28,28 @@ from scrutiny.gui import assets
 from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
 from scrutiny.gui.core.watchable_registry.nodes import WatchableRegistryIntermediateNode
 from scrutiny.gui.core.watchable_registry.fqn import FQN
+from scrutiny.gui.core.watchable_registry.common import RegistryNodeType, RegistryNodeConfiguration
 from scrutiny.gui.core.scrutiny_drag_data import WatchableListDescriptor, SingleWatchableDescriptor, ScrutinyDragData
-from scrutiny.gui.tools import watchabletype_2_icon
+from scrutiny.gui.tools import nodetype_2_icon
 from scrutiny.gui.themes import scrutiny_get_theme
 from scrutiny.gui.widgets.base_tree import BaseTreeModel, BaseTreeView
 
 from scrutiny.tools.typing import *
 
-_watchable_icon_cache: Dict[WatchableType, QIcon] = {}
+_watchable_icon_cache: Dict[RegistryNodeType, QIcon] = {}
 _watchable_icon_cache_init = False
 
 CustomDataType: TypeAlias = Optional[Dict[Any, Any]]
 
 
-def get_watchable_icon(wt: WatchableType) -> QIcon:
+def get_watchable_icon(node_type: RegistryNodeType) -> QIcon:
     """Return the proper tree icon for a given watchable type (var, alias, rpv)"""
     global _watchable_icon_cache_init
     if not _watchable_icon_cache_init:
-        for wt_temp in WatchableType.all():
-            _watchable_icon_cache[wt_temp] = scrutiny_get_theme().load_tiny_icon(watchabletype_2_icon(wt_temp))
+        for node_type_temp in RegistryNodeType:
+            _watchable_icon_cache[node_type_temp] = scrutiny_get_theme().load_tiny_icon(nodetype_2_icon(node_type_temp))
         _watchable_icon_cache_init = True
-    return _watchable_icon_cache[wt]
+    return _watchable_icon_cache[node_type]
 
 
 NodeSerializableType = Literal['watchable', 'folder']
@@ -163,11 +163,11 @@ class WatchableStandardItem(BaseWatchableRegistryTreeStandardItem):
     """
     _NODE_TYPE: NodeSerializableType = 'watchable'
 
-    _watchable_type: WatchableType
+    _node_type: RegistryNodeType
 
-    def __init__(self, watchable_type: WatchableType, text: str, fqn: str):
-        self._watchable_type = watchable_type
-        icon = get_watchable_icon(watchable_type)
+    def __init__(self, node_type: RegistryNodeType, text: str, fqn: str):
+        self._node_type = node_type
+        icon = get_watchable_icon(node_type)
         super().__init__(fqn, icon, text)
         self.setDropEnabled(False)
 
@@ -178,8 +178,8 @@ class WatchableStandardItem(BaseWatchableRegistryTreeStandardItem):
         return self._fqn
 
     @property
-    def watchable_type(self) -> WatchableType:
-        return self._watchable_type
+    def node_type(self) -> RegistryNodeType:
+        return self._node_type
 
     @classmethod
     def serialized_node_type(cls) -> NodeSerializableType:
@@ -202,7 +202,7 @@ class WatchableStandardItem(BaseWatchableRegistryTreeStandardItem):
         parsed = FQN.parse(data['fqn'])
 
         return cls(
-            watchable_type=parsed.watchable_type,
+            node_type=parsed.node_type,
             text=data['text'],
             fqn=data['fqn']
         )
@@ -212,7 +212,7 @@ class WatchableStandardItem(BaseWatchableRegistryTreeStandardItem):
         """Create from global representation of a watchable defined in the global drag n' drop module"""
         parsed = FQN.parse(desc.fqn)
         return cls(
-            watchable_type=parsed.watchable_type,
+            node_type=parsed.node_type,
             text=desc.text,
             fqn=desc.fqn
         )
@@ -247,7 +247,7 @@ class WatchableTreeModel(BaseTreeModel):
         super().__init__(parent=parent)
         self._watchable_registry = watchable_registry
 
-    def get_watchable_extra_columns(self, fqn: str, watchable_config: Optional[BriefWatchableConfiguration] = None) -> List[QStandardItem]:
+    def get_watchable_extra_columns(self, fqn: str, node_config: Optional[RegistryNodeConfiguration] = None) -> List[QStandardItem]:
         return []
 
     def watchable_item_created(self, item: WatchableStandardItem) -> None:
@@ -290,21 +290,21 @@ class WatchableTreeModel(BaseTreeModel):
 
     def make_watchable_row(self,
                            name: str,
-                           watchable_type: WatchableType,
+                           node_type: RegistryNodeType,
                            fqn: str,
                            editable: bool,
                            extra_columns: List[QStandardItem]) -> List[QStandardItem]:
         """Makes a watchable row, i.e. a leaf node in the tree
 
         :param name: The name displayed in the GUI
-        :param watchable_type: The watchable type. Define the icon
+        :param node_type: The watchable type. Define the icon
         :param fqn: The path to the item in the :class:`WatchableRegistry<scrutiny.gui.core.watchable_registry.WatchableRegistry>`
         :param editable: Makes the row editable by the user through the GUI
         :param extra_columns: Columns to add next to the first column
 
         :return: the list of items in the row
         """
-        item = WatchableStandardItem(watchable_type, name, fqn)
+        item = WatchableStandardItem(node_type, name, fqn)
         self.watchable_item_created(item)
         return self.make_watchable_row_from_existing_item(item, editable, extra_columns)
 
@@ -332,19 +332,19 @@ class WatchableTreeModel(BaseTreeModel):
         self.folder_item_created(item)
         return self.make_folder_row_existing_item(item, editable)
 
-    def lazy_load(self, parent: BaseWatchableRegistryTreeStandardItem, watchable_type: WatchableType, path: str) -> None:
+    def lazy_load(self, parent: BaseWatchableRegistryTreeStandardItem, node_type: RegistryNodeType, path: str) -> None:
         """Lazy load a everything under a parent based on the content of the watchable registry
 
         :param parent: The parent containing the nodes to be loaded
-        :param watchable_type: The type of watchable to query to WatchableRegistry
+        :param node_type: The type of watchable to query to WatchableRegistry
         :param path: The WatchableRegistry path
 
         """
-        self.fill_from_index_recursive(parent, watchable_type, path, max_level=0)
+        self.fill_from_index_recursive(parent, node_type, path, max_level=0)
 
     def fill_from_index_recursive(self,
                                   parent: BaseWatchableRegistryTreeStandardItem,
-                                  watchable_type: WatchableType,
+                                  node_type: RegistryNodeType,
                                   path: str,
                                   max_level: Optional[int] = None,
                                   keep_folder_fqn: bool = True,
@@ -354,7 +354,7 @@ class WatchableTreeModel(BaseTreeModel):
         """Fill the data model from folders and watchable based on the content of the WatchableRegistry
 
         :param parent: The node to fill
-        :param watchable_type: The type of watchable of the parent to query the WatchableRegistry
+        :param node_type: The type of watchable of the parent to query the WatchableRegistry
         :param path: The WatchableRegistry path mapping to the parent.
         :param max_level: The maximum number of nested children. ``None`` for no limit
         :param keep_folder_fqn: Indicate if the Fully Qualified Name taken from  WatchableRegistry should be assigned to folder nodes created
@@ -362,7 +362,7 @@ class WatchableTreeModel(BaseTreeModel):
         :param level: internal parameter to keep track of recursion. The user should leave to default
         """
         parent.set_loaded()
-        content = self._watchable_registry.read(watchable_type, path)
+        content = self._watchable_registry.read(node_type, path)
         if not isinstance(content, WatchableRegistryIntermediateNode):  # Equivalent to a folder
             return
 
@@ -376,7 +376,7 @@ class WatchableTreeModel(BaseTreeModel):
             subtree_path = f'{path}/{name}'
             folder_fqn: Optional[str] = None
             if keep_folder_fqn:
-                folder_fqn = FQN.make(watchable_type, subtree_path)
+                folder_fqn = FQN.make(node_type, subtree_path)
             row = self.make_folder_row(
                 name=name,
                 fqn=folder_fqn,
@@ -386,10 +386,10 @@ class WatchableTreeModel(BaseTreeModel):
 
         for name, watchable_node in content.watchables.items():
             watchable_path = f'{path}/{name}'
-            fqn = FQN.make(watchable_type, watchable_path)
+            fqn = FQN.make(node_type, watchable_path)
             row = self.make_watchable_row(
                 name=name,
-                watchable_type=watchable_node.configuration.watchable_type,
+                node_type=watchable_node.configuration.node_type,
                 fqn=fqn,
                 editable=editable,
                 extra_columns=self.get_watchable_extra_columns(fqn, watchable_node.configuration)
@@ -408,7 +408,7 @@ class WatchableTreeModel(BaseTreeModel):
             for subtree_path, folder_row in folder_rows:
                 self.fill_from_index_recursive(
                     parent=cast(BaseWatchableRegistryTreeStandardItem, folder_row[0]),
-                    watchable_type=watchable_type,
+                    node_type=node_type,
                     path=subtree_path,
                     editable=editable,
                     max_level=max_level,

@@ -52,6 +52,7 @@ from scrutiny.tools.typing import *
 from scrutiny.gui.tools.invoker import invoke_in_qt_thread
 from scrutiny.gui.core.export_chart_csv import export_chart_csv_threaded
 from scrutiny.gui.core.watchable_registry.fqn import FQN
+from scrutiny.gui.core.watchable_registry.common import RegistryNodeType
 
 
 class DisplaySource(enum.Enum):
@@ -628,7 +629,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
                     parsed = FQN.parse(signal["fqn"])
                     series_item = ChartSeriesWatchableStandardItem(
                         fqn=signal["fqn"],
-                        watchable_type=parsed.watchable_type,
+                        node_type=parsed.node_type,
                         text=signal["text"]
                     )
                     axis_item.appendRow(signal_tree_model.make_watchable_item_row(series_item))
@@ -844,10 +845,10 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
 
             assert ydata.series.logged_watchable is not None
             wpath = ydata.series.logged_watchable.path
-            wtype = ydata.series.logged_watchable.type
+            node_type = RegistryNodeType.from_sdk(ydata.series.logged_watchable.type)
             series_item = ChartSeriesWatchableStandardItem(
-                fqn=FQN.make(watchable_type=wtype, path=wpath),
-                watchable_type=wtype,
+                fqn=FQN.make(node_type=node_type, path=wpath),
+                node_type=node_type,
                 text=ydata.series.name
             )
 

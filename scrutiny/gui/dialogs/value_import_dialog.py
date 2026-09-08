@@ -103,7 +103,7 @@ class PathItem(QTableWidgetItem):
 
     def __init__(self, fqn: str) -> None:
         self._parsed_fqn = FQN.parse(fqn)
-        super().__init__(get_watchable_icon(self._parsed_fqn.watchable_type), self._parsed_fqn.path)
+        super().__init__(get_watchable_icon(self._parsed_fqn.node_type), self._parsed_fqn.path)
         self.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         self.setToolTip(self._parsed_fqn.path)
 

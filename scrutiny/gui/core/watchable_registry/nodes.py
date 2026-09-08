@@ -5,7 +5,7 @@ __all__ = ['WatchableRegistryEntryNode', 'WatchableRegistryIntermediateNode']
 from dataclasses import dataclass
 from scrutiny.tools.typing import *
 from scrutiny import sdk
-from scrutiny.gui.core.watchable_registry.common import WatcherIdType
+from scrutiny.gui.core.watchable_registry.common import WatcherIdType, RegistryNodeConfiguration
 from scrutiny.gui.core.watchable_registry.watcher import WatcherData
 from scrutiny.gui.core.watchable_registry.errors import WatchableRegistryError
 
@@ -13,12 +13,12 @@ from scrutiny.gui.core.watchable_registry.errors import WatchableRegistryError
 @dataclass(init=False, slots=True)
 class WatchableRegistryEntryNode:
     """Leaf node in the tree that is a single watchable"""
-    configuration: sdk.BriefWatchableConfiguration
+    configuration: RegistryNodeConfiguration
     server_path: str
     registry_id: int
     _watcher_data: Dict[WatcherIdType, WatcherData]
 
-    def __init__(self, node_id: int, server_path: str, config: sdk.BriefWatchableConfiguration) -> None:
+    def __init__(self, node_id: int, server_path: str, config: RegistryNodeConfiguration) -> None:
         self.server_path = server_path
         self.configuration = config
         self._watcher_data = {}

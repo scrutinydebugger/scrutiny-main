@@ -84,6 +84,7 @@ class Icons(enum.Enum):
     Var = "var"
     Rpv = "rpv"
     Alias = "alias"
+    Math = "math"
     RedX = "redx"
     GraphAxis = "axis"
     Eye = "eye"

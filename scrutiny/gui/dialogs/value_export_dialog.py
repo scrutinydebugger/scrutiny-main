@@ -24,7 +24,7 @@ from PySide6.QtGui import QContextMenuEvent
 from scrutiny import sdk
 from scrutiny.gui.core.serializable_value_set import SerializableValueSet
 from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
-from scrutiny.gui.core.watchable_registry.common import RegistryValueUpdate
+from scrutiny.gui.core.watchable_registry.common import RegistryValueUpdate, RegistryNodeConfiguration
 from scrutiny.gui.core.watchable_registry.errors import WatchableRegistryError, WatcherNotFoundError
 from scrutiny.gui.core.watchable_registry.fqn import FQN, ParsedFullyQualifiedName
 from scrutiny.gui.widgets.watchable_tree import get_watchable_icon
@@ -95,7 +95,7 @@ class PathItem(QTableWidgetItem):
 
     def __init__(self, fqn: str) -> None:
         self._parsed_fqn = FQN.parse(fqn)
-        super().__init__(get_watchable_icon(self._parsed_fqn.watchable_type), self._parsed_fqn.path)
+        super().__init__(get_watchable_icon(self._parsed_fqn.node_type), self._parsed_fqn.path)
         self.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         self.setToolTip(self._parsed_fqn.path)
 
@@ -414,7 +414,7 @@ class ExportLogic:
 
         self._signals.stats_changed.emit()
 
-    def _unwatch_callback(self, watcher_id: Union[str, int], fqn: str, configuration: sdk.BriefWatchableConfiguration, registry_id: int) -> None:
+    def _unwatch_callback(self, watcher_id: Union[str, int], fqn: str, configuration: RegistryNodeConfiguration, registry_id: int) -> None:
         pass
 
     def _maybe_start_next_batch(self) -> None:

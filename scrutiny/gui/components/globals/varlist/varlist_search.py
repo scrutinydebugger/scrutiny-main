@@ -9,7 +9,7 @@
 import enum
 from dataclasses import dataclass
 
-from PySide6.QtWidgets import QWidget, QLineEdit, QProgressBar, QVBoxLayout, QMenu
+from PySide6.QtWidgets import QWidget, QLineEdit, QProgressBar, QVBoxLayout
 from PySide6.QtGui import QContextMenuEvent, QStandardItem
 from PySide6.QtCore import Qt, QObject, Signal, QTimer
 from scrutiny.gui.components.globals.varlist.varlist_tree_model import VarListComponentTreeModel
@@ -18,6 +18,7 @@ from scrutiny.gui.widgets.scrutiny_qmenu import ScrutinyQMenu
 from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
 from scrutiny.gui.core.watchable_registry.nodes import WatchableRegistryIntermediateNode
 from scrutiny.gui.core.watchable_registry.fqn import FQN
+from scrutiny.gui.core.watchable_registry.common import RegistryNodeConfiguration, RegistryNodeType
 from scrutiny.gui.themes import scrutiny_get_theme
 from scrutiny.gui import assets
 from scrutiny.core import path_tools
@@ -31,7 +32,7 @@ from scrutiny.tools.typing import *
 @dataclass(frozen=True, slots=True)
 class SingleResult:
     fqn: str
-    config: sdk.BriefWatchableConfiguration
+    config: RegistryNodeConfiguration
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,13 +44,13 @@ class SearchCriteria:
 
 
 class SearchResultTreeModel(VarListComponentTreeModel):
-    def get_watchable_extra_columns(self, fqn: str, watchable_config: Optional[sdk.BriefWatchableConfiguration] = None) -> List[QStandardItem]:
+    def get_watchable_extra_columns(self, fqn: str, node_config: Optional[RegistryNodeConfiguration] = None) -> List[QStandardItem]:
         outlist: List[QStandardItem] = [QStandardItem(FQN.parse(fqn).path)]
 
-        if watchable_config is not None:
-            typecol = QStandardItem(watchable_config.datatype.name)
-            if watchable_config.enum is not None:
-                enumcol = QStandardItem(watchable_config.enum.name)
+        if node_config is not None:
+            typecol = QStandardItem(node_config.datatype.name)
+            if node_config.enum is not None:
+                enumcol = QStandardItem(node_config.enum.name)
                 outlist += [typecol, enumcol]
             else:
                 outlist += [typecol]
@@ -64,7 +65,7 @@ class SearchResultTreeModel(VarListComponentTreeModel):
         name_last_part = path_tools.make_segments(parsed.path)[-1]
         row = self.make_watchable_row(
             name=name_last_part,
-            watchable_type=parsed.watchable_type,
+            node_type=parsed.node_type,
             fqn=result.fqn,
             extra_columns=self.get_watchable_extra_columns(result.fqn, result.config),
             editable=False
@@ -260,18 +261,19 @@ class SearchResultWidget(QWidget):
         """Entry point to start the search process. Create a generator that yield either SearchResult or Pause"""
         self._watchable_processed_counter = 0
         self._pause_counter = 0
-        for watchable_type in [sdk.WatchableType.Alias, sdk.WatchableType.RuntimePublishedValue, sdk.WatchableType.Variable]:
-            root = self._watchable_registry.read(watchable_type, '/')
+        for node_type in RegistryNodeType:
+            root = self._watchable_registry.read(node_type, '/')
             if root is None:
                 continue
             assert isinstance(root, WatchableRegistryIntermediateNode)
 
-            yield from self._iterate_node_recursive(watchable_type, root, '', criteria)
+            yield from self._iterate_node_recursive(node_type, root, '', criteria)
 
     def _iterate_node_recursive(self,
-                                watchable_type: sdk.WatchableType,
+                                node_type: RegistryNodeType,
                                 node: WatchableRegistryIntermediateNode,
-                                path: str, criteria: SearchCriteria
+                                path: str,
+                                criteria: SearchCriteria
                                 ) -> SearchGeneratorType:
         """Internal generator that crawl recursively the watchable registry"""
         for node_name, watchable_node in node.watchables.items():
@@ -280,7 +282,7 @@ class SearchResultWidget(QWidget):
                 yield PauseSearch()
 
             candidate = SingleResult(
-                fqn=FQN.make(watchable_type, path + '/' + node_name),
+                fqn=FQN.make(node_type, path + '/' + node_name),
                 config=watchable_node.configuration
             )
 
@@ -289,11 +291,11 @@ class SearchResultWidget(QWidget):
 
         for subtree_name in node.subtree:
             subtree_path = path + '/' + subtree_name
-            subtree_node = self._watchable_registry.read(watchable_type, subtree_path)
+            subtree_node = self._watchable_registry.read(node_type, subtree_path)
             if subtree_node is None:
                 return  # The registry got cleared most likely
             assert isinstance(subtree_node, WatchableRegistryIntermediateNode)
-            yield from self._iterate_node_recursive(watchable_type, subtree_node, subtree_path, criteria)
+            yield from self._iterate_node_recursive(node_type, subtree_node, subtree_path, criteria)
 
     def _update_progress_bar(self) -> None:
         delta = self._progress_bar.maximum() - self._progress_bar.minimum()
