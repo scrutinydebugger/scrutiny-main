@@ -1165,7 +1165,7 @@ class ServerManager:
         self.signals.starting.emit()
         self._allow_auto_reconnect = True
         self._thread_stop_event.clear()
-        # self._client_task_reactor.start()
+        self._client_task_reactor.start()
         self._thread = threading.Thread(target=self._thread_func, args=[config], daemon=True)
         self._listener.reset_stats()
         self._thread.start()
