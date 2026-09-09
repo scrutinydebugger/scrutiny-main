@@ -12,6 +12,7 @@ __all__ = [
     'invoke_in_qt_thread_synchronized'
 ]
 
+import queue
 from scrutiny import tools
 from scrutiny.gui.core.threads import QT_THREAD_NAME
 from scrutiny.tools.thread_enforcer import enforce_thread
@@ -22,8 +23,10 @@ from scrutiny.tools.typing import *
 
 
 class CrossThreadInvoker(QObject):
-    called_signal = Signal()
+
+    _task_queue: "queue.Queue[Callable[[], None]]"
     _instance: Optional["CrossThreadInvoker"] = None
+    _not_empty_signal = Signal()
 
     @classmethod
     @enforce_thread(QT_THREAD_NAME)
@@ -50,10 +53,22 @@ class CrossThreadInvoker(QObject):
         main_thread = app.thread()
         self.moveToThread(main_thread)
         self.setParent(app)
+        self._task_queue = queue.Queue()
+        self._not_empty_signal.connect(self._qt_process_func, Qt.ConnectionType.QueuedConnection)
 
     def exec(self, method: Callable[[], None]) -> None:
-        self.called_signal.connect(method, Qt.ConnectionType.SingleShotConnection)
-        self.called_signal.emit()
+        """To be invoked in a non QT thread"""
+        self._task_queue.put(method)
+        self._not_empty_signal.emit()
+
+    @enforce_thread(QT_THREAD_NAME)
+    def _qt_process_func(self) -> None:
+        while True:
+            try:
+                task = self._task_queue.get_nowait()
+                task()
+            except queue.Empty:
+                break
 
 
 class QueuedInvoker(QObject):
