@@ -4,24 +4,25 @@ __all__ = [
 ]
 
 from scrutiny.tools.typing import *
-from scrutiny import sdk
 from dataclasses import dataclass
+from scrutiny.gui.core.watchable_registry.common import RegistryNodeType
 from scrutiny.gui.core.watchable_registry.errors import WatchableRegistryError
 from scrutiny.core import path_tools
 
 
 TYPESTR_MAP_S2WT = {
-    'var': sdk.WatchableType.Variable,
-    'alias': sdk.WatchableType.Alias,
-    'rpv': sdk.WatchableType.RuntimePublishedValue,
+    'var': RegistryNodeType.Variable,
+    'alias': RegistryNodeType.Alias,
+    'rpv': RegistryNodeType.RuntimePublishedValue,
+    'math': RegistryNodeType.Math
 }
 
-TYPESTR_MAP_WT2S: Dict[sdk.WatchableType, str] = {v: k for k, v in TYPESTR_MAP_S2WT.items()}
+TYPESTR_MAP_WT2S: Dict[RegistryNodeType, str] = {v: k for k, v in TYPESTR_MAP_S2WT.items()}
 
 
 @dataclass(slots=True)
 class ParsedFullyQualifiedName:
-    watchable_type: sdk.WatchableType
+    node_type: RegistryNodeType
     path: str
 
 
@@ -42,21 +43,21 @@ class FQN:
             raise WatchableRegistryError(f"Unknown watchable type {typestr}")
 
         return ParsedFullyQualifiedName(
-            watchable_type=TYPESTR_MAP_S2WT[typestr],
+            node_type=TYPESTR_MAP_S2WT[typestr],
             path=fqn[colon_position + 1:]
         )
 
     @staticmethod
-    def make(watchable_type: sdk.WatchableType, path: str) -> str:
+    def make(node_type: RegistryNodeType, path: str) -> str:
         """Create a string representation that conveys enough information to find a specific element in the registry.
         Contains the type and the tree path.
 
-        :param watchable_type: The SDK watchable type
+        :param node_type: The SDK watchable type
         :param path: The tree path
 
         :return: A fully qualified name containing the type and the tree path
         """
-        return f"{TYPESTR_MAP_WT2S[watchable_type]}:{path}"
+        return f"{TYPESTR_MAP_WT2S[node_type]}:{path}"
 
     @staticmethod
     def extend(fqn: str, pieces: Union[str, List[str]]) -> str:
@@ -70,7 +71,7 @@ class FQN:
             pieces = [pieces]
         parsed = FQN.parse(fqn)
         path_parts = path_tools.make_segments(parsed.path)
-        return FQN.make(parsed.watchable_type, path_tools.join_segments(path_parts + pieces))
+        return FQN.make(parsed.node_type, path_tools.join_segments(path_parts + pieces))
 
     @staticmethod
     def is_equal(fqn1: str, fqn2: str) -> bool:
@@ -84,7 +85,7 @@ class FQN:
         parsed1 = FQN.parse(fqn1)
         parsed2 = FQN.parse(fqn2)
 
-        if parsed1.watchable_type != parsed2.watchable_type:
+        if parsed1.node_type != parsed2.node_type:
             return False
 
         path1 = path_tools.make_segments(parsed1.path)

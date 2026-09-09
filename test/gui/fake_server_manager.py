@@ -10,6 +10,7 @@ import logging
 from dataclasses import dataclass
 from PySide6.QtCore import Signal, QObject, QTimer
 from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
+from scrutiny.gui.core.watchable_registry.common import RegistryNodeType
 from scrutiny.gui.core.server_manager.server_manager import ServerConfig
 from test.gui.fake_sdk_client import StubbedWatchableHandle, FakeSDKClient
 from scrutiny import sdk
@@ -174,9 +175,9 @@ class FakeServerManager:
             return
         self._device_connected = True
         self._signals.device_ready.emit()
-        self.registry.clear_content_by_type(sdk.WatchableType.RuntimePublishedValue)
+        self.registry.clear_content_by_type(RegistryNodeType.RuntimePublishedValue)
         self.registry.write_content({
-            sdk.WatchableType.RuntimePublishedValue: DUMMY_DATASET_RPV
+            RegistryNodeType.RuntimePublishedValue: DUMMY_DATASET_RPV
         })
 
         for path, config in DUMMY_DATASET_RPV.items():
@@ -190,7 +191,7 @@ class FakeServerManager:
             return
         self._device_connected = False
         self._signals.device_disconnected.emit()
-        self.registry.clear_content_by_type(sdk.WatchableType.RuntimePublishedValue)
+        self.registry.clear_content_by_type(RegistryNodeType.RuntimePublishedValue)
         self._signals.registry_changed.emit()
 
     def simulate_sfd_loaded(self) -> None:
@@ -198,11 +199,11 @@ class FakeServerManager:
             return
         self._sfd_loaded = True
         self._signals.sfd_loaded.emit()
-        self.registry.clear_content_by_type(sdk.WatchableType.Alias)
-        self.registry.clear_content_by_type(sdk.WatchableType.Variable)
+        self.registry.clear_content_by_type(RegistryNodeType.Alias)
+        self.registry.clear_content_by_type(RegistryNodeType.Variable)
         self.registry.write_content({
-            sdk.WatchableType.Variable: DUMMY_DATASET_VAR,
-            sdk.WatchableType.Alias: DUMMY_DATASET_ALIAS,
+            RegistryNodeType.Variable: DUMMY_DATASET_VAR,
+            RegistryNodeType.Alias: DUMMY_DATASET_ALIAS,
         })
 
         for dataset in [DUMMY_DATASET_VAR, DUMMY_DATASET_ALIAS]:
@@ -217,8 +218,8 @@ class FakeServerManager:
             return
         self._sfd_loaded = False
         self._signals.sfd_unloaded.emit()
-        self.registry.clear_content_by_type(sdk.WatchableType.Alias)
-        self.registry.clear_content_by_type(sdk.WatchableType.Variable)
+        self.registry.clear_content_by_type(RegistryNodeType.Alias)
+        self.registry.clear_content_by_type(RegistryNodeType.Variable)
         self._signals.registry_changed.emit()
 
     def get_server_state(self) -> sdk.ServerState:

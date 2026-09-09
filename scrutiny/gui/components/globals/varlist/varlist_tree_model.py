@@ -12,8 +12,8 @@ from PySide6.QtGui import QStandardItem
 from PySide6.QtCore import QModelIndex, QMimeData
 
 from scrutiny.core import path_tools
-from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
 from scrutiny.gui.core.watchable_registry.fqn import FQN
+from scrutiny.gui.core.watchable_registry.common import RegistryNodeConfiguration
 from scrutiny.gui.core.scrutiny_drag_data import ScrutinyDragData
 from scrutiny.gui.widgets.watchable_tree import (
     BaseWatchableRegistryTreeStandardItem,
@@ -21,7 +21,6 @@ from scrutiny.gui.widgets.watchable_tree import (
     NodeSerializableData
 )
 
-from scrutiny.sdk import BriefWatchableConfiguration
 from scrutiny.tools.typing import *
 
 
@@ -30,14 +29,14 @@ class VarListComponentTreeModel(WatchableTreeModel):
     Mainly handles drag&drop logic
     """
 
-    def get_watchable_extra_columns(self, fqn: str, watchable_config: Optional[BriefWatchableConfiguration] = None) -> List[QStandardItem]:
+    def get_watchable_extra_columns(self, fqn: str, node_config: Optional[RegistryNodeConfiguration] = None) -> List[QStandardItem]:
         """Define the columns to add for a watchable (leaf) row. Called by the parent class"""
-        if watchable_config is None:
+        if node_config is None:
             return []
-        typecol = QStandardItem(watchable_config.datatype.name)
+        typecol = QStandardItem(node_config.datatype.name)
         typecol.setEditable(False)
-        if watchable_config.enum is not None:
-            enumcol = QStandardItem(watchable_config.enum.name)
+        if node_config.enum is not None:
+            enumcol = QStandardItem(node_config.enum.name)
             enumcol.setEditable(False)
             return [typecol, enumcol]
         else:
@@ -75,7 +74,7 @@ class VarListComponentTreeModel(WatchableTreeModel):
             fqn = node.fqn
             assert fqn is not None  # All data is coming from the index, so it has an Fully Qualified Name
             parsed_fqn = FQN.parse(fqn)
-            self.lazy_load(node, parsed_fqn.watchable_type, parsed_fqn.path)
+            self.lazy_load(node, parsed_fqn.node_type, parsed_fqn.path)
 
     def find_item_by_fqn(self, fqn: str) -> Optional[BaseWatchableRegistryTreeStandardItem]:
         """Find an item in the model using the Watchable registry.
@@ -97,7 +96,7 @@ class VarListComponentTreeModel(WatchableTreeModel):
         if len(path_parts) == 0:
             return None
 
-        empty_fqn = FQN.make(parsed.watchable_type, '')
+        empty_fqn = FQN.make(parsed.node_type, '')
         first_fqn = FQN.extend(empty_fqn, [path_parts.pop(0)])
 
         def find_item_recursive(
@@ -127,7 +126,7 @@ class VarListComponentTreeModel(WatchableTreeModel):
             start_node = cast(Optional[BaseWatchableRegistryTreeStandardItem], self.item(i, 0))
             if start_node is not None:
                 if start_node.fqn is not None:
-                    if FQN.parse(start_node.fqn).watchable_type == parsed.watchable_type:
+                    if FQN.parse(start_node.fqn).node_type == parsed.node_type:
                         result = find_item_recursive(start_node, first_fqn, path_parts.copy())
                         if result is not None:
                             return result

@@ -16,12 +16,11 @@ from PySide6.QtGui import (QDragEnterEvent, QDropEvent, QKeyEvent, QAction, QMou
                            QPaintEvent, QPainter, QColor, QResizeEvent)
 from PySide6.QtCore import Qt, QSize, QPoint, QRect, QObject, Signal
 
-from scrutiny.sdk import WatchableType
-
 from scrutiny.gui.core.scrutiny_drag_data import WatchableListDescriptor
 from scrutiny.gui.core.watchable_registry.fqn import FQN
+from scrutiny.gui.core.watchable_registry.common import RegistryNodeType
 from scrutiny.gui.themes import scrutiny_get_theme_prop, ScrutinyThemeProperties, scrutiny_get_theme
-from scrutiny.gui.tools import watchabletype_2_icon
+from scrutiny.gui.tools import nodetype_2_icon
 from scrutiny.gui import assets
 
 from scrutiny import tools
@@ -117,26 +116,26 @@ class WatchableLineEdit(QLineEdit):
             if len(watchables.data) == 1:
                 watchable = watchables.data[0]
                 parsed_fqn = FQN.parse(watchable.fqn)
-                self.set_watchable_mode(watchable_type=parsed_fqn.watchable_type, path=parsed_fqn.path, name=watchable.text)
+                self.set_watchable_mode(node_type=parsed_fqn.node_type, path=parsed_fqn.path, name=watchable.text)
                 emit_drop_fqn = watchable.fqn
         super().dropEvent(event)
 
         if emit_drop_fqn is not None:
             self._signals.watchable_dropped.emit(emit_drop_fqn)
 
-    def set_watchable_mode(self, watchable_type: WatchableType, path: str, name: str, available: bool = True) -> None:
+    def set_watchable_mode(self, node_type: RegistryNodeType, path: str, name: str, available: bool = True) -> None:
         """Sets this widget in watchable mode. in this mode, it display the watchable name with an icon and text edition
         is not possible. Only the clear button can alter it."""
         for action in list(self.actions()):  # Remove any previous left icon
             self.removeAction(action)
-        watchable_icon = scrutiny_get_theme().load_tiny_icon(watchabletype_2_icon(watchable_type))
+        watchable_icon = scrutiny_get_theme().load_tiny_icon(nodetype_2_icon(node_type))
         self._watchable_icon_action = self.addAction(watchable_icon, QLineEdit.ActionPosition.LeadingPosition)
         self.setText(name)
         self.setReadOnly(True)
         self._mode = self.Mode.WATCHABLE
         self._adjust_watchable_mode_margins()
         self._loaded_watchable = WatchableFQNAndName(
-            fqn=FQN.make(watchable_type, path),
+            fqn=FQN.make(node_type, path),
             name=name)
         self.set_watchable_available(available)
         self._update_cursor()
@@ -309,7 +308,7 @@ class WatchableLineEdit(QLineEdit):
                     parsed = FQN.parse(v['watchable_fqn'])
                 except Exception:
                     return
-                self.set_watchable_mode(parsed.watchable_type, parsed.path, v['watchable_name'])
+                self.set_watchable_mode(parsed.node_type, parsed.path, v['watchable_name'])
             else:
                 return
         except AssertionError:

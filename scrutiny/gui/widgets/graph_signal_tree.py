@@ -100,7 +100,7 @@ class ChartSeriesWatchableStandardItem(WatchableStandardItem):
         self.setIcon(new_pix)
 
     def reload_watchable_icon(self) -> None:
-        self.setIcon(get_watchable_icon(self.watchable_type))
+        self.setIcon(get_watchable_icon(self.node_type))
 
     def hide_series(self) -> None:
         series = self.series()

@@ -29,7 +29,7 @@ from scrutiny.gui.app_settings import app_settings
 from scrutiny.gui.tools import prompt
 from scrutiny.gui.tools.invoker import invoke_later, invoke_in_qt_thread
 from scrutiny.gui.core.export_chart_csv import export_chart_csv_threaded, make_csv_headers
-from scrutiny.gui.core.watchable_registry.common import RegistryValueUpdate
+from scrutiny.gui.core.watchable_registry.common import RegistryValueUpdate, RegistryNodeConfiguration
 from scrutiny.gui.core.watchable_registry.errors import WatchableRegistryNodeNotFoundError
 from scrutiny.gui.core.watchable_registry.fqn import FQN
 from scrutiny.gui.widgets.feedback_label import FeedbackLabel
@@ -434,7 +434,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
                         parsed = FQN.parse(signal["fqn"])
                         series_item = ChartSeriesWatchableStandardItem(
                             fqn=signal["fqn"],
-                            watchable_type=parsed.watchable_type,
+                            node_type=parsed.node_type,
                             text=signal["text"]
                         )
                         axis_item.appendRow(signal_tree_model.make_watchable_item_row(series_item))
@@ -921,7 +921,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
             tools.log_exception(self.logger, e, f"Error when receiving data for the chart")
             self.stop_acquisition()
 
-    def _unwatch_callback(self, watcher_id: Union[str, int], server_path: str, watchable_config: sdk.BriefWatchableConfiguration, registry_id: int) -> None:
+    def _unwatch_callback(self, watcher_id: Union[str, int], server_path: str, node_config: RegistryNodeConfiguration, registry_id: int) -> None:
         # Should we do something? User feedback if the watchable is not available anymore maybe?
         pass
 

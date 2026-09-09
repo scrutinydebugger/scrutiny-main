@@ -14,11 +14,10 @@ import time
 import logging
 import enum
 
-from PySide6.QtWidgets import QWidget, QGraphicsItem, QStyleOptionGraphicsItem, QLabel
+from PySide6.QtWidgets import QWidget, QGraphicsItem, QStyleOptionGraphicsItem
 from PySide6.QtGui import QPainter, QPixmap, QIcon
 from PySide6.QtCore import QSize, QRectF, QPointF, QObject, Qt, Signal
 
-from scrutiny import sdk
 from scrutiny.gui.app_settings import app_settings
 from scrutiny.gui.widgets.watchable_line_edit import WatchableLineEdit, WatchableFQNAndName
 from scrutiny.gui.widgets.tooltip_form_layout import TooltipFormLayout
@@ -26,7 +25,7 @@ from scrutiny.gui.components.locals.hmi.hmi_edit_grid import HMIEditGrid
 from scrutiny.gui.components.locals.hmi.hmi_theme import HMITheme
 from scrutiny.gui.components.locals.hmi.common.hit_zones import BaseHitZone
 from scrutiny.gui.core.watchable_registry.fqn import FQN
-from scrutiny.gui.core.watchable_registry.common import WatcherIdType, RegistryValueUpdate
+from scrutiny.gui.core.watchable_registry.common import WatcherIdType, RegistryValueUpdate, RegistryNodeConfiguration
 from scrutiny.gui.core.watchable_registry.errors import WatchableRegistryNodeNotFoundError
 from scrutiny.gui.component_app_interface import AbstractComponentAppInterface
 from scrutiny.gui.tools.invoker import invoke_later
@@ -200,7 +199,7 @@ class ValueSlot:
             parsed_fqn = FQN.parse(data['fqn'])
             self.watchable_line_edit.set_watchable_mode(
                 name=data['name'],
-                watchable_type=parsed_fqn.watchable_type,
+                node_type=parsed_fqn.node_type,
                 path=parsed_fqn.path
             )
         else:
@@ -574,7 +573,7 @@ class BaseHMIWidget(QGraphicsItem):
         vslot = self._get_vslot_by_name_or_raise(name)
         parsed = FQN.parse(fqn)
         vslot.watchable_line_edit.set_watchable_mode(
-            watchable_type=parsed.watchable_type,
+            node_type=parsed.node_type,
             path=parsed.path,
             name=watchable_name
         )
@@ -657,7 +656,7 @@ class BaseHMIWidget(QGraphicsItem):
         """When the ValueSlot is assigned a value from the server stream"""
         self._slot_value_update_callback(vslot, updates[-1].sdk_update.value)
 
-    def _unwatch_callback(self, watcher_id: Union[str, int], server_path: str, watchable_config: sdk.BriefWatchableConfiguration, registry_id: int) -> None:
+    def _unwatch_callback(self, watcher_id: Union[str, int], server_path: str, node_config: RegistryNodeConfiguration, registry_id: int) -> None:
         """Callback invoked when we unsubscribe to a watchable"""
         for vslot in self._vslots:
             if vslot.watcher_id == watcher_id:

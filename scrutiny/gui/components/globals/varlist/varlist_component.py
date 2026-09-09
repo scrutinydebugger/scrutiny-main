@@ -21,6 +21,7 @@ from PySide6.QtCore import QModelIndex, Qt, QItemSelectionModel
 from scrutiny.gui import assets
 from scrutiny.gui.themes import scrutiny_get_theme
 from scrutiny.gui.core.watchable_registry.fqn import FQN
+from scrutiny.gui.core.watchable_registry.common import RegistryNodeType
 from scrutiny.gui.widgets.watchable_tree import WatchableStandardItem
 from scrutiny.gui.widgets.scrutiny_qmenu import ScrutinyQMenu
 from scrutiny.gui.widgets import mixins as gui_mixins
@@ -32,7 +33,6 @@ from scrutiny.gui.widgets.watchable_tree import (
     WatchableTreeWidget
 )
 
-from scrutiny.sdk import WatchableType
 from scrutiny.tools.typing import *
 
 
@@ -87,7 +87,7 @@ class VarListComponent(ScrutinyGUIBaseGlobalComponent):
     _var_folder: BaseWatchableRegistryTreeStandardItem
     _alias_folder: BaseWatchableRegistryTreeStandardItem
     _rpv_folder: BaseWatchableRegistryTreeStandardItem
-    _index_change_counters: Dict[WatchableType, int]
+    _index_change_counters: Dict[RegistryNodeType, int]
 
     _browse_tab_index: int
     _search_tab_index: int
@@ -110,9 +110,9 @@ class VarListComponent(ScrutinyGUIBaseGlobalComponent):
         self._search_controls.signals.search_string_updated.connect(self._search_string_updated_slot)
         self._search_controls.signals.search_string_cleared.connect(self._search_string_cleared_slot)
 
-        var_row = self._tree_model.make_folder_row("Var", FQN.make(WatchableType.Variable, '/'), editable=False)
-        alias_row = self._tree_model.make_folder_row("Alias", FQN.make(WatchableType.Alias, '/'), editable=False)
-        rpv_row = self._tree_model.make_folder_row("RPV", FQN.make(WatchableType.RuntimePublishedValue, '/'), editable=False)
+        var_row = self._tree_model.make_folder_row("Var", FQN.make(RegistryNodeType.Variable, '/'), editable=False)
+        alias_row = self._tree_model.make_folder_row("Alias", FQN.make(RegistryNodeType.Alias, '/'), editable=False)
+        rpv_row = self._tree_model.make_folder_row("RPV", FQN.make(RegistryNodeType.RuntimePublishedValue, '/'), editable=False)
 
         self._tree.model().appendRow(var_row)
         self._tree.model().appendRow(alias_row)
@@ -131,7 +131,7 @@ class VarListComponent(ScrutinyGUIBaseGlobalComponent):
         self._content_tabs.setCurrentIndex(self._browse_tab_index)
         self._content_tabs.setTabEnabled(self._search_tab_index, False)
 
-        self.reload_model([WatchableType.RuntimePublishedValue, WatchableType.Alias, WatchableType.Variable])
+        self.reload_model(list(RegistryNodeType))   # We can iterate enums
         self._index_change_counters = self.app.watchable_registry.get_change_counters()
 
         self.app.server_manager.signals.registry_changed.connect(self.registry_changed_slot)
@@ -184,28 +184,28 @@ class VarListComponent(ScrutinyGUIBaseGlobalComponent):
         if self._search_result_widget.searching() or self._search_result_widget.finished():
             self._search_result_widget.start_search(self._search_controls.get_search_string())
 
-    def reload_model(self, watchable_types: List[WatchableType]) -> None:
+    def reload_model(self, node_types: List[RegistryNodeType]) -> None:
         """Fully reload to model
 
-        :param watchable_types: The list of watchable types to reload
+        :param node_types: The list of watchable types to reload
         """
 
         # reload first level with max_level=0 as we do lazy loading
         # Collapse root node to avoid lazy loading glitch that require to collapse/reexpand to load new data
-        if WatchableType.RuntimePublishedValue in watchable_types:
+        if RegistryNodeType.RuntimePublishedValue in node_types:
             self._rpv_folder.removeRows(0, self._rpv_folder.rowCount())
             self._tree.collapse(self._rpv_folder.index())
-            self._tree_model.lazy_load(self._rpv_folder, WatchableType.RuntimePublishedValue, '/')
+            self._tree_model.lazy_load(self._rpv_folder, RegistryNodeType.RuntimePublishedValue, '/')
 
-        if WatchableType.Alias in watchable_types:
+        if RegistryNodeType.Alias in node_types:
             self._alias_folder.removeRows(0, self._alias_folder.rowCount())
             self._tree.collapse(self._alias_folder.index())
-            self._tree_model.lazy_load(self._alias_folder, WatchableType.Alias, '/')
+            self._tree_model.lazy_load(self._alias_folder, RegistryNodeType.Alias, '/')
 
-        if WatchableType.Variable in watchable_types:
+        if RegistryNodeType.Variable in node_types:
             self._var_folder.removeRows(0, self._var_folder.rowCount())
             self._tree.collapse(self._var_folder.index())
-            self._tree_model.lazy_load(self._var_folder, WatchableType.Variable, '/')
+            self._tree_model.lazy_load(self._var_folder, RegistryNodeType.Variable, '/')
 
     def reveal_fqn(self, fqn: str) -> None:
         """Put the focus on an element of the tree referred to by its FQN """

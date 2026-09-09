@@ -10,6 +10,7 @@ from PySide6.QtGui import QStandardItemModel
 from test.gui.base_gui_test import ScrutinyBaseGuiTest
 from scrutiny.gui.components.locals.embedded_graph.graph_config_widget import GraphConfigWidget
 from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
+from scrutiny.gui.core.watchable_registry.common import RegistryNodeType
 from scrutiny.sdk import *
 from scrutiny.sdk.datalogging import *
 
@@ -70,13 +71,13 @@ class TestEmbeddedGraph(ScrutinyBaseGuiTest):
 
         self.registry = WatchableRegistry()
         self.registry.write_content({
-            WatchableType.Alias: {
+            RegistryNodeType.Alias: {
                 '/my_var': BriefWatchableConfiguration(WatchableType.Variable, EmbeddedDataType.float32, enum=None)
             },
-            WatchableType.RuntimePublishedValue: {
+            RegistryNodeType.RuntimePublishedValue: {
                 '/my_rpva': BriefWatchableConfiguration(WatchableType.RuntimePublishedValue, EmbeddedDataType.float32, enum=None)
             },
-            WatchableType.Variable: {
+            RegistryNodeType.Variable: {
                 '/my_alias': BriefWatchableConfiguration(WatchableType.Alias, EmbeddedDataType.float32, enum=None),
             },
         })

@@ -14,13 +14,12 @@ from PySide6.QtCore import QModelIndex, QModelIndex, QTimer
 from PySide6.QtWidgets import QVBoxLayout
 from PySide6.QtGui import QIcon
 
-from scrutiny import sdk
 from scrutiny.gui import assets
 from scrutiny.gui.themes import scrutiny_get_theme
 from scrutiny.gui.widgets.watchable_tree import FolderItemSerializableData, WatchableItemSerializableData
 from scrutiny.gui.widgets.watchable_tree import WatchableTreeWidget, WatchableStandardItem, FolderStandardItem, BaseWatchableRegistryTreeStandardItem
 from scrutiny.gui.core.serializable_value_set import SerializableValueSet
-from scrutiny.gui.core.watchable_registry.common import RegistryValueUpdate
+from scrutiny.gui.core.watchable_registry.common import RegistryValueUpdate, RegistryNodeConfiguration
 from scrutiny.gui.core.watchable_registry.errors import WatchableRegistryNodeNotFoundError, WatcherNotFoundError
 from scrutiny.gui.components.locals.base_local_component import ScrutinyGUIBaseLocalComponent
 from scrutiny.gui.components.locals.watch.watch_tree_model import (
@@ -349,7 +348,7 @@ class WatchComponent(ScrutinyGUIBaseLocalComponent):
         def update_val_closure(watcher_id: Union[str, int], vals: List[RegistryValueUpdate]) -> None:
             self._update_val_callback(value_item, rawdata_item, watcher_id, vals)
 
-        def unwatch_closure(watcher_id: Union[str, int], server_path: str, watchable_config: sdk.BriefWatchableConfiguration, registry_id: int) -> None:
+        def unwatch_closure(watcher_id: Union[str, int], server_path: str, node_config: RegistryNodeConfiguration, registry_id: int) -> None:
             pass
 
         watcher_id = self._get_watcher_id(item)
