@@ -903,6 +903,7 @@ class ServerManager:
                 if data.highest_update_rate != handle.requested_update_rate:
                     self._qt_do_request_update_rate_change(handle, data.highest_update_rate)
 
+    @enforce_thread(QT_THREAD_NAME)
     def _qt_value_update_received(self) -> None:
         # Called in the QT thread when a value update is received by the listener (the client)
         aggregated_updates: List[ValueUpdate] = []

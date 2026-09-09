@@ -15,6 +15,7 @@ from scrutiny.gui.core.threads import QT_THREAD_NAME
 from scrutiny.tools.thread_enforcer import register_thread
 from scrutiny.gui.tools.invoker import CrossThreadInvoker
 from scrutiny.tools.typing import *
+import faulthandler
 
 
 def make_qt_app(args: List[str]) -> QApplication:
@@ -27,6 +28,8 @@ def make_qt_app(args: List[str]) -> QApplication:
     app = QApplication(args)
     app.aboutToQuit.connect(cleanup_qt_app)
     CrossThreadInvoker.init()
+
+    faulthandler.enable(all_threads=True)
 
     return app
 
