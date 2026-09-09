@@ -14,6 +14,7 @@ import enum
 import time
 from test import logger
 import logging
+import gc
 from scrutiny.gui.core.qt import make_qt_app
 from scrutiny.gui.themes import scrutiny_set_theme
 from scrutiny.gui.themes.default_theme import DefaultTheme
@@ -82,6 +83,7 @@ class ScrutinyBaseGuiTest(ScrutinyUnitTest):
         scrutiny_set_theme(self.app, DefaultTheme())
 
     def tearDown(self):
+        gc.collect()
         self.process_events()
         QApplication.clipboard().clear()    # Can make a segfault if not present.
 
