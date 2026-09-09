@@ -38,10 +38,10 @@ class TestInvoker(ScrutinyBaseGuiTest):
         CrossThreadInvoker.init()
         nbthread = 64
         iteration = 50
-        threads_ids = [tools.MutableNullableInt(None) for x in range(nbthread)]
+        threads_ids = [[] for x in range(nbthread)]
 
         def func(index):
-            threads_ids[index].val = threading.get_ident()
+            threads_ids[index].append(threading.get_ident())
 
         lock = threading.Lock()
         finished_count = tools.MutableInt(0)
@@ -65,5 +65,8 @@ class TestInvoker(ScrutinyBaseGuiTest):
         start_event.set()
         self.wait_true_with_events(lambda: finished_count.val == wanted_count, 10)
         self.assertEqual(finished_count.val, wanted_count)
-        for thread_id in threads_ids:
-            self.assertEqual(thread_id.val, threading.get_ident())
+        self.assertEqual(len(threads_ids), nbthread)
+        for bucket in threads_ids:
+            self.assertEqual(len(bucket), iteration)
+            for thread_id in bucket:
+                self.assertEqual(thread_id, threading.get_ident())
