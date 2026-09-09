@@ -211,7 +211,6 @@ class TestServerManager(ScrutinyBaseGuiTest):
         self.assert_events([EventType.SERVER_DISCONNECTED])
 
     def test_event_datalogger_state_changed(self):
-        self.assertCountEqual
         self.assertEqual(self.event_list, [])
         self.server_manager.start(SERVER_MANAGER_CONFIG)
 
@@ -561,6 +560,10 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
     # The server manager should try to register as long as the number of watcher is greater than 0, and unregister when there is 0 watchers asynchronously.
     # No request stacking should happen. while nb_watcher > 0: keep trying to watch. When nb_watch == 0, stop trying watching and/or keep trying to unwatch
 
+    def _stop_server_manager_and_wait(self):
+        self.server_manager.stop()
+        self.wait_true_with_events(lambda: not self.server_manager.is_running() and not self.server_manager.is_stopping(), timeout=2)
+
     def setUp(self) -> None:
         super().setUp()
         self.registry = WatchableRegistry()
@@ -571,17 +574,19 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
         )
         self.server_manager._unit_test = True
         self.server_manager.start(SERVER_MANAGER_CONFIG)
+        try:
+            ready = tools.MutableBool(False)
 
-        ready = tools.MutableBool(False)
-
-        def ready_slot():
-            ready.val = True
-        self.server_manager.signals.server_connected.connect(ready_slot)
-        self.wait_true_with_events(lambda: ready.val, timeout=2)
+            def ready_slot():
+                ready.val = True
+            self.server_manager.signals.server_connected.connect(ready_slot)
+            self.wait_true_with_events(lambda: ready.val, timeout=2)
+        except:
+            self._stop_server_manager_and_wait()
+            raise
 
     def tearDown(self):
-        self.server_manager.stop()
-        self.wait_true_with_events(lambda: not self.server_manager.is_running() and not self.server_manager.is_stopping(), timeout=2)
+        self._stop_server_manager_and_wait()
         return super().tearDown()
 
     def get_watch_request(self, timeout: float = 2, assert_single: bool = True, allow_none: bool = False):
