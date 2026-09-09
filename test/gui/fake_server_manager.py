@@ -106,7 +106,6 @@ class FakeServerManager:
                 server_id = uuid4().hex
                 handle = StubbedWatchableHandle(self._client, path, config.watchable_type, config.datatype, config.enum, server_id, None)
                 self._handles[path] = handle
-        self._broadcast_timer.start()
 
     @property
     def signals(self) -> _Signals:
@@ -123,6 +122,7 @@ class FakeServerManager:
 
     def start(self, config: ServerConfig) -> None:
         self._signals.starting.emit()
+        self._broadcast_timer.start()
         self._started = True
         self._signals.started.emit()
         self._signals.server_connected.emit()
@@ -131,6 +131,7 @@ class FakeServerManager:
             self._signals.registry_changed.emit()
 
     def stop(self) -> None:
+        self._broadcast_timer.stop()
         self._signals.stopping.emit()
         self._started = False
         self._signals.stopped.emit()

@@ -38,10 +38,6 @@ class MainWindowStub(QWidget):
         super().__init__()
         self.registry = WatchableRegistry()
         self.server_manager = FakeServerManager(self.registry)
-        self.server_manager.start("config_is_not_used_with_fake_manager")
-        self.server_manager.simulate_server_connect()
-        self.server_manager.simulate_device_ready()
-        self.server_manager.simulate_sfd_loaded()
 
     def get_server_manager(self):
         return self.server_manager
@@ -64,23 +60,36 @@ class HMIComponentBaseTest(ScrutinyBaseGuiTest):
         self.main_window = MainWindowStub()
         self.app_interface = DummyAppInterface()
         self.app_interface.server_manager = self.main_window.get_server_manager()
-        self.app_interface.watchable_registry = self.main_window.get_watchable_registry()
-        self.hmi_component = HMIComponent(
-            self.main_window,
-            'hmi1',
-            self.app_interface
-        )
-        self.hmi_component.setup()
-        self.hmi_component.ready()
-        self.hmi_component.set_unittest_mode(True)
+        try:
+            self.main_window.server_manager.start("config_is_not_used_with_fake_manager")
+            self.main_window.server_manager.simulate_server_connect()
+            self.main_window.server_manager.simulate_device_ready()
+            self.main_window.server_manager.simulate_sfd_loaded()
+            self.app_interface.watchable_registry = self.main_window.get_watchable_registry()
+            try:
+                self.hmi_component = HMIComponent(
+                    self.main_window,
+                    'hmi1',
+                    self.app_interface
+                )
+                self.hmi_component.setup()
+                self.hmi_component.ready()
+                self.hmi_component.set_unittest_mode(True)
 
-        workzone = self.hmi_component.get_workzone()
-        old_size = workzone.viewport().size()
-        workzone.viewport().setGeometry(7, 9, 645, 483)    # Not round on purpose
-        new_size = workzone.viewport().size()
-        workzone.resizeEvent(QResizeEvent(new_size, old_size))
+                workzone = self.hmi_component.get_workzone()
+                old_size = workzone.viewport().size()
+                workzone.viewport().setGeometry(7, 9, 645, 483)    # Not round on purpose
+                new_size = workzone.viewport().size()
+                workzone.resizeEvent(QResizeEvent(new_size, old_size))
+            except Exception:
+                self.hmi_component.teardown()
+                raise
+        except Exception:
+            self.main_window.server_manager.stop()
+            raise
 
     def tearDown(self):
+        self.main_window.server_manager.stop()
         self.hmi_component.teardown()
         return super().tearDown()
 
