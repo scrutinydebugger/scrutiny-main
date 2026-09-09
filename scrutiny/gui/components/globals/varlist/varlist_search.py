@@ -24,8 +24,6 @@ from scrutiny.gui import assets
 from scrutiny.core import path_tools
 from scrutiny.gui.widgets import mixins as gui_mixins
 
-from scrutiny import sdk
-
 from scrutiny.tools.typing import *
 
 

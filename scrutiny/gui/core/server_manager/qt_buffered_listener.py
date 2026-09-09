@@ -6,27 +6,17 @@
 #
 #    Copyright (c) 2026 Scrutiny Debugger
 
-from scrutiny import sdk
-import threading
 import time
 import logging
 import queue
-import enum
-from copy import copy
-from dataclasses import dataclass
 
 from PySide6.QtCore import Signal, QObject
-import shiboken6
 
 from scrutiny.sdk.listeners import BaseListener, ValueUpdate
 from scrutiny.gui.core.user_messages_manager import UserMessagesManager
-from scrutiny.gui.core.threads import QT_THREAD_NAME, SERVER_MANAGER_THREAD_NAME
-from scrutiny.gui.tools.invoker import invoke_in_qt_thread_synchronized, invoke_later
 from scrutiny import tools
-from scrutiny.tools.thread_enforcer import thread_func, enforce_thread
 from scrutiny.tools.profiling import VariableRateExponentialAverager
 from scrutiny.tools.typing import *
-from scrutiny.gui.app_settings import app_settings
 
 USER_MSG_UPDATE_OVERRUN = "listener_update_dropped"
 

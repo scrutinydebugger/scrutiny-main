@@ -21,7 +21,6 @@ from PySide6.QtCore import Qt, QTimer, QObject, Signal
 from PySide6.QtGui import QContextMenuEvent
 
 
-from scrutiny import sdk
 from scrutiny.gui.core.serializable_value_set import SerializableValueSet
 from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
 from scrutiny.gui.core.watchable_registry.common import RegistryValueUpdate, RegistryNodeConfiguration

@@ -4,7 +4,6 @@ __all__ = ['WatchableRegistryEntryNode', 'WatchableRegistryIntermediateNode']
 
 from dataclasses import dataclass
 from scrutiny.tools.typing import *
-from scrutiny import sdk
 from scrutiny.gui.core.watchable_registry.common import WatcherIdType, RegistryNodeConfiguration
 from scrutiny.gui.core.watchable_registry.watcher import WatcherData
 from scrutiny.gui.core.watchable_registry.errors import WatchableRegistryError

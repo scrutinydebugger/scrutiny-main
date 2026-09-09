@@ -33,7 +33,6 @@ from scrutiny.gui.widgets.watchable_tree import (
     WatchableTreeWidget
 )
 
-from scrutiny.sdk import WatchableType
 from scrutiny.tools.typing import *
 
 

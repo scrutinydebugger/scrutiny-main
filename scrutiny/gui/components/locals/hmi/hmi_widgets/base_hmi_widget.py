@@ -18,7 +18,6 @@ from PySide6.QtWidgets import QWidget, QGraphicsItem, QStyleOptionGraphicsItem
 from PySide6.QtGui import QPainter, QPixmap, QIcon
 from PySide6.QtCore import QSize, QRectF, QPointF, QObject, Qt, Signal
 
-from scrutiny import sdk
 from scrutiny.gui.app_settings import app_settings
 from scrutiny.gui.widgets.watchable_line_edit import WatchableLineEdit, WatchableFQNAndName
 from scrutiny.gui.widgets.tooltip_form_layout import TooltipFormLayout
