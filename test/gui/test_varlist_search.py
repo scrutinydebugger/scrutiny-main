@@ -13,6 +13,7 @@ from scrutiny.tools.typing import *
 
 from scrutiny.gui.components.globals.varlist.varlist_search import SearchResultWidget
 from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
+from scrutiny.gui.core.watchable_registry.common import RegistryNodeType
 from scrutiny import sdk
 
 
@@ -41,9 +42,9 @@ class TestVarlistSearch(ScrutinyBaseGuiTest):
         super().setUp()
         self.registry = WatchableRegistry()
         self.registry.write_content({
-            sdk.WatchableType.Variable: DUMMY_DATASET_VAR,
-            sdk.WatchableType.Alias: DUMMY_DATASET_ALIAS,
-            sdk.WatchableType.RuntimePublishedValue: DUMMY_DATASET_RPV
+            RegistryNodeType.Variable: DUMMY_DATASET_VAR,
+            RegistryNodeType.Alias: DUMMY_DATASET_ALIAS,
+            RegistryNodeType.RuntimePublishedValue: DUMMY_DATASET_RPV
         })
         self.main_window = QMainWindow()
         self.search_widget = SearchResultWidget(self.main_window, self.registry)

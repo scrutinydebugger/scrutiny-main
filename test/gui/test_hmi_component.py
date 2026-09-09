@@ -28,6 +28,7 @@ from scrutiny.gui.components.locals.hmi.common.hmi_colors import HMIColor
 from test.gui.fake_server_manager import FakeServerManager
 from test.gui.base_gui_test import ScrutinyBaseGuiTest
 from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
+from scrutiny.gui.core.watchable_registry.common import RegistryNodeType
 from scrutiny.gui.core.watchable_registry.fqn import FQN
 from scrutiny.gui.component_app_interface import AbstractComponentAppInterface
 from scrutiny.tools.typing import *
@@ -1120,7 +1121,7 @@ class TestWorkZone(HMIComponentBaseTest):
 
     def test_register_with_visibility(self):
         self.app_interface.watchable_registry.write_content({
-            sdk.WatchableType.Variable: {
+            RegistryNodeType.Variable: {
                 '/var/aaa': sdk.BriefWatchableConfiguration(sdk.WatchableType.Variable, sdk.EmbeddedDataType.float32, enum=None),
                 '/var/bbb': sdk.BriefWatchableConfiguration(sdk.WatchableType.Variable, sdk.EmbeddedDataType.float32, enum=None)
             }
@@ -1128,13 +1129,13 @@ class TestWorkZone(HMIComponentBaseTest):
         display = NumericalDisplayHMIWidget(self.app_interface)
         self.hmi_component.add_hmi_widget(display)
 
-        self.assertEqual(self.app_interface.watchable_registry.node_watcher_count(sdk.WatchableType.Variable, '/var/aaa'), 0)
-        display.configure_vslot_watchable('val', FQN.make(sdk.WatchableType.Variable, '/var/aaa'), 'test')
-        self.assertEqual(self.app_interface.watchable_registry.node_watcher_count(sdk.WatchableType.Variable, '/var/aaa'), 1)
+        self.assertEqual(self.app_interface.watchable_registry.node_watcher_count(RegistryNodeType.Variable, '/var/aaa'), 0)
+        display.configure_vslot_watchable('val', FQN.make(RegistryNodeType.Variable, '/var/aaa'), 'test')
+        self.assertEqual(self.app_interface.watchable_registry.node_watcher_count(RegistryNodeType.Variable, '/var/aaa'), 1)
         self.hmi_component.visibilityChanged(False)
-        self.assertEqual(self.app_interface.watchable_registry.node_watcher_count(sdk.WatchableType.Variable, '/var/aaa'), 0)
+        self.assertEqual(self.app_interface.watchable_registry.node_watcher_count(RegistryNodeType.Variable, '/var/aaa'), 0)
         self.hmi_component.visibilityChanged(True)
-        self.assertEqual(self.app_interface.watchable_registry.node_watcher_count(sdk.WatchableType.Variable, '/var/aaa'), 1)
+        self.assertEqual(self.app_interface.watchable_registry.node_watcher_count(RegistryNodeType.Variable, '/var/aaa'), 1)
 
     def test_button_press_check_hit_test(self):
         DOWN = 0

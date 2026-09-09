@@ -15,6 +15,7 @@ from scrutiny.gui.components.globals.varlist.varlist_component import VarListCom
 from scrutiny.gui.components.locals.watch.watch_component import WatchComponentTreeModel
 from scrutiny.gui.widgets.watchable_tree import FolderStandardItem, WatchableStandardItem
 from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
+from scrutiny.gui.core.watchable_registry.common import RegistryNodeType, RegistryNodeConfiguration
 from scrutiny.gui.core.watchable_registry.fqn import FQN
 from scrutiny.gui.core.scrutiny_drag_data import ScrutinyDragData
 from test.gui.base_gui_test import ScrutinyBaseGuiTest
@@ -39,11 +40,17 @@ DUMMY_DATASET_VAR = {
     '/var/var4': sdk.BriefWatchableConfiguration(watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None)
 }
 
+DUMMY_DATASET_MATH = {
+    '/math/math0': RegistryNodeConfiguration(node_type=RegistryNodeType.Math, datatype=sdk.EmbeddedDataType.float32, enum=None),
+    '/math/math1': RegistryNodeConfiguration(node_type=RegistryNodeType.Math, datatype=sdk.EmbeddedDataType.float32, enum=None)
+}
+
 TreeItem = Union[FolderStandardItem, WatchableStandardItem]
 
-var_fqn = lambda x: FQN.make(sdk.WatchableType.Variable, x)
-alias_fqn = lambda x: FQN.make(sdk.WatchableType.Alias, x)
-rpv_fqn = lambda x: FQN.make(sdk.WatchableType.RuntimePublishedValue, x)
+var_fqn = lambda x: FQN.make(RegistryNodeType.Variable, x)
+alias_fqn = lambda x: FQN.make(RegistryNodeType.Alias, x)
+rpv_fqn = lambda x: FQN.make(RegistryNodeType.RuntimePublishedValue, x)
+math_fqn = lambda x: FQN.make(RegistryNodeType.Math, x)
 
 
 class BaseWatchableTreeTest(ScrutinyBaseGuiTest):
@@ -52,6 +59,7 @@ class BaseWatchableTreeTest(ScrutinyBaseGuiTest):
     var_node: FolderStandardItem
     alias_node: FolderStandardItem
     rpv_node: FolderStandardItem
+    math_node: FolderStandardItem
 
     MODEL_CLASS: Type
 
@@ -61,23 +69,26 @@ class BaseWatchableTreeTest(ScrutinyBaseGuiTest):
         self.model = self.MODEL_CLASS(parent=None, watchable_registry=self.registry)
         assert isinstance(self.model, WatchableTreeModel)   # base class
         self.registry.write_content({
-            sdk.WatchableType.Alias: DUMMY_DATASET_ALIAS,
-            sdk.WatchableType.RuntimePublishedValue: DUMMY_DATASET_RPV,
-            sdk.WatchableType.Variable: DUMMY_DATASET_VAR,
+            RegistryNodeType.Alias: DUMMY_DATASET_ALIAS,
+            RegistryNodeType.RuntimePublishedValue: DUMMY_DATASET_RPV,
+            RegistryNodeType.Variable: DUMMY_DATASET_VAR,
         })
 
     def load_root_nodes(self):
-        var_row = self.model.make_folder_row('Var', FQN.make(sdk.WatchableType.Variable, '/'), editable=True)
-        alias_row = self.model.make_folder_row('Alias', FQN.make(sdk.WatchableType.Alias, '/'), editable=True)
-        rpv_row = self.model.make_folder_row('RPV', FQN.make(sdk.WatchableType.RuntimePublishedValue, '/'), editable=True)
+        var_row = self.model.make_folder_row('Var', FQN.make(RegistryNodeType.Variable, '/'), editable=True)
+        alias_row = self.model.make_folder_row('Alias', FQN.make(RegistryNodeType.Alias, '/'), editable=True)
+        rpv_row = self.model.make_folder_row('RPV', FQN.make(RegistryNodeType.RuntimePublishedValue, '/'), editable=True)
+        math_row = self.model.make_folder_row('Math', FQN.make(RegistryNodeType.Math, '/'), editable=True)
 
         self.model.appendRow(var_row)
         self.model.appendRow(alias_row)
         self.model.appendRow(rpv_row)
+        self.model.appendRow(math_row)
 
         self.var_node = cast(FolderStandardItem, var_row[0])
         self.alias_node = cast(FolderStandardItem, alias_row[0])
         self.rpv_node = cast(FolderStandardItem, rpv_row[0])
+        self.math_node = cast(FolderStandardItem, math_row[0])
 
     def _get_children(self, item: TreeItem) -> List[TreeItem]:
         children = []
@@ -102,10 +113,10 @@ class TestWatchableTree(BaseWatchableTreeTest):
     MODEL_CLASS = WatchableTreeModel
 
     def test_fill_from_registry(self):
-        var_row = self.model.make_folder_row('Var', FQN.make(sdk.WatchableType.Variable, '/'), editable=True)
+        var_row = self.model.make_folder_row('Var', FQN.make(RegistryNodeType.Variable, '/'), editable=True)
         root_node = var_row[0]
         self.model.appendRow(var_row)
-        self.model.fill_from_index_recursive(root_node, sdk.WatchableType.Variable, '/')
+        self.model.fill_from_index_recursive(root_node, RegistryNodeType.Variable, '/')
 
         self.assertTrue(root_node.hasChildren())
 
@@ -317,9 +328,9 @@ class TestVarlistTreeModel(BaseWatchableTreeTest):
         self.load_root_nodes()
 
     def test_search_by_fqn(self):
-        self.model.fill_from_index_recursive(self.var_node, sdk.WatchableType.Variable, '/')
-        self.model.fill_from_index_recursive(self.alias_node, sdk.WatchableType.Alias, '/')
-        self.model.fill_from_index_recursive(self.rpv_node, sdk.WatchableType.RuntimePublishedValue, '/')
+        self.model.fill_from_index_recursive(self.var_node, RegistryNodeType.Variable, '/')
+        self.model.fill_from_index_recursive(self.alias_node, RegistryNodeType.Alias, '/')
+        self.model.fill_from_index_recursive(self.rpv_node, RegistryNodeType.RuntimePublishedValue, '/')
 
         node = self.model.find_item_by_fqn('alias:/alias/yyy/alias1')
         self.assertIsNotNone(node)
@@ -328,9 +339,9 @@ class TestVarlistTreeModel(BaseWatchableTreeTest):
         self.assertIsNone(node)
 
     def test_drag_mime_single_watchable(self):
-        self.model.fill_from_index_recursive(self.var_node, sdk.WatchableType.Variable, '/')
-        self.model.fill_from_index_recursive(self.alias_node, sdk.WatchableType.Alias, '/')
-        self.model.fill_from_index_recursive(self.rpv_node, sdk.WatchableType.RuntimePublishedValue, '/')
+        self.model.fill_from_index_recursive(self.var_node, RegistryNodeType.Variable, '/')
+        self.model.fill_from_index_recursive(self.alias_node, RegistryNodeType.Alias, '/')
+        self.model.fill_from_index_recursive(self.rpv_node, RegistryNodeType.RuntimePublishedValue, '/')
 
         node = self.model.find_item_by_fqn('alias:/alias/alias2')
         self.assertIsNotNone(node)
@@ -349,9 +360,9 @@ class TestVarlistTreeModel(BaseWatchableTreeTest):
         self.assertEqual(data.data_copy[0]['fqn'], node.fqn)
 
     def test_drag_mime_multiple_watchable(self):
-        self.model.fill_from_index_recursive(self.var_node, sdk.WatchableType.Variable, '/')
-        self.model.fill_from_index_recursive(self.alias_node, sdk.WatchableType.Alias, '/')
-        self.model.fill_from_index_recursive(self.rpv_node, sdk.WatchableType.RuntimePublishedValue, '/')
+        self.model.fill_from_index_recursive(self.var_node, RegistryNodeType.Variable, '/')
+        self.model.fill_from_index_recursive(self.alias_node, RegistryNodeType.Alias, '/')
+        self.model.fill_from_index_recursive(self.rpv_node, RegistryNodeType.RuntimePublishedValue, '/')
 
         node1 = self.model.find_item_by_fqn('alias:/alias/alias2')
         node2 = self.model.find_item_by_fqn('var:/var/xxx/var2')
@@ -374,9 +385,9 @@ class TestVarlistTreeModel(BaseWatchableTreeTest):
         self.assertEqual(data.data_copy[1]['fqn'], node2.fqn)
 
     def test_drag_mime_tree(self):
-        self.model.fill_from_index_recursive(self.var_node, sdk.WatchableType.Variable, '/')
-        self.model.fill_from_index_recursive(self.alias_node, sdk.WatchableType.Alias, '/')
-        self.model.fill_from_index_recursive(self.rpv_node, sdk.WatchableType.RuntimePublishedValue, '/')
+        self.model.fill_from_index_recursive(self.var_node, RegistryNodeType.Variable, '/')
+        self.model.fill_from_index_recursive(self.alias_node, RegistryNodeType.Alias, '/')
+        self.model.fill_from_index_recursive(self.rpv_node, RegistryNodeType.RuntimePublishedValue, '/')
 
         node1 = self.model.find_item_by_fqn('alias:/alias/alias2')
         node2 = self.model.find_item_by_fqn('var:/var/xxx/var2')
@@ -419,9 +430,9 @@ class TestWatchTreeModel(BaseWatchableTreeTest):
         return items[0]
 
     def test_decode_serialized_node_ref(self):
-        self.model.fill_from_index_recursive(self.var_node, sdk.WatchableType.Variable, '/', keep_folder_fqn=False)
-        self.model.fill_from_index_recursive(self.alias_node, sdk.WatchableType.Alias, '/', keep_folder_fqn=False)
-        self.model.fill_from_index_recursive(self.rpv_node, sdk.WatchableType.RuntimePublishedValue, '/', keep_folder_fqn=False)
+        self.model.fill_from_index_recursive(self.var_node, RegistryNodeType.Variable, '/', keep_folder_fqn=False)
+        self.model.fill_from_index_recursive(self.alias_node, RegistryNodeType.Alias, '/', keep_folder_fqn=False)
+        self.model.fill_from_index_recursive(self.rpv_node, RegistryNodeType.RuntimePublishedValue, '/', keep_folder_fqn=False)
 
         item = self.model.item(1).child(0, 0).child(1, 0)
         self.assertIsNotNone(item)
@@ -448,9 +459,10 @@ class TestWatchTreeModel(BaseWatchableTreeTest):
         self.assertIsNone(self.model.get_item_from_serializable_index_descriptor(data))
 
     def test_refuse_bad_drag_data(self):
-        self.model.fill_from_index_recursive(self.var_node, sdk.WatchableType.Variable, '/')
-        self.model.fill_from_index_recursive(self.alias_node, sdk.WatchableType.Alias, '/')
-        self.model.fill_from_index_recursive(self.rpv_node, sdk.WatchableType.RuntimePublishedValue, '/')
+        self.model.fill_from_index_recursive(self.var_node, RegistryNodeType.Variable, '/')
+        self.model.fill_from_index_recursive(self.alias_node, RegistryNodeType.Alias, '/')
+        self.model.fill_from_index_recursive(self.rpv_node, RegistryNodeType.RuntimePublishedValue, '/')
+        self.model.fill_from_index_recursive(self.math_node, RegistryNodeType.Math, '/')
 
         valid_data_move = [dict(path='0/0', object_id=id(self.model.item(0, 0).child(0, 0)))]
         self.assertFalse(self.model.canDropMimeData(None, Qt.DropAction.MoveAction, -1, 0, QModelIndex()))
@@ -481,9 +493,9 @@ class TestWatchTreeModel(BaseWatchableTreeTest):
         self.assertFalse(self.model.canDropMimeData(missing_move_fulltree, Qt.DropAction.MoveAction, -1, 0, QModelIndex()))
 
     def test_drag_mime_single_watchable(self):
-        self.model.fill_from_index_recursive(self.var_node, sdk.WatchableType.Variable, '/')
-        self.model.fill_from_index_recursive(self.alias_node, sdk.WatchableType.Alias, '/')
-        self.model.fill_from_index_recursive(self.rpv_node, sdk.WatchableType.RuntimePublishedValue, '/')
+        self.model.fill_from_index_recursive(self.var_node, RegistryNodeType.Variable, '/')
+        self.model.fill_from_index_recursive(self.alias_node, RegistryNodeType.Alias, '/')
+        self.model.fill_from_index_recursive(self.rpv_node, RegistryNodeType.RuntimePublishedValue, '/')
 
         var2_node = self.get_node('var2')
         assert isinstance(var2_node, WatchableStandardItem)
@@ -511,9 +523,9 @@ class TestWatchTreeModel(BaseWatchableTreeTest):
         self.assertEqual(data.data_copy[0]['fqn'], var2_node.fqn)   # Watchable have an fqn
 
     def test_drag_mime_multiple_tree(self):
-        self.model.fill_from_index_recursive(self.var_node, sdk.WatchableType.Variable, '/', keep_folder_fqn=False)
-        self.model.fill_from_index_recursive(self.alias_node, sdk.WatchableType.Alias, '/', keep_folder_fqn=False)
-        self.model.fill_from_index_recursive(self.rpv_node, sdk.WatchableType.RuntimePublishedValue, '/', keep_folder_fqn=False)
+        self.model.fill_from_index_recursive(self.var_node, RegistryNodeType.Variable, '/', keep_folder_fqn=False)
+        self.model.fill_from_index_recursive(self.alias_node, RegistryNodeType.Alias, '/', keep_folder_fqn=False)
+        self.model.fill_from_index_recursive(self.rpv_node, RegistryNodeType.RuntimePublishedValue, '/', keep_folder_fqn=False)
 
         var2_node = self.get_node('var2')
         assert isinstance(var2_node, WatchableStandardItem)
@@ -577,9 +589,9 @@ class TestWatchTreeModel(BaseWatchableTreeTest):
         self.assertEqual(len(var2_tree['children']), 0)
 
     def test_drop_move_watchable_list(self):
-        self.model.fill_from_index_recursive(self.var_node, sdk.WatchableType.Variable, '/', keep_folder_fqn=False)
-        self.model.fill_from_index_recursive(self.alias_node, sdk.WatchableType.Alias, '/', keep_folder_fqn=False)
-        self.model.fill_from_index_recursive(self.rpv_node, sdk.WatchableType.RuntimePublishedValue, '/', keep_folder_fqn=False)
+        self.model.fill_from_index_recursive(self.var_node, RegistryNodeType.Variable, '/', keep_folder_fqn=False)
+        self.model.fill_from_index_recursive(self.alias_node, RegistryNodeType.Alias, '/', keep_folder_fqn=False)
+        self.model.fill_from_index_recursive(self.rpv_node, RegistryNodeType.RuntimePublishedValue, '/', keep_folder_fqn=False)
 
         var2_node = self.get_node('var2')
         assert isinstance(var2_node, WatchableStandardItem)
@@ -601,9 +613,9 @@ class TestWatchTreeModel(BaseWatchableTreeTest):
         self.assertIs(var2_node.parent(), folder_yyy_node)
 
     def test_drop_move_full_tree_append(self):
-        self.model.fill_from_index_recursive(self.var_node, sdk.WatchableType.Variable, '/', keep_folder_fqn=False)
-        self.model.fill_from_index_recursive(self.alias_node, sdk.WatchableType.Alias, '/', keep_folder_fqn=False)
-        self.model.fill_from_index_recursive(self.rpv_node, sdk.WatchableType.RuntimePublishedValue, '/', keep_folder_fqn=False)
+        self.model.fill_from_index_recursive(self.var_node, RegistryNodeType.Variable, '/', keep_folder_fqn=False)
+        self.model.fill_from_index_recursive(self.alias_node, RegistryNodeType.Alias, '/', keep_folder_fqn=False)
+        self.model.fill_from_index_recursive(self.rpv_node, RegistryNodeType.RuntimePublishedValue, '/', keep_folder_fqn=False)
 
         var2_node = self.get_node('var2')
         assert isinstance(var2_node, WatchableStandardItem)
@@ -644,9 +656,9 @@ class TestWatchTreeModel(BaseWatchableTreeTest):
         self.assertCountEqual(positions, [1, 2])  # Ensure append
 
     def test_drop_move_full_tree_insert_index0(self):
-        self.model.fill_from_index_recursive(self.var_node, sdk.WatchableType.Variable, '/', keep_folder_fqn=False)
-        self.model.fill_from_index_recursive(self.alias_node, sdk.WatchableType.Alias, '/', keep_folder_fqn=False)
-        self.model.fill_from_index_recursive(self.rpv_node, sdk.WatchableType.RuntimePublishedValue, '/', keep_folder_fqn=False)
+        self.model.fill_from_index_recursive(self.var_node, RegistryNodeType.Variable, '/', keep_folder_fqn=False)
+        self.model.fill_from_index_recursive(self.alias_node, RegistryNodeType.Alias, '/', keep_folder_fqn=False)
+        self.model.fill_from_index_recursive(self.rpv_node, RegistryNodeType.RuntimePublishedValue, '/', keep_folder_fqn=False)
 
         var2_node = self.get_node('var2')
         assert isinstance(var2_node, WatchableStandardItem)
@@ -687,9 +699,9 @@ class TestWatchTreeModel(BaseWatchableTreeTest):
         self.assertCountEqual(positions, [0, 1])  # insert at 0
 
     def test_drop_move_full_tree_insert(self):
-        self.model.fill_from_index_recursive(self.var_node, sdk.WatchableType.Variable, '/', keep_folder_fqn=False)
-        self.model.fill_from_index_recursive(self.alias_node, sdk.WatchableType.Alias, '/', keep_folder_fqn=False)
-        self.model.fill_from_index_recursive(self.rpv_node, sdk.WatchableType.RuntimePublishedValue, '/', keep_folder_fqn=False)
+        self.model.fill_from_index_recursive(self.var_node, RegistryNodeType.Variable, '/', keep_folder_fqn=False)
+        self.model.fill_from_index_recursive(self.alias_node, RegistryNodeType.Alias, '/', keep_folder_fqn=False)
+        self.model.fill_from_index_recursive(self.rpv_node, RegistryNodeType.RuntimePublishedValue, '/', keep_folder_fqn=False)
 
         rpv1000_node = self.get_node('rpv1000')
         assert isinstance(rpv1000_node, WatchableStandardItem)
@@ -727,9 +739,10 @@ class TestWatchTreeModel(BaseWatchableTreeTest):
         self.assertEqual(var2_node.row(), 3)
 
     def test_drop_move_full_tree_insert_at_root(self):
-        self.model.fill_from_index_recursive(self.var_node, sdk.WatchableType.Variable, '/', keep_folder_fqn=False)
-        self.model.fill_from_index_recursive(self.alias_node, sdk.WatchableType.Alias, '/', keep_folder_fqn=False)
-        self.model.fill_from_index_recursive(self.rpv_node, sdk.WatchableType.RuntimePublishedValue, '/', keep_folder_fqn=False)
+        self.model.fill_from_index_recursive(self.var_node, RegistryNodeType.Variable, '/', keep_folder_fqn=False)
+        self.model.fill_from_index_recursive(self.alias_node, RegistryNodeType.Alias, '/', keep_folder_fqn=False)
+        self.model.fill_from_index_recursive(self.rpv_node, RegistryNodeType.RuntimePublishedValue, '/', keep_folder_fqn=False)
+        self.model.fill_from_index_recursive(self.math_node, RegistryNodeType.Math, '/', keep_folder_fqn=False)
 
         rpv1000_node = self.get_node('rpv1000')
         assert isinstance(rpv1000_node, WatchableStandardItem)
@@ -752,7 +765,7 @@ class TestWatchTreeModel(BaseWatchableTreeTest):
         self.assertIsNone(rpv1000_node.parent())
         self.assertIsNone(rpv1001_node.parent())
 
-        self.assertEqual(self.model.rowCount(), 5)
+        self.assertEqual(self.model.rowCount(), 6)
 
         # var2 is not there on purpose. it's nested into another selection (xxx)
         positions = [x.row() for x in cast(List[QStandardItem], [rpv1000_node, rpv1001_node])]
@@ -769,7 +782,7 @@ class TestWatchTreeModel(BaseWatchableTreeTest):
 
         self.registry.clear()
         self.registry.write_content({
-            sdk.WatchableType.Variable: {
+            RegistryNodeType.Variable: {
                 'aaa': sdk.BriefWatchableConfiguration(sdk.WatchableType.Variable, sdk.EmbeddedDataType.bool8, None),
                 'bbb': sdk.BriefWatchableConfiguration(sdk.WatchableType.Variable, sdk.EmbeddedDataType.bool8, None),
                 'ccc/ddd': sdk.BriefWatchableConfiguration(sdk.WatchableType.Variable, sdk.EmbeddedDataType.bool8, None),
@@ -778,7 +791,7 @@ class TestWatchTreeModel(BaseWatchableTreeTest):
             }
         })
 
-        self.model.fill_from_index_recursive(self.var_node, sdk.WatchableType.Variable, '/', keep_folder_fqn=False)
+        self.model.fill_from_index_recursive(self.var_node, RegistryNodeType.Variable, '/', keep_folder_fqn=False)
 
         self.model
 
@@ -818,9 +831,9 @@ class TestWatchTreeModel(BaseWatchableTreeTest):
         self.assertIs(bbb_node.parent(), ccc_folder)
 
     def test_drop_copy_from_watch(self):
-        self.model.fill_from_index_recursive(self.var_node, sdk.WatchableType.Variable, '/', keep_folder_fqn=False)
-        self.model.fill_from_index_recursive(self.alias_node, sdk.WatchableType.Alias, '/', keep_folder_fqn=False)
-        self.model.fill_from_index_recursive(self.rpv_node, sdk.WatchableType.RuntimePublishedValue, '/', keep_folder_fqn=False)
+        self.model.fill_from_index_recursive(self.var_node, RegistryNodeType.Variable, '/', keep_folder_fqn=False)
+        self.model.fill_from_index_recursive(self.alias_node, RegistryNodeType.Alias, '/', keep_folder_fqn=False)
+        self.model.fill_from_index_recursive(self.rpv_node, RegistryNodeType.RuntimePublishedValue, '/', keep_folder_fqn=False)
 
         var2_node = self.get_node('var2')
         assert isinstance(var2_node, WatchableStandardItem)
@@ -885,9 +898,9 @@ class TestWatchTreeModel(BaseWatchableTreeTest):
             self.assertEqual(old_child.rowCount(), new_child.rowCount())
 
     def test_drop_copy_from_watch_no_folder(self):
-        self.model.fill_from_index_recursive(self.var_node, sdk.WatchableType.Variable, '/', keep_folder_fqn=False)
-        self.model.fill_from_index_recursive(self.alias_node, sdk.WatchableType.Alias, '/', keep_folder_fqn=False)
-        self.model.fill_from_index_recursive(self.rpv_node, sdk.WatchableType.RuntimePublishedValue, '/', keep_folder_fqn=False)
+        self.model.fill_from_index_recursive(self.var_node, RegistryNodeType.Variable, '/', keep_folder_fqn=False)
+        self.model.fill_from_index_recursive(self.alias_node, RegistryNodeType.Alias, '/', keep_folder_fqn=False)
+        self.model.fill_from_index_recursive(self.rpv_node, RegistryNodeType.RuntimePublishedValue, '/', keep_folder_fqn=False)
 
         var2_node = self.get_node('var2')
         assert isinstance(var2_node, WatchableStandardItem)
@@ -937,14 +950,14 @@ class TestVarlistToWatchDrop(ScrutinyBaseGuiTest):
         self.varlist_model = VarListComponentTreeModel(parent=None, watchable_registry=self.registry)
         self.watch_model = WatchComponentTreeModel(parent=None, watchable_registry=self.registry)
         self.registry.write_content({
-            sdk.WatchableType.Alias: DUMMY_DATASET_ALIAS,
-            sdk.WatchableType.RuntimePublishedValue: DUMMY_DATASET_RPV,
-            sdk.WatchableType.Variable: DUMMY_DATASET_VAR,
+            RegistryNodeType.Alias: DUMMY_DATASET_ALIAS,
+            RegistryNodeType.RuntimePublishedValue: DUMMY_DATASET_RPV,
+            RegistryNodeType.Variable: DUMMY_DATASET_VAR,
         })
 
-        var_row = self.varlist_model.make_folder_row('Var', FQN.make(sdk.WatchableType.Variable, '/'), editable=True)
-        alias_row = self.varlist_model.make_folder_row('Alias', FQN.make(sdk.WatchableType.Alias, '/'), editable=True)
-        rpv_row = self.varlist_model.make_folder_row('RPV', FQN.make(sdk.WatchableType.RuntimePublishedValue, '/'), editable=True)
+        var_row = self.varlist_model.make_folder_row('Var', FQN.make(RegistryNodeType.Variable, '/'), editable=True)
+        alias_row = self.varlist_model.make_folder_row('Alias', FQN.make(RegistryNodeType.Alias, '/'), editable=True)
+        rpv_row = self.varlist_model.make_folder_row('RPV', FQN.make(RegistryNodeType.RuntimePublishedValue, '/'), editable=True)
 
         self.varlist_model.appendRow(var_row)
         self.varlist_model.appendRow(alias_row)
@@ -954,9 +967,9 @@ class TestVarlistToWatchDrop(ScrutinyBaseGuiTest):
         self.alias_node = cast(FolderStandardItem, alias_row[0])
         self.rpv_node = cast(FolderStandardItem, rpv_row[0])
 
-        self.varlist_model.fill_from_index_recursive(self.var_node, sdk.WatchableType.Variable, '/')
-        self.varlist_model.fill_from_index_recursive(self.alias_node, sdk.WatchableType.Alias, '/')
-        self.varlist_model.fill_from_index_recursive(self.rpv_node, sdk.WatchableType.RuntimePublishedValue, '/')
+        self.varlist_model.fill_from_index_recursive(self.var_node, RegistryNodeType.Variable, '/')
+        self.varlist_model.fill_from_index_recursive(self.alias_node, RegistryNodeType.Alias, '/')
+        self.varlist_model.fill_from_index_recursive(self.rpv_node, RegistryNodeType.RuntimePublishedValue, '/')
 
     def reorder_children_by_text(self, items: List[Optional[QStandardItem]], text: List[str]) -> List[QStandardItem]:
         for item in items:
