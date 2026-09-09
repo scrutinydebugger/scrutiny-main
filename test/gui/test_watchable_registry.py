@@ -110,12 +110,14 @@ class TestWatchableRegistry(ScrutinyUnitTest):
     def test_ignore_empty_data(self):
         self.registry.write_content({
             RegistryNodeType.Alias: DUMMY_DATASET_ALIAS,
-            RegistryNodeType.RuntimePublishedValue: {}  # Should be ignored
+            RegistryNodeType.RuntimePublishedValue: {},  # Should be ignored
+            RegistryNodeType.Math: {}  # Should be ignored
         })
 
         self.assertTrue(self.registry.has_data(RegistryNodeType.Alias))
         self.assertFalse(self.registry.has_data(RegistryNodeType.RuntimePublishedValue))
         self.assertFalse(self.registry.has_data(RegistryNodeType.Variable))
+        self.assertFalse(self.registry.has_data(RegistryNodeType.Math))
 
     def test_fqn(self):
         for nt in RegistryNodeType:
@@ -154,13 +156,18 @@ class TestWatchableRegistry(ScrutinyUnitTest):
     def test_query_node_type(self):
         self.registry.write_content(All_DUMMY_DATA)
 
-        self.assertTrue(self.registry.get_watchable_count(sdk.WatchableType.Variable), len(DUMMY_DATASET_VAR))
-        self.assertTrue(self.registry.get_watchable_count(sdk.WatchableType.Alias), len(DUMMY_DATASET_ALIAS))
-        self.assertTrue(self.registry.get_watchable_count(sdk.WatchableType.RuntimePublishedValue), len(DUMMY_DATASET_RPV))
+        self.assertEqual(self.registry.get_watchable_count(RegistryNodeType.Variable), len(DUMMY_DATASET_VAR))
+        self.assertEqual(self.registry.get_watchable_count(RegistryNodeType.Alias), len(DUMMY_DATASET_ALIAS))
+        self.assertEqual(self.registry.get_watchable_count(RegistryNodeType.RuntimePublishedValue), len(DUMMY_DATASET_RPV))
+        self.assertEqual(self.registry.get_watchable_count(RegistryNodeType.Math), len(DUMMY_DATASET_MATH))
 
         self.assertTrue(self.registry.is_watchable_fqn('alias:/alias/xxx/alias1'))
         self.assertFalse(self.registry.is_watchable_fqn('alias:/alias/xxx'))
         self.assertFalse(self.registry.is_watchable_fqn('alias:Idontexist'))
+
+        self.assertTrue(self.registry.is_watchable_fqn('math:/math/aaa'))
+        self.assertFalse(self.registry.is_watchable_fqn('math:/math'))
+        self.assertFalse(self.registry.is_watchable_fqn('math:Idontexist'))
 
     def test_cannot_overwrite_without_clear(self):
         obj1 = sdk.BriefWatchableConfiguration(
@@ -179,6 +186,12 @@ class TestWatchableRegistry(ScrutinyUnitTest):
         with self.assertRaises(WatchableRegistryError):
             self.registry._add_watchable('/aaa/bbb', obj2)
 
+        math1 = RegistryNodeConfiguration(RegistryNodeType.Math, EmbeddedDataType.float32, enum=None)
+        math2 = RegistryNodeConfiguration(RegistryNodeType.Math, EmbeddedDataType.uint32, enum=None)
+        self.registry._add_watchable('/aaa/bbb', math1)
+        with self.assertRaises(WatchableRegistryError):
+            self.registry._add_watchable('/aaa/bbb', math2)
+
     def test_can_have_same_path_if_different_type(self):
         obj1 = sdk.BriefWatchableConfiguration(
             watchable_type=sdk.WatchableType.Alias,
@@ -192,8 +205,11 @@ class TestWatchableRegistry(ScrutinyUnitTest):
             enum=None
         )
 
+        obj3 = RegistryNodeConfiguration(RegistryNodeType.Math, EmbeddedDataType.float32, enum=None)
+
         self.registry._add_watchable('/aaa/bbb', obj1)
         self.registry._add_watchable('/aaa/bbb', obj2)
+        self.registry._add_watchable('/aaa/bbb', obj3)
 
     def test_read_write(self):
         for path, desc in DUMMY_DATASET_VAR.items():
@@ -201,6 +217,8 @@ class TestWatchableRegistry(ScrutinyUnitTest):
         for path, desc in DUMMY_DATASET_ALIAS.items():
             self.registry._add_watchable(path, desc)
         for path, desc in DUMMY_DATASET_RPV.items():
+            self.registry._add_watchable(path, desc)
+        for path, desc in DUMMY_DATASET_MATH.items():
             self.registry._add_watchable(path, desc)
 
         node = self.registry.read_fqn('var:/')
@@ -232,13 +250,39 @@ class TestWatchableRegistry(ScrutinyUnitTest):
         self.assertIn('var2', node.watchables)
         self.assertEqual(RegistryNodeConfiguration.from_sdk(DUMMY_DATASET_VAR['/var/xxx/var2']), node.watchables['var2'].configuration)
 
+        node = self.registry.read_fqn('math:/')
+        assert isinstance(node, WatchableRegistryIntermediateNode)
+        self.assertEqual(len(node.watchables), 0)
+        self.assertEqual(len(node.subtree), 1)
+        self.assertIn('math', node.subtree)
+
+        node = self.registry.read_fqn('math:/math')
+        assert isinstance(node, WatchableRegistryIntermediateNode)
+        self.assertEqual(len(node.watchables), 2)
+        self.assertEqual(len(node.subtree), 0)
+
+        self.assertIn('aaa', node.watchables)
+        self.assertEqual(DUMMY_DATASET_MATH['/math/aaa'], node.watchables['aaa'].configuration)
+        self.assertIn('bbb', node.watchables)
+        self.assertEqual(DUMMY_DATASET_MATH['/math/bbb'], node.watchables['bbb'].configuration)
+
+        # Verify individual Math entry nodes
+        entry = self.registry.read_fqn('math:/math/aaa')
+        assert isinstance(entry, WatchableRegistryEntryNode)
+        self.assertEqual(entry.configuration.node_type, RegistryNodeType.Math)
+        self.assertEqual(entry.configuration.datatype, EmbeddedDataType.float32)
+
+        entry = self.registry.read_fqn('math:/math/bbb')
+        assert isinstance(entry, WatchableRegistryEntryNode)
+        self.assertEqual(entry.configuration.node_type, RegistryNodeType.Math)
+        self.assertEqual(entry.configuration.datatype, EmbeddedDataType.uint32)
+
     def test_clear_by_type(self):
         self.registry.write_content(All_DUMMY_DATA)
 
         self.assertTrue(self.registry.has_data(RegistryNodeType.Variable))
         self.assertTrue(self.registry.has_data(RegistryNodeType.Alias))
         self.assertTrue(self.registry.has_data(RegistryNodeType.RuntimePublishedValue))
-        self.assertTrue(self.registry.has_data(RegistryNodeType.Math))
         self.assertTrue(self.registry.has_data(RegistryNodeType.Math))
 
         had_data = self.registry.clear_content_by_type(RegistryNodeType.Variable)
@@ -284,6 +328,7 @@ class TestWatchableRegistry(ScrutinyUnitTest):
         self.assertTrue(self.registry.has_data(RegistryNodeType.Variable))
         self.assertTrue(self.registry.has_data(RegistryNodeType.Alias))
         self.assertTrue(self.registry.has_data(RegistryNodeType.RuntimePublishedValue))
+        self.assertTrue(self.registry.has_data(RegistryNodeType.Math))
 
         had_data = self.registry.clear()
         self.assertTrue(had_data)
@@ -291,6 +336,7 @@ class TestWatchableRegistry(ScrutinyUnitTest):
         self.assertFalse(self.registry.has_data(RegistryNodeType.Variable))
         self.assertFalse(self.registry.has_data(RegistryNodeType.Alias))
         self.assertFalse(self.registry.has_data(RegistryNodeType.RuntimePublishedValue))
+        self.assertFalse(self.registry.has_data(RegistryNodeType.Math))
 
         self.assertFalse(self.registry.clear())
 
@@ -586,6 +632,38 @@ class TestWatchableRegistry(ScrutinyUnitTest):
 
             self.registry.clear()
 
+        self.registry.write_content(All_DUMMY_DATA)
+        math1fqn = 'math:/math/aaa'
+        math2fqn = 'math:/math/bbb'
+        self.registry.watch_fqn('watcher1', math1fqn)
+        self.registry.watch_fqn('watcher2', math1fqn)
+        self.registry.watch_fqn('watcher2', math2fqn)
+        math1_node = self.registry.read_fqn(math1fqn)
+        math2_node = self.registry.read_fqn(math2fqn)
+        assert isinstance(math1_node, WatchableRegistryEntryNode)
+        assert isinstance(math2_node, WatchableRegistryEntryNode)
+        registry_id_math1 = math1_node.registry_id
+        registry_id_math2 = math2_node.registry_id
+
+        self.assertEqual(self.registry.node_watcher_count_fqn(math1fqn), 2)
+        self.assertEqual(self.registry.node_watcher_count_fqn(math2fqn), 1)
+        self.assertEqual(self.registry.watched_entries_count(), 2)
+
+        self.registry.clear_content_by_type(RegistryNodeType.Math)
+        self.assertEqual(self.registry.watched_entries_count(), 0)
+        self.assertEqual(self.registry.watcher_count_by_registry_id(registry_id_math1), 0)
+        self.assertEqual(self.registry.watcher_count_by_registry_id(registry_id_math2), 0)
+
+        with self.assertRaises(WatchableRegistryError):
+            self.registry.node_watcher_count_fqn(math1fqn)
+
+        # Rewrite Math and verify watchers are gone
+        self.registry.write_content({RegistryNodeType.Math: DUMMY_DATASET_MATH})  # type: ignore
+        self.assertEqual(self.registry.node_watcher_count_fqn(math1fqn), 0)
+        self.assertEqual(self.registry.node_watcher_count_fqn(math2fqn), 0)
+        self.assertEqual(self.registry.watched_entries_count(), 0)
+        self.registry.clear()
+
     def test_bad_values(self):
         self.registry.write_content(All_DUMMY_DATA)
 
@@ -654,6 +732,29 @@ class TestWatchableRegistry(ScrutinyUnitTest):
         self.assertEqual(unwatch_calls_history[1].node_config, var1.configuration)
         self.assertEqual(unwatch_calls_history[1].registry_id, var1.registry_id)
         self.assertEqual(unwatch_calls_history[1].highest_update_rate, None)
+
+        watch_calls_history.clear()
+        unwatch_calls_history.clear()
+
+        math1 = self.registry.read_fqn('math:/math/aaa')
+        assert isinstance(math1, WatchableRegistryEntryNode)
+        self.assertEqual(math1.configuration.node_type, RegistryNodeType.Math)
+
+        self.registry.watch_fqn('watcher1', 'math:/math/aaa', 50)
+        self.assertEqual(len(watch_calls_history), 1)
+        self.assertEqual(watch_calls_history[0].watcher_id, 'watcher1')
+        self.assertEqual(watch_calls_history[0].server_path, '/math/aaa')
+        self.assertEqual(watch_calls_history[0].node_config, math1.configuration)
+        self.assertEqual(watch_calls_history[0].registry_id, math1.registry_id)
+        self.assertEqual(watch_calls_history[0].highest_update_rate, 50)
+
+        self.registry.unwatch_fqn('watcher1', 'math:/math/aaa')
+        self.assertEqual(len(unwatch_calls_history), 1)
+        self.assertEqual(unwatch_calls_history[0].watcher_id, 'watcher1')
+        self.assertEqual(unwatch_calls_history[0].server_path, '/math/aaa')
+        self.assertEqual(unwatch_calls_history[0].node_config, math1.configuration)
+        self.assertEqual(unwatch_calls_history[0].registry_id, math1.registry_id)
+        self.assertEqual(unwatch_calls_history[0].highest_update_rate, None)
 
     def test_change_counter(self):
         self.assertEqual(self.registry.get_change_counters(), {
@@ -749,12 +850,16 @@ class TestWatchableRegistry(ScrutinyUnitTest):
         self.registry.watch_fqn('watcher2', var2fqn)
         self.registry.watch_fqn('watcher1', var3fqn)
 
+        math1fqn = 'math:/math/aaa'
+        self.registry.watch_fqn('watcher1', math1fqn)
+
         stats = self.registry.get_stats()
         self.assertEqual(stats.var_count, len(DUMMY_DATASET_VAR))
         self.assertEqual(stats.alias_count, len(DUMMY_DATASET_ALIAS))
         self.assertEqual(stats.rpv_count, len(DUMMY_DATASET_RPV))
+        self.assertEqual(stats.math_count, len(DUMMY_DATASET_MATH))
         self.assertEqual(stats.registered_watcher_count, 2)
-        self.assertEqual(stats.watched_entries_count, 3)
+        self.assertEqual(stats.watched_entries_count, 4)
 
     def test_unregister_on_clear(self):
         self.registry.write_content(All_DUMMY_DATA)
@@ -785,13 +890,16 @@ class TestWatchableRegistry(ScrutinyUnitTest):
         var2fqn = f'var:/var/xxx/var2'
         alias1fqn = f'alias:/alias/xxx/alias1'
         alias2fqn = f'alias:/alias/alias2'
+        math1fqn = 'math:/math/aaa'
         self.registry.watch_fqn('watcher1', var1fqn)
         self.registry.watch_fqn('watcher1', alias2fqn)
+        self.registry.watch_fqn('watcher1', math1fqn)
         self.registry.watch_fqn('watcher2', var1fqn)
         self.registry.watch_fqn('watcher2', var2fqn)
         self.registry.watch_fqn('watcher2', alias1fqn)
+        self.registry.watch_fqn('watcher2', math1fqn)
 
-        self.assertEqual(self.registry.watched_entries_count(), 4)
+        self.assertEqual(self.registry.watched_entries_count(), 5)
 
         def fqn_to_args(fqn):
             parsed = FQN.parse(fqn)
@@ -801,14 +909,17 @@ class TestWatchableRegistry(ScrutinyUnitTest):
         self.assertEqual(self.registry.node_watcher_count(*fqn_to_args(var2fqn)), 1)
         self.assertEqual(self.registry.node_watcher_count(*fqn_to_args(alias1fqn)), 1)
         self.assertEqual(self.registry.node_watcher_count(*fqn_to_args(alias2fqn)), 1)
+        self.assertEqual(self.registry.node_watcher_count(*fqn_to_args(math1fqn)), 2)
 
-        self.assertEqual(len(global_watch_callback_list), 5)
+        self.assertEqual(len(global_watch_callback_list), 7)
         self.assertCountEqual(global_watch_callback_list, [
             ('watcher1', FQN.parse(var1fqn).path),
             ('watcher1', FQN.parse(alias2fqn).path),
+            ('watcher1', FQN.parse(math1fqn).path),
             ('watcher2', FQN.parse(var1fqn).path),
             ('watcher2', FQN.parse(var2fqn).path),
-            ('watcher2', FQN.parse(alias1fqn).path)
+            ('watcher2', FQN.parse(alias1fqn).path),
+            ('watcher2', FQN.parse(math1fqn).path),
         ])
 
         self.assertEqual(len(global_unwatch_callback_list), 0)
@@ -829,6 +940,7 @@ class TestWatchableRegistry(ScrutinyUnitTest):
 
         self.assertEqual(self.registry.node_watcher_count(*fqn_to_args(var1fqn)), 2)
         self.assertEqual(self.registry.node_watcher_count(*fqn_to_args(var2fqn)), 1)
+        self.assertEqual(self.registry.node_watcher_count(*fqn_to_args(math1fqn)), 2)  # Math untouched
         with self.assertRaises(WatchableRegistryNodeNotFoundError):
             self.registry.node_watcher_count(*fqn_to_args(alias1fqn))
         with self.assertRaises(WatchableRegistryNodeNotFoundError):
@@ -843,15 +955,28 @@ class TestWatchableRegistry(ScrutinyUnitTest):
         self.assertCountEqual(watcher_unwatch_list['watcher1'], [var1fqn])
         self.assertCountEqual(watcher_unwatch_list['watcher2'], [var1fqn, var2fqn])
         global_unwatch_callback_list.clear()
+        watcher_unwatch_list['watcher1'].clear()
+        watcher_unwatch_list['watcher2'].clear()
 
+        self.assertEqual(self.registry.node_watcher_count(*fqn_to_args(math1fqn)), 2)  # Math still untouched
         with self.assertRaises(WatchableRegistryNodeNotFoundError):
-            self.assertEqual(self.registry.node_watcher_count(*fqn_to_args(var1fqn)), 0)
+            self.registry.node_watcher_count(*fqn_to_args(var1fqn))
         with self.assertRaises(WatchableRegistryNodeNotFoundError):
-            self.assertEqual(self.registry.node_watcher_count(*fqn_to_args(var2fqn)), 0)
+            self.registry.node_watcher_count(*fqn_to_args(var2fqn))
         with self.assertRaises(WatchableRegistryNodeNotFoundError):
-            self.assertEqual(self.registry.node_watcher_count(*fqn_to_args(alias1fqn)), 0)
+            self.registry.node_watcher_count(*fqn_to_args(alias1fqn))
         with self.assertRaises(WatchableRegistryNodeNotFoundError):
-            self.assertEqual(self.registry.node_watcher_count(*fqn_to_args(alias2fqn)), 0)
+            self.registry.node_watcher_count(*fqn_to_args(alias2fqn))
+
+        self.registry.clear_content_by_type(RegistryNodeType.Math)
+        self.assertCountEqual(global_unwatch_callback_list, [
+            ('watcher1', FQN.parse(math1fqn).path),
+            ('watcher2', FQN.parse(math1fqn).path),
+        ])
+        self.assertCountEqual(watcher_unwatch_list['watcher1'], [math1fqn])
+        self.assertCountEqual(watcher_unwatch_list['watcher2'], [math1fqn])
+        with self.assertRaises(WatchableRegistryNodeNotFoundError):
+            self.registry.node_watcher_count(*fqn_to_args(math1fqn))
 
     def test_bidirectional_map(self):
         m = ServerRegistryBidirectionalMap()
@@ -912,6 +1037,9 @@ class TestWatchableRegistry(ScrutinyUnitTest):
         content_rpv = {
             RegistryNodeType.RuntimePublishedValue: DUMMY_DATASET_RPV
         }
+        content_math = {
+            RegistryNodeType.Math: DUMMY_DATASET_MATH
+        }
 
         def validate_id_unique():
             seen_ids = set()
@@ -927,11 +1055,18 @@ class TestWatchableRegistry(ScrutinyUnitTest):
             validate_id_unique()
             self.registry.write_content(content_var_alias)
             validate_id_unique()
+            self.registry.write_content(content_math)  # type: ignore
+            validate_id_unique()
             self.registry.clear_content_by_type(RegistryNodeType.RuntimePublishedValue)
             validate_id_unique()
             self.registry.write_content(content_rpv)
             validate_id_unique()
-            self.registry.clear_content_by_type([RegistryNodeType.RuntimePublishedValue, RegistryNodeType.Alias, RegistryNodeType.Variable])
+            self.registry.clear_content_by_type(RegistryNodeType.Math)
+            validate_id_unique()
+            self.registry.write_content(content_math)  # type: ignore
+            validate_id_unique()
+            self.registry.clear_content_by_type([RegistryNodeType.RuntimePublishedValue, RegistryNodeType.Alias,
+                                                RegistryNodeType.Variable, RegistryNodeType.Math])
             validate_id_unique()
 
     def tearDown(self):
