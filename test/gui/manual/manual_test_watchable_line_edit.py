@@ -22,6 +22,7 @@ from PySide6.QtGui import QDoubleValidator
 from scrutiny.gui.widgets.watchable_line_edit import WatchableLineEdit
 from scrutiny.gui.components.globals.varlist.varlist_component import VarListComponent
 from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
+from scrutiny.gui.core.watchable_registry.common import RegistryNodeType
 from scrutiny.gui.component_app_interface import AbstractComponentAppInterface
 
 from scrutiny.sdk import WatchableType, BriefWatchableConfiguration, EmbeddedDataType
@@ -56,18 +57,18 @@ varlist = VarListComponent(main_window=window, instance_name="varlist1", app_int
 varlist.setup()
 
 registry.write_content({
-    WatchableType.Alias: {
+    RegistryNodeType.Alias: {
         '/my_var': BriefWatchableConfiguration(WatchableType.Variable, EmbeddedDataType.float32, enum=None)
     },
-    WatchableType.RuntimePublishedValue: {
+    RegistryNodeType.RuntimePublishedValue: {
         '/my_rpva': BriefWatchableConfiguration(WatchableType.RuntimePublishedValue, EmbeddedDataType.float32, enum=None)
     },
-    WatchableType.Variable: {
+    RegistryNodeType.Variable: {
         '/my_alias': BriefWatchableConfiguration(WatchableType.Alias, EmbeddedDataType.float32, enum=None),
         '/alias with very long name': BriefWatchableConfiguration(WatchableType.Alias, EmbeddedDataType.float32, enum=None)
     },
 })
-varlist.reload_model([WatchableType.Alias, WatchableType.RuntimePublishedValue, WatchableType.Variable])
+varlist.reload_model([RegistryNodeType.Alias, RegistryNodeType.RuntimePublishedValue, RegistryNodeType.Variable])
 
 chk_text_mode = QCheckBox("Text mode enabled (both)")
 
