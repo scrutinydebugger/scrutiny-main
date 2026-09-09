@@ -316,8 +316,6 @@ class ServerManager:
         self.VAR_FACTORY_MAX_WATCHABLE = app_settings().SCRUTINY_GUI_MAX_GENERATED_VAR_PER_ELEMENT
         self.VAR_FACTORY_MAX_TOTAL_GENERATED_VAR = app_settings().SCRUTINY_GUI_MAX_TOTAL_GENERATED_VAR
 
-        self._dangling_subscription_prune_timer.start()
-
     # region Private - internal thread
 
     @thread_func(SERVER_MANAGER_THREAD_NAME)
@@ -1167,10 +1165,11 @@ class ServerManager:
         self.signals.starting.emit()
         self._allow_auto_reconnect = True
         self._thread_stop_event.clear()
-        self._client_task_reactor.start()
+        # self._client_task_reactor.start()
         self._thread = threading.Thread(target=self._thread_func, args=[config], daemon=True)
         self._listener.reset_stats()
         self._thread.start()
+        self._dangling_subscription_prune_timer.start()
         self._logger.debug("Server manager started")
         self.signals.started.emit()
 
@@ -1179,6 +1178,7 @@ class ServerManager:
         """Stops the server manager. Will disconnect it from the server and clear all internal data"""
         # Called from the QT thread
         self._logger.debug("ServerManager.stop() called")
+        self._dangling_subscription_prune_timer.stop()
         if self._stop_pending:
             self._logger.debug("Stop already pending. Cannot stop")
             return
