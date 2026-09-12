@@ -6,8 +6,9 @@
 #
 #    Copyright (c) 2025 Scrutiny Debugger
 
-__all__ = ['ParsingError', 'parse_math_expr']
+__all__ = ['MathParsingError', 'parse_math_expr', 'MathParser']
 
+import enum
 import math
 import string
 from scrutiny.tools.typing import *
@@ -57,33 +58,49 @@ _FUNCTIONS: Dict[str, Callable[..., float]] = {
 
 
 def parse_math_expr(expr: str) -> float:
-    return _Parser(expr).get_val()
+    return MathParser(expr, MathParser.Mode.Parse).get_val()
 
 
-class ParsingError(Exception):
+class MathParsingError(Exception):
     pass
 
 
-class _Parser:
+class MathParser:
+
+    class Mode(enum.Enum):
+        Eval = enum.auto()
+        Parse = enum.auto()
 
     _expr: str
     _index: int
     _vars: Dict[str, Any]
+    _required_funcs: Set[str]
+    _required_vars: Set[str]
+    _mode: Mode
 
-    def __init__(self, expr: str, vars: Optional[Dict[str, Any]] = None) -> None:
+    def __init__(self, expr: str, mode: Mode, vars: Optional[Dict[str, Any]] = None) -> None:
         self._expr = expr
         self._index = 0
         self._vars = {} if vars is None else vars.copy()
+        self._required_funcs = set()
+        self._required_vars = set()
+        self._mode = mode
         for constant in _CONSTANTS.keys():
             if self._vars.get(constant) != None:
-                raise ParsingError(f"Cannot redefine the value of {constant}")
+                raise MathParsingError(f"Cannot redefine the value of {constant}")
+
+        if mode == self.Mode.Parse:
+            self.get_val()  # Should return garbage. All vars to 0
+
+    def get_vars(self) -> Set[str]:
+        return self._required_vars
 
     def get_val(self) -> float:
         value = self._parse_expr()
         self._skip_whitespace()
 
         if self._has_next():
-            raise ParsingError(f"Unexpected character found: '{self._peek()}' at index {self._index}")
+            raise MathParsingError(f"Unexpected character found: '{self._peek()}' at index {self._index}")
         return value
 
     def _peek(self) -> str:
@@ -103,7 +120,7 @@ class _Parser:
 
     def _pop_expected(self, value: str) -> None:
         if not self._pop_if_next(value):
-            raise ParsingError(f"Expected {value} at index {self._index}")
+            raise MathParsingError(f"Expected {value} at index {self._index}")
 
     def _skip_whitespace(self) -> None:
         while self._has_next():
@@ -148,7 +165,7 @@ class _Parser:
                 denominator = self._parse_power()
 
                 if denominator == 0:
-                    raise ParsingError(f"Division by 0 (occurred at index {div_index})")
+                    raise MathParsingError(f"Division by 0 (occurred at index {div_index})")
                 values.append(1.0 / denominator)
             else:
                 break
@@ -193,7 +210,7 @@ class _Parser:
             self._skip_whitespace()
 
             if self._peek() != ')':
-                raise ParsingError(f"No closing parenthesis found at character {self._index}")
+                raise MathParsingError(f"No closing parenthesis found at character {self._index}")
             self._index += 1
             return value
         else:
@@ -237,27 +254,33 @@ class _Parser:
         while self._has_next():
             char = self._peek()
 
-            if char.lower() in '_abcdefghijklmnopqrstuvwxyz0123456789':
+            if char in '_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789$':
                 var.append(char)
                 self._index += 1
             else:
                 break
         var_str = ''.join(var)
-
-        function = _FUNCTIONS.get(var_str.lower())
+        var_str_lower = var_str.lower()
+        function = _FUNCTIONS.get(var_str_lower)
         if function is not None:
+            if self._mode == self.Mode.Parse:
+                self._required_funcs.add(var_str_lower)
             args = self._parse_arg()
             return float(function(*args))
 
-        constant = _CONSTANTS.get(var_str.lower())
+        constant = _CONSTANTS.get(var_str_lower)
         if constant is not None:
             return constant
 
-        value = self._vars.get(var_str, None)
-        if value != None:
-            return float(value)
+        if self._mode == self.Mode.Parse:
+            self._required_vars.add(var_str)
+            return 0
+        else:
+            value = self._vars.get(var_str, None)
+            if value != None:
+                return float(value)
 
-        raise ParsingError(f"Unrecognized variable: '{var_str}'")
+        raise MathParsingError(f"Unrecognized variable: '{var_str}'")
 
     def _parse_literal(self) -> float:
         self._skip_whitespace()
@@ -284,12 +307,12 @@ class _Parser:
 
             if char == '.':
                 if decimal_found or base != 10 or exponent_found:
-                    raise ParsingError(f"Unexpected '{char}' at {self._index}")
+                    raise MathParsingError(f"Unexpected '{char}' at {self._index}")
                 decimal_found = True
                 str_val += char
             elif char == 'e' and base == 10:
                 if exponent_found:
-                    raise ParsingError(f"Unexpected '{char}' at {self._index}")
+                    raise MathParsingError(f"Unexpected '{char}' at {self._index}")
                 exponent_found = True
 
             elif char in allowed_charset or (char in "+-" and exponent_found and not exponent_sign_found):
@@ -304,18 +327,18 @@ class _Parser:
 
         if len(str_val) == 0:
             if char == '':
-                raise ParsingError("Unexpected end found")
+                raise MathParsingError("Unexpected end found")
             else:
-                raise ParsingError(f"Unexpected '{char}' at {self._index}")
+                raise MathParsingError(f"Unexpected '{char}' at {self._index}")
 
         if exponent_found:
             if exponent_str == '':
                 if char == '':
-                    raise ParsingError("Unexpected end found")
+                    raise MathParsingError("Unexpected end found")
             try:
                 exponent = float(exponent_str)
             except ValueError:
-                raise ParsingError(f"Unexpected '{char}' at {self._index}")
+                raise MathParsingError(f"Unexpected '{char}' at {self._index}")
 
         try:
             if base == 10:
@@ -323,4 +346,4 @@ class _Parser:
             else:
                 return float(int(str_val, base=base))
         except Exception as e:
-            raise ParsingError(f"Error while parsing literal before {self._index}. Underlying error: {e}")
+            raise MathParsingError(f"Error while parsing literal before {self._index}. Underlying error: {e}")
