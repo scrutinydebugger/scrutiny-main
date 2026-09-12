@@ -12,7 +12,7 @@ from scrutiny.core.math_expr import MathParser, MathParsingError
 from scrutiny.tools import validation
 import re
 
-VAR_NAME_REGEX = re.compile(r'^\$[\w\d]+$')
+VAR_NAME_REGEX = re.compile(r'^\$\w+$')
 ValueType: TypeAlias = Optional[Union[float, int, bool]]
 
 
@@ -29,8 +29,8 @@ class MathElement:
     _var_defs: Dict[str, VarData]
     _committed_vals: Dict[str, ValueType]
     _val: ValueType
-    _error: Optional[str]
-    _invalid_expr: bool
+    _eval_error: Optional[str]
+    _parsing_error: Optional[str]
 
     def __init__(self, name: str, expr: str) -> None:
         self._name = name
@@ -38,31 +38,35 @@ class MathElement:
         self._var_defs = {}
         self._committed_vals = {}
         self._val = None
-        self._error = None
-        self._invalid_expr = False
+        self._eval_error = None
+        self._parsing_error = None
 
         try:
             parser = MathParser(self._expr, mode=MathParser.Mode.Parse)
             vars = parser.get_vars()
             for var in vars:
                 if not VAR_NAME_REGEX.match(var):
-                    raise ValueError(f"Variable name is invalid \"{name}\"")
+                    raise ValueError(f"Variable name is invalid \"{var}\"")
                 self._var_defs[var] = self.VarData(fqn=None, val=0)
 
+            self._commit_vals()
         except MathParsingError as e:
-            self._invalid_expr = True
-            self._error = f"Parsing error : {e}"
+            self._parsing_error = f"Parsing error : {e}"
         except Exception as e:
-            self._invalid_expr = True
-            self._error = str(e)
+            self._parsing_error = str(e)
+
+    def _assert_valid(self) -> None:
+        if self._parsing_error is not None:
+            raise ValueError(f"Invalid expression : {self._parsing_error}")
 
     def _commit_vals(self) -> None:
         self._committed_vals = {name: data.val for name, data in self._var_defs.items()}
 
     def is_valid(self) -> bool:
-        return not self._invalid_expr
+        return self._parsing_error is None
 
     def bind_watchable(self, name: str, fqn: str) -> None:
+        self._assert_valid()
         validation.assert_type(name, 'name', str)
         if name not in self._var_defs:
             raise ValueError(f"No variable with name {name} in expression {self._expr}")
@@ -71,6 +75,7 @@ class MathElement:
         self._commit_vals()
 
     def assign_var_value(self, name: str, val: ValueType, commit: bool = True) -> None:
+        self._assert_valid()
         try:
             self._var_defs[name].val = val
             if commit:
@@ -79,6 +84,7 @@ class MathElement:
             raise ValueError(f"Math element {self._name} has no variable named {name}")
 
     def assign_var_value_by_fqn(self, fqn: str, val: ValueType) -> None:
+        self._assert_valid()
         found = False
         for name, data in self._var_defs.items():
             if data.fqn == fqn:
@@ -89,12 +95,15 @@ class MathElement:
         self._commit_vals()
 
     def eval(self) -> Optional[float]:
+        if self._parsing_error is not None:
+            self._eval_error = self._parsing_error
+            return None
         try:
             self._val = MathParser(self._expr, MathParser.Mode.Eval, self._committed_vals).get_val()
-            self._error = None
+            self._eval_error = None
         except Exception as e:
             self._val = None
-            self._error = str(e)
+            self._eval_error = str(e)
 
         return self._val
 
@@ -105,4 +114,7 @@ class MathElement:
         return self._val
 
     def get_error(self) -> Optional[str]:
-        return self._error
+        if self._parsing_error:
+            return self._parsing_error
+
+        return self._eval_error
