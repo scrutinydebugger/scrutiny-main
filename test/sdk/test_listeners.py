@@ -518,7 +518,6 @@ class TestListeners(ScrutinyUnitTest):
 
                 wait_cond(all_received, 1, "Not all received in time")
 
-            print(listener.update_count)
             self.assertTrue(os.path.exists(os.path.join(tempdir, 'my_file_0000.csv')))
             self.assertTrue(os.path.exists(os.path.join(tempdir, 'my_file_0001.csv')))
             self.assertTrue(os.path.exists(os.path.join(tempdir, 'my_file_0002.csv')))
