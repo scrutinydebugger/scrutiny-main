@@ -136,3 +136,35 @@ class TestMathElement(ScrutinyUnitTest):
         val = element.eval()
         self.assertIsNotNone(val)
         self.assertAlmostEqual(val, 1 + math.sin(0.5) - math.cos(2), 5)
+
+    def test_eval_with_default_var_values(self):
+        """Vars default to 0, eval should work without prior assign or bind"""
+        element = MathElement('test', '10+$a+$b')
+        self.assertTrue(element.is_valid())
+        self.assertEqual(element.eval(), 10, element.get_error())
+
+    def test_invalid_var_name_error_mentions_var(self):
+        """Error message should reference the bad variable name, not the element name"""
+        element = MathElement("my_element", "1+pi+x+$y")
+        self.assertFalse(element.is_valid())
+        error = element.get_error()
+        self.assertIsNotNone(error)
+        assert error is not None
+        self.assertIn("x", error)
+        self.assertNotIn("my_element", error)
+
+    def test_eval_invalid_expr_returns_none_and_sets_error(self):
+        element = MathElement("test", "1+potato(2)")
+        self.assertFalse(element.is_valid())
+        self.assertIsNone(element.eval())
+        self.assertIsNotNone(element.get_error())
+
+    def test_operations_raise_on_invalid_expr(self):
+        element = MathElement("test", "1+potato(2)")
+        self.assertFalse(element.is_valid())
+        with self.assertRaises(ValueError):
+            element.bind_watchable("$a", "var:/a/b/c")
+        with self.assertRaises(ValueError):
+            element.assign_var_value("$a", 1)
+        with self.assertRaises(ValueError):
+            element.assign_var_value_by_fqn("var:/a/b/c", 1)
