@@ -1157,6 +1157,12 @@
         },
         "scrutiny/gui/core/watchable_registry/common.py": {
             "docstring": "Common definitions related to the WatchableRegistry that have no dependencies"
+        },
+        "test/gui/test_math_element.py": {
+            "docstring": "A test suite to test the scrutiny.core.MathElement"
+        },
+        "scrutiny/gui/core/math_element.py": {
+            "docstring": "A stateful math element that can have variables and be reevaluated at will"
         }
     },
     "authors": {}

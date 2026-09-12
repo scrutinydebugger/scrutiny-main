@@ -1,3 +1,10 @@
+#    math_element.py
+#        A stateful math element that can have variables and be reevaluated at will
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
 
 from scrutiny.tools.typing import *
 from dataclasses import dataclass
@@ -38,6 +45,8 @@ class MathElement:
             parser = MathParser(self._expr, mode=MathParser.Mode.Parse)
             vars = parser.get_vars()
             for var in vars:
+                if not VAR_NAME_REGEX.match(var):
+                    raise ValueError(f"Variable name is invalid \"{name}\"")
                 self._var_defs[var] = self.VarData(fqn=None, val=0)
 
         except MathParsingError as e:
@@ -50,17 +59,13 @@ class MathElement:
     def _commit_vals(self) -> None:
         self._committed_vals = {name: data.val for name, data in self._var_defs.items()}
 
+    def is_valid(self) -> bool:
+        return not self._invalid_expr
+
     def bind_watchable(self, name: str, fqn: str) -> None:
         validation.assert_type(name, 'name', str)
         if name not in self._var_defs:
             raise ValueError(f"No variable with name {name} in expression {self._expr}")
-
-        if not VAR_NAME_REGEX.match(name):
-            raise ValueError(f"Variable name is invalid \"{name}\"")
-
-        previously_bound_fqn = self._var_defs[name].fqn
-        if previously_bound_fqn is not None:
-            raise ValueError(f"Variable {name} already boudn to {previously_bound_fqn}")
 
         self._var_defs[name].fqn = fqn
         self._commit_vals()
@@ -74,12 +79,16 @@ class MathElement:
             raise ValueError(f"Math element {self._name} has no variable named {name}")
 
     def assign_var_value_by_fqn(self, fqn: str, val: ValueType) -> None:
+        found = False
         for name, data in self._var_defs.items():
             if data.fqn == fqn:
                 self.assign_var_value(name, val, commit=False)
+                found = True
+        if not found:
+            raise ValueError(f"No variable is bound to watchable with FQN : {fqn}")
         self._commit_vals()
 
-    def eval(self) -> ValueType:
+    def eval(self) -> Optional[float]:
         try:
             self._val = MathParser(self._expr, MathParser.Mode.Eval, self._committed_vals).get_val()
             self._error = None
