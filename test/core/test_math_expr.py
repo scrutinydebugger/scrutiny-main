@@ -205,18 +205,19 @@ class TestMathExpr(ScrutinyUnitTest):
             'c': 4,
             'd': 5,
             'w': 0.5,
+
             'x': 6,
             'y': 0.9,
             'z': 3,
         }
 
-        def python_eval():
+        def python_eval(v):
             return 1 + v['a'] + v['b'] * v['c'] - v['x'] * (-(2 + v['d'])) - 0.5 * v['y'] ** 2 ** v['z'] + ((-math.sin(v['w'])) / 2) / 3
         x1 = parser.eval(v)
-        x2 = python_eval()
+        x2 = python_eval(v)
         self.assertAlmostEqual(x1, x2)
 
-        v.update({
+        v = {
             'a': 1 + 2,
             'b': 1 + 3,
             'c': 1 + 4,
@@ -225,10 +226,10 @@ class TestMathExpr(ScrutinyUnitTest):
             'x': 1 + 6,
             'y': 1 + 0.9,
             'z': 1 + 3,
-        })
+        }
 
         y1 = parser.eval(v)
-        y2 = python_eval()
+        y2 = python_eval(v)
         self.assertAlmostEqual(y1, y2)
 
         self.assertNotAlmostEqual(x1, y1)
