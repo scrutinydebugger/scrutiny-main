@@ -7,7 +7,7 @@
 #    Copyright (c) 2025 Scrutiny Debugger
 
 from test import ScrutinyUnitTest
-from scrutiny.core.math_expr import parse_math_expr
+from scrutiny.core.math_expr import parse_math_expr, MathParser
 import math
 
 
@@ -186,6 +186,53 @@ class TestMathExpr(ScrutinyUnitTest):
         self.assertEqual(parse_math_expr("-0b101"), -5)
         self.assertEqual(parse_math_expr("-0b101 * 0b111"), -35)
         self.assertEqual(parse_math_expr("0b100000001010100001101000010010001001"), 0b100000001010100001101000010010001001)
+
+    def test_same_operation_repeat(self):
+        # Prevent lambdas in loops
+        self.assertEqual(parse_math_expr("1+2+3+4"), 1 + 2 + 3 + 4)
+        self.assertEqual(parse_math_expr("1-2-3-4"), 1 - 2 - 3 - 4)
+        self.assertEqual(parse_math_expr("1*2*3*4"), 1 * 2 * 3 * 4)
+        self.assertEqual(parse_math_expr("1/2/3/4"), 1 / 2 / 3 / 4)
+        self.assertEqual(parse_math_expr("sin(0) + sin(1) + sin(2)"), math.sin(0) + math.sin(1) + math.sin(2))
+        self.assertEqual(parse_math_expr("4^3^2^1"), 4**3**2**1)
+
+    def test_keep_state(self):
+        parser = MathParser('1+a+b*c-x*(-(2+d))-0.5*y^2^z+((-sin(w)) / 2) / 3')
+
+        v = {
+            'a': 2,
+            'b': 3,
+            'c': 4,
+            'd': 5,
+            'w': 0.5,
+            'x': 6,
+            'y': 0.9,
+            'z': 3,
+        }
+
+        def python_eval():
+            return 1 + v['a'] + v['b'] * v['c'] - v['x'] * (-(2 + v['d'])) - 0.5 * v['y'] ** 2 ** v['z'] + ((-math.sin(v['w'])) / 2) / 3
+        x1 = parser.eval(v)
+        x2 = python_eval()
+        self.assertAlmostEqual(x1, x2)
+
+        v.update({
+            'a': 1 + 2,
+            'b': 1 + 3,
+            'c': 1 + 4,
+            'd': 1 + 5,
+            'w': 1 + 0.5,
+            'x': 1 + 6,
+            'y': 1 + 0.9,
+            'z': 1 + 3,
+        })
+
+        y1 = parser.eval(v)
+        y2 = python_eval()
+        self.assertAlmostEqual(y1, y2)
+
+        self.assertNotAlmostEqual(x1, y1)
+        self.assertNotAlmostEqual(x2, y2)
 
     def test_malformed_expr(self):
         expressions = [

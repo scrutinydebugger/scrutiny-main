@@ -107,7 +107,7 @@ class MathParser:
     def eval(self, vars: Optional[Dict[str, float]] = None) -> float:
         if self._eval_func is None:
             raise MathEvalError("Parsing error")
-        self._vars = vars if vars is not None else {}
+        self._vars = vars.copy() if vars is not None else {}
         return self._eval_func()
 
     def _peek(self) -> str:
@@ -151,7 +151,7 @@ class MathParser:
             elif char == '-':
                 self._index += 1
                 op = self._parse_mul()
-                ops.append(lambda: -1 * op())
+                ops.append(functools.partial(self._eval_neg, op))
             else:
                 break
 
@@ -170,11 +170,15 @@ class MathParser:
             elif char == '/':
                 self._index += 1
                 den = self._parse_power()
-                ops.append(lambda: self._eval_div(1.0, den()))
+                ops.append(functools.partial(self._eval_div, lambda: 1.0, den))
             else:
                 break
 
         return lambda: self._eval_mul_list(ops)
+
+    @staticmethod
+    def _eval_neg(op: Fn) -> float:
+        return -op()
 
     @staticmethod
     def _eval_mul_list(ops: Iterable[Fn]) -> float:
@@ -184,10 +188,11 @@ class MathParser:
         return acc
 
     @staticmethod
-    def _eval_div(op1: float, op2: float) -> float:
-        if op2 == 0:
+    def _eval_div(op1: Fn, op2: Fn) -> float:
+        v2 = op2()
+        if v2 == 0:
             raise MathEvalError("Division by 0")
-        return op1 / op2
+        return op1() / v2
 
     def _parse_power(self) -> Fn:
         f1 = self._parse_parenthesis()
