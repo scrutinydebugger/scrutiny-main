@@ -1431,6 +1431,7 @@ class API:
             raise InvalidRequestException(req, 'Invalid value')
 
         return value
+        
 
     #  ===  WRITE_WATCHABLE ===
     def process_write_value(self, conn_id: str, req: api_typing.C2S.WriteValue) -> None:
