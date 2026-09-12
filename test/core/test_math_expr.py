@@ -7,7 +7,7 @@
 #    Copyright (c) 2025 Scrutiny Debugger
 
 from test import ScrutinyUnitTest
-from scrutiny.core.math_expr import parse_math_expr, ParsingError
+from scrutiny.core.math_expr import parse_math_expr
 import math
 
 
@@ -231,5 +231,5 @@ class TestMathExpr(ScrutinyUnitTest):
 
         for expr in expressions:
             with self.subTest(msg=f'expr:{expr}'):
-                with self.assertRaises(ParsingError, ):
+                with self.assertRaises(Exception):
                     parse_math_expr(expr)

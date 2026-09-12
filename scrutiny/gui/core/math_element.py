@@ -27,10 +27,11 @@ class MathElement:
     _name: str
     _expr: str
     _var_defs: Dict[str, VarData]
-    _committed_vals: Dict[str, ValueType]
+    _committed_vals: Dict[str, float]
     _val: ValueType
     _eval_error: Optional[str]
     _parsing_error: Optional[str]
+    _parser: Optional[MathParser]
 
     def __init__(self, name: str, expr: str) -> None:
         self._name = name
@@ -42,8 +43,8 @@ class MathElement:
         self._parsing_error = None
 
         try:
-            parser = MathParser(self._expr, mode=MathParser.Mode.Parse)
-            vars = parser.get_vars()
+            self._parser = MathParser(self._expr)
+            vars = self._parser.get_vars()
             for var in vars:
                 if not VAR_NAME_REGEX.match(var):
                     raise ValueError(f"Variable name is invalid \"{var}\"")
@@ -60,7 +61,7 @@ class MathElement:
             raise ValueError(f"Invalid expression : {self._parsing_error}")
 
     def _commit_vals(self) -> None:
-        self._committed_vals = {name: data.val for name, data in self._var_defs.items()}
+        self._committed_vals = {name: float(data.val) for name, data in self._var_defs.items() if data.val is not None}
 
     def is_valid(self) -> bool:
         return self._parsing_error is None
@@ -98,8 +99,9 @@ class MathElement:
         if self._parsing_error is not None:
             self._eval_error = self._parsing_error
             return None
+        assert self._parser is not None
         try:
-            self._val = MathParser(self._expr, MathParser.Mode.Eval, self._committed_vals).get_val()
+            self._val = self._parser.eval(self._committed_vals)
             self._eval_error = None
         except Exception as e:
             self._val = None

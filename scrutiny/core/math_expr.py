@@ -8,7 +8,7 @@
 
 __all__ = ['MathParsingError', 'parse_math_expr', 'MathParser']
 
-import enum
+import functools
 import math
 import string
 from scrutiny.tools.typing import *
@@ -56,52 +56,59 @@ _FUNCTIONS: Dict[str, Callable[..., float]] = {
     'atan2': math.atan2,
 }
 
+Fn: TypeAlias = Callable[[], float]
+
 
 def parse_math_expr(expr: str) -> float:
-    return MathParser(expr, MathParser.Mode.Parse).get_val()
+    return MathParser(expr).eval()
 
 
-class MathParsingError(Exception):
+class MathExprError(Exception):
+    pass
+
+
+class MathParsingError(MathExprError):
+    pass
+
+
+class MathEvalError(MathExprError):
     pass
 
 
 class MathParser:
-
-    class Mode(enum.Enum):
-        Eval = enum.auto()
-        Parse = enum.auto()
 
     _expr: str
     _index: int
     _vars: Dict[str, Any]
     _required_funcs: Set[str]
     _required_vars: Set[str]
-    _mode: Mode
+    _eval_func: Optional[Callable[[], float]]
 
-    def __init__(self, expr: str, mode: Mode, vars: Optional[Dict[str, Any]] = None) -> None:
+    def __init__(self, expr: str, vars: Optional[Dict[str, Any]] = None) -> None:
         self._expr = expr
         self._index = 0
         self._vars = {} if vars is None else vars.copy()
         self._required_funcs = set()
         self._required_vars = set()
-        self._mode = mode
-        for constant in _CONSTANTS.keys():
-            if self._vars.get(constant) != None:
-                raise MathParsingError(f"Cannot redefine the value of {constant}")
-
-        if mode == self.Mode.Parse:
-            self.get_val()  # Should return garbage. All vars to 0
-
-    def get_vars(self) -> Set[str]:
-        return self._required_vars
-
-    def get_val(self) -> float:
-        value = self._parse_expr()
+        self._eval_func = self._parse_expr()
         self._skip_whitespace()
 
         if self._has_next():
             raise MathParsingError(f"Unexpected character found: '{self._peek()}' at index {self._index}")
-        return value
+
+    def get_vars(self) -> Set[str]:
+        return self._required_vars
+
+    def change_vars(self, vars: Optional[Dict[str, float]] = None) -> None:
+        for constant in _CONSTANTS.keys():
+            if self._vars.get(constant) != None:
+                raise MathParsingError(f"Cannot redefine the value of {constant}")
+
+    def eval(self, vars: Optional[Dict[str, float]] = None) -> float:
+        if self._eval_func is None:
+            raise MathEvalError("Parsing error")
+        self._vars = vars if vars is not None else {}
+        return self._eval_func()
 
     def _peek(self) -> str:
         return self._expr[self._index:self._index + 1]
@@ -128,11 +135,11 @@ class MathParser:
                 return
             self._index += 1
 
-    def _parse_expr(self) -> float:
+    def _parse_expr(self) -> Fn:
         return self._parse_add()
 
-    def _parse_add(self) -> float:
-        values = [self._parse_mul()]
+    def _parse_add(self) -> Fn:
+        ops = [self._parse_mul()]
 
         while True:
             self._skip_whitespace()
@@ -140,17 +147,18 @@ class MathParser:
 
             if char == '+':
                 self._index += 1
-                values.append(self._parse_mul())
+                ops.append(self._parse_mul())
             elif char == '-':
                 self._index += 1
-                values.append(-1 * self._parse_mul())
+                op = self._parse_mul()
+                ops.append(lambda: -1 * op())
             else:
                 break
 
-        return sum(values)
+        return lambda: sum([v() for v in ops])
 
-    def _parse_mul(self) -> float:
-        values = [self._parse_power()]
+    def _parse_mul(self) -> Fn:
+        ops = [self._parse_power()]
 
         while True:
             self._skip_whitespace()
@@ -158,66 +166,59 @@ class MathParser:
 
             if char == '*':
                 self._index += 1
-                values.append(self._parse_power())
+                ops.append(self._parse_power())
             elif char == '/':
-                div_index = self._index
                 self._index += 1
-                denominator = self._parse_power()
-
-                if denominator == 0:
-                    raise MathParsingError(f"Division by 0 (occurred at index {div_index})")
-                values.append(1.0 / denominator)
+                den = self._parse_power()
+                ops.append(lambda: self._eval_div(1.0, den()))
             else:
                 break
 
-        value = 1.0
+        return lambda: self._eval_mul_list(ops)
 
-        for factor in values:
-            value *= factor
-        return value
+    @staticmethod
+    def _eval_mul_list(ops: Iterable[Fn]) -> float:
+        acc = 1.0
+        for op in ops:
+            acc *= op()
+        return acc
 
-    def _parse_power(self) -> float:
-        values = [self._parse_parenthesis()]
+    @staticmethod
+    def _eval_div(op1: float, op2: float) -> float:
+        if op2 == 0:
+            raise MathEvalError("Division by 0")
+        return op1 / op2
 
-        while True:
-            self._skip_whitespace()
-            char = self._peek()
+    def _parse_power(self) -> Fn:
+        f1 = self._parse_parenthesis()
+        self._skip_whitespace()
+        char = self._peek()
 
-            if char == '^':
-                self._index += 1
-                values.append(self._parse_power())
-            else:
-                break
+        if char == '^':
+            self._index += 1
+            f2 = self._parse_power()
+            return lambda: f1()**f2()
 
-        values.append(1)
-        assert len(values) >= 2
-        last = len(values) - 1
-        v = math.pow(values[last - 1], values[last])
-        last -= 1
-        while last > 0:
-            v = math.pow(values[last - 1], v)
-            last -= 1
+        return f1
 
-        return v
-
-    def _parse_parenthesis(self) -> float:
+    def _parse_parenthesis(self) -> Fn:
         self._skip_whitespace()
         char = self._peek()
 
         if char == '(':
             self._index += 1
-            value = self._parse_expr()
+            expr = self._parse_expr()
             self._skip_whitespace()
 
             if self._peek() != ')':
                 raise MathParsingError(f"No closing parenthesis found at character {self._index}")
             self._index += 1
-            return value
+            return lambda: expr()
         else:
             return self._parse_neg()
 
-    def _parse_arg(self) -> List[float]:
-        args: List[float] = []
+    def _parse_arg(self) -> List[Fn]:
+        args: List[Fn] = []
         self._skip_whitespace()
         self._pop_expected('(')
         while not self._pop_if_next(')'):
@@ -229,17 +230,18 @@ class MathParser:
             self._skip_whitespace()
         return args
 
-    def _parse_neg(self) -> float:
+    def _parse_neg(self) -> Fn:
         self._skip_whitespace()
         char = self._peek()
 
         if char == '-':
             self._index += 1
-            return -1 * self._parse_power()
+            op = self._parse_power()
+            return lambda: -1 * op()
         else:
             return self._parse_val()
 
-    def _parse_val(self) -> float:
+    def _parse_val(self) -> Fn:
         self._skip_whitespace()
         char = self._peek()
 
@@ -248,7 +250,7 @@ class MathParser:
         else:
             return self._parse_var()
 
-    def _parse_var(self) -> float:
+    def _parse_var(self) -> Fn:
         self._skip_whitespace()
         var: List[str] = []
         while self._has_next():
@@ -263,26 +265,28 @@ class MathParser:
         var_str_lower = var_str.lower()
         function = _FUNCTIONS.get(var_str_lower)
         if function is not None:
-            if self._mode == self.Mode.Parse:
-                self._required_funcs.add(var_str_lower)
+            self._required_funcs.add(var_str_lower)
             args = self._parse_arg()
-            return float(function(*args))
+            return lambda: self._eval_math_func(function, args)
 
         constant = _CONSTANTS.get(var_str_lower)
         if constant is not None:
-            return constant
+            return lambda: constant
 
-        if self._mode == self.Mode.Parse:
-            self._required_vars.add(var_str)
-            return 0
-        else:
-            value = self._vars.get(var_str, None)
-            if value != None:
-                return float(value)
+        self._required_vars.add(var_str)
+        return functools.partial(self._lookup_var, var_str)
 
-        raise MathParsingError(f"Unrecognized variable: '{var_str}'")
+    @staticmethod
+    def _eval_math_func(f: Fn, args: Iterable[Fn]) -> float:
+        return f(*[arg() for arg in args])
 
-    def _parse_literal(self) -> float:
+    def _lookup_var(self, name: str) -> float:
+        v = self._vars.get(name, None)
+        if v is None:
+            raise MathParsingError(f"Unrecognized variable: '{name}'")
+        return float(v)
+
+    def _parse_literal(self) -> Fn:
         self._skip_whitespace()
         str_val = ''
         decimal_found = False
@@ -342,8 +346,10 @@ class MathParser:
 
         try:
             if base == 10:
-                return float(str_val) * (10**exponent)
+                v = float(str_val) * (10**exponent)
             else:
-                return float(int(str_val, base=base))
+                v = float(int(str_val, base=base))
         except Exception as e:
             raise MathParsingError(f"Error while parsing literal before {self._index}. Underlying error: {e}")
+
+        return lambda: v
