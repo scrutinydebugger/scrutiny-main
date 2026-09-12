@@ -7,7 +7,7 @@
 #    Copyright (c) 2025 Scrutiny Debugger
 
 from test import ScrutinyUnitTest
-from scrutiny.core.math_expr import parse_math_expr, MathParser
+from scrutiny.core.math_expr import parse_math_expr, MathParsingError, MathParser, MathEvalError
 import math
 
 
@@ -235,6 +235,18 @@ class TestMathExpr(ScrutinyUnitTest):
         self.assertNotAlmostEqual(x1, y1)
         self.assertNotAlmostEqual(x2, y2)
 
+    def test_div_by_zero(self):
+        parser = MathParser("1/0")
+        self.assertIsNone(parser.maybe_eval())
+        with self.assertRaises(MathEvalError):
+            parser.eval()
+
+        parser = MathParser("1/x")
+        self.assertIsNone(parser.maybe_eval({'x': 0}))
+        with self.assertRaises(MathEvalError):
+            parser.eval({'x': 0})
+        self.assertEqual(parser.eval({'x': 1}), 1)
+
     def test_malformed_expr(self):
         expressions = [
             '1.2.3',
@@ -246,9 +258,6 @@ class TestMathExpr(ScrutinyUnitTest):
             '',
             '..5',
             '2*asd(2)',
-            'x+2'
-            "1 / 0",
-            "5 / (2 - 2)",
             "2 +",
             "+ 3",
             "2 + + 3",
@@ -258,7 +267,6 @@ class TestMathExpr(ScrutinyUnitTest):
             "2 + 3)",
             "((2 + 3)",
             "(2 + 3))",
-            "2 + a",
             "2 & 3",
             "2 + 3!",
             "()",
@@ -279,5 +287,12 @@ class TestMathExpr(ScrutinyUnitTest):
 
         for expr in expressions:
             with self.subTest(msg=f'expr:{expr}'):
-                with self.assertRaises(Exception):
+                with self.assertRaises(MathParsingError, msg=expr):
                     parse_math_expr(expr)
+
+    def test_eval_error(self):
+        with self.assertRaises(MathEvalError):
+            MathParser('1+a+b').eval({'a': 1})
+
+        with self.assertRaises(MathEvalError):
+            MathParser('1/(2-2)').eval()
