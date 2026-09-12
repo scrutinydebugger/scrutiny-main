@@ -6,7 +6,7 @@
 #
 #    Copyright (c) 2025 Scrutiny Debugger
 
-__all__ = ['MathParsingError', 'parse_math_expr', 'MathParser']
+__all__ = ['parse_math_expr', 'MathParser', 'MathExprError', 'MathParsingError', 'MathEvalError']
 
 import functools
 import math
@@ -79,15 +79,15 @@ class MathParser:
 
     _expr: str
     _index: int
-    _vars: Dict[str, Any]
+    _vars: Dict[str, float]
     _required_funcs: Set[str]
     _required_vars: Set[str]
     _eval_func: Optional[Callable[[], float]]
 
-    def __init__(self, expr: str, vars: Optional[Dict[str, Any]] = None) -> None:
+    def __init__(self, expr: str) -> None:
         self._expr = expr
         self._index = 0
-        self._vars = {} if vars is None else vars.copy()
+        self._vars = {}
         self._required_funcs = set()
         self._required_vars = set()
         self._eval_func = self._parse_expr()
@@ -99,16 +99,23 @@ class MathParser:
     def get_vars(self) -> Set[str]:
         return self._required_vars
 
-    def change_vars(self, vars: Optional[Dict[str, float]] = None) -> None:
-        for constant in _CONSTANTS.keys():
-            if self._vars.get(constant) != None:
-                raise MathParsingError(f"Cannot redefine the value of {constant}")
+    def get_functions(self) -> Set[str]:
+        return self._required_funcs
+
+    def get_expr(self) -> str:
+        return self._expr
 
     def eval(self, vars: Optional[Dict[str, float]] = None) -> float:
         if self._eval_func is None:
             raise MathEvalError("Parsing error")
         self._vars = vars.copy() if vars is not None else {}
         return self._eval_func()
+
+    def maybe_eval(self, vars: Optional[Dict[str, float]] = None) -> Optional[float]:
+        try:
+            return self.eval(vars)
+        except MathEvalError:
+            return None
 
     def _peek(self) -> str:
         return self._expr[self._index:self._index + 1]
@@ -175,24 +182,6 @@ class MathParser:
                 break
 
         return lambda: self._eval_mul_list(ops)
-
-    @staticmethod
-    def _eval_neg(op: Fn) -> float:
-        return -op()
-
-    @staticmethod
-    def _eval_mul_list(ops: Iterable[Fn]) -> float:
-        acc = 1.0
-        for op in ops:
-            acc *= op()
-        return acc
-
-    @staticmethod
-    def _eval_div(op1: Fn, op2: Fn) -> float:
-        v2 = op2()
-        if v2 == 0:
-            raise MathEvalError("Division by 0")
-        return op1() / v2
 
     def _parse_power(self) -> Fn:
         f1 = self._parse_parenthesis()
@@ -278,18 +267,11 @@ class MathParser:
         if constant is not None:
             return lambda: constant
 
+        if var_str == '':
+            raise MathParsingError(f'Unexpected character at {self._index}')
+
         self._required_vars.add(var_str)
         return functools.partial(self._lookup_var, var_str)
-
-    @staticmethod
-    def _eval_math_func(f: Fn, args: Iterable[Fn]) -> float:
-        return f(*[arg() for arg in args])
-
-    def _lookup_var(self, name: str) -> float:
-        v = self._vars.get(name, None)
-        if v is None:
-            raise MathParsingError(f"Unrecognized variable: '{name}'")
-        return float(v)
 
     def _parse_literal(self) -> Fn:
         self._skip_whitespace()
@@ -358,3 +340,31 @@ class MathParser:
             raise MathParsingError(f"Error while parsing literal before {self._index}. Underlying error: {e}")
 
         return lambda: v
+
+    def _lookup_var(self, name: str) -> float:
+        v = self._vars.get(name, None)
+        if v is None:
+            raise MathEvalError(f"Unrecognized variable: '{name}'")
+        return float(v)
+
+    @staticmethod
+    def _eval_neg(op: Fn) -> float:
+        return -op()
+
+    @staticmethod
+    def _eval_mul_list(ops: Iterable[Fn]) -> float:
+        acc = 1.0
+        for op in ops:
+            acc *= op()
+        return acc
+
+    @staticmethod
+    def _eval_div(op1: Fn, op2: Fn) -> float:
+        v2 = op2()
+        if v2 == 0:
+            raise MathEvalError("Division by 0")
+        return op1() / v2
+
+    @staticmethod
+    def _eval_math_func(f: Fn, args: Iterable[Fn]) -> float:
+        return f(*[arg() for arg in args])
