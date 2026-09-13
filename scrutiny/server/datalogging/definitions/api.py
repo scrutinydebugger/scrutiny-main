@@ -17,6 +17,8 @@ __all__ = [
     'TriggerCondition',
     'SignalDefinition',
     'SignalDefinitionWithAxis',
+    'MathSignalDefinition',
+    'MathSignalDefinitionWithAxis',
     'AcquisitionRequest',
     'AxisDefinition',
     'DataloggingAcquisition',
@@ -79,7 +81,19 @@ class SignalDefinition:
 
 
 @dataclass(frozen=True, slots=True)
+class MathSignalDefinition:
+    name: str
+    expr: str
+    variables: Dict[str, SignalDefinition]
+
+
+@dataclass(frozen=True, slots=True)
 class SignalDefinitionWithAxis(SignalDefinition):
+    axis: AxisDefinition
+
+
+@dataclass(frozen=True, slots=True)
+class MathSignalDefinitionWithAxis(MathSignalDefinition):
     axis: AxisDefinition
 
 
@@ -95,9 +109,12 @@ class AcquisitionRequest:
     x_axis_type: XAxisType
     x_axis_signal: Optional[SignalDefinition]
     signals: List[SignalDefinitionWithAxis]
+    math_signals: List[MathSignalDefinitionWithAxis]
 
     def get_yaxis_list(self) -> List[AxisDefinition]:
         axis_set: Set[AxisDefinition] = set()
         for signal in self.signals:
             axis_set.add(signal.axis)
+        for math_signal in self.math_signals:
+            axis_set.add(math_signal.axis)
         return list(axis_set)

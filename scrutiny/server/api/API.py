@@ -36,7 +36,7 @@ import time
 from scrutiny import tools
 from scrutiny.tools import validation
 
-from scrutiny.core.math_expr import parse_math_expr
+from scrutiny.core.math_expr import MathParser
 from scrutiny.core.variable_factory import VariableFactory
 from scrutiny.server.timebase import server_timebase
 from scrutiny.server.datalogging.datalogging_storage import DataloggingStorage
@@ -1421,7 +1421,7 @@ class API:
                 value = False
             else:
                 try:
-                    value = parse_math_expr(valstr)
+                    value = MathParser(valstr).eval()
                 except Exception:
                     value = None
 
@@ -1431,7 +1431,6 @@ class API:
             raise InvalidRequestException(req, 'Invalid value')
 
         return value
-        
 
     #  ===  WRITE_WATCHABLE ===
     def process_write_value(self, conn_id: str, req: api_typing.C2S.WriteValue) -> None:
@@ -1778,15 +1777,10 @@ class API:
             if 'x_axis_signal' not in req or not isinstance(req['x_axis_signal'], dict):
                 raise InvalidRequestException(req, 'Missing a valid x_axis_signal required when x_axis_type=watchable')
 
-            if 'path' not in req['x_axis_signal']:
-                raise InvalidRequestException(req, 'Missing x_axis_signal.path field')
-
-            if not isinstance(req['x_axis_signal']['path'], str):
-                raise InvalidRequestException(req, 'Invalid x_axis_signal.path field')
+            _check_request_dict(req, req['x_axis_signal'], 'path', str, 'x_axis_signal')
 
             with tools.SuppressException():
                 x_axis_entry = self.datastore.get_entry_by_display_path(req['x_axis_signal']['path'])
-
             if x_axis_entry is None:
                 raise InvalidRequestException(req, 'Cannot find watchable with given path %s' % req['x_axis_signal']['path'])
 
@@ -1850,11 +1844,8 @@ class API:
             if 'name' not in signal_def:
                 signal_def['name'] = None
 
-            if not (isinstance(signal_def['name'], str) or signal_def['name'] is None):
-                raise InvalidRequestException(req, 'Invalid signal name')
-
-            if 'axis_id' not in signal_def or not isinstance(signal_def['axis_id'], int):
-                raise InvalidRequestException(req, 'Invalid signal axis ID')
+            _check_request_dict(req, signal_def, 'name', (type(None), str), 'signals')
+            _check_request_dict(req, signal_def, 'axis_id', int, 'signals')
 
             if signal_def['axis_id'] not in yaxis_map:
                 raise InvalidRequestException(req, 'Invalid signal axis ID')
@@ -1863,6 +1854,62 @@ class API:
                 name=signal_def['name'],
                 entry=signal_entry,
                 axis=yaxis_map[signal_def['axis_id']]
+            ))
+
+        math_signals_to_log: List[api_datalogging.MathSignalDefinitionWithAxis] = []
+        if 'math_signals' not in req:
+            req['math_signals'] = []
+
+        _check_request_dict(req, req, 'math_signals', list)
+        for math_signal in req['math_signals']:
+            _check_request_dict(req, math_signal, 'name', str, 'math_signals')
+            _check_request_dict(req, math_signal, 'axis_id', int, 'math_signals')
+            _check_request_dict(req, math_signal, 'expr', str, 'math_signals')
+            _check_request_dict(req, math_signal, 'vars', dict, 'math_signals')
+
+            math_name = math_signal['name']
+            if len(math_name) == 0:
+                raise InvalidRequestException(req, "Empty name for math expression")
+
+            if math_signal['axis_id'] not in yaxis_map:
+                raise InvalidRequestException(req, 'Invalid signal axis ID')
+
+            try:
+                parser = MathParser(math_signal['expr'])
+            except Exception as e:
+                raise InvalidRequestException(req, f"Invalid math expression for signal {math_name}. {e}")
+
+            required_vars = parser.get_vars()
+            if len(required_vars) != len(math_signal['variables']):
+                raise InvalidRequestException(req, f"Math signal {math_name} variable count does not match the expression variable count")
+
+            vars_with_references: Dict[str, api_datalogging.SignalDefinition] = {}
+            for required_var in required_vars:
+                if required_var not in math_signal['variables']:
+                    raise InvalidRequestException(req, f'Missing variable {required_var} for math expression {math_name}')
+
+                var_path = math_signal['variables'][required_var]
+                if not isinstance(var_path, str):
+                    raise InvalidRequestException(req, f"Invalid path for math expression {math_name}")
+
+                try:
+                    math_entry = self.datastore.get_entry_by_display_path(var_path)
+                except Exception:
+                    raise InvalidRequestException(req, f'Cannot find watchable with given path {var_path}')
+
+                for signal in signals_to_log:
+                    if signal.entry.get_id() == math_entry.get_id():
+                        vars_with_references[required_var] = signal
+
+                if required_var not in vars_with_references:
+                    raise InvalidRequestException(
+                        req, f"Variable {required_var} in expression {math_name} refer a watchable not part of the acquisition.")
+
+            math_signals_to_log.append(api_datalogging.MathSignalDefinitionWithAxis(
+                name=math_signal['name'],
+                axis=yaxis_map[math_signal['axis_id']],
+                expr=math_signal['expr'],
+                variables=vars_with_references
             ))
 
         acq_name: Optional[str] = None
@@ -1884,7 +1931,8 @@ class API:
                 condition_id=self.datalogging_supported_conditions[req['condition']].condition_id,
                 operands=operands
             ),
-            signals=signals_to_log
+            signals=signals_to_log,
+            math_signals=math_signals_to_log
         )
 
         # We use a partial func to pass the request token and conn id

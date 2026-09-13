@@ -218,6 +218,13 @@ class DataloggingAcquisitionRequestSignalDef(TypedDict, total=False):
     axis_id: int
 
 
+class DataloggingAcquisitionRequestMathSignalDef(TypedDict):
+    name: str
+    expr: str
+    variables: Dict[str, str]
+    axis_id: int
+
+
 class XAxisSignal(TypedDict):
     path: str
     name: Optional[str]
@@ -346,6 +353,7 @@ class C2S:
         operands: List[DataloggingOperand]
         yaxes: List[DataloggingAxisDef]
         signals: List[DataloggingAcquisitionRequestSignalDef]
+        math_signals: List[DataloggingAcquisitionRequestMathSignalDef]
         x_axis_type: Literal['measured_time', 'ideal_time', 'signal', 'index']
         x_axis_signal: Optional[XAxisSignal]
 
