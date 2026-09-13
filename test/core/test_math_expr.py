@@ -14,6 +14,7 @@ import math
 class TestMathExpr(ScrutinyUnitTest):
     def test_arithmetic(self):
         self.assertEqual(parse_math_expr("1+1"), 2)
+        self.assertEqual(parse_math_expr("1+1+1"), 3)
         self.assertEqual(parse_math_expr("1+(1+1)"), 3)
         self.assertEqual(parse_math_expr("1+2*3"), 7)
         self.assertEqual(parse_math_expr("2+2"), 4)
@@ -235,12 +236,7 @@ class TestMathExpr(ScrutinyUnitTest):
         self.assertNotAlmostEqual(x1, y1)
         self.assertNotAlmostEqual(x2, y2)
 
-    def test_div_by_zero(self):
-        parser = MathParser("1/0")
-        self.assertIsNone(parser.maybe_eval())
-        with self.assertRaises(MathEvalError):
-            parser.eval()
-
+    def test_div_by_zero_var(self):
         parser = MathParser("1/x")
         self.assertIsNone(parser.maybe_eval({'x': 0}))
         with self.assertRaises(MathEvalError):
@@ -256,6 +252,8 @@ class TestMathExpr(ScrutinyUnitTest):
             '1+(2',
             '1+(2-',
             '',
+            '1/(2-2)',
+            '1/0',
             '..5',
             '2*asd(2)',
             "2 +",
@@ -295,4 +293,7 @@ class TestMathExpr(ScrutinyUnitTest):
             MathParser('1+a+b').eval({'a': 1})
 
         with self.assertRaises(MathEvalError):
-            MathParser('1/(2-2)').eval()
+            MathParser('sqrt(a)').eval({'a': -1})
+
+        with self.assertRaises(MathEvalError):
+            MathParser('ln(a)').eval({'a': -1})

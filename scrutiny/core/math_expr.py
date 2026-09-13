@@ -8,6 +8,7 @@
 
 __all__ = ['parse_math_expr', 'MathParser', 'MathExprError', 'MathParsingError', 'MathEvalError']
 
+from dataclasses import dataclass
 import functools
 import math
 import string
@@ -59,6 +60,21 @@ _FUNCTIONS: Dict[str, Callable[..., float]] = {
 Fn: TypeAlias = Callable[[], float]
 
 
+@dataclass
+class ParseResult:
+    func: Fn
+    is_const: bool
+
+    def __call__(self) -> float:
+        return self.func()
+
+    def const_fold(self) -> "ParseResult":
+        if self.is_const:
+            val = self.func()
+            return ParseResult(lambda: val, is_const=True)
+        return self
+
+
 def parse_math_expr(expr: str) -> float:
     return MathParser(expr).eval()
 
@@ -90,7 +106,7 @@ class MathParser:
         self._vars = {}
         self._required_funcs = set()
         self._required_vars = set()
-        self._eval_func = self._parse_expr()
+        self._eval_func = self._parse_expr().const_fold()
         self._skip_whitespace()
 
         if self._has_next():
@@ -142,11 +158,18 @@ class MathParser:
                 return
             self._index += 1
 
-    def _parse_expr(self) -> Fn:
-        return self._parse_add()
+    def _parse_expr(self) -> ParseResult:
+        return self._parse_add().const_fold()
 
-    def _parse_add(self) -> Fn:
-        ops = [self._parse_mul()]
+    def _parse_add(self) -> ParseResult:
+
+        first_operand = self._parse_mul().const_fold()
+        if first_operand.is_const:
+            constant_val = first_operand()
+            ops = []
+        else:
+            constant_val = 0.0
+            ops = [first_operand]
 
         while True:
             self._skip_whitespace()
@@ -154,18 +177,35 @@ class MathParser:
 
             if char == '+':
                 self._index += 1
-                ops.append(self._parse_mul())
+                op = self._parse_mul().const_fold()
+                if op.is_const:
+                    constant_val += op()
+                else:
+                    ops.append(op)
             elif char == '-':
                 self._index += 1
-                op = self._parse_mul()
-                ops.append(functools.partial(self._eval_neg, op))
+                op = self._parse_mul().const_fold()
+                if op.is_const:
+                    constant_val -= op()
+                else:
+                    res = ParseResult(func=functools.partial(self._eval_neg, op), is_const=False).const_fold()
+                    ops.append(res)
             else:
                 break
 
-        return lambda: sum([v() for v in ops])
+        return ParseResult(
+            func=lambda: sum([v() for v in ops]) + constant_val,
+            is_const=all([op.is_const for op in ops])   # Should be an empty list if const. all([]) == True
+        ).const_fold()
 
-    def _parse_mul(self) -> Fn:
-        ops = [self._parse_power()]
+    def _parse_mul(self) -> ParseResult:
+        first_operand = self._parse_power().const_fold()
+        if first_operand.is_const:
+            constant_val = first_operand()
+            ops = []
+        else:
+            constant_val = 1.0
+            ops = [first_operand]
 
         while True:
             self._skip_whitespace()
@@ -173,29 +213,46 @@ class MathParser:
 
             if char == '*':
                 self._index += 1
-                ops.append(self._parse_power())
+                op = self._parse_power().const_fold()
+                if op.is_const:
+                    constant_val *= op()
+                else:
+                    ops.append(op)
             elif char == '/':
                 self._index += 1
-                den = self._parse_power()
-                ops.append(functools.partial(self._eval_div, lambda: 1.0, den))
+                den = self._parse_power().const_fold()
+                if den.is_const:
+                    denv = den()
+                    if denv == 0:
+                        raise MathParsingError("Division by constant 0")
+                    constant_val /= denv
+                else:
+                    ops.append(ParseResult(
+                        func=functools.partial(self._eval_div, lambda: 1.0, den),
+                        is_const=False
+                    ))
             else:
                 break
 
-        return lambda: self._eval_mul_list(ops)
+        return ParseResult(
+            func=lambda: self._eval_mul_list(ops) * constant_val,
+            is_const=all([op.is_const for op in ops])
+        ).const_fold()
 
-    def _parse_power(self) -> Fn:
-        f1 = self._parse_parenthesis()
+    def _parse_power(self) -> ParseResult:
+        f1 = self._parse_parenthesis().const_fold()
         self._skip_whitespace()
         char = self._peek()
 
         if char == '^':
             self._index += 1
-            f2 = self._parse_power()
-            return lambda: f1()**f2()
+            f2 = self._parse_power().const_fold()
+            is_const = f1.is_const and f2.is_const
+            return ParseResult(lambda: f1()**f2(), is_const=is_const).const_fold()
+        else:
+            return f1
 
-        return f1
-
-    def _parse_parenthesis(self) -> Fn:
+    def _parse_parenthesis(self) -> ParseResult:
         self._skip_whitespace()
         char = self._peek()
 
@@ -207,12 +264,12 @@ class MathParser:
             if self._peek() != ')':
                 raise MathParsingError(f"No closing parenthesis found at character {self._index}")
             self._index += 1
-            return lambda: expr()
+            return expr.const_fold()
         else:
-            return self._parse_neg()
+            return self._parse_neg().const_fold()
 
-    def _parse_arg(self) -> List[Fn]:
-        args: List[Fn] = []
+    def _parse_arg(self) -> List[ParseResult]:
+        args: List[ParseResult] = []
         self._skip_whitespace()
         self._pop_expected('(')
         while not self._pop_if_next(')'):
@@ -220,22 +277,22 @@ class MathParser:
             if len(args) > 0:
                 self._pop_expected(',')
                 self._skip_whitespace()
-            args.append(self._parse_expr())
+            args.append(self._parse_expr().const_fold())
             self._skip_whitespace()
         return args
 
-    def _parse_neg(self) -> Fn:
+    def _parse_neg(self) -> ParseResult:
         self._skip_whitespace()
         char = self._peek()
 
         if char == '-':
             self._index += 1
             op = self._parse_power()
-            return lambda: -1 * op()
+            return ParseResult(func=lambda: -1 * op(), is_const=op.is_const).const_fold()
         else:
-            return self._parse_val()
+            return self._parse_val().const_fold()
 
-    def _parse_val(self) -> Fn:
+    def _parse_val(self) -> ParseResult:
         self._skip_whitespace()
         char = self._peek()
 
@@ -244,7 +301,7 @@ class MathParser:
         else:
             return self._parse_var()
 
-    def _parse_var(self) -> Fn:
+    def _parse_var(self) -> ParseResult:
         self._skip_whitespace()
         var: List[str] = []
         while self._has_next():
@@ -261,19 +318,22 @@ class MathParser:
         if function is not None:
             self._required_funcs.add(var_str_lower)
             args = self._parse_arg()
-            return lambda: self._eval_math_func(function, args)
+            return ParseResult(
+                func=lambda: self._eval_math_func(var_str_lower, function, args),
+                is_const=all([arg.is_const for arg in args])
+            )
 
         constant = _CONSTANTS.get(var_str_lower)
         if constant is not None:
-            return lambda: constant
+            return ParseResult(func=lambda: constant, is_const=True)
 
         if var_str == '':
             raise MathParsingError(f'Unexpected character at {self._index}')
 
         self._required_vars.add(var_str)
-        return functools.partial(self._lookup_var, var_str)
+        return ParseResult(func=functools.partial(self._lookup_var, var_str), is_const=False)
 
-    def _parse_literal(self) -> Fn:
+    def _parse_literal(self) -> ParseResult:
         self._skip_whitespace()
         str_val = ''
         decimal_found = False
@@ -339,7 +399,7 @@ class MathParser:
         except Exception as e:
             raise MathParsingError(f"Error while parsing literal before {self._index}. Underlying error: {e}")
 
-        return lambda: v
+        return ParseResult(func=lambda: v, is_const=True)
 
     def _lookup_var(self, name: str) -> float:
         v = self._vars.get(name, None)
@@ -366,5 +426,9 @@ class MathParser:
         return op1() / v2
 
     @staticmethod
-    def _eval_math_func(f: Fn, args: Iterable[Fn]) -> float:
-        return f(*[arg() for arg in args])
+    def _eval_math_func(name: str, f: Fn, args: Iterable[Fn]) -> float:
+        vals = [arg() for arg in args]
+        try:
+            return f(*vals)
+        except Exception as e:
+            raise MathEvalError(f"Function '{name}' failed. {e}")
