@@ -3659,27 +3659,30 @@ class TestAPI(ScrutinyUnitTest):
                 )
             ]
             ar = self.send_request_datalogging_acquisition_and_fetch_result(req)
-            self.assertEqual(len(ar.math_signals), 1)
-            self.assertEqual(ar.math_signals[0].name, 'math1')
-            self.assertEqual(ar.math_signals[0].expr, 'x+y')
-            self.assertIn(ar.math_signals[0].axis, ar.get_yaxis_list())
-            self.assertEqual(ar.math_signals[0].axis.name, 'Axis1')
-            self.assertIn('x', ar.math_signals[0].variables)
-            self.assertIn('y', ar.math_signals[0].variables)
-            self.assertIs(ar.math_signals[0].variables['x'], var_entries[1])
-            self.assertIs(ar.math_signals[0].variables['y'], rpv_entries[0])
+            math_signals = [s for s in ar.signals if isinstance(s, api_datalogging.MathSignalDefinitionWithAxis)]
+            self.assertEqual(len(math_signals), 1)
+            self.assertEqual(math_signals[0].name, 'math1')
+            self.assertEqual(math_signals[0].expr, 'x+y')
+            self.assertIn(math_signals[0].axis, ar.get_yaxis_list())
+            self.assertEqual(math_signals[0].axis.name, 'Axis1')
+            self.assertIn('x', math_signals[0].variables)
+            self.assertIn('y', math_signals[0].variables)
+            self.assertIs(math_signals[0].variables['x'], var_entries[1])
+            self.assertIs(math_signals[0].variables['y'], rpv_entries[0])
 
             # No math_signals field at all is OK (backward compat)
             req = create_default_request()
             # math_signals not set
             ar = self.send_request_datalogging_acquisition_and_fetch_result(req)
-            self.assertEqual(len(ar.math_signals), 0)
+            math_signals = [s for s in ar.signals if isinstance(s, api_datalogging.MathSignalDefinitionWithAxis)]
+            self.assertEqual(len(math_signals), 0)
 
             # Empty math_signals list is OK
             req = create_default_request()
             req['math_signals'] = []
             ar = self.send_request_datalogging_acquisition_and_fetch_result(req)
-            self.assertEqual(len(ar.math_signals), 0)
+            math_signals = [s for s in ar.signals if isinstance(s, api_datalogging.MathSignalDefinitionWithAxis)]
+            self.assertEqual(len(math_signals), 0)
 
             # Math signal with axis only used by math signal (not by regular signals)
             req = create_default_request()
@@ -3693,7 +3696,8 @@ class TestAPI(ScrutinyUnitTest):
                 )
             ]
             ar = self.send_request_datalogging_acquisition_and_fetch_result(req)
-            self.assertEqual(ar.math_signals[0].axis.name, 'MathOnly')
+            math_signals = [s for s in ar.signals if isinstance(s, api_datalogging.MathSignalDefinitionWithAxis)]
+            self.assertEqual(math_signals[0].axis.name, 'MathOnly')
             yaxis_names = [a.name for a in ar.get_yaxis_list()]
             self.assertIn('MathOnly', yaxis_names)
 
@@ -3704,9 +3708,10 @@ class TestAPI(ScrutinyUnitTest):
                 dict(name='m2', expr='b*2', variables={'b': rpv_entries[0].get_display_path()}, axis_id=100),
             ]
             ar = self.send_request_datalogging_acquisition_and_fetch_result(req)
-            self.assertEqual(len(ar.math_signals), 2)
-            self.assertEqual(ar.math_signals[0].name, 'm1')
-            self.assertEqual(ar.math_signals[1].name, 'm2')
+            math_signals = [s for s in ar.signals if isinstance(s, api_datalogging.MathSignalDefinitionWithAxis)]
+            self.assertEqual(len(math_signals), 2)
+            self.assertEqual(math_signals[0].name, 'm1')
+            self.assertEqual(math_signals[1].name, 'm2')
 
             # --- Bad math signal inputs ---
 
@@ -3842,8 +3847,9 @@ class TestAPI(ScrutinyUnitTest):
                 dict(name='m', expr='x', variables={'x': var_entries[4].get_display_path()}, axis_id=0)
             ]
             ar = self.send_request_datalogging_acquisition_and_fetch_result(req)
-            self.assertEqual(len(ar.math_signals), 1)
-            self.assertIs(ar.math_signals[0].variables['x'], var_entries[4])
+            math_signals = [s for s in ar.signals if isinstance(s, api_datalogging.MathSignalDefinitionWithAxis)]
+            self.assertEqual(len(math_signals), 1)
+            self.assertIs(math_signals[0].variables['x'], var_entries[4])
 
     def test_user_command(self):
         def base() -> api_typing.C2S.UserCommand:
