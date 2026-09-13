@@ -1865,7 +1865,7 @@ class API:
             _check_request_dict(req, math_signal, 'name', str, 'math_signals')
             _check_request_dict(req, math_signal, 'axis_id', int, 'math_signals')
             _check_request_dict(req, math_signal, 'expr', str, 'math_signals')
-            _check_request_dict(req, math_signal, 'vars', dict, 'math_signals')
+            _check_request_dict(req, math_signal, 'variables', dict, 'math_signals')
 
             math_name = math_signal['name']
             if len(math_name) == 0:
