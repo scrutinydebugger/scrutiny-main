@@ -3666,8 +3666,8 @@ class TestAPI(ScrutinyUnitTest):
             self.assertEqual(ar.math_signals[0].axis.name, 'Axis1')
             self.assertIn('x', ar.math_signals[0].variables)
             self.assertIn('y', ar.math_signals[0].variables)
-            self.assertIs(ar.math_signals[0].variables['x'].entry, var_entries[1])
-            self.assertIs(ar.math_signals[0].variables['y'].entry, rpv_entries[0])
+            self.assertIs(ar.math_signals[0].variables['x'], var_entries[1])
+            self.assertIs(ar.math_signals[0].variables['y'], rpv_entries[0])
 
             # No math_signals field at all is OK (backward compat)
             req = create_default_request()
@@ -3836,13 +3836,14 @@ class TestAPI(ScrutinyUnitTest):
             self.send_request(req)
             self.assert_is_error(self.wait_and_load_response())
 
-            # Variable references a watchable not part of the logged signals
+            # Variable references a watchable not part of the logged signals - this is allowed
             req = create_default_request()
             req['math_signals'] = [
                 dict(name='m', expr='x', variables={'x': var_entries[4].get_display_path()}, axis_id=0)
             ]
-            self.send_request(req)
-            self.assert_is_error(self.wait_and_load_response())
+            ar = self.send_request_datalogging_acquisition_and_fetch_result(req)
+            self.assertEqual(len(ar.math_signals), 1)
+            self.assertIs(ar.math_signals[0].variables['x'], var_entries[4])
 
     def test_user_command(self):
         def base() -> api_typing.C2S.UserCommand:

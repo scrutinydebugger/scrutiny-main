@@ -1814,7 +1814,7 @@ class API:
             else:
                 raise InvalidRequestException(req, 'Unknown operand type')
 
-        signals_to_log: List[api_datalogging.SignalDefinitionWithAxis] = []
+        signals_to_log: List[Union[api_datalogging.SignalDefinitionWithAxis, api_datalogging.MathSignalDefinitionWithAxis]] = []
         if len(req['signals']) == 0:
             raise InvalidRequestException(req, 'Missing watchable to log')
 
@@ -1883,7 +1883,7 @@ class API:
             if len(required_vars) != len(math_signal['variables']):
                 raise InvalidRequestException(req, f"Math signal {math_name} variable count does not match the expression variable count")
 
-            vars_with_references: Dict[str, api_datalogging.SignalDefinition] = {}
+            vars_with_entry: Dict[str, DatastoreEntry] = {}
             for required_var in required_vars:
                 if required_var not in math_signal['variables']:
                     raise InvalidRequestException(req, f'Missing variable {required_var} for math expression {math_name}')
@@ -1897,19 +1897,13 @@ class API:
                 except Exception:
                     raise InvalidRequestException(req, f'Cannot find watchable with given path {var_path}')
 
-                for signal in signals_to_log:
-                    if signal.entry.get_id() == math_entry.get_id():
-                        vars_with_references[required_var] = signal
+                vars_with_entry[required_var] = math_entry
 
-                if required_var not in vars_with_references:
-                    raise InvalidRequestException(
-                        req, f"Variable {required_var} in expression {math_name} refer a watchable not part of the acquisition.")
-
-            math_signals_to_log.append(api_datalogging.MathSignalDefinitionWithAxis(
+            signals_to_log.append(api_datalogging.MathSignalDefinitionWithAxis(
                 name=math_signal['name'],
                 axis=yaxis_map[math_signal['axis_id']],
                 expr=math_signal['expr'],
-                variables=vars_with_references
+                variables=vars_with_entry
             ))
 
         acq_name: Optional[str] = None
@@ -1931,8 +1925,7 @@ class API:
                 condition_id=self.datalogging_supported_conditions[req['condition']].condition_id,
                 operands=operands
             ),
-            signals=signals_to_log,
-            math_signals=math_signals_to_log
+            signals=signals_to_log
         )
 
         # We use a partial func to pass the request token and conn id

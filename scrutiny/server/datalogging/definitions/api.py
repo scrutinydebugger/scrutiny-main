@@ -84,7 +84,7 @@ class SignalDefinition:
 class MathSignalDefinition:
     name: str
     expr: str
-    variables: Dict[str, SignalDefinition]
+    variables: Dict[str, DatastoreEntry]
 
 
 @dataclass(frozen=True, slots=True)
@@ -108,13 +108,11 @@ class AcquisitionRequest:
     trigger_condition: TriggerCondition
     x_axis_type: XAxisType
     x_axis_signal: Optional[SignalDefinition]
-    signals: List[SignalDefinitionWithAxis]
-    math_signals: List[MathSignalDefinitionWithAxis]
+    signals: List[Union[SignalDefinitionWithAxis, MathSignalDefinitionWithAxis]]
 
     def get_yaxis_list(self) -> List[AxisDefinition]:
         axis_set: Set[AxisDefinition] = set()
         for signal in self.signals:
             axis_set.add(signal.axis)
-        for math_signal in self.math_signals:
-            axis_set.add(math_signal.axis)
+
         return list(axis_set)

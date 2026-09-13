@@ -15,7 +15,6 @@ from dataclasses import dataclass
 from uuid import uuid4
 from datetime import datetime
 import enum
-
 import scrutiny.server.datalogging.definitions.api as api_datalogging
 import scrutiny.server.datalogging.definitions.device as device_datalogging
 from scrutiny.server.device.device_handler import DeviceHandler
@@ -23,6 +22,7 @@ from scrutiny.server.datastore.datastore_entry import DatastoreEntry, DatastoreA
 from scrutiny.server.datastore.datastore import Datastore
 from scrutiny.server.device.device_info import FixedFreqLoop, ExecLoopType
 from scrutiny.core.basic_types import *
+from scrutiny.core.math_expr import MathParser
 from scrutiny.server.datalogging.datalogging_storage import DataloggingStorage
 from scrutiny.server.sfd_storage import SFDStorage
 from scrutiny.core.codecs import Codecs
@@ -105,6 +105,8 @@ class DataloggingManager:
     def request_acquisition(self, request: api_datalogging.AcquisitionRequest, callback: api_datalogging.APIAcquisitionRequestCompletionCallback) -> None:
         """Interface for the API to push a request for a new acquisition"""
         # Converts right away to device side acquisition because we want exception to be raised as early as possible for quick feedback to user
+
+        self._check_request_math_consistency(request)
         config, entry_signal_map = self.make_device_config_from_request(request)  # Can raise an exception
 
         sampling_rate = self.get_sampling_rate(request.rate_identifier)
@@ -203,17 +205,33 @@ class DataloggingManager:
 
                 # Now converts binary data into meaningful value using the datastore entries and add to acquisition object
                 for signal in self.active_request.api_request.signals:
-                    parsed_data = self._read_active_request_data_from_raw_data(signal, data)  # Parse binary data
-                    ds = DataSeries(
-                        data=parsed_data,
-                        logged_watchable=LoggedWatchable(
-                            path=signal.entry.get_display_path(),
-                            type=signal.entry.get_type()
+                    if isinstance(signal, api_datalogging.SignalDefinition):
+                        parsed_data = self._read_active_request_data_from_raw_data(signal.entry, data)  # Parse binary data
+                        ds = DataSeries(
+                            data=parsed_data,
+                            logged_watchable=LoggedWatchable(
+                                path=signal.entry.get_display_path(),
+                                type=signal.entry.get_type()
+                            )
                         )
-                    )
-                    if signal.name:
-                        ds.name = signal.name
-                    acquisition.add_data(ds, signal.axis)
+                        if signal.name:
+                            ds.name = signal.name
+                        acquisition.add_data(ds, signal.axis)
+                    elif isinstance(signal, api_datalogging.MathSignalDefinition):
+                        var_data: Dict[str, List[float]] = {}
+                        for var_name, entry in signal.variables.items():
+                            var_data[var_name] = self._read_active_request_data_from_raw_data(entry, data)
+
+                        parser = MathParser(signal.expr)
+                        math_data: List[float] = []
+                        for i in range(nb_points):
+                            p = parser.eval({var_name: d[i] for var_name, d in var_data.items()})
+                            math_data.append(p)
+
+                        ds = DataSeries(data=math_data, logged_watchable=None, name=signal.name)
+                        acquisition.add_data(ds, signal.axis)
+                    else:
+                        raise NotImplementedError("Unknown type of signal")
 
                 # Add the X-Axis. Either use a measured signal or use a generated one of the user wants IdealTime
                 xaxis = DataSeries()
@@ -241,7 +259,7 @@ class DataloggingManager:
                     if xaxis_signal.name is None:
                         xaxis_signal = api_datalogging.SignalDefinition(name='X-Axis', entry=xaxis_signal.entry)
                     assert xaxis_signal.name is not None
-                    parsed_data = self._read_active_request_data_from_raw_data(xaxis_signal, data)
+                    parsed_data = self._read_active_request_data_from_raw_data(xaxis_signal.entry, data)
                     xaxis.set_data(parsed_data)
                     xaxis.name = xaxis_signal.name
                     xaxis.logged_watchable = LoggedWatchable(
@@ -267,7 +285,6 @@ class DataloggingManager:
             tools.log_exception(self.logger, e, 'Error while processing datalogging acquisition')
 
         # Inform the API about the acquisition being processed.
-        err: Optional[Exception] = None
         try:
             if acquisition is None:
                 if self.device_handler.get_connection_status() != DeviceHandler.ConnectionStatus.CONNECTED_READY:
@@ -277,21 +294,17 @@ class DataloggingManager:
             else:
                 self.active_request.callback(True, detail_msg, acquisition)
                 self.logger.debug("Informing API of success in getting the datalogging acquisition")
-        except Exception as e:
-            err = e
+        finally:
+            self.active_request = None
 
-        self.active_request = None
-        if err:
-            raise err
-
-    def _read_active_request_data_from_raw_data(self, signal: api_datalogging.SignalDefinition, data: List[List[bytes]]) -> List[float]:
+    def _read_active_request_data_from_raw_data(self, datastore_entry: DatastoreEntry, data: List[List[bytes]]) -> List[float]:
         """Converts a List of binary blocks into a list of numeric values (64 bits float) using the datastore definitions generated by the debug symbols."""
         assert self.active_request is not None
-        loggable_id = self.active_request.entry_signal_map[signal.entry]
+        loggable_id = self.active_request.entry_signal_map[datastore_entry]
         signal_data = data[loggable_id]
         parsed_signal_data = []
         for data_chunk in signal_data:
-            parsed_signal_data.append(float(signal.entry.decode(data_chunk)))
+            parsed_signal_data.append(float(datastore_entry.decode(data_chunk)))
 
         return parsed_signal_data
 
@@ -468,22 +481,30 @@ class DataloggingManager:
         config.trigger_hold_time = request.trigger_hold_time
         config.trigger_condition = cls.api_trigger_condition_to_device_trigger_condition(request.trigger_condition)
 
-        entry2signal_map: Dict[DatastoreEntry, int] = {}
-
         # Generate a list of LoggableSignal for that the device handler can manage (converts datastore entries into address/size and RPVs).
-        all_signals: List[api_datalogging.SignalDefinition] = cast(List[api_datalogging.SignalDefinition], request.signals.copy())
+        all_entries: List[DatastoreEntry] = []
 
         if request.x_axis_type == api_datalogging.XAxisType.Signal:
             if not isinstance(request.x_axis_signal, api_datalogging.SignalDefinition):
                 raise ValueError("X Axis must have a signal definition")
-            all_signals.append(request.x_axis_signal)
+            all_entries.append(request.x_axis_signal.entry)
 
-        for signal in all_signals:
-            entry_to_log: DatastoreEntry
-            if isinstance(signal.entry, DatastoreAliasEntry):
-                entry_to_log = signal.entry.refentry
+        for signal in request.signals:
+            if isinstance(signal, api_datalogging.SignalDefinition):
+                all_entries.append(signal.entry)
+            elif isinstance(signal, api_datalogging.MathSignalDefinition):
+                for var_name, entry in signal.variables.items():
+                    all_entries.append(entry)
             else:
-                entry_to_log = signal.entry
+                raise NotImplementedError("Unknown type of signal")
+
+        entry2signal_map: Dict[DatastoreEntry, int] = {}
+        for entry in all_entries:
+            entry_to_log: DatastoreEntry
+            if isinstance(entry, DatastoreAliasEntry):
+                entry_to_log = entry.refentry
+            else:
+                entry_to_log = entry
 
             if entry_to_log not in entry2signal_map:
                 config.add_signal(cls.make_signal_from_watchable(entry_to_log))
@@ -491,7 +512,7 @@ class DataloggingManager:
             else:
                 signal_index = entry2signal_map[entry_to_log]
             entry2signal_map[entry_to_log] = signal_index   # Remember what signal comes from what datastore entry
-            entry2signal_map[signal.entry] = signal_index   # Remember what signal comes from what datastore entry
+            entry2signal_map[entry] = signal_index          # Remember what signal comes from what datastore entry
 
         # Purposely add time at the end.
         if request.x_axis_type == api_datalogging.XAxisType.MeasuredTime:
@@ -651,3 +672,13 @@ class DataloggingManager:
     def is_device_connected_without_datalogging(self) -> bool:
         """Tells if the datalogging manager sees a connected device that has no datalogging feature."""
         return self.state == FsmState.DEVICE_CONNECTED_NO_DATALOGGING
+
+    def _check_request_math_consistency(self, request: api_datalogging.AcquisitionRequest) -> None:
+        for signal in request.signals:
+            if not isinstance(signal, api_datalogging.MathSignalDefinition):
+                continue
+            parser = MathParser(signal.expr)    # Validate syntax
+            variables = parser.get_vars()
+            given_vars = set(signal.variables.keys())
+            if variables != given_vars:
+                raise RuntimeError("Given variables incompatible with math expression")
