@@ -1774,7 +1774,14 @@ class TestClient(ScrutinyUnitTest):
             ds2 = sdk.datalogging.DataSeries(
                 data=[-10, -5, 0, 5, 10],
                 name="data2",
-                logged_element=Watchable("path/to/data2", WatchableType.Variable)
+                logged_element=MathWatchable(
+                    expr="v1+v2+v3",
+                    watchables={
+                        "v1": Watchable("path/to/v1", WatchableType.Variable),
+                        "v2": Watchable("path/to/v2", WatchableType.Alias),
+                        "v3": Watchable("path/to/v3", WatchableType.RuntimePublishedValue),
+                    }
+                )
             )
             ds3 = sdk.datalogging.DataSeries(
                 data=[0.1, 0.2, 0.3, 0.1, 0.2],
@@ -1818,6 +1825,7 @@ class TestClient(ScrutinyUnitTest):
     def test_request_datalogging_acquisition(self):
         var1 = self.client.watch('/a/b/var1')
         var2 = self.client.watch('/a/b/var2')
+        var3 = self.client.watch('/a/b/var3')
 
         config = sdk.datalogging.DataloggingConfig(sampling_rate=0, decimation=1, timeout=0, name="unittest")
         config.configure_trigger(sdk.datalogging.TriggerCondition.Equal, [var1, 3.14159], position=0.75, hold_time=0)
@@ -1827,6 +1835,12 @@ class TestClient(ScrutinyUnitTest):
         config.add_signal(var1, axis1, name="MyVar1")
         config.add_signal(var2, axis1, name="MyVar2")
         config.add_signal('/a/b/alias_rpv1000', axis2, name="MyAliasRPV1000")
+        math_element = sdk.datalogging.MathSignalConfig("v1+v2+v3", variables={
+            "v1": "/a/b/alias_var1",
+            "v2": "/a/b/alias_rpv1000",
+            "v3": var3,
+        })
+        config.add_signal(math_element, axis2, name="the_math")
 
         request = self.client.start_datalog(config)
         self.assertFalse(request.completed)
@@ -1875,6 +1889,16 @@ class TestClient(ScrutinyUnitTest):
             entry=self.datastore.get_entry_by_display_path('/a/b/alias_rpv1000'),
             axis=api_datalogging.AxisDefinition(name='Axis 2', axis_id=1))
         )
+        expected_signals.append(api_datalogging.MathSignalDefinitionWithAxis(
+            name='the_math',
+            expr="v1+v2+v3",
+            variables={
+                "v1" : self.datastore.get_entry_by_display_path('/a/b/alias_var1'),
+                "v2" : self.datastore.get_entry_by_display_path('/a/b/alias_rpv1000'),
+                "v3" : self.datastore.get_entry_by_display_path('/a/b/var3')
+            },
+            axis=api_datalogging.AxisDefinition(name='Axis 2', axis_id=1))
+        )
         self.assertCountEqual(server_request.signals, expected_signals)
         now = datetime.now()
 
@@ -1912,9 +1936,21 @@ class TestClient(ScrutinyUnitTest):
                     type=server_request.signals[2].entry.get_type()
                 )
             )
+            ds4 = sdk.datalogging.DataSeries(
+                data=[random.random() for x in range(10)],
+                name=server_request.signals[3].name,
+                logged_element=MathWatchable(
+                    expr=server_request.signals[3].expr,
+                    watchables={
+                        name: Watchable(path=entry.get_display_path(), type=entry.get_type())
+                        for name, entry in server_request.signals[3].variables.items()
+                    }
+                )
+            )
             acquisition.add_data(ds1, axis1)
             acquisition.add_data(ds2, axis1)
             acquisition.add_data(ds3, axis2)
+            acquisition.add_data(ds4, axis2)
 
             acquisition.set_xdata(sdk.datalogging.DataSeries([x for x in range(10)], name="time", logged_element=None))
             acquisition.set_trigger_index(4)

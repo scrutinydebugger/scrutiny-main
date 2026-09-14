@@ -2863,7 +2863,7 @@ class ScrutinyClient:
             'yaxes': config._get_api_yaxes(),
             'operands': config._get_api_trigger_operands(),
             'signals': config._get_api_signals(),
-            'math_signals': []  # TODO
+            'math_signals': config._get_api_math_signals()
         }
 
         req = self._make_request(API.Command.Client2Api.REQUEST_DATALOGGING_ACQUISITION, cast(Dict[str, Any], req_data))

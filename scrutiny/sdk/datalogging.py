@@ -12,13 +12,15 @@ __all__ = [
     'DataloggingConfig',
     'DataloggingRequest',
     'DataloggingStorageEntry',
+    'MathSignalConfig',
 
     # Forwarded from core
     'AxisDefinition',
     'DataSeries',
     'DataSeriesWithAxis',
     'DataloggingAcquisition',
-    'DataloggingState'
+    'DataloggingState',
+    'MathParsingError'
 ]
 
 import enum
@@ -29,6 +31,7 @@ from scrutiny import sdk
 from scrutiny.sdk.definitions import *
 from scrutiny.core.datalogging import *
 from scrutiny.core import path_tools
+from scrutiny.core.math_parser import MathParser, MathParsingError
 from scrutiny.tools import validation
 from scrutiny.sdk.watchable_handle import WatchableHandle
 from scrutiny.sdk.pending_request import PendingRequest
@@ -117,6 +120,44 @@ class TriggerCondition(enum.Enum):
         return cls(v)
 
 
+@dataclass(slots=True, init=False)
+class MathSignalConfig:
+    """
+    The description of a mathematical signal that can be requested for datalogging and passed to
+    :meth:`add_signal<scrutiny.sdk.datalogging.DataloggingConfig.add_signal>`.
+
+    :param expr: Mathematical expression
+    :param variables: A dictionary mapping variable name to watchables - either a path as string
+        or a :class:`WatchableHandle<scrutiny.sdk.watchable_handle.WatchableHandle>`
+
+    :raises MathParsingError: If the mathematical expression cannot be parsed.
+    :raises TypeError: If the given watchables are not of the expected types.
+    """
+    expr: str
+    variables: Dict[str, str]
+
+    def __init__(self, expr: str, variables: Optional[Dict[str, Union[str, WatchableHandle]]] = None):
+        MathParser(expr)    # Validate. Can raise MathParsingError
+        self.expr = expr
+        self.variables = {}
+        if variables is not None:
+            for k, v in variables.items():
+                self.bind_var(k, v)
+
+    def bind_var(self, var: str, watchable: Union[str, WatchableHandle]) -> None:
+        if var in self.variables:
+            raise ValueError("Duplicate variable {var}")
+
+        if isinstance(watchable, WatchableHandle):
+            path = watchable.server_path
+        elif isinstance(watchable, str):
+            path = watchable
+        else:
+            raise TypeError("Given watchable must be a string or a WatchableHandle")
+
+        self.variables[var] = path
+
+
 @dataclass(slots=True)
 class _Signal:
     name: Optional[str]
@@ -124,7 +165,18 @@ class _Signal:
 
 
 @dataclass(slots=True)
+class _MathSignal:
+    name: str
+    config: MathSignalConfig
+
+
+@dataclass(slots=True)
 class _SignalAxisPair(_Signal):
+    axis_id: int
+
+
+@dataclass(slots=True)
+class _MathSignalAxisPair(_MathSignal):
     axis_id: int
 
 
@@ -143,7 +195,7 @@ class DataloggingConfig:
     _name: str
     _trigger_operands: List[Union[WatchableHandle, float, str]]
     _axes: Dict[int, AxisDefinition]
-    _signals: List[_SignalAxisPair]
+    _signals: List[Union[_SignalAxisPair, _MathSignalAxisPair]]
     _next_axis_id: int
 
     def __init__(self,
@@ -215,14 +267,14 @@ class DataloggingConfig:
         return axis
 
     def add_signal(self,
-                   signal: Union[WatchableHandle, str],
+                   signal: Union[WatchableHandle, str, MathSignalConfig],
                    axis: Union[AxisDefinition, int],
                    name: Optional[str] = None
                    ) -> None:
         """Adds a signal to the acquisition
 
-        :param signal: The signal to add. Can either be a path to a var/rpv/alias (string) or a :class:`WatchableHandle<scrutiny.sdk.watchable_handle.WatchableHandle>`
-            given by :meth:`ScrutinyClient.watch()<scrutiny.sdk.client.ScrutinyClient.watch>`
+        :param signal: The signal to add. Can either be a path to a var/rpv/alias (string),  a :class:`WatchableHandle<scrutiny.sdk.watchable_handle.WatchableHandle>`
+            given by :meth:`ScrutinyClient.watch()<scrutiny.sdk.client.ScrutinyClient.watch>` or a :class:`MathSignalConfig<scrutiny.sdk.datalogging.MathSignalConfig>`
         :param axis: The Y axis to assign this signal to. Can either be the index (int) or the :class:`AxisDefinition<scrutiny.sdk.datalogging.AxisDefinition>`
             object given by :meth:`add_axis()<scrutiny.sdk.datalogging.DataloggingConfig.add_axis>`
         :param name: A display name for the signal
@@ -245,19 +297,23 @@ class DataloggingConfig:
 
         axis_id = axis.axis_id
 
-        signal_path: str
-        if isinstance(signal, WatchableHandle):
-            signal_path = signal.server_path
-        elif isinstance(signal, str):
-            signal_path = signal
-        else:
-            raise TypeError(f'Expected signal to be a valid path (string) or a watchable handle. Got {signal.__class__.__name__}')
-
         validation.assert_type(name, 'name', (str, type(None)))
-        if name is None:
-            name = path_tools.make_segments(signal_path)[-1]
+        if isinstance(signal, MathSignalConfig):
+            if name is None:
+                name = signal.expr
+            self._signals.append(_MathSignalAxisPair(name=name, config=signal, axis_id=axis_id))
+        else:
+            if isinstance(signal, WatchableHandle):
+                signal_path = signal.server_path
+            elif isinstance(signal, str):
+                signal_path = signal
+            else:
+                raise TypeError(f'Expected signal to be a valid path (string) or a watchable handle. Got {signal.__class__.__name__}')
 
-        self._signals.append(_SignalAxisPair(name=name, path=signal_path, axis_id=axis_id))
+            if name is None:
+                name = path_tools.make_segments(signal_path)[-1]
+
+            self._signals.append(_SignalAxisPair(name=name, path=signal_path, axis_id=axis_id))
 
     def configure_trigger(self,
                           condition: TriggerCondition,
@@ -356,7 +412,23 @@ class DataloggingConfig:
         return out_list
 
     def _get_api_signals(self) -> List[api_typing.DataloggingAcquisitionRequestSignalDef]:
-        return [{'path': x.path, 'name': x.name, 'axis_id': x.axis_id} for x in self._signals]
+        outlist: List[api_typing.DataloggingAcquisitionRequestSignalDef] = []
+        for x in self._signals:
+            if isinstance(x, _SignalAxisPair):
+                outlist.append({'path': x.path, 'name': x.name, 'axis_id': x.axis_id})
+        return outlist
+
+    def _get_api_math_signals(self) -> List[api_typing.DataloggingAcquisitionRequestMathSignalDef]:
+        outlist: List[api_typing.DataloggingAcquisitionRequestMathSignalDef] = []
+        for x in self._signals:
+            if isinstance(x, _MathSignalAxisPair):
+                outlist.append({
+                    'name': x.name,
+                    'expr': x.config.expr,
+                    'variables': x.config.variables,
+                    'axis_id': x.axis_id
+                })
+        return outlist
 
 
 @dataclass(init=False)
