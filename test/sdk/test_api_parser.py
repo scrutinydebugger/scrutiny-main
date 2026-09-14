@@ -1151,7 +1151,8 @@ class TestApiParser(ScrutinyUnitTest):
                 "timestamp": now.timestamp(),
                 "xdata": {
                     "name": "Xaxis",
-                    "watchable": {
+                    'type': 'watchable',
+                    "logged_element": {
                         'path': "path/to/xaxis/item",
                         'type': "var"
                     },
@@ -1165,7 +1166,8 @@ class TestApiParser(ScrutinyUnitTest):
                     {
                         "axis_id": 0,
                         "name": "signal1",
-                        "watchable": {
+                        "type": "watchable",
+                        "logged_element": {
                             'path': "/path/to/signal1",
                             'type': 'var'
                         },
@@ -1174,7 +1176,8 @@ class TestApiParser(ScrutinyUnitTest):
                     {
                         "axis_id": 0,
                         "name": "signal2",
-                        "watchable": {
+                        "type": "watchable",
+                        "logged_element": {
                             'path': "/path/to/signal2",
                             'type': 'alias'
                         },
@@ -1183,9 +1186,14 @@ class TestApiParser(ScrutinyUnitTest):
                     {
                         "axis_id": 1,
                         "name": "signal3",
-                        "watchable": {
-                            'path': "/path/to/signal3",
-                            'type': 'rpv'
+                        "type": "math",
+                        "logged_element": {
+                            "expr": "v1+v2+v3",
+                            "variables": {
+                                "v1": {'path': "/path/to/v1", 'type': 'var'},
+                                "v2": {'path': "/path/to/v2", 'type': 'alias'},
+                                "v3": {'path': "/path/to/v3", 'type': 'rpv'},
+                            }
                         },
                         "data": [-4.5, -3.5, -2.5, -1.5, -0.5, 0.5, 1.5, 2.5, 3.5, 4.5]
                     }
@@ -1208,8 +1216,9 @@ class TestApiParser(ScrutinyUnitTest):
         self.assertLessEqual(abs(acq.acq_time - now), timedelta(seconds=1))
 
         self.assertEqual(acq.xdata.name, "Xaxis")
-        self.assertEqual(acq.xdata.logged_watchable.path, "path/to/xaxis/item")
-        self.assertEqual(acq.xdata.logged_watchable.type, WatchableType.Variable)
+        self.assertIsInstance(acq.xdata.logged_element, Watchable)
+        self.assertEqual(acq.xdata.logged_element.path, "path/to/xaxis/item")
+        self.assertEqual(acq.xdata.logged_element.type, WatchableType.Variable)
         self.assertEqual(acq.xdata.get_data(), [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0])
 
         yaxes = acq.get_unique_yaxis_list()
@@ -1230,20 +1239,29 @@ class TestApiParser(ScrutinyUnitTest):
         self.assertIn(data[0].axis.axis_id, yaxes_map)
         self.assertEqual(yaxes_map[data[0].axis.axis_id].name, "Y-Axis1")
         self.assertEqual(data[0].series.name, "signal1")
-        self.assertEqual(data[0].series.logged_watchable.path, "/path/to/signal1")
-        self.assertEqual(data[0].series.logged_watchable.type, WatchableType.Variable)
+        self.assertIsInstance(data[0].series.logged_element, Watchable)
+        self.assertEqual(data[0].series.logged_element.path, "/path/to/signal1")
+        self.assertEqual(data[0].series.logged_element.type, WatchableType.Variable)
 
         self.assertIn(data[1].axis.axis_id, yaxes_map)
         self.assertEqual(yaxes_map[data[1].axis.axis_id].name, "Y-Axis1")
         self.assertEqual(data[1].series.name, "signal2")
-        self.assertEqual(data[1].series.logged_watchable.path, "/path/to/signal2")
-        self.assertEqual(data[1].series.logged_watchable.type, WatchableType.Alias)
+        self.assertIsInstance(data[1].series.logged_element, Watchable)
+        self.assertEqual(data[1].series.logged_element.path, "/path/to/signal2")
+        self.assertEqual(data[1].series.logged_element.type, WatchableType.Alias)
 
         self.assertIn(data[2].axis.axis_id, yaxes_map)
         self.assertEqual(yaxes_map[data[2].axis.axis_id].name, "Y-Axis2")
         self.assertEqual(data[2].series.name, "signal3")
-        self.assertEqual(data[2].series.logged_watchable.path, "/path/to/signal3")
-        self.assertEqual(data[2].series.logged_watchable.type, WatchableType.RuntimePublishedValue)
+        self.assertIsInstance(data[2].series.logged_element, MathWatchable)
+        self.assertEqual(data[2].series.logged_element.expr, "v1+v2+v3")
+        self.assertEqual(len(data[2].series.logged_element.watchables), 3)
+        self.assertEqual(data[2].series.logged_element.watchables["v1"].path, "/path/to/v1")
+        self.assertEqual(data[2].series.logged_element.watchables["v1"].type, WatchableType.Variable)
+        self.assertEqual(data[2].series.logged_element.watchables["v2"].path, "/path/to/v2")
+        self.assertEqual(data[2].series.logged_element.watchables["v2"].type, WatchableType.Alias)
+        self.assertEqual(data[2].series.logged_element.watchables["v3"].path, "/path/to/v3")
+        self.assertEqual(data[2].series.logged_element.watchables["v3"].type, WatchableType.RuntimePublishedValue)
 
         for field in ['firmware_id', 'firmware_name', 'name', 'reference_id', 'trigger_index', 'timestamp', 'xdata', 'yaxes', 'signals']:
             msg = base()
@@ -1251,18 +1269,18 @@ class TestApiParser(ScrutinyUnitTest):
             with self.assertRaises(sdk.exceptions.BadResponseError, msg=f"Field : {field}"):
                 parser.parse_read_datalogging_acquisition_content_response(msg)
 
-        for field in ['name', 'watchable', 'data']:
+        for field in ['name', 'logged_element', 'type', 'data']:
             msg = base()
             del msg['xdata'][field]
             with self.assertRaises(sdk.exceptions.BadResponseError, msg=f"Field : {field}"):
                 parser.parse_read_datalogging_acquisition_content_response(msg)
 
         msg = base()
-        msg['xdata']['watchable'] = None
+        msg['xdata']['logged_element'] = None
         response = parser.parse_read_datalogging_acquisition_content_response(msg)
-        self.assertIsNone(response.xdata.logged_watchable)
+        self.assertIsNone(response.xdata.logged_element)
 
-        for field in ['axis_id', 'name', 'watchable', 'data']:
+        for field in ['axis_id', 'name', 'logged_element', 'type', 'data']:
             msg = base()
             for i in range(len(msg['signals'])):
                 del msg['signals'][i][field]
@@ -1284,26 +1302,62 @@ class TestApiParser(ScrutinyUnitTest):
 
             for val in [3, []]:
                 msg = base()
-                msg['signals'][i]["watchable"] = val
+                msg['signals'][i]["logged_element"] = val
                 with self.assertRaises(sdk.exceptions.BadResponseError, msg=f"val={val}"):
                     parser.parse_read_datalogging_acquisition_content_response(msg)
 
-            for val in [None, 3, {}, True]:
+            if i in (0, 1):
+                for val in [None, 3, {}, True]:
+                    msg = base()
+                    msg['signals'][i]["logged_element"]['path'] = val
+                    with self.assertRaises(sdk.exceptions.BadResponseError, msg=f"val={val}"):
+                        parser.parse_read_datalogging_acquisition_content_response(msg)
+
+                for val in [None, 3, {}, True, 'asdasdasd']:
+                    msg = base()
+                    msg['signals'][i]["logged_element"]['type'] = val
+                    with self.assertRaises(sdk.exceptions.BadResponseError, msg=f"val={val}"):
+                        parser.parse_read_datalogging_acquisition_content_response(msg)
+            elif i == 2:
+                for val in [None, 3, {}, True]:
+                    msg = base()
+                    msg['signals'][i]["logged_element"]['expr'] = val
+                    with self.assertRaises(sdk.exceptions.BadResponseError, msg=f"val={val}"):
+                        parser.parse_read_datalogging_acquisition_content_response(msg)
+
+                for val in [None, 3, [], True, 'asdasdasd']:
+                    msg = base()
+                    msg['signals'][i]["logged_element"]['variables'] = val
+                    with self.assertRaises(sdk.exceptions.BadResponseError, msg=f"val={val}"):
+                        parser.parse_read_datalogging_acquisition_content_response(msg)
+
                 msg = base()
-                msg['signals'][i]["watchable"]['path'] = val
-                with self.assertRaises(sdk.exceptions.BadResponseError, msg=f"val={val}"):
+                msg['signals'][i]["logged_element"]['variables'][123] = msg['signals'][i]["logged_element"]['variables']["v1"]
+                with self.assertRaises(sdk.exceptions.BadResponseError):
                     parser.parse_read_datalogging_acquisition_content_response(msg)
 
-            for val in [None, 3, {}, True, 'asdasdasd']:
+                for val in [None, 3, [], True, 'asdasdasd']:
+                    msg = base()
+                    msg['signals'][i]["logged_element"]['variables']["v1"] = val
+                    with self.assertRaises(sdk.exceptions.BadResponseError, msg=f"val={val}"):
+                        parser.parse_read_datalogging_acquisition_content_response(msg)
+
+                for val in [None, 3, [], True, {}]:
+                    msg = base()
+                    msg['signals'][i]["logged_element"]['variables']["v1"]["path"] = val
+                    with self.assertRaises(sdk.exceptions.BadResponseError, msg=f"val={val}"):
+                        parser.parse_read_datalogging_acquisition_content_response(msg)
+
+                for val in [None, 3, [], True, 'asdasdasd']:
+                    msg = base()
+                    msg['signals'][i]["logged_element"]['variables']["v1"]["type"] = val
+                    with self.assertRaises(sdk.exceptions.BadResponseError, msg=f"val={val}"):
+                        parser.parse_read_datalogging_acquisition_content_response(msg)
+
                 msg = base()
-                msg['signals'][i]["watchable"]['type'] = val
+                msg['signals'][i]["logged_element"] = None   # Not allowed for Y data
                 with self.assertRaises(sdk.exceptions.BadResponseError, msg=f"val={val}"):
                     parser.parse_read_datalogging_acquisition_content_response(msg)
-
-            msg = base()
-            msg['signals'][i]["watchable"] = None   # Not allowed for Y data
-            with self.assertRaises(sdk.exceptions.BadResponseError, msg=f"val={val}"):
-                parser.parse_read_datalogging_acquisition_content_response(msg)
 
             for val in [3, None, {}, []]:
                 msg = base()
@@ -1314,6 +1368,12 @@ class TestApiParser(ScrutinyUnitTest):
             for val in [3, None, "asd", {}]:
                 msg = base()
                 msg['signals'][i]["data"] = val
+                with self.assertRaises(sdk.exceptions.BadResponseError, msg=f"val={val}"):
+                    parser.parse_read_datalogging_acquisition_content_response(msg)
+
+            for val in [3, None, "asd", {}]:
+                msg = base()
+                msg['signals'][i]["type"] = val
                 with self.assertRaises(sdk.exceptions.BadResponseError, msg=f"val={val}"):
                     parser.parse_read_datalogging_acquisition_content_response(msg)
 

@@ -1123,7 +1123,8 @@ def parse_read_datalogging_acquisition_content_response(response: api_typing.S2C
     _check_response_dict(cmd, response, 'signals', list)
     _check_response_dict(cmd, response, 'xdata.name', str)
     _check_response_dict(cmd, response, 'xdata.data', list)
-    _check_response_dict(cmd, response, 'xdata.watchable', (dict, type(None)))
+    _check_response_dict(cmd, response, 'xdata.type', str)
+    _check_response_dict(cmd, response, 'xdata.logged_element', (dict, type(None)))
 
     acquisition = sdk.datalogging.DataloggingAcquisition(
         firmware_id=response['firmware_id'],
@@ -1147,9 +1148,12 @@ def parse_read_datalogging_acquisition_content_response(response: api_typing.S2C
 
     assert xaxis_data is not None
 
-    def extract_logged_element_from_signal_data(d: api_typing.DataloggingSignalData) -> Optional[sdk.datalogging.LoggedElementType]:
+    def extract_logged_element_from_signal_data(d: api_typing.DataloggingSignalData, allow_none: bool) -> Optional[sdk.datalogging.LoggedElementType]:
         if d is None:
-            return None
+            if allow_none:
+                return None
+            else:
+                raise sdk.exceptions.BadResponseError("Logged element cannot be null")
 
         _check_response_dict(cmd, d, 'logged_element', (dict, type(None)))
 
@@ -1162,8 +1166,8 @@ def parse_read_datalogging_acquisition_content_response(response: api_typing.S2C
             _check_response_dict(cmd, api_watchable_element, 'path', str)
             _check_response_dict(cmd, api_watchable_element, 'type', str)
 
-            if d['type'] not in WatchableType.all():
-                raise sdk.exceptions.BadResponseError(f"Invalid watchable type {d['type']}")
+            if api_watchable_element['type'] not in WatchableType.all():
+                raise sdk.exceptions.BadResponseError(f"Invalid watchable type {api_watchable_element['type']}")
 
             return Watchable(
                 path=api_watchable_element['path'],
@@ -1184,6 +1188,9 @@ def parse_read_datalogging_acquisition_content_response(response: api_typing.S2C
                 _check_response_dict(cmd, v, 'path', str)
                 _check_response_dict(cmd, v, 'type', str)
 
+                if v['type'] not in WatchableType.all():
+                    raise sdk.exceptions.BadResponseError(f"Invalid watchable type {v['type']}")
+
                 outdict[k] = Watchable(
                     path=v['path'],
                     type=WatchableType(v['type'])
@@ -1198,9 +1205,10 @@ def parse_read_datalogging_acquisition_content_response(response: api_typing.S2C
 
     for sig in response['signals']:
         _check_response_dict(cmd, sig, 'axis_id', int)
-        _check_response_dict(cmd, sig, 'watchable', dict)   # None is not allowed for Y-Data
         _check_response_dict(cmd, sig, 'name', str)
         _check_response_dict(cmd, sig, 'data', list)
+        _check_response_dict(cmd, sig, 'type', str)
+        _check_response_dict(cmd, sig, 'logged_element', dict)
 
         yaxis_data: Optional[List[float]] = None
         try:
@@ -1214,14 +1222,14 @@ def parse_read_datalogging_acquisition_content_response(response: api_typing.S2C
         ds = sdk.datalogging.DataSeries(
             data=yaxis_data,
             name=sig['name'],
-            logged_element=extract_logged_element_from_signal_data(sig)
+            logged_element=extract_logged_element_from_signal_data(sig, allow_none=False)
         )
         acquisition.add_data(ds, axis=axis_map[sig['axis_id']])
 
     xdata = sdk.datalogging.DataSeries(
         data=xaxis_data,
         name=response['xdata']['name'],
-        logged_element=extract_logged_element_from_signal_data(response['xdata'])
+        logged_element=extract_logged_element_from_signal_data(response['xdata'], allow_none=True)
     )
 
     acquisition.set_xdata(xdata)
