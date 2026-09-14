@@ -1149,7 +1149,12 @@ def parse_read_datalogging_acquisition_content_response(response: api_typing.S2C
     assert xaxis_data is not None
 
     def extract_logged_element_from_signal_data(d: api_typing.DataloggingSignalData, allow_none: bool) -> Optional[sdk.datalogging.LoggedElementType]:
-        if d is None:
+        _check_response_dict(cmd, d, 'type', str)
+
+        if (d['type'] == 'none' and d['logged_element'] is not None) or (d['type'] != 'none' and d['logged_element'] is None):
+            raise sdk.exceptions.BadResponseError("Incoherent logged element type")
+
+        if d['logged_element'] is None:
             if allow_none:
                 return None
             else:
@@ -1160,7 +1165,6 @@ def parse_read_datalogging_acquisition_content_response(response: api_typing.S2C
         if d['logged_element'] is None:
             return None
 
-        _check_response_dict(cmd, d, 'type', str)
         if d['type'] == 'watchable':
             api_watchable_element = cast(api_typing.Watchable, d['logged_element'])
             _check_response_dict(cmd, api_watchable_element, 'path', str)

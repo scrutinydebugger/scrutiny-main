@@ -1764,22 +1764,22 @@ class TestClient(ScrutinyUnitTest):
             xdata = sdk.datalogging.DataSeries(
                 data=[0, 10, 20, 30, 40, 50],
                 name="x-axis",
-                logged_watchable=LoggedWatchable("my/xaxis", WatchableType.Variable)
+                logged_element=Watchable("my/xaxis", WatchableType.Variable)
             )
             ds1 = sdk.datalogging.DataSeries(
                 data=[-1, -0.5, 0, 0.5, 1],
                 name="data1",
-                logged_watchable=LoggedWatchable("path/to/data1", WatchableType.Variable)
+                logged_element=Watchable("path/to/data1", WatchableType.Variable)
             )
             ds2 = sdk.datalogging.DataSeries(
                 data=[-10, -5, 0, 5, 10],
                 name="data2",
-                logged_watchable=LoggedWatchable("path/to/data2", WatchableType.Variable)
+                logged_element=Watchable("path/to/data2", WatchableType.Variable)
             )
             ds3 = sdk.datalogging.DataSeries(
                 data=[0.1, 0.2, 0.3, 0.1, 0.2],
                 name="data3",
-                logged_watchable=LoggedWatchable("path/to/data3", WatchableType.Variable)
+                logged_element=Watchable("path/to/data3", WatchableType.Variable)
             )
             acq.set_xdata(xdata)
             acq.add_data(ds1, axis1)
@@ -1891,7 +1891,7 @@ class TestClient(ScrutinyUnitTest):
             ds1 = sdk.datalogging.DataSeries(
                 data=[random.random() for x in range(10)],
                 name=server_request.signals[0].name,
-                logged_watchable=sdk.datalogging.LoggedWatchable(
+                logged_element=Watchable(
                     path=server_request.signals[0].entry.get_display_path(),
                     type=server_request.signals[0].entry.get_type()
                 )
@@ -1899,7 +1899,7 @@ class TestClient(ScrutinyUnitTest):
             ds2 = sdk.datalogging.DataSeries(
                 data=[random.random() for x in range(10)],
                 name=server_request.signals[1].name,
-                logged_watchable=sdk.datalogging.LoggedWatchable(
+                logged_element=Watchable(
                     path=server_request.signals[1].entry.get_display_path(),
                     type=server_request.signals[1].entry.get_type()
                 )
@@ -1907,7 +1907,7 @@ class TestClient(ScrutinyUnitTest):
             ds3 = sdk.datalogging.DataSeries(
                 data=[random.random() for x in range(10)],
                 name=server_request.signals[2].name,
-                logged_watchable=sdk.datalogging.LoggedWatchable(
+                logged_element=Watchable(
                     path=server_request.signals[2].entry.get_display_path(),
                     type=server_request.signals[2].entry.get_type()
                 )
@@ -1916,7 +1916,7 @@ class TestClient(ScrutinyUnitTest):
             acquisition.add_data(ds2, axis1)
             acquisition.add_data(ds3, axis2)
 
-            acquisition.set_xdata(sdk.datalogging.DataSeries([x for x in range(10)], name="time", logged_watchable=None))
+            acquisition.set_xdata(sdk.datalogging.DataSeries([x for x in range(10)], name="time", logged_element=None))
             acquisition.set_trigger_index(4)
             return acquisition
 
@@ -1990,7 +1990,7 @@ class TestClient(ScrutinyUnitTest):
                 ds1 = sdk.datalogging.DataSeries(
                     data=[random.random() for x in range(10)],
                     name='ds1_name',
-                    logged_watchable=scrutiny.sdk.datalogging.LoggedWatchable(
+                    logged_element=Watchable(
                         path='/a/b/c',
                         type=WatchableType.Variable
                     )
@@ -1999,7 +1999,7 @@ class TestClient(ScrutinyUnitTest):
                 acquisition.set_xdata(sdk.datalogging.DataSeries(
                     [x for x in range(10)],
                     name="time",
-                    logged_watchable=scrutiny.sdk.datalogging.LoggedWatchable(
+                    logged_element=Watchable(
                         path='/d/e/f',
                         type=WatchableType.Alias
                     )
@@ -2016,7 +2016,7 @@ class TestClient(ScrutinyUnitTest):
                 ds1 = sdk.datalogging.DataSeries(
                     data=[random.random() for x in range(10)],
                     name='ds1_name',
-                    logged_watchable=scrutiny.sdk.datalogging.LoggedWatchable(
+                    logged_element=Watchable(
                         path='/a/b/c',
                         type=WatchableType.Variable
                     )
@@ -2025,7 +2025,7 @@ class TestClient(ScrutinyUnitTest):
                 acquisition2.set_xdata(sdk.datalogging.DataSeries(
                     [x for x in range(10)],
                     name="time",
-                    logged_watchable=None
+                    logged_element=None
                 ))
                 acquisition2.set_trigger_index(4)
 
@@ -2912,11 +2912,11 @@ class TestClient(ScrutinyUnitTest):
             acq1 = DataloggingAcquisition(firmware_id="firmwareid1", name="Acquisition #1", acq_time=datetime.now())
             axis1 = AxisDefinition("Axis-1", 111)
             acq1.set_xdata(DataSeries([random.random() for x in range(10)]))
-            acq1.add_data(DataSeries([random.random() for x in range(10)], logged_watchable=LoggedWatchable("/a/b", WatchableType.Variable)), axis1)
+            acq1.add_data(DataSeries([random.random() for x in range(10)], logged_element=Watchable("/a/b", WatchableType.Variable)), axis1)
             acq2 = DataloggingAcquisition(firmware_id="firmwareid1", name="Acquisition #2",
                                           acq_time=datetime.now() - timedelta(seconds=30))
             acq2.set_xdata(DataSeries([random.random() for x in range(10)]))
-            acq2.add_data(DataSeries([random.random() for x in range(10)], logged_watchable=LoggedWatchable("/a/b", WatchableType.Variable)), axis1)
+            acq2.add_data(DataSeries([random.random() for x in range(10)], logged_element=Watchable("/a/b", WatchableType.Variable)), axis1)
 
             DataloggingStorage.save(acq1)
             DataloggingStorage.save(acq2)
@@ -2941,11 +2941,11 @@ class TestClient(ScrutinyUnitTest):
             acq1 = DataloggingAcquisition(reference_id='acq1', firmware_id="firmwareid1", name="Acquisition #1", acq_time=datetime.now())
             axis1 = AxisDefinition("Axis-1", 111)
             acq1.set_xdata(DataSeries([random.random() for x in range(10)]))
-            acq1.add_data(DataSeries([random.random() for x in range(10)], logged_watchable=LoggedWatchable("/a/b", WatchableType.Variable)), axis1)
+            acq1.add_data(DataSeries([random.random() for x in range(10)], logged_element=Watchable("/a/b", WatchableType.Variable)), axis1)
             acq2 = DataloggingAcquisition(reference_id='acq2', firmware_id="firmwareid1", name="Acquisition #2",
                                           acq_time=datetime.now() - timedelta(seconds=30))
             acq2.set_xdata(DataSeries([random.random() for x in range(10)]))
-            acq2.add_data(DataSeries([random.random() for x in range(10)], logged_watchable=LoggedWatchable("/a/b", WatchableType.Variable)), axis1)
+            acq2.add_data(DataSeries([random.random() for x in range(10)], logged_element=Watchable("/a/b", WatchableType.Variable)), axis1)
 
             DataloggingStorage.save(acq1)
             DataloggingStorage.save(acq2)
@@ -2973,11 +2973,11 @@ class TestClient(ScrutinyUnitTest):
             acq1 = DataloggingAcquisition(reference_id='acq1', firmware_id="firmwareid1", name="Acquisition #1", acq_time=datetime.now())
             axis1 = AxisDefinition("Axis-1", 111)
             acq1.set_xdata(DataSeries([random.random() for x in range(10)]))
-            acq1.add_data(DataSeries([random.random() for x in range(10)], logged_watchable=LoggedWatchable("/a/b", WatchableType.Variable)), axis1)
+            acq1.add_data(DataSeries([random.random() for x in range(10)], logged_element=Watchable("/a/b", WatchableType.Variable)), axis1)
             acq2 = DataloggingAcquisition(reference_id='acq2', firmware_id="firmwareid1", name="Acquisition #2",
                                           acq_time=datetime.now() - timedelta(seconds=30))
             acq2.set_xdata(DataSeries([random.random() for x in range(10)]))
-            acq2.add_data(DataSeries([random.random() for x in range(10)], logged_watchable=LoggedWatchable("/a/b", WatchableType.Variable)), axis1)
+            acq2.add_data(DataSeries([random.random() for x in range(10)], logged_element=Watchable("/a/b", WatchableType.Variable)), axis1)
 
             DataloggingStorage.save(acq1)
             DataloggingStorage.save(acq2)

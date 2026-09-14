@@ -2161,9 +2161,19 @@ class API:
         except LookupError as e:
             raise InvalidRequestException(req, f"Failed to read acquisition. {e}")
 
-        def dataseries_to_api_signal_data(ds: core_datalogging.DataSeries) -> api_typing.DataloggingSignalData:
+        def dataseries_to_api_signal_data(ds: core_datalogging.DataSeries, allow_none_element: bool) -> api_typing.DataloggingSignalData:
             data = [f if math.isfinite(f) else str(f) for f in ds.get_data()]
-            if isinstance(ds.logged_element, Watchable):
+
+            if ds.logged_element is None:
+                if not allow_none_element:
+                    raise ValueError("Cannot have an empty logged_element")
+                return {
+                    'name': ds.name,
+                    'type': 'none',
+                    'logged_element': None,
+                    'data': data
+                }
+            elif isinstance(ds.logged_element, Watchable):
                 return {
                     'name': ds.name,
                     'type': 'watchable',
@@ -2190,10 +2200,11 @@ class API:
                     'data': data
                 }
             else:
-                raise NotImplementedError("Unknown logged element format")
+                raise NotImplementedError(f"Unknown logged element format")
 
-        def dataseries_to_api_signal_data_with_axis(ds: core_datalogging.DataSeries, axis_id: int) -> api_typing.DataloggingSignalDataWithAxis:
-            signal: api_typing.DataloggingSignalDataWithAxis = cast(api_typing.DataloggingSignalDataWithAxis, dataseries_to_api_signal_data(ds))
+        def dataseries_to_api_signal_data_with_axis(ds: core_datalogging.DataSeries, axis_id: int, allow_none_element: bool) -> api_typing.DataloggingSignalDataWithAxis:
+            signal: api_typing.DataloggingSignalDataWithAxis = cast(
+                api_typing.DataloggingSignalDataWithAxis, dataseries_to_api_signal_data(ds, allow_none_element))
             signal['axis_id'] = axis_id
             return signal
 
@@ -2206,7 +2217,8 @@ class API:
 
         signals: List[api_typing.DataloggingSignalDataWithAxis] = []
         for dataseries_with_axis in acquisition.get_data():
-            signals.append(dataseries_to_api_signal_data_with_axis(ds=dataseries_with_axis.series, axis_id=dataseries_with_axis.axis.axis_id))
+            signals.append(dataseries_to_api_signal_data_with_axis(ds=dataseries_with_axis.series,
+                           axis_id=dataseries_with_axis.axis.axis_id, allow_none_element=False))
 
         response: api_typing.S2C.ReadDataloggingAcquisitionContent = {
             'cmd': API.Command.Api2Client.READ_DATALOGGING_ACQUISITION_CONTENT_RESPONSE,
@@ -2218,7 +2230,7 @@ class API:
             'reference_id': acquisition.reference_id,
             'trigger_index': acquisition.trigger_index,
             'signals': signals,
-            'xdata': dataseries_to_api_signal_data(acquisition.xdata),
+            'xdata': dataseries_to_api_signal_data(acquisition.xdata, allow_none_element=True),
             'yaxes': yaxis_list
         }
 

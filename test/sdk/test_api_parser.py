@@ -1276,9 +1276,22 @@ class TestApiParser(ScrutinyUnitTest):
                 parser.parse_read_datalogging_acquisition_content_response(msg)
 
         msg = base()
+        msg['xdata']['type'] = 'none'
         msg['xdata']['logged_element'] = None
         response = parser.parse_read_datalogging_acquisition_content_response(msg)
         self.assertIsNone(response.xdata.logged_element)
+
+        with self.assertRaises(sdk.exceptions.BadResponseError):
+            msg = base()
+            msg['xdata']['type'] = 'none'
+            response = parser.parse_read_datalogging_acquisition_content_response(msg)
+            self.assertIsNone(response.xdata.logged_element)
+
+        with self.assertRaises(sdk.exceptions.BadResponseError):
+            msg = base()
+            msg['xdata']['logged_element'] = None
+            response = parser.parse_read_datalogging_acquisition_content_response(msg)
+            self.assertIsNone(response.xdata.logged_element)
 
         for field in ['axis_id', 'name', 'logged_element', 'type', 'data']:
             msg = base()

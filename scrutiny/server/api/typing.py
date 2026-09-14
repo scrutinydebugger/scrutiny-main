@@ -256,7 +256,7 @@ class MathWatchable(TypedDict):
 class DataloggingSignalData(TypedDict):
     name: str
     data: List[Union[float, str]]
-    type: Literal['watchable', 'math']
+    type: Literal['watchable', 'math', 'none']
     logged_element: Optional[Union[Watchable, MathWatchable]]
 
 
