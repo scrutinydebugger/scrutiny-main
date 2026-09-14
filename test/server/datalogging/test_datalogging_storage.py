@@ -11,8 +11,8 @@ from uuid import uuid4
 import random
 from test import ScrutinyUnitTest
 from scrutiny.server.datalogging.datalogging_storage import DataloggingStorage
-from scrutiny.core.datalogging import DataloggingAcquisition, DataSeries, AxisDefinition, LoggedWatchable
-from scrutiny.core.basic_types import WatchableType
+from scrutiny.core.datalogging import DataloggingAcquisition, DataSeries, AxisDefinition
+from scrutiny.core.basic_types import WatchableType, Watchable, MathWatchable
 from datetime import datetime, timedelta
 import time
 
@@ -20,7 +20,17 @@ import time
 class TestDataloggingStorage(ScrutinyUnitTest):
 
     def make_dummy_data(self, datalen: int) -> DataSeries:
-        series = DataSeries(name=uuid4().hex, logged_watchable=LoggedWatchable(uuid4().hex, WatchableType.Variable))
+        series = DataSeries(name=uuid4().hex, logged_element=Watchable(uuid4().hex, WatchableType.Variable))
+        series.set_data([random.random() for i in range(datalen)])
+        return series
+
+    def make_dummy_math_data(self, datalen: int) -> DataSeries:
+        series = DataSeries(name=uuid4().hex, logged_element=MathWatchable(
+            expr='v1+v2',
+            watchables={
+                'v1': Watchable(uuid4().hex, WatchableType.Variable),
+                'v2': Watchable(uuid4().hex, WatchableType.Variable),
+            }))
         series.set_data([random.random() for i in range(datalen)])
         return series
 
@@ -39,7 +49,7 @@ class TestDataloggingStorage(ScrutinyUnitTest):
         acq1.set_xdata(self.make_dummy_data(50))
         acq1.set_trigger_index(25)
         acq1.add_data(self.make_dummy_data(10), axis1)
-        acq1.add_data(self.make_dummy_data(15), axis1)
+        acq1.add_data(self.make_dummy_math_data(15), axis1)
         acq1.add_data(self.make_dummy_data(20), axis2)
 
         acq2.set_xdata(self.make_dummy_data(50))
@@ -49,7 +59,7 @@ class TestDataloggingStorage(ScrutinyUnitTest):
 
         acq3.set_xdata(self.make_dummy_data(50))
         acq3.add_data(self.make_dummy_data(10), axis1)
-        acq3.add_data(self.make_dummy_data(15), axis2)
+        acq3.add_data(self.make_dummy_math_data(15), axis2)
         acq3.add_data(self.make_dummy_data(20), axis2)
 
         with DataloggingStorage.use_temp_storage():

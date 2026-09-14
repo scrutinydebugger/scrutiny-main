@@ -242,6 +242,8 @@ class TestDataloggingManager(ScrutinyUnitTest):
                 api_datalogging.SignalDefinitionWithAxis('var1_u32', self.var1_u32, axis=yaxis_list[0]),    # Duplicate on purpose
                 api_datalogging.SignalDefinitionWithAxis('var2_u32', self.var2_u32, axis=yaxis_list[1]),
                 api_datalogging.SignalDefinitionWithAxis('var3_f64', self.var3_f64, axis=yaxis_list[1]),
+                api_datalogging.MathSignalDefinitionWithAxis(
+                    'some_math', expr="v1+v2", variables={"v1": self.var3_f64, "v2": self.alias_rpv2000_f32}, axis=yaxis_list[1]),
                 api_datalogging.SignalDefinitionWithAxis('rpv1000_bool', self.rpv1000_bool, axis=yaxis_list[2]),
                 api_datalogging.SignalDefinitionWithAxis('alias_var1_u32', self.alias_var1_u32, axis=yaxis_list[2]),
                 api_datalogging.SignalDefinitionWithAxis('alias_rpv2000_f32', self.alias_rpv2000_f32, axis=yaxis_list[2])
@@ -252,9 +254,17 @@ class TestDataloggingManager(ScrutinyUnitTest):
         time_codec = UIntCodec(4, Endianness.Little)
         data: List[List[bytes]] = []
         data_size = 0
-
+        all_entries = []
         for signal_def in req.signals:
-            entry = signal_def.entry
+            if isinstance(signal_def, api_datalogging.SignalDefinition):
+                all_entries.append(signal_def.entry)
+            elif isinstance(signal_def, api_datalogging.MathSignalDefinitionWithAxis):
+                for var_name, entry in signal_def.variables.items():
+                    all_entries.append(entry)
+            else:
+                raise NotImplementedError("Unknown signal type")
+
+        for entry in all_entries:
             if isinstance(entry, DatastoreAliasEntry):  # dereference alias
                 entry = entry.refentry
 
@@ -549,6 +559,11 @@ class TestDataloggingManager(ScrutinyUnitTest):
                     api_datalogging.SignalDefinitionWithAxis('var2_u32', self.var2_u32, axis=yaxis_list[0]),
                     api_datalogging.SignalDefinitionWithAxis('rpv1000_bool', self.rpv1000_bool, axis=yaxis_list[0]),
                     api_datalogging.SignalDefinitionWithAxis('alias_var1_u32', self.alias_var1_u32, axis=yaxis_list[1]),
+                    api_datalogging.MathSignalDefinitionWithAxis(
+                        name="some_math",
+                        expr="v1+v2",
+                        variables={"v1": self.var2_u32, "v2": self.alias_rpv2000_f32},
+                        axis=yaxis_list[2]),
                     api_datalogging.SignalDefinitionWithAxis('alias_rpv2000_f32', self.alias_rpv2000_f32, axis=yaxis_list[2])
                 ]
             )
@@ -630,6 +645,7 @@ class TestDataloggingManager(ScrutinyUnitTest):
             device_req.callback(True, "", data, meta)
             self.datalogging_manager.process()
             self.assertTrue(last_callback_call.called)
+            self.assertTrue(last_callback_call.success)
 
             self.device_handler.set_datalogger_state(device_datalogging.DataloggerState.IDLE)
             self.datalogging_manager.process()

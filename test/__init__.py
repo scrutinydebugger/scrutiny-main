@@ -5,8 +5,8 @@ from functools import wraps
 from datetime import datetime
 import time
 
-from scrutiny.core.datalogging import DataloggingAcquisition, DataSeries, AxisDefinition, LoggedWatchable, WatchableType
-from scrutiny.core.basic_types import WatchableType
+from scrutiny.core.datalogging import DataloggingAcquisition, DataSeries, AxisDefinition
+from scrutiny.core.basic_types import WatchableType, Watchable, MathWatchable, WatchableType
 from scrutiny.tools import format_eng_unit
 
 __scrutiny__ = True  # we need something to know if we loaded scrutiny "test" module or something else (such as python "test" module)
@@ -184,10 +184,20 @@ class ScrutinyUnitTest(unittest.TestCase):
         for data in a.get_data():
             self.assertIsInstance(data.series, DataSeries)
             self.assertIsInstance(data.series.name, str)
-            if data.series.logged_watchable is not None:
-                self.assertIsInstance(data.series.logged_watchable, LoggedWatchable)
-                self.assertIsInstance(data.series.logged_watchable.path, str)
-                self.assertIsInstance(data.series.logged_watchable.type, WatchableType)
+            if data.series.logged_element is None:
+                pass    # Fine
+            elif isinstance(data.series.logged_element, Watchable):
+                self.assertIsInstance(data.series.logged_element.path, str)
+                self.assertIsInstance(data.series.logged_element.type, WatchableType)
+            elif isinstance(data.series.logged_element, MathWatchable):
+                self.assertIsInstance(data.series.logged_element.expr, str)
+                self.assertIsInstance(data.series.logged_element.watchables, dict)
+                for k, v in data.series.logged_element.watchables.items():
+                    self.assertIsInstance(k, str)
+                    self.assertIsInstance(v, Watchable)
+            else:
+                self.fail("Unknown logged element type")
+
             self.assertIsInstance(data.axis, AxisDefinition)
 
     def assert_acquisition_identical(self, a: DataloggingAcquisition, b: DataloggingAcquisition):
@@ -212,5 +222,5 @@ class ScrutinyUnitTest(unittest.TestCase):
 
     def assert_dataseries_identical(self, a: DataSeries, b: DataSeries):
         self.assertEqual(a.name, b.name)
-        self.assertEqual(a.logged_watchable, b.logged_watchable)
+        self.assertEqual(a.logged_element, b.logged_element)
         self.assertEqual(a.get_data(), b.get_data())

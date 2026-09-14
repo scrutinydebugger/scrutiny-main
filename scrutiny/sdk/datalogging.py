@@ -18,7 +18,6 @@ __all__ = [
     'DataSeries',
     'DataSeriesWithAxis',
     'DataloggingAcquisition',
-    'LoggedWatchable',
     'DataloggingState'
 ]
 

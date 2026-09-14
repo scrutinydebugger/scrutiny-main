@@ -22,11 +22,11 @@ from scrutiny.server.datastore.datastore_entry import DatastoreEntry, DatastoreA
 from scrutiny.server.datastore.datastore import Datastore
 from scrutiny.server.device.device_info import FixedFreqLoop, ExecLoopType
 from scrutiny.core.basic_types import *
-from scrutiny.core.math_expr import MathParser
+from scrutiny.core.math_parser import MathParser
 from scrutiny.server.datalogging.datalogging_storage import DataloggingStorage
 from scrutiny.server.sfd_storage import SFDStorage
 from scrutiny.core.codecs import Codecs
-from scrutiny.core.datalogging import DataloggingAcquisition, DataSeries, LoggedWatchable
+from scrutiny.core.datalogging import DataloggingAcquisition, DataSeries
 from scrutiny.tools.queue import ScrutinyQueue
 from scrutiny import tools
 
@@ -209,7 +209,7 @@ class DataloggingManager:
                         parsed_data = self._read_active_request_data_from_raw_data(signal.entry, data)  # Parse binary data
                         ds = DataSeries(
                             data=parsed_data,
-                            logged_watchable=LoggedWatchable(
+                            logged_element=Watchable(
                                 path=signal.entry.get_display_path(),
                                 type=signal.entry.get_type()
                             )
@@ -227,8 +227,10 @@ class DataloggingManager:
                         for i in range(nb_points):
                             p = parser.eval({var_name: d[i] for var_name, d in var_data.items()})
                             math_data.append(p)
-
-                        ds = DataSeries(data=math_data, logged_watchable=None, name=signal.name)
+                        ds = DataSeries(
+                            data=math_data,
+                            logged_element=signal.to_core_math_watchable(),
+                            name=signal.name)
                         acquisition.add_data(ds, signal.axis)
                     else:
                         raise NotImplementedError("Unknown type of signal")
@@ -238,20 +240,20 @@ class DataloggingManager:
                 if self.active_request.api_request.x_axis_type == api_datalogging.XAxisType.Indexed:
                     xaxis.set_data(self.make_xaxis_indexed(nb_points))
                     xaxis.name = 'Index'
-                    xaxis.logged_watchable = None
+                    xaxis.logged_element = None
                 elif self.active_request.api_request.x_axis_type == api_datalogging.XAxisType.IdealTime:
                     # Ideal time : Generate a time X-Axis based on the sampling rate. Assume the device is running the loop at a reliable fixed rate
                     sampling_rate = self.get_sampling_rate(self.active_request.api_request.rate_identifier)
                     xaxis_data = self.make_xaxis_ideal_time(nb_points, sampling_rate, self.active_request.api_request.decimation)
                     xaxis.set_data(xaxis_data)
                     xaxis.name = 'Time (ideal)'
-                    xaxis.logged_watchable = None
+                    xaxis.logged_element = None
                 elif self.active_request.api_request.x_axis_type == api_datalogging.XAxisType.MeasuredTime:
                     # Measured time is appended at the end of the signal list. See make_device_config_from_request
                     xaxis_data = self.make_xaxis_measured_time(data[-1])
                     xaxis.set_data(xaxis_data)
                     xaxis.name = 'Time (measured)'
-                    xaxis.logged_watchable = None
+                    xaxis.logged_element = None
                 elif self.active_request.api_request.x_axis_type == api_datalogging.XAxisType.Signal:
                     # Any other signal. Use the data as is.
                     xaxis_signal = self.active_request.api_request.x_axis_signal
@@ -262,7 +264,7 @@ class DataloggingManager:
                     parsed_data = self._read_active_request_data_from_raw_data(xaxis_signal.entry, data)
                     xaxis.set_data(parsed_data)
                     xaxis.name = xaxis_signal.name
-                    xaxis.logged_watchable = LoggedWatchable(
+                    xaxis.logged_element = Watchable(
                         path=xaxis_signal.entry.get_display_path(),
                         type=xaxis_signal.entry.get_type()
                     )

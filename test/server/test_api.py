@@ -25,7 +25,7 @@ from scrutiny.server.api.API import API
 from scrutiny.server.datastore.datastore import Datastore
 from scrutiny.server.datastore.datastore_entry import *
 from scrutiny.server.sfd_storage import SFDStorage
-from scrutiny.core.basic_types import EmbeddedDataType, Endianness, WatchableType
+from scrutiny.core.basic_types import EmbeddedDataType, Endianness, WatchableType, Watchable, MathWatchable
 from scrutiny.core.firmware_description import FirmwareDescription
 from scrutiny.server.api.dummy_client_handler import DummyConnection, DummyClientHandler, AbstractClientHandler
 from scrutiny.server.device.device_handler import (DeviceHandler, DeviceStateChangedCallback, RawMemoryReadRequest,
@@ -3040,20 +3040,28 @@ class TestAPI(ScrutinyUnitTest):
     def test_update_datalogging_acquisition(self):
         # Rename an acquisition in datalogging storage through API
         with DataloggingStorage.use_temp_storage():
-            watchable1 = core_datalogging.LoggedWatchable(path='/a/b/c', type=WatchableType.Variable)
-            watchable2 = core_datalogging.LoggedWatchable(path='/a/b/d', type=WatchableType.Alias)
-            watchable3 = core_datalogging.LoggedWatchable(path='/a/b/e', type=WatchableType.RuntimePublishedValue)
+            watchable1 = Watchable(path='/a/b/c', type=WatchableType.Variable)
+            watchable2 = Watchable(path='/a/b/d', type=WatchableType.Alias)
+            watchable3 = Watchable(path='/a/b/e', type=WatchableType.RuntimePublishedValue)
+            watchable4 = MathWatchable(
+                expr="v1+v2+v3",
+                watchables={
+                    'v1': Watchable(path='/var/data5', type=WatchableType.Variable),
+                    'v2': Watchable(path='/alias/alias3', type=WatchableType.Alias),
+                    'v3': Watchable(path='/rpv/rpv_1234', type=WatchableType.RuntimePublishedValue)
+                })
             axis1 = core_datalogging.AxisDefinition('Axis1', 0)
             axis2 = core_datalogging.AxisDefinition('Axis2', 1)
             acq1 = core_datalogging.DataloggingAcquisition(firmware_id='some_firmware_id', reference_id="refid1", name="foo")
             acq1.set_xdata(core_datalogging.DataSeries())
-            acq1.add_data(core_datalogging.DataSeries(name="ds1", logged_watchable=watchable1), axis1)
-            acq1.add_data(core_datalogging.DataSeries(name="ds2", logged_watchable=watchable2), axis1)
-            acq1.add_data(core_datalogging.DataSeries(name="ds3", logged_watchable=watchable3), axis2)
+            acq1.add_data(core_datalogging.DataSeries(name="ds1", logged_element=watchable1), axis1)
+            acq1.add_data(core_datalogging.DataSeries(name="ds2", logged_element=watchable2), axis1)
+            acq1.add_data(core_datalogging.DataSeries(name="ds3", logged_element=watchable3), axis2)
+            acq1.add_data(core_datalogging.DataSeries(name="ds4", logged_element=watchable4), axis2)
             acq2 = core_datalogging.DataloggingAcquisition(firmware_id='some_firmware_id', reference_id="refid2", name="bar")
-            acq2.set_xdata(core_datalogging.DataSeries(name="ds4"))
+            acq2.set_xdata(core_datalogging.DataSeries(name="ds5"))
             acq3 = core_datalogging.DataloggingAcquisition(firmware_id='some_firmware_id', reference_id="refid3", name="baz")
-            acq3.set_xdata(core_datalogging.DataSeries(name="ds5"))
+            acq3.set_xdata(core_datalogging.DataSeries(name="ds6"))
             DataloggingStorage.save(acq1)
             DataloggingStorage.save(acq2)
             DataloggingStorage.save(acq3)
@@ -3108,7 +3116,7 @@ class TestAPI(ScrutinyUnitTest):
                     response = cast(api_typing.S2C.UpdateDataloggingAcquisition, response)
                     acq1_reloaded = DataloggingStorage.read('refid1')
                     acq_data = acq1_reloaded.get_data()
-                    self.assertEqual(len(acq_data), 3)
+                    self.assertEqual(len(acq_data), 4)
 
                     # Datalogging Storage is expected to return data series in the same order as written
                     self.assertEqual(acq_data[0].axis.name, 'NewAxis1Name')
@@ -3261,14 +3269,14 @@ class TestAPI(ScrutinyUnitTest):
                 acq.set_xdata(core_datalogging.DataSeries(
                     [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
                     name='the x-axis',
-                    logged_watchable=core_datalogging.LoggedWatchable(
+                    logged_element=Watchable(
                         path='/var/xaxis',
                         type=WatchableType.Variable)
                 ))
                 acq.add_data(core_datalogging.DataSeries(
                     [10, 20, 30, 40, 50, 60, 70, 80, 90],
                     name='series 1',
-                    logged_watchable=core_datalogging.LoggedWatchable(
+                    logged_element=Watchable(
                         path='/var/data1',
                         type=WatchableType.Alias)
                 ),
@@ -3276,9 +3284,20 @@ class TestAPI(ScrutinyUnitTest):
                 acq.add_data(core_datalogging.DataSeries(
                     [100, 200, 300, 400, 500, 600, 700, 800, 900],
                     name='series 2',
-                    logged_watchable=core_datalogging.LoggedWatchable(
+                    logged_element=Watchable(
                         path='/var/data2',
                         type=WatchableType.RuntimePublishedValue)
+                ), axis2)
+                acq.add_data(core_datalogging.DataSeries(
+                    data=[1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 1900],
+                    name='series 3',
+                    logged_element=MathWatchable(
+                        expr="v1+v2+v3",
+                        watchables={
+                            'v1': Watchable(path='/var/data5', type=WatchableType.Variable),
+                            'v2': Watchable(path='/alias/alias3', type=WatchableType.Alias),
+                            'v3': Watchable(path='/rpv/rpv_1234', type=WatchableType.RuntimePublishedValue)
+                        })
                 ), axis2)
                 acq.set_trigger_index(3)
                 DataloggingStorage.save(acq)
@@ -3297,11 +3316,12 @@ class TestAPI(ScrutinyUnitTest):
                 self.assertEqual(response['reference_id'], 'refid1')
                 self.assertEqual(response['name'], 'foo')
                 self.assertEqual(response['firmware_name'], "bar")
-                self.assertEqual(len(response['signals']), 2)
+                self.assertEqual(len(response['signals']), 3)
 
                 self.assertEqual(response['xdata']['name'], 'the x-axis')
                 self.assertEqual(response['xdata']['data'], [0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
-                self.assertEqual(response['xdata']['watchable'], dict(path='/var/xaxis', type='var'))
+                self.assertEqual(response['xdata']['type'], 'watchable')
+                self.assertEqual(response['xdata']['logged_element'], dict(path='/var/xaxis', type='var'))
 
                 self.assertEqual(response['trigger_index'], 3)
 
@@ -3310,16 +3330,29 @@ class TestAPI(ScrutinyUnitTest):
                 all_series_name = [x['name'] for x in response['signals']]
                 idx_series1 = all_series_name.index('series 1')
                 idx_series2 = all_series_name.index('series 2')
+                idx_series3 = all_series_name.index('series 3')
 
                 self.assertEqual(response['signals'][idx_series1]['name'], 'series 1')
                 self.assertEqual(response['signals'][idx_series1]['data'], [10, 20, 30, 40, 50, 60, 70, 80, 90])
-                self.assertEqual(response['signals'][idx_series1]['watchable'], dict(path='/var/data1', type='alias'))
+                self.assertEqual(response['signals'][idx_series1]['type'], 'watchable')
+                self.assertEqual(response['signals'][idx_series1]['logged_element'], dict(path='/var/data1', type='alias'))
                 self.assertEqual(response['signals'][idx_series1]['axis_id'], 0)
 
                 self.assertEqual(response['signals'][idx_series2]['name'], 'series 2')
                 self.assertEqual(response['signals'][idx_series2]['data'], [100, 200, 300, 400, 500, 600, 700, 800, 900])
-                self.assertEqual(response['signals'][idx_series2]['watchable'], dict(path='/var/data2', type='rpv'))
+                self.assertEqual(response['signals'][idx_series2]['type'], 'watchable')
+                self.assertEqual(response['signals'][idx_series2]['logged_element'], dict(path='/var/data2', type='rpv'))
                 self.assertEqual(response['signals'][idx_series2]['axis_id'], 1)
+
+                self.assertEqual(response['signals'][idx_series3]['name'], 'series 3')
+                self.assertEqual(response['signals'][idx_series3]['data'], [1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 1900])
+                self.assertEqual(response['signals'][idx_series3]['type'], 'math')
+                self.assertEqual(response['signals'][idx_series3]['logged_element']['expr'], "v1+v2+v3")
+                self.assertEqual(len(response['signals'][idx_series3]['logged_element']['variables']), 3)
+                self.assertEqual(response['signals'][idx_series3]['logged_element']['variables']["v1"], dict(path='/var/data5', type='var'))
+                self.assertEqual(response['signals'][idx_series3]['logged_element']['variables']["v2"], dict(path='/alias/alias3', type='alias'))
+                self.assertEqual(response['signals'][idx_series3]['logged_element']['variables']["v3"], dict(path='/rpv/rpv_1234', type='rpv'))
+                self.assertEqual(response['signals'][idx_series3]['axis_id'], 1)
 
                 req: api_typing.C2S.ReadDataloggingAcquisitionContent = {
                     'cmd': 'read_datalogging_acquisition',

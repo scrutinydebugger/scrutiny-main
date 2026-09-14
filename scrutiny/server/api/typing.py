@@ -243,15 +243,21 @@ class DataloggingAcquisitionMetadata(TypedDict):
     firmware_metadata: Optional[SFDMetadata]
 
 
-class LoggedWatchable(TypedDict):
+class Watchable(TypedDict):
     path: str
     type: str
+
+
+class MathWatchable(TypedDict):
+    expr: str
+    variables: Dict[str, Watchable]
 
 
 class DataloggingSignalData(TypedDict):
     name: str
     data: List[Union[float, str]]
-    watchable: Optional[LoggedWatchable]
+    type: Literal['watchable', 'math']
+    logged_element: Optional[Union[Watchable, MathWatchable]]
 
 
 class DataloggingSignalDataWithAxis(DataloggingSignalData):

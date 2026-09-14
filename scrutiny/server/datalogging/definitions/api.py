@@ -29,6 +29,7 @@ from enum import Enum
 from dataclasses import dataclass
 
 from scrutiny.core.datalogging import DataloggingAcquisition, AxisDefinition, DataloggingState
+from scrutiny.core.basic_types import MathWatchable, Watchable
 from scrutiny.server.device.device_info import ExecLoopType
 from scrutiny.server.datastore.datastore_entry import DatastoreEntry
 import scrutiny.server.datalogging.definitions.device as device_datalogging
@@ -85,6 +86,12 @@ class MathSignalDefinition:
     name: str
     expr: str
     variables: Dict[str, DatastoreEntry]
+
+    def to_core_math_watchable(self) -> MathWatchable:
+        return MathWatchable(
+            expr=self.expr,
+            watchables={name: Watchable(type=entry.get_type(), path=entry.get_display_path()) for name, entry in self.variables.items()}
+        )
 
 
 @dataclass(frozen=True, slots=True)

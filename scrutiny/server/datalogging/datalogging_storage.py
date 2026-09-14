@@ -13,6 +13,7 @@ __all__ = [
     'DataloggingStorage'
 ]
 
+from dataclasses import dataclass
 import os
 import math
 import tempfile
@@ -22,13 +23,20 @@ from datetime import datetime
 import sqlite3
 import hashlib
 import types
+import json
 
 from scrutiny.server.globals import get_server_storage
-from scrutiny.core.datalogging import DataloggingAcquisition, DataSeries, AxisDefinition, LoggedWatchable
-from scrutiny.core.basic_types import WatchableType
+from scrutiny.core.datalogging import DataloggingAcquisition, DataSeries, AxisDefinition, LoggedElementType
+from scrutiny.core.basic_types import WatchableType, Watchable, MathWatchable
 from scrutiny.tools.typing import *
 
 from scrutiny import tools
+
+
+@dataclass
+class EncodedLoggedElement:
+    type: Union[WatchableType, Literal['math']]
+    content: str
 
 
 class BadVersionError(Exception):
@@ -281,6 +289,35 @@ class DataloggingStorageManager:
             raise RuntimeError('Datalogging Storage is not accessible.')
         return SQLiteSession(self.get_db_filename())
 
+    def _encode_logged_element(self, element: Optional[LoggedElementType]) -> Optional[EncodedLoggedElement]:
+        if element is None:
+            return None
+        if isinstance(element, Watchable):
+            return EncodedLoggedElement(type=element.type, content=element.path)
+        elif isinstance(element, MathWatchable):
+
+            data = {
+                'expr': element.expr,
+                'watchables': {name: {'type': w.type.to_str(), 'path': w.path} for name, w in element.watchables.items()}
+            }
+            return EncodedLoggedElement(type='math', content=json.dumps(data))
+        else:
+            raise NotImplementedError("Unsupported logged element type")
+
+    def _decode_logged_element(self, data: Optional[EncodedLoggedElement]) -> Optional[LoggedElementType]:
+        if data is None:
+            return None
+        if data.type == 'math':
+            decoded = json.loads(data.content)
+            watchables: Dict[str, Watchable] = {}
+            for name, d in decoded['watchables'].items():
+                watchables[name] = Watchable(type=WatchableType(d['type']), path=d['path'])
+            return MathWatchable(expr=decoded['expr'], watchables=watchables)
+        elif data.type in WatchableType:
+            return Watchable(type=WatchableType(data.type), path=str(data.content))
+        else:
+            raise NotImplementedError("Unsupported logged element type")
+
     def save(self, acquisition: DataloggingAcquisition) -> None:
         """Writes an acquisition to the storage"""
         self.logger.debug("Saving acquisition with reference_id=%s" % (str(acquisition.reference_id)))
@@ -340,22 +377,22 @@ class DataloggingStorageManager:
             """
             position = 0
             for data in acquisition.get_data():
-                watchable = data.series.logged_watchable
+                encoded_element = self._encode_logged_element(data.series.logged_element)
                 cursor.execute(data_series_sql, (
                     data.series.name,
-                    watchable.path if watchable is not None else None,
-                    watchable.type if watchable is not None else None,
+                    encoded_element.content if encoded_element is not None else None,
+                    encoded_element.type if encoded_element is not None else None,
                     axis_to_id_map[data.axis],
                     data.series.get_data_binary(),
                     position)
                 )
                 position += 1
 
-            watchable = acquisition.xdata.logged_watchable
+            encoded_element = self._encode_logged_element(acquisition.xdata.logged_element)
             cursor.execute(data_series_sql, (
                 acquisition.xdata.name,
-                watchable.path if watchable is not None else None,
-                watchable.type if watchable is not None else None,
+                encoded_element.content if encoded_element is not None else None,
+                encoded_element.type if encoded_element is not None else None,
                 x_axis_db_id,
                 acquisition.xdata.get_data_binary(),
                 position)
@@ -477,12 +514,13 @@ class DataloggingStorageManager:
         yaxis_id_to_def_map: Dict[int, AxisDefinition] = {}
 
         for row in rows:
-            logged_watchable: Optional[LoggedWatchable] = None
+            logged_element: Optional[LoggedElementType] = None
             if row[colmap['logged_watchable']] is not None and row[colmap['logged_watchable_type']] is not None:
-                logged_watchable = LoggedWatchable(
-                    path=row[colmap['logged_watchable']],
-                    type=WatchableType(row[colmap['logged_watchable_type']])
+                encoded = EncodedLoggedElement(
+                    type=row[colmap['logged_watchable_type']],
+                    content=row[colmap['logged_watchable']]
                 )
+                logged_element = self._decode_logged_element(encoded)
 
             name = row[colmap['dataseries_name']]
             data = row[colmap['data']]
@@ -490,7 +528,7 @@ class DataloggingStorageManager:
             if name is None or data is None:
                 raise LookupError('Incomplete data in database')
 
-            dataseries = DataSeries(name=name, logged_watchable=logged_watchable)
+            dataseries = DataSeries(name=name, logged_element=logged_element)
             dataseries.set_data_binary(data)
 
             if row[colmap['axis_id']] is not None:

@@ -36,7 +36,7 @@ import time
 from scrutiny import tools
 from scrutiny.tools import validation
 
-from scrutiny.core.math_expr import MathParser
+from scrutiny.core.math_parser import MathParser
 from scrutiny.core.variable_factory import VariableFactory
 from scrutiny.server.timebase import server_timebase
 from scrutiny.server.datalogging.datalogging_storage import DataloggingStorage
@@ -47,12 +47,11 @@ from scrutiny.server.device.device_handler import DeviceHandler, RawMemoryReadRe
 from scrutiny.server.active_sfd_handler import ActiveSFDHandler
 from scrutiny.server.device.links import LinkConfig
 from scrutiny.server.sfd_storage import SFDStorage
-from scrutiny.core.basic_types import EmbeddedDataType, WatchableType
-from scrutiny.core.firmware_description import FirmwareDescription
 import scrutiny.server.datalogging.definitions.api as api_datalogging
 import scrutiny.server.datalogging.definitions.device as device_datalogging
 from scrutiny.server.device.device_info import ExecLoopType
-from scrutiny.core.basic_types import MemoryRegion
+from scrutiny.core.basic_types import EmbeddedDataType, WatchableType, MemoryRegion, Watchable, MathWatchable
+from scrutiny.core.firmware_description import FirmwareDescription
 import scrutiny.core.datalogging as core_datalogging
 from scrutiny.core.typehints import EmptyDict
 
@@ -2160,24 +2159,38 @@ class API:
         try:
             acquisition = DataloggingStorage.read(req['reference_id'])
         except LookupError as e:
-            err = e
-
-        if err:
-            raise InvalidRequestException(req, "Failed to read acquisition. %s" % (str(err)))
+            raise InvalidRequestException(req, f"Failed to read acquisition. {e}")
 
         def dataseries_to_api_signal_data(ds: core_datalogging.DataSeries) -> api_typing.DataloggingSignalData:
-            logged_watchable: Optional[api_typing.LoggedWatchable] = None
-            if ds.logged_watchable is not None:
-                logged_watchable = {
-                    'path': ds.logged_watchable.path,
-                    'type': ds.logged_watchable.type.value
+            data = [f if math.isfinite(f) else str(f) for f in ds.get_data()]
+            if isinstance(ds.logged_element, Watchable):
+                return {
+                    'name': ds.name,
+                    'type': 'watchable',
+                    'logged_element': {
+                        'path': ds.logged_element.path,
+                        'type': ds.logged_element.type.value
+                    },
+                    'data': data
                 }
-            signal: api_typing.DataloggingSignalData = {
-                'name': ds.name,
-                'watchable': logged_watchable,
-                'data': [f if math.isfinite(f) else str(f) for f in ds.get_data()]
-            }
-            return signal
+            elif isinstance(ds.logged_element, MathWatchable):
+                variables_dict: Dict[str, api_typing.Watchable] = {}
+                for name, watchable in ds.logged_element.watchables.items():
+                    variables_dict[name] = {
+                        'path': watchable.path,
+                        'type': watchable.type,
+                    }
+                return {
+                    'name': ds.name,
+                    'type': 'math',
+                    'logged_element': {
+                        'expr': ds.logged_element.expr,
+                        'variables': variables_dict,
+                    },
+                    'data': data
+                }
+            else:
+                raise NotImplementedError("Unknown logged element format")
 
         def dataseries_to_api_signal_data_with_axis(ds: core_datalogging.DataSeries, axis_id: int) -> api_typing.DataloggingSignalDataWithAxis:
             signal: api_typing.DataloggingSignalDataWithAxis = cast(api_typing.DataloggingSignalDataWithAxis, dataseries_to_api_signal_data(ds))
