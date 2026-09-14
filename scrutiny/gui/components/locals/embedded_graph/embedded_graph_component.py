@@ -28,6 +28,7 @@ from scrutiny.sdk.datalogging import (
     DataloggingState, DataloggingStorageEntry, TriggerCondition
 )
 from scrutiny.sdk.client import ScrutinyClient
+from scrutiny.core.basic_types import Watchable as core_Watchable
 
 from scrutiny.gui import assets
 from scrutiny.gui.themes import scrutiny_get_theme, scrutiny_get_theme_prop, ScrutinyThemeProperties
@@ -744,6 +745,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
 
 # region Chart handling
 
+
     def _clear_graph(self) -> None:
         """Remove the acquisition presently displayed in the chartview"""
         self._clear_graph_error()
@@ -843,9 +845,12 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
             qt_yaxis = sdk2qt_axes[ydata.axis.axis_id]
             axis_item = sdk2tree_axes[ydata.axis.axis_id]
 
-            assert ydata.series.logged_watchable is not None
-            wpath = ydata.series.logged_watchable.path
-            node_type = RegistryNodeType.from_sdk(ydata.series.logged_watchable.type)
+            assert ydata.series.logged_element is not None
+            if not isinstance(ydata.series.logged_element, core_Watchable):
+                continue    # Skip Math expression for now.  TODO
+
+            wpath = ydata.series.logged_element.path
+            node_type = RegistryNodeType.from_sdk(ydata.series.logged_element.type)
             series_item = ChartSeriesWatchableStandardItem(
                 fqn=FQN.make(node_type=node_type, path=wpath),
                 node_type=node_type,
@@ -867,7 +872,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
             # We sort according to the X-Value so that the x-axis is monotonic.
             # Moving graph cursor expect monotonic data.
             # It's also faster to search and avoid left right lines in the graph
-            if acquisition.xdata.logged_watchable is not None:
+            if acquisition.xdata.logged_element is not None:
                 qt_pointf_data.sort(key=lambda p: p.x())
 
             series.replace(qt_pointf_data)
