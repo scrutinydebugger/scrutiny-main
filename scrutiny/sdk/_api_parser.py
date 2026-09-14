@@ -1162,9 +1162,6 @@ def parse_read_datalogging_acquisition_content_response(response: api_typing.S2C
 
         _check_response_dict(cmd, d, 'logged_element', (dict, type(None)))
 
-        if d['logged_element'] is None:
-            return None
-
         if d['type'] == 'watchable':
             api_watchable_element = cast(api_typing.Watchable, d['logged_element'])
             _check_response_dict(cmd, api_watchable_element, 'path', str)

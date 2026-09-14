@@ -1778,9 +1778,9 @@ class API:
 
             _check_request_dict(req, req['x_axis_signal'], 'path', str, 'x_axis_signal')
 
-            with tools.SuppressException():
+            try:
                 x_axis_entry = self.datastore.get_entry_by_display_path(req['x_axis_signal']['path'])
-            if x_axis_entry is None:
+            except KeyError:
                 raise InvalidRequestException(req, 'Cannot find watchable with given path %s' % req['x_axis_signal']['path'])
 
             x_axis_signal = api_datalogging.SignalDefinition(
@@ -1803,10 +1803,9 @@ class API:
                 if not isinstance(given_operand['value'], str):
                     raise InvalidRequestException(req, "Unsupported datatype for operand")
                 watchable: Optional[DatastoreEntry] = None
-                with tools.SuppressException():
+                try:
                     watchable = self.datastore.get_entry_by_display_path(given_operand['value'])
-
-                if watchable is None:
+                except KeyError:
                     raise InvalidRequestException(req, "Cannot find watchable with given path %s" % given_operand['value'])
 
                 operands.append(api_datalogging.TriggerConditionOperand(api_datalogging.TriggerConditionOperandType.WATCHABLE, watchable))
@@ -1834,10 +1833,9 @@ class API:
             _check_request_dict(req, signal_def, 'path', str)
             signal_entry: Optional[DatastoreEntry] = None
 
-            with tools.SuppressException():
+            try:
                 signal_entry = self.datastore.get_entry_by_display_path(signal_def['path'])
-
-            if signal_entry is None:
+            except KeyError:
                 raise InvalidRequestException(req, "Cannot find watchable with given path : %s" % signal_def['path'])
 
             if 'name' not in signal_def:
@@ -1893,7 +1891,7 @@ class API:
 
                 try:
                     math_entry = self.datastore.get_entry_by_display_path(var_path)
-                except Exception:
+                except KeyError:
                     raise InvalidRequestException(req, f'Cannot find watchable with given path {var_path}')
 
                 vars_with_entry[required_var] = math_entry
@@ -2188,7 +2186,7 @@ class API:
                 for name, watchable in ds.logged_element.watchables.items():
                     variables_dict[name] = {
                         'path': watchable.path,
-                        'type': watchable.type,
+                        'type': watchable.type.value,
                     }
                 return {
                     'name': ds.name,

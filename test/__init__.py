@@ -6,7 +6,7 @@ from datetime import datetime
 import time
 
 from scrutiny.core.datalogging import DataloggingAcquisition, DataSeries, AxisDefinition
-from scrutiny.core.basic_types import WatchableType, Watchable, MathWatchable, WatchableType
+from scrutiny.core.basic_types import WatchableType, Watchable, MathWatchable
 from scrutiny.tools import format_eng_unit
 
 __scrutiny__ = True  # we need something to know if we loaded scrutiny "test" module or something else (such as python "test" module)

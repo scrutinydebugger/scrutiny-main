@@ -146,7 +146,7 @@ class MathSignalConfig:
 
     def bind_var(self, var: str, watchable: Union[str, WatchableHandle]) -> None:
         if var in self.variables:
-            raise ValueError("Duplicate variable {var}")
+            raise ValueError(f"Duplicate variable {var}")
 
         if isinstance(watchable, WatchableHandle):
             path = watchable.server_path
