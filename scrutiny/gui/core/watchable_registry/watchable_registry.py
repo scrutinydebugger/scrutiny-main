@@ -1,7 +1,6 @@
 #    watchable_registry.py
-#        A storage object that keeps a local copy of all the watchable (Variable/Alias/RPV)
-#        available on the server.
-#        Lots of overlapping feature with the server datastore, with few fundamentals differences.
+#        The Watchable Registry, a class analog to the server datastore. It stores the available
+#        watchables and allow a subscribe/broadcast mechanism. Data is stored in a tree
 #
 #   - License : MIT - See LICENSE file
 #   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)

@@ -1,3 +1,11 @@
+#    common.py
+#        Common definitions related to the WatchableRegistry that have no dependencies
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
+
 __all__ = [
     'WatcherIdType',
     'RegistryValueUpdate',

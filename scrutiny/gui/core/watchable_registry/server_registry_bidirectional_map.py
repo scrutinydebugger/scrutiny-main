@@ -1,3 +1,11 @@
+#    server_registry_bidirectional_map.py
+#        A bidirectional mapping between server IDs and GUI registry IDs
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
+
 __all__ = ['ServerRegistryBidirectionalMap']
 
 from scrutiny import tools

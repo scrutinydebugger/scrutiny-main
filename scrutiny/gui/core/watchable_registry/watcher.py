@@ -1,3 +1,10 @@
+#    watcher.py
+#        A class that represent a watcher subscribed to the WatchableRegistry
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
 
 __all__ = ['WatcherData', 'Watcher']
 
