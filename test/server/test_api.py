@@ -25,7 +25,7 @@ from scrutiny.server.api.API import API
 from scrutiny.server.datastore.datastore import Datastore
 from scrutiny.server.datastore.datastore_entry import *
 from scrutiny.server.sfd_storage import SFDStorage
-from scrutiny.core.basic_types import EmbeddedDataType, Endianness, WatchableType
+from scrutiny.core.basic_types import EmbeddedDataType, Endianness, WatchableType, Watchable, MathWatchable
 from scrutiny.core.firmware_description import FirmwareDescription
 from scrutiny.server.api.dummy_client_handler import DummyConnection, DummyClientHandler, AbstractClientHandler
 from scrutiny.server.device.device_handler import (DeviceHandler, DeviceStateChangedCallback, RawMemoryReadRequest,
@@ -3040,20 +3040,28 @@ class TestAPI(ScrutinyUnitTest):
     def test_update_datalogging_acquisition(self):
         # Rename an acquisition in datalogging storage through API
         with DataloggingStorage.use_temp_storage():
-            watchable1 = core_datalogging.LoggedWatchable(path='/a/b/c', type=WatchableType.Variable)
-            watchable2 = core_datalogging.LoggedWatchable(path='/a/b/d', type=WatchableType.Alias)
-            watchable3 = core_datalogging.LoggedWatchable(path='/a/b/e', type=WatchableType.RuntimePublishedValue)
+            watchable1 = Watchable(path='/a/b/c', type=WatchableType.Variable)
+            watchable2 = Watchable(path='/a/b/d', type=WatchableType.Alias)
+            watchable3 = Watchable(path='/a/b/e', type=WatchableType.RuntimePublishedValue)
+            watchable4 = MathWatchable(
+                expr="v1+v2+v3",
+                watchables={
+                    'v1': Watchable(path='/var/data5', type=WatchableType.Variable),
+                    'v2': Watchable(path='/alias/alias3', type=WatchableType.Alias),
+                    'v3': Watchable(path='/rpv/rpv_1234', type=WatchableType.RuntimePublishedValue)
+                })
             axis1 = core_datalogging.AxisDefinition('Axis1', 0)
             axis2 = core_datalogging.AxisDefinition('Axis2', 1)
             acq1 = core_datalogging.DataloggingAcquisition(firmware_id='some_firmware_id', reference_id="refid1", name="foo")
             acq1.set_xdata(core_datalogging.DataSeries())
-            acq1.add_data(core_datalogging.DataSeries(name="ds1", logged_watchable=watchable1), axis1)
-            acq1.add_data(core_datalogging.DataSeries(name="ds2", logged_watchable=watchable2), axis1)
-            acq1.add_data(core_datalogging.DataSeries(name="ds3", logged_watchable=watchable3), axis2)
+            acq1.add_data(core_datalogging.DataSeries(name="ds1", logged_element=watchable1), axis1)
+            acq1.add_data(core_datalogging.DataSeries(name="ds2", logged_element=watchable2), axis1)
+            acq1.add_data(core_datalogging.DataSeries(name="ds3", logged_element=watchable3), axis2)
+            acq1.add_data(core_datalogging.DataSeries(name="ds4", logged_element=watchable4), axis2)
             acq2 = core_datalogging.DataloggingAcquisition(firmware_id='some_firmware_id', reference_id="refid2", name="bar")
-            acq2.set_xdata(core_datalogging.DataSeries(name="ds4"))
+            acq2.set_xdata(core_datalogging.DataSeries(name="ds5"))
             acq3 = core_datalogging.DataloggingAcquisition(firmware_id='some_firmware_id', reference_id="refid3", name="baz")
-            acq3.set_xdata(core_datalogging.DataSeries(name="ds5"))
+            acq3.set_xdata(core_datalogging.DataSeries(name="ds6"))
             DataloggingStorage.save(acq1)
             DataloggingStorage.save(acq2)
             DataloggingStorage.save(acq3)
@@ -3108,7 +3116,7 @@ class TestAPI(ScrutinyUnitTest):
                     response = cast(api_typing.S2C.UpdateDataloggingAcquisition, response)
                     acq1_reloaded = DataloggingStorage.read('refid1')
                     acq_data = acq1_reloaded.get_data()
-                    self.assertEqual(len(acq_data), 3)
+                    self.assertEqual(len(acq_data), 4)
 
                     # Datalogging Storage is expected to return data series in the same order as written
                     self.assertEqual(acq_data[0].axis.name, 'NewAxis1Name')
@@ -3261,14 +3269,14 @@ class TestAPI(ScrutinyUnitTest):
                 acq.set_xdata(core_datalogging.DataSeries(
                     [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
                     name='the x-axis',
-                    logged_watchable=core_datalogging.LoggedWatchable(
+                    logged_element=Watchable(
                         path='/var/xaxis',
                         type=WatchableType.Variable)
                 ))
                 acq.add_data(core_datalogging.DataSeries(
                     [10, 20, 30, 40, 50, 60, 70, 80, 90],
                     name='series 1',
-                    logged_watchable=core_datalogging.LoggedWatchable(
+                    logged_element=Watchable(
                         path='/var/data1',
                         type=WatchableType.Alias)
                 ),
@@ -3276,9 +3284,20 @@ class TestAPI(ScrutinyUnitTest):
                 acq.add_data(core_datalogging.DataSeries(
                     [100, 200, 300, 400, 500, 600, 700, 800, 900],
                     name='series 2',
-                    logged_watchable=core_datalogging.LoggedWatchable(
+                    logged_element=Watchable(
                         path='/var/data2',
                         type=WatchableType.RuntimePublishedValue)
+                ), axis2)
+                acq.add_data(core_datalogging.DataSeries(
+                    data=[1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 1900],
+                    name='series 3',
+                    logged_element=MathWatchable(
+                        expr="v1+v2+v3",
+                        watchables={
+                            'v1': Watchable(path='/var/data5', type=WatchableType.Variable),
+                            'v2': Watchable(path='/alias/alias3', type=WatchableType.Alias),
+                            'v3': Watchable(path='/rpv/rpv_1234', type=WatchableType.RuntimePublishedValue)
+                        })
                 ), axis2)
                 acq.set_trigger_index(3)
                 DataloggingStorage.save(acq)
@@ -3297,11 +3316,12 @@ class TestAPI(ScrutinyUnitTest):
                 self.assertEqual(response['reference_id'], 'refid1')
                 self.assertEqual(response['name'], 'foo')
                 self.assertEqual(response['firmware_name'], "bar")
-                self.assertEqual(len(response['signals']), 2)
+                self.assertEqual(len(response['signals']), 3)
 
                 self.assertEqual(response['xdata']['name'], 'the x-axis')
                 self.assertEqual(response['xdata']['data'], [0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
-                self.assertEqual(response['xdata']['watchable'], dict(path='/var/xaxis', type='var'))
+                self.assertEqual(response['xdata']['type'], 'watchable')
+                self.assertEqual(response['xdata']['logged_element'], dict(path='/var/xaxis', type='var'))
 
                 self.assertEqual(response['trigger_index'], 3)
 
@@ -3310,16 +3330,29 @@ class TestAPI(ScrutinyUnitTest):
                 all_series_name = [x['name'] for x in response['signals']]
                 idx_series1 = all_series_name.index('series 1')
                 idx_series2 = all_series_name.index('series 2')
+                idx_series3 = all_series_name.index('series 3')
 
                 self.assertEqual(response['signals'][idx_series1]['name'], 'series 1')
                 self.assertEqual(response['signals'][idx_series1]['data'], [10, 20, 30, 40, 50, 60, 70, 80, 90])
-                self.assertEqual(response['signals'][idx_series1]['watchable'], dict(path='/var/data1', type='alias'))
+                self.assertEqual(response['signals'][idx_series1]['type'], 'watchable')
+                self.assertEqual(response['signals'][idx_series1]['logged_element'], dict(path='/var/data1', type='alias'))
                 self.assertEqual(response['signals'][idx_series1]['axis_id'], 0)
 
                 self.assertEqual(response['signals'][idx_series2]['name'], 'series 2')
                 self.assertEqual(response['signals'][idx_series2]['data'], [100, 200, 300, 400, 500, 600, 700, 800, 900])
-                self.assertEqual(response['signals'][idx_series2]['watchable'], dict(path='/var/data2', type='rpv'))
+                self.assertEqual(response['signals'][idx_series2]['type'], 'watchable')
+                self.assertEqual(response['signals'][idx_series2]['logged_element'], dict(path='/var/data2', type='rpv'))
                 self.assertEqual(response['signals'][idx_series2]['axis_id'], 1)
+
+                self.assertEqual(response['signals'][idx_series3]['name'], 'series 3')
+                self.assertEqual(response['signals'][idx_series3]['data'], [1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 1900])
+                self.assertEqual(response['signals'][idx_series3]['type'], 'math')
+                self.assertEqual(response['signals'][idx_series3]['logged_element']['expr'], "v1+v2+v3")
+                self.assertEqual(len(response['signals'][idx_series3]['logged_element']['variables']), 3)
+                self.assertEqual(response['signals'][idx_series3]['logged_element']['variables']["v1"], dict(path='/var/data5', type='var'))
+                self.assertEqual(response['signals'][idx_series3]['logged_element']['variables']["v2"], dict(path='/alias/alias3', type='alias'))
+                self.assertEqual(response['signals'][idx_series3]['logged_element']['variables']["v3"], dict(path='/rpv/rpv_1234', type='rpv'))
+                self.assertEqual(response['signals'][idx_series3]['axis_id'], 1)
 
                 req: api_typing.C2S.ReadDataloggingAcquisitionContent = {
                     'cmd': 'read_datalogging_acquisition',
@@ -3642,6 +3675,214 @@ class TestAPI(ScrutinyUnitTest):
             req['x_axis_type'] = 'ideal_time'
             self.send_request(req)
             self.assert_is_error(self.wait_and_load_response())
+
+            # === Math signals ===
+
+            # Valid math signal referencing logged signals
+            req = create_default_request()
+            req['math_signals'] = [
+                dict(
+                    name='math1',
+                    expr='x+y',
+                    variables={
+                        'x': var_entries[1].get_display_path(),
+                        'y': rpv_entries[0].get_display_path()
+                    },
+                    axis_id=0
+                )
+            ]
+            ar = self.send_request_datalogging_acquisition_and_fetch_result(req)
+            math_signals = [s for s in ar.signals if isinstance(s, api_datalogging.MathSignalDefinitionWithAxis)]
+            self.assertEqual(len(math_signals), 1)
+            self.assertEqual(math_signals[0].name, 'math1')
+            self.assertEqual(math_signals[0].expr, 'x+y')
+            self.assertIn(math_signals[0].axis, ar.get_yaxis_list())
+            self.assertEqual(math_signals[0].axis.name, 'Axis1')
+            self.assertIn('x', math_signals[0].variables)
+            self.assertIn('y', math_signals[0].variables)
+            self.assertIs(math_signals[0].variables['x'], var_entries[1])
+            self.assertIs(math_signals[0].variables['y'], rpv_entries[0])
+
+            # No math_signals field at all is OK (backward compat)
+            req = create_default_request()
+            # math_signals not set
+            ar = self.send_request_datalogging_acquisition_and_fetch_result(req)
+            math_signals = [s for s in ar.signals if isinstance(s, api_datalogging.MathSignalDefinitionWithAxis)]
+            self.assertEqual(len(math_signals), 0)
+
+            # Empty math_signals list is OK
+            req = create_default_request()
+            req['math_signals'] = []
+            ar = self.send_request_datalogging_acquisition_and_fetch_result(req)
+            math_signals = [s for s in ar.signals if isinstance(s, api_datalogging.MathSignalDefinitionWithAxis)]
+            self.assertEqual(len(math_signals), 0)
+
+            # Math signal with axis only used by math signal (not by regular signals)
+            req = create_default_request()
+            req['yaxes'].append(dict(name="MathOnly", id=999))
+            req['math_signals'] = [
+                dict(
+                    name='math_on_own_axis',
+                    expr='x',
+                    variables={'x': var_entries[1].get_display_path()},
+                    axis_id=999
+                )
+            ]
+            ar = self.send_request_datalogging_acquisition_and_fetch_result(req)
+            math_signals = [s for s in ar.signals if isinstance(s, api_datalogging.MathSignalDefinitionWithAxis)]
+            self.assertEqual(math_signals[0].axis.name, 'MathOnly')
+            yaxis_names = [a.name for a in ar.get_yaxis_list()]
+            self.assertIn('MathOnly', yaxis_names)
+
+            # Multiple math signals
+            req = create_default_request()
+            req['math_signals'] = [
+                dict(name='m1', expr='a', variables={'a': var_entries[1].get_display_path()}, axis_id=0),
+                dict(name='m2', expr='b*2', variables={'b': rpv_entries[0].get_display_path()}, axis_id=100),
+            ]
+            ar = self.send_request_datalogging_acquisition_and_fetch_result(req)
+            math_signals = [s for s in ar.signals if isinstance(s, api_datalogging.MathSignalDefinitionWithAxis)]
+            self.assertEqual(len(math_signals), 2)
+            self.assertEqual(math_signals[0].name, 'm1')
+            self.assertEqual(math_signals[1].name, 'm2')
+
+            # --- Bad math signal inputs ---
+
+            # Bad math_signals type (not a list)
+            for bad_math_signals in ['meow', 123, {}]:
+                req = create_default_request()
+                req['math_signals'] = bad_math_signals
+                self.send_request(req)
+                self.assert_is_error(self.wait_and_load_response(), msg=f"val={bad_math_signals}")
+
+            # Empty name
+            req = create_default_request()
+            req['math_signals'] = [
+                dict(name='', expr='x', variables={'x': var_entries[1].get_display_path()}, axis_id=0)
+            ]
+            self.send_request(req)
+            self.assert_is_error(self.wait_and_load_response())
+
+            # Missing/bad name
+            for bad_name in [123, None, [1], delete]:
+                req = create_default_request()
+                ms = dict(name='ok', expr='x', variables={'x': var_entries[1].get_display_path()}, axis_id=0)
+                if bad_name is delete:
+                    del ms['name']
+                else:
+                    ms['name'] = bad_name
+                req['math_signals'] = [ms]
+                self.send_request(req)
+                self.assert_is_error(self.wait_and_load_response(), msg=f"val={bad_name}")
+
+            # Missing/bad expr
+            for bad_expr in [123, None, [1], delete]:
+                req = create_default_request()
+                ms = dict(name='m', expr='x', variables={'x': var_entries[1].get_display_path()}, axis_id=0)
+                if bad_expr is delete:
+                    del ms['expr']
+                else:
+                    ms['expr'] = bad_expr
+                req['math_signals'] = [ms]
+                self.send_request(req)
+                self.assert_is_error(self.wait_and_load_response(), msg=f"val={bad_expr}")
+
+            # Invalid math expression (parse error)
+            req = create_default_request()
+            req['math_signals'] = [
+                dict(name='bad_expr', expr='x +* y', variables={'x': var_entries[1].get_display_path()}, axis_id=0)
+            ]
+            self.send_request(req)
+            self.assert_is_error(self.wait_and_load_response())
+
+            # Missing/bad variables field
+            for bad_vars in ['meow', 123, None, [1], delete]:
+                req = create_default_request()
+                ms = dict(name='m', expr='x', variables={'x': var_entries[1].get_display_path()}, axis_id=0)
+                if bad_vars is delete:
+                    del ms['variables']
+                else:
+                    ms['variables'] = bad_vars
+                req['math_signals'] = [ms]
+                self.send_request(req)
+                self.assert_is_error(self.wait_and_load_response(), msg=f"val={bad_vars}")
+
+            # Missing/bad axis_id
+            for bad_axis in ['meow', 1.5, None, [1], delete]:
+                req = create_default_request()
+                ms = dict(name='m', expr='x', variables={'x': var_entries[1].get_display_path()}, axis_id=0)
+                if bad_axis is delete:
+                    del ms['axis_id']
+                else:
+                    ms['axis_id'] = bad_axis
+                req['math_signals'] = [ms]
+                self.send_request(req)
+                self.assert_is_error(self.wait_and_load_response(), msg=f"val={bad_axis}")
+
+            # axis_id not in yaxes
+            req = create_default_request()
+            req['math_signals'] = [
+                dict(name='m', expr='x', variables={'x': var_entries[1].get_display_path()}, axis_id=9999)
+            ]
+            self.send_request(req)
+            self.assert_is_error(self.wait_and_load_response())
+
+            # Variable count mismatch (more vars than expression needs)
+            req = create_default_request()
+            req['math_signals'] = [
+                dict(name='m', expr='x', variables={
+                    'x': var_entries[1].get_display_path(),
+                    'y': rpv_entries[0].get_display_path()
+                }, axis_id=0)
+            ]
+            self.send_request(req)
+            self.assert_is_error(self.wait_and_load_response())
+
+            # Variable count mismatch (fewer vars than expression needs)
+            req = create_default_request()
+            req['math_signals'] = [
+                dict(name='m', expr='x+y', variables={
+                    'x': var_entries[1].get_display_path(),
+                }, axis_id=0)
+            ]
+            self.send_request(req)
+            self.assert_is_error(self.wait_and_load_response())
+
+            # Wrong variable name (expression uses 'x', vars provides 'z')
+            req = create_default_request()
+            req['math_signals'] = [
+                dict(name='m', expr='x', variables={
+                    'z': var_entries[1].get_display_path(),
+                }, axis_id=0)
+            ]
+            self.send_request(req)
+            self.assert_is_error(self.wait_and_load_response())
+
+            # Variable path is not a string
+            req = create_default_request()
+            req['math_signals'] = [
+                dict(name='m', expr='x', variables={'x': 123}, axis_id=0)
+            ]
+            self.send_request(req)
+            self.assert_is_error(self.wait_and_load_response())
+
+            # Variable path references unknown watchable
+            req = create_default_request()
+            req['math_signals'] = [
+                dict(name='m', expr='x', variables={'x': 'nonexistent_path'}, axis_id=0)
+            ]
+            self.send_request(req)
+            self.assert_is_error(self.wait_and_load_response())
+
+            # Variable references a watchable not part of the logged signals - this is allowed
+            req = create_default_request()
+            req['math_signals'] = [
+                dict(name='m', expr='x', variables={'x': var_entries[4].get_display_path()}, axis_id=0)
+            ]
+            ar = self.send_request_datalogging_acquisition_and_fetch_result(req)
+            math_signals = [s for s in ar.signals if isinstance(s, api_datalogging.MathSignalDefinitionWithAxis)]
+            self.assertEqual(len(math_signals), 1)
+            self.assertIs(math_signals[0].variables['x'], var_entries[4])
 
     def test_user_command(self):
         def base() -> api_typing.C2S.UserCommand:

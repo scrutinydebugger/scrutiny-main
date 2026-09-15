@@ -169,6 +169,9 @@ class TestDataloggingIntegration(ScrutinyIntegrationTestWithTestSFD1):
                             dict(path=self.entry_alias_rpv1000.get_display_path(), name='rpv1000', axis_id=200),
                             dict(path=self.entry_alias_uint8.get_display_path(), name='u8', axis_id=200)
                         ],
+                        'math_signals': [
+                            dict(name='math1', expr='x+10', variables={'x': self.entry_u32.get_display_path()}, axis_id=100),
+                        ],
                         'x_axis_type': requested_xaxis_type,
                         'x_axis_signal': None,    # We use time
                     }
@@ -285,7 +288,7 @@ class TestDataloggingIntegration(ScrutinyIntegrationTestWithTestSFD1):
                     response = cast(api_typing.S2C.ReadDataloggingAcquisitionContent, response)
 
                     self.assertEqual(response['reference_id'], acq_refid)
-                    self.assertEqual(len(response['signals']), 4)
+                    self.assertEqual(len(response['signals']), 5)
 
                     self.assertEqual(response['firmware_id'], self.emulated_device.get_firmware_id_ascii())
                     # On first loop, emulated device and SFD does not match. Subsequent loop, they match because we change the emulated device ID at the end of the first loop
@@ -327,19 +330,26 @@ class TestDataloggingIntegration(ScrutinyIntegrationTestWithTestSFD1):
                     self.assertEqual(response['signals'][idx_rpv1000]['name'], 'rpv1000')
                     self.assertEqual(response['signals'][idx_u8]['name'], 'u8')
 
-                    self.assertEqual(response['signals'][idx_u32]['watchable']['path'], self.entry_u32.get_display_path())
-                    self.assertEqual(response['signals'][idx_u32]['watchable']['type'], 'var')
-                    self.assertEqual(response['signals'][idx_f32]['watchable']['path'], self.entry_float32.get_display_path())
-                    self.assertEqual(response['signals'][idx_f32]['watchable']['type'], 'var')
-                    self.assertEqual(response['signals'][idx_rpv1000]['watchable']['path'], self.entry_alias_rpv1000.get_display_path())
-                    self.assertEqual(response['signals'][idx_rpv1000]['watchable']['type'], 'alias')
-                    self.assertEqual(response['signals'][idx_u8]['watchable']['path'], self.entry_alias_uint8.get_display_path())
-                    self.assertEqual(response['signals'][idx_u8]['watchable']['type'], 'alias')
+                    self.assertEqual(response['signals'][idx_u32]['logged_element']['path'], self.entry_u32.get_display_path())
+                    self.assertEqual(response['signals'][idx_u32]['logged_element']['type'], 'var')
+                    self.assertEqual(response['signals'][idx_f32]['logged_element']['path'], self.entry_float32.get_display_path())
+                    self.assertEqual(response['signals'][idx_f32]['logged_element']['type'], 'var')
+                    self.assertEqual(response['signals'][idx_rpv1000]['logged_element']['path'], self.entry_alias_rpv1000.get_display_path())
+                    self.assertEqual(response['signals'][idx_rpv1000]['logged_element']['type'], 'alias')
+                    self.assertEqual(response['signals'][idx_u8]['logged_element']['path'], self.entry_alias_uint8.get_display_path())
+                    self.assertEqual(response['signals'][idx_u8]['logged_element']['type'], 'alias')
 
                     self.assertEqual(response['signals'][idx_u32]['axis_id'], 100)
                     self.assertEqual(response['signals'][idx_f32]['axis_id'], 100)
                     self.assertEqual(response['signals'][idx_rpv1000]['axis_id'], 200)
                     self.assertEqual(response['signals'][idx_u8]['axis_id'], 200)
+
+                    idx_math1 = all_names.index('math1')
+                    self.assertEqual(response['signals'][idx_math1]['name'], 'math1')
+                    self.assertEqual(response['signals'][idx_math1]['type'], 'math')
+                    self.assertEqual(response['signals'][idx_math1]['logged_element']['expr'], 'x+10')
+                    self.assertEqual(response['signals'][idx_math1]['logged_element']['variables']['x']['path'], self.entry_u32.get_display_path())
+                    self.assertEqual(response['signals'][idx_math1]['axis_id'], 100)
 
                     nbpoints = len(response['xdata']['data'])
                     index_target = req['probe_location'] * nbpoints - 1
@@ -433,6 +443,9 @@ class TestDataloggingIntegration(ScrutinyIntegrationTestWithTestSFD1):
                         dict(path=self.entry_float32.get_display_path(), name='f32', axis_id=100),
                         dict(path=self.entry_alias_rpv1000.get_display_path(), name='rpv1000', axis_id=200),
                         dict(path=self.entry_alias_uint8.get_display_path(), name='u8', axis_id=200)
+                    ],
+                    'math_signals': [
+                        dict(name='math1', expr='x+10', variables={'x': self.entry_u32.get_display_path()}, axis_id=100),
                     ],
                     'x_axis_type': 'ideal_time',
                     'x_axis_signal': None,    # We use time

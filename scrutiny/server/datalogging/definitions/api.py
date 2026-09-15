@@ -17,6 +17,8 @@ __all__ = [
     'TriggerCondition',
     'SignalDefinition',
     'SignalDefinitionWithAxis',
+    'MathSignalDefinition',
+    'MathSignalDefinitionWithAxis',
     'AcquisitionRequest',
     'AxisDefinition',
     'DataloggingAcquisition',
@@ -27,6 +29,7 @@ from enum import Enum
 from dataclasses import dataclass
 
 from scrutiny.core.datalogging import DataloggingAcquisition, AxisDefinition, DataloggingState
+from scrutiny.core.basic_types import MathWatchable, Watchable
 from scrutiny.server.device.device_info import ExecLoopType
 from scrutiny.server.datastore.datastore_entry import DatastoreEntry
 import scrutiny.server.datalogging.definitions.device as device_datalogging
@@ -79,7 +82,25 @@ class SignalDefinition:
 
 
 @dataclass(frozen=True, slots=True)
+class MathSignalDefinition:
+    name: str
+    expr: str
+    variables: Dict[str, DatastoreEntry]
+
+    def to_core_math_watchable(self) -> MathWatchable:
+        return MathWatchable(
+            expr=self.expr,
+            watchables={name: Watchable(type=entry.get_type(), path=entry.get_display_path()) for name, entry in self.variables.items()}
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class SignalDefinitionWithAxis(SignalDefinition):
+    axis: AxisDefinition
+
+
+@dataclass(frozen=True, slots=True)
+class MathSignalDefinitionWithAxis(MathSignalDefinition):
     axis: AxisDefinition
 
 
@@ -94,10 +115,11 @@ class AcquisitionRequest:
     trigger_condition: TriggerCondition
     x_axis_type: XAxisType
     x_axis_signal: Optional[SignalDefinition]
-    signals: List[SignalDefinitionWithAxis]
+    signals: List[Union[SignalDefinitionWithAxis, MathSignalDefinitionWithAxis]]
 
     def get_yaxis_list(self) -> List[AxisDefinition]:
         axis_set: Set[AxisDefinition] = set()
         for signal in self.signals:
             axis_set.add(signal.axis)
+
         return list(axis_set)

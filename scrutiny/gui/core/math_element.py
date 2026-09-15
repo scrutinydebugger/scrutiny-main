@@ -8,7 +8,7 @@
 
 from scrutiny.tools.typing import *
 from dataclasses import dataclass
-from scrutiny.core.math_expr import MathParser, MathParsingError
+from scrutiny.core.math_parser import MathParser, MathParsingError
 from scrutiny.tools import validation
 import re
 

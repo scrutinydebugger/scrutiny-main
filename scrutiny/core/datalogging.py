@@ -12,8 +12,8 @@ __all__ = [
     'DataSeries',
     'DataSeriesWithAxis',
     'DataloggingAcquisition',
-    'LoggedWatchable',
-    'DataloggingState'
+    'DataloggingState',
+    'LoggedElementType'
 ]
 
 import zlib
@@ -24,13 +24,15 @@ from dataclasses import dataclass
 from datetime import datetime
 import csv
 import logging
-from scrutiny.core.basic_types import WatchableType
+from scrutiny.core.basic_types import Watchable, MathWatchable
 
 from scrutiny.tools import validation
 from scrutiny.tools.typing import *
 
 if TYPE_CHECKING:
     import _csv
+
+LoggedElementType: TypeAlias = Union[Watchable, MathWatchable]
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,37 +49,24 @@ class AxisDefinition:
         validation.assert_type(self.axis_id, 'axis_id', int)
 
 
-@dataclass(frozen=True, slots=True)
-class LoggedWatchable:
-    """(Immutable struct) A structure that identifies a watchable element"""
-    path: str
-    """The server path of the watchable monitored"""
-    type: WatchableType
-    """The type of watchable"""
-
-    def __post_init__(self) -> None:
-        validation.assert_type(self.path, 'path', str)
-        validation.assert_type(self.type, 'type', WatchableType)
-
-
 class DataSeries:
     """A data series is a series of measurement represented by a series of 64 bits floating point value """
 
     name: str
     """The name of the data series. Used for display"""
-    logged_watchable: Optional[LoggedWatchable]
-    """The server element that was the source of the data. Can be variable, alias or RPV (Runtime Published Value)"""
+    logged_element: Optional[LoggedElementType]
+    """The server element that was the source of the data. Can be a Watchable (variable, alias, RPV) or a MathWatchable (math expression)"""
     data: List[float]
     """The data stored as a list of 64 bits float"""
 
-    def __init__(self, data: Optional[List[float]] = None, name: str = "unnamed", logged_watchable: Optional[LoggedWatchable] = None):
+    def __init__(self, data: Optional[List[float]] = None, name: str = "unnamed", logged_element: Optional[LoggedElementType] = None):
         self.name = name
-        self.logged_watchable = logged_watchable
+        self.logged_element = logged_element
         self.data = data if data is not None else []
 
         validation.assert_type(self.data, 'data', list)
         validation.assert_type(self.name, 'name', str)
-        validation.assert_type(self.logged_watchable, 'logged_watchable', (LoggedWatchable, type(None)))
+        validation.assert_type(self.logged_element, 'logged_element', (Watchable, MathWatchable, type(None)))
 
     def set_data(self, data: List[float]) -> None:
         self.data = data
@@ -195,8 +184,8 @@ class DataloggingAcquisition:
         if not isinstance(axis, AxisDefinition):
             raise TypeError('axis must be a AxisDefinition instance')
 
-        if dataseries.logged_watchable is None:
-            raise ValueError("Y data must be tied to a watchable")
+        if dataseries.logged_element is None:
+            raise ValueError("Y data must be tied to a watchable or a math expression")
 
         for data in self.ydata:
             if data.axis.axis_id == axis.axis_id and data.axis is not axis:

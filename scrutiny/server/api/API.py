@@ -36,7 +36,7 @@ import time
 from scrutiny import tools
 from scrutiny.tools import validation
 
-from scrutiny.core.math_expr import parse_math_expr
+from scrutiny.core.math_parser import MathParser
 from scrutiny.core.variable_factory import VariableFactory
 from scrutiny.server.timebase import server_timebase
 from scrutiny.server.datalogging.datalogging_storage import DataloggingStorage
@@ -47,12 +47,11 @@ from scrutiny.server.device.device_handler import DeviceHandler, RawMemoryReadRe
 from scrutiny.server.active_sfd_handler import ActiveSFDHandler
 from scrutiny.server.device.links import LinkConfig
 from scrutiny.server.sfd_storage import SFDStorage
-from scrutiny.core.basic_types import EmbeddedDataType, WatchableType
-from scrutiny.core.firmware_description import FirmwareDescription
 import scrutiny.server.datalogging.definitions.api as api_datalogging
 import scrutiny.server.datalogging.definitions.device as device_datalogging
 from scrutiny.server.device.device_info import ExecLoopType
-from scrutiny.core.basic_types import MemoryRegion
+from scrutiny.core.basic_types import EmbeddedDataType, WatchableType, MemoryRegion, Watchable, MathWatchable
+from scrutiny.core.firmware_description import FirmwareDescription
 import scrutiny.core.datalogging as core_datalogging
 from scrutiny.core.typehints import EmptyDict
 
@@ -1421,7 +1420,7 @@ class API:
                 value = False
             else:
                 try:
-                    value = parse_math_expr(valstr)
+                    value = MathParser(valstr).eval()
                 except Exception:
                     value = None
 
@@ -1431,7 +1430,6 @@ class API:
             raise InvalidRequestException(req, 'Invalid value')
 
         return value
-        
 
     #  ===  WRITE_WATCHABLE ===
     def process_write_value(self, conn_id: str, req: api_typing.C2S.WriteValue) -> None:
@@ -1778,16 +1776,11 @@ class API:
             if 'x_axis_signal' not in req or not isinstance(req['x_axis_signal'], dict):
                 raise InvalidRequestException(req, 'Missing a valid x_axis_signal required when x_axis_type=watchable')
 
-            if 'path' not in req['x_axis_signal']:
-                raise InvalidRequestException(req, 'Missing x_axis_signal.path field')
+            _check_request_dict(req, req['x_axis_signal'], 'path', str, 'x_axis_signal')
 
-            if not isinstance(req['x_axis_signal']['path'], str):
-                raise InvalidRequestException(req, 'Invalid x_axis_signal.path field')
-
-            with tools.SuppressException():
+            try:
                 x_axis_entry = self.datastore.get_entry_by_display_path(req['x_axis_signal']['path'])
-
-            if x_axis_entry is None:
+            except KeyError:
                 raise InvalidRequestException(req, 'Cannot find watchable with given path %s' % req['x_axis_signal']['path'])
 
             x_axis_signal = api_datalogging.SignalDefinition(
@@ -1810,17 +1803,16 @@ class API:
                 if not isinstance(given_operand['value'], str):
                     raise InvalidRequestException(req, "Unsupported datatype for operand")
                 watchable: Optional[DatastoreEntry] = None
-                with tools.SuppressException():
+                try:
                     watchable = self.datastore.get_entry_by_display_path(given_operand['value'])
-
-                if watchable is None:
+                except KeyError:
                     raise InvalidRequestException(req, "Cannot find watchable with given path %s" % given_operand['value'])
 
                 operands.append(api_datalogging.TriggerConditionOperand(api_datalogging.TriggerConditionOperandType.WATCHABLE, watchable))
             else:
                 raise InvalidRequestException(req, 'Unknown operand type')
 
-        signals_to_log: List[api_datalogging.SignalDefinitionWithAxis] = []
+        signals_to_log: List[Union[api_datalogging.SignalDefinitionWithAxis, api_datalogging.MathSignalDefinitionWithAxis]] = []
         if len(req['signals']) == 0:
             raise InvalidRequestException(req, 'Missing watchable to log')
 
@@ -1841,20 +1833,16 @@ class API:
             _check_request_dict(req, signal_def, 'path', str)
             signal_entry: Optional[DatastoreEntry] = None
 
-            with tools.SuppressException():
+            try:
                 signal_entry = self.datastore.get_entry_by_display_path(signal_def['path'])
-
-            if signal_entry is None:
+            except KeyError:
                 raise InvalidRequestException(req, "Cannot find watchable with given path : %s" % signal_def['path'])
 
             if 'name' not in signal_def:
                 signal_def['name'] = None
 
-            if not (isinstance(signal_def['name'], str) or signal_def['name'] is None):
-                raise InvalidRequestException(req, 'Invalid signal name')
-
-            if 'axis_id' not in signal_def or not isinstance(signal_def['axis_id'], int):
-                raise InvalidRequestException(req, 'Invalid signal axis ID')
+            _check_request_dict(req, signal_def, 'name', (type(None), str), 'signals')
+            _check_request_dict(req, signal_def, 'axis_id', int, 'signals')
 
             if signal_def['axis_id'] not in yaxis_map:
                 raise InvalidRequestException(req, 'Invalid signal axis ID')
@@ -1863,6 +1851,56 @@ class API:
                 name=signal_def['name'],
                 entry=signal_entry,
                 axis=yaxis_map[signal_def['axis_id']]
+            ))
+
+        math_signals_to_log: List[api_datalogging.MathSignalDefinitionWithAxis] = []
+        if 'math_signals' not in req:
+            req['math_signals'] = []
+
+        _check_request_dict(req, req, 'math_signals', list)
+        for math_signal in req['math_signals']:
+            _check_request_dict(req, math_signal, 'name', str, 'math_signals')
+            _check_request_dict(req, math_signal, 'axis_id', int, 'math_signals')
+            _check_request_dict(req, math_signal, 'expr', str, 'math_signals')
+            _check_request_dict(req, math_signal, 'variables', dict, 'math_signals')
+
+            math_name = math_signal['name']
+            if len(math_name) == 0:
+                raise InvalidRequestException(req, "Empty name for math expression")
+
+            if math_signal['axis_id'] not in yaxis_map:
+                raise InvalidRequestException(req, 'Invalid signal axis ID')
+
+            try:
+                parser = MathParser(math_signal['expr'])
+            except Exception as e:
+                raise InvalidRequestException(req, f"Invalid math expression for signal {math_name}. {e}")
+
+            required_vars = parser.get_vars()
+            if len(required_vars) != len(math_signal['variables']):
+                raise InvalidRequestException(req, f"Math signal {math_name} variable count does not match the expression variable count")
+
+            vars_with_entry: Dict[str, DatastoreEntry] = {}
+            for required_var in required_vars:
+                if required_var not in math_signal['variables']:
+                    raise InvalidRequestException(req, f'Missing variable {required_var} for math expression {math_name}')
+
+                var_path = math_signal['variables'][required_var]
+                if not isinstance(var_path, str):
+                    raise InvalidRequestException(req, f"Invalid path for math expression {math_name}")
+
+                try:
+                    math_entry = self.datastore.get_entry_by_display_path(var_path)
+                except KeyError:
+                    raise InvalidRequestException(req, f'Cannot find watchable with given path {var_path}')
+
+                vars_with_entry[required_var] = math_entry
+
+            signals_to_log.append(api_datalogging.MathSignalDefinitionWithAxis(
+                name=math_signal['name'],
+                axis=yaxis_map[math_signal['axis_id']],
+                expr=math_signal['expr'],
+                variables=vars_with_entry
             ))
 
         acq_name: Optional[str] = None
@@ -2119,27 +2157,52 @@ class API:
         try:
             acquisition = DataloggingStorage.read(req['reference_id'])
         except LookupError as e:
-            err = e
+            raise InvalidRequestException(req, f"Failed to read acquisition. {e}")
 
-        if err:
-            raise InvalidRequestException(req, "Failed to read acquisition. %s" % (str(err)))
+        def dataseries_to_api_signal_data(ds: core_datalogging.DataSeries, allow_none_element: bool) -> api_typing.DataloggingSignalData:
+            data = [f if math.isfinite(f) else str(f) for f in ds.get_data()]
 
-        def dataseries_to_api_signal_data(ds: core_datalogging.DataSeries) -> api_typing.DataloggingSignalData:
-            logged_watchable: Optional[api_typing.LoggedWatchable] = None
-            if ds.logged_watchable is not None:
-                logged_watchable = {
-                    'path': ds.logged_watchable.path,
-                    'type': ds.logged_watchable.type.value
+            if ds.logged_element is None:
+                if not allow_none_element:
+                    raise ValueError("Cannot have an empty logged_element")
+                return {
+                    'name': ds.name,
+                    'type': 'none',
+                    'logged_element': None,
+                    'data': data
                 }
-            signal: api_typing.DataloggingSignalData = {
-                'name': ds.name,
-                'watchable': logged_watchable,
-                'data': [f if math.isfinite(f) else str(f) for f in ds.get_data()]
-            }
-            return signal
+            elif isinstance(ds.logged_element, Watchable):
+                return {
+                    'name': ds.name,
+                    'type': 'watchable',
+                    'logged_element': {
+                        'path': ds.logged_element.path,
+                        'type': ds.logged_element.type.value
+                    },
+                    'data': data
+                }
+            elif isinstance(ds.logged_element, MathWatchable):
+                variables_dict: Dict[str, api_typing.Watchable] = {}
+                for name, watchable in ds.logged_element.watchables.items():
+                    variables_dict[name] = {
+                        'path': watchable.path,
+                        'type': watchable.type.value,
+                    }
+                return {
+                    'name': ds.name,
+                    'type': 'math',
+                    'logged_element': {
+                        'expr': ds.logged_element.expr,
+                        'variables': variables_dict,
+                    },
+                    'data': data
+                }
+            else:
+                raise NotImplementedError(f"Unknown logged element format")
 
-        def dataseries_to_api_signal_data_with_axis(ds: core_datalogging.DataSeries, axis_id: int) -> api_typing.DataloggingSignalDataWithAxis:
-            signal: api_typing.DataloggingSignalDataWithAxis = cast(api_typing.DataloggingSignalDataWithAxis, dataseries_to_api_signal_data(ds))
+        def dataseries_to_api_signal_data_with_axis(ds: core_datalogging.DataSeries, axis_id: int, allow_none_element: bool) -> api_typing.DataloggingSignalDataWithAxis:
+            signal: api_typing.DataloggingSignalDataWithAxis = cast(
+                api_typing.DataloggingSignalDataWithAxis, dataseries_to_api_signal_data(ds, allow_none_element))
             signal['axis_id'] = axis_id
             return signal
 
@@ -2152,7 +2215,8 @@ class API:
 
         signals: List[api_typing.DataloggingSignalDataWithAxis] = []
         for dataseries_with_axis in acquisition.get_data():
-            signals.append(dataseries_to_api_signal_data_with_axis(ds=dataseries_with_axis.series, axis_id=dataseries_with_axis.axis.axis_id))
+            signals.append(dataseries_to_api_signal_data_with_axis(ds=dataseries_with_axis.series,
+                           axis_id=dataseries_with_axis.axis.axis_id, allow_none_element=False))
 
         response: api_typing.S2C.ReadDataloggingAcquisitionContent = {
             'cmd': API.Command.Api2Client.READ_DATALOGGING_ACQUISITION_CONTENT_RESPONSE,
@@ -2164,7 +2228,7 @@ class API:
             'reference_id': acquisition.reference_id,
             'trigger_index': acquisition.trigger_index,
             'signals': signals,
-            'xdata': dataseries_to_api_signal_data(acquisition.xdata),
+            'xdata': dataseries_to_api_signal_data(acquisition.xdata, allow_none_element=True),
             'yaxes': yaxis_list
         }
 

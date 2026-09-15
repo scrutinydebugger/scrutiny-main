@@ -7,7 +7,7 @@
 #    Copyright (c) 2025 Scrutiny Debugger
 
 from test import ScrutinyUnitTest
-from scrutiny.core.math_expr import parse_math_expr, MathParsingError, MathParser, MathEvalError
+from scrutiny.core.math_parser import parse_math_expr, MathParsingError, MathParser, MathEvalError
 import math
 
 

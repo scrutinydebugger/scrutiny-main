@@ -14,6 +14,8 @@ __all__ = [
     'RuntimePublishedValue',
     'MemoryRegion',
     'WatchableType',
+    'Watchable',
+    'MathWatchable',
     'ServerDatastoreContentType',
 ]
 
@@ -21,6 +23,7 @@ from enum import Enum
 from dataclasses import dataclass
 from scrutiny.tools import validation
 from scrutiny.tools.typing import *
+from scrutiny.core.math_parser import MathParser
 
 
 @dataclass(frozen=True, slots=True)
@@ -264,6 +267,42 @@ class WatchableType(str, Enum):
     @classmethod
     def from_str(cls, v: str) -> "WatchableType":
         return WatchableType(v)
+
+
+@dataclass(frozen=True, slots=True)
+class Watchable:
+    """(Immutable struct) A structure that identifies a watchable element"""
+    path: str
+    """The server path of the watchable monitored"""
+    type: WatchableType
+    """The type of watchable"""
+
+    def __post_init__(self) -> None:
+        validation.assert_type(self.path, 'path', str)
+        validation.assert_type(self.type, 'type', WatchableType)
+
+
+@dataclass(frozen=True, slots=True)
+class MathWatchable:
+    """(Immutable struct) A structure that represent a mathematical expression that may contain variables
+    tied to a watchable element."""
+
+    expr: str
+    """The mathematical expression"""
+    watchables: Dict[str, Watchable]
+    """A dictionary mapping variables to their associated Watchable"""
+
+    def __post_init__(self) -> None:
+        validation.assert_type(self.expr, 'expr', str)
+        validation.assert_type(self.watchables, 'watchables', dict)
+        for name, watchable in self.watchables.items():
+            validation.assert_type(name, 'var name', str)
+            validation.assert_type(watchable, 'watchable', Watchable)
+
+    def validate(self) -> None:
+        parser = MathParser(self.expr)
+        if parser.get_vars() != set(self.watchables.keys()):
+            raise ValueError("Mismatch between the expression required variables and the one provided")
 
 
 class ServerDatastoreContentType(str, Enum):
