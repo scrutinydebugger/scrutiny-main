@@ -313,7 +313,7 @@ class DataloggingStorageManager:
             for name, d in decoded['watchables'].items():
                 watchables[name] = Watchable(type=WatchableType(d['type']), path=d['path'])
             return MathWatchable(expr=decoded['expr'], watchables=watchables)
-        elif data.type in WatchableType:
+        elif data.type in WatchableType.all():
             return Watchable(type=WatchableType(data.type), path=str(data.content))
         else:
             raise NotImplementedError("Unsupported logged element type")
