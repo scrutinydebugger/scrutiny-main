@@ -1,4 +1,4 @@
-#    math_expr.py
+#    math_parser.py
 #        A math expression parser based of https://github.com/louisfisch/mathematical-expression-parser
 #
 #   - License : MIT - See LICENSE file

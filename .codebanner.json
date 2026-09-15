@@ -858,9 +858,6 @@
         "test/core/test_math_expr.py": {
             "docstring": "Test suite for the math parser"
         },
-        "scrutiny/core/math_expr.py": {
-            "docstring": "A math expression parser based of https://github.com/louisfisch/mathematical-expression-parser"
-        },
         "test/core/test_scrutiny_path.py": {
             "docstring": "A test suite for the ScrutinyPath class"
         },
@@ -1141,7 +1138,7 @@
             "docstring": "A bidirectional mapping between server IDs and GUI registry IDs"
         },
         "scrutiny/gui/core/watchable_registry/errors.py": {
-            "docstring": "Watcahble Registry related errors "
+            "docstring": "Watchable Registry related errors "
         },
         "scrutiny/gui/core/watchable_registry/fqn.py": {
             "docstring": "Tools to parse/make a Fully Qualified Name, e.g. a string that can point to an item in the registry."
@@ -1153,7 +1150,7 @@
             "docstring": "A class that represent a watcher subscribed to the WatchableRegistry"
         },
         "scrutiny/gui/core/watchable_registry/nodes.py": {
-            "docstring": "Nodes of the tree structure used by the WatcahbleRegistry"
+            "docstring": "Nodes of the tree structure used by the WatchableRegistry"
         },
         "scrutiny/gui/core/watchable_registry/common.py": {
             "docstring": "Common definitions related to the WatchableRegistry that have no dependencies"
@@ -1163,6 +1160,9 @@
         },
         "scrutiny/gui/core/math_element.py": {
             "docstring": "A stateful math element that can have variables and be reevaluated at will"
+        },
+        "scrutiny/core/math_parser.py": {
+            "docstring": " A math expression parser based of https://github.com/louisfisch/mathematical-expression-parser"
         }
     },
     "authors": {}

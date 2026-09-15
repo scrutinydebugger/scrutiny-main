@@ -1,3 +1,12 @@
+#    fqn.py
+#        Tools to parse/make a Fully Qualified Name, e.g. a string that can point to an item
+#        in the registry.
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
+
 __all__ = [
     'ParsedFullyQualifiedName',
     'FQN'
