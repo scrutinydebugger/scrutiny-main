@@ -16,7 +16,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from manual_test_base import make_manual_test_app
 app = make_manual_test_app()
 
-from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QCheckBox, QLabel, QHBoxLayout, QPushButton
+from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QCheckBox, QLabel, QHBoxLayout, QPushButton, QGroupBox
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QDoubleValidator
 from scrutiny.gui.widgets.watchable_line_edit import WatchableLineEdit
@@ -114,10 +114,32 @@ available_widget_layout = QHBoxLayout(available_widget)
 available_widget_layout.addWidget(btn_set_available)
 available_widget_layout.addWidget(btn_set_unavailable)
 
+# Allowed node types checkboxes
+allowed_types_group = QGroupBox("Allowed Node Types")
+allowed_types_layout = QHBoxLayout(allowed_types_group)
+node_type_checkboxes: dict[RegistryNodeType, QCheckBox] = {}
+
+for node_type in RegistryNodeType:
+    chk = QCheckBox(node_type.name)
+    chk.setCheckState(Qt.CheckState.Checked)
+    node_type_checkboxes[node_type] = chk
+    allowed_types_layout.addWidget(chk)
+
+
+def update_allowed_types() -> None:
+    allowed = [nt for nt, chk in node_type_checkboxes.items() if chk.isChecked()]
+    line_edit.set_allowed_types(allowed)
+    line_edit_double_validator.set_allowed_types(allowed)
+
+
+for chk in node_type_checkboxes.values():
+    chk.checkStateChanged.connect(lambda _: update_allowed_types())
+
 layout.addWidget(widget_lineedit)
 layout.addWidget(widget_lineedit_double_validator)
 layout.addWidget(chk_text_mode)
 layout.addWidget(available_widget)
+layout.addWidget(allowed_types_group)
 layout.addWidget(varlist)
 
 window.show()

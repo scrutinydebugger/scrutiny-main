@@ -60,6 +60,7 @@ class WatchableLineEdit(QLineEdit):
     _text_mode_enabled: bool
     _loaded_watchable: Optional[WatchableFQNAndName]
     _signals: _Signals
+    _allowed_node_types: List[RegistryNodeType]
 
     @tools.copy_type(QLineEdit.__init__)
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -74,10 +75,21 @@ class WatchableLineEdit(QLineEdit):
         self._signals = self._Signals()
         self.setAcceptDrops(True)
         self.set_text_mode_enabled(True)
+        self._allowed_node_types = [t for t in RegistryNodeType]    # all of them
 
     @property
     def signals(self) -> _Signals:
         return self._signals
+
+    def set_allowed_types(self, node_types: List[RegistryNodeType]) -> None:
+        self._allowed_node_types = node_types.copy()
+
+        if self.is_watchable_mode():
+            watchable = self.get_watchable()
+            if watchable is not None:
+                node_type = FQN.parse(watchable.fqn).node_type
+                if node_type not in self._allowed_node_types:
+                    self.set_text_mode()
 
     def set_text_mode_enabled(self, val: bool) -> None:
         """Allow or disable text value. When disabled, only drag&drop of watchable is possible"""
@@ -106,7 +118,12 @@ class WatchableLineEdit(QLineEdit):
         watchables = WatchableListDescriptor.from_mime(event.mimeData())
         if watchables is not None:
             if len(watchables.data) == 1:
-                event.accept()
+                parsed = FQN.parse(watchables.data[0].fqn)
+                if parsed.node_type in self._allowed_node_types:
+                    event.accept()
+                else:
+                    event.ignore()
+                    return
         super().dragEnterEvent(event)
 
     def dropEvent(self, event: QDropEvent) -> None:
