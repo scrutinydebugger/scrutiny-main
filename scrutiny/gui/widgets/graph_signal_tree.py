@@ -20,7 +20,7 @@ from dataclasses import dataclass
 
 from PySide6.QtWidgets import QAbstractItemDelegate, QWidget
 from PySide6.QtGui import (QStandardItem, QDropEvent, QDragEnterEvent, QDragMoveEvent,
-                           QContextMenuEvent, QKeyEvent, QPixmap, QPalette)
+                           QContextMenuEvent, QKeyEvent, QPixmap)
 from PySide6.QtCore import QItemSelectionModel, QMimeData, QModelIndex, Qt, QPersistentModelIndex, QItemSelection, QObject, Signal, QSortFilterProxyModel
 from PySide6.QtCharts import QLineSeries, QAbstractSeries, QValueAxis
 
@@ -29,7 +29,7 @@ from scrutiny.gui.themes import scrutiny_get_theme
 from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
 from scrutiny.gui.core.scrutiny_drag_data import ScrutinyDragData, WatchableListDescriptor, SingleWatchableDescriptor
 from scrutiny.gui.widgets.watchable_tree import WatchableStandardItem, get_watchable_icon
-from scrutiny.gui.widgets.base_tree import BaseTreeModel, BaseTreeView, SerializableItemIndexDescriptor
+from scrutiny.gui.widgets.base_tree import BaseTreeModelWithStyle, BaseTreeView, SerializableItemIndexDescriptor
 from scrutiny.gui.widgets.scrutiny_qmenu import ScrutinyQMenu
 from scrutiny import tools
 
@@ -136,34 +136,18 @@ class ValueItems:
     delta: QStandardItem
 
 
-class GraphSignalModel(BaseTreeModel):
+class GraphSignalModel(BaseTreeModelWithStyle):
     _watchable_registry: WatchableRegistry
-    _available_palette: QPalette
-    _unavailable_palette: QPalette
     _globally_uneditable: bool
 
     def __init__(self,
                  watchable_registry: WatchableRegistry,
-                 available_palette: Optional[QPalette] = None,
-                 unavailable_palette: Optional[QPalette] = None,
                  parent: Optional[QWidget] = None
                  ) -> None:
         super().__init__(nesting_col=self.axis_col(), parent=parent)
         self._watchable_registry = watchable_registry
         self._globally_uneditable = False
         self.setColumnCount(2)
-
-        if available_palette is not None:
-            self._available_palette = available_palette
-        else:
-            self._available_palette = QPalette()
-            self._available_palette.setCurrentColorGroup(QPalette.ColorGroup.Active)
-
-        if unavailable_palette is not None:
-            self._unavailable_palette = unavailable_palette
-        else:
-            self._unavailable_palette = QPalette()
-            self._unavailable_palette.setCurrentColorGroup(QPalette.ColorGroup.Disabled)
 
     def make_axis_row(self, axis_name: str) -> List[AxisStandardItem]:
         axis_item = AxisStandardItem(axis_name)
@@ -409,26 +393,6 @@ class GraphSignalModel(BaseTreeModel):
                 if not self._watchable_registry.is_watchable_fqn(signal_item.fqn):
                     return True
         return False
-
-    def set_unavailable(self, arg_item: QStandardItem) -> None:
-        """Make an item in the tree unavailable (grayed out)"""
-        background_color = self._unavailable_palette.color(QPalette.ColorRole.Base)
-        forground_color = self._unavailable_palette.color(QPalette.ColorRole.Text)
-        for i in range(self.columnCount()):
-            item = self.itemFromIndex(arg_item.index().siblingAtColumn(i))
-            if item is not None:
-                item.setBackground(background_color)
-                item.setForeground(forground_color)
-
-    def set_available(self, arg_item: QStandardItem) -> None:
-        """Make an item in the tree available (normal color)"""
-        background_color = self._available_palette.color(QPalette.ColorRole.Base)
-        forground_color = self._available_palette.color(QPalette.ColorRole.Text)
-        for i in range(self.columnCount()):
-            item = self.itemFromIndex(arg_item.index().siblingAtColumn(i))
-            if item is not None:
-                item.setBackground(background_color)
-                item.setForeground(forground_color)
 
     def clear_all_value_item_text(self) -> None:
         for i in range(self.rowCount()):
