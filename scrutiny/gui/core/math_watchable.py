@@ -1,4 +1,4 @@
-#    math_element.py
+#    math_watchable.py
 #        A stateful math element that can have variables and be reevaluated at will
 #
 #   - License : MIT - See LICENSE file
@@ -9,15 +9,15 @@
 from scrutiny.tools.typing import *
 from dataclasses import dataclass
 from scrutiny.core.math_parser import MathParser, MathParsingError
+from scrutiny.gui.core.watchable_registry.fqn import FQN
+from scrutiny.gui.core.watchable_registry.common import RegistryNodeType
 from scrutiny.tools import validation
-import re
 
-VAR_NAME_REGEX = re.compile(r'^\$\w+$')
 ValueType: TypeAlias = Optional[Union[float, int, bool]]
 
 
 @dataclass(slots=True)
-class MathElement:
+class MathWatchable:
 
     @dataclass(slots=True)
     class VarData:
@@ -46,8 +46,6 @@ class MathElement:
             self._parser = MathParser(self._expr)
             vars = self._parser.get_vars()
             for var in vars:
-                if not VAR_NAME_REGEX.match(var):
-                    raise ValueError(f"Variable name is invalid \"{var}\"")
                 self._var_defs[var] = self.VarData(fqn=None, val=0)
 
             self._commit_vals()
@@ -63,6 +61,12 @@ class MathElement:
     def _commit_vals(self) -> None:
         self._committed_vals = {name: float(data.val) for name, data in self._var_defs.items() if data.val is not None}
 
+    def get_expr(self) -> str:
+        return self._expr
+
+    def get_name(self) -> str:
+        return self._name
+
     def is_valid(self) -> bool:
         return self._parsing_error is None
 
@@ -71,6 +75,9 @@ class MathElement:
         validation.assert_type(name, 'name', str)
         if name not in self._var_defs:
             raise ValueError(f"No variable with name {name} in expression {self._expr}")
+
+        if FQN.parse(fqn).node_type == RegistryNodeType.Math:
+            raise ValueError("Math watchables cannot be bound to other math watchables")
 
         self._var_defs[name].fqn = fqn
         self._commit_vals()
@@ -82,7 +89,7 @@ class MathElement:
             if commit:
                 self._commit_vals()
         except KeyError:
-            raise ValueError(f"Math element {self._name} has no variable named {name}")
+            raise ValueError(f"Math watchable {self._name} has no variable named {name}")
 
     def assign_var_value_by_fqn(self, fqn: str, val: ValueType) -> None:
         self._assert_valid()
@@ -109,6 +116,9 @@ class MathElement:
 
         return self._val
 
+    def get_var_fqn_map(self) -> Dict[str, Optional[str]]:
+        return {name: data.fqn for name, data in self._var_defs.items()}
+
     def get_vars(self) -> Set[str]:
         return set(self._var_defs.keys())
 
@@ -120,3 +130,10 @@ class MathElement:
             return self._parsing_error
 
         return self._eval_error
+
+    def copy(self) -> "MathWatchable":
+        el = MathWatchable(self._name, self._expr)
+        for name, data in self._var_defs.items():
+            if data.fqn is not None:
+                el.bind_watchable(name, data.fqn)
+        return el

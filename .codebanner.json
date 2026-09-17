@@ -1155,11 +1155,11 @@
         "scrutiny/gui/core/watchable_registry/common.py": {
             "docstring": "Common definitions related to the WatchableRegistry that have no dependencies"
         },
-        "test/gui/test_math_element.py": {
-            "docstring": "A test suite to test the scrutiny.core.MathElement"
+        "test/gui/test_math_watchable.py": {
+            "docstring": "A test suite to test the scrutiny.core.MathWatcahble"
         },
-        "scrutiny/gui/core/math_element.py": {
-            "docstring": "A stateful math element that can have variables and be reevaluated at will"
+        "scrutiny/gui/core/math_watchable.py": {
+            "docstring": "A stateful math watcahble that can have variables and be reevaluated at will"
         },
         "scrutiny/core/math_parser.py": {
             "docstring": " A math expression parser based of https://github.com/louisfisch/mathematical-expression-parser"
