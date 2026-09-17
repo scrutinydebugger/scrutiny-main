@@ -15,6 +15,9 @@ __all__ = [
     'UnwatchCallback',
     'GlobalWatchCallback',
     'GlobalUnwatchCallback',
+    'BaseUpdate',
+    'MathUpdate',
+    'RegistryNodeType'
 ]
 
 
@@ -22,7 +25,8 @@ import enum
 from dataclasses import dataclass
 from scrutiny import sdk
 from scrutiny.tools.typing import *
-from scrutiny.sdk.listeners import ValueUpdate
+from scrutiny.sdk.listeners import BaseUpdate
+from datetime import datetime
 
 WatcherIdType = Union[str, int]
 
@@ -48,9 +52,23 @@ class RegistryNodeType(str, enum.Enum):
             return False
 
 
+class MathUpdate(BaseUpdate):
+    _math_watchable_signature: str
+
+    def __init__(self, value: Optional[Union[int, float, bool]], math_watchable_signature: str, update_timestamp: datetime) -> None:
+        super().__init__(value, data=None, status=sdk.ValueStatus.Valid, update_timestamp=update_timestamp)
+        self._math_watchable_signature = math_watchable_signature
+
+    def get_datatype(self) -> sdk.EmbeddedDataType:
+        return sdk.EmbeddedDataType.float64
+
+    def get_source_id(self) -> str:
+        return self._math_watchable_signature
+
+
 @dataclass(slots=True)
 class RegistryValueUpdate:
-    sdk_update: ValueUpdate
+    sdk_update: BaseUpdate
     registry_id: int
     node_type: RegistryNodeType
 
@@ -81,6 +99,6 @@ class GlobalWatchCallbackData:
 
 
 WatcherValueUpdateCallback = Callable[[WatcherIdType, List[RegistryValueUpdate]], None]
-UnwatchCallback = Callable[[WatcherIdType, str, RegistryNodeConfiguration, int], None]
+UnwatchCallback = Callable[[WatcherIdType, str, int], None]
 GlobalWatchCallback = Callable[[GlobalWatchCallbackData], None]
 GlobalUnwatchCallback = Callable[[GlobalWatchCallbackData], None]

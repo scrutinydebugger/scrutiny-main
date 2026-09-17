@@ -19,12 +19,13 @@ from PySide6.QtGui import QPainter, QPixmap, QIcon
 from PySide6.QtCore import QSize, QRectF, QPointF, QObject, Qt, Signal, QTimer
 
 from scrutiny.gui.app_settings import app_settings
-from scrutiny.gui.widgets.watchable_line_edit import WatchableLineEdit, WatchableFQNAndName
+from scrutiny.gui.widgets.watchable_line_edit import WatchableLineEdit
 from scrutiny.gui.widgets.tooltip_form_layout import TooltipFormLayout
 from scrutiny.gui.components.locals.hmi.hmi_edit_grid import HMIEditGrid
 from scrutiny.gui.components.locals.hmi.hmi_theme import HMITheme
 from scrutiny.gui.components.locals.hmi.common.hit_zones import BaseHitZone
 from scrutiny.gui.core.watchable_registry.fqn import FQN
+from scrutiny.gui.core.fqn_name_pair import FqnNamePair
 from scrutiny.gui.core.watchable_registry.common import WatcherIdType, RegistryValueUpdate, RegistryNodeConfiguration
 from scrutiny.gui.core.watchable_registry.errors import WatchableRegistryNodeNotFoundError
 from scrutiny.gui.component_app_interface import AbstractComponentAppInterface
@@ -594,7 +595,7 @@ class BaseHMIWidget(QGraphicsItem):
 
         self._slot_value_update_callback(vslot, value)
 
-    def get_vslot_watchable(self, name: str) -> Optional[WatchableFQNAndName]:
+    def get_vslot_watchable(self, name: str) -> Optional[FqnNamePair]:
         vslot = self._get_vslot_by_name_or_raise(name)
         if not vslot.watchable_line_edit.is_watchable_mode():
             raise RuntimeError("ValueSlot is not in watchable mode")
@@ -664,7 +665,7 @@ class BaseHMIWidget(QGraphicsItem):
         """When the ValueSlot is assigned a value from the server stream"""
         self._slot_value_update_callback(vslot, updates[-1].sdk_update.value)
 
-    def _unwatch_callback(self, watcher_id: Union[str, int], server_path: str, node_config: RegistryNodeConfiguration, registry_id: int) -> None:
+    def _unwatch_callback(self, watcher_id: Union[str, int], server_path: str, registry_id: int) -> None:
         """Callback invoked when we unsubscribe to a watchable"""
         for vslot in self._vslots:
             if vslot.watcher_id == watcher_id:

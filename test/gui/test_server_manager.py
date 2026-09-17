@@ -90,7 +90,7 @@ class TestServerManager(ScrutinyBaseGuiTest):
         self.server_manager.signals.datalogging_state_changed.connect(lambda: self.declare_event(EventType.DATALOGGING_STATE_CHANGED))
         self.server_manager.signals.sfd_loaded.connect(lambda: self.declare_event(EventType.SFD_LOADED))
         self.server_manager.signals.sfd_unloaded.connect(lambda: self.declare_event(EventType.SFD_UNLOADED))
-        self.server_manager.signals.registry_changed.connect(lambda: self.declare_event(EventType.WATCHABLE_REGISTRY_CHANGED))
+        self.registry.signals.content_changed.connect(lambda: self.declare_event(EventType.WATCHABLE_REGISTRY_CHANGED))
 
         # These 2 events are treated differently because they run in a dedicated thread and event order cannot be guaranteed
         self.device_info_avail_changed_count = 0

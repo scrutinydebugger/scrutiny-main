@@ -134,7 +134,7 @@ class VarListComponent(ScrutinyGUIBaseGlobalComponent):
         self.reload_model(sdk.WatchableType.all())   # We can iterate enums
         self._index_change_counters = self.app.watchable_registry.get_server_change_counters()
 
-        self.app.server_manager.signals.registry_changed.connect(self.registry_changed_slot)
+        self.app.watchable_registry.signals.content_changed.connect(self.registry_changed_slot)
         self._tree.expanded.connect(self.node_expanded_slot)
         self._search_result_widget.signals.reveal_in_varlist.connect(self.reveal_fqn)
 

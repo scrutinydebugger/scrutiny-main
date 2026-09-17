@@ -10,7 +10,7 @@
 __all__ = ['CSVFileListener', 'CSVConfig']
 
 from scrutiny.core.basic_types import *
-from scrutiny.sdk.listeners import ValueUpdate, BaseListener
+from scrutiny.sdk.listeners import BaseUpdate, ValueUpdate, BaseListener
 from scrutiny.sdk.listeners.csv_logger import CSVLogger, CSVConfig
 from scrutiny.tools.typing import *
 
@@ -65,7 +65,7 @@ class CSVFileListener(BaseListener):
         self.csv_logger.start()
 
     def receive(self, updates: List[ValueUpdate]) -> None:
-        self.csv_logger.write(updates)
+        self.csv_logger.write(cast(List[BaseUpdate], updates))
 
     def teardown(self) -> None:
         self.csv_logger.stop()

@@ -358,7 +358,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
         self._chartview.configure_chart_cursor(self._signal_tree, self._update_xval)
 
         # App integration
-        self.app.server_manager.signals.registry_changed.connect(self._registry_changed_slot)
+        self.app.watchable_registry.signals.content_changed.connect(self._registry_changed_slot)
         self.app.watchable_registry.register_watcher(self.instance_name, self._val_update_callback, self._unwatch_callback)
         self._apply_internal_state()
 
@@ -921,7 +921,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
             tools.log_exception(self.logger, e, f"Error when receiving data for the chart")
             self.stop_acquisition()
 
-    def _unwatch_callback(self, watcher_id: Union[str, int], server_path: str, node_config: RegistryNodeConfiguration, registry_id: int) -> None:
+    def _unwatch_callback(self, watcher_id: Union[str, int], server_path: str, registry_id: int) -> None:
         # Should we do something? User feedback if the watchable is not available anymore maybe?
         pass
 
