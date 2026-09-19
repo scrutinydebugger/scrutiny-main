@@ -1,23 +1,22 @@
-#    math_watchable.py
-#        A stateful math element that can have variables and be reevaluated at will
-#
-#   - License : MIT - See LICENSE file
-#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
-#
-#    Copyright (c) 2026 Scrutiny Debugger
-
 from scrutiny.tools.typing import *
 from dataclasses import dataclass
 from scrutiny.core.math_parser import MathParser, MathParsingError
 from scrutiny.gui.core.watchable_registry.fqn import FQN
 from scrutiny.gui.core.watchable_registry.common import RegistryNodeType
 from scrutiny.tools import validation
+import json
 
 ValueType: TypeAlias = Optional[Union[float, int, bool]]
 
 
+class GUIMathWatchableDictDef(TypedDict):
+    name: str
+    expr: str
+    variables: Dict[str, Optional[str]]
+
+
 @dataclass(slots=True)
-class MathWatchable:
+class GUIMathWatchable:
 
     @dataclass(slots=True)
     class VarData:
@@ -131,9 +130,36 @@ class MathWatchable:
 
         return self._eval_error
 
-    def copy(self) -> "MathWatchable":
-        el = MathWatchable(self._name, self._expr)
+    def copy(self) -> Self:
+        el = self.__class__(self._name, self._expr)
         for name, data in self._var_defs.items():
             if data.fqn is not None:
                 el.bind_watchable(name, data.fqn)
         return el
+
+    def serialize(self) -> str:
+        return json.dumps(self.to_dict())
+
+    def to_dict(self) -> GUIMathWatchableDictDef:
+        return {
+            'name': self.get_name(),
+            'expr': self.get_expr(),
+            'variables': self.get_var_fqn_map()
+        }
+
+    @classmethod
+    def deserialize(cls, data: str) -> Self:
+        return cls.from_dict(json.loads(data))
+
+    @classmethod
+    def from_dict(cls, d: GUIMathWatchableDictDef) -> Self:
+        validation.assert_dict_key(d, 'name', str)
+        validation.assert_dict_key(d, 'expr', str)
+        validation.assert_dict_key(d, 'variables', dict)
+        o = cls(d['name'], d['expr'])
+        for name, fqn in d['variables'].items():
+            validation.assert_type(name, 'name', str)
+            validation.assert_type_or_none(name, 'fqn', str)
+            if fqn is not None:
+                o.bind_watchable(name, fqn)
+        return o

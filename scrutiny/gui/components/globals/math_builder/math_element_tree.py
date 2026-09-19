@@ -4,7 +4,7 @@ from scrutiny.gui.core.watchable_registry.common import RegistryNodeType
 from scrutiny.gui.core.watchable_registry.fqn import FQN
 from scrutiny.tools.typing import *
 from scrutiny import tools
-from scrutiny.gui.core.math_watchable import MathWatchable
+from scrutiny.gui.core.gui_math_watchable import MathWatchable
 
 from PySide6.QtWidgets import QHeaderView, QAbstractItemView
 from PySide6.QtGui import QStandardItem

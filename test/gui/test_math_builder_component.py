@@ -6,7 +6,7 @@ from scrutiny.gui.components.globals.math_builder.math_element_tree import MathT
 from scrutiny.gui.components.globals.math_builder.math_builder_component import MathBuilderComponent
 from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
 from scrutiny.gui.component_app_interface import AbstractComponentAppInterface
-from scrutiny.gui.core.math_watchable import MathWatchable
+from scrutiny.gui.core.gui_math_watchable import MathWatchable
 from scrutiny.gui.core.watchable_registry.fqn import FQN
 from scrutiny.gui.core.watchable_registry.common import RegistryNodeType
 
