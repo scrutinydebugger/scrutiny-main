@@ -210,5 +210,8 @@ class TestGUIMathWatchable(ScrutinyUnitTest):
 
         test3.assign_var_value("x", 1)
         self.assertFalse(test3.is_evaluable())
+        self.assertIsNone(test3.eval())
         test3.assign_var_value("y", 2)
         self.assertTrue(test3.is_evaluable())
+        self.assertIsNotNone(test3.eval())
+        self.assertEqual(test3.get_val(), 3)
