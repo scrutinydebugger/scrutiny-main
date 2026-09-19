@@ -186,3 +186,29 @@ class TestGUIMathWatchable(ScrutinyUnitTest):
         self.assertEqual(watchable.get_name(), watchable2.get_name())
         self.assertEqual(watchable.get_expr(), watchable2.get_expr())
         self.assertEqual(watchable.get_var_fqn_map(), watchable2.get_var_fqn_map())
+
+    def test_state_check(self):
+        test1 = GUIMathWatchable('test1', 'x+++2')   # parsing error
+        self.assertFalse(test1.is_valid())
+        self.assertFalse(test1.is_fully_configured())
+        self.assertFalse(test1.is_evaluable())
+
+        test2 = GUIMathWatchable('test2', 'x+y')
+        test2.bind_watchable("x", FQN.make(RegistryNodeType.Alias, "/aa/bb/cc"))
+
+        self.assertTrue(test2.is_valid())
+        self.assertFalse(test2.is_fully_configured())
+        self.assertFalse(test2.is_evaluable())
+
+        test3 = GUIMathWatchable('test3', 'x+y')
+        test3.bind_watchable("x", FQN.make(RegistryNodeType.Alias, "/aa/bb/cc"))
+        test3.bind_watchable("y", FQN.make(RegistryNodeType.Alias, "/aa/bb/dd"))
+
+        self.assertTrue(test3.is_valid())
+        self.assertTrue(test3.is_fully_configured())
+        self.assertFalse(test3.is_evaluable())
+
+        test3.assign_var_value("x", 1)
+        self.assertFalse(test3.is_evaluable())
+        test3.assign_var_value("y", 2)
+        self.assertTrue(test3.is_evaluable())

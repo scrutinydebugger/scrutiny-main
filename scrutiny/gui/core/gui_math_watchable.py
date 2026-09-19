@@ -45,7 +45,7 @@ class GUIMathWatchable:
             self._parser = MathParser(self._expr)
             vars = self._parser.get_vars()
             for var in vars:
-                self._var_defs[var] = self.VarData(fqn=None, val=0)
+                self._var_defs[var] = self.VarData(fqn=None, val=None)
 
             self._commit_vals()
         except MathParsingError as e:
@@ -68,6 +68,12 @@ class GUIMathWatchable:
 
     def is_valid(self) -> bool:
         return self._parsing_error is None
+
+    def is_fully_configured(self) -> bool:
+        return self.is_valid() and all([data.fqn is not None for data in self._var_defs.values()])
+
+    def is_evaluable(self) -> bool:
+        return self.is_fully_configured() and (len(self._committed_vals) == len(self._var_defs))
 
     def bind_watchable(self, name: str, fqn: str) -> None:
         self._assert_valid()
