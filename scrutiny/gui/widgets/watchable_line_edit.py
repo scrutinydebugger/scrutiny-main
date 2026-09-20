@@ -19,18 +19,13 @@ from PySide6.QtCore import Qt, QSize, QPoint, QRect, QObject, Signal
 from scrutiny.gui.core.scrutiny_drag_data import WatchableListDescriptor
 from scrutiny.gui.core.watchable_registry.fqn import FQN
 from scrutiny.gui.core.watchable_registry.common import RegistryNodeType
+from scrutiny.gui.core.fqn_name_pair import FqnNamePair
 from scrutiny.gui.themes import scrutiny_get_theme_prop, ScrutinyThemeProperties, scrutiny_get_theme
 from scrutiny.gui.tools import nodetype_2_icon
 from scrutiny.gui import assets
 
 from scrutiny import tools
 from scrutiny.tools.typing import *
-
-
-@dataclass(slots=True)
-class WatchableFQNAndName:
-    fqn: str
-    name: str
 
 
 class WatchableLineEdit(QLineEdit):
@@ -58,7 +53,7 @@ class WatchableLineEdit(QLineEdit):
     _clear_being_clicked: bool
     _mouse_over_clear_button: bool
     _text_mode_enabled: bool
-    _loaded_watchable: Optional[WatchableFQNAndName]
+    _loaded_watchable: Optional[FqnNamePair]
     _signals: _Signals
     _allowed_node_types: List[RegistryNodeType]
 
@@ -151,7 +146,7 @@ class WatchableLineEdit(QLineEdit):
         self.setReadOnly(True)
         self._mode = self.Mode.WATCHABLE
         self._adjust_watchable_mode_margins()
-        self._loaded_watchable = WatchableFQNAndName(
+        self._loaded_watchable = FqnNamePair(
             fqn=FQN.make(node_type, path),
             name=name)
         self.set_watchable_available(available)
@@ -275,7 +270,7 @@ class WatchableLineEdit(QLineEdit):
         if self.is_watchable_mode():
             self._adjust_watchable_mode_margins()
 
-    def get_watchable(self) -> Optional[WatchableFQNAndName]:
+    def get_watchable(self) -> Optional[FqnNamePair]:
         return self._loaded_watchable
 
     def is_text_mode(self) -> bool:

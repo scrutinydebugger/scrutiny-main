@@ -1,6 +1,7 @@
 from scrutiny.tools.typing import *
 from dataclasses import dataclass
 from scrutiny.core.math_parser import MathParser, MathParsingError
+from scrutiny.gui.core.fqn_name_pair import FqnNamePair, FqnNamePairDict
 from scrutiny.gui.core.watchable_registry.fqn import FQN
 from scrutiny.gui.core.watchable_registry.common import RegistryNodeType
 from scrutiny.tools import validation
@@ -12,7 +13,7 @@ ValueType: TypeAlias = Optional[Union[float, int, bool]]
 class GUIMathWatchableDictDef(TypedDict):
     name: str
     expr: str
-    variables: Dict[str, Optional[str]]
+    variables: Dict[str, Optional[FqnNamePairDict]]
 
 
 @dataclass(slots=True)
@@ -20,7 +21,7 @@ class GUIMathWatchable:
 
     @dataclass(slots=True)
     class VarData:
-        fqn: Optional[str]
+        fqn_name: Optional[FqnNamePair]
         val: ValueType
 
     _name: str
@@ -45,7 +46,7 @@ class GUIMathWatchable:
             self._parser = MathParser(self._expr)
             vars = self._parser.get_vars()
             for var in vars:
-                self._var_defs[var] = self.VarData(fqn=None, val=None)
+                self._var_defs[var] = self.VarData(fqn_name=None, val=None)
 
             self._commit_vals()
         except MathParsingError as e:
@@ -70,21 +71,21 @@ class GUIMathWatchable:
         return self._parsing_error is None
 
     def is_fully_configured(self) -> bool:
-        return self.is_valid() and all([data.fqn is not None for data in self._var_defs.values()])
+        return self.is_valid() and all([data.fqn_name is not None for data in self._var_defs.values()])
 
     def is_evaluable(self) -> bool:
         return self.is_fully_configured() and (len(self._committed_vals) == len(self._var_defs))
 
-    def bind_watchable(self, name: str, fqn: str) -> None:
+    def bind_watchable(self, name: str, fqn_name: FqnNamePair) -> None:
         self._assert_valid()
         validation.assert_type(name, 'name', str)
         if name not in self._var_defs:
             raise ValueError(f"No variable with name {name} in expression {self._expr}")
 
-        if FQN.parse(fqn).node_type == RegistryNodeType.Math:
+        if FQN.parse(fqn_name.fqn).node_type == RegistryNodeType.Math:
             raise ValueError("Math watchables cannot be bound to other math watchables")
 
-        self._var_defs[name].fqn = fqn
+        self._var_defs[name].fqn_name = fqn_name
         self._commit_vals()
 
     def assign_var_value(self, name: str, val: ValueType, commit: bool = True) -> None:
@@ -100,7 +101,7 @@ class GUIMathWatchable:
         self._assert_valid()
         found = False
         for name, data in self._var_defs.items():
-            if data.fqn == fqn:
+            if data.fqn_name is not None and data.fqn_name.fqn == fqn:
                 self.assign_var_value(name, val, commit=False)
                 found = True
         if not found:
@@ -121,8 +122,8 @@ class GUIMathWatchable:
 
         return self._val
 
-    def get_var_fqn_map(self) -> Dict[str, Optional[str]]:
-        return {name: data.fqn for name, data in self._var_defs.items()}
+    def get_var_fqn_map(self) -> Dict[str, Optional[FqnNamePair]]:
+        return {name: data.fqn_name for name, data in self._var_defs.items()}
 
     def get_vars(self) -> Set[str]:
         return set(self._var_defs.keys())
@@ -139,8 +140,8 @@ class GUIMathWatchable:
     def copy(self) -> Self:
         el = self.__class__(self._name, self._expr)
         for name, data in self._var_defs.items():
-            if data.fqn is not None:
-                el.bind_watchable(name, data.fqn)
+            if data.fqn_name is not None:
+                el.bind_watchable(name, data.fqn_name)
         return el
 
     def serialize(self) -> str:
@@ -150,7 +151,7 @@ class GUIMathWatchable:
         return {
             'name': self.get_name(),
             'expr': self.get_expr(),
-            'variables': self.get_var_fqn_map()
+            'variables': {k: v.to_dict() if v is not None else None for k, v in self.get_var_fqn_map().items()}
         }
 
     @classmethod
@@ -163,9 +164,9 @@ class GUIMathWatchable:
         validation.assert_dict_key(d, 'expr', str)
         validation.assert_dict_key(d, 'variables', dict)
         o = cls(d['name'], d['expr'])
-        for name, fqn in d['variables'].items():
+        for name, fqn_name in d['variables'].items():
             validation.assert_type(name, 'name', str)
-            validation.assert_type_or_none(name, 'fqn', str)
-            if fqn is not None:
-                o.bind_watchable(name, fqn)
+            validation.assert_type_or_none(fqn_name, 'fqn_name', dict)
+            if fqn_name is not None:
+                o.bind_watchable(name, FqnNamePair.from_dict(fqn_name))
         return o

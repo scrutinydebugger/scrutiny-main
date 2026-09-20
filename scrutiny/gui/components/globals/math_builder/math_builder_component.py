@@ -1,11 +1,19 @@
+
+from PySide6.QtWidgets import QVBoxLayout
 from scrutiny.gui.components.globals.base_global_component import ScrutinyGUIBaseGlobalComponent
+from scrutiny.gui.components.globals.math_builder.math_element_tree import MathTreeView
+
 from scrutiny.tools.typing import *
 
 
 class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
 
+    _math_tree: MathTreeView
+
     def setup(self) -> None:
-        pass
+        self._math_tree = MathTreeView()
+        layout = QVBoxLayout(self)
+        layout.addWidget(self._math_tree)
 
     def ready(self) -> None:
         pass
