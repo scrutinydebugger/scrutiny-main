@@ -6,7 +6,8 @@ from scrutiny.gui.components.globals.math_builder.math_element_tree import MathT
 from scrutiny.gui.components.globals.math_builder.math_builder_component import MathBuilderComponent
 from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
 from scrutiny.gui.component_app_interface import AbstractComponentAppInterface
-from scrutiny.gui.core.gui_math_watchable import MathWatchable
+from scrutiny.gui.core.gui_math_watchable import GUIMathWatchable
+from scrutiny.gui.core.fqn_name_pair import FqnNamePair
 from scrutiny.gui.core.watchable_registry.fqn import FQN
 from scrutiny.gui.core.watchable_registry.common import RegistryNodeType
 
@@ -35,13 +36,13 @@ class DummyAppInterface(AbstractComponentAppInterface):
 class TestMathTreeModel(ScrutinyBaseGuiTest):
     def test_insert(self):
         model = MathTreeModel()
-        element = MathWatchable("AAA", "v1+v2+v3")
+        element = GUIMathWatchable("AAA", "v1+v2+v3")
         with self.assertRaises(ValueError):
             model.insert_math_element(element)
 
-        element.bind_watchable("v1", FQN.make(RegistryNodeType.Variable, "/a/b/c"))
-        element.bind_watchable("v2", FQN.make(RegistryNodeType.Alias, "/a/b/d"))
-        element.bind_watchable("v3", FQN.make(RegistryNodeType.RuntimePublishedValue, "/a/b/e"))
+        element.bind_watchable("v1", FqnNamePair("AAA", FQN.make(RegistryNodeType.Variable, "/a/b/c")))
+        element.bind_watchable("v2", FqnNamePair("BBB", FQN.make(RegistryNodeType.Alias, "/a/b/d")))
+        element.bind_watchable("v3", FqnNamePair("CCC", FQN.make(RegistryNodeType.RuntimePublishedValue, "/a/b/e")))
 
         model.insert_math_element(element)
 
