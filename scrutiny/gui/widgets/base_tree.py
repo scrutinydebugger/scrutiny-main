@@ -341,3 +341,4 @@ class BaseTreeView(QTreeView):
             pos += QPoint(0, menu.actionGeometry(actions[0]).height())
             at = actions[0]
         menu.exec_and_disconnect_triggered(self.mapToGlobal(pos), at)
+    

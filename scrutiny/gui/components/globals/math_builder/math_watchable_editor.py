@@ -35,12 +35,12 @@ class MathWatchableEditor(QWidget):
 
         self._varlist_gb = QGroupBox("Variables")
         self._variable_list_form_layout = QFormLayout(self._varlist_gb)
-        self._variable_list_form_layout.setLabelAlignment(Qt.AlignRight)
+        self._variable_list_form_layout.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
 
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(name_expr_section)
         layout.addWidget(self._varlist_gb)
-        layout.addStretch(1)
 
         self._txt_expr.textChanged.connect(self._expr_changed_slot)
         self._txt_expr.editingFinished.connect(self._expr_edit_slot)
@@ -85,35 +85,17 @@ class MathWatchableEditor(QWidget):
 
         return wline_edit
 
-    def _remove_var_row(self, var_name: str) -> None:
-        if var_name not in self._var_to_wlineedit_map:
-            return
-
-        wline_edit = self._var_to_wlineedit_map[var_name]
-        for i in range(self._variable_list_form_layout.rowCount()):
-            item = self._variable_list_form_layout.itemAt(i, QFormLayout.ItemRole.FieldRole)
-            if item is not None and item.widget() is wline_edit:
-                self._variable_list_form_layout.removeRow(i)
-                break
-        del self._var_to_wlineedit_map[var_name]
-
-    def clear(self, keep_vars: Optional[Set[str]] = None) -> None:
+    def clear(self) -> None:
         self._txt_name.clear()
         self._txt_expr.clear()
-
-        if keep_vars is None:
-            keep_vars = set()
-
-        vars = set(self._var_to_wlineedit_map.keys())
-        for varname in vars:
-            if varname in keep_vars:
-                continue
-            self._remove_var_row(varname)
+        while self._variable_list_form_layout.rowCount() > 0:
+            self._variable_list_form_layout.removeRow(0)
+        self._var_to_wlineedit_map.clear()
 
         self._update_visibility()
 
     def load(self, math_watchable: GUIMathWatchable) -> None:
-        self.clear(keep_vars=set(math_watchable.get_vars()))
+        self.clear()
 
         self._txt_name.setText(math_watchable.get_name())
         self._txt_expr.setText(math_watchable.get_expr())
