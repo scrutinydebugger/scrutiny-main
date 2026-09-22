@@ -1,29 +1,40 @@
-from PySide6.QtWidgets import QWidget, QLineEdit, QFormLayout, QVBoxLayout, QGroupBox, QLabel
-from PySide6.QtCore import Qt
+import functools
+from PySide6.QtWidgets import QWidget, QFormLayout, QVBoxLayout, QGroupBox, QLabel
+from PySide6.QtCore import Qt, QObject, Signal
 from scrutiny.gui.widgets.feedback_label import FeedbackLabel
 from scrutiny.gui.widgets.watchable_line_edit import WatchableLineEdit
 from scrutiny.gui.core.watchable_registry.common import RegistryNodeType
 from scrutiny.gui.core.gui_math_watchable import GUIMathWatchable
 from scrutiny.gui.core.watchable_registry.fqn import FQN
+from scrutiny.gui.tools.validators import NotEmptyValidator
+from scrutiny.gui.widgets.validable_line_edit import ValidableLineEdit
+
 from scrutiny.tools.typing import *
 
 
 class MathWatchableEditor(QWidget):
-    _txt_name: QLineEdit
-    _txt_expr: QLineEdit
+
+    class _Signals(QObject):
+        content_changed = Signal()
+
+    _txt_name: ValidableLineEdit
+    _txt_expr: ValidableLineEdit
     _lbl_expr_validity: FeedbackLabel
     _varlist_gb: QGroupBox
     _variable_list_form_layout: QFormLayout
     _var_to_wlineedit_map: Dict[str, WatchableLineEdit]
+    _signals: _Signals
+    _inhibit_change_signal: bool
 
     def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)
-
+        self._signals = self._Signals()
         self._var_to_wlineedit_map = {}
+        self._inhibit_change_signal = False
 
-        self._txt_name = QLineEdit()
+        self._txt_name = ValidableLineEdit(soft_validator=NotEmptyValidator())
         self._txt_name.setPlaceholderText("Name")
-        self._txt_expr = QLineEdit()
+        self._txt_expr = ValidableLineEdit(soft_validator=NotEmptyValidator())
         self._txt_expr.setPlaceholderText("e.g. sqrt(a^2+b^2)")
         self._lbl_expr_validity = FeedbackLabel()
 
@@ -44,8 +55,20 @@ class MathWatchableEditor(QWidget):
 
         self._txt_expr.textChanged.connect(self._expr_changed_slot)
         self._txt_expr.editingFinished.connect(self._expr_edit_slot)
+        self._txt_name.textChanged.connect(self._name_edit_slot)
+
+        self._txt_name.editingFinished.connect(self._maybe_emit_content_changed)
+        self._txt_expr.editingFinished.connect(self._maybe_emit_content_changed)
 
         self._update_visibility()
+
+    @property
+    def signals(self) -> _Signals:
+        return self._signals
+
+    def _maybe_emit_content_changed(self) -> None:
+        if not self._inhibit_change_signal:
+            self._signals.content_changed.emit()
 
     def _update_visibility(self) -> None:
         self._varlist_gb.setVisible(len(self._var_to_wlineedit_map) > 0)
@@ -64,11 +87,15 @@ class MathWatchableEditor(QWidget):
             self._lbl_expr_validity.set_error(error)
 
     def _expr_changed_slot(self) -> None:
+        self._txt_expr.validate_expect_not_wrong()
         self._lbl_expr_validity.clear()
 
     def _expr_edit_slot(self) -> None:
         w = GUIMathWatchable(name=self._txt_name.text(), expr=self._txt_expr.text())
         self.load(w)
+
+    def _name_edit_slot(self) -> None:
+        self._txt_name.validate_expect_not_wrong()
 
     def _add_var_row(self, var_name: str) -> Optional[WatchableLineEdit]:
         if var_name in self._var_to_wlineedit_map:
@@ -77,25 +104,51 @@ class MathWatchableEditor(QWidget):
         wline_edit = WatchableLineEdit()
         wline_edit.set_text_mode_enabled(False)
         wline_edit.set_allowed_types([RegistryNodeType.Alias, RegistryNodeType.RuntimePublishedValue, RegistryNodeType.Variable])
+        wline_edit.signals.watchable_cleared.connect(functools.partial(self._watchable_line_edit_changed_slot, wline_edit))
+        wline_edit.signals.watchable_dropped.connect(functools.partial(self._watchable_line_edit_changed_slot, wline_edit))
         self._var_to_wlineedit_map[var_name] = wline_edit
         label = QLabel(var_name)
         label.setAlignment(Qt.AlignmentFlag.AlignRight)
         label.setMinimumWidth(30)
         self._variable_list_form_layout.addRow(label, wline_edit)
 
+        if not self._inhibit_change_signal:
+            self._signals.content_changed.emit()
+
         return wline_edit
 
-    def clear(self) -> None:
+    def clear(self, no_change_event: bool = False) -> None:
+        changed = False
+        self._inhibit_change_signal = True
+
+        if len(self._txt_name.text()) > 0:
+            changed = True
         self._txt_name.clear()
+
+        if len(self._txt_expr.text()) > 0:
+            changed = True
         self._txt_expr.clear()
+
+        if len(self._var_to_wlineedit_map) > 0:
+            changed = True
+
+        self._inhibit_change_signal = False
+
+        for wline_edit in self._var_to_wlineedit_map.values():
+            wline_edit.signals.watchable_cleared.disconnect()
+            wline_edit.signals.watchable_dropped.disconnect()
         while self._variable_list_form_layout.rowCount() > 0:
             self._variable_list_form_layout.removeRow(0)
         self._var_to_wlineedit_map.clear()
 
         self._update_visibility()
 
+        if changed and not no_change_event:
+            self._signals.content_changed.emit()
+
     def load(self, math_watchable: GUIMathWatchable) -> None:
-        self.clear()
+        self.clear(no_change_event=True)
+        self._inhibit_change_signal = True
 
         self._txt_name.setText(math_watchable.get_name())
         self._txt_expr.setText(math_watchable.get_expr())
@@ -111,6 +164,9 @@ class MathWatchableEditor(QWidget):
 
         self._update_feedback(math_watchable)
         self._update_visibility()
+
+        self._inhibit_change_signal = False
+        self._signals.content_changed.emit()
 
     def get_if_fully_configured(self) -> Optional[GUIMathWatchable]:
         name = self._txt_name.text()
@@ -137,3 +193,20 @@ class MathWatchableEditor(QWidget):
             return None
 
         return gui_math_watchable
+
+    def validate(self) -> bool:
+        valid = True
+
+        if not self._txt_name.validate_expect_valid():
+            valid = False
+        if not self._txt_expr.validate_expect_valid():
+            valid = False
+
+        for wline_edit in self._var_to_wlineedit_map.values():
+            wline_edit.set_error_state()
+
+        return valid
+
+    def _watchable_line_edit_changed_slot(self, wline_edit: WatchableLineEdit, fqn: str) -> None:
+        wline_edit.set_default_state()
+        self._signals.content_changed.emit()

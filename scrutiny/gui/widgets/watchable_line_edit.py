@@ -279,6 +279,12 @@ class WatchableLineEdit(QLineEdit):
     def is_watchable_mode(self) -> bool:
         return self._mode == self.Mode.WATCHABLE
 
+    def set_default_state(self) -> None:
+        scrutiny_get_theme().set_default_state(self)
+
+    def set_error_state(self) -> None:
+        scrutiny_get_theme().set_error_state(self)
+
     def get_state(self) -> DictState:
         """Export state to a dict"""
         if self.is_text_mode():

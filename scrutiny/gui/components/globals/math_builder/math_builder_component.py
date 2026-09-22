@@ -1,6 +1,6 @@
 
 from PySide6.QtWidgets import QVBoxLayout, QPushButton, QWidget, QHBoxLayout, QSplitter, QGroupBox
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QModelIndex, QItemSelection
 from scrutiny.gui.components.globals.base_global_component import ScrutinyGUIBaseGlobalComponent
 from scrutiny.gui.components.globals.math_builder.math_element_tree import MathTreeView
 from scrutiny.gui.components.globals.math_builder.math_watchable_editor import MathWatchableEditor
@@ -23,9 +23,13 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
         self._math_tree = MathTreeView()
         self._editor = MathWatchableEditor()
         self._btn_new = QPushButton("New")
+        self._btn_new.setEnabled(True)
         self._btn_edit = QPushButton("Edit")
+        self._btn_edit.setEnabled(False)
         self._btn_commit = QPushButton("Commit")
+        self._btn_commit.setEnabled(False)
         self._btn_clear = QPushButton("Clear")
+        self._btn_clear.setEnabled(True)
         self._splitter = QSplitter(Qt.Orientation.Vertical)
         self._splitter.setContentsMargins(0, 0, 0, 0)
 
@@ -70,6 +74,8 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
         self._btn_edit.clicked.connect(self._btn_edit_clicked_slot)
         self._btn_commit.clicked.connect(self._btn_commit_clicked_slot)
         self._btn_clear.clicked.connect(self._btn_clear_clicked_slot)
+        self._math_tree.selectionModel().selectionChanged.connect(self._selection_changed_slot)
+        self._editor.signals.content_changed.connect(self._edit_content_changed_slot)
 
     def ready(self) -> None:
         self._show_editor(False)
@@ -107,6 +113,7 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
         self._show_editor(True)
 
     def _btn_commit_clicked_slot(self) -> None:
+        self._editor.validate()
         math_watchable = self._editor.get_if_fully_configured()
         if math_watchable is None:
             return
@@ -123,14 +130,24 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
         self._uid_being_edited = None
         self._show_editor(False)
 
-    def _btn_edit_clicked_slot(self) -> None:
-        selected_indexes = self._math_tree.selectedIndexes()
-        selected_roots_one_per_row = [index for index in selected_indexes if index.column() == 0 and not index.parent().isValid()]
+    def _selection_changed_slot(self, selected: QItemSelection, deselected: QItemSelection) -> None:
+        selected_math_watchables = self._get_selected_math_watchable_items()
+        self._btn_edit.setEnabled(len(selected_math_watchables) == 1)
 
-        if len(selected_roots_one_per_row) != 1:
+    def _edit_content_changed_slot(self) -> None:
+        m = self._editor.get_if_fully_configured()
+        self._btn_commit.setEnabled(m is not None)
+
+    def _get_selected_math_watchable_items(self) -> List[QModelIndex]:
+        selected_indexes = self._math_tree.selectedIndexes()
+        return [index for index in selected_indexes if index.column() == 0 and not index.parent().isValid()]
+
+    def _btn_edit_clicked_slot(self) -> None:
+        selected = self._get_selected_math_watchable_items()
+        if len(selected) != 1:
             return
 
-        index = selected_roots_one_per_row[0]
+        index = selected[0]
         data = self._math_tree.extract_math_watchable(index.row())
         if data is None:
             return

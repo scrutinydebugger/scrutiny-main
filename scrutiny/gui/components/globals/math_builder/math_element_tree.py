@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from PySide6.QtWidgets import QWidget
+from PySide6.QtCore import QItemSelection
 from scrutiny.gui.widgets.base_tree import BaseTreeModel, BaseTreeView
 from scrutiny.gui.widgets.watchable_tree import get_watchable_icon, WatchableStandardItem
 from scrutiny.gui.core.watchable_registry.common import RegistryNodeType
