@@ -1,17 +1,21 @@
 from dataclasses import dataclass
+import functools
 from PySide6.QtWidgets import QWidget
-from PySide6.QtCore import QItemSelection
+from PySide6.QtCore import QObject, Signal
 from scrutiny.gui.widgets.base_tree import BaseTreeModel, BaseTreeView
 from scrutiny.gui.widgets.watchable_tree import get_watchable_icon, WatchableStandardItem
 from scrutiny.gui.core.watchable_registry.common import RegistryNodeType
 from scrutiny.gui.core.watchable_registry.fqn import FQN
 from scrutiny.gui.core.fqn_name_pair import FqnNamePair
+from scrutiny.gui.widgets.scrutiny_qmenu import ScrutinyQMenu
+from scrutiny.gui.themes import scrutiny_get_theme
 from scrutiny.tools.typing import *
 from scrutiny import tools
 from scrutiny.gui.core.gui_math_watchable import GUIMathWatchable
+from scrutiny.gui import assets
 
 from PySide6.QtWidgets import QHeaderView, QAbstractItemView
-from PySide6.QtGui import QStandardItem
+from PySide6.QtGui import QContextMenuEvent, QStandardItem
 from scrutiny.tools.global_counters import global_i64_counter
 
 
@@ -47,7 +51,7 @@ class MathExprStandardItem(QStandardItem):
 
 
 @dataclass(slots=True)
-class MathItemUidPair:
+class MathWatchableUidPair:
     math_watchable: GUIMathWatchable
     uid: int
 
@@ -58,7 +62,6 @@ class MathTreeModel(BaseTreeModel):
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(nesting_col=Cols.ItemOrVar, parent=parent)
-
         self.setColumnCount(len(self.HEADERS))
         self.setHorizontalHeaderLabels(self.HEADERS)
 
@@ -118,7 +121,7 @@ class MathTreeModel(BaseTreeModel):
         self._fill_with_variables(math_item, math_watchable)
         self.appendRow(math_row)
 
-    def extract_math_watchable(self, row_index: int) -> Optional[MathItemUidPair]:
+    def extract_math_watchable(self, row_index: int) -> Optional[MathWatchableUidPair]:
         if row_index < 0 or row_index > self.rowCount() - 1:
             return None
 
@@ -132,19 +135,24 @@ class MathTreeModel(BaseTreeModel):
             assert isinstance(w, WatchableStandardItem)
             math_watchable.bind_watchable(var_name, FqnNamePair(name=w.text(), fqn=w.fqn))
 
-        return MathItemUidPair(
+        return MathWatchableUidPair(
             math_watchable=math_watchable,
             uid=math_item.get_uid()
         )
 
 
 class MathTreeView(BaseTreeView):
+    class _Signals(QObject):
+        edit_requested = Signal(object, int)    # MathWatchable, UID
+        removed = Signal(object)                # Set[int]
 
     _model: MathTreeModel
+    _signals: _Signals
 
     @tools.copy_type(BaseTreeView.__init__)
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
+        self._signals = self._Signals()
         self._model = MathTreeModel()
         self.setModel(self._model)
         self.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
@@ -153,11 +161,60 @@ class MathTreeView(BaseTreeView):
         self.header().setStretchLastSection(True)
         self.header().setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)
 
+    @property
+    def signals(self) -> _Signals:
+        return self._signals
+
     def insert_math_watchable(self, math_watchable: GUIMathWatchable) -> None:
         self._model.insert_math_watchable(math_watchable)
 
     def replace_math_watchable(self, uid: int, math_watchable: GUIMathWatchable) -> None:
         self._model.replace_math_watchable(uid, math_watchable)
 
-    def extract_math_watchable(self, row_index: int) -> Optional[MathItemUidPair]:
+    def extract_math_watchable(self, row_index: int) -> Optional[MathWatchableUidPair]:
         return self._model.extract_math_watchable(row_index)
+
+    def selected_math_items(self) -> List[MathStandardItem]:
+        def iterate() -> Generator[MathStandardItem, None, None]:
+            for index in self.selectedIndexes():
+                if index.column() == Cols.ItemOrVar:
+                    item = self._model.itemFromIndex(index)
+                    if isinstance(item, MathStandardItem):
+                        yield item
+        return list(iterate())
+
+    def contextMenuEvent(self, event: QContextMenuEvent) -> None:
+        context_menu = ScrutinyQMenu()
+
+        selected_math_items = self.selected_math_items()
+        edit_action = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.TextEdit), "Edit")
+        remove_action = context_menu.addAction(scrutiny_get_theme().load_tiny_icon(assets.Icons.RedX), "Remove")
+
+        if len(selected_math_items) == 1:
+            edit_action.setEnabled(True)
+            edit_action.triggered.connect(functools.partial(self._context_menu_edit_slot, selected_math_items[0]))
+        else:
+            edit_action.setEnabled(False)
+
+        if len(selected_math_items) > 0:
+            remove_action.setEnabled(True)
+            remove_action.triggered.connect(functools.partial(self._context_menu_remove_slot, selected_math_items))
+        else:
+            remove_action.setEnabled(False)
+
+        context_menu.exec_at_first_and_disconnect(self.mapToGlobal(event.pos()))
+
+    def _context_menu_edit_slot(self, math_item: MathStandardItem) -> None:
+        pair = self.extract_math_watchable(math_item.row())
+        if pair is None:
+            return  # Should not really happen
+
+        self._signals.edit_requested.emit(pair.math_watchable, pair.uid)
+
+    def _context_menu_remove_slot(self, math_items: List[MathStandardItem]) -> None:
+        uid_removed = set()
+        for item in math_items:
+            uid_removed.add(item.get_uid())
+            self._model.removeRow(item.row())
+
+        self._signals.removed.emit(uid_removed)

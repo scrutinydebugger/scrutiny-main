@@ -1,6 +1,7 @@
 
 from PySide6.QtWidgets import QVBoxLayout, QPushButton, QWidget, QHBoxLayout, QSplitter, QGroupBox
 from PySide6.QtCore import Qt, QModelIndex, QItemSelection
+from scrutiny.gui.core.gui_math_watchable import GUIMathWatchable
 from scrutiny.gui.components.globals.base_global_component import ScrutinyGUIBaseGlobalComponent
 from scrutiny.gui.components.globals.math_builder.math_element_tree import MathTreeView
 from scrutiny.gui.components.globals.math_builder.math_watchable_editor import MathWatchableEditor
@@ -15,7 +16,7 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
     _btn_new: QPushButton
     _btn_edit: QPushButton
     _btn_commit: QPushButton
-    _btn_clear: QPushButton
+    _btn_close: QPushButton
     _splitter: QSplitter
     _uid_being_edited: Optional[int]
 
@@ -28,8 +29,8 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
         self._btn_edit.setEnabled(False)
         self._btn_commit = QPushButton("Commit")
         self._btn_commit.setEnabled(False)
-        self._btn_clear = QPushButton("Clear")
-        self._btn_clear.setEnabled(True)
+        self._btn_close = QPushButton("Clear")
+        self._btn_close.setEnabled(True)
         self._splitter = QSplitter(Qt.Orientation.Vertical)
         self._splitter.setContentsMargins(0, 0, 0, 0)
 
@@ -43,7 +44,7 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
         lower_button_container_layout = QHBoxLayout(lower_button_container)
         lower_button_container_layout.setAlignment(Qt.AlignmentFlag.AlignRight)
         lower_button_container_layout.addWidget(self._btn_commit)
-        lower_button_container_layout.addWidget(self._btn_clear)
+        lower_button_container_layout.addWidget(self._btn_close)
 
         upper_part = QWidget()
         upper_part_layout = QVBoxLayout(upper_part)
@@ -73,8 +74,10 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
         self._btn_new.clicked.connect(self._btn_new_clicked_slot)
         self._btn_edit.clicked.connect(self._btn_edit_clicked_slot)
         self._btn_commit.clicked.connect(self._btn_commit_clicked_slot)
-        self._btn_clear.clicked.connect(self._btn_clear_clicked_slot)
+        self._btn_close.clicked.connect(self._btn_close_clicked_slot)
         self._math_tree.selectionModel().selectionChanged.connect(self._selection_changed_slot)
+        self._math_tree.signals.edit_requested.connect(self._tree_edit_slot)
+        self._math_tree.signals.removed.connect(self._tree_remove_slot)
         self._editor.signals.content_changed.connect(self._edit_content_changed_slot)
 
     def ready(self) -> None:
@@ -123,12 +126,11 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
         else:
             self._math_tree.insert_math_watchable(math_watchable)
 
-        self._show_editor(False)
+        self._stop_edit()
+        
 
-    def _btn_clear_clicked_slot(self) -> None:
-        self._editor.clear()
-        self._uid_being_edited = None
-        self._show_editor(False)
+    def _btn_close_clicked_slot(self) -> None:
+        self._stop_edit_and_hide()
 
     def _selection_changed_slot(self, selected: QItemSelection, deselected: QItemSelection) -> None:
         selected_math_watchables = self._get_selected_math_watchable_items()
@@ -152,6 +154,25 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
         if data is None:
             return
 
-        self._editor.load(data.math_watchable)
-        self._uid_being_edited = data.uid
+        self._start_edit(data.math_watchable, data.uid)
+
+    def _tree_edit_slot(self, math_watchable: GUIMathWatchable, uid: int) -> None:
+        self._start_edit(math_watchable, uid)
+
+    def _tree_remove_slot(self, uid_removed: Set[int]) -> None:
+        if self._uid_being_edited is not None:
+            if self._uid_being_edited in uid_removed:
+                self._stop_edit_and_hide()
+
+    def _start_edit(self, math_watchable: GUIMathWatchable, uid: int) -> None:
+        self._editor.load(math_watchable)
+        self._uid_being_edited = uid
         self._show_editor(True)
+
+    def _stop_edit(self) -> None:
+        self._editor.clear()
+        self._uid_being_edited = None
+
+    def _stop_edit_and_hide(self) -> None:
+        self._stop_edit()
+        self._show_editor(False)
