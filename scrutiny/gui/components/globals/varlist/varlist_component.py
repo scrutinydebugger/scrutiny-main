@@ -185,7 +185,7 @@ class VarListComponent(ScrutinyGUIBaseGlobalComponent):
             self._search_result_widget.start_search(self._search_controls.get_search_string())
 
     def reload_model(self, node_types: List[RegistryNodeType]) -> None:
-        """Fully reload to model
+        """Fully reload the model
 
         :param node_types: The list of watchable types to reload
         """

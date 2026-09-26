@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from manual_test_base import make_manual_test_app, manual_test_args
 app = make_manual_test_app()
 
-from PySide6.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QSplitter
+from PySide6.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QSplitter, QPushButton, QVBoxLayout
 from PySide6.QtCore import Qt
 from scrutiny.gui.components.globals.math_builder.math_builder_component import MathBuilderComponent
 from scrutiny.gui.components.globals.varlist.varlist_component import VarListComponent
@@ -73,10 +73,18 @@ registry.write_content({
     },
 })
 varlist.reload_model([RegistryNodeType.Variable, RegistryNodeType.Alias, RegistryNodeType.RuntimePublishedValue])
+btn_clear_var = QPushButton("Clear Var")
+btn_clear_var.clicked.connect(lambda: registry.clear_content_by_type(RegistryNodeType.Variable))
+
+left_side_widget = QWidget()
+left_side_widget_layout = QVBoxLayout(left_side_widget)
+
+left_side_widget_layout.addWidget(varlist)
+left_side_widget_layout.addWidget(btn_clear_var)
 
 # Layout: VarList on the left, MathBuilder on the right
 splitter = QSplitter(Qt.Orientation.Horizontal)
-splitter.addWidget(varlist)
+splitter.addWidget(left_side_widget)
 splitter.addWidget(math_builder)
 splitter.setStretchFactor(0, 1)
 splitter.setStretchFactor(1, 2)

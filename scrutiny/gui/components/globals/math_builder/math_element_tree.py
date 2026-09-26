@@ -1,22 +1,24 @@
 from dataclasses import dataclass
 import functools
-from PySide6.QtWidgets import QWidget
-from PySide6.QtCore import QObject, Signal
-from scrutiny.gui.widgets.base_tree import BaseTreeModel, BaseTreeView
-from scrutiny.gui.widgets.watchable_tree import get_watchable_icon, WatchableStandardItem
-from scrutiny.gui.core.watchable_registry.common import RegistryNodeType
-from scrutiny.gui.core.watchable_registry.fqn import FQN
-from scrutiny.gui.core.fqn_name_pair import FqnNamePair
-from scrutiny.gui.widgets.scrutiny_qmenu import ScrutinyQMenu
-from scrutiny.gui.themes import scrutiny_get_theme
-from scrutiny.tools.typing import *
-from scrutiny import tools
-from scrutiny.gui.core.gui_math_watchable import GUIMathWatchable
-from scrutiny.gui import assets
 
+from PySide6.QtCore import QObject, Signal
 from PySide6.QtWidgets import QHeaderView, QAbstractItemView
 from PySide6.QtGui import QContextMenuEvent, QStandardItem
+
+from scrutiny.gui.widgets.base_tree import BaseTreeModelWithStyle, BaseTreeView
+from scrutiny.gui.widgets.watchable_tree import get_watchable_icon, WatchableStandardItem
+from scrutiny.gui.widgets.scrutiny_qmenu import ScrutinyQMenu
+from scrutiny.gui.core.watchable_registry.common import RegistryNodeType
+from scrutiny.gui.core.watchable_registry.fqn import FQN
+from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
+from scrutiny.gui.core.fqn_name_pair import FqnNamePair
+from scrutiny.gui.core.gui_math_watchable import GUIMathWatchable
+from scrutiny.gui.themes import scrutiny_get_theme
+from scrutiny.gui import assets
+
 from scrutiny.tools.global_counters import global_i64_counter
+from scrutiny.tools.typing import *
+from scrutiny import tools
 
 
 class Cols:
@@ -56,12 +58,14 @@ class MathWatchableUidPair:
     uid: int
 
 
-class MathTreeModel(BaseTreeModel):
+class MathTreeModel(BaseTreeModelWithStyle):
 
     HEADERS = ['Element', 'Content', 'Path']
+    _watchable_registry: WatchableRegistry
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
-        super().__init__(nesting_col=Cols.ItemOrVar, parent=parent)
+    def __init__(self, watchable_registry: WatchableRegistry) -> None:
+        super().__init__(nesting_col=Cols.ItemOrVar, parent=None)
+        self._watchable_registry = watchable_registry
         self.setColumnCount(len(self.HEADERS))
         self.setHorizontalHeaderLabels(self.HEADERS)
 
@@ -74,6 +78,7 @@ class MathTreeModel(BaseTreeModel):
         return None
 
     def _fill_with_variables(self, math_item: MathStandardItem, math_watchable: GUIMathWatchable) -> None:
+        """Adds the watchable rows underneath a MathStandardItem"""
         math_item.removeRows(0, math_item.rowCount())
 
         name_fqn_map = math_watchable.get_var_fqn_map()
@@ -91,7 +96,8 @@ class MathTreeModel(BaseTreeModel):
             fqn_item.setEditable(False)
             math_item.appendRow([var_item, watchable_item, fqn_item])
 
-    def replace_math_watchable(self, uid: int, math_watchable: GUIMathWatchable,) -> None:
+    def replace_math_watchable(self, uid: int, math_watchable: GUIMathWatchable) -> None:
+        """Replace a Math item in the tree identified by its uid by a new MathWatchable"""
         if not math_watchable.is_fully_configured():
             raise ValueError("Math element is not complete")
 
@@ -109,6 +115,7 @@ class MathTreeModel(BaseTreeModel):
         self._fill_with_variables(math_item, math_watchable)
 
     def insert_math_watchable(self, math_watchable: GUIMathWatchable) -> None:
+        """Add a row in the tree made from the given MathWatchable"""
         if not math_watchable.is_fully_configured():
             raise ValueError("Math element is not complete")
 
@@ -122,6 +129,7 @@ class MathTreeModel(BaseTreeModel):
         self.appendRow(math_row)
 
     def extract_math_watchable(self, row_index: int) -> Optional[MathWatchableUidPair]:
+        """Reads the MathWatchable from a row"""
         if row_index < 0 or row_index > self.rowCount() - 1:
             return None
 
@@ -150,10 +158,10 @@ class MathTreeView(BaseTreeView):
     _signals: _Signals
 
     @tools.copy_type(BaseTreeView.__init__)
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
+    def __init__(self, watchable_registry: WatchableRegistry) -> None:
+        super().__init__()
         self._signals = self._Signals()
-        self._model = MathTreeModel()
+        self._model = MathTreeModel(watchable_registry)
         self.setModel(self._model)
         self.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)

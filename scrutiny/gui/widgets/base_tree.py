@@ -10,12 +10,13 @@
 __all__ = [
     'SerializableItemIndexDescriptor',
     'BaseTreeModel',
+    'BaseTreeModelWithStyle',
     'BaseTreeView',
 ]
 import functools
 import logging
 
-from PySide6.QtGui import QFocusEvent, QStandardItem, QKeyEvent, QStandardItemModel, QMouseEvent, QAction
+from PySide6.QtGui import QFocusEvent, QStandardItem, QKeyEvent, QStandardItemModel, QMouseEvent, QAction, QPalette
 from PySide6.QtCore import Qt, QModelIndex, QPersistentModelIndex, QPoint
 from PySide6.QtWidgets import QTreeView, QWidget
 
@@ -275,6 +276,52 @@ class BaseTreeModel(QStandardItemModel):
         items.sort(key=functools.cmp_to_key(sort_compare))
 
 
+class BaseTreeModelWithStyle(BaseTreeModel):
+
+    _available_palette: QPalette
+    _unavailable_palette: QPalette
+
+    def __init__(self,
+                 nesting_col: int = 0,
+                 available_palette: Optional[QPalette] = None,
+                 unavailable_palette: Optional[QPalette] = None,
+                 parent: Optional[QWidget] = None
+                 ) -> None:
+        super().__init__(nesting_col=nesting_col, parent=parent)
+
+        if available_palette is not None:
+            self._available_palette = available_palette
+        else:
+            self._available_palette = QPalette()
+            self._available_palette.setCurrentColorGroup(QPalette.ColorGroup.Active)
+
+        if unavailable_palette is not None:
+            self._unavailable_palette = unavailable_palette
+        else:
+            self._unavailable_palette = QPalette()
+            self._unavailable_palette.setCurrentColorGroup(QPalette.ColorGroup.Disabled)
+
+    def set_unavailable(self, arg_item: QStandardItem) -> None:
+        """Make an item in the tree unavailable (grayed out)"""
+        background_color = self._unavailable_palette.color(QPalette.ColorRole.Base)
+        forground_color = self._unavailable_palette.color(QPalette.ColorRole.Text)
+        for i in range(self.columnCount()):
+            item = self.itemFromIndex(arg_item.index().siblingAtColumn(i))
+            if item is not None:
+                item.setBackground(background_color)
+                item.setForeground(forground_color)
+
+    def set_available(self, arg_item: QStandardItem) -> None:
+        """Make an item in the tree available (normal color)"""
+        background_color = self._available_palette.color(QPalette.ColorRole.Base)
+        forground_color = self._available_palette.color(QPalette.ColorRole.Text)
+        for i in range(self.columnCount()):
+            item = self.itemFromIndex(arg_item.index().siblingAtColumn(i))
+            if item is not None:
+                item.setBackground(background_color)
+                item.setForeground(forground_color)
+
+
 class BaseTreeView(QTreeView):
 
     def keyPressEvent(self, event: QKeyEvent) -> None:
@@ -341,4 +388,3 @@ class BaseTreeView(QTreeView):
             pos += QPoint(0, menu.actionGeometry(actions[0]).height())
             at = actions[0]
         menu.exec_and_disconnect_triggered(self.mapToGlobal(pos), at)
-    

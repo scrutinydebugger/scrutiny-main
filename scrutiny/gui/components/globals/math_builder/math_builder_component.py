@@ -1,6 +1,6 @@
 
 from PySide6.QtWidgets import QVBoxLayout, QPushButton, QWidget, QHBoxLayout, QSplitter, QGroupBox
-from PySide6.QtCore import Qt, QModelIndex, QItemSelection
+from PySide6.QtCore import Qt, QModelIndex, QItemSelection, SignalInstance
 from scrutiny.gui.core.gui_math_watchable import GUIMathWatchable
 from scrutiny.gui.components.globals.base_global_component import ScrutinyGUIBaseGlobalComponent
 from scrutiny.gui.components.globals.math_builder.math_element_tree import MathTreeView
@@ -20,7 +20,10 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
     _splitter: QSplitter
     _uid_being_edited: Optional[int]
 
+    _signals_connected: List[Tuple[SignalInstance, object]]
+
     def setup(self) -> None:
+        self._signals_connected = []
         self._math_tree = MathTreeView()
         self._editor = MathWatchableEditor()
         self._btn_new = QPushButton("New")
@@ -29,7 +32,7 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
         self._btn_edit.setEnabled(False)
         self._btn_commit = QPushButton("Commit")
         self._btn_commit.setEnabled(False)
-        self._btn_close = QPushButton("Clear")
+        self._btn_close = QPushButton("Close")
         self._btn_close.setEnabled(True)
         self._splitter = QSplitter(Qt.Orientation.Vertical)
         self._splitter.setContentsMargins(0, 0, 0, 0)
@@ -71,20 +74,26 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
         layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         layout.addWidget(self._splitter)
 
-        self._btn_new.clicked.connect(self._btn_new_clicked_slot)
-        self._btn_edit.clicked.connect(self._btn_edit_clicked_slot)
-        self._btn_commit.clicked.connect(self._btn_commit_clicked_slot)
-        self._btn_close.clicked.connect(self._btn_close_clicked_slot)
-        self._math_tree.selectionModel().selectionChanged.connect(self._selection_changed_slot)
-        self._math_tree.signals.edit_requested.connect(self._tree_edit_slot)
-        self._math_tree.signals.removed.connect(self._tree_remove_slot)
-        self._editor.signals.content_changed.connect(self._edit_content_changed_slot)
+        self._connect_signal(self._btn_new.clicked, self._btn_new_clicked_slot)
+        self._connect_signal(self._btn_edit.clicked, self._btn_edit_clicked_slot)
+        self._connect_signal(self._btn_commit.clicked, self._btn_commit_clicked_slot)
+        self._connect_signal(self._btn_close.clicked, self._btn_close_clicked_slot)
+        self._connect_signal(self._math_tree.selectionModel().selectionChanged, self._selection_changed_slot)
+        self._connect_signal(self._math_tree.signals.edit_requested, self._tree_edit_slot)
+        self._connect_signal(self._math_tree.signals.removed, self._tree_remove_slot)
+        self._connect_signal(self._editor.signals.content_changed, self._edit_content_changed_slot)
+        self._connect_signal(self.app.server_manager.signals.registry_changed, self._registry_changed_slot)
+
+    def _connect_signal(self, sig: SignalInstance, slot: object) -> None:
+        sig.connect(slot)
+        self._signals_connected.append((sig, slot))
 
     def ready(self) -> None:
-        self._show_editor(False)
+        self._show_editor(True)
 
     def teardown(self) -> None:
-        pass
+        for sig, slot in self._signals_connected:
+            sig.disconnect(slot)
 
     def visibilityChanged(self, visible: bool) -> None:
         pass
@@ -116,6 +125,9 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
         self._show_editor(True)
 
     def _btn_commit_clicked_slot(self) -> None:
+        # TODO:
+        # Presently insert in the math tree.
+        # Need to insert in the registry and leave the tree get updated by it
         self._editor.validate()
         math_watchable = self._editor.get_if_fully_configured()
         if math_watchable is None:
@@ -127,7 +139,6 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
             self._math_tree.insert_math_watchable(math_watchable)
 
         self._stop_edit()
-        
 
     def _btn_close_clicked_slot(self) -> None:
         self._stop_edit_and_hide()
@@ -176,3 +187,9 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
     def _stop_edit_and_hide(self) -> None:
         self._stop_edit()
         self._show_editor(False)
+
+    def _registry_changed_slot(self) -> None:
+        self._update_availability()
+
+    def _update_availability(self) -> None:
+        pass
