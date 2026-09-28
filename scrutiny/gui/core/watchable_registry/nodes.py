@@ -6,7 +6,7 @@
 #
 #    Copyright (c) 2026 Scrutiny Debugger
 
-__all__ = ['WatchableRegistryEntryNode', 'WatchableRegistryIntermediateNode']
+__all__ = ['ServerStorageEntryNode', 'WatchableRegistryIntermediateNode']
 
 
 from dataclasses import dataclass
@@ -17,7 +17,7 @@ from scrutiny.gui.core.watchable_registry.errors import WatchableRegistryError
 
 
 @dataclass(init=False, slots=True)
-class WatchableRegistryEntryNode:
+class ServerStorageEntryNode:
     """Leaf node in the tree that is a single watchable"""
     configuration: RegistryNodeConfiguration
     server_path: str
@@ -62,5 +62,5 @@ class WatchableRegistryEntryNode:
 class WatchableRegistryIntermediateNode:
     """An intermediate node that contains watchable and other subnodes"""
 
-    watchables: Dict[str, WatchableRegistryEntryNode]
+    watchables: Dict[str, ServerStorageEntryNode]
     subtree: List[str]

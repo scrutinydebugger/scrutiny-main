@@ -9,6 +9,7 @@
 __all__ = [
     'WatcherIdType',
     'RegistryValueUpdate',
+    'RegistryNodeConfiguration',
     'GlobalWatchCallbackData',
     'WatcherValueUpdateCallback',
     'UnwatchCallback',

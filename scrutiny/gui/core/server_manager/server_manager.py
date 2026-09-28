@@ -444,13 +444,13 @@ class ServerManager:
                 if self._thread_state.runtime_watchables_download_request.is_success:
                     data = self._thread_state.runtime_watchables_download_request.get()
                     content = {
-                        RegistryNodeType.RuntimePublishedValue: data.rpv
+                        sdk.WatchableType.RuntimePublishedValue: data.rpv
                     }
-                    invoke_in_qt_thread_synchronized(lambda: self._registry.write_content(content), timeout=5)
+                    invoke_in_qt_thread_synchronized(lambda: self._registry.write_server_content(content), timeout=5)
                     self._signals.registry_changed.emit()
                 else:
-                    invoke_in_qt_thread_synchronized(lambda: self._registry.clear_content_by_type(
-                        [RegistryNodeType.RuntimePublishedValue]), timeout=3)
+                    invoke_in_qt_thread_synchronized(lambda: self._registry.clear_server_content_by_type(
+                        [sdk.WatchableType.RuntimePublishedValue]), timeout=3)
                 self._thread_state.runtime_watchables_download_request = None   # Clear the request.
             else:
                 pass  # Downloading
@@ -465,14 +465,14 @@ class ServerManager:
                     generated_var = self._make_var_watchable_from_factories(data.var_factory)
                     data.var.update(generated_var)
                     content = {
-                        RegistryNodeType.Variable: data.var,
-                        RegistryNodeType.Alias: data.alias,
+                        sdk.WatchableType.Variable: data.var,
+                        sdk.WatchableType.Alias: data.alias,
                     }
-                    invoke_in_qt_thread_synchronized(lambda: self._registry.write_content(content), timeout=5)
+                    invoke_in_qt_thread_synchronized(lambda: self._registry.write_server_content(content), timeout=5)
                     self._signals.registry_changed.emit()
                 else:
-                    invoke_in_qt_thread_synchronized(lambda: self._registry.clear_content_by_type(
-                        [RegistryNodeType.Alias, RegistryNodeType.Variable]), timeout=3)
+                    invoke_in_qt_thread_synchronized(lambda: self._registry.clear_server_content_by_type(
+                        [sdk.WatchableType.Alias, sdk.WatchableType.Variable]), timeout=3)
                 self._thread_state.sfd_watchables_download_request = None   # Clear the request.
             else:
                 pass    # Downloading
@@ -506,7 +506,7 @@ class ServerManager:
         if req is not None and not req.completed:
             req.cancel()
         self._thread_state.sfd_watchables_download_request = None
-        self._thread_clear_registry_synchronized([RegistryNodeType.Alias, RegistryNodeType.Variable])
+        self._thread_clear_registry_synchronized([sdk.WatchableType.Alias, sdk.WatchableType.Variable])
         if not self._exit_in_progress:
             self.signals.sfd_unloaded.emit()
 
@@ -517,11 +517,11 @@ class ServerManager:
         if req is not None and not req.completed:
             req.cancel()
         self._thread_state.runtime_watchables_download_request = None
-        self._thread_clear_registry_synchronized([RegistryNodeType.RuntimePublishedValue])
+        self._thread_clear_registry_synchronized([sdk.WatchableType.RuntimePublishedValue])
         if not self._exit_in_progress:
             self.signals.device_disconnected.emit()
 
-    def _thread_clear_registry_synchronized(self, type_list: List[RegistryNodeType]) -> None:
+    def _thread_clear_registry_synchronized(self, type_list: List[sdk.WatchableType]) -> None:
         @dataclass(slots=True)
         class Context:
             had_data: bool = False
@@ -530,7 +530,7 @@ class ServerManager:
 
         def clear_func() -> None:
             for node_type in type_list:
-                had_data = self._registry.clear_content_by_type(node_type)
+                had_data = self._registry.clear_server_content_by_type(node_type)
                 ctx.had_data = ctx.had_data or had_data
         if self._logger.isEnabledFor(logging.DEBUG):    # pragma: no cover
             self._logger.debug("Clearing registry for types: %s" % ([x.name for x in type_list]))
@@ -598,7 +598,7 @@ class ServerManager:
             for server_path, registration_status in store.items():
                 if registration_status.active_state == self.WatchableRegistrationState.SUBSCRIBED:
                     if registration_status.pending_action == self.WatchableRegistrationAction.NONE:
-                        node = self._registry.get_watchable_node(RegistryNodeType.from_sdk(watchable_type), server_path)
+                        node = self._registry.get_server_watchable_node(watchable_type, server_path)
                         if node is not None:
                             if node.get_watcher_count() == 0:
                                 outlist.append((watchable_type, server_path))
@@ -673,7 +673,7 @@ class ServerManager:
             if attempted_action == self.WatchableRegistrationAction.SUBSCRIBE:
                 if registration_status.active_state == self.WatchableRegistrationState.SUBSCRIBED:
                     assert client_handle is not None
-                    self._registry.assign_serverid_to_node(RegistryNodeType.from_sdk(client_handle.type), server_path, client_handle.server_id)
+                    self._registry.assign_serverid_to_node(client_handle.type, server_path, client_handle.server_id)
                     self._listener.subscribe(client_handle)
             elif attempted_action == self.WatchableRegistrationAction.UNSUBSCRIBE:
                 if (registration_status.active_state == self.WatchableRegistrationState.UNSUBSCRIBED
@@ -885,6 +885,7 @@ class ServerManager:
     def _qt_registry_watch_callback(self, data: GlobalWatchCallbackData) -> None:
         """Called when a gui component register a watcher on the registry"""
         # Runs from QT thread
+        watchable_type = data.node_config.node_type.to_sdk()    # Can raise
         if data.watcher_count is not None and data.watcher_count > 0:
             self._qt_maybe_request_watch(data.node_config.node_type.to_sdk(), data.server_path, data.highest_update_rate)
 
@@ -892,8 +893,9 @@ class ServerManager:
     def _qt_registry_unwatch_callback(self, data: GlobalWatchCallbackData) -> None:
         """Called when a gui component unregister a watcher on the registry"""
         # Runs from QT thread
+        watchable_type = data.node_config.node_type.to_sdk()    # Can raise
         if data.watcher_count is not None and data.watcher_count == 0:
-            self._qt_maybe_request_unwatch(data.node_config.node_type.to_sdk(), data.server_path)
+            self._qt_maybe_request_unwatch(watchable_type, data.server_path)
         else:
             handle = self._client.try_get_existing_watch_handle(data.server_path)
             if handle is not None:
@@ -908,7 +910,7 @@ class ServerManager:
             update_list = self._listener.to_gui_thread_queue.get_nowait()
             aggregated_updates.extend(update_list)
 
-        self._registry.broadcast_value_updates_to_watchers(aggregated_updates)
+        self._registry.broadcast_server_value_updates_to_watchers(aggregated_updates)
         self._listener.ready_for_next_update()
 
     @enforce_thread(QT_THREAD_NAME)

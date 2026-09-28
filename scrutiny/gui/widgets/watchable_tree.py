@@ -362,7 +362,7 @@ class WatchableTreeModel(BaseTreeModel):
         :param level: internal parameter to keep track of recursion. The user should leave to default
         """
         parent.set_loaded()
-        content = self._watchable_registry.read(node_type, path)
+        content = self._watchable_registry.read_server_storage(node_type.to_sdk(), path)
         if not isinstance(content, WatchableRegistryIntermediateNode):  # Equivalent to a folder
             return
 
