@@ -568,6 +568,7 @@ class WatchableRegistry:
         touched: Dict[sdk.WatchableType, bool] = {watchable_type: False for watchable_type in sdk.WatchableType.all()}
 
         for watchable_type in data.keys():
+            assert isinstance(watchable_type, sdk.WatchableType)
             if len(data[watchable_type]) > 0:
                 self.clear_server_content_by_type(watchable_type)
 
@@ -594,6 +595,7 @@ class WatchableRegistry:
         changed = False
 
         for watchable_type in watchable_types:
+            assert isinstance(watchable_type, sdk.WatchableType)
             node_type = RegistryNodeType.from_sdk(watchable_type)
             had_data = len(self._server_storage[watchable_type]) > 0
 
