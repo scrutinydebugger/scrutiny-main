@@ -9,6 +9,7 @@
 import enum
 from dataclasses import dataclass
 
+from scrutiny import sdk
 from PySide6.QtWidgets import QWidget, QLineEdit, QProgressBar, QVBoxLayout
 from PySide6.QtGui import QContextMenuEvent, QStandardItem
 from PySide6.QtCore import Qt, QObject, Signal, QTimer
@@ -259,16 +260,16 @@ class SearchResultWidget(QWidget):
         """Entry point to start the search process. Create a generator that yield either SearchResult or Pause"""
         self._watchable_processed_counter = 0
         self._pause_counter = 0
-        for node_type in RegistryNodeType:
-            root = self._watchable_registry.read(node_type, '/')
+        for watchable_type in sdk.WatchableType.all():
+            root = self._watchable_registry.read_server_storage(watchable_type, '/')
             if root is None:
                 continue
             assert isinstance(root, WatchableRegistryIntermediateNode)
 
-            yield from self._iterate_node_recursive(node_type, root, '', criteria)
+            yield from self._iterate_node_recursive(watchable_type, root, '', criteria)
 
     def _iterate_node_recursive(self,
-                                node_type: RegistryNodeType,
+                                watchable_type: sdk.WatchableType,
                                 node: WatchableRegistryIntermediateNode,
                                 path: str,
                                 criteria: SearchCriteria
@@ -280,7 +281,7 @@ class SearchResultWidget(QWidget):
                 yield PauseSearch()
 
             candidate = SingleResult(
-                fqn=FQN.make(node_type, path + '/' + node_name),
+                fqn=FQN.make(RegistryNodeType.from_sdk(watchable_type), path + '/' + node_name),
                 config=watchable_node.configuration
             )
 
@@ -289,11 +290,11 @@ class SearchResultWidget(QWidget):
 
         for subtree_name in node.subtree:
             subtree_path = path + '/' + subtree_name
-            subtree_node = self._watchable_registry.read(node_type, subtree_path)
+            subtree_node = self._watchable_registry.read_server_storage(watchable_type, subtree_path)
             if subtree_node is None:
                 return  # The registry got cleared most likely
             assert isinstance(subtree_node, WatchableRegistryIntermediateNode)
-            yield from self._iterate_node_recursive(node_type, subtree_node, subtree_path, criteria)
+            yield from self._iterate_node_recursive(watchable_type, subtree_node, subtree_path, criteria)
 
     def _update_progress_bar(self) -> None:
         delta = self._progress_bar.maximum() - self._progress_bar.minimum()

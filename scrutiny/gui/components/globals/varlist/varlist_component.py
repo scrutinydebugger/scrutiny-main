@@ -17,7 +17,7 @@ import enum
 from PySide6.QtWidgets import QVBoxLayout, QWidget, QTabWidget
 from PySide6.QtGui import QContextMenuEvent, QStandardItemModel, QIcon
 from PySide6.QtCore import QModelIndex, Qt, QItemSelectionModel
-
+from scrutiny import sdk
 from scrutiny.gui import assets
 from scrutiny.gui.themes import scrutiny_get_theme
 from scrutiny.gui.core.watchable_registry.fqn import FQN
@@ -87,7 +87,7 @@ class VarListComponent(ScrutinyGUIBaseGlobalComponent):
     _var_folder: BaseWatchableRegistryTreeStandardItem
     _alias_folder: BaseWatchableRegistryTreeStandardItem
     _rpv_folder: BaseWatchableRegistryTreeStandardItem
-    _index_change_counters: Dict[RegistryNodeType, int]
+    _index_change_counters: Dict[sdk.WatchableType, int]
 
     _browse_tab_index: int
     _search_tab_index: int
@@ -131,8 +131,8 @@ class VarListComponent(ScrutinyGUIBaseGlobalComponent):
         self._content_tabs.setCurrentIndex(self._browse_tab_index)
         self._content_tabs.setTabEnabled(self._search_tab_index, False)
 
-        self.reload_model(list(RegistryNodeType))   # We can iterate enums
-        self._index_change_counters = self.app.watchable_registry.get_change_counters()
+        self.reload_model(sdk.WatchableType.all())   # We can iterate enums
+        self._index_change_counters = self.app.watchable_registry.get_server_change_counters()
 
         self.app.server_manager.signals.registry_changed.connect(self.registry_changed_slot)
         self._tree.expanded.connect(self.node_expanded_slot)
@@ -173,10 +173,10 @@ class VarListComponent(ScrutinyGUIBaseGlobalComponent):
         """Called when the server manager finishes downloading the server watchable list and update the registry"""
         index_change_counters = self.app.watchable_registry.get_server_change_counters()
         # Identify all the types that changed since the last model update
-        types_to_reload = []
-        for wt, count in index_change_counters.items():
-            if count != self._index_change_counters[wt]:
-                types_to_reload.append(wt)
+        types_to_reload: List[sdk.WatchableType] = []
+        for watchable_type, count in index_change_counters.items():
+            if count != self._index_change_counters[watchable_type]:
+                types_to_reload.append(watchable_type)
         self.reload_model(types_to_reload)
         self._index_change_counters = index_change_counters
 
@@ -184,7 +184,7 @@ class VarListComponent(ScrutinyGUIBaseGlobalComponent):
         if self._search_result_widget.searching() or self._search_result_widget.finished():
             self._search_result_widget.start_search(self._search_controls.get_search_string())
 
-    def reload_model(self, node_types: List[RegistryNodeType]) -> None:
+    def reload_model(self, node_types: List[sdk.WatchableType]) -> None:
         """Fully reload to model
 
         :param node_types: The list of watchable types to reload
@@ -192,20 +192,20 @@ class VarListComponent(ScrutinyGUIBaseGlobalComponent):
 
         # reload first level with max_level=0 as we do lazy loading
         # Collapse root node to avoid lazy loading glitch that require to collapse/reexpand to load new data
-        if RegistryNodeType.RuntimePublishedValue in node_types:
+        if sdk.WatchableType.RuntimePublishedValue in node_types:
             self._rpv_folder.removeRows(0, self._rpv_folder.rowCount())
             self._tree.collapse(self._rpv_folder.index())
-            self._tree_model.lazy_load(self._rpv_folder, RegistryNodeType.RuntimePublishedValue, '/')
+            self._tree_model.lazy_load(self._rpv_folder, sdk.WatchableType.RuntimePublishedValue, '/')
 
-        if RegistryNodeType.Alias in node_types:
+        if sdk.WatchableType.Alias in node_types:
             self._alias_folder.removeRows(0, self._alias_folder.rowCount())
             self._tree.collapse(self._alias_folder.index())
-            self._tree_model.lazy_load(self._alias_folder, RegistryNodeType.Alias, '/')
+            self._tree_model.lazy_load(self._alias_folder, sdk.WatchableType.Alias, '/')
 
-        if RegistryNodeType.Variable in node_types:
+        if sdk.WatchableType.Variable in node_types:
             self._var_folder.removeRows(0, self._var_folder.rowCount())
             self._tree.collapse(self._var_folder.index())
-            self._tree_model.lazy_load(self._var_folder, RegistryNodeType.Variable, '/')
+            self._tree_model.lazy_load(self._var_folder, sdk.WatchableType.Variable, '/')
 
     def reveal_fqn(self, fqn: str) -> None:
         """Put the focus on an element of the tree referred to by its FQN """

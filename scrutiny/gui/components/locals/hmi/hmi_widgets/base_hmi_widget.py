@@ -715,7 +715,7 @@ class BaseHMIWidget(QGraphicsItem):
                 if watchable is None:
                     return None
 
-                node = self._app.watchable_registry.get_watchable_node_fqn(watchable.fqn)
+                node = self._app.watchable_registry.get_server_watchable_node_fqn(watchable.fqn)
                 if node is None:
                     return None
 

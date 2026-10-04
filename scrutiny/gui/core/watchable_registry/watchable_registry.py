@@ -678,10 +678,10 @@ class WatchableRegistry:
         self._global_watch_callbacks = watch_callback
         self._global_unwatch_callbacks = unwatch_callback
 
-    def get_server_change_counters(self) -> Dict[RegistryNodeType, int]:
-        d: Dict[RegistryNodeType, int] = {}
+    def get_server_change_counters(self) -> Dict[sdk.WatchableType, int]:
+        d: Dict[sdk.WatchableType, int] = {}
         for watchable_type in sdk.WatchableType.all():
-            d[RegistryNodeType.from_sdk(watchable_type)] = self._server_storage_change_counter[watchable_type]
+            d[watchable_type] = self._server_storage_change_counter[watchable_type]
         return d
 
     def get_watchable_count(self, node_type: RegistryNodeType) -> int:

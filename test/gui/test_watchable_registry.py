@@ -894,9 +894,5 @@ class TestWatchableRegistry(ScrutinyUnitTest):
                                                         sdk.WatchableType.Variable])
             validate_id_unique()
 
-    def test_add_math(self):
-        GUIMath
-        self.registry.add_math_watcahble()
-
     def tearDown(self):
         super().tearDown()

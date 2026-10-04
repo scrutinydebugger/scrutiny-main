@@ -10,6 +10,7 @@ from scrutiny import sdk
 from scrutiny.gui.core.server_manager.server_manager import ServerManager, ServerConfig
 from scrutiny.gui.core.server_manager.qt_buffered_listener import QtBufferedListener
 from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
+from scrutiny.gui.core.watchable_registry.common import RegistryNodeType
 from test.gui.fake_sdk_client import FakeSDKClient, StubbedWatchableHandle
 from test.gui.base_gui_test import ScrutinyBaseGuiTest, EventType
 import time
@@ -208,7 +209,7 @@ class TestServerManager(ScrutinyBaseGuiTest):
         self.fake_client.server_info = None
         self.server_manager.stop()
         self.wait_server_state(sdk.ServerState.Disconnected)
-        self.assert_events([EventType.SERVER_DISCONNECTED])
+        self.wait_events([EventType.SERVER_DISCONNECTED], timeout=1)
 
     def test_event_datalogger_state_changed(self):
         self.assertEqual(self.event_list, [])
@@ -299,16 +300,16 @@ class TestServerManager(ScrutinyBaseGuiTest):
 
             if cancel_request:
                 req.cancel()
-                self.assertFalse(self.registry.has_data(sdk.WatchableType.RuntimePublishedValue))
-                self.assertFalse(self.registry.has_data(sdk.WatchableType.Alias))
-                self.assertFalse(self.registry.has_data(sdk.WatchableType.Variable))
+                self.assertFalse(self.registry.has_data(RegistryNodeType.RuntimePublishedValue))
+                self.assertFalse(self.registry.has_data(RegistryNodeType.Alias))
+                self.assertFalse(self.registry.has_data(RegistryNodeType.Variable))
             else:
                 req._add_data(sdk.WatchableListContentPart(rpv=DUMMY_DATASET_RPV), done=True)
                 self.fake_client._complete_success_watchable_list_request(req._request_id)
                 self.wait_events_and_clear([EventType.WATCHABLE_REGISTRY_CHANGED], timeout=2)
-                self.assertTrue(self.registry.has_data(sdk.WatchableType.RuntimePublishedValue))
-                self.assertFalse(self.registry.has_data(sdk.WatchableType.Alias))
-                self.assertFalse(self.registry.has_data(sdk.WatchableType.Variable))
+                self.assertTrue(self.registry.has_data(RegistryNodeType.RuntimePublishedValue))
+                self.assertFalse(self.registry.has_data(RegistryNodeType.Alias))
+                self.assertFalse(self.registry.has_data(RegistryNodeType.Variable))
 
             self.fake_client._simulate_device_disconnect()
 
@@ -318,9 +319,9 @@ class TestServerManager(ScrutinyBaseGuiTest):
                 expected_events = [EventType.WATCHABLE_REGISTRY_CHANGED, EventType.DEVICE_DISCONNECTED]
             self.wait_events_and_clear(expected_events, timeout=2, msg=f"cancel_request={cancel_request}")
 
-            self.assertFalse(self.registry.has_data(sdk.WatchableType.RuntimePublishedValue))
-            self.assertFalse(self.registry.has_data(sdk.WatchableType.Alias))
-            self.assertFalse(self.registry.has_data(sdk.WatchableType.Variable))
+            self.assertFalse(self.registry.has_data(RegistryNodeType.RuntimePublishedValue))
+            self.assertFalse(self.registry.has_data(RegistryNodeType.Alias))
+            self.assertFalse(self.registry.has_data(RegistryNodeType.Variable))
 
         self.fake_client.server_info = None
         self.server_manager.stop()
@@ -429,9 +430,9 @@ class TestServerManager(ScrutinyBaseGuiTest):
 
         respond_to_download_requests()
 
-        self.assertTrue(self.registry.has_data(sdk.WatchableType.RuntimePublishedValue))
-        self.assertTrue(self.registry.has_data(sdk.WatchableType.Alias))
-        self.assertTrue(self.registry.has_data(sdk.WatchableType.Variable))
+        self.assertTrue(self.registry.has_data(RegistryNodeType.RuntimePublishedValue))
+        self.assertTrue(self.registry.has_data(RegistryNodeType.Alias))
+        self.assertTrue(self.registry.has_data(RegistryNodeType.Variable))
         # Only the session ID changes.
         # Should trigger a device disconnected + device ready event.
         for i in range(5):
@@ -649,7 +650,7 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
 
     def test_no_request_stacking(self):
         # Make sure that we don't queue useless register/unregister/register/unregister sequence if the UI is faster than the network
-        self.registry._add_watchable('a/b/c', sdk.BriefWatchableConfiguration(
+        self.registry._add_server_watchable('a/b/c', sdk.BriefWatchableConfiguration(
             datatype=sdk.EmbeddedDataType.float32,
             enum=None,
             watchable_type=sdk.WatchableType.Variable
@@ -664,12 +665,12 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
         ui_callback_count = self.server_manager._qt_watch_unwatch_ui_callback_call_count
 
         # Start a new series of watch unwatch.
-        self.registry.watch(watcher1, sdk.WatchableType.Variable, 'a/b/c')
-        self.registry.unwatch(watcher1, sdk.WatchableType.Variable, 'a/b/c')
-        self.registry.watch(watcher1, sdk.WatchableType.Variable, 'a/b/c')
-        self.registry.unwatch(watcher1, sdk.WatchableType.Variable, 'a/b/c')
-        self.registry.watch(watcher1, sdk.WatchableType.Variable, 'a/b/c')
-        self.registry.unwatch(watcher1, sdk.WatchableType.Variable, 'a/b/c')
+        self.registry.watch(watcher1, RegistryNodeType.Variable, 'a/b/c')
+        self.registry.unwatch(watcher1, RegistryNodeType.Variable, 'a/b/c')
+        self.registry.watch(watcher1, RegistryNodeType.Variable, 'a/b/c')
+        self.registry.unwatch(watcher1, RegistryNodeType.Variable, 'a/b/c')
+        self.registry.watch(watcher1, RegistryNodeType.Variable, 'a/b/c')
+        self.registry.unwatch(watcher1, RegistryNodeType.Variable, 'a/b/c')
 
         watch_request = self.get_watch_request(assert_single=True)
         self.assert_no_watch_or_unwatch_request(max_wait=0.5)
@@ -684,12 +685,12 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
         ui_callback_count = self.server_manager._qt_watch_unwatch_ui_callback_call_count
         watchable_config = sdk.BaseDetailedWatchableConfiguration(
             sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None, server_id='xxx', server_path='a/b/c')
-        self.registry.watch(watcher1, sdk.WatchableType.Variable, 'a/b/c')
-        self.registry.unwatch(watcher1, sdk.WatchableType.Variable, 'a/b/c')
-        self.registry.watch(watcher1, sdk.WatchableType.Variable, 'a/b/c')
-        self.registry.unwatch(watcher1, sdk.WatchableType.Variable, 'a/b/c')
-        self.registry.watch(watcher1, sdk.WatchableType.Variable, 'a/b/c')
-        self.registry.unwatch(watcher1, sdk.WatchableType.Variable, 'a/b/c')
+        self.registry.watch(watcher1, RegistryNodeType.Variable, 'a/b/c')
+        self.registry.unwatch(watcher1, RegistryNodeType.Variable, 'a/b/c')
+        self.registry.watch(watcher1, RegistryNodeType.Variable, 'a/b/c')
+        self.registry.unwatch(watcher1, RegistryNodeType.Variable, 'a/b/c')
+        self.registry.watch(watcher1, RegistryNodeType.Variable, 'a/b/c')
+        self.registry.unwatch(watcher1, RegistryNodeType.Variable, 'a/b/c')
 
         watch_request = self.get_watch_request(assert_single=True)
         self.assert_no_watch_or_unwatch_request(max_wait=0.5)
@@ -703,7 +704,7 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
         self.assert_no_watch_or_unwatch_request(max_wait=0.5)
 
     def test_no_stacking_with_multiple_watchers(self):
-        self.registry._add_watchable('a/b/c', sdk.BriefWatchableConfiguration(
+        self.registry._add_server_watchable('a/b/c', sdk.BriefWatchableConfiguration(
             datatype=sdk.EmbeddedDataType.float32,
             enum=None,
             watchable_type=sdk.WatchableType.Variable
@@ -717,9 +718,9 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
         self.registry.register_watcher(watcher3, lambda *x, **y: None, lambda *x, **y: None)
 
         # Watch request comes in faster than network. No server request stacking should happen
-        self.registry.watch(watcher1, sdk.WatchableType.Variable, 'a/b/c')
-        self.registry.watch(watcher2, sdk.WatchableType.Variable, 'a/b/c')
-        self.assertEqual(self.registry.node_watcher_count(sdk.WatchableType.Variable, 'a/b/c'), 2)   # independent of network request status
+        self.registry.watch(watcher1, RegistryNodeType.Variable, 'a/b/c')
+        self.registry.watch(watcher2, RegistryNodeType.Variable, 'a/b/c')
+        self.assertEqual(self.registry.node_watcher_count(RegistryNodeType.Variable, 'a/b/c'), 2)   # independent of network request status
 
         call_count = self.server_manager._qt_watch_unwatch_ui_callback_call_count
         request1 = self.get_watch_request(assert_single=True)
@@ -727,23 +728,23 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
         request1.simulate_failure()  # Should stay unwatched
         self.wait_true_with_events(lambda: call_count != self.server_manager._qt_watch_unwatch_ui_callback_call_count, timeout=2)
 
-        self.registry.watch(watcher3, sdk.WatchableType.Variable, 'a/b/c')  # Will trigger a retry
+        self.registry.watch(watcher3, RegistryNodeType.Variable, 'a/b/c')  # Will trigger a retry
 
         request2 = self.get_watch_request(assert_single=True)
         self.assert_no_watch_request(max_wait=0.5)
         some_watchable_config = sdk.BaseDetailedWatchableConfiguration(
-            server_id='aaa', watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None, server_path='a/b/c')
+            server_id='aaa', watchable_type=RegistryNodeType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None, server_path='a/b/c')
 
         call_count = self.server_manager._qt_watch_unwatch_ui_callback_call_count
         request2.simulate_success(some_watchable_config)
         self.wait_true_with_events(lambda: call_count != self.server_manager._qt_watch_unwatch_ui_callback_call_count, timeout=2)
 
         # We have 3 watchers here.
-        self.assertEqual(self.registry.node_watcher_count(sdk.WatchableType.Variable, 'a/b/c'), 3)
-        self.registry.unwatch(watcher1, sdk.WatchableType.Variable, 'a/b/c')    # No effect. 2 remaining
-        self.registry.unwatch(watcher2, sdk.WatchableType.Variable, 'a/b/c')    # No effect. 1 remaining
+        self.assertEqual(self.registry.node_watcher_count(RegistryNodeType.Variable, 'a/b/c'), 3)
+        self.registry.unwatch(watcher1, RegistryNodeType.Variable, 'a/b/c')    # No effect. 2 remaining
+        self.registry.unwatch(watcher2, RegistryNodeType.Variable, 'a/b/c')    # No effect. 1 remaining
 
-        self.registry.unwatch(watcher3, sdk.WatchableType.Variable, 'a/b/c')  # Should trigger a unwatch to the server
+        self.registry.unwatch(watcher3, RegistryNodeType.Variable, 'a/b/c')  # Should trigger a unwatch to the server
         request1 = self.get_unwatch_request(assert_single=True)
         self.assert_no_unwatch_request(max_wait=0.5)
         call_count = self.server_manager._qt_watch_unwatch_ui_callback_call_count
@@ -752,8 +753,8 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
 
         # Registry now consider that watcher3 is not listening, but the client is still subscribed
         # The following watch will cause the registry to consider watcher3 as a watcher, but will not trigger a request to the server
-        self.registry.watch(watcher3, sdk.WatchableType.Variable, 'a/b/c')
-        self.registry.unwatch(watcher3, sdk.WatchableType.Variable, 'a/b/c')
+        self.registry.watch(watcher3, RegistryNodeType.Variable, 'a/b/c')
+        self.registry.unwatch(watcher3, RegistryNodeType.Variable, 'a/b/c')
         request3 = self.get_unwatch_request(assert_single=True)
         self.assert_no_unwatch_request(max_wait=0.5)
 
@@ -762,7 +763,7 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
         self.wait_true_with_events(lambda: call_count != self.server_manager._qt_watch_unwatch_ui_callback_call_count, timeout=2)
 
         self.assert_no_unwatch_request(max_wait=0.5)
-        self.assertEqual(self.registry.node_watcher_count(sdk.WatchableType.Variable, 'a/b/c'), 0)
+        self.assertEqual(self.registry.node_watcher_count(RegistryNodeType.Variable, 'a/b/c'), 0)
 
     def test_data_reaches_watchers(self):
         # Simulate a value update broadcast by the client.
@@ -776,7 +777,7 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
             server_id='aaa',
             server_path=varpath)
 
-        self.registry._add_watchable(varpath, watch1_config)
+        self.registry._add_server_watchable(varpath, watch1_config)
         all_updates = []
 
         def callback(watcher, updates):
@@ -784,7 +785,7 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
                 all_updates.append(update)
 
         self.registry.register_watcher('hello', callback, lambda *x, **y: None)
-        self.registry.watch('hello', watch1_config.watchable_type, varpath)
+        self.registry.watch('hello', RegistryNodeType.from_sdk(watch1_config.watchable_type), varpath)
 
         watch_request = self.get_watch_request(assert_single=True)
         watch_request.simulate_success(watch1_config)
@@ -813,7 +814,7 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
             server_id='aaa',
             server_path=varpath)
 
-        self.registry._add_watchable(varpath, watch1_config)
+        self.registry._add_server_watchable(varpath, watch1_config)
 
         self.assertIsNone(self.registry.get_server_id(watch1_config.watchable_type, varpath))
 
@@ -821,14 +822,14 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
         self.registry.register_watcher('watcher1', noop_callback, noop_callback)
         self.registry.register_watcher('watcher2', noop_callback, noop_callback)
 
-        self.registry.watch('watcher1', watch1_config.watchable_type, varpath)
+        self.registry.watch('watcher1', RegistryNodeType.from_sdk(watch1_config.watchable_type), varpath)
         watch_request = self.get_watch_request(assert_single=True)
         watch_request.simulate_success(watch1_config)
         self.wait_true_with_events(lambda: self.registry.get_server_id(watch1_config.watchable_type, varpath) is not None, 2)
 
         self.assertEqual(self.registry.get_server_id(watch1_config.watchable_type, varpath), 'aaa')
 
-        self.registry.watch('watcher2', watch1_config.watchable_type, varpath)
+        self.registry.watch('watcher2', RegistryNodeType.from_sdk(watch1_config.watchable_type), varpath)
         self.assertIsNone(self.get_watch_request(timeout=0.5, allow_none=True))  # Shouldn't do a 2nd request
 
         self.assertEqual(self.registry.get_server_id(watch1_config.watchable_type, varpath), 'aaa')  # Still there
@@ -842,7 +843,7 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
         self.wait_true_with_events(lambda: self.registry.get_server_id(watch1_config.watchable_type, varpath) is None, 2)
 
     def test_update_rate_management(self):
-        self.registry._add_watchable('a/b/c', sdk.BriefWatchableConfiguration(
+        self.registry._add_server_watchable('a/b/c', sdk.BriefWatchableConfiguration(
             datatype=sdk.EmbeddedDataType.float32,
             enum=None,
             watchable_type=sdk.WatchableType.Variable
@@ -859,7 +860,7 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
         self.registry.register_watcher(watcher3, lambda *x, **y: None, lambda *x, **y: None)
 
         with self.subTest("Second watch uses change_update_rate"):
-            self.registry.watch(watcher1, sdk.WatchableType.Variable, 'a/b/c', update_rate=10)
+            self.registry.watch(watcher1, RegistryNodeType.Variable, 'a/b/c', update_rate=10)
 
             request1 = self.get_watch_request(assert_single=True)
             self.assertEqual(request1.update_rate, 10)
@@ -869,21 +870,21 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
             self.wait_true_with_events(lambda: call_count != self.server_manager._qt_watch_unwatch_ui_callback_call_count, timeout=2)
 
             # Second watch does not cause a watch request, it cause an update rate change
-            self.registry.watch(watcher2, sdk.WatchableType.Variable, 'a/b/c', update_rate=20)
+            self.registry.watch(watcher2, RegistryNodeType.Variable, 'a/b/c', update_rate=20)
             change_request = self.get_change_update_rate_request(assert_single=True)
             self.assertEqual(change_request.requested_rate, 20)
             change_request.simulate_success()
 
-            self.registry.unwatch(watcher2, sdk.WatchableType.Variable, 'a/b/c')
+            self.registry.unwatch(watcher2, RegistryNodeType.Variable, 'a/b/c')
             change_request = self.get_change_update_rate_request(assert_single=True)
             self.assertEqual(change_request.requested_rate, 10)
             change_request.simulate_success()
 
         with self.subTest("Unwatch rewatch keep update rate"):
             # Unwatch, then rewatch before unwatch complete with a new update rate. Expect we don't loose it
-            self.registry.unwatch(watcher1, sdk.WatchableType.Variable, 'a/b/c')
+            self.registry.unwatch(watcher1, RegistryNodeType.Variable, 'a/b/c')
             unwatch_request = self.get_unwatch_request(assert_single=True)
-            self.registry.watch(watcher1, sdk.WatchableType.Variable, 'a/b/c', update_rate=50)
+            self.registry.watch(watcher1, RegistryNodeType.Variable, 'a/b/c', update_rate=50)
             self.assertEqual(len(self.fake_client._pending_watch_request), 0)  # The rewatch request is pending in the server manager
             call_count = self.server_manager._qt_watch_unwatch_ui_callback_call_count
             unwatch_request.simulate_success()
@@ -896,12 +897,12 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
             rewatch_request.simulate_success(watchable_config)
             self.wait_true_with_events(lambda: call_count != self.server_manager._qt_watch_unwatch_ui_callback_call_count, timeout=2)
 
-            self.registry.unwatch(watcher1, sdk.WatchableType.Variable, 'a/b/c')
+            self.registry.unwatch(watcher1, RegistryNodeType.Variable, 'a/b/c')
             unwatch_request = self.get_unwatch_request(assert_single=True)
             unwatch_request.simulate_success()
 
     def test_update_rate_not_lost_with_fast_watches(self):
-        self.registry._add_watchable('a/b/c', sdk.BriefWatchableConfiguration(
+        self.registry._add_server_watchable('a/b/c', sdk.BriefWatchableConfiguration(
             datatype=sdk.EmbeddedDataType.float32,
             enum=None,
             watchable_type=sdk.WatchableType.Variable
@@ -921,10 +922,10 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
 
         # Now check that we can stack several subscribe without losing the update rates
         with self.subTest("Stacked watch does not loose udpate rate"):
-            self.registry.watch(watcher1, sdk.WatchableType.Variable, 'a/b/c', update_rate=10)
-            self.registry.watch(watcher2, sdk.WatchableType.Variable, 'a/b/c', update_rate=20)
-            self.registry.watch(watcher3, sdk.WatchableType.Variable, 'a/b/c', update_rate=30)
-            self.registry.watch(watcher4, sdk.WatchableType.Variable, 'a/b/c', update_rate=25)
+            self.registry.watch(watcher1, RegistryNodeType.Variable, 'a/b/c', update_rate=10)
+            self.registry.watch(watcher2, RegistryNodeType.Variable, 'a/b/c', update_rate=20)
+            self.registry.watch(watcher3, RegistryNodeType.Variable, 'a/b/c', update_rate=30)
+            self.registry.watch(watcher4, RegistryNodeType.Variable, 'a/b/c', update_rate=25)
 
             watch_request = self.get_watch_request(assert_single=True)
             self.assertEqual(watch_request.update_rate, 10)
@@ -945,14 +946,14 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
 
         nb_element = reactor.queue_max_size() * 2
         for i in range(nb_element):
-            self.registry._add_watchable(f'a/b/c{i}', sdk.BriefWatchableConfiguration(
+            self.registry._add_server_watchable(f'a/b/c{i}', sdk.BriefWatchableConfiguration(
                 datatype=sdk.EmbeddedDataType.float32,
                 enum=None,
                 watchable_type=sdk.WatchableType.Variable
             ))
 
         for i in range(nb_element):
-            self.registry.watch(watcher, sdk.WatchableType.Variable, f'a/b/c{i}')
+            self.registry.watch(watcher, RegistryNodeType.Variable, f'a/b/c{i}')
 
         THRESHOLD = int(reactor.queue_max_size() * (1 - self.server_manager.SUBSCRIPTION_REQUEST_MAX_QUEUE_PERCENT)) - 1
         self.wait_true_with_events(lambda: reactor.available_space() < THRESHOLD, timeout=1, no_assert=True)
@@ -992,12 +993,12 @@ class TestServerManagerRegistryInteraction(ScrutinyBaseGuiTest):
         watcher = 'unittest'
         self.registry.register_watcher(watcher, lambda *x, **y: None, lambda *x, **y: None)
 
-        self.registry._add_watchable('a/b/c', sdk.BriefWatchableConfiguration(
+        self.registry._add_server_watchable('a/b/c', sdk.BriefWatchableConfiguration(
             datatype=sdk.EmbeddedDataType.float32,
             enum=None,
             watchable_type=sdk.WatchableType.Variable
         ))
-        self.registry.watch(watcher, sdk.WatchableType.Variable, 'a/b/c')
+        self.registry.watch(watcher, RegistryNodeType.Variable, 'a/b/c')
         request = self.get_watch_request(assert_single=False)
         self.assertIsNotNone(request)
         request.simulate_failure()

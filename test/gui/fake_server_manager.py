@@ -175,9 +175,9 @@ class FakeServerManager:
             return
         self._device_connected = True
         self._signals.device_ready.emit()
-        self.registry.clear_content_by_type(RegistryNodeType.RuntimePublishedValue)
-        self.registry.write_content({
-            RegistryNodeType.RuntimePublishedValue: DUMMY_DATASET_RPV
+        self.registry.clear_server_content_by_type(sdk.WatchableType.RuntimePublishedValue)
+        self.registry.write_server_content({
+            sdk.WatchableType.RuntimePublishedValue: DUMMY_DATASET_RPV
         })
 
         for path, config in DUMMY_DATASET_RPV.items():
@@ -191,7 +191,7 @@ class FakeServerManager:
             return
         self._device_connected = False
         self._signals.device_disconnected.emit()
-        self.registry.clear_content_by_type(RegistryNodeType.RuntimePublishedValue)
+        self.registry.clear_server_content_by_type(sdk.WatchableType.RuntimePublishedValue)
         self._signals.registry_changed.emit()
 
     def simulate_sfd_loaded(self) -> None:
@@ -199,11 +199,11 @@ class FakeServerManager:
             return
         self._sfd_loaded = True
         self._signals.sfd_loaded.emit()
-        self.registry.clear_content_by_type(RegistryNodeType.Alias)
-        self.registry.clear_content_by_type(RegistryNodeType.Variable)
-        self.registry.write_content({
-            RegistryNodeType.Variable: DUMMY_DATASET_VAR,
-            RegistryNodeType.Alias: DUMMY_DATASET_ALIAS,
+        self.registry.clear_server_content_by_type(sdk.WatchableType.Alias)
+        self.registry.clear_server_content_by_type(sdk.WatchableType.Variable)
+        self.registry.write_server_content({
+            sdk.WatchableType.Variable: DUMMY_DATASET_VAR,
+            sdk.WatchableType.Alias: DUMMY_DATASET_ALIAS,
         })
 
         for dataset in [DUMMY_DATASET_VAR, DUMMY_DATASET_ALIAS]:
@@ -218,8 +218,8 @@ class FakeServerManager:
             return
         self._sfd_loaded = False
         self._signals.sfd_unloaded.emit()
-        self.registry.clear_content_by_type(RegistryNodeType.Alias)
-        self.registry.clear_content_by_type(RegistryNodeType.Variable)
+        self.registry.clear_server_content_by_type(sdk.WatchableType.Alias)
+        self.registry.clear_server_content_by_type(sdk.WatchableType.Variable)
         self._signals.registry_changed.emit()
 
     def get_server_state(self) -> sdk.ServerState:
@@ -279,7 +279,7 @@ class FakeServerManager:
 
             update = ValueUpdate(handle, value, data=bytes([1, 2, 3]), status=status, update_timestamp=datetime.now())
             updates.append(update)
-        self._registry.broadcast_value_updates_to_watchers(updates)
+        self._registry.broadcast_server_value_updates_to_watchers(updates)
 
     def get_write_history(self) -> List[WriteLog]:
         return self._write_history
@@ -290,4 +290,4 @@ class FakeServerManager:
                                  status: ValueStatus = ValueStatus.Valid):
         handle = self._handles[server_path]
         update = ValueUpdate(handle, value, data=bytes([1, 2, 3]), status=status, update_timestamp=datetime.now())
-        self._registry.broadcast_value_updates_to_watchers([update])
+        self._registry.broadcast_server_value_updates_to_watchers([update])

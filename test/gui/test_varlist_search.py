@@ -41,10 +41,10 @@ class TestVarlistSearch(ScrutinyBaseGuiTest):
     def setUp(self) -> None:
         super().setUp()
         self.registry = WatchableRegistry()
-        self.registry.write_content({
-            RegistryNodeType.Variable: DUMMY_DATASET_VAR,
-            RegistryNodeType.Alias: DUMMY_DATASET_ALIAS,
-            RegistryNodeType.RuntimePublishedValue: DUMMY_DATASET_RPV
+        self.registry.write_server_content({
+            sdk.WatchableType.Variable: DUMMY_DATASET_VAR,
+            sdk.WatchableType.Alias: DUMMY_DATASET_ALIAS,
+            sdk.WatchableType.RuntimePublishedValue: DUMMY_DATASET_RPV
         })
         self.main_window = QMainWindow()
         self.search_widget = SearchResultWidget(self.main_window, self.registry)

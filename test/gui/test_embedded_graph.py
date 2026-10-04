@@ -70,14 +70,14 @@ class TestEmbeddedGraph(ScrutinyBaseGuiTest):
         )
 
         self.registry = WatchableRegistry()
-        self.registry.write_content({
-            RegistryNodeType.Alias: {
+        self.registry.write_server_content({
+            WatchableType.Alias: {
                 '/my_var': BriefWatchableConfiguration(WatchableType.Variable, EmbeddedDataType.float32, enum=None)
             },
-            RegistryNodeType.RuntimePublishedValue: {
+            WatchableType.RuntimePublishedValue: {
                 '/my_rpva': BriefWatchableConfiguration(WatchableType.RuntimePublishedValue, EmbeddedDataType.float32, enum=None)
             },
-            RegistryNodeType.Variable: {
+            WatchableType.Variable: {
                 '/my_alias': BriefWatchableConfiguration(WatchableType.Alias, EmbeddedDataType.float32, enum=None),
             },
         })
