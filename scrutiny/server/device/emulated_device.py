@@ -272,7 +272,7 @@ class DataloggerEmulator:
         if self.config is None:
             raise ValueError('Invalid configuration')
 
-        samples: List["DataloggerEmulator".SampleType] = []
+        samples: List["DataloggerEmulator.SampleType"] = []
         for signal in self.config.get_signals():
             if isinstance(signal, device_datalogging.MemoryLoggableSignal):
                 samples.append(DataloggerEmulator.MemorySample(data=self.device.read_memory(signal.address, signal.size)))
