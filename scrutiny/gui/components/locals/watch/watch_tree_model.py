@@ -883,10 +883,14 @@ class WatchComponentTreeModel(WatchableTreeModel):
 
                 parent = self.itemFromIndex(parent_index)
                 if node['type'] == 'folder':
+                    if not parsed_fqn.node_type.is_server_node():
+                        self.logger.error(f"VarList drop cannot contain nodes of type {parsed_fqn.node_type}")
+                        continue
                     folder_row = self.make_folder_row(node['text'], fqn=None, editable=True)
                     first_col = cast(BaseWatchableRegistryTreeStandardItem, folder_row[0])
                     self.add_row_to_parent(parent, row_index, folder_row)
-                    self.fill_from_index_recursive(first_col, parsed_fqn.node_type, parsed_fqn.path, keep_folder_fqn=False, editable=True)
+                    self.fill_server_nodes_from_registry_recursive(
+                        first_col, parsed_fqn.node_type.to_sdk(), parsed_fqn.path, keep_folder_fqn=False, editable=True)
                     # No need to call update_row_state() here as the content comes directly from varlist so it's available.
 
                 elif node['type'] == 'watchable':
@@ -1041,7 +1045,7 @@ class WatchComponentTreeModel(WatchableTreeModel):
         """Change the availability of an item based on its availability in the registry.
         When the watchable referred by an element is not in the registry, becomes "unavailable" (grayed out).
         """
-        watchable_node = self._watchable_registry.get_watchable_node_fqn(watchable_item.fqn)
+        watchable_node = self._watchable_registry.get_server_watchable_node_fqn(watchable_item.fqn)  # TODO : Math
         node_config = watchable_node.configuration if watchable_node is not None else None
         if node_config is not None:
             self.set_available(watchable_item, node_config)

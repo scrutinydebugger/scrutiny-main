@@ -74,7 +74,8 @@ class VarListComponentTreeModel(WatchableTreeModel):
             fqn = node.fqn
             assert fqn is not None  # All data is coming from the index, so it has an Fully Qualified Name
             parsed_fqn = FQN.parse(fqn)
-            self.lazy_load(node, parsed_fqn.node_type, parsed_fqn.path)
+            if parsed_fqn.node_type.is_server_node():
+                self.lazy_load(node, parsed_fqn.node_type.to_sdk(), parsed_fqn.path)
 
     def find_item_by_fqn(self, fqn: str) -> Optional[BaseWatchableRegistryTreeStandardItem]:
         """Find an item in the model using the Watchable registry.

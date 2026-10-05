@@ -1120,8 +1120,8 @@ class TestWorkZone(HMIComponentBaseTest):
         self.assertEqual(circle2.zValue(), 3)
 
     def test_register_with_visibility(self):
-        self.app_interface.watchable_registry.write_content({
-            RegistryNodeType.Variable: {
+        self.app_interface.watchable_registry.write_server_content({
+            sdk.WatchableType.Variable: {
                 '/var/aaa': sdk.BriefWatchableConfiguration(sdk.WatchableType.Variable, sdk.EmbeddedDataType.float32, enum=None),
                 '/var/bbb': sdk.BriefWatchableConfiguration(sdk.WatchableType.Variable, sdk.EmbeddedDataType.float32, enum=None)
             }

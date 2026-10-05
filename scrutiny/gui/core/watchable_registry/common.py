@@ -9,6 +9,7 @@
 __all__ = [
     'WatcherIdType',
     'RegistryValueUpdate',
+    'RegistryNodeConfiguration',
     'GlobalWatchCallbackData',
     'WatcherValueUpdateCallback',
     'UnwatchCallback',
@@ -38,6 +39,13 @@ class RegistryNodeType(str, enum.Enum):
 
     def to_sdk(self) -> sdk.WatchableType:
         return sdk.WatchableType(self.value)
+
+    def is_server_node(self) -> bool:
+        try:
+            self.to_sdk()
+            return True
+        except Exception:
+            return False
 
 
 @dataclass(slots=True)

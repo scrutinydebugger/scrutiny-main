@@ -24,6 +24,7 @@ __all__ = [
 from PySide6.QtGui import QStandardItem, QIcon, QKeyEvent
 from PySide6.QtWidgets import QWidget
 from PySide6.QtCore import Qt, QModelIndex
+from scrutiny import sdk
 from scrutiny.gui import assets
 from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
 from scrutiny.gui.core.watchable_registry.nodes import WatchableRegistryIntermediateNode
@@ -332,7 +333,7 @@ class WatchableTreeModel(BaseTreeModel):
         self.folder_item_created(item)
         return self.make_folder_row_existing_item(item, editable)
 
-    def lazy_load(self, parent: BaseWatchableRegistryTreeStandardItem, node_type: RegistryNodeType, path: str) -> None:
+    def lazy_load(self, parent: BaseWatchableRegistryTreeStandardItem, watchable_type: sdk.WatchableType, path: str) -> None:
         """Lazy load a everything under a parent based on the content of the watchable registry
 
         :param parent: The parent containing the nodes to be loaded
@@ -340,29 +341,30 @@ class WatchableTreeModel(BaseTreeModel):
         :param path: The WatchableRegistry path
 
         """
-        self.fill_from_index_recursive(parent, node_type, path, max_level=0)
+        self.fill_server_nodes_from_registry_recursive(parent, watchable_type, path, max_level=0)
 
-    def fill_from_index_recursive(self,
-                                  parent: BaseWatchableRegistryTreeStandardItem,
-                                  node_type: RegistryNodeType,
-                                  path: str,
-                                  max_level: Optional[int] = None,
-                                  keep_folder_fqn: bool = True,
-                                  editable: bool = False,
-                                  level: int = 0
-                                  ) -> None:
+    def fill_server_nodes_from_registry_recursive(self,
+                                                  parent: BaseWatchableRegistryTreeStandardItem,
+                                                  watchable_type: sdk.WatchableType,
+                                                  path: str,
+                                                  max_level: Optional[int] = None,
+                                                  keep_folder_fqn: bool = True,
+                                                  editable: bool = False,
+                                                  level: int = 0
+                                                  ) -> None:
         """Fill the data model from folders and watchable based on the content of the WatchableRegistry
 
         :param parent: The node to fill
-        :param node_type: The type of watchable of the parent to query the WatchableRegistry
+        :param watchable_type: The type of watchable of the parent to query the WatchableRegistry
         :param path: The WatchableRegistry path mapping to the parent.
         :param max_level: The maximum number of nested children. ``None`` for no limit
         :param keep_folder_fqn: Indicate if the Fully Qualified Name taken from  WatchableRegistry should be assigned to folder nodes created
         :param editable: Makes the new nodes editable by the GUI
         :param level: internal parameter to keep track of recursion. The user should leave to default
         """
+        node_type = RegistryNodeType.from_sdk(watchable_type)
         parent.set_loaded()
-        content = self._watchable_registry.read(node_type, path)
+        content = self._watchable_registry.read_server_storage(watchable_type, path)
         if not isinstance(content, WatchableRegistryIntermediateNode):  # Equivalent to a folder
             return
 
@@ -406,9 +408,9 @@ class WatchableTreeModel(BaseTreeModel):
 
         if max_level is None or level < max_level:
             for subtree_path, folder_row in folder_rows:
-                self.fill_from_index_recursive(
+                self.fill_server_nodes_from_registry_recursive(
                     parent=cast(BaseWatchableRegistryTreeStandardItem, folder_row[0]),
-                    node_type=node_type,
+                    watchable_type=watchable_type,
                     path=subtree_path,
                     editable=editable,
                     max_level=max_level,
