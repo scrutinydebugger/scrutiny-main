@@ -35,6 +35,7 @@ from scrutiny.gui.components.globals.metrics.metrics_component import MetricsCom
 from scrutiny.gui.component_app_interface import AbstractComponentAppInterface
 
 from scrutiny.gui.dashboard import dashboard_file_format
+from scrutiny.gui.dashboard.qtads_base_factory import QtADSBaseFactory
 from scrutiny.gui.app_settings import app_settings
 from scrutiny.gui.core.persistent_data import gui_persistent_data
 from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
@@ -248,7 +249,9 @@ class ScrutinyDockWidgetTab(QtAds.CDockWidgetTab):
             menu.exec_and_disconnect_triggered(self.mapToGlobal(event.pos()))
 
 
-class CustomFactory(QtAds.CDockComponentsFactory):
+# Very improtant to use QtADSBaseFactory as base class.
+# QTAds 5.1.1 as a lifetime issue in deletor
+class CustomFactory(QtADSBaseFactory):
     """This class instruct QTads how to create the components used in the dashboard.
     Require additional handling because QTAds does not keep ownership of the element it creates. we need to manage the reference
     lifetime in python"""
@@ -328,7 +331,7 @@ class Dashboard(QWidget):
         QtAds.CDockManager.setConfigFlag(QtAds.CDockManager.XmlCompressionEnabled, False)
         QtAds.CDockManager.setAutoHideConfigFlags(QtAds.CDockManager.DefaultAutoHideConfig)
         self._dock_manager = QtAds.CDockManager(dock_conainer)
-        self._factory = CustomFactory()
+        self._factory = CustomFactory.make()    # This helper prevent a lifetime issue that can segfault
         self._dock_manager.setComponentsFactory(self._factory)   # Set before the dock manager is created
         self._dock_manager.setStyleSheet("")
 

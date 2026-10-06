@@ -14,11 +14,13 @@ from PySide6.QtWidgets import QWidget, QApplication
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon
 
+from test import logger
 from test.gui.base_gui_test import ScrutinyBaseGuiTest
 from test.gui.fake_server_manager import FakeServerManager
 from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
 from scrutiny.tools.typing import *
 from scrutiny.gui.dashboard.dashboard import Dashboard
+from scrutiny.gui.dashboard.qtads_base_factory import QtADSBaseFactory
 
 from scrutiny.gui.components.globals.base_global_component import ScrutinyGUIBaseGlobalComponent
 from scrutiny.gui.components.locals.base_local_component import ScrutinyGUIBaseLocalComponent
@@ -43,8 +45,19 @@ class TestAutoHideTab(QtAds.ads.CAutoHideTab):
     pass
 
 
-class TestFactory(QtAds.CDockComponentsFactory):
-    pass
+class BaseDockManagerForTest(QtAds.CDockManager):
+
+    def __del__(self):
+        logger.debug(f"{self.__class__.__name__}:__del__")
+        for handler in logger.handlers:
+            handler.flush()
+
+class TestFactory(QtADSBaseFactory):
+
+    def __del__(self):
+        logger.debug(f"{self.__class__.__name__}:__del__")
+        for handler in logger.handlers:
+            handler.flush()
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
@@ -477,7 +490,7 @@ class TestDashboard(ScrutinyBaseGuiTest):
     def test_ads_bug_739(self):
         QtAds.CDockManager.setAutoHideConfigFlags(QtAds.CDockManager.DefaultAutoHideConfig)
         dock_conainer = QWidget()
-        dock_manager = QtAds.CDockManager(dock_conainer)
+        dock_manager = BaseDockManagerForTest(dock_conainer)
         dock_widget = QtAds.CDockWidget(dock_manager, "foo")
         dock_manager.addAutoHideDockWidget(QtAds.SideBarRight, dock_widget)
         self.assertFalse(dock_widget.isFloating())
@@ -521,13 +534,11 @@ class TestDashboard(ScrutinyBaseGuiTest):
 
     def test_ads_bug_847_find_dock_widget(self):
         container = QWidget()
-        dock_manager = QtAds.CDockManager(container)
-        factory = TestFactory()
-        dock_manager.setComponentsFactory(factory)  # Removes this and it's fine!
+        dock_manager = BaseDockManagerForTest(container)
+        dock_manager.setComponentsFactory(TestFactory.make())  # Removes this and it's fine!
         dw1 = TestDockWidget(dock_manager, "dw1")
         dock_manager.addDockWidget(QtAds.TopDockWidgetArea, dw1)
         dw2 = dock_manager.findDockWidget("dw1")
-
         # https://github.com/githubuser0xFFFF/Qt-Advanced-Docking-System/issues/847
         self.assertIs(dw1, dw2, "Bad PySide6 binding, Check ADS Bug #847")  # Fails with 4.5.0.5 and PySide6.10+.  Should be the same.
 
@@ -538,9 +549,8 @@ class TestDashboard(ScrutinyBaseGuiTest):
             dw_received.append(dw)
 
         container = QWidget()
-        dock_manager = QtAds.CDockManager(container)
-        factory = TestFactory()
-        dock_manager.setComponentsFactory(factory)  # Removes this and it's fine!
+        dock_manager = BaseDockManagerForTest(container)
+        dock_manager.setComponentsFactory(TestFactory.make())  # Removes this and it's fine!
         dock_manager.dockWidgetAboutToBeRemoved.connect(about_to_be_remove_slot)
         dw1 = TestDockWidget(dock_manager, "dw1")
         dock_manager.addDockWidget(QtAds.TopDockWidgetArea, dw1)
