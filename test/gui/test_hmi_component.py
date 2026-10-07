@@ -614,10 +614,10 @@ class TestWorkZone(HMIComponentBaseTest):
                 int(w.pos().y() + w.get_size().height() / 2),
             )
 
-        down_event = QMouseEvent(QEvent.Type.MouseButtonPress, get_center(circle1),
+        down_event = QMouseEvent(QEvent.Type.MouseButtonPress, get_center(circle1), get_center(circle1),
                                  Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
                                  )
-        up_event = QMouseEvent(QEvent.Type.MouseButtonRelease, get_center(circle1),
+        up_event = QMouseEvent(QEvent.Type.MouseButtonRelease, get_center(circle1), get_center(circle1),
                                Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
                                )
         workzone.mousePressEvent(down_event)
@@ -625,10 +625,10 @@ class TestWorkZone(HMIComponentBaseTest):
         self.assertEqual(len(selection_change_call_list), 1)
         self.assertEqual(selection_change_call_list[0], [circle1])
 
-        down_event = QMouseEvent(QEvent.Type.MouseButtonPress, get_center(circle2),
+        down_event = QMouseEvent(QEvent.Type.MouseButtonPress, get_center(circle2), get_center(circle2),
                                  Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
                                  )
-        up_event = QMouseEvent(QEvent.Type.MouseButtonRelease, get_center(circle2),
+        up_event = QMouseEvent(QEvent.Type.MouseButtonRelease, get_center(circle2), get_center(circle2),
                                Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
                                )
         workzone.mousePressEvent(down_event)
@@ -636,10 +636,10 @@ class TestWorkZone(HMIComponentBaseTest):
         self.assertEqual(len(selection_change_call_list), 2)
         self.assertEqual(selection_change_call_list[1], [circle2])
 
-        down_event = QMouseEvent(QEvent.Type.MouseButtonPress, get_center(circle3),
+        down_event = QMouseEvent(QEvent.Type.MouseButtonPress, get_center(circle3), get_center(circle3),
                                  Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.ControlModifier
                                  )
-        up_event = QMouseEvent(QEvent.Type.MouseButtonRelease, get_center(circle3),
+        up_event = QMouseEvent(QEvent.Type.MouseButtonRelease, get_center(circle3), get_center(circle3),
                                Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.ControlModifier
                                )
         workzone.mousePressEvent(down_event)
@@ -660,10 +660,10 @@ class TestWorkZone(HMIComponentBaseTest):
 
         # Check if click in grid deselect
         workzone.select_widgets([circle1, circle2, circle3])
-        down_event = QMouseEvent(QEvent.Type.MouseButtonPress, QPoint(256, 256),
+        down_event = QMouseEvent(QEvent.Type.MouseButtonPress, QPoint(256, 256), QPoint(256, 256),
                                  Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.ControlModifier
                                  )
-        up_event = QMouseEvent(QEvent.Type.MouseButtonRelease, QPoint(256, 256),
+        up_event = QMouseEvent(QEvent.Type.MouseButtonRelease, QPoint(256, 256), QPoint(256, 256),
                                Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.ControlModifier
                                )
         workzone.mousePressEvent(down_event)    # Click empty region
@@ -722,13 +722,13 @@ class TestWorkZone(HMIComponentBaseTest):
         self.hmi_component.add_hmi_widget(circle2, QPoint(32, 16))
         self.hmi_component.add_hmi_widget(circle3, QPoint(64, 64))
 
-        down_event = QMouseEvent(QEvent.Type.MouseButtonPress, QPoint(15, 15),
+        down_event = QMouseEvent(QEvent.Type.MouseButtonPress, QPoint(15, 15), QPoint(15, 15),
                                  Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
                                  )
-        move_event = QMouseEvent(QEvent.Type.MouseButtonPress, QPoint(32 + 16 + 1, 32 + 16 + 1),
+        move_event = QMouseEvent(QEvent.Type.MouseButtonPress, QPoint(32 + 16 + 1, 32 + 16 + 1), QPoint(32 + 16 + 1, 32 + 16 + 1),
                                  Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
                                  )
-        up_event = QMouseEvent(QEvent.Type.MouseButtonRelease, QPoint(32 + 16 + 1, 32 + 16 + 1),
+        up_event = QMouseEvent(QEvent.Type.MouseButtonRelease, QPoint(32 + 16 + 1, 32 + 16 + 1), QPoint(32 + 16 + 1, 32 + 16 + 1),
                                Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
                                )
 
@@ -778,13 +778,13 @@ class TestWorkZone(HMIComponentBaseTest):
             circle.set_size(QSize(initial_w, initial_h))
             start_pos = func(circle)
             before_unchanged_point = unchanged_point(circle)
-            down_event = QMouseEvent(QEvent.Type.MouseButtonPress, start_pos,
+            down_event = QMouseEvent(QEvent.Type.MouseButtonPress, start_pos, start_pos,
                                      Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
                                      )
-            move_event = QMouseEvent(QEvent.Type.MouseButtonPress, start_pos + delta_move,
+            move_event = QMouseEvent(QEvent.Type.MouseButtonPress, start_pos + delta_move, start_pos + delta_move,
                                      Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
                                      )
-            up_event = QMouseEvent(QEvent.Type.MouseButtonRelease, start_pos + delta_move,
+            up_event = QMouseEvent(QEvent.Type.MouseButtonRelease, start_pos + delta_move, start_pos + delta_move,
                                    Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
                                    )
 
@@ -971,13 +971,13 @@ class TestWorkZone(HMIComponentBaseTest):
         self.hmi_component.add_hmi_widget(circle)
 
         def apply_move(start_pos: QPoint, delta_move: QPoint):
-            down_event = QMouseEvent(QEvent.Type.MouseButtonPress, start_pos,
+            down_event = QMouseEvent(QEvent.Type.MouseButtonPress, start_pos, start_pos,
                                      Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
                                      )
-            move_event = QMouseEvent(QEvent.Type.MouseButtonPress, start_pos + delta_move,
+            move_event = QMouseEvent(QEvent.Type.MouseButtonPress, start_pos + delta_move, start_pos + delta_move,
                                      Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
                                      )
-            up_event = QMouseEvent(QEvent.Type.MouseButtonRelease, start_pos + delta_move,
+            up_event = QMouseEvent(QEvent.Type.MouseButtonRelease, start_pos + delta_move, start_pos + delta_move,
                                    Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
                                    )
 
@@ -1036,11 +1036,11 @@ class TestWorkZone(HMIComponentBaseTest):
 
         click_pos = circle.pos() + QPoint(circle.get_size().width() // 2, circle.get_size().height() // 2)
 
-        down_event = QMouseEvent(QEvent.Type.MouseButtonPress, click_pos,
+        down_event = QMouseEvent(QEvent.Type.MouseButtonPress, click_pos, click_pos,
                                  Qt.MouseButton.RightButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
                                  )
 
-        up_event = QMouseEvent(QEvent.Type.MouseButtonRelease, click_pos,
+        up_event = QMouseEvent(QEvent.Type.MouseButtonRelease, click_pos, click_pos,
                                Qt.MouseButton.RightButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
                                )
 
@@ -1049,11 +1049,11 @@ class TestWorkZone(HMIComponentBaseTest):
 
         click_pos = circle.pos() + QPoint(circle.get_size().width() + 1, circle.get_size().height() + 1)
 
-        down_event = QMouseEvent(QEvent.Type.MouseButtonPress, click_pos,
+        down_event = QMouseEvent(QEvent.Type.MouseButtonPress, click_pos, click_pos,
                                  Qt.MouseButton.RightButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
                                  )
 
-        up_event = QMouseEvent(QEvent.Type.MouseButtonRelease, click_pos,
+        up_event = QMouseEvent(QEvent.Type.MouseButtonRelease, click_pos, click_pos,
                                Qt.MouseButton.RightButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
                                )
 
@@ -1184,13 +1184,13 @@ class TestWorkZone(HMIComponentBaseTest):
         workzone = self.hmi_component.get_workzone()
 
         p = QPointF(60, 110)
-        down_event = QMouseEvent(QEvent.Type.MouseButtonPress, p,
+        down_event = QMouseEvent(QEvent.Type.MouseButtonPress, p, p,
                                  Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
                                  )
-        up_event = QMouseEvent(QEvent.Type.MouseButtonRelease, p,
+        up_event = QMouseEvent(QEvent.Type.MouseButtonRelease, p, p,
                                Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
                                )
-        move_event = QMouseEvent(QEvent.Type.MouseButtonPress, p,
+        move_event = QMouseEvent(QEvent.Type.MouseButtonPress, p, p,
                                  Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
                                  )
 
@@ -1244,20 +1244,20 @@ class TestWorkZone(HMIComponentBaseTest):
 
         p1 = QPointF(10, 10)
         p2 = QPointF(110, 110)
-        circle1_down_event = QMouseEvent(QEvent.Type.MouseButtonPress, p1,
+        circle1_down_event = QMouseEvent(QEvent.Type.MouseButtonPress, p1, p1,
                                          Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
                                          )
-        circle1_up_event = QMouseEvent(QEvent.Type.MouseButtonRelease, p1,
+        circle1_up_event = QMouseEvent(QEvent.Type.MouseButtonRelease, p1, p1,
                                        Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
                                        )
-        circle1_move_event = QMouseEvent(QEvent.Type.MouseButtonPress, p1,
+        circle1_move_event = QMouseEvent(QEvent.Type.MouseButtonPress, p1, p1,
                                          Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
                                          )
 
-        circle2_up_event = QMouseEvent(QEvent.Type.MouseButtonRelease, p2,
+        circle2_up_event = QMouseEvent(QEvent.Type.MouseButtonRelease, p2, p2,
                                        Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
                                        )
-        circle2_move_event = QMouseEvent(QEvent.Type.MouseButtonPress, p2,
+        circle2_move_event = QMouseEvent(QEvent.Type.MouseButtonPress, p2, p2,
                                          Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
                                          )
 
@@ -1295,7 +1295,7 @@ class TestWorkZone(HMIComponentBaseTest):
         ]
 
         for pos, cursor in pos_cursor_map:
-            workzone.mouseMoveEvent(QMouseEvent(QEvent.Type.MouseButtonRelease, pos,
+            workzone.mouseMoveEvent(QMouseEvent(QEvent.Type.MouseButtonRelease, pos, pos,
                                                 Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
                                                 ))
             self.assertEqual(workzone.cursor().shape(), cursor, msg=f"p={pos}")
@@ -1710,13 +1710,13 @@ class TestHMIWidgets(HMIComponentBaseTest):
                 slidezone.top() + slidezone.height() * (1 - ratio)
             )
 
-            down_event = QMouseEvent(QEvent.Type.MouseButtonPress, start_pos,
+            down_event = QMouseEvent(QEvent.Type.MouseButtonPress, start_pos, start_pos,
                                      Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
                                      )
-            move_event = QMouseEvent(QEvent.Type.MouseButtonPress, end_pos,
+            move_event = QMouseEvent(QEvent.Type.MouseButtonPress, end_pos, end_pos,
                                      Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
                                      )
-            up_event = QMouseEvent(QEvent.Type.MouseButtonRelease, end_pos,
+            up_event = QMouseEvent(QEvent.Type.MouseButtonRelease, end_pos, end_pos,
                                    Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
                                    )
 
@@ -1848,13 +1848,13 @@ class TestHMIWidgets(HMIComponentBaseTest):
                 slidezone.top() + slidezone.height() / 2
             )
 
-            down_event = QMouseEvent(QEvent.Type.MouseButtonPress, start_pos,
+            down_event = QMouseEvent(QEvent.Type.MouseButtonPress, start_pos, start_pos,
                                      Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
                                      )
-            move_event = QMouseEvent(QEvent.Type.MouseButtonPress, end_pos,
+            move_event = QMouseEvent(QEvent.Type.MouseButtonPress, end_pos, end_pos,
                                      Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
                                      )
-            up_event = QMouseEvent(QEvent.Type.MouseButtonRelease, end_pos,
+            up_event = QMouseEvent(QEvent.Type.MouseButtonRelease, end_pos, end_pos,
                                    Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier
                                    )
 
