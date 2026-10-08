@@ -16,7 +16,7 @@ import enum
 
 from PySide6.QtWidgets import QWidget, QGraphicsItem, QStyleOptionGraphicsItem
 from PySide6.QtGui import QPainter, QPixmap, QIcon
-from PySide6.QtCore import QSize, QRectF, QPointF, QObject, Qt, Signal
+from PySide6.QtCore import QSize, QRectF, QPointF, QObject, Qt, Signal, QTimer
 
 from scrutiny.gui.app_settings import app_settings
 from scrutiny.gui.widgets.watchable_line_edit import WatchableLineEdit, WatchableFQNAndName
@@ -284,6 +284,8 @@ class BaseHMIWidget(QGraphicsItem):
     """A flag used to implement the redraw throttling"""
     _pending_redraw: bool
     """A flag used to implement the redraw throttling"""
+    _redraw_timer: QTimer
+    """Timer used to implement the redraw throttling without closures"""
     _last_draw_timestamp_ns: int
     """Timestamp of the last draw() call"""
     _parent_constructor_called: bool
@@ -322,6 +324,10 @@ class BaseHMIWidget(QGraphicsItem):
         self._need_redraw = False
         self._pending_redraw = False
         self._last_draw_timestamp_ns = time.perf_counter_ns()
+        self._redraw_timer = QTimer()
+        self._redraw_timer.setSingleShot(True)
+        self._redraw_timer.setInterval(int(self.MAX_DRAW_RATE_NANOSEC // 1e6))
+        self._redraw_timer.timeout.connect(self._on_redraw_timer)
         self._parent_constructor_called = True
         self._del_callback = []
         self._size = QSize(128, 128)
@@ -502,6 +508,8 @@ class BaseHMIWidget(QGraphicsItem):
 
     def destroy(self) -> None:
         """Cleanup function"""
+        self._redraw_timer.stop()
+
         for vslot in self._vslots:
             self._app.watchable_registry.unregister_watcher(vslot.watcher_id)    # Will unwatch all
             vslot.signals.text_value_changed.disconnect()
@@ -725,16 +733,17 @@ class BaseHMIWidget(QGraphicsItem):
 
         return {vslot.name: compute_single(vslot) for vslot in self._vslots}
 
+    def _on_redraw_timer(self) -> None:
+        """Callback for the redraw timer."""
+        self._pending_redraw = False
+        if self._need_redraw:   # Maybe a redraw already occurred in between. Ignore if it happened
+            self._redraw_if_allowed()
+
     def _redraw_later(self) -> None:
         """Request to redraw after a fixed delay"""
-        def callback() -> None:
-            self._pending_redraw = False
-            if self._need_redraw:   # Maybe a redraw already occurred in between. Ignore if it happened
-                self._redraw_if_allowed()
-
         if not self._pending_redraw:    # Prevent stacking redraw requests
             self._pending_redraw = True
-            invoke_later(callback, int(self.MAX_DRAW_RATE_NANOSEC // 1e6))    # Retry later if still needed
+            self._redraw_timer.start()
 
     def _redraw_if_allowed(self) -> None:
         """Try to trigger a call to ``draw()``. If throttled, the draw() request will be remembered and retriggered letter"""
