@@ -370,6 +370,7 @@ class TestAPI(ScrutinyUnitTest):
     api: API
 
     def setUp(self):
+        super().setUp()
         self.connections = [DummyConnection(), DummyConnection(), DummyConnection()]
         for conn in self.connections:
             conn.open()
@@ -405,6 +406,7 @@ class TestAPI(ScrutinyUnitTest):
 
     def tearDown(self):
         self.api.close()
+        super().tearDown()
 
     def wait_true(self, fn, timeout=2):
         t1 = time.monotonic()

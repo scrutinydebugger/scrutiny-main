@@ -746,6 +746,7 @@ class TestRawMemoryWrite(ScrutinyUnitTest):
         container.error = error
 
     def setUp(self):
+        super().setUp()
         self.ds = Datastore()
         self.dispatcher = RequestDispatcher()
         self.protocol = Protocol(1, 0)

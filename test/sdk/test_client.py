@@ -533,6 +533,7 @@ class TestClient(ScrutinyUnitTest):
     thread: threading.Thread
 
     def setUp(self) -> None:
+        super().setUp()
         self.setup_failed = False
         self.func_queue = queue.Queue()
         self.datastore = datastore.Datastore()
@@ -588,6 +589,8 @@ class TestClient(ScrutinyUnitTest):
 
         if self.setup_failed:
             self.fail("Failed to setup the test")
+
+        super().tearDown()
 
     def log_rx_request(self, client, o):
         self.rx_request_log.append(o)

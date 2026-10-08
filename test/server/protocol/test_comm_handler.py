@@ -61,6 +61,7 @@ class LinkThatFailsToInit(AbstractLink):
 
 class TestCommHandler(ScrutinyUnitTest):
     def setUp(self):
+        super().setUp()
         params = {
             'response_timeout': 1
         }
@@ -74,6 +75,7 @@ class TestCommHandler(ScrutinyUnitTest):
 
     def tearDown(self):
         self.comm_handler.close()
+        super().tearDown()
 
     def emulate_device_write_and_wait_avail_event(self, data: bytes, timeout: float = 0.5):
         self.rx_event.clear()

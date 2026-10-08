@@ -27,6 +27,7 @@ sdk = scrutiny.sdk
 class TestCSVLogger(ScrutinyUnitTest):
 
     def setUp(self) -> None:
+        super().setUp()
         self.dummy_client = ScrutinyClient()
         self.dt_zero = datetime.now()
         self.dt_format = r'%Y-%m-%d %H:%M:%S.%f'

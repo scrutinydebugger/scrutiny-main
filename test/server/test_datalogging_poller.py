@@ -31,6 +31,7 @@ class DeviceStatus:
 class TestDataloggingPoller(ScrutinyUnitTest):
 
     def setUp(self) -> None:
+        super().setUp()
         self.protocol = Protocol(1, 0)
         self.protocol.set_address_size_bits(32)
         self.dispatcher = RequestDispatcher()

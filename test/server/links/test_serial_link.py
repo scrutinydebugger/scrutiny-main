@@ -23,6 +23,7 @@ class TestSerialLink(ScrutinyUnitTest):
     NIXPORT = ['/tmp/scrutiny-pty0', '/tmp/scrutiny-pty1']
 
     def setUp(self):
+        super().setUp()
         if platform.system() == "Windows":
             self.PORT = self.WINPORTS
         else:

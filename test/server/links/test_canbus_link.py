@@ -54,6 +54,7 @@ class TestCanbusLink(ScrutinyUnitTest):
     link: Optional[canbus_link.CanBusLink]
 
     def setUp(self):
+        super().setUp()
         self.bus = None
         self.link = None
         canbus_link.use_stubbed_canbus_class(False)

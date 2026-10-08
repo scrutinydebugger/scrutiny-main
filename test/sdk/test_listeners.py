@@ -129,6 +129,7 @@ def wait_cond(cond, timeout, msg=""):
 class TestListeners(ScrutinyUnitTest):
 
     def setUp(self) -> None:
+        super().setUp()
         dummy_client = ScrutinyClient()
         self.w1 = WatchableHandle(dummy_client, '/aaa/bbb/ccc', requested_update_rate=None)
         self.w2 = WatchableHandle(dummy_client, '/aaa/bbb/ccc2', requested_update_rate=None)

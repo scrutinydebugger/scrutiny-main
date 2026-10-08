@@ -56,6 +56,7 @@ class TestDummyConnection(ScrutinyUnitTest):
 
 class TestDummyConnectionHandler(ScrutinyUnitTest):
     def setUp(self):
+        super().setUp()
 
         self.connections = [DummyConnection(), DummyConnection(), DummyConnection()]
 
@@ -122,6 +123,7 @@ class TestDummyConnectionHandler(ScrutinyUnitTest):
 
     def tearDown(self):
         self.handler.stop()
+        super().tearDown()
 
 
 if __name__ == '__main__':

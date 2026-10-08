@@ -91,6 +91,7 @@ def get_link_port(link: rtt_link.RttLink) -> FakeRTTPort:
 class TestRTTLink(ScrutinyUnitTest):
 
     def setUp(self):
+        super().setUp()
         self._old_port_func = rtt_link._get_jlink_class()
         rtt_link._set_jlink_class(FakeRTTPort)
 

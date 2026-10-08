@@ -64,6 +64,7 @@ class ScrutinyIntegrationTest(ScrutinyUnitTest):
         self.prestart_callback = None
 
     def setUp(self):
+        super().setUp()
         err = None
         try:
             server_config: ServerConfig = {
@@ -312,6 +313,8 @@ class ScrutinyIntegrationTest(ScrutinyUnitTest):
 
         if hasattr(self, 'temp_storage_handler'):
             self.temp_storage_handler.restore()
+
+        super().tearDown()
 
 
 class ScrutinyIntegrationTestWithTestSFD1(ScrutinyIntegrationTest):

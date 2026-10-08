@@ -157,6 +157,7 @@ class TestDataloggingManager(ScrutinyUnitTest):
         return DatastoreRPVEntry(path, RuntimePublishedValue(rpv_id, datatype))
 
     def setUp(self):
+        super().setUp()
         self.device_handler = StubbedDeviceHandler()
         self.datastore = Datastore()
         self.datalogging_manager = DataloggingManager(self.datastore, self.device_handler)

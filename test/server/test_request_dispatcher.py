@@ -52,6 +52,7 @@ class TestPriorityQueue(ScrutinyUnitTest):
 
 class TestRequestDispatcher(ScrutinyUnitTest):
     def setUp(self):
+        super().setUp()
         self.success_list = []
         self.failure_list = []
 

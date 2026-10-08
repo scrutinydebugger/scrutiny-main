@@ -24,6 +24,7 @@ class TestEmulatedDevice(ScrutinyUnitTest):
     emulated_device: EmulatedDevice
 
     def setUp(self):
+        super().setUp()
         self.link = DummyLink()
         self.emulated_device = EmulatedDevice(self.link)
         self.emulated_device.configure_rpvs({
@@ -69,6 +70,7 @@ class TestEmulatedDevice(ScrutinyUnitTest):
 
     def tearDown(self):
         self.emulated_device.stop()
+        super().tearDown()
 
 
 class TestEmulatedDatalogger(ScrutinyUnitTest):
@@ -79,6 +81,7 @@ class TestEmulatedDatalogger(ScrutinyUnitTest):
         rpv1000: float
 
     def setUp(self):
+        super().setUp()
         self.link = DummyLink()
         self.emulated_device = EmulatedDevice(self.link)
         self.emulated_device.configure_rpvs({
@@ -221,6 +224,7 @@ class TestEmulatedDatalogger(ScrutinyUnitTest):
 
     def tearDown(self):
         self.emulated_device.stop()
+        super().tearDown()
 
 
 if __name__ == '__main__':

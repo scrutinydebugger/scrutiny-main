@@ -6,6 +6,8 @@
 #
 #    Copyright (c) 2026 Scrutiny Debugger
 
+import gc
+
 from PySide6.QtWidgets import QWidget
 from PySide6.QtCore import QPoint, QSize, Qt, QEvent, QPointF, QRectF
 from PySide6.QtGui import QPen, QBrush, QColor, QMouseEvent, QDragEnterEvent, QDragMoveEvent, QDropEvent, QDragLeaveEvent, QResizeEvent, QPainter, QImage
@@ -1467,11 +1469,20 @@ class TestHMIWidgets(HMIComponentBaseTest):
         for operator in RelationalOperator:
             with self.subTest(f"operator={operator}"):
                 indicator.set_operator(operator)
-                indicator.draw({'operand1': 1, 'operand2': 2}, False, QPainter())
+                painter = QPainter()
+                image = QImage(100, 100, QImage.Format.Format_ARGB32)
+                painter.begin(image)
+                indicator.draw({'operand1': 1, 'operand2': 2}, False, painter)
+                painter.end()
 
         indicator.set_active_behavior(ActiveBehavior.BlinkFast)
         indicator.set_operator(RelationalOperator.EQ)
-        indicator.draw({'operand1': 1, 'operand2': 2}, False, QPainter())
+
+        painter = QPainter()
+        image = QImage(100, 100, QImage.Format.Format_ARGB32)
+        painter.begin(image)
+        indicator.draw({'operand1': 1, 'operand2': 2}, False, painter)
+        painter.end()
 
     def test_draw_radial_gauge(self):
         gauge = RadialGaugeHMIWidget(self.app_interface)
