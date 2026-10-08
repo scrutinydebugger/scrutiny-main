@@ -79,6 +79,7 @@ class TestDeviceHandler(ScrutinyUnitTest):
         raise KeyboardInterrupt
 
     def setUp(self):
+        super().setUp()
         self.acquisition_complete_callback_called = False
         self.acquisition_complete_callback_success = None
         self.acquisition_complete_callback_data = None
@@ -102,6 +103,7 @@ class TestDeviceHandler(ScrutinyUnitTest):
 
     def tearDown(self):
         self.emulated_device.stop()
+        super().tearDown()
 
     def disconnect_callback(self, clean_disconnect):
         self.disconnect_callback_called = True
@@ -926,6 +928,7 @@ class TestDeviceHandlerMultipleLink(ScrutinyUnitTest):
         raise KeyboardInterrupt
 
     def setUp(self):
+        super().setUp()
 
         self.datastore = Datastore()
         config = {
@@ -948,6 +951,7 @@ class TestDeviceHandlerMultipleLink(ScrutinyUnitTest):
     def tearDown(self):
         self.emulated_device1.stop()
         self.emulated_device2.stop()
+        super().tearDown()
 
     def test_change_link_mid_comm(self):
         # This test failed once on CI for no reason.  Keep an eye on it!   self.assertTrue(connection_completed) == false

@@ -8,6 +8,7 @@ import time
 from scrutiny.core.datalogging import DataloggingAcquisition, DataSeries, AxisDefinition
 from scrutiny.core.basic_types import WatchableType, Watchable, MathWatchable
 from scrutiny.tools import format_eng_unit
+from scrutiny.tools.typing import *
 
 __scrutiny__ = True  # we need something to know if we loaded scrutiny "test" module or something else (such as python "test" module)
 logger = logging.getLogger('unittest')
@@ -150,7 +151,36 @@ class PrintableByteArray(bytearray):
         return 'bytearray(' + bytes(self).hex() + ')'
 
 
+class CriticalMessageMonitor(logging.Handler):
+    _critical_message: List[str]
+
+    def __init__(self):
+        self._critical_message = []
+        super().__init__(level=logging.CRITICAL)
+
+    def emit(self, record: logging.LogRecord):
+        print("miaou")
+        self._critical_message.append(record.getMessage())
+
+    def get(self) -> List[str]:
+        return self._critical_message
+
+
 class ScrutinyUnitTest(unittest.TestCase):
+    _critical_message_monitor: CriticalMessageMonitor
+
+    def setUp(self) -> None:
+        super().setUp()
+        self._critical_message_monitor = CriticalMessageMonitor()
+        logging.getLogger().addHandler(self._critical_message_monitor)
+
+    def tearDown(self) -> None:
+        critical_msg = self._critical_message_monitor.get()
+        if len(critical_msg) > 0:
+            self.fail(f"Critical message was logged: {critical_msg[0]}")
+        logging.getLogger().removeHandler(self._critical_message_monitor)
+        del self._critical_message_monitor
+        super().tearDown()
 
     def assertEqual(self, v1, v2, *args, **kwargs):
         if isinstance(v1, bytes) and isinstance(v2, bytes):

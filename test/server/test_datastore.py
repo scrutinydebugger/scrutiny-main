@@ -25,6 +25,7 @@ dummy_callback = lambda *args, **kwargs: None
 
 class TestDataStore(ScrutinyUnitTest):
     def setUp(self):
+        super().setUp()
         self.value_change_callback_call_history = {}
         self.target_update_callback_call_history = {}
 

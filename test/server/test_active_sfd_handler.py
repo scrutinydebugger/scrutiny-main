@@ -51,6 +51,7 @@ class StubbedDeviceHandler:
 class TestActiveSFDHandlerFromFile(ScrutinyUnitTest):
 
     def setUp(self):
+        super().setUp()
         SFDStorage.use_temp_folder()
         self.sfd_filename = get_artifact('test_sfd_1.sfd')
         sfd = SFDStorage.install(self.sfd_filename, ignore_exist=True)
@@ -62,6 +63,7 @@ class TestActiveSFDHandlerFromFile(ScrutinyUnitTest):
     def tearDown(self):
         SFDStorage.uninstall(self.firmware_id)
         SFDStorage.restore_storage()
+        super().tearDown()
 
     # Make sure the SFD is correctly loaded upon connection
     def test_autoload(self):

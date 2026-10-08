@@ -33,6 +33,7 @@ class TestBadParams(ScrutinyUnitTest):
 class TestTCPClientHandler(ScrutinyUnitTest):
 
     def setUp(self) -> None:
+        super().setUp()
         config: TCPClientHandlerConfig = {
             'host': '127.0.0.1',
             'port': 0
@@ -253,3 +254,4 @@ class TestTCPClientHandler(ScrutinyUnitTest):
 
     def tearDown(self) -> None:
         self.handler.stop()
+        super().tearDown()

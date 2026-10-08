@@ -27,6 +27,7 @@ def d2f(d):
 class TestProtocolV1_0(ScrutinyUnitTest):
 
     def setUp(self):
+        super().setUp()
         self.proto = Protocol(1, 0, address_size_bits=32)
         self.proto.logger.disabled = False
 

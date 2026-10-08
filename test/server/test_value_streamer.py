@@ -21,6 +21,7 @@ def make_rpv_entry(path: str, rpv_id: int) -> DatastoreRPVEntry:
 class TestValueStreamer(ScrutinyUnitTest):
 
     def setUp(self) -> None:
+        super().setUp()
         self.datastore = Datastore()
         self.streamer = ValueStreamer(self.datastore)
 

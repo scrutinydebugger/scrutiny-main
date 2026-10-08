@@ -60,6 +60,7 @@ class ScrutinyBaseGuiTest(ScrutinyUnitTest):
         logger.log(logging_level, f"QT:{msg}")
 
     def setUp(self) -> None:
+        super().setUp()
         self.event_list: List[EventType] = []
         self.app = QApplication.instance()
         if self.app is None:
@@ -86,6 +87,7 @@ class ScrutinyBaseGuiTest(ScrutinyUnitTest):
         gc.collect()
         self.process_events()
         QApplication.clipboard().clear()    # Can make a segfault if not present.
+        super().tearDown()
 
     def wait_equal(self, fn, val, timeout, no_assert=False, msg=""):
         t = time.perf_counter()

@@ -62,6 +62,7 @@ class BaseVarmapTest:
 
     @SkipOnException(EnvionmentNotSetUpException)
     def setUp(self) -> None:
+        super().setUp()
         if self.init_exception is not None:
             raise self.init_exception
 
