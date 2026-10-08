@@ -40,33 +40,36 @@ class EventType(enum.Enum):
     LOCAL_SERVER_EXIT = enum.auto()
 
 
+_QT_LOG_LIST: List[Tuple[QtMsgType, str]] = []
+
+
+def qt_message_handler(messagetype: QtMsgType, context: QMessageLogContext, msg: str) -> None:
+    logging_map = {
+        QtMsgType.QtDebugMsg: logging.DEBUG,
+        QtMsgType.QtWarningMsg: logging.WARNING,
+        QtMsgType.QtCriticalMsg: logging.CRITICAL,
+        QtMsgType.QtSystemMsg: logging.CRITICAL,
+        QtMsgType.QtFatalMsg: logging.FATAL,
+        QtMsgType.QtInfoMsg: logging.INFO,
+    }
+    logging_level = logging_map.get(messagetype, logging.CRITICAL)
+    logger.log(logging_level, f"QT:{msg}")
+    _QT_LOG_LIST.append((messagetype, msg))
+
+
 class ScrutinyBaseGuiTest(ScrutinyUnitTest):
 
     def declare_event(self, event_type: EventType):
         logger.debug(f"Event: {event_type.name}")
         self.event_list.append(event_type)
 
-    def qt_message_handler(self, messagetype: QtMsgType, context: QMessageLogContext, msg: str) -> None:
-        logging_map = {
-            QtMsgType.QtDebugMsg: logging.DEBUG,
-            QtMsgType.QtWarningMsg: logging.WARNING,
-            QtMsgType.QtCriticalMsg: logging.CRITICAL,
-            QtMsgType.QtSystemMsg: logging.CRITICAL,
-            QtMsgType.QtFatalMsg: logging.FATAL,
-            QtMsgType.QtInfoMsg: logging.INFO,
-        }
-        logging_level = logging_map.get(messagetype, logging.CRITICAL)
-        logger.log(logging_level, f"QT:{msg}")
-
-        if messagetype in [QtMsgType.QtWarningMsg, QtMsgType.QtSystemMsg, QtMsgType.QtFatalMsg]:
-            self.fail(f"QT logged a non-trivial message:{msg}")
-
     def setUp(self) -> None:
         super().setUp()
+        _QT_LOG_LIST.clear()
         self.event_list: List[EventType] = []
         self.app = QApplication.instance()
-        qInstallMessageHandler(self.qt_message_handler)
         if self.app is None:
+            qInstallMessageHandler(qt_message_handler)
             # Required to process event because they are emitted in a different thread, therefore the connection type is queued
             self.app = make_qt_app([])
             UserMessagesManager.init()
@@ -86,10 +89,20 @@ class ScrutinyBaseGuiTest(ScrutinyUnitTest):
         scrutiny_set_theme(self.app, DefaultTheme())
 
     def tearDown(self):
-        qInstallMessageHandler(None)
         gc.collect()
         self.process_events()
         QApplication.clipboard().clear()    # Can make a segfault if not present.
+
+        result = self._outcome.result
+        test_already_failed = any(
+            test is self for test, _ in result.failures + result.errors
+        )
+
+        if not test_already_failed:
+            for qt_msg_type, qt_msg in _QT_LOG_LIST:
+                if qt_msg_type in [QtMsgType.QtCriticalMsg, QtMsgType.QtWarningMsg, QtMsgType.QtSystemMsg]:
+                    self.fail(f"QT logged a non-trivial message: {qt_msg}")
+        _QT_LOG_LIST.clear()
         super().tearDown()
 
     def wait_equal(self, fn, val, timeout, no_assert=False, msg=""):
