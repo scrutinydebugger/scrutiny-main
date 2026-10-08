@@ -10,11 +10,12 @@
 __all__ = ['make_qt_app', 'cleanup_qt_app']
 
 from PySide6.QtWidgets import QApplication
-from PySide6.QtCore import QLocale
+from PySide6.QtCore import QLocale, QLibraryInfo
 from scrutiny.gui.core.threads import QT_THREAD_NAME
 from scrutiny.tools.thread_enforcer import register_thread
 from scrutiny.gui.tools.invoker import CrossThreadInvoker
 from scrutiny.tools.typing import *
+import os
 
 
 def make_qt_app(args: List[str]) -> QApplication:
@@ -23,6 +24,13 @@ def make_qt_app(args: List[str]) -> QApplication:
     # Prevent showing/interpreting commas as group separator
     loc.setNumberOptions(QLocale.NumberOption.RejectGroupSeparator | QLocale.NumberOption.OmitGroupSeparator)
     QLocale.setDefault(loc)
+
+    # Suppress a warning
+    qt_font_dir = os.path.join(QLibraryInfo.path(QLibraryInfo.LibraryPath.DataPath), 'lib', 'fonts')
+    try:
+        os.makedirs(qt_font_dir, exist_ok=True)
+    except OsError:
+        pass
 
     app = QApplication(args)
     app.aboutToQuit.connect(cleanup_qt_app)

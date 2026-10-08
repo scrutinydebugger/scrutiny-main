@@ -12,6 +12,7 @@ from PySide6.QtCore import qInstallMessageHandler, QtMsgType, QMessageLogContext
 
 import enum
 import time
+import os
 from test import logger
 import logging
 import gc
@@ -42,6 +43,10 @@ class EventType(enum.Enum):
 
 _QT_LOG_LIST: List[Tuple[QtMsgType, str]] = []
 
+_QT_SUPPRESSED_WARNINGS: List[str] = [
+    "This plugin does not support propagateSizeHints()"  # offscreen QPA plugin limitation, no way to suppress
+]
+
 
 def qt_message_handler(messagetype: QtMsgType, context: QMessageLogContext, msg: str) -> None:
     logging_map = {
@@ -52,6 +57,9 @@ def qt_message_handler(messagetype: QtMsgType, context: QMessageLogContext, msg:
         QtMsgType.QtFatalMsg: logging.FATAL,
         QtMsgType.QtInfoMsg: logging.INFO,
     }
+    if messagetype == QtMsgType.QtWarningMsg and msg in _QT_SUPPRESSED_WARNINGS:
+        return  # Suppress
+
     logging_level = logging_map.get(messagetype, logging.CRITICAL)
     logger.log(logging_level, f"QT:{msg}")
     _QT_LOG_LIST.append((messagetype, msg))
@@ -101,7 +109,7 @@ class ScrutinyBaseGuiTest(ScrutinyUnitTest):
         if not test_already_failed:
             for qt_msg_type, qt_msg in _QT_LOG_LIST:
                 if qt_msg_type in [QtMsgType.QtCriticalMsg, QtMsgType.QtWarningMsg, QtMsgType.QtSystemMsg]:
-                    self.fail(f"QT logged a non-trivial message: {qt_msg}")
+                    self.fail(f"QT logged a non-trivial message: [{qt_msg_type.name}]: {qt_msg}")
         _QT_LOG_LIST.clear()
         super().tearDown()
 
