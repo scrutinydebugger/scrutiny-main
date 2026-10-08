@@ -29,7 +29,7 @@ def make_qt_app(args: List[str]) -> QApplication:
     qt_font_dir = os.path.join(QLibraryInfo.path(QLibraryInfo.LibraryPath.DataPath), 'lib', 'fonts')
     try:
         os.makedirs(qt_font_dir, exist_ok=True)
-    except OsError:
+    except OSError:
         pass
 
     app = QApplication(args)

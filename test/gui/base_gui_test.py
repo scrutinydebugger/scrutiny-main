@@ -42,7 +42,6 @@ class EventType(enum.Enum):
 
 
 _QT_LOG_LIST: List[Tuple[QtMsgType, str]] = []
-
 _QT_SUPPRESSED_WARNINGS: List[str] = [
     "This plugin does not support propagateSizeHints()"  # offscreen QPA plugin limitation, no way to suppress
 ]
@@ -66,6 +65,11 @@ def qt_message_handler(messagetype: QtMsgType, context: QMessageLogContext, msg:
 
 
 class ScrutinyBaseGuiTest(ScrutinyUnitTest):
+    _tolerated_logs: List[Tuple[QtMsgType, str]]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._tolerated_logs = []
 
     def declare_event(self, event_type: EventType):
         logger.debug(f"Event: {event_type.name}")
@@ -73,6 +77,7 @@ class ScrutinyBaseGuiTest(ScrutinyUnitTest):
 
     def setUp(self) -> None:
         super().setUp()
+        self._tolerated_logs.clear()
         _QT_LOG_LIST.clear()
         self.event_list: List[EventType] = []
         self.app = QApplication.instance()
@@ -109,9 +114,14 @@ class ScrutinyBaseGuiTest(ScrutinyUnitTest):
         if not test_already_failed:
             for qt_msg_type, qt_msg in _QT_LOG_LIST:
                 if qt_msg_type in [QtMsgType.QtCriticalMsg, QtMsgType.QtWarningMsg, QtMsgType.QtSystemMsg]:
-                    self.fail(f"QT logged a non-trivial message: [{qt_msg_type.name}]: {qt_msg}")
+                    if (qt_msg_type, qt_msg) not in self._tolerated_logs:
+                        self.fail(f"QT logged a non-trivial message: [{qt_msg_type.name}]: {qt_msg}")
         _QT_LOG_LIST.clear()
+        self._tolerated_logs.clear()
         super().tearDown()
+
+    def suppress_qt_log(self, msg_type: QtMsgType, msg: str):
+        self._tolerated_logs.append((msg_type, msg))
 
     def wait_equal(self, fn, val, timeout, no_assert=False, msg=""):
         t = time.perf_counter()
