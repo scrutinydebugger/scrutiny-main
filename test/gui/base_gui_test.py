@@ -46,7 +46,7 @@ class ScrutinyBaseGuiTest(ScrutinyUnitTest):
         logger.debug(f"Event: {event_type.name}")
         self.event_list.append(event_type)
 
-    def QTMessageHandler(self, messagetype: QtMsgType, context: QMessageLogContext, msg: str) -> None:
+    def qt_message_handler(self, messagetype: QtMsgType, context: QMessageLogContext, msg: str) -> None:
         logging_map = {
             QtMsgType.QtDebugMsg: logging.DEBUG,
             QtMsgType.QtWarningMsg: logging.WARNING,
@@ -55,17 +55,19 @@ class ScrutinyBaseGuiTest(ScrutinyUnitTest):
             QtMsgType.QtFatalMsg: logging.FATAL,
             QtMsgType.QtInfoMsg: logging.INFO,
         }
-
         logging_level = logging_map.get(messagetype, logging.CRITICAL)
         logger.log(logging_level, f"QT:{msg}")
+
+        if messagetype in [QtMsgType.QtWarningMsg, QtMsgType.QtSystemMsg, QtMsgType.QtFatalMsg]:
+            self.fail(f"QT logged a non-trivial message:{msg}")
 
     def setUp(self) -> None:
         super().setUp()
         self.event_list: List[EventType] = []
         self.app = QApplication.instance()
+        qInstallMessageHandler(self.qt_message_handler)
         if self.app is None:
             # Required to process event because they are emitted in a different thread, therefore the connection type is queued
-            qInstallMessageHandler(self.QTMessageHandler)
             self.app = make_qt_app([])
             UserMessagesManager.init()
             assets.initialize_fonts()
@@ -84,6 +86,7 @@ class ScrutinyBaseGuiTest(ScrutinyUnitTest):
         scrutiny_set_theme(self.app, DefaultTheme())
 
     def tearDown(self):
+        qInstallMessageHandler(None)
         gc.collect()
         self.process_events()
         QApplication.clipboard().clear()    # Can make a segfault if not present.
