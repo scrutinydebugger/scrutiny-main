@@ -607,8 +607,10 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
                     invoke_later(functools.partial(self.delete_hmi_widgets, widgets))
                 remove_action.triggered.connect(remove_action_slot)
 
-        if menu is not None and not self._unittest_mode:
-            menu.exec_and_disconnect_triggered(self._workzone.mapToGlobal(event.pos()))  # pragma: no cover
+        if menu is not None:
+            if not self._unittest_mode:
+                menu.exec(self._workzone.mapToGlobal(event.pos()))  # pragma: no cover
+            menu.disconnect_all_triggered_signals()
 
     def _workzone_double_click_edit_widget_slot(self, widget: BaseHMIWidget) -> None:
         """Invoked when the user double click a widget in edit mode"""
