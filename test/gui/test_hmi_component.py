@@ -672,6 +672,9 @@ class TestWorkZone(HMIComponentBaseTest):
         workzone.mouseReleaseEvent(up_event)
         self.assertEqual(workzone.selected_widgets(), [])   # Deselected
 
+        selection_change_call_list.clear()
+        workzone.signals.selection_changed.disconnect(selection_changed_slot)
+
     def test_drop_library_input(self):
         workzone = self.hmi_component.get_workzone()
         mimedata = ScrutinyDragData(ScrutinyDragData.DataType.HMIWidgetClass, {'class': CircleHMIWidget.__name__}).to_mime()
@@ -1067,6 +1070,9 @@ class TestWorkZone(HMIComponentBaseTest):
         self.assertEqual(right_click_list[0], [circle])
         self.assertEqual(right_click_list[1], [])
 
+        right_click_list.clear()
+        workzone.signals.right_click.disconnect(click_slot)
+
     def test_zvalue_manipulation(self):
         workzone = self.hmi_component.get_workzone()
         circle1 = CircleHMIWidget(self.app_interface)
@@ -1277,6 +1283,8 @@ class TestWorkZone(HMIComponentBaseTest):
         self.assertEqual(event_history[1], (circle1, DOWN))
         self.assertEqual(event_history[2], (circle1, MOVE))
         self.assertEqual(event_history[3], (circle1, UP))
+
+        event_history.clear()
 
     def test_resize_handles(self):
         circle = CircleHMIWidget(self.app_interface)
