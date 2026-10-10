@@ -47,7 +47,7 @@ class BaseUpdate(abc.ABC):
         raise NotImplementedError("Abstract method")
 
     @abc.abstractmethod
-    def get_source_id(self) -> str:
+    def get_watchable_identifier(self) -> str:
         raise NotImplementedError("Abstract method")
 
 
@@ -72,8 +72,8 @@ class ValueUpdate(BaseUpdate):
     def get_datatype(self) -> EmbeddedDataType:
         return self.watchable.datatype
 
-    def get_source_id(self) -> str:
-        return self.watchable.server_id
+    def get_watchable_identifier(self) -> str:
+        return self.watchable.server_path
 
 
 class BaseListener(abc.ABC):

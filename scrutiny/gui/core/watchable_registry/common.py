@@ -62,7 +62,7 @@ class MathUpdate(BaseUpdate):
     def get_datatype(self) -> sdk.EmbeddedDataType:
         return sdk.EmbeddedDataType.float64
 
-    def get_source_id(self) -> str:
+    def get_watchable_identifier(self) -> str:
         return self._math_watchable_signature
 
 
