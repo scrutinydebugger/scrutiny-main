@@ -1,4 +1,5 @@
 __all__ = [
+    'BaseUpdate',
     'ValueUpdate',
     'BaseListener'
 ]
@@ -16,18 +17,20 @@ from scrutiny.sdk.watchable_handle import WatchableHandle
 from scrutiny.sdk import ValueStatus
 from scrutiny.tools import validation
 from scrutiny.core.logging import DUMPDATA_LOGLEVEL
+from scrutiny.core.basic_types import EmbeddedDataType
 from scrutiny.sdk import exceptions as sdk_exceptions
 from scrutiny.tools.profiling import VariableRateExponentialAverager
 from scrutiny import tools
 from scrutiny.tools.typing import *
 
 
-@dataclass(frozen=True, slots=True)
-class ValueUpdate:
-    """(Immutable struct) Contains the relevant information about a watchable update broadcast by the server """
+@dataclass(init=True)
+class BaseUpdate(abc.ABC):
+    """Provide a base class for ValueUpdates.
+    Commodity for a client to extend the update mechanism, without being tied to a watchable handle
+    and benefit from the SDK capabilities"""
 
-    watchable: WatchableHandle
-    """A reference to the watchable object that generated the update"""
+    __slots__ = ('value', 'data', 'status', 'update_timestamp')
 
     value: Optional[Union[int, float, bool]]
     """Value received in the update. If ``None``, refer to :attr:`status<ValueUpdate.status>` to know why.
@@ -36,9 +39,48 @@ class ValueUpdate:
     """Raw data associated with the value. Will only be available for Variables. ``None`` if not available."""
     status: ValueStatus
     """The status of the value. """
-
     update_timestamp: datetime
     """Timestamp of the update. Taken by the server right after reading the device. Precise to the microsecond"""
+
+    @abc.abstractmethod
+    def get_datatype(self) -> EmbeddedDataType:
+        raise NotImplementedError("Abstract method")
+
+    @abc.abstractmethod
+    def get_id(self) -> str:
+        raise NotImplementedError("Abstract method")
+
+    @abc.abstractmethod
+    def get_user_unique_name(self) -> str:
+        raise NotImplementedError("Abstract method")
+
+
+class ValueUpdate(BaseUpdate):
+    """Contains the relevant information about a watchable update broadcast by the server """
+
+    __slots__ = ('watchable', )
+
+    watchable: WatchableHandle
+    """A reference to the watchable object that generated the update"""
+
+    def __init__(self,
+                 watchable: WatchableHandle,
+                 value: Optional[Union[int, float, bool]],
+                 data: Optional[bytes],
+                 status: ValueStatus,
+                 update_timestamp: datetime
+                 ):
+        super().__init__(value, data, status, update_timestamp)
+        self.watchable = watchable
+
+    def get_datatype(self) -> EmbeddedDataType:
+        return self.watchable.datatype
+
+    def get_id(self) -> str:
+        return self.watchable.server_id
+
+    def get_user_unique_name(self) -> str:
+        return self.watchable.server_path
 
 
 class BaseListener(abc.ABC):

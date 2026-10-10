@@ -6,7 +6,7 @@
 #
 #    Copyright (c) 2026 Scrutiny Debugger
 
-__all__ = ['WatcherData', 'Watcher']
+__all__ = ['WatcherData', 'Watcher', 'WatcherAndDataPair']
 
 from scrutiny.tools.typing import *
 from scrutiny.gui.core.watchable_registry.common import WatcherIdType, WatcherValueUpdateCallback, UnwatchCallback
@@ -24,7 +24,8 @@ class Watcher:
     value_update_callback: WatcherValueUpdateCallback
     unwatch_callback: UnwatchCallback
 
-    subscribed_registry_id: Set[int]
+    subscribed_server_items_registry_id: Set[int]
+    subscribed_math_registry_id: Set[int]
 
     def __init__(self,
                  watcher_id: WatcherIdType,
@@ -41,4 +42,11 @@ class Watcher:
         self.watcher_id = watcher_id
         self.value_update_callback = value_update_callback
         self.unwatch_callback = unwatch_callback
-        self.subscribed_registry_id = set()
+        self.subscribed_server_items_registry_id = set()
+        self.subscribed_math_registry_id = set()
+
+
+@dataclass(slots=True)
+class WatcherAndDataPair:
+    watcher: Watcher
+    data: WatcherData

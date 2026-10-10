@@ -261,7 +261,7 @@ class ExportLogic:
                 self._fqn_to_state[fqn] = ValueDownloadState(fqn)
 
         # No clean handling if the content change while we are gathering. Just stop and report to the user.
-        server_manager.signals.registry_changed.connect(self.stop)
+        watchable_registry.signals.content_changed.connect(self.stop)
 
 # region Public
     @property
@@ -306,7 +306,7 @@ class ExportLogic:
             self._logger.error("Not all watchables were processed fully.")
         with tools.SuppressException(WatcherNotFoundError):   # Suppress if not registered
             self._watchable_registry.unregister_watcher(self._watcher_id)
-        self._server_manager.signals.registry_changed.disconnect(self.stop)
+        self._watchable_registry.signals.content_changed.disconnect(self.stop)
 
     def count_total(self) -> int:
         return len(self._fqn_list_in_order)
@@ -413,7 +413,7 @@ class ExportLogic:
 
         self._signals.stats_changed.emit()
 
-    def _unwatch_callback(self, watcher_id: Union[str, int], fqn: str, configuration: RegistryNodeConfiguration, registry_id: int) -> None:
+    def _unwatch_callback(self, watcher_id: Union[str, int], fqn: str, registry_id: int) -> None:
         pass
 
     def _maybe_start_next_batch(self) -> None:

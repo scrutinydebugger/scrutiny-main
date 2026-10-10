@@ -16,6 +16,7 @@ import logging
 import enum
 from copy import copy
 from dataclasses import dataclass
+import functools
 
 from PySide6.QtCore import Signal, QObject, QTimer
 
@@ -24,7 +25,6 @@ from scrutiny.sdk.listeners import BaseListener, ValueUpdate
 from scrutiny.sdk.watchable_handle import WatchableHandle
 from scrutiny.sdk.client import ScrutinyClient, WatchableListDownloadRequest
 from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
-from scrutiny.gui.core.watchable_registry.common import RegistryNodeType
 from scrutiny.gui.core.watchable_registry.common import GlobalWatchCallbackData
 from scrutiny.gui.core.watchable_registry.fqn import FQN
 from scrutiny.gui.core.user_messages_manager import UserMessagesManager
@@ -133,7 +133,6 @@ class ServerManager:
         datalogging_state_changed = Signal()
         sfd_loaded = Signal()
         sfd_unloaded = Signal()
-        registry_changed = Signal()
         status_received = Signal()
         device_info_availability_changed = Signal()
         loaded_sfd_availability_changed = Signal()
@@ -296,7 +295,6 @@ class ServerManager:
             self._signals.device_disconnected.connect(lambda: self._logger.log(DUMPDATA_LOGLEVEL, "+Signal: device_disconnected"))
             self._signals.sfd_loaded.connect(lambda: self._logger.log(DUMPDATA_LOGLEVEL, "+Signal: sfd_loaded"))
             self._signals.sfd_unloaded.connect(lambda: self._logger.log(DUMPDATA_LOGLEVEL, "+Signal: sfd_unloaded"))
-            self._signals.registry_changed.connect(lambda: self._logger.log(DUMPDATA_LOGLEVEL, "+Signal: registry_changed"))
             self._signals.datalogging_state_changed.connect(lambda: self._logger.log(DUMPDATA_LOGLEVEL, "+Signal: datalogging_state_changed"))
             self._signals.status_received.connect(lambda: self._logger.log(DUMPDATA_LOGLEVEL, "+Signal: status_received"))
             self._signals.device_info_availability_changed.connect(lambda: self._logger.log(
@@ -403,15 +401,11 @@ class ServerManager:
 
             self._logger.log(DUMPDATA_LOGLEVEL, f"+Event: {event}")
             if isinstance(event, ScrutinyClient.Events.ConnectedEvent):
-                changed = invoke_in_qt_thread_synchronized(self._registry.clear, timeout=2)
+                invoke_in_qt_thread_synchronized(self._registry.clear, timeout=2)
                 self._signals.server_connected.emit()
-                if changed:
-                    self.signals.registry_changed.emit()
                 self._allow_auto_reconnect = False    # Ensure we do not try to reconnect until the disconnect event is processed
             elif isinstance(event, ScrutinyClient.Events.DisconnectedEvent):
-                changed = invoke_in_qt_thread_synchronized(self._registry.clear, timeout=2)
-                if changed:
-                    self.signals.registry_changed.emit()
+                invoke_in_qt_thread_synchronized(self._registry.clear, timeout=2)
                 self._signals.server_disconnected.emit()
                 self._allow_auto_reconnect = True  # Full cycle completed. We allow reconnecting
             elif isinstance(event, ScrutinyClient.Events.DeviceReadyEvent):
@@ -447,7 +441,6 @@ class ServerManager:
                         sdk.WatchableType.RuntimePublishedValue: data.rpv
                     }
                     invoke_in_qt_thread_synchronized(lambda: self._registry.write_server_content(content), timeout=5)
-                    self._signals.registry_changed.emit()
                 else:
                     invoke_in_qt_thread_synchronized(lambda: self._registry.clear_server_content_by_type(
                         [sdk.WatchableType.RuntimePublishedValue]), timeout=3)
@@ -469,7 +462,6 @@ class ServerManager:
                         sdk.WatchableType.Alias: data.alias,
                     }
                     invoke_in_qt_thread_synchronized(lambda: self._registry.write_server_content(content), timeout=5)
-                    self._signals.registry_changed.emit()
                 else:
                     invoke_in_qt_thread_synchronized(lambda: self._registry.clear_server_content_by_type(
                         [sdk.WatchableType.Alias, sdk.WatchableType.Variable]), timeout=3)
@@ -522,23 +514,13 @@ class ServerManager:
             self.signals.device_disconnected.emit()
 
     def _thread_clear_registry_synchronized(self, type_list: List[sdk.WatchableType]) -> None:
-        @dataclass(slots=True)
-        class Context:
-            had_data: bool = False
 
-        ctx = Context()
-
-        def clear_func() -> None:
-            for node_type in type_list:
-                had_data = self._registry.clear_server_content_by_type(node_type)
-                ctx.had_data = ctx.had_data or had_data
+        clear_func = functools.partial(self._registry.clear_server_content_by_type, type_list)
         if self._logger.isEnabledFor(logging.DEBUG):    # pragma: no cover
             self._logger.debug("Clearing registry for types: %s" % ([x.name for x in type_list]))
         invoke_in_qt_thread_synchronized(clear_func, timeout=2)
         if self._logger.isEnabledFor(logging.DEBUG):    # pragma: no cover
             self._logger.debug("Cleared registry for types: %s" % ([x.name for x in type_list]))
-        if ctx.had_data:
-            self._signals.registry_changed.emit()
 
     def _make_var_watchable_from_factories(self, var_factories: Dict[str, sdk.VariableFactoryInterface]) -> Dict[str, sdk.BriefWatchableConfiguration]:
         """Take the variable factories received from the server and generate all the var watchables from them.

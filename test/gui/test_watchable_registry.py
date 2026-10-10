@@ -7,15 +7,17 @@
 #    Copyright (c) 2024 Scrutiny Debugger
 
 from scrutiny import sdk
+from scrutiny.sdk.listeners import ValueUpdate
 from scrutiny.core.basic_types import EmbeddedDataType
 from scrutiny.core.embedded_enum import EmbeddedEnum
 from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
 from scrutiny.gui.core.watchable_registry.errors import WatchableRegistryError, WatcherNotFoundError, WatchableRegistryNodeNotFoundError
-from scrutiny.gui.core.watchable_registry.common import ValueUpdate, GlobalWatchCallbackData, RegistryNodeType, RegistryNodeConfiguration
+from scrutiny.gui.core.watchable_registry.common import GlobalWatchCallbackData, RegistryNodeType, RegistryNodeConfiguration, RegistryValueUpdate, WatcherIdType
 from scrutiny.gui.core.watchable_registry.nodes import WatchableRegistryIntermediateNode, ServerStorageEntryNode
 from scrutiny.gui.core.watchable_registry.fqn import FQN
 from scrutiny.gui.core.watchable_registry.server_registry_bidirectional_map import ServerRegistryBidirectionalMap
-from scrutiny.gui.core.math_element import MathElement
+from scrutiny.gui.core.gui_math_watchable import GUIMathWatchable
+from scrutiny.gui.core.fqn_name_pair import FqnNamePair
 from scrutiny.tools.thread_enforcer import ThreadEnforcer
 from scrutiny.gui.core.threads import QT_THREAD_NAME
 
@@ -150,9 +152,9 @@ class TestWatchableRegistry(ScrutinyUnitTest):
     def test_query_node_type(self):
         self.registry.write_server_content(All_SERVER_DUMMY_DATA)
 
-        self.assertEqual(self.registry.get_watchable_count(RegistryNodeType.Variable), len(DUMMY_DATASET_VAR))
-        self.assertEqual(self.registry.get_watchable_count(RegistryNodeType.Alias), len(DUMMY_DATASET_ALIAS))
-        self.assertEqual(self.registry.get_watchable_count(RegistryNodeType.RuntimePublishedValue), len(DUMMY_DATASET_RPV))
+        self.assertEqual(self.registry.get_registry_node_count(RegistryNodeType.Variable), len(DUMMY_DATASET_VAR))
+        self.assertEqual(self.registry.get_registry_node_count(RegistryNodeType.Alias), len(DUMMY_DATASET_ALIAS))
+        self.assertEqual(self.registry.get_registry_node_count(RegistryNodeType.RuntimePublishedValue), len(DUMMY_DATASET_RPV))
 
         self.assertTrue(self.registry.is_watchable_fqn('alias:/alias/xxx/alias1'))
         self.assertFalse(self.registry.is_watchable_fqn('alias:/alias/xxx'))
@@ -431,7 +433,7 @@ class TestWatchableRegistry(ScrutinyUnitTest):
         def update_val_callback(watcher, value_list):
             update_val_callback_history[watcher].append(value_list)
 
-        def unwatch_callback(watcher, fqn, wc, registry_id):
+        def unwatch_callback(watcher, fqn, registry_id):
             unwatch_callback_history[watcher].append(fqn)
 
         self.registry.register_watcher('watcher1', update_val_callback, unwatch_callback)
@@ -691,8 +693,6 @@ class TestWatchableRegistry(ScrutinyUnitTest):
             sdk.WatchableType.Alias: 2
         })
 
-        self.registry
-
     def test_get_stats(self):
         self.registry.write_server_content(All_SERVER_DUMMY_DATA)
         self.registry.register_watcher('watcher1', lambda *x, **y: None, lambda *x, **y: None)
@@ -721,7 +721,7 @@ class TestWatchableRegistry(ScrutinyUnitTest):
             'watcher2': [],
         }
 
-        def watcher_unwatch_callback(watcher_id, fqn: str, config: sdk.BriefWatchableConfiguration, registry_id: int):
+        def watcher_unwatch_callback(watcher_id, fqn: str, registry_id: int):
             watcher_unwatch_list[watcher_id].append(fqn)
 
         self.registry.register_watcher('watcher1', lambda *x, **y: None, watcher_unwatch_callback)
@@ -893,6 +893,298 @@ class TestWatchableRegistry(ScrutinyUnitTest):
             self.registry.clear_server_content_by_type([sdk.WatchableType.RuntimePublishedValue, sdk.WatchableType.Alias,
                                                         sdk.WatchableType.Variable])
             validate_id_unique()
+
+    def test_cannot_add_incomplete_math_watchable(self):
+        w = GUIMathWatchable("asd", "v1+v2")
+        with self.assertRaises(WatchableRegistryError):
+            self.registry.add_math_watchable(w)
+
+        w.bind_watchable("v1", FqnNamePair("v1", FQN.make(RegistryNodeType.Variable, '/a/b/c')))
+        with self.assertRaises(WatchableRegistryError):
+            self.registry.add_math_watchable(w)
+        w.bind_watchable("v2", FqnNamePair("v2", FQN.make(RegistryNodeType.Variable, '/a/b/d')))
+
+        self.registry.add_math_watchable(w)
+
+    def test_cannot_add_duplicate_watchable(self):
+        w = GUIMathWatchable("asd", "v1+v2")
+        w.bind_watchable("v1", FqnNamePair("v1", FQN.make(RegistryNodeType.Variable, '/a/b/c')))
+        w.bind_watchable("v2", FqnNamePair("v2", FQN.make(RegistryNodeType.Variable, '/a/b/d')))
+
+        self.registry.add_math_watchable(w)
+        with self.assertRaises(WatchableRegistryError):
+            self.registry.add_math_watchable(w)
+        with self.assertRaises(WatchableRegistryError):
+            self.registry.add_math_watchable(w.copy())
+
+
+class TestWatchableRegistryMath(ScrutinyUnitTest):
+
+    def make_fake_watchable_from_registry(self, fqn: str) -> RegistryStubbedWatchableHandle:
+        node = self.registry.read_server_storage_fqn(fqn)
+        assert isinstance(node, ServerStorageEntryNode)
+        return RegistryStubbedWatchableHandle(
+            server_path=FQN.parse(fqn).path,
+            watchable_type=node.configuration.node_type.to_sdk(),
+            datatype=node.configuration.datatype,
+            server_id=uuid4().hex,
+            enum=node.configuration.enum
+        )
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.registry = WatchableRegistry()
+        ThreadEnforcer.register_thread(QT_THREAD_NAME)
+
+        self.update_call = []
+        self.unwatch_calls = []
+        self.global_watch_calls = []
+        self.global_unwatch_calls = []
+
+        self.registry.register_global_watch_callback(self._global_watch_callback, self._global_unwatch_callback)
+
+        self.registry.write_server_content({
+            sdk.WatchableType.Variable: {
+                "/a/b/c": sdk.BriefWatchableConfiguration(sdk.WatchableType.Variable, sdk.EmbeddedDataType.float32, enum=None),
+                "/a/b/d": sdk.BriefWatchableConfiguration(sdk.WatchableType.Variable, sdk.EmbeddedDataType.float32, enum=None),
+                "/a/b/e": sdk.BriefWatchableConfiguration(sdk.WatchableType.Variable, sdk.EmbeddedDataType.float32, enum=None)
+            }
+        })
+
+        self.w1 = GUIMathWatchable("aaa", "v1+v2")
+        self.w1.bind_watchable("v1", FqnNamePair("v1", FQN.make(RegistryNodeType.Variable, '/a/b/c')))
+        self.w1.bind_watchable("v2", FqnNamePair("v2", FQN.make(RegistryNodeType.Variable, '/a/b/d')))
+        self.registry.add_math_watchable(self.w1)
+
+        self.w2 = GUIMathWatchable("bbb", "2*v1+2*v3")
+        self.w2.bind_watchable("v1", FqnNamePair("v1", FQN.make(RegistryNodeType.Variable, '/a/b/c')))
+        self.w2.bind_watchable("v3", FqnNamePair("v3", FQN.make(RegistryNodeType.Variable, '/a/b/e')))
+        self.registry.add_math_watchable(self.w2)
+
+    def _global_watch_callback(self, data: GlobalWatchCallbackData) -> None:
+        self.global_watch_calls.append(data)
+
+    def _global_unwatch_callback(self, data: GlobalWatchCallbackData) -> None:
+        self.global_unwatch_calls.append(data)
+
+    def _update_callback(self, watcher_id: WatcherIdType, value_updates: List[RegistryValueUpdate]) -> None:
+        self.update_call.append((watcher_id, value_updates))
+
+    def _unwatch_callback(self, watcher_id: WatcherIdType, fqn: str, registry_id: int) -> None:
+        self.unwatch_calls.append((watcher_id, fqn, registry_id))
+
+    def _register_watcher(self, watcher_id: str):
+        self.registry.register_watcher(watcher_id, self._update_callback, self._unwatch_callback)
+
+    def test_get_math_by_signature(self) -> None:
+        w1 = self.registry.get_watchable_node(RegistryNodeType.Math, self.w1.signature())
+        w2 = self.registry.get_watchable_node(RegistryNodeType.Math, self.w2.signature())
+        self.assertIs(self.w1, w1)
+        self.assertIs(self.w2, w2)
+
+    def test_math_proxy(self):
+        watcher = 'unittest'
+        self._register_watcher(watcher)
+        self.assertEqual(self.registry.watched_entries_count(), 0)
+
+        self.assertEqual(self.registry.node_watcher_count(RegistryNodeType.Math, self.w1.signature()), 0)
+        math_id = self.registry.watch(watcher, RegistryNodeType.Math, self.w1.signature(), 20)
+        self.assertEqual(self.registry.node_watcher_count(RegistryNodeType.Math, self.w1.signature()), 1)
+
+        self.assertEqual(len(self.global_watch_calls), 2)
+        self.assertEqual(self.registry.watched_entries_count(), 3)
+
+        v1_id = self.registry.read_server_storage(sdk.WatchableType.Variable, '/a/b/c').registry_id
+        v2_id = self.registry.read_server_storage(sdk.WatchableType.Variable, '/a/b/d').registry_id
+        self.assertEqual(self.registry.watcher_count_by_registry_id(math_id), 1)
+        self.assertEqual(self.registry.watcher_count_by_registry_id(v1_id), 1)
+        self.assertEqual(self.registry.watcher_count_by_registry_id(v2_id), 1)
+
+        self.registry.unwatch(watcher, RegistryNodeType.Math, self.w1.signature())
+
+        self.assertEqual(self.registry.watcher_count_by_registry_id(math_id), 0)
+        self.assertEqual(self.registry.watcher_count_by_registry_id(v1_id), 0)
+        self.assertEqual(self.registry.watcher_count_by_registry_id(v2_id), 0)
+        self.assertEqual(self.registry.watched_entries_count(), 0)
+
+        self.assertEqual(len(self.global_unwatch_calls), 2)
+
+        self.assertEqual(len(self.unwatch_calls), 1)
+        expected_args = (watcher, FQN.make(RegistryNodeType.Math, self.w1.signature()), math_id)
+        self.assertEqual(self.unwatch_calls[0], expected_args)
+
+    def test_math_proxy_unwatch_by_watcher(self):
+        watcher1 = 'watcher1'
+        watcher2 = 'watcher2'
+
+        self._register_watcher(watcher1)
+        self._register_watcher(watcher2)
+
+        math1_id_1 = self.registry.watch(watcher1, RegistryNodeType.Math, self.w1.signature(), 20)
+        math1_id_2 = self.registry.watch(watcher2, RegistryNodeType.Math, self.w1.signature(), 20)
+        math2_id_2 = self.registry.watch(watcher2, RegistryNodeType.Math, self.w2.signature(), 30)
+        self.assertEqual(math1_id_1, math1_id_2)
+
+        self.assertEqual(len(self.global_watch_calls), 4)
+        self.assertEqual(len(self.global_unwatch_calls), 0)
+
+        self.assertEqual(self.registry.node_watcher_count(RegistryNodeType.Math, self.w1.signature()), 2)
+        self.assertEqual(self.registry.node_watcher_count(RegistryNodeType.Math, self.w2.signature()), 1)
+        self.assertEqual(self.registry.watcher_count_by_registry_id(math1_id_1), 2)
+        self.assertEqual(self.registry.watcher_count_by_registry_id(math2_id_2), 1)
+        self.assertEqual(self.registry.watched_entries_count(), 5)
+
+        self.registry.unregister_watcher(watcher2)
+
+        self.assertEqual(len(self.global_unwatch_calls), 2)
+        self.assertEqual(self.registry.watcher_count_by_registry_id(math1_id_1), 1)
+        self.assertEqual(self.registry.watcher_count_by_registry_id(math2_id_2), 0)
+        self.assertEqual(self.registry.watched_entries_count(), 3)
+
+        self.assertEqual(len(self.unwatch_calls), 2)
+        expected_args_1 = (watcher2, FQN.make(RegistryNodeType.Math, self.w1.signature()), math1_id_2)
+        expected_args_2 = (watcher2, FQN.make(RegistryNodeType.Math, self.w2.signature()), math2_id_2)
+        self.assertCountEqual(self.unwatch_calls, [expected_args_1, expected_args_2])
+
+    def test_math_unwatch_on_clear(self):
+        watcher1 = 'watcher1'
+        watcher2 = 'watcher2'
+
+        self._register_watcher(watcher1)
+        self._register_watcher(watcher2)
+
+        math1_id_1 = self.registry.watch(watcher1, RegistryNodeType.Math, self.w1.signature(), 20)
+        math1_id_2 = self.registry.watch(watcher2, RegistryNodeType.Math, self.w1.signature(), 20)
+        math2_id_2 = self.registry.watch(watcher2, RegistryNodeType.Math, self.w2.signature(), 30)
+
+        self.assertEqual(self.registry.watcher_count_by_registry_id(math1_id_1), 2)
+        self.assertEqual(self.registry.watcher_count_by_registry_id(math2_id_2), 1)
+        self.assertEqual(self.registry.watched_entries_count(), 5)
+
+        self.registry.clear()
+
+        self.assertEqual(self.registry.node_watcher_count(RegistryNodeType.Math, self.w1.signature()), 0)
+        self.assertEqual(self.registry.node_watcher_count(RegistryNodeType.Math, self.w2.signature()), 0)
+        self.assertEqual(self.registry.watcher_count_by_registry_id(math1_id_1), 0)
+        self.assertEqual(self.registry.watcher_count_by_registry_id(math2_id_2), 0)
+        self.assertEqual(self.registry.watched_entries_count(), 0)
+
+        self.assertEqual(len(self.global_unwatch_calls), 4)
+
+        self.assertEqual(len(self.unwatch_calls), 3)
+        expected_args_1 = (watcher2, FQN.make(RegistryNodeType.Math, self.w1.signature()), math1_id_2)
+        expected_args_2 = (watcher2, FQN.make(RegistryNodeType.Math, self.w2.signature()), math2_id_2)
+        expected_args_3 = (watcher1, FQN.make(RegistryNodeType.Math, self.w1.signature()), math1_id_2)
+        self.assertCountEqual(self.unwatch_calls, [expected_args_1, expected_args_2, expected_args_3])
+
+    def test_math_broadcast(self):
+        watcher1 = 'watcher1'
+        self._register_watcher(watcher1)
+        self.registry.watch(watcher1, RegistryNodeType.Math, self.w1.signature(), 20)
+        self.assertEqual(self.registry.watched_entries_count(), 3)
+
+        var1fqn = FQN.make(RegistryNodeType.Variable, '/a/b/c')
+        var2fqn = FQN.make(RegistryNodeType.Variable, '/a/b/d')
+
+        handle1 = self.make_fake_watchable_from_registry(fqn=var1fqn)
+        handle2 = self.make_fake_watchable_from_registry(fqn=var2fqn)
+
+        self.registry.assign_serverid_to_node_fqn(var1fqn, handle1.server_id)
+        self.registry.assign_serverid_to_node_fqn(var2fqn, handle2.server_id)
+
+        self.registry.broadcast_server_value_updates_to_watchers([
+            ValueUpdate(handle1, 1.2, data=None, status=sdk.ValueStatus.Valid, update_timestamp=datetime.now())
+        ])
+        self.assertEqual(len(self.update_call), 0)
+        self.registry.broadcast_server_value_updates_to_watchers([
+            ValueUpdate(handle2, 2.4, data=None, status=sdk.ValueStatus.Valid, update_timestamp=datetime.now())
+        ])
+        self.assertEqual(len(self.update_call), 1)
+        received_watcher, update_list = self.update_call[0]
+        self.assertEqual(received_watcher, watcher1)
+        self.assertEqual(len(update_list), 1)
+        self.assertAlmostEqual(update_list[0].sdk_update.value, 3.6)
+
+        self.registry.broadcast_server_value_updates_to_watchers([
+            ValueUpdate(handle1, 5, data=None, status=sdk.ValueStatus.Valid, update_timestamp=datetime.now()),
+            ValueUpdate(handle2, -1, data=None, status=sdk.ValueStatus.Valid, update_timestamp=datetime.now()),
+            ValueUpdate(handle1, -2, data=None, status=sdk.ValueStatus.Valid, update_timestamp=datetime.now())
+        ])
+
+        self.assertEqual(len(self.update_call), 2)
+
+        received_watcher, update_list = self.update_call[1]
+        self.assertEqual(received_watcher, watcher1)
+        self.assertEqual(len(update_list), 3)
+
+        self.assertAlmostEqual(update_list[0].sdk_update.value, 5 + 2.4)
+        self.assertAlmostEqual(update_list[1].sdk_update.value, 5 - 1)
+        self.assertAlmostEqual(update_list[2].sdk_update.value, -2 - 1)
+
+        self.registry.clear()
+
+    def test_math_broadcast_autorestore(self):
+        watcher1 = 'watcher1'
+        self._register_watcher(watcher1)
+        self.registry.watch(watcher1, RegistryNodeType.Math, self.w1.signature(), 20)
+        self.assertEqual(self.registry.watched_entries_count(), 3)
+
+        var1fqn = FQN.make(RegistryNodeType.Variable, '/a/b/c')
+        var2fqn = FQN.make(RegistryNodeType.Variable, '/a/b/d')
+        handle1 = self.make_fake_watchable_from_registry(fqn=var1fqn)
+        handle2 = self.make_fake_watchable_from_registry(fqn=var2fqn)
+        self.registry.assign_serverid_to_node_fqn(var1fqn, handle1.server_id)
+        self.registry.assign_serverid_to_node_fqn(var2fqn, handle2.server_id)
+
+        self.registry.broadcast_server_value_updates_to_watchers([
+            ValueUpdate(handle1, 2, data=None, status=sdk.ValueStatus.Valid, update_timestamp=datetime.now()),
+            ValueUpdate(handle2, 3, data=None, status=sdk.ValueStatus.Valid, update_timestamp=datetime.now())
+        ])
+
+        self.assertEqual(len(self.update_call), 1)
+        self.assertEqual(self.registry.watched_entries_count(), 3)
+        self.update_call.clear()
+        self.registry.clear_server_content_by_type(sdk.WatchableType.Variable)
+        self.assertEqual(self.registry.watched_entries_count(), 1)
+
+        self.registry.broadcast_server_value_updates_to_watchers([
+            ValueUpdate(handle1, 10, data=None, status=sdk.ValueStatus.Valid, update_timestamp=datetime.now()),
+            ValueUpdate(handle2, 20, data=None, status=sdk.ValueStatus.Valid, update_timestamp=datetime.now())
+        ])
+        self.assertEqual(len(self.update_call), 0)
+
+        self.registry.write_server_content({
+            sdk.WatchableType.Variable: {
+                "/a/b/c": sdk.BriefWatchableConfiguration(sdk.WatchableType.Variable, sdk.EmbeddedDataType.float32, enum=None),
+                "/a/b/d": sdk.BriefWatchableConfiguration(sdk.WatchableType.Variable, sdk.EmbeddedDataType.float32, enum=None),
+                "/a/b/e": sdk.BriefWatchableConfiguration(sdk.WatchableType.Variable, sdk.EmbeddedDataType.float32, enum=None)
+            }
+        })
+
+        handle1 = self.make_fake_watchable_from_registry(fqn=var1fqn)
+        handle2 = self.make_fake_watchable_from_registry(fqn=var2fqn)
+        self.registry.assign_serverid_to_node_fqn(var1fqn, handle1.server_id)
+        self.registry.assign_serverid_to_node_fqn(var2fqn, handle2.server_id)
+
+        self.registry.broadcast_server_value_updates_to_watchers([
+            ValueUpdate(handle1, 100, data=None, status=sdk.ValueStatus.Valid, update_timestamp=datetime.now()),
+            ValueUpdate(handle2, 200, data=None, status=sdk.ValueStatus.Valid, update_timestamp=datetime.now())
+        ])
+
+        self.assertEqual(len(self.update_call), 1)
+
+        received_watcher, update_list = self.update_call[0]
+        self.assertEqual(received_watcher, watcher1)
+        self.assertEqual(len(update_list), 2)
+
+        self.assertAlmostEqual(update_list[0].sdk_update.value, 100 + 3)
+        self.assertAlmostEqual(update_list[1].sdk_update.value, 100 + 200)
+
+    def test_clear(self):
+        self.registry.clear_server_content_by_type(sdk.WatchableType.all())
+        self.registry.has_data(RegistryNodeType.Math)
+        self.assertGreater(self.registry.get_registry_node_count(RegistryNodeType.Math), 0)
+        self.assertTrue(self.registry.clear())
 
     def tearDown(self):
         super().tearDown()
