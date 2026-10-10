@@ -143,7 +143,7 @@ class MathProxy(BaseRegistryStorable):
         new_updates: List["RegistryValueUpdate"] = []
         signature = self.math_watchable.signature()
         for update in updates:
-            update_fqn = FQN.make(update.node_type, update.sdk_update.get_watchable_identifier())
+            update_fqn = FQN.make(update.node_type, update.sdk_update.get_user_unique_name())
             self.math_watchable.assign_var_value_by_fqn(update_fqn, update.sdk_update.value)
             val = self.math_watchable.eval()
             if val is not None:

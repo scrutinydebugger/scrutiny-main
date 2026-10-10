@@ -275,7 +275,7 @@ class CSVLogger:
 
         for i in range(len(updates)):
             update = updates[i]
-            signal_id = update.get_watchable_identifier() if signal_id_list is None else signal_id_list[i]
+            signal_id = update.get_id() if signal_id_list is None else signal_id_list[i]
             col_index = self._column_map[signal_id]
             x = get_reltime(update)
             if x > self._actual_x:
