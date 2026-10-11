@@ -75,12 +75,11 @@ class ServerStorageEntryNode(BaseRegistryStorable):
 
 
 class MathProxy(BaseRegistryStorable):
-    __slots__ = ('registry', 'math_watchable', '_watchers', '_unwatch_in_progress', '_signature', '__weakref__')
+    __slots__ = ('registry', 'math_watchable', '_watchers', '_signature', '__weakref__')
 
     registry: "WatchableRegistry"
     math_watchable: GUIMathWatchable
     _watchers: Dict[WatcherIdType, WatcherAndDataPair]
-    _unwatch_in_progress: bool
     _signature: str
 
     def __init__(self, node_id: int, registry: "WatchableRegistry", math_watchable: GUIMathWatchable) -> None:
@@ -90,7 +89,6 @@ class MathProxy(BaseRegistryStorable):
         self._watchers = {}
         self.math_watchable = math_watchable
         self.registry.register_watcher(self.registry_id, self._update_callback, self._unwatch_callback)
-        self._unwatch_in_progress = False
         self._signature = math_watchable.signature()
 
     def notify_registry_insert(self) -> None:
@@ -108,7 +106,6 @@ class MathProxy(BaseRegistryStorable):
         return rate
 
     def _unwatch_all(self) -> None:
-        self._unwatch_in_progress = True
         for varname, fqn_name_pair in self.math_watchable.get_var_fqn_map().items():
             if fqn_name_pair is None:   # Not supposed to happen. Be safe
                 continue
@@ -116,7 +113,7 @@ class MathProxy(BaseRegistryStorable):
                 self.registry.unwatch_fqn(self.registry_id, fqn_name_pair.fqn)
             except WatchableRegistryError:
                 pass
-        self._unwatch_in_progress = False
+        self.math_watchable.clear_vals()
 
     def _try_watch_all(self) -> bool:
         success = True
@@ -158,7 +155,10 @@ class MathProxy(BaseRegistryStorable):
                 pair.watcher.value_update_callback(watcher_id, new_updates)
 
     def _unwatch_callback(self, watcher_id: WatcherIdType, server_path: str, registry_id: int) -> None:
-        pass
+        # Unwatch can come from a consumer or the server manager
+        # if one of the inputs is getting cleared.
+        # In the latter case, we want to make sure to invalidate the values
+        self.math_watchable.clear_vals()
 
     def add_or_update_watcher(self, watcher: Watcher, update_rate: Optional[float]) -> None:
         self._watchers[watcher.watcher_id] = WatcherAndDataPair(watcher, WatcherData(update_rate=update_rate))

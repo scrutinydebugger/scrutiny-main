@@ -749,6 +749,7 @@ class WatchableRegistry:
         math_had_data = len(self._math_storage) > 0
         self._math_storage.clear()
         server_had_data = self.clear_server_content_by_type(sdk.WatchableType.all())
+        self._registry_node_count[RegistryNodeType.Math] = 0
 
         if len(self._watched_server_entries) > 0:
             self._logger.critical("Failed to clear the registry properly. _watched_server_entries is not empty")    # pragma: no cover

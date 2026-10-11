@@ -119,6 +119,12 @@ class GUIMathWatchable:
             raise ValueError(f"No variable is bound to watchable with FQN : {fqn}")
         self._commit_vals()
 
+    def clear_vals(self) -> None:
+        for var_name in self._var_defs:
+            self._var_defs[var_name].val = None
+        self._commit_vals()
+        self._val = None
+
     def eval(self) -> Optional[float]:
         if self._parsing_error is not None:
             self._eval_error = self._parsing_error

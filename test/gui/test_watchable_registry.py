@@ -1175,16 +1175,17 @@ class TestWatchableRegistryMath(ScrutinyUnitTest):
 
         received_watcher, update_list = self.update_call[0]
         self.assertEqual(received_watcher, watcher1)
-        self.assertEqual(len(update_list), 2)
-
-        self.assertAlmostEqual(update_list[0].sdk_update.value, 100 + 3)
-        self.assertAlmostEqual(update_list[1].sdk_update.value, 100 + 200)
+        self.assertEqual(len(update_list), 1)
+        # We ensure that the math state is reset here. We don't compute new values from old inputs.
+        self.assertAlmostEqual(update_list[0].sdk_update.value, 100 + 200)
 
     def test_clear(self):
         self.registry.clear_server_content_by_type(sdk.WatchableType.all())
         self.registry.has_data(RegistryNodeType.Math)
         self.assertGreater(self.registry.get_registry_node_count(RegistryNodeType.Math), 0)
-        self.assertTrue(self.registry.clear())
+        self.assertTrue(self.registry.clear())  # This function may log critical messages, which make a test fail.
+        self.assertEqual(self.registry.get_registry_node_count(RegistryNodeType.Math), 0)
+
 
     def tearDown(self):
         super().tearDown()
