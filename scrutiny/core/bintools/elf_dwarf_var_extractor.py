@@ -1071,10 +1071,25 @@ class ElfDwarfVarExtractor:
                 tools.log_exception(self._logger, e, f"Failed to extract var under {child}.")
 
 # region DIE specific
+    def _is_supported_base_type(self, die:DIE) -> bool:
+        try:
+            bytesize = self._get_size_from_type_die(die)
+        except ElfParsingError:
+            return False
+
+        if bytesize == 0:   # IAR can do that with void*
+            return False
+        return True
+
+
+
     def _die_process_base_type(self, die: DIE) -> None:
         """Process die of type "base type". Register the type in the global index and maps it to a known type."""
 
         self._log_debug_process_die(die)
+        if not self._is_supported_base_type(die):
+            return
+
         if die not in self._die2vartype_map:
             name = self._get_typename_from_die(die)
             encoding = DwarfEncoding(cast(int, die.attributes[Attrs.DW_AT_encoding].value))
@@ -1343,6 +1358,9 @@ class ElfDwarfVarExtractor:
                 break
             elif nextdie.tag == Tags.DW_TAG_base_type:
                 val_out = TypeDescriptor(TypeOfVar.BaseType, enum, nextdie, None)
+                if not self._is_supported_base_type(nextdie):
+                    self._logger.debug("Skipping unsupported base type %s", nextdie)
+                    return None
                 break
             elif nextdie.tag == Tags.DW_TAG_pointer_type:
                 pointee = self._get_pointee_type_of_var(nextdie)
@@ -1561,6 +1579,7 @@ class ElfDwarfVarExtractor:
         name = self._get_die_name(die)
         if name is None:
             name = ''
+        is_unnamed = True if (len(name) == 0) else False
 
         type_desc = self._get_type_of_var(die)
         if type_desc is None:
@@ -1612,6 +1631,10 @@ class ElfDwarfVarExtractor:
             byte_offset = self._get_member_byte_offset(die)
 
         is_bitfield = Attrs.DW_AT_bit_offset in die.attributes or Attrs.DW_AT_bit_size in die.attributes
+
+
+        if is_bitfield and is_unnamed:  # Padding field. IAR include those in the DWARF symbols
+            return None
 
         bitoffset: Optional[int] = None
         bitsize: Optional[int] = None
@@ -1669,7 +1692,7 @@ class ElfDwarfVarExtractor:
             subarray=subarray,
             pointer=pointer,
             embedded_enum=embedded_enum,
-            is_unnamed=True if (len(name) == 0) else False
+            is_unnamed=is_unnamed
         )
 
     # We have an instance of a struct. Use the location and go down the structure recursively

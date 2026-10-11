@@ -546,6 +546,9 @@ class VarMap:
         """
         validation.assert_type(vartype, 'vartype', EmbeddedDataType)
 
+        if vartype == EmbeddedDataType.NA:
+            raise ValueError("Invalid base type cannot eb registered")
+
         if self.is_known_type(original_name):
             assigned_vartype = self.get_vartype_from_base_type(original_name)
             if assigned_vartype != vartype:
