@@ -195,7 +195,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
 
         self._show_config_of(None)
 
-        self.app.server_manager.signals.registry_changed.connect(self._registry_changed_slot)
+        self.app.watchable_registry.signals.content_changed.connect(self._registry_changed_slot)
         self._status_bar.signals.exit_edit_mode.connect(self._exit_edit_mode_slot)
 
     def ready(self) -> None:
@@ -217,7 +217,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         self._workzone.signals.selection_changed.disconnect(self._workzone_selection_changed_slot)
         self._workzone.signals.modified.disconnect(self._invalidate_save)
 
-        self.app.server_manager.signals.registry_changed.disconnect(self._registry_changed_slot)
+        self.app.watchable_registry.signals.content_changed.disconnect(self._registry_changed_slot)
         self._status_bar.signals.exit_edit_mode.disconnect(self._exit_edit_mode_slot)
 
         self._workzone.destroy()

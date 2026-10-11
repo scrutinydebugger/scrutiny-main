@@ -664,7 +664,7 @@ class BaseHMIWidget(QGraphicsItem):
         """When the ValueSlot is assigned a value from the server stream"""
         self._slot_value_update_callback(vslot, updates[-1].sdk_update.value)
 
-    def _unwatch_callback(self, watcher_id: Union[str, int], server_path: str, node_config: RegistryNodeConfiguration, registry_id: int) -> None:
+    def _unwatch_callback(self, watcher_id: Union[str, int], server_path: str, registry_id: int) -> None:
         """Callback invoked when we unsubscribe to a watchable"""
         for vslot in self._vslots:
             if vslot.watcher_id == watcher_id:

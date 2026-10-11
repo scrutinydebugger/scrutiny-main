@@ -10,6 +10,8 @@
 import sys
 import os
 import logging
+import argparse
+from dataclasses import dataclass
 from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import QTimer, QLocale
 
@@ -30,13 +32,28 @@ from scrutiny.gui import assets
 from scrutiny.tools.signals import SignalExitHandler
 
 
+@dataclass(frozen=True)
+class ManualTestArgs:
+    debug_layout: bool = False
+
+
+def parse_manual_test_args() -> ManualTestArgs:
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--debug-layout', action='store_true', help='Show layout borders for debugging')
+    args = parser.parse_args()
+    return ManualTestArgs(debug_layout=args.debug_layout)
+
+
+manual_test_args = parse_manual_test_args()
+
+
 def make_manual_test_app() -> QApplication:
     os.environ['SCRUTINY_MANUAL_TEST'] = '1'
     logging.basicConfig(level=logging.DEBUG)
     app = make_qt_app([])
 
     settings = ScrutinyQtGUI.Settings(
-        debug_layout=False,
+        debug_layout=manual_test_args.debug_layout,
         auto_connect=False,
         opengl_enabled=False,
         local_server_port=8765,

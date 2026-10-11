@@ -478,12 +478,12 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
 
         layout.addWidget(splitter)
 
+        self.app.watchable_registry.signals.content_changed.connect(self._registry_changed_slot)
         self.app.server_manager.signals.server_connected.connect(self._server_connected_slot)
         self.app.server_manager.signals.server_disconnected.connect(self._server_disconnected_slot)
         self.app.server_manager.signals.device_info_availability_changed.connect(self._update_datalogging_capabilities)
         self.app.server_manager.signals.device_disconnected.connect(self._update_datalogging_capabilities)
         self.app.server_manager.signals.device_ready.connect(self._update_datalogging_capabilities)
-        self.app.server_manager.signals.registry_changed.connect(self._registry_changed_slot)
         self.app.server_manager.signals.datalogging_state_changed.connect(self._datalogging_state_changed_slot)
         self.app.server_manager.signals.datalogging_storage_updated.connect(self._datalogging_storage_updated_slot)
         self.app.server_manager.signals.sfd_loaded.connect(self._sfd_loaded_slot)

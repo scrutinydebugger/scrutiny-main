@@ -19,7 +19,7 @@ from pathlib import Path
 
 from scrutiny.tools import validation
 from scrutiny.core.basic_types import EmbeddedDataType
-from scrutiny.sdk.listeners import ValueUpdate
+from scrutiny.sdk.listeners import BaseUpdate
 from scrutiny.sdk.watchable_handle import WatchableHandle
 from scrutiny.tools.typing import *
 from typing import TextIO
@@ -250,7 +250,7 @@ class CSVLogger:
         """Return ``True`` if the CSV logger is started"""
         return self._started
 
-    def write(self, updates: List[ValueUpdate], signal_id_list: Optional[List[str]] = None) -> None:
+    def write(self, updates: List[BaseUpdate], signal_id_list: Optional[List[str]] = None) -> None:
         """Write a sequence of :class:`ValueUpdate<scrutiny.sdk.listeners.ValueUpdate>` to the CSV output.
 
         :param updates: A list of :class:`ValueUpdate<scrutiny.sdk.listeners.ValueUpdate>` given by a listener
@@ -270,12 +270,12 @@ class CSVLogger:
             self._first_val_dt = updates[0].update_timestamp
         tstart = self._first_val_dt
 
-        def get_reltime(val: ValueUpdate) -> float:    # A getter to get the relative timestamp
+        def get_reltime(val: BaseUpdate) -> float:    # A getter to get the relative timestamp
             return (val.update_timestamp - tstart).total_seconds()
 
         for i in range(len(updates)):
             update = updates[i]
-            signal_id = update.watchable.server_id if signal_id_list is None else signal_id_list[i]
+            signal_id = update.get_id() if signal_id_list is None else signal_id_list[i]
             col_index = self._column_map[signal_id]
             x = get_reltime(update)
             if x > self._actual_x:
@@ -287,7 +287,7 @@ class CSVLogger:
 
             self._actual_vals[col_index] = update.value
             if update.value is not None:
-                if update.watchable.datatype.is_bool() and self._convert_bool_to_int:
+                if update.get_datatype().is_bool() and self._convert_bool_to_int:
                     self._actual_vals[col_index] = int(update.value)
             self._new_val_flags[col_index] = True
 

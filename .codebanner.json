@@ -1155,14 +1155,17 @@
         "scrutiny/gui/core/watchable_registry/common.py": {
             "docstring": "Common definitions related to the WatchableRegistry that have no dependencies"
         },
-        "test/gui/test_math_element.py": {
-            "docstring": "A test suite to test the scrutiny.core.MathElement"
-        },
-        "scrutiny/gui/core/math_element.py": {
-            "docstring": "A stateful math element that can have variables and be reevaluated at will"
-        },
         "scrutiny/core/math_parser.py": {
             "docstring": " A math expression parser based of https://github.com/louisfisch/mathematical-expression-parser"
+        },
+        "test/gui/test_gui_math_watchable.py": {
+            "docstring": "A test suite for the GUIMathWatchable"
+        },
+        "scrutiny/gui/core/gui_math_watchable.py": {
+            "docstring": "Represent a Math Watchable that can be carried across GUI components. Analogous to Variables/Alaises/RPVs, but defined fully from the GUI side"
+        },
+        "scrutiny/gui/core/fqn_name_pair.py": {
+            "docstring": "Simple container used across the GUI to carry a display name an a Fully Qualified Name pointing to an item int he registry"
         }
     },
     "authors": {}

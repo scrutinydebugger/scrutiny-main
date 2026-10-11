@@ -99,7 +99,7 @@ class WatchComponent(ScrutinyGUIBaseLocalComponent):
         self._tree.expanded.connect(self._node_expanded_slot)
         self._tree.collapsed.connect(self._node_collapsed_slot)
 
-        self.app.server_manager.signals.registry_changed.connect(self._registry_changed_slot)
+        self.app.watchable_registry.signals.content_changed.connect(self._registry_changed_slot)
         self.app.server_manager.signals.server_connected.connect(self._update_component_state)
         self.app.server_manager.signals.server_disconnected.connect(self._update_component_state)
 
@@ -348,7 +348,7 @@ class WatchComponent(ScrutinyGUIBaseLocalComponent):
         def update_val_closure(watcher_id: Union[str, int], vals: List[RegistryValueUpdate]) -> None:
             self._update_val_callback(value_item, rawdata_item, watcher_id, vals)
 
-        def unwatch_closure(watcher_id: Union[str, int], server_path: str, node_config: RegistryNodeConfiguration, registry_id: int) -> None:
+        def unwatch_closure(watcher_id: Union[str, int], server_path: str, registry_id: int) -> None:
             pass
 
         watcher_id = self._get_watcher_id(item)
