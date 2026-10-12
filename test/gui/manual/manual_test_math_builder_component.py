@@ -52,8 +52,8 @@ math_builder.setup()
 math_builder.ready()
 
 # Populate registry with fake data
-registry.write_content({
-    RegistryNodeType.Variable: {
+registry.write_server_content({
+    WatchableType.Variable: {
         '/sensors/speed_x': BriefWatchableConfiguration(WatchableType.Variable, EmbeddedDataType.float32, enum=None),
         '/sensors/speed_y': BriefWatchableConfiguration(WatchableType.Variable, EmbeddedDataType.float32, enum=None),
         '/sensors/speed_z': BriefWatchableConfiguration(WatchableType.Variable, EmbeddedDataType.float32, enum=None),
@@ -62,19 +62,19 @@ registry.write_content({
         '/motor/torque': BriefWatchableConfiguration(WatchableType.Variable, EmbeddedDataType.float32, enum=None),
         '/control/output': BriefWatchableConfiguration(WatchableType.Variable, EmbeddedDataType.float64, enum=None),
     },
-    RegistryNodeType.Alias: {
+    WatchableType.Alias: {
         '/speed_magnitude': BriefWatchableConfiguration(WatchableType.Alias, EmbeddedDataType.float32, enum=None),
         '/avg_temperature': BriefWatchableConfiguration(WatchableType.Alias, EmbeddedDataType.float32, enum=None),
     },
-    RegistryNodeType.RuntimePublishedValue: {
+    WatchableType.RuntimePublishedValue: {
         '/rpv/gain_p': BriefWatchableConfiguration(WatchableType.RuntimePublishedValue, EmbeddedDataType.float32, enum=None),
         '/rpv/gain_i': BriefWatchableConfiguration(WatchableType.RuntimePublishedValue, EmbeddedDataType.float32, enum=None),
         '/rpv/gain_d': BriefWatchableConfiguration(WatchableType.RuntimePublishedValue, EmbeddedDataType.float32, enum=None),
     },
 })
-varlist.reload_model([RegistryNodeType.Variable, RegistryNodeType.Alias, RegistryNodeType.RuntimePublishedValue])
+varlist.reload_model([WatchableType.Variable, WatchableType.Alias, WatchableType.RuntimePublishedValue])
 btn_clear_var = QPushButton("Clear Var")
-btn_clear_var.clicked.connect(lambda: registry.clear_content_by_type(RegistryNodeType.Variable))
+btn_clear_var.clicked.connect(lambda: registry.clear_server_content_by_type(WatchableType.Variable))
 
 left_side_widget = QWidget()
 left_side_widget_layout = QVBoxLayout(left_side_widget)

@@ -42,7 +42,7 @@ class WatchableRegistry:
     Act as a relay to dispatch value update event to the internal widgets"""
 
     class _Signals(QObject):
-        content_changed = Signal()
+        content_changed = Signal(object)
 
     @dataclass(frozen=True, slots=True)
     class Statistics:
@@ -561,7 +561,7 @@ class WatchableRegistry:
         :return: The node referred to by the given FQN
         """
         parsed = FQN.parse(fqn)
-        return self.get_watchable_node(parsed.node_type, parsed.path)
+        return self.get_watchable_node(parsed.node_type, parsed.string_id)
 
     def get_watchable_node(self, node_type: RegistryNodeType, string_id: str) -> Optional[Union[ServerStorageEntryNode, GUIMathWatchable]]:
         """Access a node from the registry and return it if it is a Watchable node (Server or Client defined).
@@ -675,7 +675,7 @@ class WatchableRegistry:
 
         if changed:
             self._notify_all_math_proxies_of_insert()
-            self._signals.content_changed.emit()
+            self._signals.content_changed.emit([RegistryNodeType.from_sdk(wt) for wt, changed in touched.items() if changed])
 
     @enforce_thread(QT_THREAD_NAME)
     def clear_server_content_by_type(self, watchable_types: Union[sdk.WatchableType, Iterable[sdk.WatchableType]]) -> bool:
@@ -729,7 +729,7 @@ class WatchableRegistry:
             self._node_counter = 0  # Avoid growing forever
 
         if changed:
-            self._signals.content_changed.emit()
+            self._signals.content_changed.emit([RegistryNodeType.from_sdk(wt) for wt in watchable_types])
 
         return changed
 
@@ -816,6 +816,11 @@ class WatchableRegistry:
 
         self._math_storage[signature] = MathProxy(self._make_node_id(), self, math_watchable)
         self._registry_node_count[RegistryNodeType.Math] += 1
+        self._signals.content_changed.emit(RegistryNodeType.Math)
+
+    def get_all_math_watchables(self) -> Generator[Tuple[str, GUIMathWatchable], None, None]:
+        for proxy in self._math_storage.values():
+            yield (proxy.get_signature(), proxy.math_watchable)
 
     def _notify_all_math_proxies_of_insert(self) -> None:
         for proxy in self._watched_math_proxy.values():

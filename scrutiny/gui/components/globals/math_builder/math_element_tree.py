@@ -28,21 +28,18 @@ class Cols:
 
 
 class MathStandardItem(QStandardItem):
-    _uid: int
+    _fqn: str
 
-    def __init__(self, name: str, uid: Optional[int] = None) -> None:
+    def __init__(self, name: str, fqn: str) -> None:
         super().__init__()
         self.setText(name)
         self.setEditable(False)
         self.setIcon(get_watchable_icon(RegistryNodeType.Math))
+        self._fqn = fqn
 
-        if uid is None:
-            self._uid = global_i64_counter()
-        else:
-            self._uid = uid
-
-    def get_uid(self) -> int:
-        return self._uid
+    @property
+    def fqn(self) -> str:
+        return self._fqn
 
 
 class MathExprStandardItem(QStandardItem):
@@ -50,12 +47,6 @@ class MathExprStandardItem(QStandardItem):
         super().__init__()
         self.setText(expr)
         self.setEditable(False)
-
-
-@dataclass(slots=True)
-class MathWatchableUidPair:
-    math_watchable: GUIMathWatchable
-    uid: int
 
 
 class MathTreeModel(BaseTreeModelWithStyle):
@@ -68,14 +59,6 @@ class MathTreeModel(BaseTreeModelWithStyle):
         self._watchable_registry = watchable_registry
         self.setColumnCount(len(self.HEADERS))
         self.setHorizontalHeaderLabels(self.HEADERS)
-
-    def _find_row_of_uid(self, uid: int) -> Optional[int]:
-        for i in range(self.rowCount()):
-            item = self.item(i, Cols.ItemOrVar)
-            assert isinstance(item, MathStandardItem)
-            if item.get_uid() == uid:
-                return i
-        return None
 
     def _fill_with_variables(self, math_item: MathStandardItem, math_watchable: GUIMathWatchable) -> None:
         """Adds the watchable rows underneath a MathStandardItem"""
@@ -96,68 +79,56 @@ class MathTreeModel(BaseTreeModelWithStyle):
             fqn_item.setEditable(False)
             math_item.appendRow([var_item, watchable_item, fqn_item])
 
-    def replace_math_watchable(self, uid: int, math_watchable: GUIMathWatchable) -> None:
-        """Replace a Math item in the tree identified by its uid by a new MathWatchable"""
-        if not math_watchable.is_fully_configured():
-            raise ValueError("Math element is not complete")
+    def sync_with_registry(self) -> None:
+        all_math = {signature: math_watcahble for signature, math_watcahble in self._watchable_registry.get_all_math_watchables()}
+        to_remove: Set[MathStandardItem] = set()
+        to_update: Dict[str, MathStandardItem] = {}
 
-        row_index = self._find_row_of_uid(uid)
-        if row_index is None:
-            raise KeyError(f"Could not find Math item with UID={uid}")
-        math_item = self.item(row_index, Cols.ItemOrVar)
-        expr_item = self.item(row_index, Cols.ExprOrWatchable)
-        assert isinstance(math_item, MathStandardItem)
-        assert isinstance(expr_item, MathExprStandardItem)
+        for i in range(self.rowCount()):
+            item = cast(MathStandardItem, self.item(i, Cols.ItemOrVar))
+            signature = FQN.parse(item.fqn).string_id
+            if signature not in all_math:
+                to_remove.add(item)
+            else:
+                to_update[signature] = item
 
-        math_item.setText(math_watchable.get_name())
-        expr_item.setText(math_watchable.get_expr())
+        for item in to_remove:
+            self.removeRow(item.index().row())
+        del to_remove
 
-        self._fill_with_variables(math_item, math_watchable)
+        for signature, item in to_update.items():
+            math_watchable = all_math[signature]
+            if signature != math_watchable.signature():
+                self._fill_with_variables(item, math_watchable)
+                expr_item = cast(MathExprStandardItem, self.item(item.row(), Cols.ExprOrWatchable))
+                expr_item.setText(math_watchable.get_expr())
+            del all_math[signature]
 
-    def insert_math_watchable(self, math_watchable: GUIMathWatchable) -> None:
-        """Add a row in the tree made from the given MathWatchable"""
-        if not math_watchable.is_fully_configured():
-            raise ValueError("Math element is not complete")
+        for signature, math_watchable in all_math.items():
+            fqn = FQN.make(RegistryNodeType.Math, signature)
+            math_item = MathStandardItem(math_watchable.get_name(), fqn)
+            expr_item = MathExprStandardItem(math_watchable.get_expr())
 
-        math_item = MathStandardItem(math_watchable.get_name())
-        expr_item = MathExprStandardItem(math_watchable.get_expr())
-        placeholder = QStandardItem()
-        placeholder.setEditable(False)
-        math_row = [math_item, expr_item, placeholder]
+            self.appendRow([math_item, expr_item])
+            self._fill_with_variables(math_item, math_watchable)
 
-        self._fill_with_variables(math_item, math_watchable)
-        self.appendRow(math_row)
-
-    def extract_math_watchable(self, row_index: int) -> Optional[MathWatchableUidPair]:
-        """Reads the MathWatchable from a row"""
+    def get_fqn_from_row(self, row_index: int) -> Optional[str]:
+        """Reads the FQN from a row"""
         if row_index < 0 or row_index > self.rowCount() - 1:
             return None
 
         math_item = cast(MathStandardItem, self.item(row_index, Cols.ItemOrVar))
-        expr_item = cast(MathExprStandardItem, self.item(row_index, Cols.ExprOrWatchable))
-
-        math_watchable = GUIMathWatchable(name=math_item.text(), expr=expr_item.text())
-        for i in range(math_item.rowCount()):
-            var_name = math_item.child(i, Cols.ItemOrVar).text()
-            w = math_item.child(i, Cols.ExprOrWatchable)
-            assert isinstance(w, WatchableStandardItem)
-            math_watchable.bind_watchable(var_name, FqnNamePair(name=w.text(), fqn=w.fqn))
-
-        return MathWatchableUidPair(
-            math_watchable=math_watchable,
-            uid=math_item.get_uid()
-        )
+        return math_item.fqn
 
 
 class MathTreeView(BaseTreeView):
     class _Signals(QObject):
-        edit_requested = Signal(object, int)    # MathWatchable, UID
-        removed = Signal(object)                # Set[int]
+        edit_requested = Signal(str)        # str
+        remove_requested = Signal(object)   # Set[str]
 
     _model: MathTreeModel
     _signals: _Signals
 
-    @tools.copy_type(BaseTreeView.__init__)
     def __init__(self, watchable_registry: WatchableRegistry) -> None:
         super().__init__()
         self._signals = self._Signals()
@@ -173,14 +144,11 @@ class MathTreeView(BaseTreeView):
     def signals(self) -> _Signals:
         return self._signals
 
-    def insert_math_watchable(self, math_watchable: GUIMathWatchable) -> None:
-        self._model.insert_math_watchable(math_watchable)
+    def get_fqn_from_row(self, row_index: int) -> Optional[str]:
+        return self._model.get_fqn_from_row(row_index)
 
-    def replace_math_watchable(self, uid: int, math_watchable: GUIMathWatchable) -> None:
-        self._model.replace_math_watchable(uid, math_watchable)
-
-    def extract_math_watchable(self, row_index: int) -> Optional[MathWatchableUidPair]:
-        return self._model.extract_math_watchable(row_index)
+    def sync_with_registry(self) -> None:
+        return self._model.sync_with_registry()
 
     def selected_math_items(self) -> List[MathStandardItem]:
         def iterate() -> Generator[MathStandardItem, None, None]:
@@ -213,16 +181,15 @@ class MathTreeView(BaseTreeView):
         context_menu.exec_at_first_and_disconnect(self.mapToGlobal(event.pos()))
 
     def _context_menu_edit_slot(self, math_item: MathStandardItem) -> None:
-        pair = self.extract_math_watchable(math_item.row())
-        if pair is None:
+        fqn = self.get_fqn_from_row(math_item.row())
+        if fqn is None:
             return  # Should not really happen
 
-        self._signals.edit_requested.emit(pair.math_watchable, pair.uid)
+        self._signals.edit_requested.emit(fqn)
 
     def _context_menu_remove_slot(self, math_items: List[MathStandardItem]) -> None:
-        uid_removed = set()
+        fqn_to_remove = set()
         for item in math_items:
-            uid_removed.add(item.get_uid())
-            self._model.removeRow(item.row())
+            fqn_to_remove.add(item.fqn)
 
-        self._signals.removed.emit(uid_removed)
+        self._signals.remove_requested.emit(fqn_to_remove)

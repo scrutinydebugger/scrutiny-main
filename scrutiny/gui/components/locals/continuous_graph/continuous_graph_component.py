@@ -29,7 +29,7 @@ from scrutiny.gui.app_settings import app_settings
 from scrutiny.gui.tools import prompt
 from scrutiny.gui.tools.invoker import invoke_later, invoke_in_qt_thread
 from scrutiny.gui.core.export_chart_csv import export_chart_csv_threaded, make_csv_headers
-from scrutiny.gui.core.watchable_registry.common import RegistryValueUpdate, RegistryNodeConfiguration
+from scrutiny.gui.core.watchable_registry.common import RegistryValueUpdate, RegistryNodeType
 from scrutiny.gui.core.watchable_registry.errors import WatchableRegistryNodeNotFoundError
 from scrutiny.gui.core.watchable_registry.fqn import FQN
 from scrutiny.gui.widgets.feedback_label import FeedbackLabel
@@ -738,7 +738,7 @@ class ContinuousGraphComponent(ScrutinyGUIBaseLocalComponent):
         self._csv_logger.set_file_headers(make_csv_headers(device=self._graph_device_info, sfd=self._graph_sfd))
         self._csv_logger.start()
 
-    def _registry_changed_slot(self) -> None:
+    def _registry_changed_slot(self, node_types: List[RegistryNodeType]) -> None:
         """Called when the server manager has finished making a change to the registry"""
         self._signal_tree.update_all_availabilities()
         if self._state.acquiring and self._signal_tree.has_unavailable_signals():

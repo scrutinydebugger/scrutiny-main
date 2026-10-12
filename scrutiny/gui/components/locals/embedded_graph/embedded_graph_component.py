@@ -852,7 +852,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
             wpath = ydata.series.logged_element.path
             node_type = RegistryNodeType.from_sdk(ydata.series.logged_element.type)
             series_item = ChartSeriesWatchableStandardItem(
-                fqn=FQN.make(node_type=node_type, path=wpath),
+                fqn=FQN.make(node_type, wpath),
                 node_type=node_type,
                 text=ydata.series.name
             )

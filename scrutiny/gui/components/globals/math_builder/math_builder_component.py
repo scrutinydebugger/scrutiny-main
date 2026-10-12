@@ -2,6 +2,7 @@
 from PySide6.QtWidgets import QVBoxLayout, QPushButton, QWidget, QHBoxLayout, QSplitter, QGroupBox
 from PySide6.QtCore import Qt, QModelIndex, QItemSelection, SignalInstance
 from scrutiny.gui.core.gui_math_watchable import GUIMathWatchable
+from scrutiny.gui.core.watchable_registry.common import RegistryNodeType
 from scrutiny.gui.components.globals.base_global_component import ScrutinyGUIBaseGlobalComponent
 from scrutiny.gui.components.globals.math_builder.math_element_tree import MathTreeView
 from scrutiny.gui.components.globals.math_builder.math_watchable_editor import MathWatchableEditor
@@ -18,13 +19,14 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
     _btn_commit: QPushButton
     _btn_close: QPushButton
     _splitter: QSplitter
-    _uid_being_edited: Optional[int]
+    _signature_being_edited: Optional[str]
 
     _signals_connected: List[Tuple[SignalInstance, object]]
 
     def setup(self) -> None:
+        self._signature_being_edited = None
         self._signals_connected = []
-        self._math_tree = MathTreeView()
+        self._math_tree = MathTreeView(self.app.watchable_registry)
         self._editor = MathWatchableEditor()
         self._btn_new = QPushButton("New")
         self._btn_new.setEnabled(True)
@@ -80,7 +82,7 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
         self._connect_signal(self._btn_close.clicked, self._btn_close_clicked_slot)
         self._connect_signal(self._math_tree.selectionModel().selectionChanged, self._selection_changed_slot)
         self._connect_signal(self._math_tree.signals.edit_requested, self._tree_edit_slot)
-        self._connect_signal(self._math_tree.signals.removed, self._tree_remove_slot)
+        self._connect_signal(self._math_tree.signals.remove_requested, self._tree_remove_slot)
         self._connect_signal(self._editor.signals.content_changed, self._edit_content_changed_slot)
         self._connect_signal(self.app.watchable_registry.signals.content_changed, self._registry_changed_slot)
 
@@ -121,22 +123,24 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
 
     def _btn_new_clicked_slot(self) -> None:
         self._editor.clear()
-        self._uid_being_edited = None
+        self._signature_being_edited = None
         self._show_editor(True)
 
     def _btn_commit_clicked_slot(self) -> None:
-        # TODO:
-        # Presently insert in the math tree.
-        # Need to insert in the registry and leave the tree get updated by it
         self._editor.validate()
         math_watchable = self._editor.get_if_fully_configured()
         if math_watchable is None:
             return
 
-        if self._uid_being_edited is not None:
-            self._math_tree.replace_math_watchable(self._uid_being_edited, math_watchable)
+        if self._signature_being_edited is None:
+            self.app.watchable_registry.add_math_watchable(math_watchable)
         else:
-            self._math_tree.insert_math_watchable(math_watchable)
+            raise NotImplementedError("todo")
+
+            # if self._uid_being_edited is not None:
+            #    self._math_tree.replace_math_watchable(self._uid_being_edited, math_watchable)
+            # else:
+            #    self._math_tree.insert_math_watchable(math_watchable)
 
         self._stop_edit()
 
@@ -161,34 +165,39 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
             return
 
         index = selected[0]
-        data = self._math_tree.extract_math_watchable(index.row())
-        if data is None:
+        fqn = self._math_tree.get_fqn_from_row(index.row())
+        if fqn is None:
             return
+        math_watchable = self.app.watchable_registry.get_watchable_node_fqn(fqn)
+        assert isinstance(math_watchable, GUIMathWatchable)
 
-        self._start_edit(data.math_watchable, data.uid)
+        self._start_edit(math_watchable)
 
-    def _tree_edit_slot(self, math_watchable: GUIMathWatchable, uid: int) -> None:
-        self._start_edit(math_watchable, uid)
+    def _tree_edit_slot(self, math_watchable: GUIMathWatchable) -> None:
+        self._start_edit(math_watchable)
 
-    def _tree_remove_slot(self, uid_removed: Set[int]) -> None:
-        if self._uid_being_edited is not None:
-            if self._uid_being_edited in uid_removed:
+    def _tree_remove_slot(self, signature_removed: Set[str]) -> None:
+        if self._signature_being_edited is not None:
+            if self._signature_being_edited in signature_removed:
                 self._stop_edit_and_hide()
 
-    def _start_edit(self, math_watchable: GUIMathWatchable, uid: int) -> None:
+    def _start_edit(self, math_watchable: GUIMathWatchable) -> None:
         self._editor.load(math_watchable)
-        self._uid_being_edited = uid
+        self._signature_being_edited = math_watchable.signature()
         self._show_editor(True)
 
     def _stop_edit(self) -> None:
         self._editor.clear()
-        self._uid_being_edited = None
+        self._signature_being_edited = None
 
     def _stop_edit_and_hide(self) -> None:
         self._stop_edit()
         self._show_editor(False)
 
-    def _registry_changed_slot(self) -> None:
+    def _registry_changed_slot(self, node_types: List[RegistryNodeType]) -> None:
+        if RegistryNodeType.Math in node_types:
+            self._math_tree.sync_with_registry()
+
         self._update_availability()
 
     def _update_availability(self) -> None:
