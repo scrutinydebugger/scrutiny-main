@@ -116,7 +116,7 @@ class MathWatchableEditor(QWidget):
         if changed:
             self._signals.content_changed.emit()
 
-    def _add_var_row(self, var_name: str) -> Optional[WatchableLineEdit]:
+    def _add_var_row(self, var_name: str) -> WatchableLineEdit:
         if var_name in self._var_to_wlineedit_map:
             raise ValueError(f"Variable with name {var_name} already has a row")
 
