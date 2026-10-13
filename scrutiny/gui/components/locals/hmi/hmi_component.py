@@ -26,8 +26,8 @@ from scrutiny.gui import assets
 from scrutiny.gui.themes import scrutiny_get_theme
 from scrutiny.gui.widgets.scrutiny_qmenu import ScrutinyQMenu
 from scrutiny.gui.widgets.vertical_scroll_area import VerticalScrollArea
+from scrutiny.gui.core.watchable_registry.common import RegistryNodeType
 from scrutiny.gui.components.locals.base_local_component import ScrutinyGUIBaseLocalComponent
-
 from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget, ValueSlotStateDict
 from scrutiny.gui.components.locals.hmi.hmi_status_bar import HMIStatusBar
 from scrutiny.gui.components.locals.hmi.hmi_workzone import HMIWorkZone
@@ -468,6 +468,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
 
 # region Private
 
+
     def _invalidate_save(self) -> None:
         self._has_unsaved_changes = True
 
@@ -488,7 +489,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         """Called when the user click wants to leave the edit mode"""
         self.set_mode(HMIInteractionMode.Display)
 
-    def _registry_changed_slot(self) -> None:
+    def _registry_changed_slot(self, node_types: List[RegistryNodeType]) -> None:
         """ Called when watchables are added/removed from the registry"""
         self._resubscribe_all_hmi_widgets()
 

@@ -51,8 +51,7 @@ math_builder = MathBuilderComponent(main_window=window, instance_name="math_buil
 math_builder.setup()
 math_builder.ready()
 
-# Populate registry with fake data
-registry.write_server_content({
+WATCHABLE_CONTENT = {
     WatchableType.Variable: {
         '/sensors/speed_x': BriefWatchableConfiguration(WatchableType.Variable, EmbeddedDataType.float32, enum=None),
         '/sensors/speed_y': BriefWatchableConfiguration(WatchableType.Variable, EmbeddedDataType.float32, enum=None),
@@ -71,16 +70,26 @@ registry.write_server_content({
         '/rpv/gain_i': BriefWatchableConfiguration(WatchableType.RuntimePublishedValue, EmbeddedDataType.float32, enum=None),
         '/rpv/gain_d': BriefWatchableConfiguration(WatchableType.RuntimePublishedValue, EmbeddedDataType.float32, enum=None),
     },
-})
-varlist.reload_model([WatchableType.Variable, WatchableType.Alias, WatchableType.RuntimePublishedValue])
-btn_clear_var = QPushButton("Clear Var")
-btn_clear_var.clicked.connect(lambda: registry.clear_server_content_by_type(WatchableType.Variable))
+}
+
+ALL_TYPES = [WatchableType.Variable, WatchableType.Alias, WatchableType.RuntimePublishedValue]
+
+# Populate registry with fake data
+registry.write_server_content(WATCHABLE_CONTENT)
+varlist.reload_model(ALL_TYPES)
+
+btn_clear = QPushButton("Clear Aliases")
+btn_clear.clicked.connect(lambda: registry.clear_server_content_by_type(WatchableType.Alias))
+
+btn_reload = QPushButton("Reload Aliases")
+btn_reload.clicked.connect(lambda: registry.write_server_content({WatchableType.Alias: WATCHABLE_CONTENT[WatchableType.Alias]}))
 
 left_side_widget = QWidget()
 left_side_widget_layout = QVBoxLayout(left_side_widget)
 
 left_side_widget_layout.addWidget(varlist)
-left_side_widget_layout.addWidget(btn_clear_var)
+left_side_widget_layout.addWidget(btn_clear)
+left_side_widget_layout.addWidget(btn_reload)
 
 # Layout: VarList on the left, MathBuilder on the right
 splitter = QSplitter(Qt.Orientation.Horizontal)

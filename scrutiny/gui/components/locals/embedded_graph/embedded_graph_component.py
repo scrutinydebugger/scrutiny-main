@@ -724,7 +724,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
         """Update the UI with new datalogging capabilities broadcast by the server"""
         self._graph_config_widget.configure_from_device_info(self.app.server_manager.get_device_info())
 
-    def _registry_changed_slot(self) -> None:
+    def _registry_changed_slot(self, node_types: List[RegistryNodeType]) -> None:
         """Called when the server manager has finished making a change to the registry"""
         if not self._state.has_content:  # We are not inspecting data.
             self._signal_tree.update_all_availabilities()
@@ -744,7 +744,6 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
 
 
 # region Chart handling
-
 
     def _clear_graph(self) -> None:
         """Remove the acquisition presently displayed in the chartview"""

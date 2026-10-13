@@ -567,8 +567,8 @@ class WatchableRegistry:
         """Access a node from the registry and return it if it is a Watchable node (Server or Client defined).
           Returns ``None`` if no node exist or if the accessed node is not a Watchable
 
-        :node_type: The type of node to read
-        :string_id: The server path or the Math watchable signature
+        :param node_type: The type of node to read
+        :param string_id: The server path or the Math watchable signature
         :return: The node referred to by the given ID
         """
         if node_type == RegistryNodeType.Math:
@@ -816,6 +816,19 @@ class WatchableRegistry:
 
         self._math_storage[signature] = MathProxy(self._make_node_id(), self, math_watchable)
         self._registry_node_count[RegistryNodeType.Math] += 1
+        self._signals.content_changed.emit(RegistryNodeType.Math)
+
+    def update_math_watchable_fqn(self, fqn: str, new_math_watchable: GUIMathWatchable) -> None:
+        previous_signature = FQN.parse(fqn).math_signature
+        if previous_signature == new_math_watchable.signature():
+            return
+        proxy = self._math_storage.get(previous_signature)
+        if proxy is None:
+            raise WatchableRegistryError(f"No registry math entry to update at at {fqn}")
+
+        proxy.update_math_watchable(new_math_watchable)
+        self._math_storage[new_math_watchable.signature()] = proxy
+        del self._math_storage[previous_signature]
         self._signals.content_changed.emit(RegistryNodeType.Math)
 
     def get_all_math_watchables(self) -> Generator[Tuple[str, GUIMathWatchable], None, None]:

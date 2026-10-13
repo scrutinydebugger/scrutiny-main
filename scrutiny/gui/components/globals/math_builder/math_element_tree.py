@@ -60,6 +60,14 @@ class MathTreeModel(BaseTreeModelWithStyle):
         self.setColumnCount(len(self.HEADERS))
         self.setHorizontalHeaderLabels(self.HEADERS)
 
+    def _make_row(self, math_watchable: GUIMathWatchable) -> List[QStandardItem]:
+        fqn = FQN.make(RegistryNodeType.Math, math_watchable.signature())
+        math_item = MathStandardItem(math_watchable.get_name(), fqn)
+        expr_item = MathExprStandardItem(math_watchable.get_expr())
+        self._fill_with_variables(math_item, math_watchable)
+
+        return [math_item, expr_item]
+
     def _fill_with_variables(self, math_item: MathStandardItem, math_watchable: GUIMathWatchable) -> None:
         """Adds the watchable rows underneath a MathStandardItem"""
         math_item.removeRows(0, math_item.rowCount())
@@ -81,14 +89,14 @@ class MathTreeModel(BaseTreeModelWithStyle):
 
     def sync_with_registry(self) -> None:
         all_math = {signature: math_watcahble for signature, math_watcahble in self._watchable_registry.get_all_math_watchables()}
-        to_remove: Set[MathStandardItem] = set()
+        to_remove: List[MathStandardItem] = []
         to_update: Dict[str, MathStandardItem] = {}
 
         for i in range(self.rowCount()):
             item = cast(MathStandardItem, self.item(i, Cols.ItemOrVar))
             signature = FQN.parse(item.fqn).string_id
             if signature not in all_math:
-                to_remove.add(item)
+                to_remove.append(item)
             else:
                 to_update[signature] = item
 
@@ -105,12 +113,8 @@ class MathTreeModel(BaseTreeModelWithStyle):
             del all_math[signature]
 
         for signature, math_watchable in all_math.items():
-            fqn = FQN.make(RegistryNodeType.Math, signature)
-            math_item = MathStandardItem(math_watchable.get_name(), fqn)
-            expr_item = MathExprStandardItem(math_watchable.get_expr())
-
-            self.appendRow([math_item, expr_item])
-            self._fill_with_variables(math_item, math_watchable)
+            row = self._make_row(math_watchable)
+            self.appendRow(row)
 
     def get_fqn_from_row(self, row_index: int) -> Optional[str]:
         """Reads the FQN from a row"""

@@ -84,12 +84,20 @@ class MathProxy(BaseRegistryStorable):
 
     def __init__(self, node_id: int, registry: "WatchableRegistry", math_watchable: GUIMathWatchable) -> None:
         super().__init__(node_id)
-        assert math_watchable.is_fully_configured()
         self.registry = registry
         self._watchers = {}
-        self.math_watchable = math_watchable
         self.registry.register_watcher(self.registry_id, self._update_callback, self._unwatch_callback)
+        self._load_watchable(math_watchable)
+
+    def _load_watchable(self, math_watchable: GUIMathWatchable) -> None:
+        assert math_watchable.is_fully_configured()
+        self.math_watchable = math_watchable
         self._signature = math_watchable.signature()
+        if len(self._watchers) > 0:
+            self._try_watch_all()
+
+    def update_math_watchable(self, new_math_watchable: GUIMathWatchable) -> None:
+        self._load_watchable(new_math_watchable)
 
     def notify_registry_insert(self) -> None:
         if len(self._watchers) > 0:

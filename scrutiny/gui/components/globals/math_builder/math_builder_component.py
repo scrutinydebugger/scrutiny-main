@@ -3,6 +3,7 @@ from PySide6.QtWidgets import QVBoxLayout, QPushButton, QWidget, QHBoxLayout, QS
 from PySide6.QtCore import Qt, QModelIndex, QItemSelection, SignalInstance
 from scrutiny.gui.core.gui_math_watchable import GUIMathWatchable
 from scrutiny.gui.core.watchable_registry.common import RegistryNodeType
+from scrutiny.gui.core.watchable_registry.fqn import FQN
 from scrutiny.gui.components.globals.base_global_component import ScrutinyGUIBaseGlobalComponent
 from scrutiny.gui.components.globals.math_builder.math_element_tree import MathTreeView
 from scrutiny.gui.components.globals.math_builder.math_watchable_editor import MathWatchableEditor
@@ -19,12 +20,12 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
     _btn_commit: QPushButton
     _btn_close: QPushButton
     _splitter: QSplitter
-    _signature_being_edited: Optional[str]
+    _watchable_being_edited_fqn: Optional[str]
 
     _signals_connected: List[Tuple[SignalInstance, object]]
 
     def setup(self) -> None:
-        self._signature_being_edited = None
+        self._watchable_being_edited_fqn = None
         self._signals_connected = []
         self._math_tree = MathTreeView(self.app.watchable_registry)
         self._editor = MathWatchableEditor()
@@ -82,7 +83,7 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
         self._connect_signal(self._btn_close.clicked, self._btn_close_clicked_slot)
         self._connect_signal(self._math_tree.selectionModel().selectionChanged, self._selection_changed_slot)
         self._connect_signal(self._math_tree.signals.edit_requested, self._tree_edit_slot)
-        self._connect_signal(self._math_tree.signals.remove_requested, self._tree_remove_slot)
+        self._connect_signal(self._math_tree.signals.remove_requested, self._tree_remove_requested_slot)
         self._connect_signal(self._editor.signals.content_changed, self._edit_content_changed_slot)
         self._connect_signal(self.app.watchable_registry.signals.content_changed, self._registry_changed_slot)
 
@@ -123,7 +124,7 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
 
     def _btn_new_clicked_slot(self) -> None:
         self._editor.clear()
-        self._signature_being_edited = None
+        self._watchable_being_edited_fqn = None
         self._show_editor(True)
 
     def _btn_commit_clicked_slot(self) -> None:
@@ -132,15 +133,10 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
         if math_watchable is None:
             return
 
-        if self._signature_being_edited is None:
+        if self._watchable_being_edited_fqn is None:
             self.app.watchable_registry.add_math_watchable(math_watchable)
         else:
-            raise NotImplementedError("todo")
-
-            # if self._uid_being_edited is not None:
-            #    self._math_tree.replace_math_watchable(self._uid_being_edited, math_watchable)
-            # else:
-            #    self._math_tree.insert_math_watchable(math_watchable)
+            self.app.watchable_registry.update_math_watchable_fqn(self._watchable_being_edited_fqn, math_watchable)
 
         self._stop_edit()
 
@@ -173,22 +169,28 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
 
         self._start_edit(math_watchable)
 
-    def _tree_edit_slot(self, math_watchable: GUIMathWatchable) -> None:
+    def _tree_edit_slot(self, fqn: str) -> None:
+        math_watchable = self.app.watchable_registry.get_watchable_node_fqn(fqn)
+        if math_watchable is None:
+            self.logger.error("Math watchable is not in the registry.")
+            return
+        assert isinstance(math_watchable, GUIMathWatchable)
         self._start_edit(math_watchable)
 
-    def _tree_remove_slot(self, signature_removed: Set[str]) -> None:
-        if self._signature_being_edited is not None:
-            if self._signature_being_edited in signature_removed:
-                self._stop_edit_and_hide()
+    def _tree_remove_requested_slot(self, fqn_to_remove: Set[str]) -> None:
+        raise NotImplementedError("todo")
+        # if self._watchable_being_edited_fqn is not None:
+        #    if self._watchable_being_edited_fqn in fqn_to_remove:
+        #        self._stop_edit_and_hide()
 
     def _start_edit(self, math_watchable: GUIMathWatchable) -> None:
         self._editor.load(math_watchable)
-        self._signature_being_edited = math_watchable.signature()
+        self._watchable_being_edited_fqn = FQN.make(RegistryNodeType.Math, math_watchable.signature())
         self._show_editor(True)
 
     def _stop_edit(self) -> None:
         self._editor.clear()
-        self._signature_being_edited = None
+        self._watchable_being_edited_fqn = None
 
     def _stop_edit_and_hide(self) -> None:
         self._stop_edit()
