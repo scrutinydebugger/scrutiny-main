@@ -105,7 +105,7 @@ class MathWatchableEditor(QWidget):
         if len(self._var_to_wlineedit_map) > 0:
             changed = True
 
-        for varname in self._var_to_wlineedit_map.keys():
+        for varname in list(self._var_to_wlineedit_map.keys()):
             self._remove_var_row(varname)
 
         assert self._variable_list_form_layout.rowCount() == 0
@@ -141,6 +141,7 @@ class MathWatchableEditor(QWidget):
         row_to_delete: Optional[int] = None
         for row_index in range(self._variable_list_form_layout.rowCount()):
             item = self._variable_list_form_layout.itemAt(row_index, QFormLayout.ItemRole.FieldRole)
+            assert item is not None
             widget = item.widget()
             if widget is wline_edit:
                 row_to_delete = row_index
@@ -148,9 +149,9 @@ class MathWatchableEditor(QWidget):
         if row_to_delete is None:
             raise ValueError(f"Could not find variable {var_name} in the layout.")
 
-        self._variable_list_form_layout.removeRow(row_to_delete)
         wline_edit.signals.watchable_cleared.disconnect()
         wline_edit.signals.watchable_dropped.disconnect()
+        self._variable_list_form_layout.removeRow(row_to_delete)
         del self._var_to_wlineedit_map[var_name]
 
     def load(self, math_watchable: GUIMathWatchable) -> None:
@@ -213,7 +214,9 @@ class MathWatchableEditor(QWidget):
             valid = False
 
         for wline_edit in self._var_to_wlineedit_map.values():
-            wline_edit.set_error_state()
+            if not wline_edit.is_watchable_mode():
+                wline_edit.set_error_state()
+                valid = False
 
         return valid
 
