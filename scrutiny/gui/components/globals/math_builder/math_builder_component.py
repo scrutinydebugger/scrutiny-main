@@ -108,7 +108,7 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
         return True
 
     def _show_editor(self, val: bool) -> None:
-        """Show or hide the left part of the splitter"""
+        """Show or hide the lower part of the splitter"""
         if val:
             self._splitter.handle(1).setEnabled(True)
             self._splitter.setHandleWidth(5)
@@ -178,10 +178,12 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
         self._start_edit(math_watchable)
 
     def _tree_remove_requested_slot(self, fqn_to_remove: Set[str]) -> None:
-        raise NotImplementedError("todo")
-        # if self._watchable_being_edited_fqn is not None:
-        #    if self._watchable_being_edited_fqn in fqn_to_remove:
-        #        self._stop_edit_and_hide()
+        self.app.watchable_registry.remove_math_watchable_list_fqn(fqn_to_remove)
+        editor_content = self._editor.get_if_fully_configured()
+        if editor_content is not None:
+            fqn = editor_content.make_fqn()
+            if fqn in fqn_to_remove:
+                self._editor.clear()
 
     def _start_edit(self, math_watchable: GUIMathWatchable) -> None:
         self._editor.load(math_watchable)

@@ -66,7 +66,10 @@ class MathTreeModel(BaseTreeModelWithStyle):
         expr_item = MathExprStandardItem(math_watchable.get_expr())
         self._fill_with_variables(math_item, math_watchable)
 
-        return [math_item, expr_item]
+        filler_item = QStandardItem()
+        filler_item.setEditable(False)
+
+        return [math_item, expr_item, filler_item]
 
     def _fill_with_variables(self, math_item: MathStandardItem, math_watchable: GUIMathWatchable) -> None:
         """Adds the watchable rows underneath a MathStandardItem"""
@@ -88,33 +91,25 @@ class MathTreeModel(BaseTreeModelWithStyle):
             math_item.appendRow([var_item, watchable_item, fqn_item])
 
     def sync_with_registry(self) -> None:
-        all_math = {signature: math_watcahble for signature, math_watcahble in self._watchable_registry.get_all_math_watchables()}
+        all_math = {signature: math_watchable for signature, math_watchable in self._watchable_registry.get_all_math_watchables()}
         to_remove: List[MathStandardItem] = []
-        to_update: Dict[str, MathStandardItem] = {}
+        already_there: Set[str] = set()
 
         for i in range(self.rowCount()):
             item = cast(MathStandardItem, self.item(i, Cols.ItemOrVar))
             signature = FQN.parse(item.fqn).string_id
+            already_there.add(signature)
             if signature not in all_math:
                 to_remove.append(item)
-            else:
-                to_update[signature] = item
 
         for item in to_remove:
             self.removeRow(item.index().row())
         del to_remove
 
-        for signature, item in to_update.items():
-            math_watchable = all_math[signature]
-            if signature != math_watchable.signature():
-                self._fill_with_variables(item, math_watchable)
-                expr_item = cast(MathExprStandardItem, self.item(item.row(), Cols.ExprOrWatchable))
-                expr_item.setText(math_watchable.get_expr())
-            del all_math[signature]
-
         for signature, math_watchable in all_math.items():
-            row = self._make_row(math_watchable)
-            self.appendRow(row)
+            if signature not in already_there:
+                row = self._make_row(math_watchable)
+                self.appendRow(row)
 
     def get_fqn_from_row(self, row_index: int) -> Optional[str]:
         """Reads the FQN from a row"""

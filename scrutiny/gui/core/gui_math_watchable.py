@@ -191,3 +191,6 @@ class GUIMathWatchable:
     def signature(self) -> str:
         canonical = json.dumps(self.to_dict(), sort_keys=True)
         return hashlib.sha256(canonical.encode('utf-8')).hexdigest()
+
+    def make_fqn(self) -> str:
+        return FQN.make(RegistryNodeType.Math, self.signature())

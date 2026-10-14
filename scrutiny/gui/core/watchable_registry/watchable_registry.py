@@ -816,7 +816,24 @@ class WatchableRegistry:
 
         self._math_storage[signature] = MathProxy(self._make_node_id(), self, math_watchable)
         self._registry_node_count[RegistryNodeType.Math] += 1
-        self._signals.content_changed.emit(RegistryNodeType.Math)
+        self._signals.content_changed.emit([RegistryNodeType.Math])
+
+    def remove_math_watchable_list_fqn(self, fqns: Iterable[str]) -> None:
+        for fqn in fqns:
+            parsed = FQN.parse(fqn)
+            proxy = self._math_storage.get(parsed.math_signature)
+            if proxy is None:
+                raise WatchableRegistryError(f"No registry math entry to update at at {fqn}")
+
+            watcher_ids = proxy.get_watchers()
+            for watcher_id in watcher_ids:
+                self.unwatch(watcher_id, parsed.node_type, parsed.string_id)
+            del self._math_storage[parsed.math_signature]
+
+        self._signals.content_changed.emit([RegistryNodeType.Math])
+
+    def remove_math_watchable_fqn(self, fqn: str) -> None:
+        self.remove_math_watchable_list_fqn([fqn])
 
     def update_math_watchable_fqn(self, fqn: str, new_math_watchable: GUIMathWatchable) -> None:
         previous_signature = FQN.parse(fqn).math_signature
@@ -829,7 +846,7 @@ class WatchableRegistry:
         proxy.update_math_watchable(new_math_watchable)
         self._math_storage[new_math_watchable.signature()] = proxy
         del self._math_storage[previous_signature]
-        self._signals.content_changed.emit(RegistryNodeType.Math)
+        self._signals.content_changed.emit([RegistryNodeType.Math])
 
     def get_all_math_watchables(self) -> Generator[Tuple[str, GUIMathWatchable], None, None]:
         for proxy in self._math_storage.values():

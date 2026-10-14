@@ -172,6 +172,9 @@ class MathProxy(BaseRegistryStorable):
         self._watchers[watcher.watcher_id] = WatcherAndDataPair(watcher, WatcherData(update_rate=update_rate))
         self._try_watch_all()
 
+    def get_watchers(self) -> Set[WatcherIdType]:
+        return set(self._watchers.keys())
+
     def has_watcher(self, watcher_id: WatcherIdType) -> bool:
         return watcher_id in self._watchers
 
