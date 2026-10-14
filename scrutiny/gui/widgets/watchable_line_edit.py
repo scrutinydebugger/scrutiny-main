@@ -331,3 +331,8 @@ class WatchableLineEdit(QLineEdit):
                 return
         except AssertionError:
             raise ValueError("Invalid state dictionary")
+
+    def clear(self) -> None:
+        self.set_default_state()
+        self.set_text_mode()
+        self.clear()

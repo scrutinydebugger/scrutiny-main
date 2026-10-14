@@ -15,8 +15,9 @@ sys.path.insert(0, os.path.dirname(__file__))
 from manual_test_base import make_manual_test_app, manual_test_args
 app = make_manual_test_app()
 
-from PySide6.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QSplitter, QPushButton, QVBoxLayout
-from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QSplitter, QPushButton, QVBoxLayout, QLabel, QGroupBox
+from PySide6.QtCore import Qt, QMimeData
+from PySide6.QtGui import QDragEnterEvent, QDropEvent
 from scrutiny.gui.components.globals.math_builder.math_builder_component import MathBuilderComponent
 from scrutiny.gui.components.globals.varlist.varlist_component import VarListComponent
 from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
@@ -25,6 +26,35 @@ from scrutiny.gui.component_app_interface import AbstractComponentAppInterface
 
 from scrutiny.sdk import WatchableType, BriefWatchableConfiguration, EmbeddedDataType
 from test.gui.fake_server_manager import FakeServerManager
+
+
+import json
+
+
+class MimeDropZone(QGroupBox):
+    def __init__(self, parent=None):
+        super().__init__("Drop Zone", parent)
+        self.setAcceptDrops(True)
+        self._label = QLabel("Drop here to inspect mime data")
+        self._label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout = QVBoxLayout(self)
+        layout.addWidget(self._label)
+        self.setMinimumHeight(80)
+
+    def dragEnterEvent(self, event: QDragEnterEvent) -> None:
+        if event.mimeData().hasFormat("application/json"):
+            event.acceptProposedAction()
+
+    def dropEvent(self, event: QDropEvent) -> None:
+        mime = event.mimeData()
+        if mime.hasFormat("application/json"):
+            raw = bytes(mime.data("application/json")).decode("utf-8")
+            try:
+                parsed = json.loads(raw)
+                print(json.dumps(parsed, indent=2))
+            except json.JSONDecodeError:
+                print(f"[raw] {raw}")
+            event.acceptProposedAction()
 
 
 class AppInterface(AbstractComponentAppInterface):
@@ -87,7 +117,10 @@ btn_reload.clicked.connect(lambda: registry.write_server_content({WatchableType.
 left_side_widget = QWidget()
 left_side_widget_layout = QVBoxLayout(left_side_widget)
 
+drop_zone = MimeDropZone()
+
 left_side_widget_layout.addWidget(varlist)
+left_side_widget_layout.addWidget(drop_zone)
 left_side_widget_layout.addWidget(btn_clear)
 left_side_widget_layout.addWidget(btn_reload)
 

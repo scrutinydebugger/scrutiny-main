@@ -1,24 +1,20 @@
-from dataclasses import dataclass
 import functools
 
-from PySide6.QtCore import QObject, Signal
+from PySide6.QtCore import QMimeData, QModelIndex, QObject, Signal, Qt
 from PySide6.QtWidgets import QHeaderView, QAbstractItemView
 from PySide6.QtGui import QContextMenuEvent, QStandardItem
-
+from scrutiny.gui.tools.drag_and_drop import make_watchable_list_dragdata_if_possible
 from scrutiny.gui.widgets.base_tree import BaseTreeModelWithStyle, BaseTreeView
-from scrutiny.gui.widgets.watchable_tree import get_watchable_icon, WatchableStandardItem
+from scrutiny.gui.widgets.watchable_tree import WatchableStandardItem
 from scrutiny.gui.widgets.scrutiny_qmenu import ScrutinyQMenu
 from scrutiny.gui.core.watchable_registry.common import RegistryNodeType
 from scrutiny.gui.core.watchable_registry.fqn import FQN
 from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
-from scrutiny.gui.core.fqn_name_pair import FqnNamePair
 from scrutiny.gui.core.gui_math_watchable import GUIMathWatchable
 from scrutiny.gui.themes import scrutiny_get_theme
 from scrutiny.gui import assets
 
-from scrutiny.tools.global_counters import global_i64_counter
 from scrutiny.tools.typing import *
-from scrutiny import tools
 
 
 class Cols:
@@ -27,19 +23,11 @@ class Cols:
     FQN = 2
 
 
-class MathStandardItem(QStandardItem):
-    _fqn: str
+class MathStandardItem(WatchableStandardItem):
 
-    def __init__(self, name: str, fqn: str) -> None:
-        super().__init__()
-        self.setText(name)
+    def __init__(self, text: str, fqn: str) -> None:
+        super().__init__(RegistryNodeType.Math, text, fqn)
         self.setEditable(False)
-        self.setIcon(get_watchable_icon(RegistryNodeType.Math))
-        self._fqn = fqn
-
-    @property
-    def fqn(self) -> str:
-        return self._fqn
 
 
 class MathExprStandardItem(QStandardItem):
@@ -71,7 +59,7 @@ class MathTreeModel(BaseTreeModelWithStyle):
 
         return [math_item, expr_item, filler_item]
 
-    def _fill_with_variables(self, math_item: MathStandardItem, math_watchable: GUIMathWatchable) -> None:
+    def _fill_with_variables(self, math_item: WatchableStandardItem, math_watchable: GUIMathWatchable) -> None:
         """Adds the watchable rows underneath a MathStandardItem"""
         math_item.removeRows(0, math_item.rowCount())
 
@@ -157,6 +145,17 @@ class MathTreeModel(BaseTreeModelWithStyle):
                     var_item = math_item.child(j, Cols.ItemOrVar)
                     self.set_unavailable(var_item)
 
+    def mimeData(self, indexes: Sequence[QModelIndex]) -> QMimeData:
+        all_items = [self.itemFromIndex(index) for index in indexes]
+        watchable_items = [item for item in all_items if isinstance(item, WatchableStandardItem)]
+        drag_data = make_watchable_list_dragdata_if_possible(watchable_items)
+        if drag_data is not None:
+            mimedata = drag_data.to_mime()
+            if mimedata is not None:
+                return mimedata
+
+        return super().mimeData(indexes)
+
 
 class MathTreeView(BaseTreeView):
     class _Signals(QObject):
@@ -176,6 +175,8 @@ class MathTreeView(BaseTreeView):
         self.setRootIsDecorated(True)
         self.header().setStretchLastSection(True)
         self.header().setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)
+        self.setDragEnabled(True)
+        self.setDragDropMode(self.DragDropMode.DragOnly)
 
     @property
     def signals(self) -> _Signals:

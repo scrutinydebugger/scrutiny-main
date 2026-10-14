@@ -53,10 +53,12 @@ class MathWatchableEditor(QWidget):
 
         self._txt_expr.textChanged.connect(self._expr_changed_slot)
         self._txt_expr.editingFinished.connect(self._expr_edit_slot)
+        self._txt_expr.returnPressed.connect(self._expr_edit_slot)
         self._txt_name.textChanged.connect(self._name_edit_slot)
 
         self._txt_name.editingFinished.connect(self._signals.content_changed)
         self._txt_expr.editingFinished.connect(self._signals.content_changed)
+        self._txt_expr.returnPressed.connect(self._signals.content_changed)
 
         self._update_visibility()
 
@@ -82,11 +84,14 @@ class MathWatchableEditor(QWidget):
 
     def _expr_changed_slot(self) -> None:
         self._txt_expr.validate_expect_not_wrong()
-        self._lbl_expr_validity.clear()
+        if self._txt_expr.hasFocus() and len(self._txt_expr.text()) > 0:
+            self._lbl_expr_validity.set_info("Press Enter to validate")
+        else:
+            self._lbl_expr_validity.clear()
 
     def _expr_edit_slot(self) -> None:
         w = GUIMathWatchable(name=self._txt_name.text(), expr=self._txt_expr.text())
-        self.load(w)
+        self.load(w, keep_unset_var=True)
 
     def _name_edit_slot(self) -> None:
         self._txt_name.validate_expect_not_wrong()
@@ -154,7 +159,7 @@ class MathWatchableEditor(QWidget):
         self._variable_list_form_layout.removeRow(row_to_delete)
         del self._var_to_wlineedit_map[var_name]
 
-    def load(self, math_watchable: GUIMathWatchable) -> None:
+    def load(self, math_watchable: GUIMathWatchable, keep_unset_var: bool = False) -> None:
         self._txt_name.setText(math_watchable.get_name())
         self._txt_expr.setText(math_watchable.get_expr())
 
@@ -171,7 +176,7 @@ class MathWatchableEditor(QWidget):
         for var_name in to_add_var:
             wline_edit = self._add_var_row(var_name)
             fqn_name_pair = var_fqn_map[var_name]
-            if fqn_name_pair is not None: 
+            if fqn_name_pair is not None:
                 parsed_fqn = FQN.parse(fqn_name_pair.fqn)
                 wline_edit.set_watchable_mode(node_type=parsed_fqn.node_type, path=parsed_fqn.path, name=fqn_name_pair.name)
 
@@ -182,7 +187,8 @@ class MathWatchableEditor(QWidget):
                 parsed_fqn = FQN.parse(fqn_name_pair.fqn)
                 wline_edit.set_watchable_mode(node_type=parsed_fqn.node_type, path=parsed_fqn.path, name=fqn_name_pair.name)
             else:
-                wline_edit.clear()
+                if not keep_unset_var:
+                    wline_edit.clear()
 
         self._update_feedback(math_watchable)
         self._update_visibility()

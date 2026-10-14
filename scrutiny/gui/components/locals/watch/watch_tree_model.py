@@ -25,6 +25,7 @@ from PySide6.QtGui import (QStandardItem, QPalette, QContextMenuEvent, QDragMove
                            QDragEnterEvent, QKeyEvent)
 
 from scrutiny.sdk import EmbeddedEnum, ValueStatus, EmbeddedDataType
+from scrutiny.gui.tools.drag_and_drop import make_watchable_list_dragdata_if_possible
 from scrutiny.gui.core.scrutiny_drag_data import ScrutinyDragData, WatchableListDescriptor
 from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
 from scrutiny.gui.core.watchable_registry.fqn import FQN
@@ -769,7 +770,7 @@ class WatchComponentTreeModel(WatchableTreeModel):
 
         self.sort_items_by_path(top_level_items, top_to_bottom=True)    # Reorganize the items  so that nested elements are consecutive
         move_data = [self.make_serializable_item_index_descriptor(item) for item in top_level_items]
-        drag_data = self.make_watchable_list_dragdata_if_possible(
+        drag_data = make_watchable_list_dragdata_if_possible(
             top_level_items,
             data_move=move_data,
             custom_data_maker=self._make_serialization_custom_data
