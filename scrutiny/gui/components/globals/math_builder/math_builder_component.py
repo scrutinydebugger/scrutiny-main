@@ -12,18 +12,28 @@ from scrutiny.tools.typing import *
 
 
 class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
+    """A component that let the user edit the Math Watchables available in the registry"""
 
     _math_tree: MathTreeView
+    """The tree view showing what's in the registry"""
     _editor: MathWatchableEditor
+    """An editor at the bottom of the component that can let the user modify or create a new math watchable"""
     _btn_new: QPushButton
+    """Button to set the editor ready for a new insert"""
     _btn_edit: QPushButton
+    """Button bring the content of a math watchable to the editor for modification"""
     _btn_commit: QPushButton
+    """Button that save a new or overwrite an existing math watchable."""
     _btn_close: QPushButton
+    """Button to hide the editor and clear it"""
     _splitter: QSplitter
+    """The splitter that separate the tree view from the editor"""
     _watchable_being_edited_fqn: Optional[str]
-
+    """A state variable keeping track of what registry entry was put in the editor for modification."""
     _signals_connected: List[Tuple[SignalInstance, object]]
+    """A list of signals to disconnect in teardown"""
 
+# region Overrides
     def setup(self) -> None:
         self._watchable_being_edited_fqn = None
         self._signals_connected = []
@@ -87,10 +97,6 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
         self._connect_signal(self._editor.signals.content_changed, self._edit_content_changed_slot)
         self._connect_signal(self.app.watchable_registry.signals.content_changed, self._registry_changed_slot)
 
-    def _connect_signal(self, sig: SignalInstance, slot: object) -> None:
-        sig.connect(slot)
-        self._signals_connected.append((sig, slot))
-
     def ready(self) -> None:
         self._show_editor(True)
 
@@ -107,6 +113,43 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
     def load_state(self, state: Dict[Any, Any]) -> bool:
         return True
 
+# end region
+
+# region Getter for tests mainly
+
+    def get_watchable_being_edited_fqn(self) -> Optional[str]:
+        """Returns the FQN of the math watchable currently being edited, or None"""
+        return self._watchable_being_edited_fqn
+
+    def get_editor(self) -> MathWatchableEditor:
+        """Returns the math watchable editor widget"""
+        return self._editor
+
+    def get_math_tree(self) -> MathTreeView:
+        """Returns the tree view listing all math watchables"""
+        return self._math_tree
+
+    def commit(self) -> None:
+        """Validates and commits the editor content to the registry"""
+        self._btn_commit_clicked_slot()
+
+    def start_edit_by_fqn(self, fqn: str) -> None:
+        """Loads the math watchable identified by fqn into the editor for modification"""
+        self._tree_edit_slot(fqn)
+
+    def remove_by_fqn(self, fqns: Set[str]) -> None:
+        """Removes math watchables identified by the given FQNs from the registry"""
+        self._tree_remove_requested_slot(fqns)
+
+# end region
+
+# region Private
+
+    def _connect_signal(self, sig: SignalInstance, slot: object) -> None:
+        """Connects a signal to a slot and registers it for teardown disconnection"""
+        sig.connect(slot)
+        self._signals_connected.append((sig, slot))
+
     def _show_editor(self, val: bool) -> None:
         """Show or hide the lower part of the splitter"""
         if val:
@@ -115,7 +158,7 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
             if self._splitter.sizes()[1] == 0:
                 editor_height = self._editor.sizeHint().height()
                 self._splitter.setSizes([self.height() - editor_height, editor_height])
-            self._splitter.setCollapsible(1, False)
+                self._splitter.setCollapsible(1, False)
         else:
             self._splitter.setCollapsible(1, True)
             self._splitter.setHandleWidth(0)
@@ -123,11 +166,13 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
             self._splitter.handle(1).setEnabled(False)
 
     def _btn_new_clicked_slot(self) -> None:
+        """Clears the editor and prepares it for a new math watchable"""
         self._editor.clear()
         self._watchable_being_edited_fqn = None
         self._show_editor(True)
 
     def _btn_commit_clicked_slot(self) -> None:
+        """Validates the editor and adds or updates the math watchable in the registry"""
         self._editor.validate()
         math_watchable = self._editor.get_if_fully_configured()
         if math_watchable is None:
@@ -141,21 +186,26 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
         self._stop_edit()
 
     def _btn_close_clicked_slot(self) -> None:
+        """Clears the editor and hides it"""
         self._stop_edit_and_hide()
 
     def _selection_changed_slot(self, selected: QItemSelection, deselected: QItemSelection) -> None:
+        """Enables/disables the Edit button based on the tree selection"""
         selected_math_watchables = self._get_selected_math_watchable_items()
         self._btn_edit.setEnabled(len(selected_math_watchables) == 1)
 
     def _edit_content_changed_slot(self) -> None:
+        """Enables/disables the Commit button based on editor completeness"""
         m = self._editor.get_if_fully_configured()
         self._btn_commit.setEnabled(m is not None)
 
     def _get_selected_math_watchable_items(self) -> List[QModelIndex]:
+        """Returns top-level selected indexes from the tree (column 0 only)"""
         selected_indexes = self._math_tree.selectedIndexes()
         return [index for index in selected_indexes if index.column() == 0 and not index.parent().isValid()]
 
     def _btn_edit_clicked_slot(self) -> None:
+        """Loads the selected math watchable into the editor"""
         selected = self._get_selected_math_watchable_items()
         if len(selected) != 1:
             return
@@ -170,6 +220,7 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
         self._start_edit(math_watchable)
 
     def _tree_edit_slot(self, fqn: str) -> None:
+        """Slot for the tree's edit_requested signal; fetches and loads the watchable"""
         math_watchable = self.app.watchable_registry.get_watchable_node_fqn(fqn)
         if math_watchable is None:
             self.logger.error("Math watchable is not in the registry.")
@@ -178,47 +229,35 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
         self._start_edit(math_watchable)
 
     def _tree_remove_requested_slot(self, fqn_to_remove: Set[str]) -> None:
+        """Removes entries from registry and clears editor if the edited entry was removed"""
         self.app.watchable_registry.remove_math_watchable_list_fqn(fqn_to_remove)
         if self._watchable_being_edited_fqn is not None:
             if self._watchable_being_edited_fqn in fqn_to_remove:
                 self._stop_edit()
 
-    def get_watchable_being_edited_fqn(self) -> Optional[str]:
-        return self._watchable_being_edited_fqn
-
-    def get_editor(self) -> MathWatchableEditor:
-        return self._editor
-
-    def get_math_tree(self) -> MathTreeView:
-        return self._math_tree
-
-    def commit(self) -> None:
-        self._btn_commit_clicked_slot()
-
-    def start_edit_by_fqn(self, fqn: str) -> None:
-        self._tree_edit_slot(fqn)
-
-    def remove_by_fqn(self, fqns: Set[str]) -> None:
-        self._tree_remove_requested_slot(fqns)
-
     def _start_edit(self, math_watchable: GUIMathWatchable) -> None:
+        """Loads a math watchable into the editor and tracks it for update on commit"""
         self._editor.load(math_watchable)
         self._watchable_being_edited_fqn = FQN.make(RegistryNodeType.Math, math_watchable.signature())
         self._show_editor(True)
 
     def _stop_edit(self) -> None:
+        """Clears the editor and resets the edit tracking state"""
         self._editor.clear()
         self._watchable_being_edited_fqn = None
 
     def _stop_edit_and_hide(self) -> None:
+        """Stops editing and collapses the editor panel"""
         self._stop_edit()
         self._show_editor(False)
 
     def _registry_changed_slot(self, node_types: List[RegistryNodeType]) -> None:
+        """Syncs the tree when math watchables change in the registry"""
         if RegistryNodeType.Math in node_types:
             self._math_tree.sync_with_registry()
-
         self._update_availability()
 
     def _update_availability(self) -> None:
-        pass
+        self._math_tree.update_availabilities()
+
+# end region

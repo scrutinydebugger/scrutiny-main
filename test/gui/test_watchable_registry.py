@@ -982,6 +982,10 @@ class TestWatchableRegistryMath(ScrutinyUnitTest):
         self.assertIs(self.w1, w1)
         self.assertIs(self.w2, w2)
 
+        self.assertTrue(self.registry.is_watchable_fqn(self.w1.make_fqn()))
+        self.assertTrue(self.registry.is_watchable_fqn(self.w2.make_fqn()))
+        self.assertFalse(self.registry.is_watchable_fqn(FQN.make(RegistryNodeType.Math, "nonexistent")))
+
     def test_math_proxy(self):
         watcher = 'unittest'
         self._register_watcher(watcher)

@@ -130,6 +130,33 @@ class MathTreeModel(BaseTreeModelWithStyle):
         expr_item = cast(MathExprStandardItem, self.item(row_index, Cols.ExprOrWatchable))
         return (math_item.text(), expr_item.text(), math_item.fqn)
 
+    def update_availabilities(self) -> None:
+        for i in range(self.rowCount()):
+            math_item = self.item(Cols.ItemOrVar)
+            assert isinstance(math_item, MathStandardItem)
+            math_watchable = self._watchable_registry.get_math_watchable_node(FQN.parse(math_item.fqn).math_signature)
+            assert math_watchable is not None
+
+            is_available = True
+            for varname, fqn_name_pair in math_watchable.get_var_fqn_map().items():
+                if fqn_name_pair is None:
+                    continue  # Should not happen
+
+                if not self._watchable_registry.is_watchable_fqn(fqn_name_pair.fqn):
+                    is_available = False
+
+            if is_available:
+                self.set_available(math_item)
+                for j in range(math_item.rowCount()):
+                    var_item = math_item.child(j, Cols.ItemOrVar)
+                    self.set_available(var_item)
+
+            else:
+                self.set_unavailable(math_item)
+                for j in range(math_item.rowCount()):
+                    var_item = math_item.child(j, Cols.ItemOrVar)
+                    self.set_unavailable(var_item)
+
 
 class MathTreeView(BaseTreeView):
     class _Signals(QObject):
@@ -209,3 +236,6 @@ class MathTreeView(BaseTreeView):
             fqn_to_remove.add(item.fqn)
 
         self._signals.remove_requested.emit(fqn_to_remove)
+
+    def update_availabilities(self) -> None:
+        self._model.update_availabilities()

@@ -647,8 +647,12 @@ class WatchableRegistry:
 
         :return: ``True`` if exists and is a watchable
         """
-        node = self.read_server_storage_fqn(fqn)
-        return isinstance(node, ServerStorageEntryNode)
+        parsed = FQN.parse(fqn)
+        if parsed.node_type == RegistryNodeType.Math:
+            return parsed.math_signature in self._math_storage
+        else:
+            node = self.read_server_storage(parsed.node_type.to_sdk(), parsed.path)
+            return isinstance(node, ServerStorageEntryNode)
 
     @enforce_thread(QT_THREAD_NAME)
     def write_server_content(self, data: Dict[sdk.WatchableType, Dict[str, sdk.BriefWatchableConfiguration]]) -> None:
