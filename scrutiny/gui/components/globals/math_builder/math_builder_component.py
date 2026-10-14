@@ -179,11 +179,9 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
 
     def _tree_remove_requested_slot(self, fqn_to_remove: Set[str]) -> None:
         self.app.watchable_registry.remove_math_watchable_list_fqn(fqn_to_remove)
-        editor_content = self._editor.get_if_fully_configured()
-        if editor_content is not None:
-            fqn = editor_content.make_fqn()
-            if fqn in fqn_to_remove:
-                self._editor.clear()
+        if self._watchable_being_edited_fqn is not None:
+            if self._watchable_being_edited_fqn in fqn_to_remove:
+                self._stop_edit()
 
     def _start_edit(self, math_watchable: GUIMathWatchable) -> None:
         self._editor.load(math_watchable)

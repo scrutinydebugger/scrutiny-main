@@ -163,6 +163,7 @@ class MathWatchableEditor(QWidget):
         new_vars = set(var_fqn_map.keys())
         to_remove_var = actual_vars - new_vars
         to_add_var = new_vars - actual_vars
+        to_update_var = actual_vars & new_vars
 
         for var_name in to_remove_var:
             self._remove_var_row(var_name)
@@ -170,9 +171,18 @@ class MathWatchableEditor(QWidget):
         for var_name in to_add_var:
             wline_edit = self._add_var_row(var_name)
             fqn_name_pair = var_fqn_map[var_name]
-            if fqn_name_pair is not None:    # Something to be bound to
+            if fqn_name_pair is not None: 
                 parsed_fqn = FQN.parse(fqn_name_pair.fqn)
                 wline_edit.set_watchable_mode(node_type=parsed_fqn.node_type, path=parsed_fqn.path, name=fqn_name_pair.name)
+
+        for var_name in to_update_var:
+            fqn_name_pair = var_fqn_map[var_name]
+            wline_edit = self._var_to_wlineedit_map[var_name]
+            if fqn_name_pair is not None:
+                parsed_fqn = FQN.parse(fqn_name_pair.fqn)
+                wline_edit.set_watchable_mode(node_type=parsed_fqn.node_type, path=parsed_fqn.path, name=fqn_name_pair.name)
+            else:
+                wline_edit.clear()
 
         self._update_feedback(math_watchable)
         self._update_visibility()
