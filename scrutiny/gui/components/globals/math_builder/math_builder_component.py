@@ -183,6 +183,24 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
             if self._watchable_being_edited_fqn in fqn_to_remove:
                 self._stop_edit()
 
+    def get_watchable_being_edited_fqn(self) -> Optional[str]:
+        return self._watchable_being_edited_fqn
+
+    def get_editor(self) -> MathWatchableEditor:
+        return self._editor
+
+    def get_math_tree(self) -> MathTreeView:
+        return self._math_tree
+
+    def commit(self) -> None:
+        self._btn_commit_clicked_slot()
+
+    def start_edit_by_fqn(self, fqn: str) -> None:
+        self._tree_edit_slot(fqn)
+
+    def remove_by_fqn(self, fqns: Set[str]) -> None:
+        self._tree_remove_requested_slot(fqns)
+
     def _start_edit(self, math_watchable: GUIMathWatchable) -> None:
         self._editor.load(math_watchable)
         self._watchable_being_edited_fqn = FQN.make(RegistryNodeType.Math, math_watchable.signature())

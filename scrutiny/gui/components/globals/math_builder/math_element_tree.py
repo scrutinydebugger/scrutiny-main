@@ -119,6 +119,17 @@ class MathTreeModel(BaseTreeModelWithStyle):
         math_item = cast(MathStandardItem, self.item(row_index, Cols.ItemOrVar))
         return math_item.fqn
 
+    def math_watchable_count(self) -> int:
+        return self.rowCount()
+
+    def get_math_watchable_info(self, row_index: int) -> Optional[Tuple[str, str, str]]:
+        """Returns (name, expression, fqn) for a given row, or None if out of range"""
+        if row_index < 0 or row_index > self.rowCount() - 1:
+            return None
+        math_item = cast(MathStandardItem, self.item(row_index, Cols.ItemOrVar))
+        expr_item = cast(MathExprStandardItem, self.item(row_index, Cols.ExprOrWatchable))
+        return (math_item.text(), expr_item.text(), math_item.fqn)
+
 
 class MathTreeView(BaseTreeView):
     class _Signals(QObject):
@@ -148,6 +159,12 @@ class MathTreeView(BaseTreeView):
 
     def sync_with_registry(self) -> None:
         return self._model.sync_with_registry()
+
+    def math_watchable_count(self) -> int:
+        return self._model.math_watchable_count()
+
+    def get_math_watchable_info(self, row_index: int) -> Optional[Tuple[str, str, str]]:
+        return self._model.get_math_watchable_info(row_index)
 
     def selected_math_items(self) -> List[MathStandardItem]:
         def iterate() -> Generator[MathStandardItem, None, None]:

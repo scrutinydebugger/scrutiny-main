@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+
 from PySide6.QtWidgets import QWidget
 from PySide6.QtCore import Qt, QModelIndex
 from test.gui.fake_server_manager import FakeServerManager
@@ -13,6 +15,13 @@ from scrutiny.gui.core.watchable_registry.common import RegistryNodeType
 
 
 from scrutiny.tools.typing import *
+
+
+@dataclass(frozen=True, slots=True)
+class VarBinding:
+    display_name: str
+    node_type: RegistryNodeType
+    path: str
 
 
 class MainWindowStub(QWidget):
@@ -33,21 +42,6 @@ class DummyAppInterface(AbstractComponentAppInterface):
         pass
 
 
-class TestMathTreeModel(ScrutinyBaseGuiTest):
-    def test_insert(self):
-        registry = WatchableRegistry()
-        model = MathTreeModel(registry)
-        element = GUIMathWatchable("AAA", "v1+v2+v3")
-        # with self.assertRaises(ValueError):
-        #    model.insert_math_element(element)
-
-        element.bind_watchable("v1", FqnNamePair("AAA", FQN.make(RegistryNodeType.Variable, "/a/b/c")))
-        element.bind_watchable("v2", FqnNamePair("BBB", FQN.make(RegistryNodeType.Alias, "/a/b/d")))
-        element.bind_watchable("v3", FqnNamePair("CCC", FQN.make(RegistryNodeType.RuntimePublishedValue, "/a/b/e")))
-
-        # model.insert_math_element(element)
-
-
 class TestMathBuilderComponent(ScrutinyBaseGuiTest):
     def setUp(self):
         super().setUp()
@@ -66,3 +60,151 @@ class TestMathBuilderComponent(ScrutinyBaseGuiTest):
     def tearDown(self):
         self.builder.teardown()
         return super().tearDown()
+
+    def _registry(self) -> WatchableRegistry:
+        return self.main_window.registry
+
+    def _make_math_watchable(self, name: str, expr: str, bindings: Dict[str, VarBinding]) -> GUIMathWatchable:
+        """Creates a fully configured GUIMathWatchable. Bindings maps var_name to a VarBinding"""
+        w = GUIMathWatchable(name=name, expr=expr)
+        for var_name, binding in bindings.items():
+            w.bind_watchable(var_name, FqnNamePair(binding.display_name, FQN.make(binding.node_type, binding.path)))
+        return w
+
+    def _add_to_registry(self, math_watchable: GUIMathWatchable) -> str:
+        """Adds a math watchable to the registry and returns its FQN"""
+        self._registry().add_math_watchable(math_watchable)
+        self.process_events()
+        return math_watchable.make_fqn()
+
+    def _count_registry_math(self) -> int:
+        return sum(1 for _ in self._registry().get_all_math_watchables())
+
+    def test_add_math_watchable(self):
+        w = self._make_math_watchable("magnitude", "sqrt(x^2+y^2)", {
+            "x": VarBinding("var_x", RegistryNodeType.Variable, "/a/b/x"),
+            "y": VarBinding("var_y", RegistryNodeType.Variable, "/a/b/y"),
+        })
+
+        self.builder.get_editor().load(w)
+        self.builder.commit()
+
+        self.assertEqual(self._count_registry_math(), 1)
+        tree = self.builder.get_math_tree()
+        self.assertEqual(tree.math_watchable_count(), 1)
+        info = tree.get_math_watchable_info(0)
+        self.assertIsNotNone(info)
+        self.assertEqual(info[0], "magnitude")
+        self.assertEqual(info[1], "sqrt(x^2+y^2)")
+
+    def test_add_multiple_math_watchables(self):
+        w1 = self._make_math_watchable("sum", "a+b", {
+            "a": VarBinding("var_a", RegistryNodeType.Variable, "/a/b/a"),
+            "b": VarBinding("var_b", RegistryNodeType.Variable, "/a/b/b"),
+        })
+        w2 = self._make_math_watchable("diff", "a-b", {
+            "a": VarBinding("var_a", RegistryNodeType.Variable, "/a/b/a"),
+            "b": VarBinding("var_b", RegistryNodeType.Variable, "/a/b/b"),
+        })
+
+        self.builder.get_editor().load(w1)
+        self.builder.commit()
+        self.builder.get_editor().load(w2)
+        self.builder.commit()
+
+        self.assertEqual(self._count_registry_math(), 2)
+        self.assertEqual(self.builder.get_math_tree().math_watchable_count(), 2)
+
+    def test_edit_math_watchable(self):
+        w = self._make_math_watchable("sum", "a+b", {
+            "a": VarBinding("var_a", RegistryNodeType.Variable, "/a/b/a"),
+            "b": VarBinding("var_b", RegistryNodeType.Variable, "/a/b/b"),
+        })
+        fqn = self._add_to_registry(w)
+
+        self.builder.start_edit_by_fqn(fqn)
+        self.assertIsNotNone(self.builder.get_watchable_being_edited_fqn())
+
+        w2 = self._make_math_watchable("product", "a*b", {
+            "a": VarBinding("var_a", RegistryNodeType.Variable, "/a/b/a"),
+            "b": VarBinding("var_b", RegistryNodeType.Variable, "/a/b/b"),
+        })
+        self.builder.get_editor().load(w2)
+        self.builder.commit()
+
+        self.assertEqual(self._count_registry_math(), 1)
+        tree = self.builder.get_math_tree()
+        self.assertEqual(tree.math_watchable_count(), 1)
+        info = tree.get_math_watchable_info(0)
+        self.assertIsNotNone(info)
+        self.assertEqual(info[0], "product")
+        self.assertEqual(info[1], "a*b")
+
+    def test_remove_math_watchable(self):
+        w1 = self._make_math_watchable("sum", "a+b", {
+            "a": VarBinding("var_a", RegistryNodeType.Variable, "/a/b/a"),
+            "b": VarBinding("var_b", RegistryNodeType.Variable, "/a/b/b"),
+        })
+        w2 = self._make_math_watchable("diff", "a-b", {
+            "a": VarBinding("var_a", RegistryNodeType.Variable, "/a/b/a"),
+            "b": VarBinding("var_b", RegistryNodeType.Variable, "/a/b/b"),
+        })
+        fqn1 = self._add_to_registry(w1)
+        self._add_to_registry(w2)
+
+        self.builder.remove_by_fqn({fqn1})
+        self.process_events()
+
+        self.assertEqual(self._count_registry_math(), 1)
+        tree = self.builder.get_math_tree()
+        self.assertEqual(tree.math_watchable_count(), 1)
+        info = tree.get_math_watchable_info(0)
+        self.assertIsNotNone(info)
+        self.assertEqual(info[0], "diff")
+
+    def test_remove_while_editing_clears_editor(self):
+        w = self._make_math_watchable("sum", "a+b", {
+            "a": VarBinding("var_a", RegistryNodeType.Variable, "/a/b/a"),
+            "b": VarBinding("var_b", RegistryNodeType.Variable, "/a/b/b"),
+        })
+        fqn = self._add_to_registry(w)
+
+        self.builder.start_edit_by_fqn(fqn)
+        self.assertIsNotNone(self.builder.get_watchable_being_edited_fqn())
+
+        self.builder.remove_by_fqn({fqn})
+        self.process_events()
+
+        self.assertIsNone(self.builder.get_watchable_being_edited_fqn())
+        self.assertIsNone(self.builder.get_editor().get_if_fully_configured())
+        self.assertEqual(self.builder.get_editor().var_count(), 0)
+
+    def test_editor_load_updates_shared_variables(self):
+        w1 = self._make_math_watchable("expr1", "a+b", {
+            "a": VarBinding("var_x", RegistryNodeType.Variable, "/a/b/x"),
+            "b": VarBinding("var_y", RegistryNodeType.Variable, "/a/b/y"),
+        })
+        w2 = self._make_math_watchable("expr2", "a+c", {
+            "a": VarBinding("var_z", RegistryNodeType.Alias, "/a/b/z"),
+            "c": VarBinding("var_w", RegistryNodeType.Variable, "/a/b/w"),
+        })
+
+        editor = self.builder.get_editor()
+        editor.load(w1)
+        self.assertEqual(editor.get_var_names(), {"a", "b"})
+
+        editor.load(w2)
+        self.assertEqual(editor.get_var_names(), {"a", "c"})
+
+        result = editor.get_if_fully_configured()
+        self.assertIsNotNone(result)
+        var_map = result.get_var_fqn_map()
+        self.assertEqual(var_map["a"].fqn, FQN.make(RegistryNodeType.Alias, "/a/b/z"))
+        self.assertEqual(var_map["c"].fqn, FQN.make(RegistryNodeType.Variable, "/a/b/w"))
+
+    def test_commit_without_full_config_does_nothing(self):
+        w = GUIMathWatchable(name="incomplete", expr="a+b")
+        self.builder.get_editor().load(w)
+        self.builder.commit()
+
+        self.assertEqual(self._count_registry_math(), 0)

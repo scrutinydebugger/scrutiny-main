@@ -230,6 +230,12 @@ class MathWatchableEditor(QWidget):
 
         return valid
 
+    def get_var_names(self) -> Set[str]:
+        return set(self._var_to_wlineedit_map.keys())
+
+    def var_count(self) -> int:
+        return len(self._var_to_wlineedit_map)
+
     def _watchable_line_edit_changed_slot(self, wline_edit: WatchableLineEdit, fqn: str) -> None:
         wline_edit.set_default_state()
         self._signals.content_changed.emit()
