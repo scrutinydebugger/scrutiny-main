@@ -1,5 +1,5 @@
 #    manual_test_math_watchable_editor.py
-#        Manual test for the MathWatchableEditor component
+#        A manual test application to test the math editor in standalone
 #
 #   - License : MIT - See LICENSE file
 #   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)

@@ -1,3 +1,11 @@
+#    test_math_builder_component.py
+#        A test suite for the MathBuilder component
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
+
 from dataclasses import dataclass
 
 from PySide6.QtWidgets import QWidget

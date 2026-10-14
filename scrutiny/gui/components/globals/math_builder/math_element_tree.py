@@ -1,3 +1,12 @@
+#    math_element_tree.py
+#        Contains the TreeView dedicated to MathBuilder. Allow to insert Math element and
+#        nested watchable to bound variables.
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
+
 import functools
 
 from PySide6.QtCore import QMimeData, QModelIndex, QObject, Signal, Qt

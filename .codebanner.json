@@ -1166,6 +1166,27 @@
         },
         "scrutiny/gui/core/fqn_name_pair.py": {
             "docstring": "Simple container used across the GUI to carry a display name an a Fully Qualified Name pointing to an item int he registry"
+        },
+        "test/gui/test_math_builder_component.py": {
+            "docstring": "A test suite for the MathBuilder component"
+        },
+        "test/gui/manual/manual_test_math_watchable_editor.py": {
+            "docstring": "A manual test application to test the math editor in standalone"
+        },
+        "test/gui/manual/manual_test_math_builder_component.py": {
+            "docstring": "A manual test application to test the math builder component in standalone. Uses a varlist + MathBuilderComponent"
+        },
+        "scrutiny/gui/components/globals/math_builder/math_element_tree.py": {
+            "docstring": "Contains the TreeView dedicated to MathBuilder. Allow to insert Math element and nested watchable to bound variables."
+        },
+        "scrutiny/gui/components/globals/math_builder/math_watchable_editor.py": {
+            "docstring": "A widget allowing to define and edit a GUIMathWatchable from the UI."
+        },
+        "scrutiny/gui/components/globals/math_builder/math_builder_component.py": {
+            "docstring": "A component where the user can view, edit and add GUIMathWatchables in the registry"
+        },
+        "scrutiny/gui/tools/drag_and_drop.py": {
+            "docstring": "Some drag&drop tools shared across the GUI"
         }
     },
     "authors": {}

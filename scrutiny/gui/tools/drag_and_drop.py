@@ -1,3 +1,11 @@
+#    drag_and_drop.py
+#        Some drag&drop tools shared across the GUI
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
+
 __all__ = ['make_watchable_list_dragdata_if_possible']
 
 from scrutiny.tools.typing import *

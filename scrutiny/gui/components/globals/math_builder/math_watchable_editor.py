@@ -1,3 +1,11 @@
+#    math_watchable_editor.py
+#        A widget allowing to define and edit a GUIMathWatchable from the UI.
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
+
 import functools
 from PySide6.QtWidgets import QWidget, QFormLayout, QVBoxLayout, QGroupBox, QLabel
 from PySide6.QtCore import Qt, QObject, Signal

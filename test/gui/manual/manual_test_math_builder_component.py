@@ -1,5 +1,6 @@
 #    manual_test_math_builder_component.py
-#        Manual test for the MathBuilderComponent with a VarListComponent on the left
+#        A manual test application to test the math builder component in standalone. Uses
+#        a varlist + MathBuilderComponent
 #
 #   - License : MIT - See LICENSE file
 #   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)

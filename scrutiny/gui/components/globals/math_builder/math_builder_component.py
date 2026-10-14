@@ -1,3 +1,10 @@
+#    math_builder_component.py
+#        A component where the user can view, edit and add GUIMathWatchables in the registry
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
 
 from PySide6.QtWidgets import QVBoxLayout, QPushButton, QWidget, QHBoxLayout, QSplitter, QGroupBox
 from PySide6.QtCore import Qt, QModelIndex, QItemSelection, SignalInstance
