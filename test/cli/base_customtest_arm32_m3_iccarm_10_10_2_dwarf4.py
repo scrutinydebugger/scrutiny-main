@@ -26,8 +26,8 @@ KNOWN_ENUMS: KnownEnumTypedDict = {
 }
 
 
-class BaseCustomeTestArm32R52_ArmNoneEabiGcc10_2(BaseVarmapTest):
-    _CPP_FILT = 'arm-none-eabi-c++filt'
+class BaseCustomTestArm32M3Iccarm_10_10_2_Dwarf4(BaseVarmapTest):
+    _CPP_FILT = 'c++filt'
     known_enums = KNOWN_ENUMS
 
     # char is uint8
@@ -73,6 +73,7 @@ class BaseCustomeTestArm32R52_ArmNoneEabiGcc10_2(BaseVarmapTest):
         self.assert_var('/static/file1.cpp/file1StaticBool', EmbeddedDataType.bool8, value_at_loc=True)
 
     def test_file2_static_basic_types(self):
+        print(self.varmap.get_json())
         self.assert_var('/static/file2.cpp/file2StaticChar', EmbeddedDataType.uint8, value_at_loc=0xBE)  # -66 in uint8=be
         self.assert_var('/static/file2.cpp/file2StaticInt', EmbeddedDataType.sint32, value_at_loc=-8745)
         self.assert_var('/static/file2.cpp/file2StaticShort', EmbeddedDataType.sint16, value_at_loc=-9876)
