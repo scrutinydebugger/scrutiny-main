@@ -6,6 +6,7 @@
 #
 #    Copyright (c) 2026 Scrutiny Debugger
 
+import logging
 from PySide6.QtWidgets import QVBoxLayout, QPushButton, QWidget, QHBoxLayout, QSplitter, QGroupBox
 from PySide6.QtCore import Qt, QModelIndex, QItemSelection, SignalInstance
 from scrutiny.gui.core.gui_math_watchable import GUIMathWatchable
@@ -14,8 +15,12 @@ from scrutiny.gui.core.watchable_registry.fqn import FQN
 from scrutiny.gui.components.globals.base_global_component import ScrutinyGUIBaseGlobalComponent
 from scrutiny.gui.components.globals.math_builder.math_element_tree import MathTreeView
 from scrutiny.gui.components.globals.math_builder.math_watchable_editor import MathWatchableEditor
-
+from scrutiny import tools
 from scrutiny.tools.typing import *
+
+
+class State:
+    MATH_WATCHABLE_KEY = 'math_watchables'
 
 
 class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
@@ -115,10 +120,38 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
         pass
 
     def get_state(self) -> Dict[Any, Any]:
-        return {}
+        all_math = [o[1] for o in self.app.watchable_registry.get_all_math_watchables()]
+        return {
+            State.MATH_WATCHABLE_KEY: [m.serialize() for m in all_math]
+        }
 
     def load_state(self, state: Dict[Any, Any]) -> bool:
-        return True
+        all_good = True
+        math_watchables: List[GUIMathWatchable] = []
+        try:
+            if State.MATH_WATCHABLE_KEY not in state:
+                raise Exception(f"Missing key {State.MATH_WATCHABLE_KEY}")
+
+            if not isinstance(state[State.MATH_WATCHABLE_KEY], list):
+                raise Exception("Wrong data type")
+
+            for element in state[State.MATH_WATCHABLE_KEY]:
+                try:
+                    math_watchables.append(GUIMathWatchable.deserialize(element))
+                except Exception as e:
+                    tools.log_exception(self.logger, e, "Failed to deserialize math watchable", str_level=logging.WARNING)
+                    all_good = False
+
+        except Exception as e:
+            tools.log_exception(self.logger, e, "Failed to load math elements", str_level=logging.WARNING)
+            all_good = False
+
+        for math_watchable in math_watchables:
+            existing_node = self.app.watchable_registry.get_math_watchable_node(math_watchable.signature())
+            if existing_node is None:
+                self.app.watchable_registry.add_math_watchable(math_watchable)
+
+        return all_good
 
 # end region
 

@@ -45,6 +45,8 @@ class MathExprStandardItem(QStandardItem):
         self.setText(expr)
         self.setEditable(False)
 
+# region Model
+
 
 class MathTreeModel(BaseTreeModelWithStyle):
 
@@ -56,36 +58,6 @@ class MathTreeModel(BaseTreeModelWithStyle):
         self._watchable_registry = watchable_registry
         self.setColumnCount(len(self.HEADERS))
         self.setHorizontalHeaderLabels(self.HEADERS)
-
-    def _make_row(self, math_watchable: GUIMathWatchable) -> List[QStandardItem]:
-        fqn = FQN.make(RegistryNodeType.Math, math_watchable.signature())
-        math_item = MathStandardItem(math_watchable.get_name(), fqn)
-        expr_item = MathExprStandardItem(math_watchable.get_expr())
-        self._fill_with_variables(math_item, math_watchable)
-
-        filler_item = QStandardItem()
-        filler_item.setEditable(False)
-
-        return [math_item, expr_item, filler_item]
-
-    def _fill_with_variables(self, math_item: WatchableStandardItem, math_watchable: GUIMathWatchable) -> None:
-        """Adds the watchable rows underneath a MathStandardItem"""
-        math_item.removeRows(0, math_item.rowCount())
-
-        name_fqn_map = math_watchable.get_var_fqn_map()
-        for var_name in sorted(name_fqn_map.keys()):
-            fqn_name = name_fqn_map[var_name]
-            if fqn_name is None:
-                raise ValueError(f"No watchable element assigned to variable {var_name}")
-
-            var_item = QStandardItem(var_name)
-            var_item.setEditable(False)
-            parsed_fqn = FQN.parse(fqn_name.fqn)
-            watchable_item = WatchableStandardItem(node_type=parsed_fqn.node_type, text=fqn_name.name, fqn=fqn_name.fqn)
-            watchable_item.setEditable(False)
-            fqn_item = QStandardItem(fqn_name.fqn)
-            fqn_item.setEditable(False)
-            math_item.appendRow([var_item, watchable_item, fqn_item])
 
     def sync_with_registry(self) -> None:
         all_math = {signature: math_watchable for signature, math_watchable in self._watchable_registry.get_all_math_watchables()}
@@ -165,7 +137,40 @@ class MathTreeModel(BaseTreeModelWithStyle):
 
         return QMimeData()
 
+    def _make_row(self, math_watchable: GUIMathWatchable) -> List[QStandardItem]:
+        fqn = FQN.make(RegistryNodeType.Math, math_watchable.signature())
+        math_item = MathStandardItem(math_watchable.get_name(), fqn)
+        expr_item = MathExprStandardItem(math_watchable.get_expr())
+        self._fill_with_variables(math_item, math_watchable)
 
+        filler_item = QStandardItem()
+        filler_item.setEditable(False)
+
+        return [math_item, expr_item, filler_item]
+
+    def _fill_with_variables(self, math_item: WatchableStandardItem, math_watchable: GUIMathWatchable) -> None:
+        """Adds the watchable rows underneath a MathStandardItem"""
+        math_item.removeRows(0, math_item.rowCount())
+
+        name_fqn_map = math_watchable.get_var_fqn_map()
+        for var_name in sorted(name_fqn_map.keys()):
+            fqn_name = name_fqn_map[var_name]
+            if fqn_name is None:
+                raise ValueError(f"No watchable element assigned to variable {var_name}")
+
+            var_item = QStandardItem(var_name)
+            var_item.setEditable(False)
+            parsed_fqn = FQN.parse(fqn_name.fqn)
+            watchable_item = WatchableStandardItem(node_type=parsed_fqn.node_type, text=fqn_name.name, fqn=fqn_name.fqn)
+            watchable_item.setEditable(False)
+            fqn_item = QStandardItem(fqn_name.fqn)
+            fqn_item.setEditable(False)
+            math_item.appendRow([var_item, watchable_item, fqn_item])
+
+# end region
+
+
+# region TreeView
 class MathTreeView(BaseTreeView):
     class _Signals(QObject):
         edit_requested = Signal(str)        # str
@@ -236,6 +241,13 @@ class MathTreeView(BaseTreeView):
 
         context_menu.exec_at_first_and_disconnect(self.mapToGlobal(event.pos()))
 
+    def update_availabilities(self) -> None:
+        self._model.update_availabilities()
+
+
+# region Private
+
+
     def _context_menu_edit_slot(self, math_item: MathStandardItem) -> None:
         fqn = self.get_fqn_from_row(math_item.row())
         if fqn is None:
@@ -250,5 +262,5 @@ class MathTreeView(BaseTreeView):
 
         self._signals.remove_requested.emit(fqn_to_remove)
 
-    def update_availabilities(self) -> None:
-        self._model.update_availabilities()
+# end region
+# end region

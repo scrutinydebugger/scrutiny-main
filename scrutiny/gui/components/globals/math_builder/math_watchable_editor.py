@@ -26,12 +26,19 @@ class MathWatchableEditor(QWidget):
         content_changed = Signal()
 
     _txt_name: ValidableLineEdit
+    """The display name editor"""
     _txt_expr: ValidableLineEdit
+    """The mat expression editor"""
     _lbl_expr_validity: FeedbackLabel
+    """A label to show if the expression is valid or not"""
     _varlist_gb: QGroupBox
+    """Group box where the variables to bind are displayed"""
     _variable_list_form_layout: QFormLayout
+    """Layout for the variable binding"""
     _var_to_wlineedit_map: Dict[str, WatchableLineEdit]
+    """A dict mapping variable name to their WatchableLineEdit entry that hold the Watchable dragged by the user"""
     _signals: _Signals
+    """The signals"""
 
     def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)
@@ -70,39 +77,10 @@ class MathWatchableEditor(QWidget):
 
         self._update_visibility()
 
+# region Public
     @property
     def signals(self) -> _Signals:
         return self._signals
-
-    def _update_visibility(self) -> None:
-        self._varlist_gb.setVisible(len(self._var_to_wlineedit_map) > 0)
-
-    def _update_feedback(self, watchable: GUIMathWatchable) -> None:
-        if len(watchable.get_expr()) == 0:
-            self._lbl_expr_validity.clear()
-        elif watchable.is_valid():
-            self._lbl_expr_validity.set_success("Expression is valid!")
-        else:
-            error = "Invalid expression"
-            details = watchable.get_error()
-            if details is not None:
-                error += " - " + details
-
-            self._lbl_expr_validity.set_error(error)
-
-    def _expr_changed_slot(self) -> None:
-        self._txt_expr.validate_expect_not_wrong()
-        if self._txt_expr.hasFocus() and len(self._txt_expr.text()) > 0:
-            self._lbl_expr_validity.set_info("Press Enter to validate")
-        else:
-            self._lbl_expr_validity.clear()
-
-    def _expr_edit_slot(self) -> None:
-        w = GUIMathWatchable(name=self._txt_name.text(), expr=self._txt_expr.text())
-        self.load(w, keep_unset_var=True)
-
-    def _name_edit_slot(self) -> None:
-        self._txt_name.validate_expect_not_wrong()
 
     def clear(self) -> None:
         changed = False
@@ -128,44 +106,6 @@ class MathWatchableEditor(QWidget):
 
         if changed:
             self._signals.content_changed.emit()
-
-    def _add_var_row(self, var_name: str) -> WatchableLineEdit:
-        if var_name in self._var_to_wlineedit_map:
-            raise ValueError(f"Variable with name {var_name} already has a row")
-
-        wline_edit = WatchableLineEdit()
-        wline_edit.set_text_mode_enabled(False)
-        wline_edit.set_allowed_types([RegistryNodeType.Alias, RegistryNodeType.RuntimePublishedValue, RegistryNodeType.Variable])
-        wline_edit.signals.watchable_cleared.connect(functools.partial(self._watchable_line_edit_changed_slot, wline_edit))
-        wline_edit.signals.watchable_dropped.connect(functools.partial(self._watchable_line_edit_changed_slot, wline_edit))
-        self._var_to_wlineedit_map[var_name] = wline_edit
-        label = QLabel(var_name)
-        label.setAlignment(Qt.AlignmentFlag.AlignRight)
-        label.setMinimumWidth(30)
-        self._variable_list_form_layout.addRow(label, wline_edit)
-
-        return wline_edit
-
-    def _remove_var_row(self, var_name: str) -> None:
-        if var_name not in self._var_to_wlineedit_map:
-            raise ValueError(f"Variable with name {var_name} not in layout")
-
-        wline_edit = self._var_to_wlineedit_map[var_name]
-        row_to_delete: Optional[int] = None
-        for row_index in range(self._variable_list_form_layout.rowCount()):
-            item = self._variable_list_form_layout.itemAt(row_index, QFormLayout.ItemRole.FieldRole)
-            assert item is not None
-            widget = item.widget()
-            if widget is wline_edit:
-                row_to_delete = row_index
-
-        if row_to_delete is None:
-            raise ValueError(f"Could not find variable {var_name} in the layout.")
-
-        wline_edit.signals.watchable_cleared.disconnect()
-        wline_edit.signals.watchable_dropped.disconnect()
-        self._variable_list_form_layout.removeRow(row_to_delete)
-        del self._var_to_wlineedit_map[var_name]
 
     def load(self, math_watchable: GUIMathWatchable, keep_unset_var: bool = False) -> None:
         self._txt_name.setText(math_watchable.get_name())
@@ -250,6 +190,78 @@ class MathWatchableEditor(QWidget):
     def var_count(self) -> int:
         return len(self._var_to_wlineedit_map)
 
+# end region
+
+# region Private
+    def _update_visibility(self) -> None:
+        self._varlist_gb.setVisible(len(self._var_to_wlineedit_map) > 0)
+
+    def _update_feedback(self, watchable: GUIMathWatchable) -> None:
+        if len(watchable.get_expr()) == 0:
+            self._lbl_expr_validity.clear()
+        elif watchable.is_valid():
+            self._lbl_expr_validity.set_success("Expression is valid!")
+        else:
+            error = "Invalid expression"
+            details = watchable.get_error()
+            if details is not None:
+                error += " - " + details
+
+            self._lbl_expr_validity.set_error(error)
+
+    def _expr_changed_slot(self) -> None:
+        self._txt_expr.validate_expect_not_wrong()
+        if self._txt_expr.hasFocus() and len(self._txt_expr.text()) > 0:
+            self._lbl_expr_validity.set_info("Press Enter to validate")
+        else:
+            self._lbl_expr_validity.clear()
+
+    def _expr_edit_slot(self) -> None:
+        w = GUIMathWatchable(name=self._txt_name.text(), expr=self._txt_expr.text())
+        self.load(w, keep_unset_var=True)
+
+    def _name_edit_slot(self) -> None:
+        self._txt_name.validate_expect_not_wrong()
+
+    def _add_var_row(self, var_name: str) -> WatchableLineEdit:
+        if var_name in self._var_to_wlineedit_map:
+            raise ValueError(f"Variable with name {var_name} already has a row")
+
+        wline_edit = WatchableLineEdit()
+        wline_edit.set_text_mode_enabled(False)
+        wline_edit.set_allowed_types([RegistryNodeType.Alias, RegistryNodeType.RuntimePublishedValue, RegistryNodeType.Variable])
+        wline_edit.signals.watchable_cleared.connect(functools.partial(self._watchable_line_edit_changed_slot, wline_edit))
+        wline_edit.signals.watchable_dropped.connect(functools.partial(self._watchable_line_edit_changed_slot, wline_edit))
+        self._var_to_wlineedit_map[var_name] = wline_edit
+        label = QLabel(var_name)
+        label.setAlignment(Qt.AlignmentFlag.AlignRight)
+        label.setMinimumWidth(30)
+        self._variable_list_form_layout.addRow(label, wline_edit)
+
+        return wline_edit
+
+    def _remove_var_row(self, var_name: str) -> None:
+        if var_name not in self._var_to_wlineedit_map:
+            raise ValueError(f"Variable with name {var_name} not in layout")
+
+        wline_edit = self._var_to_wlineedit_map[var_name]
+        row_to_delete: Optional[int] = None
+        for row_index in range(self._variable_list_form_layout.rowCount()):
+            item = self._variable_list_form_layout.itemAt(row_index, QFormLayout.ItemRole.FieldRole)
+            assert item is not None
+            widget = item.widget()
+            if widget is wline_edit:
+                row_to_delete = row_index
+
+        if row_to_delete is None:
+            raise ValueError(f"Could not find variable {var_name} in the layout.")
+
+        wline_edit.signals.watchable_cleared.disconnect()
+        wline_edit.signals.watchable_dropped.disconnect()
+        self._variable_list_form_layout.removeRow(row_to_delete)
+        del self._var_to_wlineedit_map[var_name]
+
     def _watchable_line_edit_changed_slot(self, wline_edit: WatchableLineEdit, fqn: str) -> None:
         wline_edit.set_default_state()
         self._signals.content_changed.emit()
+# end region

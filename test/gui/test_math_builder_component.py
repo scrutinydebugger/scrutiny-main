@@ -6,6 +6,7 @@
 #
 #    Copyright (c) 2026 Scrutiny Debugger
 
+import json
 from dataclasses import dataclass
 
 from PySide6.QtWidgets import QWidget
