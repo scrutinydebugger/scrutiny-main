@@ -9,11 +9,14 @@
 import os
 import tempfile
 from pathlib import Path
+import time
+import gc
 
 from PySide6.QtWidgets import QWidget, QApplication
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon
 
+from test import logger
 from test.gui.base_gui_test import ScrutinyBaseGuiTest
 from test.gui.fake_server_manager import FakeServerManager
 from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
@@ -44,26 +47,14 @@ class TestAutoHideTab(QtAds.ads.CAutoHideTab):
 
 
 class TestFactory(QtAds.CDockComponentsFactory):
-    pass
-
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
-        self._storage: List[Any] = []
-
     def createDockWidgetTab(self, DockWidget: QtAds.CDockWidget) -> QtAds.CDockWidgetTab:
-        tab = TestDockWidgetTab(DockWidget, None)
-        self._storage.append(tab)
-        return tab
+        return TestDockWidgetTab(DockWidget, None)
 
     def createDockAreaTitleBar(self, DockArea: QtAds.CDockAreaWidget) -> QtAds.CDockAreaTitleBar:
-        titlebar = TestDockAreaTitleBar(DockArea)
-        self._storage.append(titlebar)
-        return titlebar
+        return  TestDockAreaTitleBar(DockArea)
 
     def createDockWidgetSideTab(self, DockWidget: QtAds.CDockWidget) -> QtAds.ads.CAutoHideTab:
-        sidetab = TestAutoHideTab(DockWidget)
-        self._storage.append(sidetab)
-        return sidetab
+        return TestAutoHideTab(DockWidget)
 
 
 class StubbedComponent(ScrutinyGUIBaseComponent):
@@ -522,12 +513,10 @@ class TestDashboard(ScrutinyBaseGuiTest):
     def test_ads_bug_847_find_dock_widget(self):
         container = QWidget()
         dock_manager = QtAds.CDockManager(container)
-        factory = TestFactory()
-        dock_manager.setComponentsFactory(factory)  # Removes this and it's fine!
+        dock_manager.setComponentsFactory(TestFactory())  # Removes this and it's fine!
         dw1 = TestDockWidget(dock_manager, "dw1")
         dock_manager.addDockWidget(QtAds.TopDockWidgetArea, dw1)
         dw2 = dock_manager.findDockWidget("dw1")
-
         # https://github.com/githubuser0xFFFF/Qt-Advanced-Docking-System/issues/847
         self.assertIs(dw1, dw2, "Bad PySide6 binding, Check ADS Bug #847")  # Fails with 4.5.0.5 and PySide6.10+.  Should be the same.
 
@@ -539,8 +528,7 @@ class TestDashboard(ScrutinyBaseGuiTest):
 
         container = QWidget()
         dock_manager = QtAds.CDockManager(container)
-        factory = TestFactory()
-        dock_manager.setComponentsFactory(factory)  # Removes this and it's fine!
+        dock_manager.setComponentsFactory(TestFactory())  # Removes this and it's fine!
         dock_manager.dockWidgetAboutToBeRemoved.connect(about_to_be_remove_slot)
         dw1 = TestDockWidget(dock_manager, "dw1")
         dock_manager.addDockWidget(QtAds.TopDockWidgetArea, dw1)
@@ -551,3 +539,14 @@ class TestDashboard(ScrutinyBaseGuiTest):
         self.assertEqual(len(dw_received), 1)
         self.assertIsInstance(dw_received[0], TestDockWidget)
         self.assertIs(dw_received[0], dw1)
+
+    def test_can_destroy_factory(self):
+        for i in range(10):
+            container = QWidget()
+            dock_manager = QtAds.CDockManager(container)
+            dock_manager.setComponentsFactory(TestFactory())
+            dock_manager.setParent(None)
+            del dock_manager
+            gc.collect()
+            self.process_events()
+            time.sleep(0.01)
