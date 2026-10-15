@@ -823,18 +823,22 @@ class WatchableRegistry:
         self._signals.content_changed.emit([RegistryNodeType.Math])
 
     def remove_math_watchable_list_fqn(self, fqns: Iterable[str]) -> None:
-        for fqn in fqns:
-            parsed = FQN.parse(fqn)
-            proxy = self._math_storage.get(parsed.math_signature)
-            if proxy is None:
-                raise WatchableRegistryError(f"No registry math entry to update at {fqn}")
+        changed = False
+        try:
+            for fqn in fqns:
+                parsed = FQN.parse(fqn)
+                proxy = self._math_storage.get(parsed.math_signature)
+                if proxy is None:
+                    raise WatchableRegistryError(f"No registry math entry to update at {fqn}")
 
-            watcher_ids = proxy.get_watchers()
-            for watcher_id in watcher_ids:
-                self.unwatch(watcher_id, parsed.node_type, parsed.string_id)
-            del self._math_storage[parsed.math_signature]
-
-        self._signals.content_changed.emit([RegistryNodeType.Math])
+                changed = True
+                watcher_ids = proxy.get_watchers()
+                for watcher_id in watcher_ids:
+                    self.unwatch(watcher_id, parsed.node_type, parsed.string_id)
+                del self._math_storage[parsed.math_signature]
+        finally:
+            if changed:
+                self._signals.content_changed.emit([RegistryNodeType.Math])
 
     def remove_math_watchable_fqn(self, fqn: str) -> None:
         self.remove_math_watchable_list_fqn([fqn])
@@ -845,7 +849,7 @@ class WatchableRegistry:
             return
         proxy = self._math_storage.get(previous_signature)
         if proxy is None:
-            raise WatchableRegistryError(f"No registry math entry to update at at {fqn}")
+            raise WatchableRegistryError(f"No registry math entry to update at {fqn}")
 
         proxy.update_math_watchable(new_math_watchable)
         self._math_storage[new_math_watchable.signature()] = proxy

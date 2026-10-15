@@ -76,7 +76,7 @@ class FQN:
         :param node_type: The registry node type
         :param string_id: The tree string_id
 
-        :return: A fully qualified name containing the type and the tree path
+        :return: A fully qualified name containing the type and either a the tree path or a math signature
         """
         return f"{TYPESTR_MAP_WT2S[node_type]}:{string_id}"
 

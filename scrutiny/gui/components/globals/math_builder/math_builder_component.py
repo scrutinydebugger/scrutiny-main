@@ -255,6 +255,9 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
         if fqn is None:
             return
         math_watchable = self.app.watchable_registry.get_watchable_node_fqn(fqn)
+        if math_watchable is None:
+            self.logger.error("Math watchable is not in the registry.")
+            return
         assert isinstance(math_watchable, GUIMathWatchable)
 
         self._start_edit(math_watchable)
