@@ -103,6 +103,29 @@ class MathProxy(BaseRegistryStorable):
         if len(self._watchers) > 0:
             self._try_watch_all()
 
+    def add_or_update_watcher(self, watcher: Watcher, update_rate: Optional[float]) -> None:
+        self._watchers[watcher.watcher_id] = WatcherAndDataPair(watcher, WatcherData(update_rate=update_rate))
+        self._try_watch_all()
+
+    def get_watchers(self) -> Set[WatcherIdType]:
+        return set(self._watchers.keys())
+
+    def has_watcher(self, watcher_id: WatcherIdType) -> bool:
+        return watcher_id in self._watchers
+
+    def remove_watcher(self, watcher_id: WatcherIdType) -> None:
+        if watcher_id in self._watchers:
+            del self._watchers[watcher_id]
+
+            if len(self._watchers) == 0:
+                self._unwatch_all()
+
+    def get_watcher_count(self) -> int:
+        return len(self._watchers)
+
+    def get_signature(self) -> str:
+        return self._signature
+
     def _compute_highest_update_rate(self) -> Optional[float]:
         rate: Optional[float] = 0.0
         for watcher_id, watcher_and_data in self._watchers.items():
@@ -167,29 +190,6 @@ class MathProxy(BaseRegistryStorable):
         # if one of the inputs is getting cleared.
         # In the latter case, we want to make sure to invalidate the values
         self.math_watchable.clear_vals()
-
-    def add_or_update_watcher(self, watcher: Watcher, update_rate: Optional[float]) -> None:
-        self._watchers[watcher.watcher_id] = WatcherAndDataPair(watcher, WatcherData(update_rate=update_rate))
-        self._try_watch_all()
-
-    def get_watchers(self) -> Set[WatcherIdType]:
-        return set(self._watchers.keys())
-
-    def has_watcher(self, watcher_id: WatcherIdType) -> bool:
-        return watcher_id in self._watchers
-
-    def remove_watcher(self, watcher_id: WatcherIdType) -> None:
-        if watcher_id in self._watchers:
-            del self._watchers[watcher_id]
-
-            if len(self._watchers) == 0:
-                self._unwatch_all()
-
-    def get_watcher_count(self) -> int:
-        return len(self._watchers)
-
-    def get_signature(self) -> str:
-        return self._signature
 
 
 @dataclass(frozen=True, slots=True)
