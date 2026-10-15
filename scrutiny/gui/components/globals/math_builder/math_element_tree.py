@@ -129,7 +129,7 @@ class MathTreeModel(BaseTreeModelWithStyle):
 
     def update_availabilities(self) -> None:
         for i in range(self.rowCount()):
-            math_item = self.item(Cols.ItemOrVar)
+            math_item = self.item(i, Cols.ItemOrVar)
             assert isinstance(math_item, MathStandardItem)
             math_watchable = self._watchable_registry.get_math_watchable_node(FQN.parse(math_item.fqn).math_signature)
             assert math_watchable is not None
@@ -163,7 +163,7 @@ class MathTreeModel(BaseTreeModelWithStyle):
             if mimedata is not None:
                 return mimedata
 
-        return super().mimeData(indexes)
+        return QMimeData()
 
 
 class MathTreeView(BaseTreeView):
@@ -186,6 +186,9 @@ class MathTreeView(BaseTreeView):
         self.header().setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)
         self.setDragEnabled(True)
         self.setDragDropMode(self.DragDropMode.DragOnly)
+
+    def model(self) -> MathTreeModel:
+        return self._model
 
     @property
     def signals(self) -> _Signals:

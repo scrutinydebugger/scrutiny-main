@@ -278,6 +278,8 @@ class BaseTreeModel(QStandardItemModel):
 
 class BaseTreeModelWithStyle(BaseTreeModel):
 
+    AVAILABILITY_ROLE = Qt.ItemDataRole.UserRole + 200
+
     _available_palette: QPalette
     _unavailable_palette: QPalette
 
@@ -303,23 +305,30 @@ class BaseTreeModelWithStyle(BaseTreeModel):
 
     def set_unavailable(self, arg_item: QStandardItem) -> None:
         """Make an item in the tree unavailable (grayed out)"""
+        arg_item.setData(False, self.AVAILABILITY_ROLE)
         background_color = self._unavailable_palette.color(QPalette.ColorRole.Base)
-        forground_color = self._unavailable_palette.color(QPalette.ColorRole.Text)
+        foreground_color = self._unavailable_palette.color(QPalette.ColorRole.Text)
         for i in range(self.columnCount()):
             item = self.itemFromIndex(arg_item.index().siblingAtColumn(i))
             if item is not None:
                 item.setBackground(background_color)
-                item.setForeground(forground_color)
+                item.setForeground(foreground_color)
 
     def set_available(self, arg_item: QStandardItem) -> None:
         """Make an item in the tree available (normal color)"""
+        arg_item.setData(True, self.AVAILABILITY_ROLE)
         background_color = self._available_palette.color(QPalette.ColorRole.Base)
-        forground_color = self._available_palette.color(QPalette.ColorRole.Text)
+        foreground_color = self._available_palette.color(QPalette.ColorRole.Text)
         for i in range(self.columnCount()):
             item = self.itemFromIndex(arg_item.index().siblingAtColumn(i))
             if item is not None:
                 item.setBackground(background_color)
-                item.setForeground(forground_color)
+                item.setForeground(foreground_color)
+
+    def is_available(self, arg_item: QStandardItem) -> bool:
+        """Check if an item is marked as available. Items without explicit state are considered available."""
+        val = arg_item.data(self.AVAILABILITY_ROLE)
+        return val is None or val is True
 
 
 class BaseTreeView(QTreeView):

@@ -335,4 +335,4 @@ class WatchableLineEdit(QLineEdit):
     def clear(self) -> None:
         self.set_default_state()
         self.set_text_mode()
-        self.clear()
+        super().clear()

@@ -827,7 +827,7 @@ class WatchableRegistry:
             parsed = FQN.parse(fqn)
             proxy = self._math_storage.get(parsed.math_signature)
             if proxy is None:
-                raise WatchableRegistryError(f"No registry math entry to update at at {fqn}")
+                raise WatchableRegistryError(f"No registry math entry to update at {fqn}")
 
             watcher_ids = proxy.get_watchers()
             for watcher_id in watcher_ids:

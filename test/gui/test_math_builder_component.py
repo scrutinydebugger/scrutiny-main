@@ -12,7 +12,7 @@ from PySide6.QtWidgets import QWidget
 from PySide6.QtCore import Qt, QModelIndex
 from test.gui.fake_server_manager import FakeServerManager
 from test.gui.base_gui_test import ScrutinyBaseGuiTest
-from scrutiny.gui.components.globals.math_builder.math_element_tree import MathTreeModel
+from scrutiny.gui.components.globals.math_builder.math_element_tree import MathTreeModel, MathStandardItem, Cols
 from scrutiny.gui.components.globals.math_builder.math_builder_component import MathBuilderComponent
 from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
 from scrutiny.gui.component_app_interface import AbstractComponentAppInterface
@@ -20,6 +20,7 @@ from scrutiny.gui.core.gui_math_watchable import GUIMathWatchable
 from scrutiny.gui.core.fqn_name_pair import FqnNamePair
 from scrutiny.gui.core.watchable_registry.fqn import FQN
 from scrutiny.gui.core.watchable_registry.common import RegistryNodeType
+from scrutiny.sdk import WatchableType, BriefWatchableConfiguration, EmbeddedDataType
 
 
 from scrutiny.tools.typing import *
@@ -216,3 +217,39 @@ class TestMathBuilderComponent(ScrutinyBaseGuiTest):
         self.builder.commit()
 
         self.assertEqual(self._count_registry_math(), 0)
+
+    def test_update_availabilities_checks_all_rows(self):
+        self._registry().write_server_content({
+            WatchableType.Variable: {
+                '/a/b/x': BriefWatchableConfiguration(WatchableType.Variable, EmbeddedDataType.float32, enum=None),
+                '/a/b/y': BriefWatchableConfiguration(WatchableType.Variable, EmbeddedDataType.float32, enum=None),
+            }
+        })
+
+        w1 = self._make_math_watchable("available_expr", "x+y", {
+            "x": VarBinding("var_x", RegistryNodeType.Variable, "/a/b/x"),
+            "y": VarBinding("var_y", RegistryNodeType.Variable, "/a/b/y"),
+        })
+
+        w2 = self._make_math_watchable("unavailable_expr", "p+q", {
+            "p": VarBinding("var_p", RegistryNodeType.Variable, "/missing/p"),
+            "q": VarBinding("var_q", RegistryNodeType.Variable, "/missing/q"),
+        })
+
+        self._add_to_registry(w1)
+        self._add_to_registry(w2)
+
+        tree = self.builder.get_math_tree()
+        self.assertEqual(tree.math_watchable_count(), 2)
+
+        tree.update_availabilities()
+
+        model = tree.model()
+        availabilities: Dict[str, bool] = {}
+        for row in range(model.rowCount()):
+            item = model.item(row, Cols.ItemOrVar)
+            assert isinstance(item, MathStandardItem)
+            availabilities[item.text()] = model.is_available(item)
+
+        self.assertTrue(availabilities["available_expr"])
+        self.assertFalse(availabilities["unavailable_expr"])
