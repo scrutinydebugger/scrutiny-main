@@ -32,6 +32,7 @@ from scrutiny.gui.components.globals.base_global_component import ScrutinyGUIBas
 from scrutiny.gui.components.base_component import ScrutinyGUIBaseComponent
 from scrutiny.gui.components.globals.varlist.varlist_component import VarListComponent
 from scrutiny.gui.components.globals.metrics.metrics_component import MetricsComponent
+from scrutiny.gui.components.globals.math_builder.math_builder_component import MathBuilderComponent
 from scrutiny.gui.component_app_interface import AbstractComponentAppInterface
 
 from scrutiny.gui.dashboard import dashboard_file_format
@@ -440,6 +441,7 @@ class Dashboard(QWidget):
     def make_default_dashboard(self) -> None:
         self.clear()
         self.create_or_show_global_component(VarListComponent, show=False)
+        self.create_or_show_global_component(MetricsComponent, show=False)
         self.create_or_show_global_component(MetricsComponent, show=False)
         self._set_active_file(None)
 

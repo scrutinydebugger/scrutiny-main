@@ -9,12 +9,15 @@
 import logging
 from PySide6.QtWidgets import QVBoxLayout, QPushButton, QWidget, QHBoxLayout, QSplitter, QGroupBox
 from PySide6.QtCore import Qt, QModelIndex, QItemSelection, SignalInstance
+from PySide6.QtGui import QIcon
 from scrutiny.gui.core.gui_math_watchable import GUIMathWatchable
 from scrutiny.gui.core.watchable_registry.common import RegistryNodeType
 from scrutiny.gui.core.watchable_registry.fqn import FQN
 from scrutiny.gui.components.globals.base_global_component import ScrutinyGUIBaseGlobalComponent
 from scrutiny.gui.components.globals.math_builder.math_element_tree import MathTreeView
 from scrutiny.gui.components.globals.math_builder.math_watchable_editor import MathWatchableEditor
+from scrutiny.gui.themes import scrutiny_get_theme
+from scrutiny.gui import assets
 from scrutiny import tools
 from scrutiny.tools.typing import *
 
@@ -25,6 +28,8 @@ class State:
 
 class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
     """A component that let the user edit the Math Watchables available in the registry"""
+    _NAME = "Math Expressions"
+    _TYPE_ID = "math"
 
     _math_tree: MathTreeView
     """The tree view showing what's in the registry"""
@@ -46,6 +51,10 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
     """A list of signals to disconnect in teardown"""
 
 # region Overrides
+    @classmethod
+    def get_icon(cls) -> QIcon:
+        return scrutiny_get_theme().load_medium_icon(assets.Icons.F_x)
+
     def setup(self) -> None:
         self._watchable_being_edited_fqn = None
         self._signals_connected = []

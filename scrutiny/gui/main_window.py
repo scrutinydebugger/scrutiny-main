@@ -41,6 +41,7 @@ from scrutiny.gui.components.locals.continuous_graph.continuous_graph_component 
 from scrutiny.gui.components.locals.embedded_graph.embedded_graph_component import EmbeddedGraphComponent
 from scrutiny.gui.components.locals.hmi.hmi_component import HMIComponent
 from scrutiny.gui.components.globals.metrics.metrics_component import MetricsComponent
+from scrutiny.gui.components.globals.math_builder.math_builder_component import MathBuilderComponent
 
 from scrutiny.gui.core.user_messages_manager import UserMessagesManager
 from scrutiny.gui.core.server_manager.server_manager import ServerManager
@@ -56,7 +57,8 @@ class MainWindow(QMainWindow):
 
     ENABLED_GLOBALS_COMPONENTS: List[Type[ScrutinyGUIBaseGlobalComponent]] = [
         VarListComponent,
-        MetricsComponent
+        MetricsComponent,
+        # MathBuilderComponent
     ]
 
     ENABLED_LOCAL_COMPONENTS: List[Type[ScrutinyGUIBaseLocalComponent]] = [

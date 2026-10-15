@@ -150,6 +150,7 @@ class Icons(enum.Enum):
     NumericFormatHexadecimal = "numeric_format_hex"
     NumericFormatDecimal = "numeric_format_dec"
     NumericFormat = "numeric_format"
+    F_x = "f_x"
 
 
 _filename_cache: Dict[Tuple[Icons, IconFormat, IconSet], Path] = {}
