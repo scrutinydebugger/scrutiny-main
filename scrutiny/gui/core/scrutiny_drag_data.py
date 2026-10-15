@@ -192,3 +192,4 @@ class WatchableListDescriptor:
         if drag_data is None:
             return None
         return cls.from_drag_data(drag_data)
+

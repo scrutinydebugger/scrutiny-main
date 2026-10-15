@@ -84,16 +84,47 @@ class MathProxy(BaseRegistryStorable):
 
     def __init__(self, node_id: int, registry: "WatchableRegistry", math_watchable: GUIMathWatchable) -> None:
         super().__init__(node_id)
-        assert math_watchable.is_fully_configured()
         self.registry = registry
         self._watchers = {}
-        self.math_watchable = math_watchable
         self.registry.register_watcher(self.registry_id, self._update_callback, self._unwatch_callback)
+        self._load_watchable(math_watchable)
+
+    def _load_watchable(self, math_watchable: GUIMathWatchable) -> None:
+        assert math_watchable.is_fully_configured()
+        self.math_watchable = math_watchable
         self._signature = math_watchable.signature()
+        if len(self._watchers) > 0:
+            self._try_watch_all()
+
+    def update_math_watchable(self, new_math_watchable: GUIMathWatchable) -> None:
+        self._load_watchable(new_math_watchable)
 
     def notify_registry_insert(self) -> None:
         if len(self._watchers) > 0:
             self._try_watch_all()
+
+    def add_or_update_watcher(self, watcher: Watcher, update_rate: Optional[float]) -> None:
+        self._watchers[watcher.watcher_id] = WatcherAndDataPair(watcher, WatcherData(update_rate=update_rate))
+        self._try_watch_all()
+
+    def get_watchers(self) -> Set[WatcherIdType]:
+        return set(self._watchers.keys())
+
+    def has_watcher(self, watcher_id: WatcherIdType) -> bool:
+        return watcher_id in self._watchers
+
+    def remove_watcher(self, watcher_id: WatcherIdType) -> None:
+        if watcher_id in self._watchers:
+            del self._watchers[watcher_id]
+
+            if len(self._watchers) == 0:
+                self._unwatch_all()
+
+    def get_watcher_count(self) -> int:
+        return len(self._watchers)
+
+    def get_signature(self) -> str:
+        return self._signature
 
     def _compute_highest_update_rate(self) -> Optional[float]:
         rate: Optional[float] = 0.0
@@ -159,26 +190,6 @@ class MathProxy(BaseRegistryStorable):
         # if one of the inputs is getting cleared.
         # In the latter case, we want to make sure to invalidate the values
         self.math_watchable.clear_vals()
-
-    def add_or_update_watcher(self, watcher: Watcher, update_rate: Optional[float]) -> None:
-        self._watchers[watcher.watcher_id] = WatcherAndDataPair(watcher, WatcherData(update_rate=update_rate))
-        self._try_watch_all()
-
-    def has_watcher(self, watcher_id: WatcherIdType) -> bool:
-        return watcher_id in self._watchers
-
-    def remove_watcher(self, watcher_id: WatcherIdType) -> None:
-        if watcher_id in self._watchers:
-            del self._watchers[watcher_id]
-
-            if len(self._watchers) == 0:
-                self._unwatch_all()
-
-    def get_watcher_count(self) -> int:
-        return len(self._watchers)
-
-    def get_signature(self) -> str:
-        return self._signature
 
 
 @dataclass(frozen=True, slots=True)

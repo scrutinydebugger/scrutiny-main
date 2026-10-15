@@ -42,7 +42,7 @@ class WatchableRegistry:
     Act as a relay to dispatch value update event to the internal widgets"""
 
     class _Signals(QObject):
-        content_changed = Signal()
+        content_changed = Signal(object)
 
     @dataclass(frozen=True, slots=True)
     class Statistics:
@@ -561,14 +561,14 @@ class WatchableRegistry:
         :return: The node referred to by the given FQN
         """
         parsed = FQN.parse(fqn)
-        return self.get_watchable_node(parsed.node_type, parsed.path)
+        return self.get_watchable_node(parsed.node_type, parsed.string_id)
 
     def get_watchable_node(self, node_type: RegistryNodeType, string_id: str) -> Optional[Union[ServerStorageEntryNode, GUIMathWatchable]]:
         """Access a node from the registry and return it if it is a Watchable node (Server or Client defined).
           Returns ``None`` if no node exist or if the accessed node is not a Watchable
 
-        :node_type: The type of node to read
-        :string_id: The server path or the Math watchable signature
+        :param node_type: The type of node to read
+        :param string_id: The server path or the Math watchable signature
         :return: The node referred to by the given ID
         """
         if node_type == RegistryNodeType.Math:
@@ -647,8 +647,12 @@ class WatchableRegistry:
 
         :return: ``True`` if exists and is a watchable
         """
-        node = self.read_server_storage_fqn(fqn)
-        return isinstance(node, ServerStorageEntryNode)
+        parsed = FQN.parse(fqn)
+        if parsed.node_type == RegistryNodeType.Math:
+            return parsed.math_signature in self._math_storage
+        else:
+            node = self.read_server_storage(parsed.node_type.to_sdk(), parsed.path)
+            return isinstance(node, ServerStorageEntryNode)
 
     @enforce_thread(QT_THREAD_NAME)
     def write_server_content(self, data: Dict[sdk.WatchableType, Dict[str, sdk.BriefWatchableConfiguration]]) -> None:
@@ -675,7 +679,7 @@ class WatchableRegistry:
 
         if changed:
             self._notify_all_math_proxies_of_insert()
-            self._signals.content_changed.emit()
+            self._signals.content_changed.emit([RegistryNodeType.from_sdk(wt) for wt, changed in touched.items() if changed])
 
     @enforce_thread(QT_THREAD_NAME)
     def clear_server_content_by_type(self, watchable_types: Union[sdk.WatchableType, Iterable[sdk.WatchableType]]) -> bool:
@@ -729,7 +733,7 @@ class WatchableRegistry:
             self._node_counter = 0  # Avoid growing forever
 
         if changed:
-            self._signals.content_changed.emit()
+            self._signals.content_changed.emit([RegistryNodeType.from_sdk(wt) for wt in watchable_types])
 
         return changed
 
@@ -816,6 +820,45 @@ class WatchableRegistry:
 
         self._math_storage[signature] = MathProxy(self._make_node_id(), self, math_watchable)
         self._registry_node_count[RegistryNodeType.Math] += 1
+        self._signals.content_changed.emit([RegistryNodeType.Math])
+
+    def remove_math_watchable_list_fqn(self, fqns: Iterable[str]) -> None:
+        changed = False
+        try:
+            for fqn in fqns:
+                parsed = FQN.parse(fqn)
+                proxy = self._math_storage.get(parsed.math_signature)
+                if proxy is None:
+                    raise WatchableRegistryError(f"No registry math entry to update at {fqn}")
+
+                changed = True
+                watcher_ids = proxy.get_watchers()
+                for watcher_id in watcher_ids:
+                    self.unwatch(watcher_id, parsed.node_type, parsed.string_id)
+                del self._math_storage[parsed.math_signature]
+        finally:
+            if changed:
+                self._signals.content_changed.emit([RegistryNodeType.Math])
+
+    def remove_math_watchable_fqn(self, fqn: str) -> None:
+        self.remove_math_watchable_list_fqn([fqn])
+
+    def update_math_watchable_fqn(self, fqn: str, new_math_watchable: GUIMathWatchable) -> None:
+        previous_signature = FQN.parse(fqn).math_signature
+        if previous_signature == new_math_watchable.signature():
+            return
+        proxy = self._math_storage.get(previous_signature)
+        if proxy is None:
+            raise WatchableRegistryError(f"No registry math entry to update at {fqn}")
+
+        proxy.update_math_watchable(new_math_watchable)
+        self._math_storage[new_math_watchable.signature()] = proxy
+        del self._math_storage[previous_signature]
+        self._signals.content_changed.emit([RegistryNodeType.Math])
+
+    def get_all_math_watchables(self) -> Generator[Tuple[str, GUIMathWatchable], None, None]:
+        for proxy in self._math_storage.values():
+            yield (proxy.get_signature(), proxy.math_watchable)
 
     def _notify_all_math_proxies_of_insert(self) -> None:
         for proxy in self._watched_math_proxy.values():

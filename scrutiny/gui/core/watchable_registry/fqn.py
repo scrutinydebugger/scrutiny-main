@@ -32,7 +32,19 @@ TYPESTR_MAP_WT2S: Dict[RegistryNodeType, str] = {v: k for k, v in TYPESTR_MAP_S2
 @dataclass(slots=True)
 class ParsedFullyQualifiedName:
     node_type: RegistryNodeType
-    path: str
+    string_id: str
+
+    @property
+    def path(self) -> str:
+        if not self.node_type.is_server_node():
+            raise ValueError("Non server node have no path")
+        return self.string_id
+
+    @property
+    def math_signature(self) -> str:
+        if self.node_type != RegistryNodeType.Math:
+            raise ValueError("Math signature exist only on Math nodes")
+        return self.string_id
 
 
 class FQN:
@@ -53,20 +65,20 @@ class FQN:
 
         return ParsedFullyQualifiedName(
             node_type=TYPESTR_MAP_S2WT[typestr],
-            path=fqn[colon_position + 1:]
+            string_id=fqn[colon_position + 1:]
         )
 
     @staticmethod
-    def make(node_type: RegistryNodeType, path: str) -> str:
+    def make(node_type: RegistryNodeType, string_id: str) -> str:
         """Create a string representation that conveys enough information to find a specific element in the registry.
-        Contains the type and the tree path.
+        Contains the type and the tree string_id (server path or math signature).
 
-        :param node_type: The SDK watchable type
-        :param path: The tree path
+        :param node_type: The registry node type
+        :param string_id: The tree string_id
 
-        :return: A fully qualified name containing the type and the tree path
+        :return: A fully qualified name containing the type and either a the tree path or a math signature
         """
-        return f"{TYPESTR_MAP_WT2S[node_type]}:{path}"
+        return f"{TYPESTR_MAP_WT2S[node_type]}:{string_id}"
 
     @staticmethod
     def extend(fqn: str, pieces: Union[str, List[str]]) -> str:
@@ -79,7 +91,9 @@ class FQN:
         if isinstance(pieces, str):
             pieces = [pieces]
         parsed = FQN.parse(fqn)
-        path_parts = path_tools.make_segments(parsed.path)
+        if not parsed.node_type.is_server_node():
+            raise ValueError("Cannot extend a FQN that does not have a server path")
+        path_parts = path_tools.make_segments(parsed.string_id)
         return FQN.make(parsed.node_type, path_tools.join_segments(path_parts + pieces))
 
     @staticmethod
@@ -97,13 +111,16 @@ class FQN:
         if parsed1.node_type != parsed2.node_type:
             return False
 
-        path1 = path_tools.make_segments(parsed1.path)
-        path2 = path_tools.make_segments(parsed2.path)
+        if parsed1.node_type.is_server_node():
+            path1 = path_tools.make_segments(parsed1.string_id)
+            path2 = path_tools.make_segments(parsed2.string_id)
 
-        if len(path1) != len(path2):
-            return False
-        for i in range(len(path1)):
-            if path1[i] != path2[i]:
+            if len(path1) != len(path2):
                 return False
+            for i in range(len(path1)):
+                if path1[i] != path2[i]:
+                    return False
 
-        return True
+            return True
+        else:
+            return parsed1.string_id == parsed2.string_id

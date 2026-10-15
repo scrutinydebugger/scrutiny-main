@@ -23,7 +23,7 @@ from PySide6.QtGui import QContextMenuEvent
 
 from scrutiny.gui.core.serializable_value_set import SerializableValueSet
 from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
-from scrutiny.gui.core.watchable_registry.common import RegistryValueUpdate, RegistryNodeConfiguration
+from scrutiny.gui.core.watchable_registry.common import RegistryValueUpdate, RegistryNodeType
 from scrutiny.gui.core.watchable_registry.errors import WatchableRegistryError, WatcherNotFoundError
 from scrutiny.gui.core.watchable_registry.fqn import FQN, ParsedFullyQualifiedName
 from scrutiny.gui.widgets.watchable_tree import get_watchable_icon
@@ -261,7 +261,7 @@ class ExportLogic:
                 self._fqn_to_state[fqn] = ValueDownloadState(fqn)
 
         # No clean handling if the content change while we are gathering. Just stop and report to the user.
-        watchable_registry.signals.content_changed.connect(self.stop)
+        watchable_registry.signals.content_changed.connect(self._registry_changed_slot)
 
 # region Public
     @property
@@ -347,6 +347,8 @@ class ExportLogic:
 
 # region Private
 
+    def _registry_changed_slot(self, node_types: List[RegistryNodeType]) -> None:
+        self.stop()
 
     def _get_state_by_fqn(self, fqn: str) -> ValueDownloadState:
         """Fetch the state object based on its fully Qualified Name"""

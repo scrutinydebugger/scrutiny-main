@@ -120,7 +120,18 @@ class TestWatchableRegistry(ScrutinyUnitTest):
             fqn = FQN.make(nt, '/a/b/c')
             o = FQN.parse(fqn)
             self.assertEqual(o.node_type, nt)
-            self.assertEqual(o.path, '/a/b/c')
+            self.assertEqual(o.string_id, '/a/b/c')
+
+            if nt.is_server_node():
+                self.assertEqual(o.path, '/a/b/c')
+                with self.assertRaises(Exception):
+                    o.math_signature
+            elif nt == RegistryNodeType.Math:
+                self.assertEqual(o.math_signature, '/a/b/c')
+                with self.assertRaises(Exception):
+                    o.path
+            else:
+                raise NotImplementedError("Need to test")
 
         with self.assertRaises(WatchableRegistryError):
             FQN.parse('unknown:/a/b/c')
@@ -982,6 +993,10 @@ class TestWatchableRegistryMath(ScrutinyUnitTest):
         self.assertIs(self.w1, w1)
         self.assertIs(self.w2, w2)
 
+        self.assertTrue(self.registry.is_watchable_fqn(self.w1.make_fqn()))
+        self.assertTrue(self.registry.is_watchable_fqn(self.w2.make_fqn()))
+        self.assertFalse(self.registry.is_watchable_fqn(FQN.make(RegistryNodeType.Math, "nonexistent")))
+
     def test_math_proxy(self):
         watcher = 'unittest'
         self._register_watcher(watcher)
@@ -1185,7 +1200,6 @@ class TestWatchableRegistryMath(ScrutinyUnitTest):
         self.assertGreater(self.registry.get_registry_node_count(RegistryNodeType.Math), 0)
         self.assertTrue(self.registry.clear())  # This function may log critical messages, which make a test fail.
         self.assertEqual(self.registry.get_registry_node_count(RegistryNodeType.Math), 0)
-
 
     def tearDown(self):
         super().tearDown()

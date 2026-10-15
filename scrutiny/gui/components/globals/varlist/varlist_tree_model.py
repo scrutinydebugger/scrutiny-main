@@ -12,6 +12,7 @@ from PySide6.QtGui import QStandardItem
 from PySide6.QtCore import QModelIndex, QMimeData
 
 from scrutiny.core import path_tools
+from scrutiny.gui.tools.drag_and_drop import make_watchable_list_dragdata_if_possible
 from scrutiny.gui.core.watchable_registry.fqn import FQN
 from scrutiny.gui.core.watchable_registry.common import RegistryNodeConfiguration
 from scrutiny.gui.core.scrutiny_drag_data import ScrutinyDragData
@@ -50,7 +51,7 @@ class VarListComponentTreeModel(WatchableTreeModel):
         items = [cast(Optional[BaseWatchableRegistryTreeStandardItem], self.itemFromIndex(x)) for x in indexes if x in indexes_without_nested_values]
 
         # We first use the most supported format of watchable list.
-        drag_data = self.make_watchable_list_dragdata_if_possible(items)
+        drag_data = make_watchable_list_dragdata_if_possible(items)
 
         # If the item selection had folders in it, we can't make a WatchableList mime data.
         # Let's make a WatchableTreeNodesTiedToRegistry instead, can only be dropped in a watch window

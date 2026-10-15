@@ -12,12 +12,21 @@ __all__ = ['ScrutinyQMenu']
 
 from PySide6.QtWidgets import QMenu
 from PySide6.QtGui import QAction
+from PySide6.QtCore import QPoint
 
 from scrutiny import tools
 from scrutiny.tools.typing import *
 
 
 class ScrutinyQMenu(QMenu):
+
+    def exec_at_first_and_disconnect(self, pos: QPoint) -> None:
+        actions = self.actions()
+        at: Optional[QAction] = None
+        if len(actions) > 0:
+            pos += QPoint(0, self.actionGeometry(actions[0]).height())
+            at = actions[0]
+        self.exec_and_disconnect_triggered(pos, at)
 
     @tools.copy_type(QMenu.exec)
     def exec_and_disconnect_triggered(self, *args: Any, **kwargs: Any) -> None:
