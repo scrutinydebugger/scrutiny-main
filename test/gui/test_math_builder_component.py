@@ -223,6 +223,7 @@ class TestMathBuilderComponent(ScrutinyBaseGuiTest):
         self._registry().write_server_content({
             WatchableType.Variable: {
                 '/a/b/x': BriefWatchableConfiguration(WatchableType.Variable, EmbeddedDataType.float32, enum=None),
+
                 '/a/b/y': BriefWatchableConfiguration(WatchableType.Variable, EmbeddedDataType.float32, enum=None),
             }
         })
@@ -254,3 +255,61 @@ class TestMathBuilderComponent(ScrutinyBaseGuiTest):
 
         self.assertTrue(availabilities["available_expr"])
         self.assertFalse(availabilities["unavailable_expr"])
+
+    def test_state_reload(self):
+        w1 = self._make_math_watchable("magnitude", "sqrt(x^2+y^2)", {
+            "x": VarBinding("var_x", RegistryNodeType.Variable, "/a/b/x"),
+            "y": VarBinding("var_y", RegistryNodeType.Variable, "/a/b/y"),
+        })
+        w2 = self._make_math_watchable("sum", "a+b", {
+            "a": VarBinding("var_a", RegistryNodeType.Variable, "/a/b/a"),
+            "b": VarBinding("var_b", RegistryNodeType.Alias, "/c/d/b"),
+        })
+        w3 = self._make_math_watchable("ratio", "p/q", {
+            "p": VarBinding("var_p", RegistryNodeType.RuntimePublishedValue, "/rpv/p"),
+            "q": VarBinding("var_q", RegistryNodeType.Variable, "/e/f/q"),
+        })
+
+        self._add_to_registry(w1)
+        self._add_to_registry(w2)
+        self._add_to_registry(w3)
+        self.assertEqual(self._count_registry_math(), 3)
+
+        # Get state and serialize to JSON
+        state = self.builder.get_state()
+        serialized = json.dumps(state)
+
+        # Clear the registry
+        self._registry().clear()
+        self.process_events()
+        self.assertEqual(self._count_registry_math(), 0)
+
+        # Deserialize and reload
+        deserialized = json.loads(serialized)
+        result = self.builder.load_state(deserialized)
+        self.process_events()
+
+        self.assertTrue(result)
+        self.assertEqual(self._count_registry_math(), 3)
+
+        # Verify each math watchable is present with the correct content
+        restored: Dict[str, GUIMathWatchable] = {}
+        for _, mw in self._registry().get_all_math_watchables():
+            restored[mw.get_name()] = mw
+
+        self.assertEqual(set(restored.keys()), {"magnitude", "sum", "ratio"})
+
+        self.assertEqual(restored["magnitude"].get_expr(), "sqrt(x^2+y^2)")
+        mag_vars = restored["magnitude"].get_var_fqn_map()
+        self.assertEqual(mag_vars["x"].fqn, FQN.make(RegistryNodeType.Variable, "/a/b/x"))
+        self.assertEqual(mag_vars["y"].fqn, FQN.make(RegistryNodeType.Variable, "/a/b/y"))
+
+        self.assertEqual(restored["sum"].get_expr(), "a+b")
+        sum_vars = restored["sum"].get_var_fqn_map()
+        self.assertEqual(sum_vars["a"].fqn, FQN.make(RegistryNodeType.Variable, "/a/b/a"))
+        self.assertEqual(sum_vars["b"].fqn, FQN.make(RegistryNodeType.Alias, "/c/d/b"))
+
+        self.assertEqual(restored["ratio"].get_expr(), "p/q")
+        ratio_vars = restored["ratio"].get_var_fqn_map()
+        self.assertEqual(ratio_vars["p"].fqn, FQN.make(RegistryNodeType.RuntimePublishedValue, "/rpv/p"))
+        self.assertEqual(ratio_vars["q"].fqn, FQN.make(RegistryNodeType.Variable, "/e/f/q"))
