@@ -79,10 +79,10 @@ class BaseCTestAppMakeVarmapTest(BaseVarmapTest):
         self.assert_var('/static/file2.c/file2StaticDouble', EmbeddedDataType.float64, value_at_loc=3.3333)
 
     def test_func_static(self):
-        self.assert_var('/static/file2.c/file2func1/file2func1Var', EmbeddedDataType.float64, value_at_loc=963258741.123 + 123)
+        self.assert_var('/static/file2.c/file2func1(int)/file2func1Var', EmbeddedDataType.float64, value_at_loc=963258741.123 + 123)
         self.assert_var('/static/main.c/main/staticIntInMainFunc', EmbeddedDataType.sint32, value_at_loc=22222)
-        self.assert_var('/static/main.c/mainfunc1/mainfunc1Var', EmbeddedDataType.sint32, value_at_loc=7777777)
-        self.assert_var('/static/file1.c/funcInFile1/staticLongInFuncFile1', EmbeddedDataType.sint64, value_at_loc=-0x123456789abcdef)
+        self.assert_var('/static/main.c/mainfunc1()/mainfunc1Var', EmbeddedDataType.sint32, value_at_loc=7777777)
+        self.assert_var('/static/file1.c/funcInFile1(int, int)/staticLongInFuncFile1', EmbeddedDataType.sint64, value_at_loc=-0x123456789abcdef)
 
     def assert_is_enumA(self, fullpath, value_at_loc=None):
         return self.assert_var(fullpath, EmbeddedDataType.uint32, value_at_loc=value_at_loc, enum='EnumA')
