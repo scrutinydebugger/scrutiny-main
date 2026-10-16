@@ -210,9 +210,9 @@ class TestMakeVarMap_ATMega2560_LE_avr_gcc_5_4_0(BaseVarmapTest, ScrutinyUnitTes
         self.assert_var('/static/main.cpp/task_1hz()/var_1hz', EmbeddedDataType.uint32)
         self.assert_var('/static/main.cpp/task_1hz()/led_state', EmbeddedDataType.sint16)
 
-        self.assert_var('/static/main.cpp/loop/last_timestamp_us', EmbeddedDataType.uint32)
-        self.assert_var('/static/main.cpp/loop/last_timestamp_task_1hz_us', EmbeddedDataType.uint32)
-        self.assert_var('/static/main.cpp/loop/last_timestamp_task_100hz_us', EmbeddedDataType.uint32)
+        self.assert_var('/static/main.cpp/loop()/last_timestamp_us', EmbeddedDataType.uint32)
+        self.assert_var('/static/main.cpp/loop()/last_timestamp_task_1hz_us', EmbeddedDataType.uint32)
+        self.assert_var('/static/main.cpp/loop()/last_timestamp_task_100hz_us', EmbeddedDataType.uint32)
 
     def test_loop_handlers(self):
         self.assert_var('/global/task_idle_loop_handler/m_timebase/m_time_100ns', EmbeddedDataType.uint32)

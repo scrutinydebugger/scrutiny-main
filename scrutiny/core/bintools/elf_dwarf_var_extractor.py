@@ -18,6 +18,7 @@ from elftools.elf.elffile import ELFFile
 import os
 import logging
 import inspect
+from pathlib import PurePosixPath, PureWindowsPath
 from enum import Enum, auto
 from dataclasses import dataclass
 from inspect import currentframe
@@ -84,6 +85,7 @@ class Tags:
     DW_TAG_subroutine_type = 'DW_TAG_subroutine_type'
     DW_TAG_subprogram = 'DW_TAG_subprogram'
     DW_TAG_unspecified_type = 'DW_TAG_unspecified_type'
+    DW_TAG_formal_parameter = 'DW_TAG_formal_parameter'
 
 
 class DwarfEncoding(Enum):
@@ -202,6 +204,7 @@ class Compiler(Enum):
     CLANG = auto()
     GCC = auto()
     Tasking = auto()
+    IAR_ICC = auto()
 
 # endregion
 
@@ -334,6 +337,20 @@ class VarPath:
         return out
 
 
+def _split_path_crossplatform(fullpath: str) -> Tuple[str, List[str]]:
+    is_windows_path = (
+        (len(fullpath) >= 3 and fullpath[1] == ':' and fullpath[2] in '/\\')  # drive letter: C:\ or C:/
+        or fullpath.startswith('\\\\')   # UNC: \\server\share
+        or '\\' in fullpath              # any backslash
+    )
+    p = PureWindowsPath(fullpath) if is_windows_path else PurePosixPath(fullpath)
+    filename = p.name
+    parts: List[str] = list(p.parent.parts)
+    if parts and parts[0] == p.anchor:
+        parts[0] = ''
+    return filename, parts
+
+
 class CuName:
     """
     Handles a compile unit name. Useful to build a unique name as small as possible.
@@ -371,10 +388,8 @@ class CuName:
 
     def __init__(self, fullpath: str) -> None:
         self._fullpath = fullpath    # Must stay untouched.
-        self._filename = os.path.basename(self._fullpath)
+        self._filename, self._segments = _split_path_crossplatform(fullpath)
         self._display_name = self._filename
-        # os.path.split return a tuple : (dir, basename)
-        self._segments = os.path.split(os.path.normpath(self._fullpath))[0].split(os.sep)
         self._numbered_name = None
 
     def get_display_name(self) -> str:
@@ -925,6 +940,8 @@ class ElfDwarfVarExtractor:
                 return Compiler.GCC
             if 'tasking' in producer:
                 return Compiler.Tasking
+            if 'IAR ANSI C/C++ Compiler'.lower() in producer:
+                return Compiler.IAR_ICC
 
         return Compiler.UNKNOWN
 
@@ -2068,6 +2085,15 @@ class ElfDwarfVarExtractor:
                         varpath.prepend_segment(name=parts[i])
                 return varpath
 
+        if die.tag in (Tags.DW_TAG_subprogram, Tags.DW_TAG_subroutine_type):
+            # GCC, Clang, tasking sets the linkage name on static inside functions.
+            # IAR does not, therefore we need to rebuild the name of the func to handle function overload
+            # Only function with base types as parameters are there. Complex C++ name are simply dropped of the symbols.
+            func_name = self._make_func_signature(die)
+            if func_name is not None:
+                name = func_name
+                
+
         # Try to get the name of the die and use it as a level of the path
         if name is None:
             if Attrs.DW_AT_specification in die.attributes:
@@ -2097,5 +2123,40 @@ class ElfDwarfVarExtractor:
             varpath.prepend_segment(self.STATIC)
 
         return varpath
+
+    def _make_func_signature(self, die:DIE) -> Optional[str]:
+        """Try to make a function signature from its DIE name and parameters.
+        It's a fallback path when the compiler do not set a linkage name we can use.
+        """
+        # This is mostly used for IAR. Other compilers sets a linkage name
+        name = self._get_die_name(die)
+
+        if name is None and Attrs.DW_AT_specification in die.attributes:
+            spec_die = die.get_DIE_from_attribute(Attrs.DW_AT_specification)
+            name = self._get_die_name(spec_die)
+
+        if name is None:
+            return None
+
+        args:List[str] = []
+        all_args_fetched = True
+        for child in die.iter_children():
+            if child.tag == Tags.DW_TAG_formal_parameter:
+                typedesc = self._get_type_of_var(child)
+                if typedesc is not None:
+                    if typedesc.type == TypeOfVar.BaseType:
+                        typename = self._process_and_get_basetype_or_enumonly_typename(typedesc)
+                        args.append(typename)
+                    else:
+                        self._logger.warning("Function parameter is not a base type")
+                        all_args_fetched = False
+                else:
+                    self._logger.warning("Function parameter has no type")
+                    all_args_fetched = False
+
+        if all_args_fetched:
+            return name+'(' + ', '.join(args) + ')' # We put a space after comma to match c++filt format
+        else:
+            return name # Reasonable fallback
 
     # endregion
