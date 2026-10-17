@@ -74,6 +74,7 @@ class ApplicationStatsDisplay(QWidget):
     registry_var_count_label: QLabel
     registry_alias_count_label: QLabel
     registry_rpv_count_label: QLabel
+    registry_math_count_label: QLabel
     registry_watcher_count_label: QLabel
     registry_watched_entries_label: QLabel
 
@@ -116,6 +117,7 @@ class ApplicationStatsDisplay(QWidget):
         self.registry_var_count_label = registry_table.add_row("Variable count", "", "Number of Variables available")
         self.registry_alias_count_label = registry_table.add_row("Alias count", "", "Number of Alias available")
         self.registry_rpv_count_label = registry_table.add_row("RPV count", "", "Number of Runtime Published Values available")
+        self.registry_math_count_label = registry_table.add_row("Math count", "", "Number of Math watchables available")
         self.registry_watcher_count_label = registry_table.add_row("Registered watchers", "", "Number of GUI items subscribed to value update")
         self.registry_watched_entries_label = registry_table.add_row(
             "Watched entries", "", "Number of watchable element that has at least 1 GUI item subscribed as watcher")
@@ -170,6 +172,7 @@ class ApplicationStatsDisplay(QWidget):
         self.registry_var_count_label.setText(f"{stats.watchable_registry.var_count}")
         self.registry_alias_count_label.setText(f"{stats.watchable_registry.alias_count}")
         self.registry_rpv_count_label.setText(f"{stats.watchable_registry.rpv_count}")
+        self.registry_math_count_label.setText(f"{stats.watchable_registry.math_count}")
         self.registry_watcher_count_label.setText(f"{stats.watchable_registry.registered_watcher_count}")
         self.registry_watched_entries_label.setText(f"{stats.watchable_registry.watched_entries_count}")
 

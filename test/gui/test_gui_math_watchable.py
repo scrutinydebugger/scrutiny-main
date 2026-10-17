@@ -216,3 +216,29 @@ class TestGUIMathWatchable(ScrutinyUnitTest):
         self.assertTrue(test3.is_evaluable())
         self.assertIsNotNone(test3.eval())
         self.assertEqual(test3.get_val(), 3)
+
+    def test_signature_ignores_whitespace(self):
+        expressions = [
+            "a + b * sin(x)",
+            "a+b*sin(x)",
+            "a +b* sin( x )",
+            "  a  +  b  *  sin  (  x  )  ",
+            "a+b*sin(x)  ",
+            "  a+b*sin(x)",
+            "a\t+\tb\t*\tsin(\tx\t)",
+        ]
+
+        fqn_a = FqnNamePair('AAA', 'var:/a/a/a')
+        fqn_b = FqnNamePair('BBB', 'var:/a/a/b')
+        fqn_x = FqnNamePair('XXX', 'var:/a/a/x')
+
+        signatures = set()
+        for expr in expressions:
+            w = GUIMathWatchable('test', expr)
+            self.assertTrue(w.is_valid(), f"Expression should be valid: '{expr}'")
+            w.bind_watchable("a", fqn_a)
+            w.bind_watchable("b", fqn_b)
+            w.bind_watchable("x", fqn_x)
+            signatures.add(w.signature())
+
+        self.assertEqual(len(signatures), 1, f"All expressions should yield the same signature, got {len(signatures)}")

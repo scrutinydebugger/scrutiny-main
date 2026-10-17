@@ -12,8 +12,14 @@ from test.gui.fake_server_manager import FakeServerManager
 from test.gui.base_gui_test import ScrutinyBaseGuiTest
 from scrutiny.gui.components.locals.watch.watch_component import WatchComponent, WatchComponentTreeModel, NumericFormat, SerializableTreeDescriptor
 from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
+from scrutiny.gui.core.watchable_registry.common import RegistryNodeType
 from scrutiny.gui.component_app_interface import AbstractComponentAppInterface
 from scrutiny.gui.core.scrutiny_drag_data import WatchableListDescriptor, SingleWatchableDescriptor, ScrutinyDragData
+from scrutiny.gui.core.gui_math_watchable import GUIMathWatchable
+from scrutiny.gui.core.fqn_name_pair import FqnNamePair
+from scrutiny.gui.components.locals.watch.watch_tree_model import ValueStandardItem, RawDataStandardItem, DataTypeStandardItem
+from scrutiny.gui.widgets.watchable_tree import WatchableStandardItem
+from scrutiny import sdk
 
 
 from scrutiny.tools.typing import *
@@ -210,3 +216,147 @@ class TestWatchComponent(ScrutinyBaseGuiTest):
         self.assertEqual(model.item(0, model.value_col()).get_numeric_format(), NumericFormat.Hexadecimal)
         self.assertEqual(model.item(1, model.value_col()).get_numeric_format(), NumericFormat.Binary)
         self.assertEqual(model.item(2, model.nesting_col()).child(0, model.value_col()).get_numeric_format(), NumericFormat.Decimal)
+
+    def _populate_registry_with_server_content(self) -> None:
+        self.main_window.registry.write_server_content({
+            sdk.WatchableType.Variable: {
+                '/var/var.a/var.a.a': sdk.BriefWatchableConfiguration(
+                    watchable_type=sdk.WatchableType.Variable, datatype=sdk.EmbeddedDataType.float32, enum=None),
+            }
+        })
+
+    def _drop_math_fqn_into_model(self, model: WatchComponentTreeModel, math_w: GUIMathWatchable) -> None:
+        fqn = math_w.make_fqn()
+        watchable_list_desc = WatchableListDescriptor([
+            SingleWatchableDescriptor(math_w.get_name(), fqn, custom_data=None)
+        ])
+        mime_data = watchable_list_desc.to_mime()
+        model.dropMimeData(mime_data, Qt.DropAction.CopyAction, -1, 0, QModelIndex())
+
+    def test_math_watchable_availability_on_drop(self):
+        model = self.watch1.internal_model_for_unit_test()
+        math_w = GUIMathWatchable("test_math", "2*x")
+        math_w.bind_watchable("x", FqnNamePair(name="var.a.a", fqn="var:/var/var.a/var.a.a"))
+        self.main_window.registry.add_math_watchable(math_w)
+
+        self._populate_registry_with_server_content()
+
+        self._drop_math_fqn_into_model(model, math_w)
+        self.assertEqual(model.rowCount(), 1)
+
+        item = model.item(0, model.nesting_col())
+        self.assertIsInstance(item, WatchableStandardItem)
+        self.assertTrue(model.is_available(item))
+        datatype_item = model.get_datatype_item(item)
+        self.assertEqual(datatype_item.get_datatype(), sdk.EmbeddedDataType.float64)
+
+        model.removeRows(0, model.rowCount())
+        self.main_window.registry.clear_server_content_by_type(sdk.WatchableType.Variable)
+        self.assertEqual(model.rowCount(), 0)
+
+        self._drop_math_fqn_into_model(model, math_w)
+        self.assertEqual(model.rowCount(), 1)
+
+        item = model.item(0, model.nesting_col())
+        self.assertIsInstance(item, WatchableStandardItem)
+        self.assertFalse(model.is_available(item))
+
+    def test_math_watchable_availability_update(self):
+        model = self.watch1.internal_model_for_unit_test()
+        math_w = GUIMathWatchable("test_math", "2*x")
+        math_w.bind_watchable("x", FqnNamePair(name="var.a.a", fqn="var:/var/var.a/var.a.a"))
+
+        # Add the math watchable then remove its dependency
+        self.main_window.registry.add_math_watchable(math_w)
+        self._drop_math_fqn_into_model(model, math_w)
+        self.assertEqual(model.rowCount(), 1)
+        item = model.item(0, model.nesting_col())
+        self.assertIsInstance(item, WatchableStandardItem)
+
+        self.assertFalse(model.is_available(item))
+        self._populate_registry_with_server_content()
+        self.assertTrue(model.is_available(item))
+        self.main_window.registry.clear_server_content_by_type(sdk.WatchableType.Variable)
+        self.assertFalse(model.is_available(item))
+        self._populate_registry_with_server_content()
+        self.assertTrue(model.is_available(item))
+
+    def test_math_watchable_not_editable_when_available(self):
+        model = self.watch1.internal_model_for_unit_test()
+        math_w = GUIMathWatchable("test_math", "2*x")
+        math_w.bind_watchable("x", FqnNamePair(name="var.a.a", fqn="var:/var/var.a/var.a.a"))
+
+        self._populate_registry_with_server_content()
+        self.main_window.registry.add_math_watchable(math_w)
+
+        self._drop_math_fqn_into_model(model, math_w)
+        self.assertEqual(model.rowCount(), 1)
+
+        item = model.item(0, model.nesting_col())
+        self.assertIsInstance(item, WatchableStandardItem)
+        self.assertTrue(model.is_available(item))
+
+        value_item = model.get_value_item(item)
+        rawdata_item = model.get_rawdata_item(item)
+        self.assertFalse(value_item.isEditable())
+        self.assertFalse(rawdata_item.isEditable())
+
+    def test_math_fqn_survives_state_save_load(self):
+        model = self.watch1.internal_model_for_unit_test()
+        math_w = GUIMathWatchable("test_math", "2*x")
+        math_w.bind_watchable("x", FqnNamePair(name="var.a.a", fqn="var:/var/var.a/var.a.a"))
+        fqn = math_w.make_fqn()
+
+        self._populate_registry_with_server_content()
+        self.main_window.registry.add_math_watchable(math_w)
+
+        self._drop_math_fqn_into_model(model, math_w)
+        self.assertEqual(model.rowCount(), 1)
+
+        state = self.watch1.get_state()
+        model.removeRows(0, model.rowCount())
+        self.assertEqual(model.rowCount(), 0)
+
+        self.watch1.load_state(state)
+        self.assertEqual(model.rowCount(), 1)
+        reloaded_item = model.item(0, model.nesting_col())
+        self.assertIsInstance(reloaded_item, WatchableStandardItem)
+        self.assertEqual(reloaded_item.fqn, fqn)
+        self.assertTrue(model.is_available(reloaded_item))
+
+    def test_math_watchable_drop_as_list(self):
+        model = self.watch1.internal_model_for_unit_test()
+        math_w = GUIMathWatchable("test_math", "2*x")
+        math_w.bind_watchable("x", FqnNamePair(name="var.a.a", fqn="var:/var/var.a/var.a.a"))
+        fqn = math_w.make_fqn()
+
+        self._populate_registry_with_server_content()
+        self.main_window.registry.add_math_watchable(math_w)
+
+        watchable_list_desc = WatchableListDescriptor([
+            SingleWatchableDescriptor("server_var", "var:/var/var.a/var.a.a", custom_data=None),
+            SingleWatchableDescriptor("math_elem", fqn, custom_data=None),
+        ])
+        mime_data = watchable_list_desc.to_mime()
+        model.dropMimeData(mime_data, Qt.DropAction.CopyAction, -1, 0, QModelIndex())
+        self.assertEqual(model.rowCount(), 2)
+
+        server_item = model.item(0, model.nesting_col())
+        math_item = model.item(1, model.nesting_col())
+        self.assertIsInstance(server_item, WatchableStandardItem)
+        self.assertIsInstance(math_item, WatchableStandardItem)
+        self.assertEqual(server_item.fqn, "var:/var/var.a/var.a.a")
+        self.assertEqual(math_item.fqn, fqn)
+
+    def test_write_on_math_fqn_is_rejected(self):
+        math_w = GUIMathWatchable("test_math", "2*x")
+        math_w.bind_watchable("x", FqnNamePair(name="var.a.a", fqn="var:/var/var.a/var.a.a"))
+        fqn = math_w.make_fqn()
+
+        self._populate_registry_with_server_content()
+        self.main_window.registry.add_math_watchable(math_w)
+
+        write_count_before = len(self.main_window.server_manager.get_write_history())
+        self.watch1._value_written_slot(fqn, 42)
+        write_count_after = len(self.main_window.server_manager.get_write_history())
+        self.assertEqual(write_count_before, write_count_after)
