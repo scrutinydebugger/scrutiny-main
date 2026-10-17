@@ -442,7 +442,7 @@ class Dashboard(QWidget):
         self.clear()
         self.create_or_show_global_component(VarListComponent, show=False)
         self.create_or_show_global_component(MetricsComponent, show=False)
-        self.create_or_show_global_component(MetricsComponent, show=False)
+        self.create_or_show_global_component(MathBuilderComponent, show=False)
         self._set_active_file(None)
 
     def exit(self) -> None:

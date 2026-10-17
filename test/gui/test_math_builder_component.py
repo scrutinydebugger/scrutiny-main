@@ -10,10 +10,9 @@ import json
 from dataclasses import dataclass
 
 from PySide6.QtWidgets import QWidget
-from PySide6.QtCore import Qt, QModelIndex
 from test.gui.fake_server_manager import FakeServerManager
 from test.gui.base_gui_test import ScrutinyBaseGuiTest
-from scrutiny.gui.components.globals.math_builder.math_element_tree import MathTreeModel, MathStandardItem, Cols
+from scrutiny.gui.components.globals.math_builder.math_element_tree import MathStandardItem, Cols
 from scrutiny.gui.components.globals.math_builder.math_builder_component import MathBuilderComponent
 from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
 from scrutiny.gui.component_app_interface import AbstractComponentAppInterface

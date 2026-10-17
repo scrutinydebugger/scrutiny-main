@@ -10,13 +10,14 @@ __all__ = ['ServerStorageEntryNode', 'WatchableRegistryIntermediateNode']
 
 
 from dataclasses import dataclass
+from datetime import datetime
 from scrutiny.tools.typing import *
-from scrutiny.sdk import listeners
 from scrutiny.gui.core.gui_math_watchable import GUIMathWatchable
 from scrutiny.gui.core.watchable_registry.common import WatcherIdType, RegistryNodeConfiguration, RegistryNodeType, MathUpdate, RegistryValueUpdate
 from scrutiny.gui.core.watchable_registry.watcher import WatcherData, Watcher, WatcherAndDataPair
 from scrutiny.gui.core.watchable_registry.errors import WatchableRegistryError
 from scrutiny.gui.core.watchable_registry.fqn import FQN
+from scrutiny.tools.global_counters import global_i64_counter
 
 if TYPE_CHECKING:
     from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
@@ -75,18 +76,20 @@ class ServerStorageEntryNode(BaseRegistryStorable):
 
 
 class MathProxy(BaseRegistryStorable):
-    __slots__ = ('registry', 'math_watchable', '_watchers', '_signature', '__weakref__')
+    __slots__ = ('registry', 'math_watchable', '_watcher_id', '_watchers', '_signature', '__weakref__')
 
     registry: "WatchableRegistry"
     math_watchable: GUIMathWatchable
+    _watcher_id: int
     _watchers: Dict[WatcherIdType, WatcherAndDataPair]
     _signature: str
 
     def __init__(self, node_id: int, registry: "WatchableRegistry", math_watchable: GUIMathWatchable) -> None:
         super().__init__(node_id)
         self.registry = registry
+        self._watcher_id = global_i64_counter()
         self._watchers = {}
-        self.registry.register_watcher(self.registry_id, self._update_callback, self._unwatch_callback)
+        self.registry.register_watcher(self._watcher_id, self._update_callback, self._unwatch_callback)
         self._load_watchable(math_watchable)
 
     def _load_watchable(self, math_watchable: GUIMathWatchable) -> None:
@@ -141,7 +144,7 @@ class MathProxy(BaseRegistryStorable):
             if fqn_name_pair is None:   # Not supposed to happen. Be safe
                 continue
             try:
-                self.registry.unwatch_fqn(self.registry_id, fqn_name_pair.fqn)
+                self.registry.unwatch_fqn(self._watcher_id, fqn_name_pair.fqn)
             except WatchableRegistryError:
                 pass
         self.math_watchable.clear_vals()
@@ -157,12 +160,14 @@ class MathProxy(BaseRegistryStorable):
             try:
                 # We have a guarantee that a math element can't watch another math element, therefore
                 # preventing infinite circular watch.
-                self.registry.watch_fqn(self.registry_id, fqn_name_pair.fqn, highest_update_rate)
+                self.registry.watch_fqn(self._watcher_id, fqn_name_pair.fqn, highest_update_rate)
             except WatchableRegistryError:
                 success = False
                 break
 
-        if not success:
+        if success:
+            self._broadcast_last_val()
+        else:
             self._unwatch_all()
 
         return success
@@ -184,6 +189,18 @@ class MathProxy(BaseRegistryStorable):
         if len(new_updates) > 0:
             for watcher_id, pair in self._watchers.items():
                 pair.watcher.value_update_callback(watcher_id, new_updates)
+
+    def _broadcast_last_val(self) -> None:
+        val = self.math_watchable.eval()
+        if val is None:
+            return
+        update = RegistryValueUpdate(
+            node_type=RegistryNodeType.Math,
+            registry_id=self.registry_id,
+            sdk_update=MathUpdate(val, self.math_watchable.signature(), datetime.now())
+        )
+        for watcher_id, pair in self._watchers.items():
+            pair.watcher.value_update_callback(watcher_id, [update])
 
     def _unwatch_callback(self, watcher_id: WatcherIdType, server_path: str, registry_id: int) -> None:
         # Unwatch can come from a consumer or the server manager

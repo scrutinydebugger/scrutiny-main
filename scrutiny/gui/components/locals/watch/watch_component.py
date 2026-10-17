@@ -20,6 +20,7 @@ from scrutiny.gui.widgets.watchable_tree import FolderItemSerializableData, Watc
 from scrutiny.gui.widgets.watchable_tree import WatchableTreeWidget, WatchableStandardItem, FolderStandardItem, BaseWatchableRegistryTreeStandardItem
 from scrutiny.gui.core.serializable_value_set import SerializableValueSet
 from scrutiny.gui.core.watchable_registry.common import RegistryValueUpdate, RegistryNodeType
+from scrutiny.gui.core.watchable_registry.fqn import FQN
 from scrutiny.gui.core.watchable_registry.errors import WatchableRegistryNodeNotFoundError, WatcherNotFoundError
 from scrutiny.gui.components.locals.base_local_component import ScrutinyGUIBaseLocalComponent
 from scrutiny.gui.components.locals.watch.watch_tree_model import (
@@ -474,7 +475,10 @@ class WatchComponent(ScrutinyGUIBaseLocalComponent):
             raise ValueError(f"Cannot write the value of {fqn}. Value is of the wrong type: {value.__class__.__name__}")
         # No need to parse strings. The server auto-converts
         # Supports : Number as strings. Hexadecimal with 0x prefix, true/false, etc.
-        self.app.server_manager.qt_write_watchable_value(fqn, value, ui_callback)
+        if FQN.parse(fqn).node_type.is_server_node():
+            self.app.server_manager.qt_write_watchable_value(fqn, value, ui_callback)
+        else:
+            self.logger.error(f"Node value is not writable: {fqn}")
 
     def _raw_data_written_slot(self, fqn: str, raw_data: bytes) -> None:
         """The QT slot called when the user input a new value in a raw data column"""
