@@ -368,7 +368,8 @@ class WatchComponent(ScrutinyGUIBaseLocalComponent):
             if item_inserted.is_expanded():
                 self._tree.expand(item_inserted.index())
         elif isinstance(item_inserted, WatchableStandardItem):
-            item_inserted.setToolTip(item_inserted.fqn)
+            if item_inserted.node_type != RegistryNodeType.Math:
+                item_inserted.setToolTip(item_inserted.fqn)
 
     def _row_about_to_be_removed_slot(self, parent: QModelIndex, first_row_index: int, last_row_index: int) -> None:
         # This slot is called only on the node removed, not on the children.
@@ -490,13 +491,16 @@ class WatchComponent(ScrutinyGUIBaseLocalComponent):
         self.app.server_manager.qt_write_watchable_memory(fqn, raw_data, ui_callback)
 
     def _request_reveal_fqn_slot(self, fqn: str) -> None:
-        self.app.reveal_varlist_fqn(fqn)
+        self.app.reveal_source_from_fqn(fqn)
 
     def _export_values_slot(self, watchable_item_list: List[WatchableStandardItem]) -> None:
-        fqn_list = [watchable_item.fqn for watchable_item in watchable_item_list]
+        fqn_list = [watchable_item.fqn for watchable_item in watchable_item_list if watchable_item.node_type.is_server_node()]
         if len(fqn_list) == 0:
             prompt.error_msgbox(title="No values to save", message="There is no watchable values to save in this selection")
             return
+
+        if len(fqn_list) == 0:
+            prompt.error_msgbox("Nothing to export", "There is nothing to export in this selection.")
 
         export_dialog = ValueExportDialog(
             watchable_registry=self.app.watchable_registry,

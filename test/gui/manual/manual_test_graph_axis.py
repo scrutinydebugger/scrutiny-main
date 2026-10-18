@@ -29,7 +29,7 @@ from test.gui.fake_server_manager import FakeServerManager, ServerConfig
 class DummyAppInterface(AbstractComponentAppInterface):
     varlist: VarListComponent
 
-    def reveal_varlist_fqn(self, fqn: str) -> None:
+    def reveal_source_from_fqn(self, fqn: str) -> None:
         self.varlist.reveal_fqn(fqn)
 
 

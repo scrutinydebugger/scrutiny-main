@@ -8,7 +8,7 @@
 
 import logging
 from PySide6.QtWidgets import QVBoxLayout, QPushButton, QWidget, QHBoxLayout, QSplitter, QGroupBox
-from PySide6.QtCore import Qt, QModelIndex, QItemSelection, SignalInstance
+from PySide6.QtCore import Qt, QModelIndex, QItemSelection, SignalInstance, QItemSelectionModel
 from PySide6.QtGui import QIcon
 from scrutiny.gui.widgets.feedback_label import FeedbackLabel
 from scrutiny.gui.core.gui_math_watchable import GUIMathWatchable
@@ -53,7 +53,19 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
     """A list of signals to disconnect in teardown"""
     _lbl_commit_error: FeedbackLabel
 
+# region Public
+
+    def reveal_fqn(self, fqn: str) -> None:
+        item = self._math_tree.find_item_by_fqn(fqn)
+        if item is None:
+            return
+        self._math_tree.collapseAll()
+        self._math_tree.selectionModel().setCurrentIndex(item.index(), QItemSelectionModel.SelectionFlag.ClearAndSelect | QItemSelectionModel.SelectionFlag.Rows)
+
+# end region
+
 # region Overrides
+
     @classmethod
     def get_icon(cls) -> QIcon:
         return scrutiny_get_theme().load_medium_icon(assets.Icons.F_x)
