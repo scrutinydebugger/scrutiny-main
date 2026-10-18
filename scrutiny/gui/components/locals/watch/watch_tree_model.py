@@ -361,6 +361,7 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
         selected_items_no_nested_unordered = [self.model().itemFromIndex(index)
                                               for index in selected_indexes_no_nested_unordered if index.column() == nesting_col]
         selected_watchable_items_unordered = [item for item in selected_items_no_nested_unordered if isinstance(item, WatchableStandardItem)]
+        selected_server_watchable_items_unordered = [item for item in selected_watchable_items_unordered if item.node_type.is_server_node()]
 
         parent, insert_row = self._find_new_folder_position_from_position(event.pos())
 
@@ -388,22 +389,21 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
         remove_action.triggered.connect(remove_action_slot)
 
         # Copy path
-        def iterate_items() -> Generator[str, None, None]:
-            for index in selected_indexes:
-                item = self.model().itemFromIndex(index)
-                if isinstance(item, WatchableStandardItem):
-                    yield FQN.parse(item.fqn).path
+        def extract_string_id(items: Iterable[WatchableStandardItem]) -> Generator[str, None, None]:
+            for item in items:
+                yield FQN.parse(item.fqn).path  # We use the path. it's a server item
 
-        copy_path_clipboard_action = gui_mixins.qmenu_add_copy_path_action(context_menu, iterate_items())
+        copy_path_clipboard_action = gui_mixins.qmenu_add_copy_path_action(context_menu, extract_string_id(selected_server_watchable_items_unordered))
         copy_path_clipboard_action.setEnabled(False)
         for index in selected_indexes:
             item = self.model().itemFromIndex(index)
             if isinstance(item, WatchableStandardItem):  # At least one watchable, enough to enable
-                copy_path_clipboard_action.setEnabled(True)
-                break
+                if item.node_type.is_server_node():
+                    copy_path_clipboard_action.setEnabled(True)
+                    break
 
         # Reveal in varlist
-        reveal_in_varlist_action = context_menu.addAction(theme.load_tiny_icon(assets.Icons.Eye), "Reveal in Variable List")
+        reveal_in_varlist_action = context_menu.addAction(theme.load_tiny_icon(assets.Icons.Eye), "Reveal in Source")
         reveal_in_varlist_action.setEnabled(allow_reveal_fqn)
         reveal_in_varlist_action.triggered.connect(reveal_fqn_slot)
 
@@ -414,9 +414,11 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
             for item in selected_items_no_nested_unordered:
                 if isinstance(item, FolderStandardItem):
                     for watchable_item in self.model().get_all_watchable_items(parent=item):
-                        watchable_item_list.append(watchable_item)
+                        if watchable_item.node_type.is_server_node():
+                            watchable_item_list.append(watchable_item)
                 elif isinstance(item, WatchableStandardItem):
-                    watchable_item_list.append(item)
+                    if item.node_type.is_server_node():
+                        watchable_item_list.append(item)
                 else:
                     raise NotImplementedError(f"Unknown item type {item.__class__.__name__}")
 
