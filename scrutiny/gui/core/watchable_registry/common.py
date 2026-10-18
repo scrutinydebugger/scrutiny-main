@@ -44,6 +44,15 @@ class RegistryNodeType(str, enum.Enum):
     def to_sdk(self) -> sdk.WatchableType:
         return sdk.WatchableType(self.value)
 
+    @classmethod
+    def all(cls) -> List["RegistryNodeType"]:
+        return [
+            cls.Variable,
+            cls.RuntimePublishedValue,
+            cls.Alias,
+            cls.Math
+        ]
+
     def is_server_node(self) -> bool:
         try:
             self.to_sdk()
