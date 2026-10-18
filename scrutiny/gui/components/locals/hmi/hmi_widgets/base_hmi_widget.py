@@ -201,7 +201,7 @@ class ValueSlot:
             self.watchable_line_edit.set_watchable_mode(
                 name=data['name'],
                 node_type=parsed_fqn.node_type,
-                path=parsed_fqn.path
+                string_id=parsed_fqn.string_id
             )
         else:
             raise ValueError(f"Unsupported data type {state['datatype']}")
@@ -583,7 +583,7 @@ class BaseHMIWidget(QGraphicsItem):
         parsed = FQN.parse(fqn)
         vslot.watchable_line_edit.set_watchable_mode(
             node_type=parsed.node_type,
-            path=parsed.path,
+            string_id=parsed.string_id,
             name=watchable_name
         )
         self._vslot_configured_with_watchable_slot(vslot, fqn)
@@ -724,8 +724,7 @@ class BaseHMIWidget(QGraphicsItem):
                 if watchable is None:
                     return None
 
-                node = self._app.watchable_registry.get_server_watchable_node_fqn(watchable.fqn)
-                if node is None:
+                if not self._app.watchable_registry.is_watchable_fqn(watchable.fqn):
                     return None
 
                 vslot.last_value_drawn = vslot.get_val()
