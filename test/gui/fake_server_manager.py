@@ -128,7 +128,7 @@ class FakeServerManager:
         self._signals.started.emit()
         self._signals.server_connected.emit()
 
-        if self.registry.clear():
+        if self.registry.clear_all_server_content():
             self._signals.registry_changed.emit()
 
     def stop(self) -> None:
@@ -137,7 +137,7 @@ class FakeServerManager:
         self._started = False
         self._signals.stopped.emit()
 
-        if self.registry.clear():
+        if self.registry.clear_all_server_content():
             self._signals.registry_changed.emit()
 
     def simulate_server_connect(self):
@@ -148,7 +148,7 @@ class FakeServerManager:
         if need_signal:
             self._signals.server_connected.emit()
 
-        if self.registry.clear():
+        if self.registry.clear_all_server_content():
             self._signals.registry_changed.emit()
 
         if self._device_connected:
@@ -164,7 +164,7 @@ class FakeServerManager:
         if need_signal:
             self._signals.server_disconnected.emit()
 
-        if self.registry.clear():
+        if self.registry.clear_all_server_content():
             self._signals.registry_changed.emit()
 
     def is_running(self) -> bool:
@@ -175,7 +175,7 @@ class FakeServerManager:
             return
         self._device_connected = True
         self._signals.device_ready.emit()
-        self.registry.clear_server_content_by_type(sdk.WatchableType.RuntimePublishedValue)
+        self.registry.clear_content_by_type(RegistryNodeType.RuntimePublishedValue)
         self.registry.write_server_content({
             sdk.WatchableType.RuntimePublishedValue: DUMMY_DATASET_RPV
         })
@@ -191,7 +191,7 @@ class FakeServerManager:
             return
         self._device_connected = False
         self._signals.device_disconnected.emit()
-        self.registry.clear_server_content_by_type(sdk.WatchableType.RuntimePublishedValue)
+        self.registry.clear_content_by_type(RegistryNodeType.RuntimePublishedValue)
         self._signals.registry_changed.emit()
 
     def simulate_sfd_loaded(self) -> None:
@@ -199,8 +199,8 @@ class FakeServerManager:
             return
         self._sfd_loaded = True
         self._signals.sfd_loaded.emit()
-        self.registry.clear_server_content_by_type(sdk.WatchableType.Alias)
-        self.registry.clear_server_content_by_type(sdk.WatchableType.Variable)
+        self.registry.clear_content_by_type(RegistryNodeType.Alias)
+        self.registry.clear_content_by_type(RegistryNodeType.Variable)
         self.registry.write_server_content({
             sdk.WatchableType.Variable: DUMMY_DATASET_VAR,
             sdk.WatchableType.Alias: DUMMY_DATASET_ALIAS,
@@ -218,8 +218,8 @@ class FakeServerManager:
             return
         self._sfd_loaded = False
         self._signals.sfd_unloaded.emit()
-        self.registry.clear_server_content_by_type(sdk.WatchableType.Alias)
-        self.registry.clear_server_content_by_type(sdk.WatchableType.Variable)
+        self.registry.clear_content_by_type(RegistryNodeType.Alias)
+        self.registry.clear_content_by_type(RegistryNodeType.Variable)
         self._signals.registry_changed.emit()
 
     def get_server_state(self) -> sdk.ServerState:

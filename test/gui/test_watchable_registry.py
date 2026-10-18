@@ -248,34 +248,34 @@ class TestWatchableRegistry(ScrutinyUnitTest):
         self.assertTrue(self.registry.has_data(RegistryNodeType.Alias))
         self.assertTrue(self.registry.has_data(RegistryNodeType.RuntimePublishedValue))
 
-        had_data = self.registry.clear_server_content_by_type(sdk.WatchableType.Variable)
+        had_data = self.registry.clear_content_by_type(RegistryNodeType.Variable)
         self.assertTrue(had_data)
         self.assertFalse(self.registry.has_data(RegistryNodeType.Variable))
         self.assertTrue(self.registry.has_data(RegistryNodeType.Alias))
         self.assertTrue(self.registry.has_data(RegistryNodeType.RuntimePublishedValue))
-        had_data = self.registry.clear_server_content_by_type(sdk.WatchableType.Variable)
+        had_data = self.registry.clear_content_by_type(RegistryNodeType.Variable)
         self.assertFalse(had_data)
 
-        had_data = self.registry.clear_server_content_by_type(sdk.WatchableType.Alias)
+        had_data = self.registry.clear_content_by_type(RegistryNodeType.Alias)
         self.assertTrue(had_data)
         self.assertFalse(self.registry.has_data(RegistryNodeType.Variable))
         self.assertFalse(self.registry.has_data(RegistryNodeType.Alias))
         self.assertTrue(self.registry.has_data(RegistryNodeType.RuntimePublishedValue))
-        had_data = self.registry.clear_server_content_by_type(sdk.WatchableType.Alias)
+        had_data = self.registry.clear_content_by_type(RegistryNodeType.Alias)
         self.assertFalse(had_data)
 
-        had_data = self.registry.clear_server_content_by_type(sdk.WatchableType.RuntimePublishedValue)
+        had_data = self.registry.clear_content_by_type(RegistryNodeType.RuntimePublishedValue)
         self.assertTrue(had_data)
         self.assertFalse(self.registry.has_data(RegistryNodeType.Variable))
         self.assertFalse(self.registry.has_data(RegistryNodeType.Alias))
         self.assertFalse(self.registry.has_data(RegistryNodeType.RuntimePublishedValue))
-        had_data = self.registry.clear_server_content_by_type(sdk.WatchableType.RuntimePublishedValue)
+        had_data = self.registry.clear_content_by_type(RegistryNodeType.RuntimePublishedValue)
         self.assertFalse(had_data)
 
         self.assertFalse(self.registry.has_data(RegistryNodeType.Variable))
         self.assertFalse(self.registry.has_data(RegistryNodeType.Alias))
         self.assertFalse(self.registry.has_data(RegistryNodeType.RuntimePublishedValue))
-        had_data = self.registry.clear_server_content_by_type(sdk.WatchableType.Alias)
+        had_data = self.registry.clear_content_by_type(RegistryNodeType.Alias)
         self.assertFalse(had_data)
 
         self.assertFalse(self.registry.clear())
@@ -538,7 +538,7 @@ class TestWatchableRegistry(ScrutinyUnitTest):
     def test_unwatch_on_clear(self):
         clear_funcs = [
             self.registry.clear,
-            lambda: self.registry.clear_server_content_by_type(sdk.WatchableType.Variable)
+            lambda: self.registry.clear_content_by_type(RegistryNodeType.Variable)
         ]
 
         def val_update_callback(watcher, wc, value):
@@ -683,7 +683,7 @@ class TestWatchableRegistry(ScrutinyUnitTest):
             sdk.WatchableType.Alias: 1
         })
 
-        self.registry.clear_server_content_by_type(sdk.WatchableType.RuntimePublishedValue)
+        self.registry.clear_content_by_type(RegistryNodeType.RuntimePublishedValue)
         self.assertEqual(self.registry.get_server_change_counters(), {
             sdk.WatchableType.Variable: 1,
             sdk.WatchableType.RuntimePublishedValue: 2,
@@ -784,7 +784,7 @@ class TestWatchableRegistry(ScrutinyUnitTest):
         self.assertEqual(len(watcher_unwatch_list['watcher2']), 0)
         global_watch_callback_list.clear()
 
-        self.registry.clear_server_content_by_type(sdk.WatchableType.Alias)
+        self.registry.clear_content_by_type(RegistryNodeType.Alias)
         self.assertCountEqual(global_unwatch_callback_list, [
             ('watcher1', FQN.parse(alias2fqn).path),
             ('watcher2', FQN.parse(alias1fqn).path)
@@ -802,7 +802,7 @@ class TestWatchableRegistry(ScrutinyUnitTest):
         with self.assertRaises(WatchableRegistryNodeNotFoundError):
             self.registry.node_watcher_count(*fqn_to_args(alias2fqn))
 
-        self.registry.clear_server_content_by_type(sdk.WatchableType.Variable)
+        self.registry.clear_content_by_type(RegistryNodeType.Variable)
         self.assertCountEqual(global_unwatch_callback_list, [
             ('watcher1', FQN.parse(var1fqn).path),
             ('watcher2', FQN.parse(var1fqn).path),
@@ -897,12 +897,11 @@ class TestWatchableRegistry(ScrutinyUnitTest):
             validate_id_unique()
             self.registry.write_server_content(content_var_alias)
             validate_id_unique()
-            self.registry.clear_server_content_by_type(sdk.WatchableType.RuntimePublishedValue)
+            self.registry.clear_content_by_type(RegistryNodeType.RuntimePublishedValue)
             validate_id_unique()
             self.registry.write_server_content(content_rpv)
             validate_id_unique()
-            self.registry.clear_server_content_by_type([sdk.WatchableType.RuntimePublishedValue, sdk.WatchableType.Alias,
-                                                        sdk.WatchableType.Variable])
+            self.registry.clear_content_by_type([RegistryNodeType.RuntimePublishedValue, RegistryNodeType.Alias, RegistryNodeType.Variable])
             validate_id_unique()
 
     def test_cannot_add_incomplete_math_watchable(self):
@@ -1159,7 +1158,7 @@ class TestWatchableRegistryMath(ScrutinyUnitTest):
         self.assertEqual(len(self.update_call), 1)
         self.assertEqual(self.registry.watched_entries_count(), 3)
         self.update_call.clear()
-        self.registry.clear_server_content_by_type(sdk.WatchableType.Variable)
+        self.registry.clear_content_by_type(RegistryNodeType.Variable)
         self.assertEqual(self.registry.watched_entries_count(), 1)
 
         self.registry.broadcast_server_value_updates_to_watchers([
@@ -1195,8 +1194,9 @@ class TestWatchableRegistryMath(ScrutinyUnitTest):
         self.assertAlmostEqual(update_list[0].sdk_update.value, 100 + 200)
 
     def test_clear(self):
-        self.registry.clear_server_content_by_type(sdk.WatchableType.all())
-        self.registry.has_data(RegistryNodeType.Math)
+        self.assertTrue(self.registry.has_data(RegistryNodeType.Math))
+        self.registry.clear_all_server_content()
+        self.assertTrue(self.registry.has_data(RegistryNodeType.Math))
         self.assertGreater(self.registry.get_registry_node_count(RegistryNodeType.Math), 0)
         self.assertTrue(self.registry.clear())  # This function may log critical messages, which make a test fail.
         self.assertEqual(self.registry.get_registry_node_count(RegistryNodeType.Math), 0)

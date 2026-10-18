@@ -17,6 +17,7 @@ from scrutiny.tools import validation
 import re
 import json
 import hashlib
+import re
 
 ValueType: TypeAlias = Optional[Union[float, int, bool]]
 
@@ -189,7 +190,9 @@ class GUIMathWatchable:
         return o
 
     def signature(self) -> str:
-        canonical = json.dumps(self.to_dict(), sort_keys=True)
+        d = self.to_dict()
+        d['expr'] = re.sub(r"\s", "", d['expr'])
+        canonical = json.dumps(d, sort_keys=True)
         return hashlib.sha256(canonical.encode('utf-8')).hexdigest()
 
     def make_fqn(self) -> str:

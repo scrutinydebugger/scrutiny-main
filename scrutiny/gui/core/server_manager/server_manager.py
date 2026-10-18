@@ -25,7 +25,7 @@ from scrutiny.sdk.listeners import BaseListener, ValueUpdate
 from scrutiny.sdk.watchable_handle import WatchableHandle
 from scrutiny.sdk.client import ScrutinyClient, WatchableListDownloadRequest
 from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
-from scrutiny.gui.core.watchable_registry.common import GlobalWatchCallbackData
+from scrutiny.gui.core.watchable_registry.common import GlobalWatchCallbackData, RegistryNodeType
 from scrutiny.gui.core.watchable_registry.fqn import FQN
 from scrutiny.gui.core.user_messages_manager import UserMessagesManager
 from scrutiny.gui.core.server_manager.qt_buffered_listener import QtBufferedListener
@@ -209,6 +209,7 @@ class ServerManager:
         self._client.listen_events(ScrutinyClient.Events.LISTEN_ALL)
         self._signals = self._Signals()
         self._internal_signals = self._InternalSignals()
+        server_owned_registry_types = [nt for nt in RegistryNodeType.all() if nt.is_server_node()]
 
         self._thread = None
         self._thread_stop_event = threading.Event()
@@ -401,11 +402,12 @@ class ServerManager:
 
             self._logger.log(DUMPDATA_LOGLEVEL, f"+Event: {event}")
             if isinstance(event, ScrutinyClient.Events.ConnectedEvent):
-                invoke_in_qt_thread_synchronized(self._registry.clear, timeout=2)
+
+                invoke_in_qt_thread_synchronized(self._registry.clear_all_server_content, timeout=3)
                 self._signals.server_connected.emit()
                 self._allow_auto_reconnect = False    # Ensure we do not try to reconnect until the disconnect event is processed
             elif isinstance(event, ScrutinyClient.Events.DisconnectedEvent):
-                invoke_in_qt_thread_synchronized(self._registry.clear, timeout=2)
+                invoke_in_qt_thread_synchronized(self._registry.clear_all_server_content, timeout=3)
                 self._signals.server_disconnected.emit()
                 self._allow_auto_reconnect = True  # Full cycle completed. We allow reconnecting
             elif isinstance(event, ScrutinyClient.Events.DeviceReadyEvent):
