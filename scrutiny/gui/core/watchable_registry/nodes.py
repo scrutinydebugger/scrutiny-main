@@ -9,6 +9,7 @@
 __all__ = ['ServerStorageEntryNode', 'WatchableRegistryIntermediateNode']
 
 
+from PySide6. QtCore import QTimer
 from dataclasses import dataclass
 from datetime import datetime
 from scrutiny.tools.typing import *
@@ -18,6 +19,7 @@ from scrutiny.gui.core.watchable_registry.watcher import WatcherData, Watcher, W
 from scrutiny.gui.core.watchable_registry.errors import WatchableRegistryError
 from scrutiny.gui.core.watchable_registry.fqn import FQN
 from scrutiny.tools.global_counters import global_i64_counter
+from scrutiny.gui.tools.invoker import invoke_later
 
 if TYPE_CHECKING:
     from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
@@ -76,16 +78,20 @@ class ServerStorageEntryNode(BaseRegistryStorable):
 
 
 class MathProxy(BaseRegistryStorable):
-    __slots__ = ('registry', 'math_watchable', '_watcher_id', '_watchers', '_signature', '__weakref__')
+    __slots__ = ('registry', 'math_watchable', '_watcher_id', '_watchers', '_signature', '_constant_update_timer', '__weakref__')
+
+    CONSTANT_UPDATE_TIMER_INTERVAL_MS = 500
 
     registry: "WatchableRegistry"
     math_watchable: GUIMathWatchable
     _watcher_id: int
     _watchers: Dict[WatcherIdType, WatcherAndDataPair]
     _signature: str
+    _constant_update_timer: Optional[QTimer]
 
     def __init__(self, node_id: int, registry: "WatchableRegistry", math_watchable: GUIMathWatchable) -> None:
         super().__init__(node_id)
+        self._constant_update_timer = None
         self.registry = registry
         self._watcher_id = global_i64_counter()
         self._watchers = {}
@@ -129,6 +135,19 @@ class MathProxy(BaseRegistryStorable):
     def get_signature(self) -> str:
         return self._signature
 
+    def _enable_constant_update_timer(self) -> None:
+        if self._constant_update_timer is None:
+            self._constant_update_timer = QTimer()
+            self._constant_update_timer.setInterval(self.CONSTANT_UPDATE_TIMER_INTERVAL_MS)
+            self._constant_update_timer.timeout.connect(self._broadcast_last_val)
+            self._constant_update_timer.start()
+
+    def _disable_constant_update_timer(self) -> None:
+        if self._constant_update_timer is not None:
+            self._constant_update_timer.stop()
+            self._constant_update_timer.timeout.disconnect(self._broadcast_last_val)
+        self._constant_update_timer = None
+
     def _compute_highest_update_rate(self) -> Optional[float]:
         rate: Optional[float] = 0.0
         for watcher_id, watcher_and_data in self._watchers.items():
@@ -148,11 +167,14 @@ class MathProxy(BaseRegistryStorable):
             except WatchableRegistryError:
                 pass
         self.math_watchable.clear_vals()
+        self._disable_constant_update_timer()
 
     def _try_watch_all(self) -> bool:
         success = True
         highest_update_rate = self._compute_highest_update_rate()
+        is_constant = True
         for varname, fqn_name_pair in self.math_watchable.get_var_fqn_map().items():
+            is_constant = False
             if fqn_name_pair is None:   # Not supposed to happen. Be safe
                 success = False
                 break
@@ -166,7 +188,11 @@ class MathProxy(BaseRegistryStorable):
                 break
 
         if success:
-            self._broadcast_last_val()
+            if is_constant:
+                self._enable_constant_update_timer()
+                invoke_later(self._broadcast_last_val)
+            else:
+                self._disable_constant_update_timer()
         else:
             self._unwatch_all()
 
