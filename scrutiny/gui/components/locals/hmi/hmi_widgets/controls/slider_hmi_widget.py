@@ -151,7 +151,7 @@ class SliderHMIWidget(BaseHMIWidget):
     def __init__(self, app: AbstractComponentAppInterface) -> None:
         super().__init__(app)
         self.declare_value_slot('val', 'Value',
-                                allow_constant=False,
+                                allow_writable_only=True,
                                 require_redraw=False,
                                 value_update_callback=self._value_update_callback,
                                 tooltip="The value written by the slider")
