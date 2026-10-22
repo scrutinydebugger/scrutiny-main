@@ -26,7 +26,7 @@ KNOWN_ENUMS: KnownEnumTypedDict = {
 }
 
 
-class BaseCustomTestArm32M3Iccarm_10_10_2_Dwarf4(BaseVarmapTest):
+class BaseMakeVarmapIAR(BaseVarmapTest):
     _CPP_FILT = 'c++filt'
     known_enums = KNOWN_ENUMS
 
