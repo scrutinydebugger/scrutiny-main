@@ -17,6 +17,7 @@ import json
 from datetime import datetime
 from pathlib import Path
 import gc
+import sys
 import functools
 
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QInputDialog, QLineEdit, QApplication
@@ -32,7 +33,6 @@ from scrutiny.gui.components.globals.base_global_component import ScrutinyGUIBas
 from scrutiny.gui.components.base_component import ScrutinyGUIBaseComponent
 from scrutiny.gui.components.globals.varlist.varlist_component import VarListComponent
 from scrutiny.gui.components.globals.metrics.metrics_component import MetricsComponent
-from scrutiny.gui.components.globals.math_builder.math_builder_component import MathBuilderComponent
 from scrutiny.gui.component_app_interface import AbstractComponentAppInterface
 
 from scrutiny.gui.dashboard import dashboard_file_format
@@ -249,7 +249,7 @@ class ScrutinyDockWidgetTab(QtAds.CDockWidgetTab):
             menu.exec_and_disconnect_triggered(self.mapToGlobal(event.pos()))
 
 
-class CustomFactory(QtAds.CDockComponentsFactory):
+class CustomFactoryPython311Minus(QtAds.CDockComponentsFactory):
     """This class instruct QTads how to create the components used in the dashboard.
     Require additional handling because QTAds does not keep ownership of the element it creates. we need to manage the reference
     lifetime in python"""
@@ -271,20 +271,39 @@ class CustomFactory(QtAds.CDockComponentsFactory):
         self._shiboken_prune_timer.timeout.connect(self._shiboken_storage.prune)
         self._shiboken_prune_timer.start()
 
-    def createDockWidgetTab(self, dock_wdiget: QtAds.CDockWidget) -> QtAds.CDockWidgetTab:
-        tab = ScrutinyDockWidgetTab(dock_wdiget, None)
+    def createDockWidgetTab(self, DockWidget: QtAds.CDockWidget) -> QtAds.CDockWidgetTab:
+        tab = ScrutinyDockWidgetTab(DockWidget, None)
         self._shiboken_storage.insert(tab)  # Keep a reference. QtAds expect the factory to be the owner, but is not responsible to delete
         return tab
 
-    def createDockAreaTitleBar(self, dock_area: QtAds.CDockAreaWidget) -> QtAds.CDockAreaTitleBar:
-        titlebar = ScrutinyDockAreaTitleBar(dock_area)
+    def createDockAreaTitleBar(self, DockArea: QtAds.CDockAreaWidget) -> QtAds.CDockAreaTitleBar:
+        titlebar = ScrutinyDockAreaTitleBar(DockArea)
         self._shiboken_storage.insert(titlebar)  # Keep a reference. QtAds expect the factory to be the owner, but is not responsible to delete
         return titlebar
 
-    def createDockWidgetSideTab(self, dock_wdiget: QtAds.CDockWidget) -> QtAds.ads.CAutoHideTab:
-        sidetab = ScrutinyDockWidgetSideTab(dock_wdiget)
+    def createDockWidgetSideTab(self, DockWidget: QtAds.CDockWidget) -> QtAds.ads.CAutoHideTab:
+        sidetab = ScrutinyDockWidgetSideTab(DockWidget)
         self._shiboken_storage.insert(sidetab)  # Keep a reference. QtAds expect the factory to be the owner, but is not responsible to delete
         return sidetab
+
+
+class CustomFactoryPython312Plus(QtAds.CDockComponentsFactory):
+    """This class instruct QTads how to create the components used in the dashboard."""
+
+    def createDockWidgetTab(self, DockWidget: QtAds.CDockWidget) -> QtAds.CDockWidgetTab:
+        return ScrutinyDockWidgetTab(DockWidget, None)
+
+    def createDockAreaTitleBar(self, DockArea: QtAds.CDockAreaWidget) -> QtAds.CDockAreaTitleBar:
+        return ScrutinyDockAreaTitleBar(DockArea)
+
+    def createDockWidgetSideTab(self, DockWidget: QtAds.CDockWidget) -> QtAds.ads.CAutoHideTab:
+        return ScrutinyDockWidgetSideTab(DockWidget)
+
+
+if sys.version_info < (3, 12):
+    CustomFactory = CustomFactoryPython311Minus
+else:
+    CustomFactory = CustomFactoryPython312Plus
 
 
 class Dashboard(QWidget):
@@ -330,7 +349,7 @@ class Dashboard(QWidget):
         QtAds.CDockManager.setAutoHideConfigFlags(QtAds.CDockManager.DefaultAutoHideConfig)
         self._dock_manager = QtAds.CDockManager(dock_conainer)
         self._factory = CustomFactory()
-        self._dock_manager.setComponentsFactory(self._factory)   # Set before the dock manager is created
+        self._dock_manager.setComponentsFactory(self._factory)
         self._dock_manager.setStyleSheet("")
 
         def configure_new_window(win: QtAds.CFloatingDockContainer) -> None:

@@ -9,11 +9,16 @@
 import os
 import tempfile
 from pathlib import Path
+import time
+import gc
+import sys
+import unittest
 
-from PySide6.QtWidgets import QWidget, QApplication
+from PySide6.QtWidgets import QWidget
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon
 
+from test import logger
 from test.gui.base_gui_test import ScrutinyBaseGuiTest
 from test.gui.fake_server_manager import FakeServerManager
 from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
@@ -44,26 +49,14 @@ class TestAutoHideTab(QtAds.ads.CAutoHideTab):
 
 
 class TestFactory(QtAds.CDockComponentsFactory):
-    pass
-
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
-        self._storage: List[Any] = []
-
     def createDockWidgetTab(self, DockWidget: QtAds.CDockWidget) -> QtAds.CDockWidgetTab:
-        tab = TestDockWidgetTab(DockWidget, None)
-        self._storage.append(tab)
-        return tab
+        return TestDockWidgetTab(DockWidget, None)
 
     def createDockAreaTitleBar(self, DockArea: QtAds.CDockAreaWidget) -> QtAds.CDockAreaTitleBar:
-        titlebar = TestDockAreaTitleBar(DockArea)
-        self._storage.append(titlebar)
-        return titlebar
+        return TestDockAreaTitleBar(DockArea)
 
     def createDockWidgetSideTab(self, DockWidget: QtAds.CDockWidget) -> QtAds.ads.CAutoHideTab:
-        sidetab = TestAutoHideTab(DockWidget)
-        self._storage.append(sidetab)
-        return sidetab
+        return TestAutoHideTab(DockWidget)
 
 
 class StubbedComponent(ScrutinyGUIBaseComponent):
@@ -474,6 +467,7 @@ class TestDashboard(ScrutinyBaseGuiTest):
         self.process_events()
         self.assertEqual(component.call_history, ['setup', 'ready', 'load_state'])
 
+    @unittest.skipIf(sys.version_info < (3, 12), "Can't use a fixed library on older Python")
     def test_ads_bug_739(self):
         QtAds.CDockManager.setAutoHideConfigFlags(QtAds.CDockManager.DefaultAutoHideConfig)
         dock_conainer = QWidget()
@@ -486,7 +480,7 @@ class TestDashboard(ScrutinyBaseGuiTest):
         dock_manager.addDockWidgetFloating(dock_widget)
         self.assertTrue(dock_widget.isFloating())   # This is fine
         self.assertFalse(dock_widget.dockAreaWidget().isAutoHide())  # This is fine
-        # self.assertFalse(dock_widget.isAutoHide())  # This fails in qtads 4.4.0 but passes in 4.5.0.5
+        self.assertFalse(dock_widget.isAutoHide())  # This fails in qtads 4.4.0 but passes in 4.5.0.5
         dock_manager.removeDockWidget(dock_widget)
         self.process_events()
 
@@ -519,18 +513,18 @@ class TestDashboard(ScrutinyBaseGuiTest):
         dw6 = dashboard.add_local_component(StubbedLocalComponent)
         self.assertIsNot(dw3.dockAreaWidget(), dw6.dockAreaWidget())
 
+    @unittest.skipIf(sys.version_info < (3, 12), "Can't use a fixed library on older Python")
     def test_ads_bug_847_find_dock_widget(self):
         container = QWidget()
         dock_manager = QtAds.CDockManager(container)
-        factory = TestFactory()
-        dock_manager.setComponentsFactory(factory)  # Removes this and it's fine!
+        dock_manager.setComponentsFactory(TestFactory())  # Removes this and it's fine!
         dw1 = TestDockWidget(dock_manager, "dw1")
         dock_manager.addDockWidget(QtAds.TopDockWidgetArea, dw1)
         dw2 = dock_manager.findDockWidget("dw1")
-
         # https://github.com/githubuser0xFFFF/Qt-Advanced-Docking-System/issues/847
         self.assertIs(dw1, dw2, "Bad PySide6 binding, Check ADS Bug #847")  # Fails with 4.5.0.5 and PySide6.10+.  Should be the same.
 
+    @unittest.skipIf(sys.version_info < (3, 12), "Can't use a fixed library on older Python version")
     def test_ads_bug_847_slot_get_right_wrapper(self):
         dw_received = []
 
@@ -539,8 +533,7 @@ class TestDashboard(ScrutinyBaseGuiTest):
 
         container = QWidget()
         dock_manager = QtAds.CDockManager(container)
-        factory = TestFactory()
-        dock_manager.setComponentsFactory(factory)  # Removes this and it's fine!
+        dock_manager.setComponentsFactory(TestFactory())  # Removes this and it's fine!
         dock_manager.dockWidgetAboutToBeRemoved.connect(about_to_be_remove_slot)
         dw1 = TestDockWidget(dock_manager, "dw1")
         dock_manager.addDockWidget(QtAds.TopDockWidgetArea, dw1)
@@ -551,3 +544,15 @@ class TestDashboard(ScrutinyBaseGuiTest):
         self.assertEqual(len(dw_received), 1)
         self.assertIsInstance(dw_received[0], TestDockWidget)
         self.assertIs(dw_received[0], dw1)
+
+    @unittest.skipIf(sys.version_info < (3, 12), "Can't use a fixed library on older Python version")
+    def test_can_destroy_factory(self):
+        for i in range(10):
+            container = QWidget()
+            dock_manager = QtAds.CDockManager(container)
+            dock_manager.setComponentsFactory(TestFactory())
+            dock_manager.setParent(None)
+            del dock_manager
+            gc.collect()
+            self.process_events()
+            time.sleep(0.01)
