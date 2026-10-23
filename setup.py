@@ -34,13 +34,25 @@ dependencies = [
     'pyelftools==0.33',
     'pyserial==3.5',
     'pylink-square==2.0.1',
-    'PySide6-QtAds==5.1.1.1',
-    'PySide6==6.12.0',
     'python-can==4.5.0'
 ]
 
 if sys.version_info < (3, 11):
     dependencies.append("typing-extensions==4.12.2")
+
+if sys.version_info < (3, 12):
+    # We can't use QT 6.12 with python 3.11- : https://qt-project.atlassian.net/browse/PYSIDE-3474
+    # There are several issues with the factory before 5.1.1.1, that is under control with QT6.9
+    # so this is the only acceptable candidate that does not use QT 6.12
+    # See
+    # https://github.com/mborgerson/pyside6_qtads/issues/136
+    # https://github.com/mborgerson/pyside6_qtads/issues/137
+    # https://github.com/githubuser0xFFFF/Qt-Advanced-Docking-System/issues/847
+    dependencies.append("PySide6-QtAds==4.4.0")
+    dependencies.append("PySide6==6.9.0")
+else:
+    dependencies.append("PySide6-QtAds==5.1.1.1")
+    dependencies.append("PySide6==6.12.0")
 
 doc_dependencies = []
 if (sys.version_info.major, sys.version_info.minor) >= (3, 9):

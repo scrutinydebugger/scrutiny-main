@@ -17,6 +17,7 @@ import json
 from datetime import datetime
 from pathlib import Path
 import gc
+import sys
 import functools
 
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QInputDialog, QLineEdit, QApplication
@@ -32,7 +33,6 @@ from scrutiny.gui.components.globals.base_global_component import ScrutinyGUIBas
 from scrutiny.gui.components.base_component import ScrutinyGUIBaseComponent
 from scrutiny.gui.components.globals.varlist.varlist_component import VarListComponent
 from scrutiny.gui.components.globals.metrics.metrics_component import MetricsComponent
-from scrutiny.gui.components.globals.math_builder.math_builder_component import MathBuilderComponent
 from scrutiny.gui.component_app_interface import AbstractComponentAppInterface
 
 from scrutiny.gui.dashboard import dashboard_file_format
@@ -47,6 +47,7 @@ from scrutiny import tools
 from scrutiny.gui.tools import prompt
 from scrutiny.gui.tools.opengl import prepare_for_opengl
 from scrutiny.gui.tools.invoker import invoke_later
+from scrutiny.gui.tools.shiboken_ref_keeper import ShibokenRefKeeper
 from scrutiny.gui.themes import scrutiny_get_theme
 from scrutiny.tools.typing import *
 from scrutiny.gui import assets
@@ -247,7 +248,46 @@ class ScrutinyDockWidgetTab(QtAds.CDockWidgetTab):
         if len(menu.actions()) > 0:
             menu.exec_and_disconnect_triggered(self.mapToGlobal(event.pos()))
 
-class CustomFactory(QtAds.CDockComponentsFactory):
+
+class CustomFactoryPython311Minus(QtAds.CDockComponentsFactory):
+    """This class instruct QTads how to create the components used in the dashboard.
+    Require additional handling because QTAds does not keep ownership of the element it creates. we need to manage the reference
+    lifetime in python"""
+    _shiboken_storage: ShibokenRefKeeper
+    _shiboken_prune_timer: QTimer
+    # No reference of the python object is kept in the PyQtADS layer.
+    # If we don't store it here, python garbage collector will destroy it
+    # QtAds thinks it has ownership and will use it blindly
+    # QtAds will also delete the internal C++ object on widget deletion.
+    # Periodic prunes of the storage will then delete the python object
+
+    @tools.copy_type(QtAds.CDockComponentsFactory.__init__)
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self._shiboken_storage = ShibokenRefKeeper()
+
+        self._shiboken_prune_timer = QTimer()
+        self._shiboken_prune_timer.setInterval(2000)
+        self._shiboken_prune_timer.timeout.connect(self._shiboken_storage.prune)
+        self._shiboken_prune_timer.start()
+
+    def createDockWidgetTab(self, DockWidget: QtAds.CDockWidget) -> QtAds.CDockWidgetTab:
+        tab = ScrutinyDockWidgetTab(DockWidget, None)
+        self._shiboken_storage.insert(tab)  # Keep a reference. QtAds expect the factory to be the owner, but is not responsible to delete
+        return tab
+
+    def createDockAreaTitleBar(self, DockArea: QtAds.CDockAreaWidget) -> QtAds.CDockAreaTitleBar:
+        titlebar = ScrutinyDockAreaTitleBar(DockArea)
+        self._shiboken_storage.insert(titlebar)  # Keep a reference. QtAds expect the factory to be the owner, but is not responsible to delete
+        return titlebar
+
+    def createDockWidgetSideTab(self, DockWidget: QtAds.CDockWidget) -> QtAds.ads.CAutoHideTab:
+        sidetab = ScrutinyDockWidgetSideTab(DockWidget)
+        self._shiboken_storage.insert(sidetab)  # Keep a reference. QtAds expect the factory to be the owner, but is not responsible to delete
+        return sidetab
+
+
+class CustomFactoryPython312Plus(QtAds.CDockComponentsFactory):
     """This class instruct QTads how to create the components used in the dashboard."""
 
     def createDockWidgetTab(self, DockWidget: QtAds.CDockWidget) -> QtAds.CDockWidgetTab:
@@ -258,6 +298,12 @@ class CustomFactory(QtAds.CDockComponentsFactory):
 
     def createDockWidgetSideTab(self, DockWidget: QtAds.CDockWidget) -> QtAds.ads.CAutoHideTab:
         return ScrutinyDockWidgetSideTab(DockWidget)
+
+
+if sys.version_info < (3, 12):
+    CustomFactory = CustomFactoryPython311Minus
+else:
+    CustomFactory = CustomFactoryPython312Plus
 
 
 class Dashboard(QWidget):
@@ -302,7 +348,8 @@ class Dashboard(QWidget):
         QtAds.CDockManager.setConfigFlag(QtAds.CDockManager.XmlCompressionEnabled, False)
         QtAds.CDockManager.setAutoHideConfigFlags(QtAds.CDockManager.DefaultAutoHideConfig)
         self._dock_manager = QtAds.CDockManager(dock_conainer)
-        self._dock_manager.setComponentsFactory(CustomFactory())
+        self._factory = CustomFactory()
+        self._dock_manager.setComponentsFactory(self._factory)
         self._dock_manager.setStyleSheet("")
 
         def configure_new_window(win: QtAds.CFloatingDockContainer) -> None:
