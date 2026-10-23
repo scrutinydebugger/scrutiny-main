@@ -306,7 +306,7 @@ class ExportLogic:
             self._logger.error("Not all watchables were processed fully.")
         with tools.SuppressException(WatcherNotFoundError):   # Suppress if not registered
             self._watchable_registry.unregister_watcher(self._watcher_id)
-        self._watchable_registry.signals.content_changed.disconnect(self.stop)
+        self._watchable_registry.signals.content_changed.disconnect(self._registry_changed_slot)
 
     def count_total(self) -> int:
         return len(self._fqn_list_in_order)

@@ -18,5 +18,5 @@ class AbstractComponentAppInterface(abc.ABC):
     server_manager: ServerManager
 
     @abc.abstractmethod
-    def reveal_varlist_fqn(self, fqn: str) -> None:
+    def reveal_source_from_fqn(self, fqn: str) -> None:
         pass

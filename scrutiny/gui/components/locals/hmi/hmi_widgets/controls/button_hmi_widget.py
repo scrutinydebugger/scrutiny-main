@@ -63,7 +63,7 @@ class ButtonHMIWidget(BaseHMIWidget):
     def __init__(self, app: AbstractComponentAppInterface) -> None:
         super().__init__(app)
         self.declare_value_slot('val', 'Value',
-                                allow_constant=False,
+                                allow_writable_only=True,
                                 tooltip="The value controlled by the button")
         self._is_pressed = False
         self._text_pen = QPen()

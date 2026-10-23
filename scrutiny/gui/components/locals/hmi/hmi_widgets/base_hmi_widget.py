@@ -25,6 +25,7 @@ from scrutiny.gui.components.locals.hmi.hmi_edit_grid import HMIEditGrid
 from scrutiny.gui.components.locals.hmi.hmi_theme import HMITheme
 from scrutiny.gui.components.locals.hmi.common.hit_zones import BaseHitZone
 from scrutiny.gui.core.watchable_registry.fqn import FQN
+from scrutiny.gui.core.watchable_registry.common import RegistryNodeType
 from scrutiny.gui.core.fqn_name_pair import FqnNamePair
 from scrutiny.gui.core.watchable_registry.common import WatcherIdType, RegistryValueUpdate
 from scrutiny.gui.core.watchable_registry.errors import WatchableRegistryNodeNotFoundError
@@ -103,11 +104,15 @@ class ValueSlot:
                  display_name: str,
                  value_update_callback: Optional[HMIWidgetValueUpdateCallback] = None,
                  require_redraw: bool = True,
-                 allow_constant: bool = True
+                 allow_writable_only: bool = False
                  ) -> None:
         self.name = name
         self.display_name = display_name
         self.watchable_line_edit = WatchableLineEdit()
+        supported_node_types = RegistryNodeType.all()
+        if allow_writable_only:
+            supported_node_types.remove(RegistryNodeType.Math)
+        self.watchable_line_edit.set_allowed_types(supported_node_types)
         self.watcher_id = f'{name}{global_i64_counter()}'
         self.last_value_received = None
         self.last_value_drawn = None
@@ -117,7 +122,7 @@ class ValueSlot:
         self._signals = self._Signals()
         self._logger = logging.getLogger(self.__class__.__name__)
 
-        self.watchable_line_edit.set_text_mode_enabled(allow_constant)
+        self.watchable_line_edit.set_text_mode_enabled(not allow_writable_only)
         self.watchable_line_edit.textChanged.connect(self._text_changed_slot)
 
     @property
@@ -201,7 +206,7 @@ class ValueSlot:
             self.watchable_line_edit.set_watchable_mode(
                 name=data['name'],
                 node_type=parsed_fqn.node_type,
-                path=parsed_fqn.path
+                string_id=parsed_fqn.string_id
             )
         else:
             raise ValueError(f"Unsupported data type {state['datatype']}")
@@ -429,7 +434,7 @@ class BaseHMIWidget(QGraphicsItem):
                            display_name: str,
                            value_update_callback: Optional[HMIWidgetValueUpdateCallback] = None,
                            require_redraw: bool = True,
-                           allow_constant: bool = True,
+                           allow_writable_only: bool = False,
                            tooltip: Optional[str] = None) -> None:
         """Function to be called by the extension of this base class.
         Add a value slot, allowing the user to specify a text value or drag a watchable on it.
@@ -438,7 +443,7 @@ class BaseHMIWidget(QGraphicsItem):
         :param display_name: The name shown in the config widget
         :param value_update_callback: An optional callback that can be called each time a new value is received
         :param require_redraw: When ``False``, ``draw()`` is not called when the value changes. Expect to use ``value_update_callback`` when ``False``
-        :param allow_constant: When ``True``, a constant numerical value can be given instead of a watchable
+        :param allow_writable_only: When ``True``, only writable watchable can be given. (Prevent constants and Math )
         :param tooltip: An optional tooltip to display when hovering the value slot label
 
         """
@@ -453,7 +458,7 @@ class BaseHMIWidget(QGraphicsItem):
             display_name=display_name,
             value_update_callback=value_update_callback,
             require_redraw=require_redraw,
-            allow_constant=allow_constant
+            allow_writable_only=allow_writable_only,
         )
 
         self._vslots.append(vslot)
@@ -480,7 +485,7 @@ class BaseHMIWidget(QGraphicsItem):
         If the write succeed, the ValueSlot value will be updated even if no
         new value is received from the server. Avoid visual glitches"""
         vslot = self._get_vslot_by_name_or_raise(name)
-        watchable = vslot.watchable_line_edit.get_watchable()
+        watchable = vslot.watchable_line_edit.get_watchable()   # Responsibility of the caller to block math elements
         if watchable is None:
             return False
 
@@ -583,7 +588,7 @@ class BaseHMIWidget(QGraphicsItem):
         parsed = FQN.parse(fqn)
         vslot.watchable_line_edit.set_watchable_mode(
             node_type=parsed.node_type,
-            path=parsed.path,
+            string_id=parsed.string_id,
             name=watchable_name
         )
         self._vslot_configured_with_watchable_slot(vslot, fqn)
@@ -724,8 +729,7 @@ class BaseHMIWidget(QGraphicsItem):
                 if watchable is None:
                     return None
 
-                node = self._app.watchable_registry.get_server_watchable_node_fqn(watchable.fqn)
-                if node is None:
+                if not self._app.watchable_registry.is_watchable_fqn(watchable.fqn):
                     return None
 
                 vslot.last_value_drawn = vslot.get_val()

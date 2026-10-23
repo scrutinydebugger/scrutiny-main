@@ -29,7 +29,7 @@ from scrutiny.gui.tools.drag_and_drop import make_watchable_list_dragdata_if_pos
 from scrutiny.gui.core.scrutiny_drag_data import ScrutinyDragData, WatchableListDescriptor
 from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
 from scrutiny.gui.core.watchable_registry.fqn import FQN
-from scrutiny.gui.core.watchable_registry.common import RegistryNodeConfiguration
+from scrutiny.gui.core.watchable_registry.common import RegistryNodeConfiguration, RegistryNodeType
 from scrutiny.gui.widgets.watchable_tree import (
     WatchableTreeWidget,
     WatchableTreeModel,
@@ -361,6 +361,7 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
         selected_items_no_nested_unordered = [self.model().itemFromIndex(index)
                                               for index in selected_indexes_no_nested_unordered if index.column() == nesting_col]
         selected_watchable_items_unordered = [item for item in selected_items_no_nested_unordered if isinstance(item, WatchableStandardItem)]
+        selected_server_watchable_items_unordered = [item for item in selected_watchable_items_unordered if item.node_type.is_server_node()]
 
         parent, insert_row = self._find_new_folder_position_from_position(event.pos())
 
@@ -388,22 +389,21 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
         remove_action.triggered.connect(remove_action_slot)
 
         # Copy path
-        def iterate_items() -> Generator[str, None, None]:
-            for index in selected_indexes:
-                item = self.model().itemFromIndex(index)
-                if isinstance(item, WatchableStandardItem):
-                    yield FQN.parse(item.fqn).path
+        def extract_string_id(items: Iterable[WatchableStandardItem]) -> Generator[str, None, None]:
+            for item in items:
+                yield FQN.parse(item.fqn).path  # We use the path. it's a server item
 
-        copy_path_clipboard_action = gui_mixins.qmenu_add_copy_path_action(context_menu, iterate_items())
+        copy_path_clipboard_action = gui_mixins.qmenu_add_copy_path_action(context_menu, extract_string_id(selected_server_watchable_items_unordered))
         copy_path_clipboard_action.setEnabled(False)
         for index in selected_indexes:
             item = self.model().itemFromIndex(index)
             if isinstance(item, WatchableStandardItem):  # At least one watchable, enough to enable
-                copy_path_clipboard_action.setEnabled(True)
-                break
+                if item.node_type.is_server_node():
+                    copy_path_clipboard_action.setEnabled(True)
+                    break
 
         # Reveal in varlist
-        reveal_in_varlist_action = context_menu.addAction(theme.load_tiny_icon(assets.Icons.Eye), "Reveal in Variable List")
+        reveal_in_varlist_action = context_menu.addAction(theme.load_tiny_icon(assets.Icons.Eye), "Reveal in Source")
         reveal_in_varlist_action.setEnabled(allow_reveal_fqn)
         reveal_in_varlist_action.triggered.connect(reveal_fqn_slot)
 
@@ -414,9 +414,11 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
             for item in selected_items_no_nested_unordered:
                 if isinstance(item, FolderStandardItem):
                     for watchable_item in self.model().get_all_watchable_items(parent=item):
-                        watchable_item_list.append(watchable_item)
+                        if watchable_item.node_type.is_server_node():
+                            watchable_item_list.append(watchable_item)
                 elif isinstance(item, WatchableStandardItem):
-                    watchable_item_list.append(item)
+                    if item.node_type.is_server_node():
+                        watchable_item_list.append(item)
                 else:
                     raise NotImplementedError(f"Unknown item type {item.__class__.__name__}")
 
@@ -674,7 +676,7 @@ class WatchComponentTreeModel(WatchableTreeModel):
     def itemFromIndex(self, index: Union[QModelIndex, QPersistentModelIndex]) -> BaseWatchableRegistryTreeStandardItem:
         return cast(BaseWatchableRegistryTreeStandardItem, super().itemFromIndex(index))
 
-    def get_watchable_extra_columns(self, fqn: str = "", watchable_config: Optional[RegistryNodeConfiguration] = None) -> List[QStandardItem]:
+    def get_watchable_extra_columns(self, fqn: str = "", node_config: Optional[RegistryNodeConfiguration] = None) -> List[QStandardItem]:
         # We don't use watchable_config here even if we could.
         # We update the value/type when an item is available by calling update_row_state
         return [ValueStandardItem(), RawDataStandardItem(), DataTypeStandardItem(), EnumNameStandardItem()]
@@ -1046,8 +1048,7 @@ class WatchComponentTreeModel(WatchableTreeModel):
         """Change the availability of an item based on its availability in the registry.
         When the watchable referred by an element is not in the registry, becomes "unavailable" (grayed out).
         """
-        watchable_node = self._watchable_registry.get_server_watchable_node_fqn(watchable_item.fqn)  # TODO : Math
-        node_config = watchable_node.configuration if watchable_node is not None else None
+        node_config = self._watchable_registry.get_node_config_if_fully_available_fqn(watchable_item.fqn)
         if node_config is not None:
             self.set_available(watchable_item, node_config)
         else:
@@ -1069,6 +1070,7 @@ class WatchComponentTreeModel(WatchableTreeModel):
                     item.setText('N/A')
                 elif isinstance(item, RawDataStandardItem):
                     item.setText('N/A')
+                    item.setEditable(False)
                 elif isinstance(item, DataTypeStandardItem):
                     item.set_datatype(EmbeddedDataType.NA)
                 elif isinstance(item, EnumNameStandardItem):
@@ -1079,19 +1081,20 @@ class WatchComponentTreeModel(WatchableTreeModel):
         background_color = self._available_palette.color(QPalette.ColorRole.Base)
         forground_color = self._available_palette.color(QPalette.ColorRole.Text)
         arg_item.setData(True, AVAILABLE_DATA_ROLE)
+        editable = True if node_config.node_type.is_server_node() else False
         for i in range(self.columnCount()):
             item = self.itemFromIndex(arg_item.index().siblingAtColumn(i))
             if item is not None:
                 item.setBackground(background_color)
                 item.setForeground(forground_color)
                 if isinstance(item, ValueStandardItem):
-                    item.setEditable(True)
+                    item.setEditable(editable)
                     if node_config.enum is not None:
                         # Assign a copy of the enum on the item because the Delegate that creates the combo box
                         # does not have access to the registry nor the model
                         item.setData(node_config.enum, ENUM_DATA_ROLE)
                 elif isinstance(item, RawDataStandardItem):
-                    item.setEditable(True)
+                    item.setEditable(editable)
                 elif isinstance(item, DataTypeStandardItem):
                     item.set_datatype(node_config.datatype)
                 elif isinstance(item, EnumNameStandardItem):

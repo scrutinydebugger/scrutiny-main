@@ -58,7 +58,7 @@ class MainWindow(QMainWindow):
     ENABLED_GLOBALS_COMPONENTS: List[Type[ScrutinyGUIBaseGlobalComponent]] = [
         VarListComponent,
         MetricsComponent,
-        # MathBuilderComponent
+        MathBuilderComponent
     ]
 
     ENABLED_LOCAL_COMPONENTS: List[Type[ScrutinyGUIBaseLocalComponent]] = [

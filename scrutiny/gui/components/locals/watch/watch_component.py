@@ -20,6 +20,7 @@ from scrutiny.gui.widgets.watchable_tree import FolderItemSerializableData, Watc
 from scrutiny.gui.widgets.watchable_tree import WatchableTreeWidget, WatchableStandardItem, FolderStandardItem, BaseWatchableRegistryTreeStandardItem
 from scrutiny.gui.core.serializable_value_set import SerializableValueSet
 from scrutiny.gui.core.watchable_registry.common import RegistryValueUpdate, RegistryNodeType
+from scrutiny.gui.core.watchable_registry.fqn import FQN
 from scrutiny.gui.core.watchable_registry.errors import WatchableRegistryNodeNotFoundError, WatcherNotFoundError
 from scrutiny.gui.components.locals.base_local_component import ScrutinyGUIBaseLocalComponent
 from scrutiny.gui.components.locals.watch.watch_tree_model import (
@@ -367,7 +368,8 @@ class WatchComponent(ScrutinyGUIBaseLocalComponent):
             if item_inserted.is_expanded():
                 self._tree.expand(item_inserted.index())
         elif isinstance(item_inserted, WatchableStandardItem):
-            item_inserted.setToolTip(item_inserted.fqn)
+            if item_inserted.node_type != RegistryNodeType.Math:
+                item_inserted.setToolTip(item_inserted.fqn)
 
     def _row_about_to_be_removed_slot(self, parent: QModelIndex, first_row_index: int, last_row_index: int) -> None:
         # This slot is called only on the node removed, not on the children.
@@ -474,7 +476,10 @@ class WatchComponent(ScrutinyGUIBaseLocalComponent):
             raise ValueError(f"Cannot write the value of {fqn}. Value is of the wrong type: {value.__class__.__name__}")
         # No need to parse strings. The server auto-converts
         # Supports : Number as strings. Hexadecimal with 0x prefix, true/false, etc.
-        self.app.server_manager.qt_write_watchable_value(fqn, value, ui_callback)
+        if FQN.parse(fqn).node_type.is_server_node():
+            self.app.server_manager.qt_write_watchable_value(fqn, value, ui_callback)
+        else:
+            self.logger.error(f"Node value is not writable: {fqn}")
 
     def _raw_data_written_slot(self, fqn: str, raw_data: bytes) -> None:
         """The QT slot called when the user input a new value in a raw data column"""
@@ -486,13 +491,16 @@ class WatchComponent(ScrutinyGUIBaseLocalComponent):
         self.app.server_manager.qt_write_watchable_memory(fqn, raw_data, ui_callback)
 
     def _request_reveal_fqn_slot(self, fqn: str) -> None:
-        self.app.reveal_varlist_fqn(fqn)
+        self.app.reveal_source_from_fqn(fqn)
 
     def _export_values_slot(self, watchable_item_list: List[WatchableStandardItem]) -> None:
-        fqn_list = [watchable_item.fqn for watchable_item in watchable_item_list]
+        fqn_list = [watchable_item.fqn for watchable_item in watchable_item_list if watchable_item.node_type.is_server_node()]
         if len(fqn_list) == 0:
             prompt.error_msgbox(title="No values to save", message="There is no watchable values to save in this selection")
             return
+
+        if len(fqn_list) == 0:
+            prompt.error_msgbox("Nothing to export", "There is nothing to export in this selection.")
 
         export_dialog = ValueExportDialog(
             watchable_registry=self.app.watchable_registry,

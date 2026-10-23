@@ -39,6 +39,8 @@ from scrutiny.gui.dashboard import dashboard_file_format
 from scrutiny.gui.app_settings import app_settings
 from scrutiny.gui.core.persistent_data import gui_persistent_data
 from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
+from scrutiny.gui.core.watchable_registry.common import RegistryNodeType
+from scrutiny.gui.core.watchable_registry.fqn import FQN
 from scrutiny.gui.core.server_manager.server_manager import ServerManager
 
 from scrutiny.gui.widgets.scrutiny_qmenu import ScrutinyQMenu
@@ -71,8 +73,8 @@ class ComponentAppInterface(AbstractComponentAppInterface):
         self.server_manager = server_manager
         self.watchable_registry = watchable_registry
 
-    def reveal_varlist_fqn(self, fqn: str) -> None:
-        self._dashboard.request_varlist_reveal_fqn(fqn)
+    def reveal_source_from_fqn(self, fqn: str) -> None:
+        self._dashboard.request_reveal_source_from_fqn(fqn)
 
 
 class ScrutinyDockWidget(QtAds.CDockWidget):
@@ -461,7 +463,7 @@ class Dashboard(QWidget):
         self.clear()
         self.create_or_show_global_component(VarListComponent, show=False)
         self.create_or_show_global_component(MetricsComponent, show=False)
-        self.create_or_show_global_component(MetricsComponent, show=False)
+        self.create_or_show_global_component(MathBuilderComponent, show=False)
         self._set_active_file(None)
 
     def exit(self) -> None:
@@ -576,12 +578,23 @@ class Dashboard(QWidget):
     def dock_manager(self) -> QtAds.CDockManager:
         return self._dock_manager
 
-    def request_varlist_reveal_fqn(self, fqn: str) -> None:
-        dock_widget = self.create_or_show_global_component(VarListComponent, show=True)
-        if dock_widget is not None:
-            varlist = cast(Optional[ScrutinyGUIBaseComponent], dock_widget.widget())
-            assert isinstance(varlist, VarListComponent)
-            varlist.reveal_fqn(fqn)
+    def request_reveal_source_from_fqn(self, fqn: str) -> None:
+        parsed_fqn = FQN.parse(fqn)
+        if parsed_fqn.node_type.is_server_node():
+            dock_widget = self.create_or_show_global_component(VarListComponent, show=True)
+            if dock_widget is not None:
+                varlist = cast(Optional[ScrutinyGUIBaseComponent], dock_widget.widget())
+                assert isinstance(varlist, VarListComponent)
+                varlist.reveal_fqn(fqn)
+        elif parsed_fqn.node_type == RegistryNodeType.Math:
+            dock_widget = self.create_or_show_global_component(MathBuilderComponent, show=True)
+            if dock_widget is not None:
+                math_builder = cast(Optional[ScrutinyGUIBaseComponent], dock_widget.widget())
+                assert isinstance(math_builder, MathBuilderComponent)
+                math_builder.reveal_fqn(fqn)
+        else:
+            raise TypeError(f"Unsupported node type: {parsed_fqn.node_type.name}")
+
 
 # endregion
 
