@@ -9,6 +9,7 @@
 __all__ = ['CSVConfig', 'CSVLogger']
 
 import os
+import math
 import csv
 import _csv  # Weirdness of python type hints
 import re
@@ -25,6 +26,7 @@ from scrutiny.tools.typing import *
 from typing import TextIO
 
 PossibleVal = Optional[Union[str, float, int, bool]]
+
 
 @dataclass(slots=True)
 class BufferEntry:
@@ -95,6 +97,7 @@ class CSVLogger:
     _update_buffer: List[BufferEntry]
     _latest_x_per_signal: Dict[str, float]
     _insertion_counter: int
+    MAX_BUFFER_SIZE: int = 1000
 
     def __init__(self,
                  folder: str,
@@ -257,7 +260,7 @@ class CSVLogger:
     def stop(self) -> None:
         """Stops the CSV logger. Closes the currently open file and prevents any further logging"""
         if self._started:
-            self._flush_buffered_up_to(float('inf'))
+            self._flush_buffered_up_to(math.inf)
             self._flush_row()
         self._csv_writer = None
         if self._actual_file_handle is not None:
@@ -307,14 +310,18 @@ class CSVLogger:
             self._insertion_counter += 1
             self._latest_x_per_signal[signal_id] = max(self._latest_x_per_signal.get(signal_id, x), x)
 
-        # Only flush when all signals have reported at least once
-        if len(self._latest_x_per_signal) < len(self._column_map):
-            return
+        if len(self._update_buffer) >= self.MAX_BUFFER_SIZE:
+            # Safety check. Signal may have stopped broadcasting, flush everything to avoid unbounded growth
+            self._flush_buffered_up_to(math.inf)
 
-        # We can receive data in batch: A1, A2, A3, B1, B2, B3, C1, C2
-        # safe_x is the highest time where all entries have data. It would be "2" in the example above because of C2.
-        safe_x = min(self._latest_x_per_signal.values())
-        self._flush_buffered_up_to(safe_x)
+        else:   # Normal operation, buffer and flush when it makes sense
+            all_signals_reported = len(self._latest_x_per_signal) >= len(self._column_map)
+            if all_signals_reported:    # Only flush when all signals have reported at least once
+
+                # We can receive data in batch: A1, A2, A3, B1, B2, B3, C1, C2
+                # safe_x is the highest time where all entries have data. It would be "2" in the example above because of C2.
+                safe_x = min(self._latest_x_per_signal.values())
+                self._flush_buffered_up_to(safe_x)
 
     def _flush_buffered_up_to(self, safe_x: float) -> None:
         """Sort the buffer and process all entries with reltime <= safe_x into CSV rows"""
