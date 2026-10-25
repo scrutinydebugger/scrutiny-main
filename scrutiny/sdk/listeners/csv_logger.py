@@ -167,6 +167,7 @@ class CSVLogger:
         self._actual_x = 0
         self._column_map = {}
         self._new_val_flags = []
+        self.monotonic_timestamps_warning_given = False
         if file_headers is None:
             file_headers = []
         self.set_file_headers(file_headers)
@@ -233,6 +234,7 @@ class CSVLogger:
 
         self._started = True
         self._actual_file_number = 0
+        self.monotonic_timestamps_warning_given = False
         self._new_val_flags = [False] * len(self._column_descriptors)
 
         self._open_and_prepare_file()
@@ -284,6 +286,10 @@ class CSVLogger:
                 self._actual_x = x
                 if self._lines_per_file is not None and self._line_counter >= self._lines_per_file:
                     self._switch_to_next_file()
+            elif x < self._actual_x:
+                if not self.monotonic_timestamps_warning_given:
+                    self._logger.warning("Non monotonic timestamps encountered")
+                    self.monotonic_timestamps_warning_given = True
 
             self._actual_vals[col_index] = update.value
             if update.value is not None:
