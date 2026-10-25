@@ -160,6 +160,25 @@ class TestValueStreamer(ScrutinyUnitTest):
         self.assertIn(entry2, chunk_b)
         self.assertNotIn(entry1, chunk_b)
 
+    def test_stream_chunk_ordered_by_time(self) -> None:
+        conn_id = "conn"
+        self.streamer.new_connection(conn_id)
+
+        entry_a = make_rpv_entry("/rpv/x0071", 0x0071)
+        entry_b = make_rpv_entry("/rpv/x0072", 0x0072)
+        entry_c = make_rpv_entry("/rpv/x0073", 0x0073)
+        self.datastore.add_entries([entry_a, entry_b, entry_c])
+
+        # Assign timestamps in non-sequential order to ensure the sort is meaningful.
+        entry_b.last_value_update_server_time_us = 100
+        entry_a.last_value_update_server_time_us = 300
+        entry_c.last_value_update_server_time_us = 200
+
+        self._publish_entries([entry_a, entry_b, entry_c], conn_id)
+
+        chunk = self.streamer.get_stream_chunk(conn_id)
+        self.assertEqual(chunk, [entry_b, entry_c, entry_a])
+
     def test_throttling(self) -> None:
         """When stream_rate_measurement reports a rate above throttling_target,
         get_stream_chunk must return an empty list instead of the pending entries."""
