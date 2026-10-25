@@ -611,10 +611,11 @@ class API:
             chunk = self.streamer.get_stream_chunk(conn_id)     # get a list of entry to send to this connection
             if len(chunk) == 0:
                 continue
+            updates = list(entry_to_update_dict(entry) for entry in chunk)
             msg: api_typing.S2C.WatchableUpdate = {
                 'cmd': self.Command.Api2Client.WATCHABLE_UPDATE,
                 'reqid': None,
-                'updates': list(entry_to_update_dict(entry) for entry in chunk)
+                'updates': updates
             }
 
             self.client_handler.send(ClientHandlerMessage(conn_id=conn_id, obj=msg))
@@ -731,7 +732,8 @@ class API:
         welcome: api_typing.S2C.Welcome = {
             'cmd': API.Command.Api2Client.WELCOME,
             'reqid': None,
-            'server_time_zero_timestamp': server_timebase.get_zero_timestamp()
+            'server_time_zero_timestamp': server_timebase.get_zero_timestamp(),
+            'server_time_now': datetime.now().timestamp(),
         }
         self.client_handler.send(ClientHandlerMessage(conn_id=conn_id, obj=welcome))
 

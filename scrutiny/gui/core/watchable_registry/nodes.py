@@ -139,13 +139,13 @@ class MathProxy(BaseRegistryStorable):
         if self._constant_update_timer is None:
             self._constant_update_timer = QTimer()
             self._constant_update_timer.setInterval(self.CONSTANT_UPDATE_TIMER_INTERVAL_MS)
-            self._constant_update_timer.timeout.connect(self._broadcast_last_val)
+            self._constant_update_timer.timeout.connect(self._broadcast_const_val)
             self._constant_update_timer.start()
 
     def _disable_constant_update_timer(self) -> None:
         if self._constant_update_timer is not None:
             self._constant_update_timer.stop()
-            self._constant_update_timer.timeout.disconnect(self._broadcast_last_val)
+            self._constant_update_timer.timeout.disconnect(self._broadcast_const_val)
         self._constant_update_timer = None
 
     def _compute_highest_update_rate(self) -> Optional[float]:
@@ -190,7 +190,7 @@ class MathProxy(BaseRegistryStorable):
         if success:
             if is_constant:
                 self._enable_constant_update_timer()
-                invoke_later(self._broadcast_last_val)
+                invoke_later(self._broadcast_const_val)
             else:
                 self._disable_constant_update_timer()
         else:
@@ -216,14 +216,21 @@ class MathProxy(BaseRegistryStorable):
             for watcher_id, pair in self._watchers.items():
                 pair.watcher.value_update_callback(watcher_id, new_updates)
 
-    def _broadcast_last_val(self) -> None:
+    def _broadcast_const_val(self) -> None:
         val = self.math_watchable.eval()
         if val is None:
             return
+        now = datetime.now()
+        server_time_delta = self.registry.get_server_timedelta()
+        if server_time_delta is not None:
+            # The time delta doe snot need to be very precise.
+            # We want to avoid visible discrepancies in graphs mostly
+            now += server_time_delta
+
         update = RegistryValueUpdate(
             node_type=RegistryNodeType.Math,
             registry_id=self.registry_id,
-            sdk_update=MathUpdate(val, self.math_watchable.signature(), datetime.now())
+            sdk_update=MathUpdate(val, self.math_watchable.signature(), now)
         )
         for watcher_id, pair in self._watchers.items():
             pair.watcher.value_update_callback(watcher_id, [update])

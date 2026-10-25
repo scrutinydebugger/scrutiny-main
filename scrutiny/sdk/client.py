@@ -53,7 +53,7 @@ from dataclasses import dataclass
 from base64 import b64encode
 import queue
 import types
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from scrutiny.tools.typing import *
@@ -838,6 +838,8 @@ class ScrutinyClient:
     """Tracks bidirectional data and message rates with the server"""
     _server_timebase: RelativeTimebase
     """Converts server-relative microsecond timestamps to absolute ``datetime`` values"""
+    _approx_server_timedelta: Optional[timedelta]
+    """Approximation of time difference between the client and the server"""
     _force_fail_request: bool
     """When ``True``, all outgoing requests are immediately failed. Used in unit tests"""
     _server_status_invalidated: bool
@@ -925,6 +927,7 @@ class ScrutinyClient:
         self.listen_events(enabled_events)
         self._force_fail_request = False
         self._server_timebase = RelativeTimebase()
+        self._approx_server_timedelta = None
 
     def _trigger_event(self, evt: Events._ANY_EVENTS, loglevel: int = logging.NOTSET) -> None:
         """Push an event onto the event queue if its type is currently enabled.
@@ -1175,6 +1178,7 @@ class ScrutinyClient:
         """
         welcome_data = api_parser.parse_welcome(msg)
         self._server_timebase.set_zero_to(welcome_data.server_time_zero_timestamp)
+        self._approx_server_timedelta = datetime.fromtimestamp(welcome_data.server_time_now) - datetime.now()
         self._threading_events.welcome_received.set()
 
     def _wt_process_msg_download_sfd_response(self, msg: api_typing.S2C.DownloadSFD, reqid: Optional[int]) -> None:
@@ -2076,6 +2080,10 @@ class ScrutinyClient:
 
     def disconnect(self) -> None:
         """Disconnect from the server"""
+
+        self._approx_server_timedelta = None
+        self._threading_events.welcome_received.clear()
+
         if self._worker_thread is None:
             self._wt_disconnect()  # Can call safely from this thread
             return
@@ -3586,3 +3594,7 @@ class ScrutinyClient:
         """Port the server is listening on"""
         with self._user_lock:
             return int(self._port) if self._port is not None else None
+
+    @property
+    def approx_server_time_delta(self) -> Optional[timedelta]:
+        return self._approx_server_timedelta

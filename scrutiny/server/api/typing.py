@@ -416,6 +416,7 @@ class S2C:
 
     class Welcome(BaseS2CMessage):
         server_time_zero_timestamp: float
+        server_time_now: float
 
     class GetInstalledSFD(BaseS2CMessage):
         sfd_list: List[SFDInfo]
