@@ -123,7 +123,7 @@ class ValueStreamer:
         if not conn_data.stream_rate_throttler.allowed(len(conn_data.to_publish)):
             return []
 
-        chunk = list(conn_data.to_publish)
+        chunk = sorted(conn_data.to_publish, key=lambda x: x.last_value_update_server_time_us)
         conn_data.to_publish.clear()
 
         conn_data.stream_rate_throttler.consume(len(chunk))
