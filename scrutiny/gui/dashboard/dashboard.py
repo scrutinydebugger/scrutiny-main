@@ -33,6 +33,7 @@ from scrutiny.gui.components.globals.base_global_component import ScrutinyGUIBas
 from scrutiny.gui.components.base_component import ScrutinyGUIBaseComponent
 from scrutiny.gui.components.globals.varlist.varlist_component import VarListComponent
 from scrutiny.gui.components.globals.metrics.metrics_component import MetricsComponent
+from scrutiny.gui.components.globals.math_builder.math_builder_component import MathBuilderComponent
 from scrutiny.gui.component_app_interface import AbstractComponentAppInterface
 
 from scrutiny.gui.dashboard import dashboard_file_format
