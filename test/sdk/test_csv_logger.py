@@ -488,6 +488,175 @@ class TestCSVLogger(ScrutinyUnitTest):
             self.assertEqual(data_rows[0][2], 1.0)
             self.assertEqual(data_rows[0][3], 2)
 
+    # --- Non-monotonic batches handling ---
+
+    def test_non_monotonic_batches_sorted_correctly(self):
+        with TemporaryDirectory() as d:
+            logger = self._make_logger(d)
+            logger.define_columns_from_handles([self.w1, self.w2])
+            logger.start()
+
+            t0 = self.dt_zero
+            # Batch: w1 at t=1,2,3 then w2 at t=1,2,3 (non-monotonic globally)
+            updates = [
+                self._make_update(self.w1, 10.0, t0 + timedelta(seconds=1)),
+                self._make_update(self.w1, 20.0, t0 + timedelta(seconds=2)),
+                self._make_update(self.w1, 30.0, t0 + timedelta(seconds=3)),
+                self._make_update(self.w2, 100, t0 + timedelta(seconds=1)),
+                self._make_update(self.w2, 200, t0 + timedelta(seconds=2)),
+                self._make_update(self.w2, 300, t0 + timedelta(seconds=3)),
+            ]
+            logger.write(updates)
+            logger.stop()
+
+            rows = self._read_csv(os.path.join(d, 'test_output.csv'))
+            data_rows = rows[2:]  # skip fullpath + headers
+            # Reltimes are 0, 1, 2 (relative to first update at t0+1s)
+            self.assertEqual(len(data_rows), 3)
+
+            # Row at reltime=0: w1=10, w2=100
+            self.assertEqual(data_rows[0][1], 0.0)
+            self.assertEqual(data_rows[0][2], 10.0)
+            self.assertEqual(data_rows[0][3], 100)
+
+            # Row at reltime=1: w1=20, w2=200
+            self.assertEqual(data_rows[1][1], 1.0)
+            self.assertEqual(data_rows[1][2], 20.0)
+            self.assertEqual(data_rows[1][3], 200)
+
+            # Row at reltime=2: w1=30, w2=300
+            self.assertEqual(data_rows[2][1], 2.0)
+            self.assertEqual(data_rows[2][2], 30.0)
+            self.assertEqual(data_rows[2][3], 300)
+
+    def test_non_monotonic_batches_carry_forward(self):
+        # When entries have different numbers of updates, values carry forward correctly.
+        with TemporaryDirectory() as d:
+            logger = self._make_logger(d)
+            logger.define_columns_from_handles([self.w1, self.w2])
+            logger.start()
+
+            t0 = self.dt_zero
+            # w1 has updates at t=1,2,3 but w2 only at t=1,3
+            updates = [
+                self._make_update(self.w1, 10.0, t0 + timedelta(seconds=1)),
+                self._make_update(self.w1, 20.0, t0 + timedelta(seconds=2)),
+                self._make_update(self.w1, 30.0, t0 + timedelta(seconds=3)),
+                self._make_update(self.w2, 100, t0 + timedelta(seconds=1)),
+                self._make_update(self.w2, 300, t0 + timedelta(seconds=3)),
+            ]
+            logger.write(updates)
+            logger.stop()
+
+            rows = self._read_csv(os.path.join(d, 'test_output.csv'))
+            data_rows = rows[2:]
+            self.assertEqual(len(data_rows), 3)
+
+            self.assertEqual(data_rows[0][1], 0)
+            self.assertEqual(data_rows[0][2], 10.0)
+            self.assertEqual(data_rows[0][3], 100)
+
+            self.assertEqual(data_rows[1][1], 1)
+            self.assertEqual(data_rows[1][2], 20.0)  # Carried forward
+            self.assertEqual(data_rows[1][3], 100)
+
+            self.assertEqual(data_rows[2][1], 2)
+            self.assertEqual(data_rows[2][2], 30.0)
+            self.assertEqual(data_rows[2][3], 300)
+
+    def test_non_monotonic_batches_multiple_writes(self):
+        """Buffering works across multiple write() calls with interleaved signals."""
+        with TemporaryDirectory() as d:
+            logger = self._make_logger(d)
+            logger.define_columns_from_handles([self.w1, self.w2])
+            logger.start()
+
+            t0 = self.dt_zero
+            # First write: only w1 data, nothing should flush yet
+            logger.write([
+                self._make_update(self.w1, 10.0, t0 + timedelta(seconds=1)),
+                self._make_update(self.w1, 20.0, t0 + timedelta(seconds=2)),
+            ])
+
+            # Second write: w2 data arrives, now safe to flush up to t=2
+            logger.write([
+                self._make_update(self.w2, 100, t0 + timedelta(seconds=1)),
+                self._make_update(self.w2, 200, t0 + timedelta(seconds=2)),
+            ])
+
+            # Third write: advance both to t=3
+            logger.write([
+                self._make_update(self.w1, 30.0, t0 + timedelta(seconds=3)),
+                self._make_update(self.w2, 300, t0 + timedelta(seconds=3)),
+            ])
+
+            logger.stop()
+
+            rows = self._read_csv(os.path.join(d, 'test_output.csv'))
+            data_rows = rows[2:]
+            self.assertEqual(len(data_rows), 3)
+
+            self.assertEqual(data_rows[0][2], 10.0)
+            self.assertEqual(data_rows[0][3], 100)
+            self.assertEqual(data_rows[1][2], 20.0)
+            self.assertEqual(data_rows[1][3], 200)
+            self.assertEqual(data_rows[2][2], 30.0)
+            self.assertEqual(data_rows[2][3], 300)
+
+    def test_non_monotonic_batches_update_flags(self):
+        # Update flags correctly reflect which columns were updated after reordering
+        with TemporaryDirectory() as d:
+            logger = self._make_logger(d)
+            logger.define_columns_from_handles([self.w1, self.w2])
+            logger.start()
+
+            t0 = self.dt_zero
+            updates = [
+                self._make_update(self.w1, 10.0, t0 + timedelta(seconds=1)),
+                self._make_update(self.w1, 20.0, t0 + timedelta(seconds=2)),
+                self._make_update(self.w2, 100, t0 + timedelta(seconds=1)),
+                self._make_update(self.w2, 200, t0 + timedelta(seconds=2)),
+            ]
+            logger.write(updates)
+            logger.stop()
+
+            rows = self._read_csv(os.path.join(d, 'test_output.csv'))
+            data_rows = rows[2:]
+            flags_col = len(rows[1]) - 1
+
+            self.assertEqual(data_rows[0][flags_col], '1,1')
+            self.assertEqual(data_rows[1][flags_col], '1,1')
+
+    def test_buffered_data_not_flushed_until_all_signals_report(self):
+        # Data stays buffered until every signal has provided at least one update.
+        # Verified by checking the internal buffer length
+        with TemporaryDirectory() as d:
+            logger = self._make_logger(d)
+            logger.define_columns_from_handles([self.w1, self.w2])
+            logger.start()
+
+            t0 = self.dt_zero
+            # Only w1 reports, data should stay in the buffer
+            logger.write([
+                self._make_update(self.w1, 10.0, t0 + timedelta(seconds=1)),
+                self._make_update(self.w1, 20.0, t0 + timedelta(seconds=2)),
+            ])
+            self.assertEqual(len(logger._update_buffer), 2)
+
+            # Now w2 reports, buffer should flush up to safe_x
+            logger.write([
+                self._make_update(self.w2, 100, t0 + timedelta(seconds=1)),
+                self._make_update(self.w2, 200, t0 + timedelta(seconds=3)),
+            ])
+            # safe_x = min(2, 3) = 2, so entries at t=1 and t=2 are flushed, t=3 stays buffered
+            self.assertEqual(len(logger._update_buffer), 1)
+
+            logger.stop()
+
+            rows = self._read_csv(os.path.join(d, 'test_output.csv'))
+            data_rows = rows[2:]
+            self.assertGreater(len(data_rows), 0)
+
     # --- Conflicting files detection ---
 
     def test_get_conflicting_files(self):
