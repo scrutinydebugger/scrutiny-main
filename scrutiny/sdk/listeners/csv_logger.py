@@ -26,6 +26,14 @@ from typing import TextIO
 
 PossibleVal = Optional[Union[str, float, int, bool]]
 
+@dataclass(slots=True)
+class BufferEntry:
+    reltime: float
+    insertion_order: int
+    signal_id: str
+    value: PossibleVal
+    is_new_val: bool
+
 
 @dataclass(frozen=True, slots=True)
 class CSVConfig:
@@ -84,6 +92,9 @@ class CSVLogger:
     _actual_vals: List[PossibleVal]
     _actual_x: float
     _new_val_flags: List[bool]
+    _update_buffer: List[BufferEntry]
+    _latest_x_per_signal: Dict[str, float]
+    _insertion_counter: int
 
     def __init__(self,
                  folder: str,
@@ -167,7 +178,9 @@ class CSVLogger:
         self._actual_x = 0
         self._column_map = {}
         self._new_val_flags = []
-        self.monotonic_timestamps_warning_given = False
+        self._update_buffer = []
+        self._latest_x_per_signal = {}
+        self._insertion_counter = 0
         if file_headers is None:
             file_headers = []
         self.set_file_headers(file_headers)
@@ -234,14 +247,17 @@ class CSVLogger:
 
         self._started = True
         self._actual_file_number = 0
-        self.monotonic_timestamps_warning_given = False
         self._new_val_flags = [False] * len(self._column_descriptors)
+        self._update_buffer = []
+        self._latest_x_per_signal = {}
+        self._insertion_counter = 0
 
         self._open_and_prepare_file()
 
     def stop(self) -> None:
         """Stops the CSV logger. Closes the currently open file and prevents any further logging"""
         if self._started:
+            self._flush_buffered_up_to(float('inf'))
             self._flush_row()
         self._csv_writer = None
         if self._actual_file_handle is not None:
@@ -254,6 +270,7 @@ class CSVLogger:
 
     def write(self, updates: List[BaseUpdate], signal_id_list: Optional[List[str]] = None) -> None:
         """Write a sequence of :class:`ValueUpdate<scrutiny.sdk.listeners.ValueUpdate>` to the CSV output.
+        Updates are buffered and only flushed when all signals have provided a timestamp newer than the oldest buffered row.
 
         :param updates: A list of :class:`ValueUpdate<scrutiny.sdk.listeners.ValueUpdate>` given by a listener
         :param signal_id_list: A list of ID to map the value updates to the right column. If not specified, the watchable :attr:`server_id<scrutiny.sdk.watchable_handle.WatchableHandler.server_id>` will
@@ -275,27 +292,58 @@ class CSVLogger:
         def get_reltime(val: BaseUpdate) -> float:    # A getter to get the relative timestamp
             return (val.update_timestamp - tstart).total_seconds()
 
+        # Buffer all incoming updates
         for i in range(len(updates)):
             update = updates[i]
             signal_id = update.get_id() if signal_id_list is None else signal_id_list[i]
-            col_index = self._column_map[signal_id]
             x = get_reltime(update)
-            if x > self._actual_x:
+
+            value: PossibleVal = update.value
+            is_new_val = update.value is not None
+            if is_new_val and update.get_datatype().is_bool() and self._convert_bool_to_int:
+                value = int(update.value)
+
+            self._update_buffer.append(BufferEntry(x, self._insertion_counter, signal_id, value, is_new_val))
+            self._insertion_counter += 1
+            self._latest_x_per_signal[signal_id] = max(self._latest_x_per_signal.get(signal_id, x), x)
+
+        # Only flush when all signals have reported at least once
+        if len(self._latest_x_per_signal) < len(self._column_map):
+            return
+
+        # We can receive data in batch: A1, A2, A3, B1, B2, B3, C1, C2
+        # safe_x is the highest time where all entries have data. It would be "2" in the example above because of C2.
+        safe_x = min(self._latest_x_per_signal.values())
+        self._flush_buffered_up_to(safe_x)
+
+    def _flush_buffered_up_to(self, safe_x: float) -> None:
+        """Sort the buffer and process all entries with reltime <= safe_x into CSV rows"""
+        assert self._csv_writer is not None
+
+        self._update_buffer.sort(key=lambda entry: (entry.reltime, entry.insertion_order))
+
+        remaining_start = len(self._update_buffer)
+        for idx, entry in enumerate(self._update_buffer):
+            if entry.reltime > safe_x:
+                remaining_start = idx
+                break
+
+            col_index = self._column_map[entry.signal_id]
+            if entry.reltime > self._actual_x:
                 self._flush_row()
                 self._line_counter += 1
-                self._actual_x = x
+                self._actual_x = entry.reltime
                 if self._lines_per_file is not None and self._line_counter >= self._lines_per_file:
                     self._switch_to_next_file()
-            elif x < self._actual_x:
-                if not self.monotonic_timestamps_warning_given:
-                    self._logger.warning("Non monotonic timestamps encountered")
-                    self.monotonic_timestamps_warning_given = True
 
-            self._actual_vals[col_index] = update.value
-            if update.value is not None:
-                if update.get_datatype().is_bool() and self._convert_bool_to_int:
-                    self._actual_vals[col_index] = int(update.value)
-            self._new_val_flags[col_index] = True
+            self._actual_vals[col_index] = entry.value
+            if entry.is_new_val:
+                self._new_val_flags[col_index] = True
+        else:
+            # All entries were processed (no break)
+            remaining_start = len(self._update_buffer)
+
+        self._update_buffer = self._update_buffer[remaining_start:]
 
     def _flush_row(self) -> None:
         assert self._csv_writer is not None
