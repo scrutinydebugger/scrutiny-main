@@ -729,7 +729,7 @@ class BaseHMIWidget(QGraphicsItem):
                 if watchable is None:
                     return None
 
-                if not self._app.watchable_registry.is_watchable_fqn(watchable.fqn):
+                if not self._app.watchable_registry.is_watchable_fully_available_fqn(watchable.fqn):
                     return None
 
                 vslot.last_value_drawn = vslot.get_val()

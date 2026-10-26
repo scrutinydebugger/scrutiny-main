@@ -605,6 +605,9 @@ class WatchableRegistry:
             node = self.read_server_storage(parsed.node_type.to_sdk(), parsed.path)
             return isinstance(node, ServerStorageEntryNode)
 
+    def is_watchable_fully_available_fqn(self, fqn: str) -> bool:
+        return self.get_node_config_if_fully_available_fqn(fqn) is not None
+
     def clear_content_by_type(self, node_types: Union[RegistryNodeType, Iterable[RegistryNodeType]]) -> bool:
         """Clear the content of the given registry node types. Handles both server node types (Variable/Alias/RPV) and Math."""
         math_changed = False
@@ -776,6 +779,11 @@ class WatchableRegistry:
     def get_all_math_watchables(self) -> Generator[Tuple[str, GUIMathWatchable], None, None]:
         for proxy in self._math_storage.values():
             yield (proxy.get_signature(), proxy.math_watchable)
+
+    def find_equivalent_math_watchables(self, math_watchable: GUIMathWatchable) -> Generator[GUIMathWatchable, None, None]:
+        for signature, candidate in self.get_all_math_watchables():
+            if math_watchable.is_equivalent(candidate):
+                yield candidate
 
 # end region
 

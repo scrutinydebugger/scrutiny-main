@@ -304,7 +304,8 @@ class CSVLogger:
             value: PossibleVal = update.value
             is_new_val = update.value is not None
             if is_new_val and update.get_datatype().is_bool() and self._convert_bool_to_int:
-                value = int(update.value)
+                if isinstance(update.value, (int, bool)):  # paranoid check. Should happen only if the server is drunk
+                    value = int(update.value)
 
             self._update_buffer.append(BufferEntry(x, self._insertion_counter, signal_id, value, is_new_val))
             self._insertion_counter += 1

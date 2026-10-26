@@ -1815,8 +1815,6 @@ class API:
                 raise InvalidRequestException(req, 'Unknown operand type')
 
         signals_to_log: List[Union[api_datalogging.SignalDefinitionWithAxis, api_datalogging.MathSignalDefinitionWithAxis]] = []
-        if len(req['signals']) == 0:
-            raise InvalidRequestException(req, 'Missing watchable to log')
 
         if not isinstance(req['yaxes'], list):
             raise InvalidRequestException(req, "Invalid Y-Axis list")
@@ -1855,7 +1853,6 @@ class API:
                 axis=yaxis_map[signal_def['axis_id']]
             ))
 
-        math_signals_to_log: List[api_datalogging.MathSignalDefinitionWithAxis] = []
         if 'math_signals' not in req:
             req['math_signals'] = []
 
@@ -1904,6 +1901,9 @@ class API:
                 expr=math_signal['expr'],
                 variables=vars_with_entry
             ))
+
+        if len(signals_to_log) == 0:
+            raise InvalidRequestException(req, 'Missing watchable to log')
 
         acq_name: Optional[str] = None
         if 'name' in req:

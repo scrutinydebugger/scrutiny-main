@@ -118,7 +118,7 @@ class MathTreeModel(BaseTreeModelWithStyle):
                 if fqn_name_pair is None:
                     continue  # Should not happen
 
-                if not self._watchable_registry.is_watchable_fqn(fqn_name_pair.fqn):
+                if not self._watchable_registry.is_watchable_fully_available_fqn(fqn_name_pair.fqn):
                     is_available = False
 
             if is_available:

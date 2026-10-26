@@ -293,8 +293,8 @@ class TestCSVLogger(ScrutinyUnitTest):
             logger.define_columns_from_handles([self.w3])
             logger.start()
 
-            updates = [self._make_update(self.w3, 1.23, self.dt_zero)]
-            updates = [self._make_update(self.w3, 1.23, self.dt_zero + timedelta(seconds=1))]
+            updates = [self._make_update(self.w3, False, self.dt_zero)]
+            updates = [self._make_update(self.w3, True, self.dt_zero + timedelta(seconds=1))]
             logger.write(updates)
 
             logger.stop()

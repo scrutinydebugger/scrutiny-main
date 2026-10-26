@@ -136,7 +136,7 @@ class MathSignalConfig:
     expr: str
     variables: Dict[str, str]
 
-    def __init__(self, expr: str, variables: Optional[Dict[str, Union[str, WatchableHandle]]] = None):
+    def __init__(self, expr: str, variables: Optional[Mapping[str, Union[str, WatchableHandle]]] = None):
         MathParser(expr)    # Validate. Can raise MathParsingError
         self.expr = expr
         self.variables = {}

@@ -358,7 +358,7 @@ class GraphSignalModel(BaseTreeModelWithStyle):
         """Change the availability of an item based on its availability in the registry.
         When the watchable referred by an element is not in the registry, becomes "unavailable" (grayed out).
         """
-        if self._watchable_registry.is_watchable_fqn(series_item.fqn):
+        if self._watchable_registry.is_watchable_fully_available_fqn(series_item.fqn):
             self.set_available(series_item)
         else:
             self.set_unavailable(series_item)
@@ -390,7 +390,7 @@ class GraphSignalModel(BaseTreeModelWithStyle):
                 signal_item = axis.child(j, self.watchable_col())
                 assert isinstance(signal_item, ChartSeriesWatchableStandardItem)
 
-                if not self._watchable_registry.is_watchable_fqn(signal_item.fqn):
+                if self._watchable_registry.get_node_config_if_fully_available_fqn(signal_item.fqn) is None:
                     return True
         return False
 

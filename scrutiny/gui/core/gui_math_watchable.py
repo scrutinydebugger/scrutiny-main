@@ -9,11 +9,14 @@
 
 from scrutiny.tools.typing import *
 from dataclasses import dataclass
+from scrutiny.sdk import datalogging
 from scrutiny.core.math_parser import MathParser, MathParsingError
+from scrutiny.core.basic_types import MathWatchable as core_MathWatchable
 from scrutiny.gui.core.fqn_name_pair import FqnNamePair, FqnNamePairDict
 from scrutiny.gui.core.watchable_registry.fqn import FQN
 from scrutiny.gui.core.watchable_registry.common import RegistryNodeType
 from scrutiny.tools import validation
+from scrutiny.core import path_tools
 import re
 import json
 import hashlib
@@ -172,6 +175,46 @@ class GUIMathWatchable:
             'variables': {k: v.to_dict() if v is not None else None for k, v in self.get_var_fqn_map().items()}
         }
 
+    def to_datalogging_config(self) -> Optional[datalogging.MathSignalConfig]:
+        if not self.is_fully_configured():
+            return None
+
+        var_dict: Dict[str, str] = {}
+        for varname, fqn_name_pair in self.get_var_fqn_map().items():
+            assert fqn_name_pair is not None
+            var_dict[varname] = FQN.parse(fqn_name_pair.fqn).path
+
+        return datalogging.MathSignalConfig(
+            expr=self.get_expr(),
+            variables=var_dict
+        )
+
+    def is_equivalent(self, other: "GUIMathWatchable") -> bool:
+        if self.normalize_expr(self._expr) != self.normalize_expr(other.get_expr()):
+            return False
+
+        # We drop the visual name given to the associated watchable. Hence the "equivalence"
+        fqn_map1 = {k: v.fqn if v is not None else None for k, v in self.get_var_fqn_map().items()}
+        fqn_map2 = {k: v.fqn if v is not None else None for k, v in other.get_var_fqn_map().items()}
+
+        if fqn_map1 != fqn_map2:
+            return False
+        return True
+
+    @classmethod
+    def from_core_def(cls, name: str, coredef: core_MathWatchable) -> Self:
+        instance = cls(
+            name=name,
+            expr=coredef.expr
+        )
+
+        for varname, watchable in coredef.watchables.items():
+            fqn = FQN.make(RegistryNodeType.from_sdk(watchable.type), watchable.path)
+            name = path_tools.make_segments(watchable.path)[-1]
+            instance.bind_watchable(varname, FqnNamePair(name, fqn))
+
+        return instance
+
     @classmethod
     def deserialize(cls, data: str) -> Self:
         return cls.from_dict(json.loads(data))
@@ -189,9 +232,13 @@ class GUIMathWatchable:
                 o.bind_watchable(name, FqnNamePair.from_dict(fqn_name))
         return o
 
+    @staticmethod
+    def normalize_expr(expr: str) -> str:
+        return re.sub(r"\s", "", expr)
+
     def signature(self) -> str:
         d = self.to_dict()
-        d['expr'] = re.sub(r"\s", "", d['expr'])
+        d['expr'] = self.normalize_expr(d['expr'])
         canonical = json.dumps(d, sort_keys=True)
         return hashlib.sha256(canonical.encode('utf-8')).hexdigest()
 
