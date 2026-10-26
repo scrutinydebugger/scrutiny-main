@@ -98,6 +98,7 @@ class MathParser:
     _vars: Dict[str, float]
     _required_funcs: Set[str]
     _required_vars: Set[str]
+    _ordered_vars: List[str]
     _eval_func: Optional[Callable[[], float]]
 
     def __init__(self, expr: str) -> None:
@@ -106,14 +107,15 @@ class MathParser:
         self._vars = {}
         self._required_funcs = set()
         self._required_vars = set()
+        self._ordered_vars = []
         self._eval_func = self._parse_expr().const_fold()
         self._skip_whitespace()
 
         if self._has_next():
             raise MathParsingError(f"Unexpected character found: '{self._peek()}' at index {self._index}")
 
-    def get_vars(self) -> Set[str]:
-        return self._required_vars
+    def get_vars(self) -> List[str]:
+        return list(self._ordered_vars)
 
     def get_functions(self) -> Set[str]:
         return self._required_funcs
@@ -330,7 +332,9 @@ class MathParser:
         if var_str == '':
             raise MathParsingError(f'Unexpected character at {self._index}')
 
-        self._required_vars.add(var_str)
+        if var_str not in self._required_vars:
+            self._required_vars.add(var_str)
+            self._ordered_vars.append(var_str)
         return ParseResult(func=functools.partial(self._lookup_var, var_str), is_const=False)
 
     def _parse_literal(self) -> ParseResult:

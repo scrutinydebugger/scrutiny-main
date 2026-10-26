@@ -138,6 +138,7 @@ class MathWatchableEditor(QWidget):
                 if not keep_unset_var:
                     wline_edit.clear()
 
+        self._reorder_var_rows(list(var_fqn_map.keys()))
         self._update_feedback(math_watchable)
         self._update_visibility()
 
@@ -260,6 +261,20 @@ class MathWatchableEditor(QWidget):
         wline_edit.signals.watchable_dropped.disconnect()
         self._variable_list_form_layout.removeRow(row_to_delete)
         del self._var_to_wlineedit_map[var_name]
+
+    def _reorder_var_rows(self, ordered_names: List[str]) -> None:
+        for target_index, var_name in enumerate(ordered_names):
+            wline_edit = self._var_to_wlineedit_map[var_name]
+            for row_index in range(self._variable_list_form_layout.rowCount()):
+                item = self._variable_list_form_layout.itemAt(row_index, QFormLayout.ItemRole.FieldRole)
+                if item is not None and item.widget() is wline_edit:
+                    if row_index != target_index:
+                        taken = self._variable_list_form_layout.takeRow(row_index)
+                        label_widget = taken.labelItem.widget()
+                        field_widget = taken.fieldItem.widget()
+                        assert label_widget is not None and field_widget is not None
+                        self._variable_list_form_layout.insertRow(target_index, label_widget, field_widget)
+                    break
 
     def _watchable_line_edit_changed_slot(self, wline_edit: WatchableLineEdit, fqn: str) -> None:
         wline_edit.set_default_state()

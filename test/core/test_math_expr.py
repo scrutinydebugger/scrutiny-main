@@ -288,6 +288,12 @@ class TestMathExpr(ScrutinyUnitTest):
                 with self.assertRaises(MathParsingError, msg=expr):
                     parse_math_expr(expr)
 
+    def test_get_vars_ordered_by_appearance(self):
+        self.assertEqual(MathParser('z + a + b * c - x').get_vars(), ['z', 'a', 'b', 'c', 'x'])
+        self.assertEqual(MathParser('x + y + x + y + z').get_vars(), ['x', 'y', 'z'])
+        self.assertEqual(MathParser('sin(a) + b * cos(c) - a').get_vars(), ['a', 'b', 'c'])
+        self.assertEqual(MathParser('1 + 2 * 3').get_vars(), [])
+
     def test_eval_error(self):
         with self.assertRaises(MathEvalError):
             MathParser('1+a+b').eval({'a': 1})
