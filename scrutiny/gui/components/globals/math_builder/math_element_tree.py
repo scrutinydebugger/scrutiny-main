@@ -59,6 +59,13 @@ class MathTreeModel(BaseTreeModelWithStyle):
         self.setColumnCount(len(self.HEADERS))
         self.setHorizontalHeaderLabels(self.HEADERS)
 
+    def find_item_by_fqn(self, fqn: str) -> Optional[WatchableStandardItem]:
+        for row_index in range(self.rowCount()):
+            math_item = cast(MathStandardItem, self.item(row_index, Cols.ItemOrVar))
+            if math_item.fqn == fqn:
+                return math_item
+        return None
+
     def sync_with_registry(self) -> None:
         all_math = {signature: math_watchable for signature, math_watchable in self._watchable_registry.get_all_math_watchables()}
         to_remove: List[MathStandardItem] = []
@@ -111,7 +118,7 @@ class MathTreeModel(BaseTreeModelWithStyle):
                 if fqn_name_pair is None:
                     continue  # Should not happen
 
-                if not self._watchable_registry.is_watchable_fqn(fqn_name_pair.fqn):
+                if not self._watchable_registry.is_watchable_fully_available_fqn(fqn_name_pair.fqn):
                     is_available = False
 
             if is_available:
@@ -198,6 +205,9 @@ class MathTreeView(BaseTreeView):
     @property
     def signals(self) -> _Signals:
         return self._signals
+
+    def find_item_by_fqn(self, fqn: str) -> Optional[WatchableStandardItem]:
+        return self._model.find_item_by_fqn(fqn)
 
     def get_fqn_from_row(self, row_index: int) -> Optional[str]:
         return self._model.get_fqn_from_row(row_index)

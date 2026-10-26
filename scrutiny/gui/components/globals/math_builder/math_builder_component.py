@@ -8,11 +8,13 @@
 
 import logging
 from PySide6.QtWidgets import QVBoxLayout, QPushButton, QWidget, QHBoxLayout, QSplitter, QGroupBox
-from PySide6.QtCore import Qt, QModelIndex, QItemSelection, SignalInstance
+from PySide6.QtCore import Qt, QModelIndex, QItemSelection, SignalInstance, QItemSelectionModel
 from PySide6.QtGui import QIcon
+from scrutiny.gui.widgets.feedback_label import FeedbackLabel
 from scrutiny.gui.core.gui_math_watchable import GUIMathWatchable
 from scrutiny.gui.core.watchable_registry.common import RegistryNodeType
 from scrutiny.gui.core.watchable_registry.fqn import FQN
+from scrutiny.gui.core.watchable_registry.errors import WatchableRegistryError
 from scrutiny.gui.components.globals.base_global_component import ScrutinyGUIBaseGlobalComponent
 from scrutiny.gui.components.globals.math_builder.math_element_tree import MathTreeView
 from scrutiny.gui.components.globals.math_builder.math_watchable_editor import MathWatchableEditor
@@ -49,8 +51,21 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
     """A state variable keeping track of what registry entry was put in the editor for modification."""
     _signals_connected: List[Tuple[SignalInstance, object]]
     """A list of signals to disconnect in teardown"""
+    _lbl_commit_error: FeedbackLabel
+
+# region Public
+
+    def reveal_fqn(self, fqn: str) -> None:
+        item = self._math_tree.find_item_by_fqn(fqn)
+        if item is None:
+            return
+        self._math_tree.collapseAll()
+        self._math_tree.selectionModel().setCurrentIndex(item.index(), QItemSelectionModel.SelectionFlag.ClearAndSelect | QItemSelectionModel.SelectionFlag.Rows)
+
+# end region
 
 # region Overrides
+
     @classmethod
     def get_icon(cls) -> QIcon:
         return scrutiny_get_theme().load_medium_icon(assets.Icons.F_x)
@@ -70,6 +85,7 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
         self._btn_close.setEnabled(True)
         self._splitter = QSplitter(Qt.Orientation.Vertical)
         self._splitter.setContentsMargins(0, 0, 0, 0)
+        self._lbl_commit_error = FeedbackLabel()
 
         upper_button_container = QWidget()
         upper_button_container_layout = QHBoxLayout(upper_button_container)
@@ -97,6 +113,7 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
 
         lower_part_layout.addWidget(self._editor)
         lower_part_layout.addWidget(lower_button_container)
+        lower_part_layout.addWidget(self._lbl_commit_error)
 
         self._splitter.addWidget(upper_part)
         self._splitter.addWidget(lower_part)
@@ -155,11 +172,9 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
             tools.log_exception(self.logger, e, "Failed to load math elements", str_level=logging.WARNING)
             all_good = False
 
-        for math_watchable in math_watchables:
-            existing_node = self.app.watchable_registry.get_math_watchable_node(math_watchable.signature())
-            if existing_node is None:
-                self.app.watchable_registry.add_math_watchable(math_watchable)
-
+        to_add = [mw for mw in math_watchables if self.app.watchable_registry.get_math_watchable_node(mw.signature()) is None]
+        self.app.watchable_registry.add_math_watchables(to_add)
+        self._math_tree.sync_with_registry()
         return all_good
 
 # end region
@@ -180,7 +195,20 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
 
     def commit(self) -> None:
         """Validates and commits the editor content to the registry"""
-        self._btn_commit_clicked_slot()
+        self._editor.validate()
+        math_watchable = self._editor.get_if_fully_configured()
+        if math_watchable is None:
+            return
+
+        try:
+            if self._watchable_being_edited_fqn is None:
+                self.app.watchable_registry.add_math_watchable(math_watchable)
+            else:
+                self.app.watchable_registry.update_math_watchable_fqn(self._watchable_being_edited_fqn, math_watchable)
+            self._lbl_commit_error.clear()
+            self._stop_edit()
+        except WatchableRegistryError as e:
+            self._lbl_commit_error.set_error(str(e))
 
     def start_edit_by_fqn(self, fqn: str) -> None:
         """Loads the math watchable identified by fqn into the editor for modification"""
@@ -222,17 +250,7 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
 
     def _btn_commit_clicked_slot(self) -> None:
         """Validates the editor and adds or updates the math watchable in the registry"""
-        self._editor.validate()
-        math_watchable = self._editor.get_if_fully_configured()
-        if math_watchable is None:
-            return
-
-        if self._watchable_being_edited_fqn is None:
-            self.app.watchable_registry.add_math_watchable(math_watchable)
-        else:
-            self.app.watchable_registry.update_math_watchable_fqn(self._watchable_being_edited_fqn, math_watchable)
-
-        self._stop_edit()
+        self.commit()
 
     def _btn_close_clicked_slot(self) -> None:
         """Clears the editor and hides it"""
@@ -291,11 +309,13 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
         """Loads a math watchable into the editor and tracks it for update on commit"""
         self._editor.load(math_watchable)
         self._watchable_being_edited_fqn = FQN.make(RegistryNodeType.Math, math_watchable.signature())
+        self._lbl_commit_error.clear()
         self._show_editor(True)
 
     def _stop_edit(self) -> None:
         """Clears the editor and resets the edit tracking state"""
         self._editor.clear()
+        self._lbl_commit_error.clear()
         self._watchable_being_edited_fqn = None
 
     def _stop_edit_and_hide(self) -> None:

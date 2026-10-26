@@ -1201,5 +1201,65 @@ class TestWatchableRegistryMath(ScrutinyUnitTest):
         self.assertTrue(self.registry.clear())  # This function may log critical messages, which make a test fail.
         self.assertEqual(self.registry.get_registry_node_count(RegistryNodeType.Math), 0)
 
+    def test_is_watchable_fully_available_fqn_server_node(self):
+        self.assertTrue(self.registry.is_watchable_fully_available_fqn(FQN.make(RegistryNodeType.Variable, "/a/b/c")))
+        self.assertFalse(self.registry.is_watchable_fully_available_fqn(FQN.make(RegistryNodeType.Variable, "/nonexistent")))
+
+    def test_is_watchable_fully_available_fqn_math_all_deps_present(self):
+        # w1 depends on /a/b/c and /a/b/d which are both in the registry
+        self.assertTrue(self.registry.is_watchable_fully_available_fqn(self.w1.make_fqn()))
+
+    def test_is_watchable_fully_available_fqn_math_missing_dep(self):
+        w_missing = GUIMathWatchable("missing_dep", "v1+v2")
+        w_missing.bind_watchable("v1", FqnNamePair("v1", FQN.make(RegistryNodeType.Variable, '/a/b/c')))
+        w_missing.bind_watchable("v2", FqnNamePair("v2", FQN.make(RegistryNodeType.Variable, '/nonexistent')))
+        self.registry.add_math_watchable(w_missing)
+
+        self.assertFalse(self.registry.is_watchable_fully_available_fqn(w_missing.make_fqn()))
+
+        # Add the missing variable, now it should be fully available
+        self.registry.write_server_content({
+            sdk.WatchableType.Variable: {
+                "/a/b/c": sdk.BriefWatchableConfiguration(sdk.WatchableType.Variable, sdk.EmbeddedDataType.float32, enum=None),
+                "/a/b/d": sdk.BriefWatchableConfiguration(sdk.WatchableType.Variable, sdk.EmbeddedDataType.float32, enum=None),
+                "/a/b/e": sdk.BriefWatchableConfiguration(sdk.WatchableType.Variable, sdk.EmbeddedDataType.float32, enum=None),
+                "/nonexistent": sdk.BriefWatchableConfiguration(sdk.WatchableType.Variable, sdk.EmbeddedDataType.float32, enum=None),
+            }
+        })
+        self.assertTrue(self.registry.is_watchable_fully_available_fqn(w_missing.make_fqn()))
+
+    def test_find_equivalent_math_watchables_match(self):
+        # w1 is "v1+v2" bound to /a/b/c and /a/b/d
+        w_equiv = GUIMathWatchable("different_name", "v1 + v2")
+        w_equiv.bind_watchable("v1", FqnNamePair("other_display", FQN.make(RegistryNodeType.Variable, '/a/b/c')))
+        w_equiv.bind_watchable("v2", FqnNamePair("other_display2", FQN.make(RegistryNodeType.Variable, '/a/b/d')))
+
+        results = list(self.registry.find_equivalent_math_watchables(w_equiv))
+        self.assertEqual(len(results), 1)
+        self.assertIs(results[0], self.w1)
+
+    def test_find_equivalent_math_watchables_no_match(self):
+        w_no_match = GUIMathWatchable("no_match", "v1-v2")
+        w_no_match.bind_watchable("v1", FqnNamePair("A", FQN.make(RegistryNodeType.Variable, '/a/b/c')))
+        w_no_match.bind_watchable("v2", FqnNamePair("B", FQN.make(RegistryNodeType.Variable, '/a/b/d')))
+
+        results = list(self.registry.find_equivalent_math_watchables(w_no_match))
+        self.assertEqual(len(results), 0)
+
+    def test_find_equivalent_math_watchables_multiple_matches(self):
+        # Add a second watchable equivalent to w1 but with a different name (different signature)
+        w1_clone = GUIMathWatchable("clone_of_w1", "v1+v2")
+        w1_clone.bind_watchable("v1", FqnNamePair("v1", FQN.make(RegistryNodeType.Variable, '/a/b/c')))
+        w1_clone.bind_watchable("v2", FqnNamePair("v2", FQN.make(RegistryNodeType.Variable, '/a/b/d')))
+        self.registry.add_math_watchable(w1_clone)
+
+        w_search = GUIMathWatchable("search", "v1+v2")
+        w_search.bind_watchable("v1", FqnNamePair("x", FQN.make(RegistryNodeType.Variable, '/a/b/c')))
+        w_search.bind_watchable("v2", FqnNamePair("y", FQN.make(RegistryNodeType.Variable, '/a/b/d')))
+
+        results = list(self.registry.find_equivalent_math_watchables(w_search))
+        self.assertEqual(len(results), 2)
+        self.assertCountEqual(results, [self.w1, w1_clone])
+
     def tearDown(self):
         super().tearDown()

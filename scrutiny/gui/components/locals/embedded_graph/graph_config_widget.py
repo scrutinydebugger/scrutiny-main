@@ -555,7 +555,7 @@ class GraphConfigWidget(QWidget):
                     output.error = f"Invalid trigger condition operand #{i + 1}"
                     return output
 
-                if not self._watchable_registry.is_watchable_fqn(fqn_and_name.fqn):
+                if not self._watchable_registry.is_watchable_fully_available_fqn(fqn_and_name.fqn):
                     output.error = f"Watchable in trigger condition operand #{i + 1} is not available"
                     output.valid = False
                     return output
@@ -590,7 +590,7 @@ class GraphConfigWidget(QWidget):
                 output.error = "Invalid X-Axis signal"
                 return output
 
-            if not self._watchable_registry.is_watchable_fqn(fqn_and_name.fqn):
+            if not self._watchable_registry.is_watchable_fully_available_fqn(fqn_and_name.fqn):
                 output.valid = False
                 output.error = "X-Axis signal is not available"
                 return output
@@ -656,8 +656,8 @@ class GraphConfigWidget(QWidget):
             if txtw_operand.is_watchable_mode():
                 watchable = txtw_operand.get_watchable()
                 assert watchable is not None
-                exist = self._watchable_registry.is_watchable_fqn(watchable.fqn)
-                txtw_operand.set_watchable_available(exist)
+                avail = self._watchable_registry.is_watchable_fully_available_fqn(watchable.fqn)
+                txtw_operand.set_watchable_available(avail)
 
     def get_txt_acquisition_name(self) -> QLineEdit:
         return self._txt_acquisition_name

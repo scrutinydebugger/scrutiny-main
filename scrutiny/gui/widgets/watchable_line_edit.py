@@ -128,14 +128,14 @@ class WatchableLineEdit(QLineEdit):
             if len(watchables.data) == 1:
                 watchable = watchables.data[0]
                 parsed_fqn = FQN.parse(watchable.fqn)
-                self.set_watchable_mode(node_type=parsed_fqn.node_type, path=parsed_fqn.path, name=watchable.text)
+                self.set_watchable_mode(node_type=parsed_fqn.node_type, string_id=parsed_fqn.string_id, name=watchable.text)
                 emit_drop_fqn = watchable.fqn
         super().dropEvent(event)
 
         if emit_drop_fqn is not None:
             self._signals.watchable_dropped.emit(emit_drop_fqn)
 
-    def set_watchable_mode(self, node_type: RegistryNodeType, path: str, name: str, available: bool = True) -> None:
+    def set_watchable_mode(self, node_type: RegistryNodeType, string_id: str, name: str, available: bool = True) -> None:
         """Sets this widget in watchable mode. in this mode, it display the watchable name with an icon and text edition
         is not possible. Only the clear button can alter it."""
         for action in list(self.actions()):  # Remove any previous left icon
@@ -147,7 +147,7 @@ class WatchableLineEdit(QLineEdit):
         self._mode = self.Mode.WATCHABLE
         self._adjust_watchable_mode_margins()
         self._loaded_watchable = FqnNamePair(
-            fqn=FQN.make(node_type, path),
+            fqn=FQN.make(node_type, string_id),
             name=name)
         self.set_watchable_available(available)
         self._update_cursor()

@@ -12,6 +12,8 @@ from scrutiny.gui.core.gui_math_watchable import GUIMathWatchable
 from scrutiny.gui.core.fqn_name_pair import FqnNamePair
 from scrutiny.gui.core.watchable_registry.fqn import FQN
 from scrutiny.gui.core.watchable_registry.common import RegistryNodeType
+from scrutiny.core.basic_types import Watchable as core_Watchable, MathWatchable as core_MathWatchable, WatchableType
+from scrutiny.sdk.datalogging import MathSignalConfig
 
 
 class TestGUIMathWatchable(ScrutinyUnitTest):
@@ -216,3 +218,126 @@ class TestGUIMathWatchable(ScrutinyUnitTest):
         self.assertTrue(test3.is_evaluable())
         self.assertIsNotNone(test3.eval())
         self.assertEqual(test3.get_val(), 3)
+
+    def test_signature_ignores_whitespace(self):
+        expressions = [
+            "a + b * sin(x)",
+            "a+b*sin(x)",
+            "a +b* sin( x )",
+            "  a  +  b  *  sin  (  x  )  ",
+            "a+b*sin(x)  ",
+            "  a+b*sin(x)",
+            "a\t+\tb\t*\tsin(\tx\t)",
+        ]
+
+        fqn_a = FqnNamePair('AAA', 'var:/a/a/a')
+        fqn_b = FqnNamePair('BBB', 'var:/a/a/b')
+        fqn_x = FqnNamePair('XXX', 'var:/a/a/x')
+
+        signatures = set()
+        for expr in expressions:
+            w = GUIMathWatchable('test', expr)
+            self.assertTrue(w.is_valid(), f"Expression should be valid: '{expr}'")
+            w.bind_watchable("a", fqn_a)
+            w.bind_watchable("b", fqn_b)
+            w.bind_watchable("x", fqn_x)
+            signatures.add(w.signature())
+
+        self.assertEqual(len(signatures), 1, f"All expressions should yield the same signature, got {len(signatures)}")
+
+    def test_export_to_datalogging_config(self):
+        w = GUIMathWatchable("test", "v1+v2")
+        w.bind_watchable("v1", FqnNamePair("AAA", FQN.make(RegistryNodeType.Variable, "/a/b/c")))
+        w.bind_watchable("v2", FqnNamePair("BBB", FQN.make(RegistryNodeType.Alias, "/x/y/z")))
+
+        cfg = w.to_datalogging_config()
+        self.assertIsNotNone(cfg)
+        self.assertIsInstance(cfg, MathSignalConfig)
+        self.assertEqual(cfg.expr, "v1+v2")
+        self.assertEqual(cfg.variables["v1"], "/a/b/c")
+        self.assertEqual(cfg.variables["v2"], "/x/y/z")
+
+    def test_export_to_datalogging_config_incomplete(self):
+        w = GUIMathWatchable("test", "v1+v2")
+        w.bind_watchable("v1", FqnNamePair("AAA", FQN.make(RegistryNodeType.Variable, "/a/b/c")))
+        # v2 not bound
+        self.assertIsNone(w.to_datalogging_config())
+
+    def test_load_from_core_def(self):
+        core_def = core_MathWatchable(
+            expr="v1+v2",
+            watchables={
+                "v1": core_Watchable(path="/a/b/ccc", type=WatchableType.Variable),
+                "v2": core_Watchable(path="/x/y/zzz", type=WatchableType.Alias),
+            }
+        )
+        gui_w = GUIMathWatchable.from_core_def("my_math", core_def)
+        self.assertEqual(gui_w.get_name(), "my_math")
+        self.assertEqual(gui_w.get_expr(), "v1+v2")
+        self.assertTrue(gui_w.is_fully_configured())
+
+        var_map = gui_w.get_var_fqn_map()
+        self.assertEqual(var_map["v1"].fqn, FQN.make(RegistryNodeType.Variable, "/a/b/ccc"))
+        self.assertEqual(var_map["v1"].name, "ccc")
+        self.assertEqual(var_map["v2"].fqn, FQN.make(RegistryNodeType.Alias, "/x/y/zzz"))
+        self.assertEqual(var_map["v2"].name, "zzz")
+
+    def test_load_from_core_def_roundtrip_to_datalogging(self):
+        core_def = core_MathWatchable(
+            expr="v1*2+v2",
+            watchables={
+                "v1": core_Watchable(path="/a/b/c", type=WatchableType.Variable),
+                "v2": core_Watchable(path="/d/e/f", type=WatchableType.Variable),
+            }
+        )
+        gui_w = GUIMathWatchable.from_core_def("roundtrip", core_def)
+        cfg = gui_w.to_datalogging_config()
+        self.assertIsNotNone(cfg)
+        self.assertEqual(cfg.expr, core_def.expr)
+        for varname, watchable in core_def.watchables.items():
+            self.assertEqual(cfg.variables[varname], watchable.path)
+
+    def test_equivalence_same_expr_same_bindings(self):
+        w1 = GUIMathWatchable("name_A", "v1 + v2")
+        w1.bind_watchable("v1", FqnNamePair("display1", FQN.make(RegistryNodeType.Variable, "/a/b/c")))
+        w1.bind_watchable("v2", FqnNamePair("display2", FQN.make(RegistryNodeType.Variable, "/a/b/d")))
+
+        w2 = GUIMathWatchable("name_B", "v1+v2")
+        w2.bind_watchable("v1", FqnNamePair("other_display", FQN.make(RegistryNodeType.Variable, "/a/b/c")))
+        w2.bind_watchable("v2", FqnNamePair("other_display2", FQN.make(RegistryNodeType.Variable, "/a/b/d")))
+
+        self.assertTrue(w1.is_equivalent(w2))
+        self.assertTrue(w2.is_equivalent(w1))
+
+    def test_equivalence_different_expr(self):
+        w1 = GUIMathWatchable("test", "v1+v2")
+        w1.bind_watchable("v1", FqnNamePair("A", FQN.make(RegistryNodeType.Variable, "/a/b/c")))
+        w1.bind_watchable("v2", FqnNamePair("B", FQN.make(RegistryNodeType.Variable, "/a/b/d")))
+
+        w2 = GUIMathWatchable("test", "v1*v2")
+        w2.bind_watchable("v1", FqnNamePair("A", FQN.make(RegistryNodeType.Variable, "/a/b/c")))
+        w2.bind_watchable("v2", FqnNamePair("B", FQN.make(RegistryNodeType.Variable, "/a/b/d")))
+
+        self.assertFalse(w1.is_equivalent(w2))
+
+    def test_equivalence_different_bindings(self):
+        w1 = GUIMathWatchable("test", "v1+v2")
+        w1.bind_watchable("v1", FqnNamePair("A", FQN.make(RegistryNodeType.Variable, "/a/b/c")))
+        w1.bind_watchable("v2", FqnNamePair("B", FQN.make(RegistryNodeType.Variable, "/a/b/d")))
+
+        w2 = GUIMathWatchable("test", "v1+v2")
+        w2.bind_watchable("v1", FqnNamePair("A", FQN.make(RegistryNodeType.Variable, "/a/b/c")))
+        w2.bind_watchable("v2", FqnNamePair("B", FQN.make(RegistryNodeType.Variable, "/a/b/DIFFERENT")))
+
+        self.assertFalse(w1.is_equivalent(w2))
+
+    def test_equivalence_ignores_display_names(self):
+        w1 = GUIMathWatchable("test", "v1+v2")
+        w1.bind_watchable("v1", FqnNamePair("DisplayA", FQN.make(RegistryNodeType.Variable, "/a/b/c")))
+        w1.bind_watchable("v2", FqnNamePair("DisplayB", FQN.make(RegistryNodeType.Variable, "/a/b/d")))
+
+        w2 = GUIMathWatchable("test", "v1+v2")
+        w2.bind_watchable("v1", FqnNamePair("XXXXX", FQN.make(RegistryNodeType.Variable, "/a/b/c")))
+        w2.bind_watchable("v2", FqnNamePair("YYYYY", FQN.make(RegistryNodeType.Variable, "/a/b/d")))
+
+        self.assertTrue(w1.is_equivalent(w2))

@@ -30,6 +30,7 @@ import typing
 @dataclass(slots=True)
 class WelcomeData:
     server_time_zero_timestamp: float
+    server_time_now: float
 
 
 @dataclass(slots=True)
@@ -1444,9 +1445,11 @@ def parse_welcome(msg: api_typing.S2C.Welcome) -> WelcomeData:
     assert cmd == API.Command.Api2Client.WELCOME
 
     _check_response_dict(cmd, msg, 'server_time_zero_timestamp', (float, int))
+    _check_response_dict(cmd, msg, 'server_time_now', (float, int))
 
     return WelcomeData(
-        server_time_zero_timestamp=float(msg['server_time_zero_timestamp'])
+        server_time_zero_timestamp=float(msg['server_time_zero_timestamp']),
+        server_time_now=float(msg['server_time_now'])
     )
 
 

@@ -159,7 +159,6 @@ class CriticalMessageMonitor(logging.Handler):
         super().__init__(level=logging.CRITICAL)
 
     def emit(self, record: logging.LogRecord):
-        print("miaou")
         self._critical_message.append(record.getMessage())
 
     def get(self) -> List[str]:

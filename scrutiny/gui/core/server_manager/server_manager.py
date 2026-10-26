@@ -404,10 +404,12 @@ class ServerManager:
             if isinstance(event, ScrutinyClient.Events.ConnectedEvent):
 
                 invoke_in_qt_thread_synchronized(self._registry.clear_all_server_content, timeout=3)
+                self._registry.set_server_timedelta_atomic(self._client.approx_server_time_delta)
                 self._signals.server_connected.emit()
                 self._allow_auto_reconnect = False    # Ensure we do not try to reconnect until the disconnect event is processed
             elif isinstance(event, ScrutinyClient.Events.DisconnectedEvent):
                 invoke_in_qt_thread_synchronized(self._registry.clear_all_server_content, timeout=3)
+                self._registry.set_server_timedelta_atomic(None)
                 self._signals.server_disconnected.emit()
                 self._allow_auto_reconnect = True  # Full cycle completed. We allow reconnecting
             elif isinstance(event, ScrutinyClient.Events.DeviceReadyEvent):

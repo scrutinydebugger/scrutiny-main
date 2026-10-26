@@ -1824,6 +1824,7 @@ class TestApiParser(ScrutinyUnitTest):
                 "cmd": "welcome",
                 "reqid": None,
                 "server_time_zero_timestamp": tnow,
+                "server_time_now": tnow,
             }
 
         with self.assertRaises(Exception):

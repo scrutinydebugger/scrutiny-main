@@ -25,10 +25,11 @@ from scrutiny import sdk
 from scrutiny.sdk import EmbeddedDataType
 from scrutiny.sdk.datalogging import (
     DataloggingConfig, DataloggingRequest, DataloggingAcquisition, XAxisType, FixedFreqSamplingRate,
-    DataloggingState, DataloggingStorageEntry, TriggerCondition
+    DataloggingState, DataloggingStorageEntry, TriggerCondition, MathSignalConfig
 )
 from scrutiny.sdk.client import ScrutinyClient
 from scrutiny.core.basic_types import Watchable as core_Watchable
+from scrutiny.core.basic_types import MathWatchable as core_MathWatchable
 
 from scrutiny.gui import assets
 from scrutiny.gui.themes import scrutiny_get_theme, scrutiny_get_theme_prop, ScrutinyThemeProperties
@@ -54,6 +55,7 @@ from scrutiny.gui.tools.invoker import invoke_in_qt_thread
 from scrutiny.gui.core.export_chart_csv import export_chart_csv_threaded
 from scrutiny.gui.core.watchable_registry.fqn import FQN
 from scrutiny.gui.core.watchable_registry.common import RegistryNodeType
+from scrutiny.gui.core.gui_math_watchable import GUIMathWatchable
 
 
 class DisplaySource(enum.Enum):
@@ -745,6 +747,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
 
 # region Chart handling
 
+
     def _clear_graph(self) -> None:
         """Remove the acquisition presently displayed in the chartview"""
         self._clear_graph_error()
@@ -845,16 +848,34 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
             axis_item = sdk2tree_axes[ydata.axis.axis_id]
 
             assert ydata.series.logged_element is not None
-            if not isinstance(ydata.series.logged_element, core_Watchable):
-                continue    # Skip Math expression for now.  TODO
+            if isinstance(ydata.series.logged_element, core_MathWatchable):
+                fallback_watchable = GUIMathWatchable.from_core_def(ydata.series.name, ydata.series.logged_element)
+                equivalence_with_same_name: Optional[GUIMathWatchable] = None
+                for equivalence in self.app.watchable_registry.find_equivalent_math_watchables(fallback_watchable):
+                    if equivalence.get_name() == fallback_watchable.get_name():
+                        equivalence_with_same_name = equivalence
+                        break
 
-            wpath = ydata.series.logged_element.path
-            node_type = RegistryNodeType.from_sdk(ydata.series.logged_element.type)
-            series_item = ChartSeriesWatchableStandardItem(
-                fqn=FQN.make(node_type, wpath),
-                node_type=node_type,
-                text=ydata.series.name
-            )
+                if equivalence_with_same_name is None:
+                    self.app.watchable_registry.add_math_watchable(fallback_watchable)
+                    equivalence_with_same_name = fallback_watchable
+
+                series_item = ChartSeriesWatchableStandardItem(
+                    fqn=equivalence_with_same_name.make_fqn(),
+                    node_type=RegistryNodeType.Math,
+                    text=ydata.series.name
+                )
+
+            elif isinstance(ydata.series.logged_element, core_Watchable):
+                wpath = ydata.series.logged_element.path
+                node_type = RegistryNodeType.from_sdk(ydata.series.logged_element.type)
+                series_item = ChartSeriesWatchableStandardItem(
+                    fqn=FQN.make(node_type, wpath),
+                    node_type=node_type,
+                    text=ydata.series.name
+                )
+            else:
+                raise NotImplementedError("Unsupported node type")
 
             axis_item.appendRow(signal_tree_model.make_watchable_item_row(series_item))
 
@@ -1159,10 +1180,29 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
             nb_signals += len(axis.signal_items)
             sdk_axis = result.config.add_axis(axis.axis_name)
             for signal_item in axis.signal_items:
+                parsed_fqn = FQN.parse(signal_item.fqn)
+                signal: Union[str, MathSignalConfig]
+                if parsed_fqn.node_type.is_server_node():
+                    signal = parsed_fqn.path
+                elif parsed_fqn.node_type == RegistryNodeType.Math:
+                    math_watchable = self.app.watchable_registry.get_math_watchable_node(parsed_fqn.math_signature)
+                    if math_watchable is None:
+                        self._acquire_feedback_label.set_error(f"Math item {signal_item.text()} missing")
+                        return
+
+                    datalogging_math = math_watchable.to_datalogging_config()
+                    if datalogging_math is None:
+                        self._acquire_feedback_label.set_error(f"Math item {signal_item.text()} is not complete")
+                        return
+
+                    signal = datalogging_math
+                else:
+                    raise NotImplementedError("Unsupported node type")
+
                 result.config.add_signal(
                     axis=sdk_axis,
                     name=signal_item.text(),
-                    signal=FQN.parse(signal_item.fqn).path
+                    signal=signal
                 )
 
         if nb_signals == 0:
