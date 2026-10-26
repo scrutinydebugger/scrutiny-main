@@ -848,7 +848,6 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
             axis_item = sdk2tree_axes[ydata.axis.axis_id]
 
             assert ydata.series.logged_element is not None
-            ydata.series.name
             if isinstance(ydata.series.logged_element, core_MathWatchable):
                 fallback_watchable = GUIMathWatchable.from_core_def(ydata.series.name, ydata.series.logged_element)
                 equivalence_with_same_name: Optional[GUIMathWatchable] = None

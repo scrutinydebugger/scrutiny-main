@@ -210,8 +210,8 @@ class GUIMathWatchable:
 
         for varname, watchable in coredef.watchables.items():
             fqn = FQN.make(RegistryNodeType.from_sdk(watchable.type), watchable.path)
-            name = path_tools.make_segments(watchable.path)[-1]
-            instance.bind_watchable(varname, FqnNamePair(name, fqn))
+            watchable_display_name = path_tools.make_segments(watchable.path)[-1]
+            instance.bind_watchable(varname, FqnNamePair(watchable_display_name, fqn))
 
         return instance
 

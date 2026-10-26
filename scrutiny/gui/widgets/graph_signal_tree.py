@@ -390,7 +390,7 @@ class GraphSignalModel(BaseTreeModelWithStyle):
                 signal_item = axis.child(j, self.watchable_col())
                 assert isinstance(signal_item, ChartSeriesWatchableStandardItem)
 
-                if self._watchable_registry.get_node_config_if_fully_available_fqn(signal_item.fqn) is None:
+                if self._watchable_registry.is_watchable_fully_available_fqn(signal_item.fqn):
                     return True
         return False
 
