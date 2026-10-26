@@ -13,7 +13,7 @@ import inspect
 import queue
 import threading
 from test import logger
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from scrutiny import sdk
 from scrutiny.sdk.client import WatchableListDownloadRequest, ScrutinyClient
@@ -565,3 +565,6 @@ class FakeSDKClient(tools.UnitTestStub):
         self._pending_change_update_rate_request.append(req)
         handle._set_requested_update_rate(update_rate)
         return update_rate
+
+    def approx_server_time_delta(self):
+        return timedelta()
