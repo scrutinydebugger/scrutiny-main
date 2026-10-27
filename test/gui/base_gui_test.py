@@ -13,6 +13,7 @@ from PySide6.QtCore import qInstallMessageHandler, QtMsgType, QMessageLogContext
 import enum
 import time
 import os
+import warnings
 from test import logger
 import logging
 import gc
@@ -66,10 +67,12 @@ def qt_message_handler(messagetype: QtMsgType, context: QMessageLogContext, msg:
 
 class ScrutinyBaseGuiTest(ScrutinyUnitTest):
     _tolerated_logs: List[Tuple[QtMsgType, str]]
+    _tolerated_python_warnings: List[Type[Warning]]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._tolerated_logs = []
+        self._tolerated_python_warnings = []
 
     def declare_event(self, event_type: EventType):
         logger.debug(f"Event: {event_type.name}")
@@ -78,7 +81,11 @@ class ScrutinyBaseGuiTest(ScrutinyUnitTest):
     def setUp(self) -> None:
         super().setUp()
         self._tolerated_logs.clear()
+        self._tolerated_python_warnings.clear()
         _QT_LOG_LIST.clear()
+        self._python_warnings_ctx = warnings.catch_warnings(record=True)
+        self._python_warnings_list = self._python_warnings_ctx.__enter__()
+        warnings.simplefilter("always")
         self.event_list: List[EventType] = []
         self.app = QApplication.instance()
         if self.app is None:
@@ -111,17 +118,27 @@ class ScrutinyBaseGuiTest(ScrutinyUnitTest):
             test is self for test, _ in result.failures + result.errors
         )
 
+        self._python_warnings_ctx.__exit__(None, None, None)
+
         if not test_already_failed:
             for qt_msg_type, qt_msg in _QT_LOG_LIST:
                 if qt_msg_type in [QtMsgType.QtCriticalMsg, QtMsgType.QtWarningMsg, QtMsgType.QtSystemMsg]:
                     if (qt_msg_type, qt_msg) not in self._tolerated_logs:
                         self.fail(f"QT logged a non-trivial message: [{qt_msg_type.name}]: {qt_msg}")
+            for w in self._python_warnings_list:
+                if issubclass(w.category, (DeprecationWarning, RuntimeWarning)):
+                    if not any(issubclass(w.category, tolerated) for tolerated in self._tolerated_python_warnings):
+                        self.fail(f"Python warning raised: [{w.category.__name__}] {w.message} ({w.filename}:{w.lineno})")
         _QT_LOG_LIST.clear()
         self._tolerated_logs.clear()
+        self._tolerated_python_warnings.clear()
         super().tearDown()
 
     def suppress_qt_log(self, msg_type: QtMsgType, msg: str):
         self._tolerated_logs.append((msg_type, msg))
+
+    def suppress_python_warning(self, category: Type[Warning]) -> None:
+        self._tolerated_python_warnings.append(category)
 
     def wait_equal(self, fn, val, timeout, no_assert=False, msg=""):
         t = time.perf_counter()
