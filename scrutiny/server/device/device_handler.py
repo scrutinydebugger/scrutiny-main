@@ -309,6 +309,9 @@ class DeviceHandler:
         """Register a callback to be called when the state of the device communication changes"""
         self.device_state_changed_callbacks.append(callback)
 
+    def unregister_device_state_change_callback(self, callback: DeviceStateChangedCallback) -> None:
+        self.device_state_changed_callbacks.remove(callback)
+
     def get_device_id(self) -> Optional[str]:
         """Returns the firmware ID of the connected device. None if not connected"""
         return self.device_id

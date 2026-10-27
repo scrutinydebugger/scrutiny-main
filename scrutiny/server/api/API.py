@@ -388,6 +388,8 @@ class API:
     """Last time temp files were pruned."""
     _sfd_upload_state: Dict[str, Dict[str, SfdUploadState]]
     """State of SFD uploads per connection."""
+    _opened:bool
+    """A flag to avoid double clean, make close() indempotent"""
 
     def __init__(self,
                  config: APIConfig,
@@ -468,6 +470,7 @@ class API:
         self.device_handler.register_device_state_change_callback(self.device_state_changed_callback)
         self.datalogging_manager.register_datalogging_state_change_callback(self.datalogging_state_changed_callback)
         self.datastore.add_batch_edit_callback(self._datastore_batch_edit_callback)
+        self._opened = True
 
     @classmethod
     def get_datatype_name(cls, datatype: EmbeddedDataType) -> api_typing.Datatype:
@@ -2474,7 +2477,15 @@ class API:
         return reqid
 
     def close(self) -> None:
-        self.client_handler.stop()
+        if self._opened:
+            self._opened = False
+            self.temp_dir.cleanup()
+            self.client_handler.stop()
+            self.sfd_handler.unregister_sfd_loaded_callback(self.sfd_loaded_callback)
+            self.sfd_handler.unregister_sfd_unloaded_callback(self.sfd_unloaded_callback)
+            self.device_handler.unregister_device_state_change_callback(self.device_state_changed_callback)
+            self.datalogging_manager.unregister_datalogging_state_change_callback(self.datalogging_state_changed_callback)
+            self.datastore.remove_batch_edit_callback(self._datastore_batch_edit_callback)
 
     def get_stats(self) -> Statistics:
         return self.Statistics(

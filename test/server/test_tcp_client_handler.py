@@ -183,12 +183,15 @@ class TestTCPClientHandler(ScrutinyUnitTest):
 
         s1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s1.connect((self.server_host, self.server_port))
-        s1.send(self.stream_maker.encode(self.serialize_dict({})))
+        try:
+            s1.send(self.stream_maker.encode(self.serialize_dict({})))
 
-        msg = self.handler.rx_queue.get(timeout=1)
+            msg = self.handler.rx_queue.get(timeout=1)
 
-        with self.assertRaises(Exception):
-            self.handler.send(ClientHandlerMessage(msg.conn_id, MyObj()))
+            with self.assertRaises(Exception):
+                self.handler.send(ClientHandlerMessage(msg.conn_id, MyObj()))
+        finally:
+            s1.close()
 
     def test_send_gone_client(self):
         s1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -207,26 +210,32 @@ class TestTCPClientHandler(ScrutinyUnitTest):
     def test_close_cleanup(self):
         s1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s1.connect((self.server_host, self.server_port))
-        s1.send(self.stream_maker.encode(self.serialize_dict({})))
+        try:
+            s1.send(self.stream_maker.encode(self.serialize_dict({})))
 
-        self.wait_true(lambda: self.handler.available(), 1)
-        self.handler.stop()
-        self.assertFalse(self.handler.available())
-        self.assertTrue(self.handler.rx_queue.empty())
+            self.wait_true(lambda: self.handler.available(), 1)
+            self.handler.stop()
+            self.assertFalse(self.handler.available())
+            self.assertTrue(self.handler.rx_queue.empty())
 
-        with self.assertRaises(OSError):
-            s1.send(b'123')  # Validate that we are not using TCP lingering
+            with self.assertRaises(OSError):
+                s1.send(b'123')  # Validate that we are not using TCP lingering
+        finally:
+            s1.close()
 
     def test_rx_event(self):
         s1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s1.connect((self.server_host, self.server_port))
-        self.assertFalse(self.rx_event.is_set())
-        s1.send(self.stream_maker.encode(self.serialize_dict({})))
+        try:
+            self.assertFalse(self.rx_event.is_set())
+            s1.send(self.stream_maker.encode(self.serialize_dict({})))
 
-        self.wait_true(lambda: self.rx_event.is_set(), 1)
-        self.rx_event.clear()
-        s1.send(self.stream_maker.encode(self.serialize_dict({})))
-        self.wait_true(lambda: self.rx_event.is_set(), 1)
+            self.wait_true(lambda: self.rx_event.is_set(), 1)
+            self.rx_event.clear()
+            s1.send(self.stream_maker.encode(self.serialize_dict({})))
+            self.wait_true(lambda: self.rx_event.is_set(), 1)
+        finally:
+            s1.close()
 
     def test_get_stats(self):
         stats = self.handler.get_stats()
@@ -241,16 +250,19 @@ class TestTCPClientHandler(ScrutinyUnitTest):
         s1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.assertEqual(self.handler.get_number_client(), 0)
         s1.connect((self.server_host, self.server_port))
-        self.assert_client_count_eq(1)
+        try:
+            self.assert_client_count_eq(1)
 
-        s1.send(self.stream_maker.encode("I AM NOT JSON".encode('utf8')))
+            s1.send(self.stream_maker.encode("I AM NOT JSON".encode('utf8')))
 
-        with self.assertRaises(queue.Empty):
-            self.handler.rx_queue.get(timeout=1)
+            with self.assertRaises(queue.Empty):
+                self.handler.rx_queue.get(timeout=1)
 
-        s1.send(self.stream_maker.encode(self.serialize_dict({'socket': 1})))
-        msg1 = self.handler.rx_queue.get(timeout=1)
-        self.assertEqual(msg1.obj, {'socket': 1})
+            s1.send(self.stream_maker.encode(self.serialize_dict({'socket': 1})))
+            msg1 = self.handler.rx_queue.get(timeout=1)
+            self.assertEqual(msg1.obj, {'socket': 1})
+        finally:
+            s1.close()
 
     def tearDown(self) -> None:
         self.handler.stop()

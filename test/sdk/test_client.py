@@ -241,6 +241,9 @@ class FakeDeviceHandler:
     def register_device_state_change_callback(self, callback: DeviceStateChangedCallback) -> None:
         self.device_state_change_callbacks.append(callback)
 
+    def unregister_device_state_change_callback(self, callback: DeviceStateChangedCallback) -> None:
+        self.device_state_change_callbacks.remove(callback)
+
     def get_comm_session_id(self):
         return self.comm_session_id
 
@@ -388,6 +391,9 @@ class FakeDataloggingManager:
     def register_datalogging_state_change_callback(self, callback: DataloggingStateChangedCallback) -> None:
         self.datalogging_state_changed_callbacks.append(callback)
 
+    def unregister_datalogging_state_change_callback(self, callback: DataloggingStateChangedCallback) -> None:
+        self.datalogging_state_changed_callbacks.remove(callback)
+
     def set_datalogging_state(self, state: api_datalogging.DataloggingState, completion: Optional[float]) -> None:
         self.datalogging_state = state
         self.datalogging_state_completion = completion
@@ -469,8 +475,14 @@ class FakeActiveSFDHandler:
     def register_sfd_loaded_callback(self, callback):
         self.loaded_callbacks.append(callback)
 
+    def unregister_sfd_loaded_callback(self, callback):
+        self.loaded_callbacks.remove(callback)
+
     def register_sfd_unloaded_callback(self, callback):
         self.unloaded_callbacks.append(callback)
+
+    def unregister_sfd_unloaded_callback(self, callback):
+        self.unloaded_callbacks.remove(callback)
 
     def load(self, sfd: FirmwareDescription) -> None:
         self.loaded_sfd = sfd

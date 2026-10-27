@@ -663,6 +663,9 @@ class DataloggingManager:
         """Register a callback to be called when the state or the completion ratio of the datalogger changes"""
         self._datalogging_state_changed_callbacks.append(callback)
 
+    def unregister_datalogging_state_change_callback(self, callback: DataloggingStateChangedCallback) -> None:
+        self._datalogging_state_changed_callbacks.remove(callback)
+
     def is_device_connected(self) -> bool:
         """Tells if a device is connected and the datalogging manager is ready to operate with it"""
         return self.state in [FsmState.DEVICE_CONNECTED_WITH_DATALOGGING, FsmState.DEVICE_CONNECTED_NO_DATALOGGING]
