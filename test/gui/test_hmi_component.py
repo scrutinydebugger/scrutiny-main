@@ -696,7 +696,7 @@ class TestWorkZone(HMIComponentBaseTest):
         drop_placeholder = workzone.get_drop_placeholder()
         mimedata = ScrutinyDragData(ScrutinyDragData.DataType.HMIWidgetClass, {'class': CircleHMIWidget.__name__}).to_mime()
         assert mimedata is not None
-        drag_enter = QDragEnterEvent(QPoint(16, 16), Qt.DropAction.CopyAction, mimedata, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier)
+        drag_enter = QDragEnterEvent(QPointF(16, 16), Qt.DropAction.CopyAction, mimedata, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier)
         self.assertFalse(drop_placeholder.isVisible())
         workzone.dragEnterEvent(drag_enter)
         self.assertTrue(drop_placeholder.isVisible())
@@ -704,7 +704,7 @@ class TestWorkZone(HMIComponentBaseTest):
         expected_size = CircleHMIWidget.default_size()
         target_left_corner = QPoint(16, 32)
         required_center = target_left_corner + QPoint(expected_size.width() // 2, expected_size.height() // 2)
-        drag_move = QDragMoveEvent(required_center, Qt.DropAction.CopyAction, mimedata, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier)
+        drag_move = QDragMoveEvent(QPointF(required_center), Qt.DropAction.CopyAction, mimedata, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier)
         workzone.dragMoveEvent(drag_move)
         self.assertEqual(drop_placeholder.pos(), target_left_corner)
         self.assertTrue(drop_placeholder.isVisible())
