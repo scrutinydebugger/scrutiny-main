@@ -9,7 +9,7 @@
 import gc
 
 from PySide6.QtWidgets import QWidget
-from PySide6.QtCore import QPoint, QSize, Qt, QEvent, QPointF, QRectF
+from PySide6.QtCore import QPoint, QSize, Qt, QEvent, QPointF, QRectF, qVersion
 from PySide6.QtGui import QPen, QBrush, QColor, QMouseEvent, QDragEnterEvent, QDragMoveEvent, QDropEvent, QDragLeaveEvent, QResizeEvent, QPainter, QImage
 
 from scrutiny import sdk
@@ -55,6 +55,9 @@ class DummyAppInterface(AbstractComponentAppInterface):
 
 
 class HMIComponentBaseTest(ScrutinyBaseGuiTest):
+
+    QT_VERSION = tuple(int(x) for x in qVersion().split('.')[:2])
+
     def setUp(self):
         super().setUp()
         self.paint_device = QImage(640, 480, QImage.Format.Format_RGB32)
@@ -95,6 +98,12 @@ class HMIComponentBaseTest(ScrutinyBaseGuiTest):
         self.main_window.server_manager.stop()
         self.hmi_component.teardown()
         return super().tearDown()
+
+    def _drag_event_location(self, p):
+        if self.QT_VERSION >= (6, 12):
+            return QPointF(p)
+        else:
+            return QPoint(p)
 
     def _render_scene(self):
         scene = self.hmi_component.get_workzone().scene()
@@ -696,15 +705,17 @@ class TestWorkZone(HMIComponentBaseTest):
         drop_placeholder = workzone.get_drop_placeholder()
         mimedata = ScrutinyDragData(ScrutinyDragData.DataType.HMIWidgetClass, {'class': CircleHMIWidget.__name__}).to_mime()
         assert mimedata is not None
-        drag_enter = QDragEnterEvent(QPointF(16, 16), Qt.DropAction.CopyAction, mimedata, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier)
+
+        p = self._drag_event_location(QPoint(16, 16))
+        drag_enter = QDragEnterEvent(p, Qt.DropAction.CopyAction, mimedata, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier)
         self.assertFalse(drop_placeholder.isVisible())
         workzone.dragEnterEvent(drag_enter)
         self.assertTrue(drop_placeholder.isVisible())
 
         expected_size = CircleHMIWidget.default_size()
         target_left_corner = QPoint(16, 32)
-        required_center = target_left_corner + QPoint(expected_size.width() // 2, expected_size.height() // 2)
-        drag_move = QDragMoveEvent(QPointF(required_center), Qt.DropAction.CopyAction, mimedata, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier)
+        required_center = self._drag_event_location(target_left_corner + QPoint(expected_size.width() // 2, expected_size.height() // 2))
+        drag_move = QDragMoveEvent(required_center, Qt.DropAction.CopyAction, mimedata, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier)
         workzone.dragMoveEvent(drag_move)
         self.assertEqual(drop_placeholder.pos(), target_left_corner)
         self.assertTrue(drop_placeholder.isVisible())
