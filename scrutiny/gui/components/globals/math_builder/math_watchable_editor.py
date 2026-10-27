@@ -16,6 +16,7 @@ from scrutiny.gui.core.gui_math_watchable import GUIMathWatchable
 from scrutiny.gui.core.watchable_registry.fqn import FQN
 from scrutiny.gui.tools.validators import NotEmptyValidator
 from scrutiny.gui.widgets.validable_line_edit import ValidableLineEdit
+from scrutiny.gui.core.fqn_name_pair import FqnNamePair
 
 from scrutiny.tools.typing import *
 
@@ -111,34 +112,33 @@ class MathWatchableEditor(QWidget):
         self._txt_name.setText(math_watchable.get_name())
         self._txt_expr.setText(math_watchable.get_expr())
 
-        actual_vars = set(self._var_to_wlineedit_map.keys())
         var_fqn_map = math_watchable.get_var_fqn_map()
-        new_vars = set(var_fqn_map.keys())
-        to_remove_var = actual_vars - new_vars
-        to_add_var = new_vars - actual_vars
-        to_update_var = actual_vars & new_vars
+        to_update_var = set(self._var_to_wlineedit_map.keys()) & set(var_fqn_map.keys())
 
-        for var_name in to_remove_var:
+        # Save values from rows that survive into the new layout
+        saved_watchables: Dict[str, Optional[FqnNamePair]] = {}
+        for var_name in to_update_var:
+            try:
+                saved_watchables[var_name] = self._var_to_wlineedit_map[var_name].get_watchable()
+            except Exception:
+                saved_watchables[var_name] = None
+
+        # Tear down the entire layout, then rebuild in the correct order
+        for var_name in list(self._var_to_wlineedit_map.keys()):
             self._remove_var_row(var_name)
 
-        for var_name in to_add_var:
+        for var_name in var_fqn_map.keys():
             wline_edit = self._add_var_row(var_name)
             fqn_name_pair = var_fqn_map[var_name]
             if fqn_name_pair is not None:
                 parsed_fqn = FQN.parse(fqn_name_pair.fqn)
                 wline_edit.set_watchable_mode(node_type=parsed_fqn.node_type, string_id=parsed_fqn.path, name=fqn_name_pair.name)
+            elif var_name in saved_watchables and keep_unset_var:
+                saved = saved_watchables[var_name]
+                if saved is not None:
+                    parsed_fqn = FQN.parse(saved.fqn)
+                    wline_edit.set_watchable_mode(node_type=parsed_fqn.node_type, string_id=parsed_fqn.path, name=saved.name)
 
-        for var_name in to_update_var:
-            fqn_name_pair = var_fqn_map[var_name]
-            wline_edit = self._var_to_wlineedit_map[var_name]
-            if fqn_name_pair is not None:
-                parsed_fqn = FQN.parse(fqn_name_pair.fqn)
-                wline_edit.set_watchable_mode(node_type=parsed_fqn.node_type, string_id=parsed_fqn.path, name=fqn_name_pair.name)
-            else:
-                if not keep_unset_var:
-                    wline_edit.clear()
-
-        self._reorder_var_rows(list(var_fqn_map.keys()))
         self._update_feedback(math_watchable)
         self._update_visibility()
 
@@ -261,20 +261,6 @@ class MathWatchableEditor(QWidget):
         wline_edit.signals.watchable_dropped.disconnect()
         self._variable_list_form_layout.removeRow(row_to_delete)
         del self._var_to_wlineedit_map[var_name]
-
-    def _reorder_var_rows(self, ordered_names: List[str]) -> None:
-        for target_index, var_name in enumerate(ordered_names):
-            wline_edit = self._var_to_wlineedit_map[var_name]
-            for row_index in range(self._variable_list_form_layout.rowCount()):
-                item = self._variable_list_form_layout.itemAt(row_index, QFormLayout.ItemRole.FieldRole)
-                if item is not None and item.widget() is wline_edit:
-                    if row_index != target_index:
-                        taken = self._variable_list_form_layout.takeRow(row_index)
-                        label_widget = taken.labelItem.widget()
-                        field_widget = taken.fieldItem.widget()
-                        assert label_widget is not None and field_widget is not None
-                        self._variable_list_form_layout.insertRow(target_index, label_widget, field_widget)
-                    break
 
     def _watchable_line_edit_changed_slot(self, wline_edit: WatchableLineEdit, fqn: str) -> None:
         wline_edit.set_default_state()
