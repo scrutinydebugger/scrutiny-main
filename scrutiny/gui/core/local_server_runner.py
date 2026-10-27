@@ -251,19 +251,23 @@ class LocalServerRunner:
                         # The process died by itself.
                         self.signals.abnormal_termination.emit()
                         break
-
-                if process.poll() is None:   # Still running
-                    self._logger.debug("Terminating process")
-                    if sys.platform == 'win32':
-                        # Ctrl+Break is the only signal that seems to be catchable on windows.
-                        # I don't understand Windows.
-                        process.send_signal(signal.CTRL_BREAK_EVENT)
-                    else:
-                        process.send_signal(signal.SIGTERM)
-                    process.wait(5)
-                else:
-                    # Already dead. Do nothing
-                    pass
+                try:
+                    if process.poll() is None:   # Still running
+                        self._logger.debug("Terminating process")
+                        if sys.platform == 'win32':
+                            # Ctrl+Break is the only signal that seems to be catchable on windows.
+                            # I don't understand Windows.
+                            process.send_signal(signal.CTRL_BREAK_EVENT)
+                        else:
+                            process.send_signal(signal.SIGTERM)
+                            process.wait(5)
+                finally:
+                    if process.stdout is not None:
+                        process.stdout.close()
+                    if process.stderr is not None:
+                        process.stderr.close()
+                    stdout_reader_thread.join(timeout=2)
+                    stderr_reader_thread.join(timeout=2)
 
         except Exception as e:
             # Something unusual happened

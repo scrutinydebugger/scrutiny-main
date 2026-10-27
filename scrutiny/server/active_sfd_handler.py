@@ -92,9 +92,15 @@ class ActiveSFDHandler:
         """Adds callback to be called upon Firmware Description load"""
         self.loaded_callbacks.append(callback)
 
+    def unregister_sfd_loaded_callback(self, callback: SFDLoadedCallback) -> None:
+        self.loaded_callbacks.remove(callback)
+
     def register_sfd_unloaded_callback(self, callback: SFDUnloadedCallback) -> None:
         """Adds a callback to be called when a Firmware Description is unloaded"""
         self.unloaded_callbacks.append(callback)
+
+    def unregister_sfd_unloaded_callback(self, callback: SFDUnloadedCallback) -> None:
+        self.unloaded_callbacks.remove(callback)
 
     def init(self) -> None:
         """Initialize the SFD handler. To be called at startup"""

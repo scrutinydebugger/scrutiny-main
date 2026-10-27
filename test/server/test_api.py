@@ -187,6 +187,9 @@ class StubbedDeviceHandler:
     def register_device_state_change_callback(self, callback):
         self.device_state_change_callbacks.append(callback)
 
+    def unregister_device_state_change_callback(self, callback):
+        self.device_state_change_callbacks.remove(callback)
+
     def read_memory(self, address: int, size: int, callback: Optional[RawMemoryReadRequestCompletionCallback]):
         req = RawMemoryReadRequest(
             address=address,
@@ -319,6 +322,9 @@ class StubbedDataloggingManager:
     def register_datalogging_state_change_callback(self, callback: DataloggingStateChangedCallback) -> None:
         self.datalogging_state_changed_callbacks.append(callback)
 
+    def unregister_datalogging_state_change_callback(self, callback: DataloggingStateChangedCallback) -> None:
+        self.datalogging_state_changed_callbacks.remove(callback)
+
     def set_datalogging_state(self, state: api_datalogging.DataloggingState, completion: Optional[float]) -> None:
         self.datalogging_state = state
         self.datalogging_state_completion = completion
@@ -406,6 +412,9 @@ class TestAPI(ScrutinyUnitTest):
 
     def tearDown(self):
         self.api.close()
+        del self.api
+        import gc
+        gc.collect()
         super().tearDown()
 
     def wait_true(self, fn, timeout=2):

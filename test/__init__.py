@@ -1,6 +1,7 @@
 import logging
 import unittest
 import unittest.case
+import warnings
 from functools import wraps
 from datetime import datetime
 import time
@@ -167,19 +168,44 @@ class CriticalMessageMonitor(logging.Handler):
 
 class ScrutinyUnitTest(unittest.TestCase):
     _critical_message_monitor: CriticalMessageMonitor
+    _tolerated_python_warnings: List[Type[Warning]]
 
     def setUp(self) -> None:
         super().setUp()
         self._critical_message_monitor = CriticalMessageMonitor()
         logging.getLogger().addHandler(self._critical_message_monitor)
+        self._tolerated_python_warnings = []
+        self._python_warnings_ctx = warnings.catch_warnings(record=True)
+        self._python_warnings_list = self._python_warnings_ctx.__enter__()
+        warnings.simplefilter("always")
 
     def tearDown(self) -> None:
+        self._python_warnings_ctx.__exit__(None, None, None)
+
+        result = self._outcome.result
+        test_already_failed = any(
+            test is self for test, _ in result.failures + result.errors
+        )
+
+        if not test_already_failed:
+            for w in self._python_warnings_list:
+                tolerated = False
+                for tolerated_category in self._tolerated_python_warnings:
+                    if issubclass(w.category, tolerated_category):
+                        tolerated = True
+                        break
+                if not tolerated:
+                    self.fail(f"Python warning raised: [{w.category.__name__}] {w.message} ({w.filename}:{w.lineno})")
+
         critical_msg = self._critical_message_monitor.get()
         if len(critical_msg) > 0:
             self.fail(f"Critical message was logged: {critical_msg[0]}")
         logging.getLogger().removeHandler(self._critical_message_monitor)
         del self._critical_message_monitor
         super().tearDown()
+
+    def suppress_python_warning(self, category: Type[Warning]) -> None:
+        self._tolerated_python_warnings.append(category)
 
     def assertEqual(self, v1, v2, *args, **kwargs):
         if isinstance(v1, bytes) and isinstance(v2, bytes):

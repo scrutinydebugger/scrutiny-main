@@ -110,6 +110,8 @@ class SFDStorageManager:
 
     def restore_storage(self) -> None:
         """Require the storage manager to work on the real directory and not a temporary directory"""
+        if self.temporary_dir is not None:
+            self.temporary_dir.cleanup()
         self.temporary_dir = None
 
     def get_storage_dir(self, create: bool = False) -> str:

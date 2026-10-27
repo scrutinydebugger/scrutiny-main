@@ -240,6 +240,9 @@ class Datastore:
     def add_batch_edit_callback(self, callback: BatchEditCallback) -> None:
         self._batch_edit_callbacks.append(callback)
 
+    def remove_batch_edit_callback(self, callback: BatchEditCallback) -> None:
+        self._batch_edit_callbacks.remove(callback)
+
     def start_batch(self, source: str) -> None:
         state = self._batch_edit_source_state.get(source, BatchState.INACTIVE)
         if state != BatchState.INACTIVE:
