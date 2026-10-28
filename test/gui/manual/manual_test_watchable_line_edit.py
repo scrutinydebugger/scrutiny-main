@@ -19,6 +19,7 @@ app = make_manual_test_app()
 from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QCheckBox, QLabel, QHBoxLayout, QPushButton, QGroupBox
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QDoubleValidator
+from scrutiny import sdk
 from scrutiny.gui.widgets.watchable_line_edit import WatchableLineEdit
 from scrutiny.gui.components.globals.varlist.varlist_component import VarListComponent
 from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
@@ -56,19 +57,19 @@ app_interface.watchable_registry = registry
 varlist = VarListComponent(main_window=window, instance_name="varlist1", app_interface=app_interface)
 varlist.setup()
 
-registry.write_content({
-    RegistryNodeType.Alias: {
+registry.write_server_content({
+    sdk.WatchableType.Alias: {
         '/my_var': BriefWatchableConfiguration(WatchableType.Variable, EmbeddedDataType.float32, enum=None)
     },
-    RegistryNodeType.RuntimePublishedValue: {
+    sdk.WatchableType.RuntimePublishedValue: {
         '/my_rpva': BriefWatchableConfiguration(WatchableType.RuntimePublishedValue, EmbeddedDataType.float32, enum=None)
     },
-    RegistryNodeType.Variable: {
+    sdk.WatchableType.Variable: {
         '/my_alias': BriefWatchableConfiguration(WatchableType.Alias, EmbeddedDataType.float32, enum=None),
         '/alias with very long name': BriefWatchableConfiguration(WatchableType.Alias, EmbeddedDataType.float32, enum=None)
     },
 })
-varlist.reload_model([RegistryNodeType.Alias, RegistryNodeType.RuntimePublishedValue, RegistryNodeType.Variable])
+varlist.reload_model([sdk.WatchableType.Alias, sdk.WatchableType.RuntimePublishedValue, sdk.WatchableType.Variable])
 
 chk_text_mode = QCheckBox("Text mode enabled (both)")
 
@@ -117,9 +118,9 @@ available_widget_layout.addWidget(btn_set_unavailable)
 # Allowed node types checkboxes
 allowed_types_group = QGroupBox("Allowed Node Types")
 allowed_types_layout = QHBoxLayout(allowed_types_group)
-node_type_checkboxes: dict[RegistryNodeType, QCheckBox] = {}
+node_type_checkboxes: dict[sdk.WatchableType, QCheckBox] = {}
 
-for node_type in RegistryNodeType:
+for node_type in sdk.WatchableType:
     chk = QCheckBox(node_type.name)
     chk.setCheckState(Qt.CheckState.Checked)
     node_type_checkboxes[node_type] = chk

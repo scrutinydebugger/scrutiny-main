@@ -80,6 +80,8 @@ class WatchableRegistry:
     """Used to generate incrementing registry IDs to assign on watchables"""
     _serverid_map: Dict[sdk.WatchableType, ServerRegistryBidirectionalMap]
     """Bidirectional maps, mapping Server ID to Registry ID, grouped by watchable types"""
+    _server_timedelta: Optional[timedelta]
+    """A time difference to use when generating Math update broadcast. Used to synchronize them with server broadcast"""
 
     def __init__(self) -> None:
         self._signals = self._Signals()
@@ -104,6 +106,7 @@ class WatchableRegistry:
         self._global_unwatch_callbacks = None
         self._logger = logging.getLogger(self.__class__.__name__)
         self._node_counter = 0
+        self._server_timedelta = None
 
     @property
     def signals(self) -> _Signals:

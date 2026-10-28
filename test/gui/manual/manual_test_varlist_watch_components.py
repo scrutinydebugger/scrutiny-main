@@ -23,6 +23,7 @@ from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableReg
 from scrutiny.gui.core.gui_math_watchable import GUIMathWatchable
 from scrutiny.gui.core.fqn_name_pair import FqnNamePair
 from scrutiny.gui.core.watchable_registry.common import RegistryNodeType
+from scrutiny.gui.core.watchable_registry.fqn import FQN
 from scrutiny.gui.component_app_interface import AbstractComponentAppInterface
 from test.gui.fake_server_manager import FakeServerManager, ServerConfig
 from scrutiny.tools.typing import *
@@ -77,9 +78,14 @@ class AppInterface(AbstractComponentAppInterface):
     # Enable global features without dashboard
 
     varlist: VarListComponent
+    math_builder: MathBuilderComponent
 
     def reveal_source_from_fqn(self, fqn: str) -> None:
-        self.varlist.reveal_fqn(fqn)
+        parsed_fqn = FQN.parse(fqn)
+        if parsed_fqn.node_type.is_server_node():
+            self.varlist.reveal_fqn(fqn)
+        elif parsed_fqn.node_type == RegistryNodeType.Math:
+            self.math_builder.reveal_fqn(fqn)
 
 
 component_layout = QHBoxLayout(component_container)
@@ -94,6 +100,7 @@ watch2 = WatchComponent(main_window=window, instance_name="watch2", app_interfac
 math_builder = MathBuilderComponent(main_window=window, instance_name="math_builder1", app_interface=app_interface)
 
 app_interface.varlist = varlist
+app_interface.math_builder = math_builder
 
 varlist.setup()
 watch1.setup()
