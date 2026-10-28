@@ -61,6 +61,7 @@ class WidgetMouseEditData:
         cursor_start: QPoint
         widget_offset_to_bounding_rect: Dict[int, QPoint]
         selection_bouding_rect: QRect
+        start_positions: Dict[int, QPoint]
 
     action: Action
     resize_data: Optional[ResizeData] = None
@@ -110,6 +111,8 @@ class HMIWorkZone(QGraphicsView):
         selection_changed = Signal(list)            # List[BaseHMIWidget]
         double_click_edit_widget = Signal(object)
         modified = Signal()
+        widgets_moved = Signal(list)
+        widget_resized = Signal(object, QPoint, QSize, QPoint, QSize)
 
     _signals: _Signals
 
@@ -496,12 +499,17 @@ class HMIWorkZone(QGraphicsView):
                         for widget in self._selected_widgets:
                             widget_offset[id(widget)] = (widget.mapToScene(QPoint(0, 0)) - selection_bounding_rect.topLeft()).toPoint()
 
+                        start_positions: Dict[int, QPoint] = {
+                            id(w): w.pos().toPoint() for w in self._selected_widgets
+                        }
+
                         self._mouse_edit_data = WidgetMouseEditData(
                             action=WidgetMouseEditData.Action.Move,
                             move_data=WidgetMouseEditData.MoveData(
                                 cursor_start=self.mapToScene(event.position().toPoint()).toPoint(),
                                 widget_offset_to_bounding_rect=widget_offset,
-                                selection_bouding_rect=selection_bounding_rect.toRect()
+                                selection_bouding_rect=selection_bounding_rect.toRect(),
+                                start_positions=start_positions
                             )
                         )
             else:
@@ -552,24 +560,44 @@ class HMIWorkZone(QGraphicsView):
                                     selected.append(widget)
                             self.select_widgets(selected)
                     else:
-                        if self._mouse_down_widget is mouse_release_widget:  # Left click on a single HMI widget
-                            has_moved = False
-                            has_resized = False
-                            if self._mouse_edit_data is not None:
-                                if event.position().toPoint() != self._mouse_down_start:
-                                    if self._mouse_edit_data.action == WidgetMouseEditData.Action.Move:
-                                        has_moved = True
-                                    elif self._mouse_edit_data.action == WidgetMouseEditData.Action.Resize:
-                                        has_resized = True
+                        has_moved = False
+                        has_resized = False
+                        if self._mouse_edit_data is not None:
+                            if event.position().toPoint() != self._mouse_down_start:
+                                if self._mouse_edit_data.action == WidgetMouseEditData.Action.Move:
+                                    has_moved = True
+                                elif self._mouse_edit_data.action == WidgetMouseEditData.Action.Resize:
+                                    has_resized = True
 
-                            if not has_moved:
-                                if mouse_release_widget is None:
-                                    self.deselect_all_widgets()  # Will emit selection_changed
-                            else:
-                                self._resize_scene()
+                        if has_moved:
+                            self._resize_scene()
+                            if self._mouse_edit_data is not None and self._mouse_edit_data.move_data is not None:
+                                move_records: List[Tuple[BaseHMIWidget, QPoint, QPoint]] = []
+                                for widget in self._selected_widgets:
+                                    old_pos = self._mouse_edit_data.move_data.start_positions.get(id(widget))
+                                    new_pos = widget.pos().toPoint()
+                                    if old_pos is not None and old_pos != new_pos:
+                                        move_records.append((widget, old_pos, new_pos))
+                                if len(move_records) > 0:
+                                    self._signals.widgets_moved.emit(move_records)
 
-                            if has_resized or has_moved:
-                                self._signals.modified.emit()
+                        elif has_resized:
+                            self._resize_scene()
+                            if self._mouse_edit_data is not None and self._mouse_edit_data.resize_data is not None:
+                                rdata = self._mouse_edit_data.resize_data
+                                old_pos = rdata.original_pos
+                                old_size = rdata.original_size
+                                new_pos = rdata.widget.pos().toPoint()
+                                new_size = rdata.widget.get_size()
+                                if old_pos != new_pos or old_size != new_size:
+                                    self._signals.widget_resized.emit(rdata.widget, old_pos, old_size, new_pos, new_size)
+
+                        else:
+                            if mouse_release_widget is None:
+                                self.deselect_all_widgets()  # Will emit selection_changed
+
+                        if has_resized or has_moved:
+                            self._signals.modified.emit()
 
                 elif self._mouse_down_widget is not None:
                     if mouse_release_widget is self._mouse_down_widget:
