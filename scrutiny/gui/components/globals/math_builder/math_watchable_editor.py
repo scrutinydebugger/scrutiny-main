@@ -17,6 +17,7 @@ from scrutiny.gui.core.watchable_registry.fqn import FQN
 from scrutiny.gui.tools.validators import NotEmptyValidator
 from scrutiny.gui.widgets.validable_line_edit import ValidableLineEdit
 from scrutiny.gui.core.fqn_name_pair import FqnNamePair
+from scrutiny.gui.tools.invoker import invoke_later
 
 from scrutiny.tools.typing import *
 
@@ -219,7 +220,7 @@ class MathWatchableEditor(QWidget):
 
     def _expr_edit_slot(self) -> None:
         w = GUIMathWatchable(name=self._txt_name.text(), expr=self._txt_expr.text())
-        self.load(w, keep_unset_var=True)
+        invoke_later(functools.partial(self.load, w, keep_unset_var=True))  # Load later, after focus events are processed. Segfault otherwise.
 
     def _name_edit_slot(self) -> None:
         self._txt_name.validate_expect_not_wrong()
