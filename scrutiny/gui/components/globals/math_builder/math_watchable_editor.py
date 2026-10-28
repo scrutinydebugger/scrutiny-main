@@ -109,25 +109,28 @@ class MathWatchableEditor(QWidget):
         if changed:
             self._signals.content_changed.emit()
 
-    def load(self, math_watchable: GUIMathWatchable, keep_unset_var: bool = False) -> None:
+    def load(self, math_watchable: GUIMathWatchable, reload_var_if_unset: bool = False) -> None:
         # Load delete UI elements, make sure their events are processed before deleting.
         # Pending focus events can cause a segfault.
-        invoke_later(functools.partial(self._do_load, math_watchable, keep_unset_var))
+        invoke_later(functools.partial(self._do_load, math_watchable, reload_var_if_unset))
 
-    def _do_load(self, math_watchable: GUIMathWatchable, keep_unset_var: bool = False) -> None:
+    def _do_load(self, math_watchable: GUIMathWatchable, reload_var_if_unset: bool = False) -> None:
+        math_watchable = math_watchable.copy()
         self._txt_name.setText(math_watchable.get_name())
         self._txt_expr.setText(math_watchable.get_expr())
 
-        var_fqn_map = math_watchable.get_var_fqn_map()
-        to_update_var = set(self._var_to_wlineedit_map.keys()) & set(var_fqn_map.keys())
+        if reload_var_if_unset:
+            # Fill the input (copy) with what's in the layout
+            # We do this to allow editing a formula without clearing the previous binding.
+            for var_name, fqn_name_pair in math_watchable.get_var_fqn_map().items():
+                if fqn_name_pair is None:   # Unbound
+                    wline_edit = self._var_to_wlineedit_map.get(var_name, None)
+                    if wline_edit is not None:  # We had it in the layout
+                        to_reload = wline_edit.get_watchable()
+                        if to_reload is not None:   # There was a usable value in the layout
+                            math_watchable.bind_watchable(var_name, to_reload)
 
-        # Save values from rows that survive into the new layout
-        saved_watchables: Dict[str, Optional[FqnNamePair]] = {}
-        for var_name in to_update_var:
-            try:
-                saved_watchables[var_name] = self._var_to_wlineedit_map[var_name].get_watchable()
-            except Exception:
-                saved_watchables[var_name] = None
+        var_fqn_map = math_watchable.get_var_fqn_map()
 
         # Tear down the entire layout, then rebuild in the correct order
         for var_name in list(self._var_to_wlineedit_map.keys()):
@@ -139,13 +142,6 @@ class MathWatchableEditor(QWidget):
             if fqn_name_pair is not None:   # Variable is bound to a FQN
                 parsed_fqn = FQN.parse(fqn_name_pair.fqn)
                 wline_edit.set_watchable_mode(node_type=parsed_fqn.node_type, string_id=parsed_fqn.path, name=fqn_name_pair.name)
-            elif var_name in saved_watchables and keep_unset_var:
-                # Previous layout had a variable with same name. Auto-rebind them
-                # Useful when editing a formula. we don't want to clear the editor and loose binding.
-                saved = saved_watchables[var_name]
-                if saved is not None:
-                    parsed_fqn = FQN.parse(saved.fqn)
-                    wline_edit.set_watchable_mode(node_type=parsed_fqn.node_type, string_id=parsed_fqn.path, name=saved.name)
 
         self._update_feedback(math_watchable)
         self._update_visibility()
@@ -227,7 +223,7 @@ class MathWatchableEditor(QWidget):
 
     def _expr_edit_finished_slot(self) -> None:
         w = GUIMathWatchable(name=self._txt_name.text(), expr=self._txt_expr.text())
-        self.load(w, keep_unset_var=True)
+        self.load(w, reload_var_if_unset=True)
 
     def _name_edit_slot(self) -> None:
         self._txt_name.validate_expect_not_wrong()
