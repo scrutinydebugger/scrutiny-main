@@ -263,8 +263,9 @@ class MathWatchableEditor(QWidget):
 
         # Keep the widgets to be deleted alive for another event loop to process
         # pending events related to them. Segfault otherwise
-        field = row.fieldItem.widget()
-        label = row.labelItem.widget()
+
+        field = row.fieldItem.widget()  # type: ignore[attr-defined]
+        label = row.labelItem.widget()  # type: ignore[attr-defined]
         if field is not None:
             field.deleteLater()
         if label is not None:
