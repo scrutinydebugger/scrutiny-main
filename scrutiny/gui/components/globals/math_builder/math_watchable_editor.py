@@ -258,16 +258,14 @@ class MathWatchableEditor(QWidget):
 
         wline_edit.signals.watchable_cleared.disconnect()
         wline_edit.signals.watchable_dropped.disconnect()
-        row = self._variable_list_form_layout.takeRow(row_to_delete)
+        label_item = self._variable_list_form_layout.itemAt(row_to_delete, QFormLayout.ItemRole.LabelRole)
+        label = label_item.widget() if label_item is not None else None
+        self._variable_list_form_layout.takeRow(row_to_delete)
         del self._var_to_wlineedit_map[var_name]
 
         # Keep the widgets to be deleted alive for another event loop to process
         # pending events related to them. Segfault otherwise
-
-        field = row.fieldItem.widget()  # type: ignore[attr-defined]
-        label = row.labelItem.widget()  # type: ignore[attr-defined]
-        if field is not None:
-            field.deleteLater()
+        wline_edit.deleteLater()
         if label is not None:
             label.deleteLater()
 
