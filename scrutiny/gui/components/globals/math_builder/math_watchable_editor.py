@@ -110,11 +110,6 @@ class MathWatchableEditor(QWidget):
             self._signals.content_changed.emit()
 
     def load(self, math_watchable: GUIMathWatchable, reload_var_if_unset: bool = False) -> None:
-        # Load delete UI elements, make sure their events are processed before deleting.
-        # Pending focus events can cause a segfault.
-        invoke_later(functools.partial(self._do_load, math_watchable, reload_var_if_unset))
-
-    def _do_load(self, math_watchable: GUIMathWatchable, reload_var_if_unset: bool = False) -> None:
         math_watchable = math_watchable.copy()
         self._txt_name.setText(math_watchable.get_name())
         self._txt_expr.setText(math_watchable.get_expr())
@@ -263,8 +258,17 @@ class MathWatchableEditor(QWidget):
 
         wline_edit.signals.watchable_cleared.disconnect()
         wline_edit.signals.watchable_dropped.disconnect()
-        self._variable_list_form_layout.removeRow(row_to_delete)
+        row = self._variable_list_form_layout.takeRow(row_to_delete)
         del self._var_to_wlineedit_map[var_name]
+
+        # Keep the widgets to be deleted alive for another event loop to process
+        # pending events related to them. Segfault otherwise
+        field = row.fieldItem.widget()
+        label = row.labelItem.widget()
+        if field is not None:
+            field.deleteLater()
+        if label is not None:
+            label.deleteLater()
 
     def _watchable_line_edit_changed_slot(self, wline_edit: WatchableLineEdit, fqn: str) -> None:
         wline_edit.set_default_state()
