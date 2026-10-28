@@ -16,6 +16,8 @@ from scrutiny.gui.core.gui_math_watchable import GUIMathWatchable
 from scrutiny.gui.core.watchable_registry.fqn import FQN
 from scrutiny.gui.tools.validators import NotEmptyValidator
 from scrutiny.gui.widgets.validable_line_edit import ValidableLineEdit
+from scrutiny.gui.core.fqn_name_pair import FqnNamePair
+from scrutiny.gui.tools.invoker import invoke_later
 
 from scrutiny.tools.typing import *
 
@@ -67,8 +69,8 @@ class MathWatchableEditor(QWidget):
         layout.addWidget(self._varlist_gb)
 
         self._txt_expr.textChanged.connect(self._expr_changed_slot)
-        self._txt_expr.editingFinished.connect(self._expr_edit_slot)
-        self._txt_expr.returnPressed.connect(self._expr_edit_slot)
+        self._txt_expr.editingFinished.connect(self._expr_edit_finished_slot)
+        self._txt_expr.returnPressed.connect(self._expr_edit_finished_slot)
         self._txt_name.textChanged.connect(self._name_edit_slot)
 
         self._txt_name.editingFinished.connect(self._signals.content_changed)
@@ -107,36 +109,34 @@ class MathWatchableEditor(QWidget):
         if changed:
             self._signals.content_changed.emit()
 
-    def load(self, math_watchable: GUIMathWatchable, keep_unset_var: bool = False) -> None:
+    def load(self, math_watchable: GUIMathWatchable, reload_var_if_unset: bool = False) -> None:
+        math_watchable = math_watchable.copy()
         self._txt_name.setText(math_watchable.get_name())
         self._txt_expr.setText(math_watchable.get_expr())
 
-        actual_vars = set(self._var_to_wlineedit_map.keys())
-        var_fqn_map = math_watchable.get_var_fqn_map()
-        new_vars = set(var_fqn_map.keys())
-        to_remove_var = actual_vars - new_vars
-        to_add_var = new_vars - actual_vars
-        to_update_var = actual_vars & new_vars
+        if reload_var_if_unset:
+            # Fill the input (copy) with what's in the layout
+            # We do this to allow editing a formula without clearing the previous binding.
+            for var_name, fqn_name_pair in math_watchable.get_var_fqn_map().items():
+                if fqn_name_pair is None:   # Unbound
+                    wline_edit = self._var_to_wlineedit_map.get(var_name, None)
+                    if wline_edit is not None:  # We had it in the layout
+                        to_reload = wline_edit.get_watchable()
+                        if to_reload is not None:   # There was a usable value in the layout
+                            math_watchable.bind_watchable(var_name, to_reload)
 
-        for var_name in to_remove_var:
+        var_fqn_map = math_watchable.get_var_fqn_map()
+
+        # Tear down the entire layout, then rebuild in the correct order
+        for var_name in list(self._var_to_wlineedit_map.keys()):
             self._remove_var_row(var_name)
 
-        for var_name in to_add_var:
+        for var_name in var_fqn_map.keys():
             wline_edit = self._add_var_row(var_name)
             fqn_name_pair = var_fqn_map[var_name]
-            if fqn_name_pair is not None:
+            if fqn_name_pair is not None:   # Variable is bound to a FQN
                 parsed_fqn = FQN.parse(fqn_name_pair.fqn)
                 wline_edit.set_watchable_mode(node_type=parsed_fqn.node_type, string_id=parsed_fqn.path, name=fqn_name_pair.name)
-
-        for var_name in to_update_var:
-            fqn_name_pair = var_fqn_map[var_name]
-            wline_edit = self._var_to_wlineedit_map[var_name]
-            if fqn_name_pair is not None:
-                parsed_fqn = FQN.parse(fqn_name_pair.fqn)
-                wline_edit.set_watchable_mode(node_type=parsed_fqn.node_type, string_id=parsed_fqn.path, name=fqn_name_pair.name)
-            else:
-                if not keep_unset_var:
-                    wline_edit.clear()
 
         self._update_feedback(math_watchable)
         self._update_visibility()
@@ -216,9 +216,9 @@ class MathWatchableEditor(QWidget):
         else:
             self._lbl_expr_validity.clear()
 
-    def _expr_edit_slot(self) -> None:
+    def _expr_edit_finished_slot(self) -> None:
         w = GUIMathWatchable(name=self._txt_name.text(), expr=self._txt_expr.text())
-        self.load(w, keep_unset_var=True)
+        self.load(w, reload_var_if_unset=True)
 
     def _name_edit_slot(self) -> None:
         self._txt_name.validate_expect_not_wrong()
@@ -258,8 +258,16 @@ class MathWatchableEditor(QWidget):
 
         wline_edit.signals.watchable_cleared.disconnect()
         wline_edit.signals.watchable_dropped.disconnect()
-        self._variable_list_form_layout.removeRow(row_to_delete)
+        label_item = self._variable_list_form_layout.itemAt(row_to_delete, QFormLayout.ItemRole.LabelRole)
+        label = label_item.widget() if label_item is not None else None
+        self._variable_list_form_layout.takeRow(row_to_delete)
         del self._var_to_wlineedit_map[var_name]
+
+        # Keep the widgets to be deleted alive for another event loop to process
+        # pending events related to them. Segfault otherwise
+        wline_edit.deleteLater()
+        if label is not None:
+            label.deleteLater()
 
     def _watchable_line_edit_changed_slot(self, wline_edit: WatchableLineEdit, fqn: str) -> None:
         wline_edit.set_default_state()

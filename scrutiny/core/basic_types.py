@@ -301,7 +301,7 @@ class MathWatchable:
 
     def validate(self) -> None:
         parser = MathParser(self.expr)
-        if parser.get_vars() != set(self.watchables.keys()):
+        if set(parser.get_vars()) != set(self.watchables.keys()):
             raise ValueError("Mismatch between the expression required variables and the one provided")
 
 

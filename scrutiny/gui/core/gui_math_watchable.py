@@ -8,6 +8,7 @@
 #    Copyright (c) 2026 Scrutiny Debugger
 
 from scrutiny.tools.typing import *
+from collections import OrderedDict
 from dataclasses import dataclass
 from scrutiny.sdk import datalogging
 from scrutiny.core.math_parser import MathParser, MathParsingError
@@ -41,7 +42,7 @@ class GUIMathWatchable:
 
     _name: str
     _expr: str
-    _var_defs: Dict[str, VarData]
+    _var_defs: OrderedDict[str, VarData]
     _committed_vals: Dict[str, float]
     _val: ValueType
     _eval_error: Optional[str]
@@ -51,7 +52,7 @@ class GUIMathWatchable:
     def __init__(self, name: str, expr: str) -> None:
         self._name = name
         self._expr = expr
-        self._var_defs = {}
+        self._var_defs = OrderedDict()
         self._committed_vals = {}
         self._val = None
         self._eval_error = None
@@ -59,8 +60,7 @@ class GUIMathWatchable:
 
         try:
             self._parser = MathParser(self._expr)
-            vars = self._parser.get_vars()
-            for var in vars:
+            for var in self._parser.get_vars():  # This is ordered
                 self._var_defs[var] = self.VarData(fqn_name=None, val=None)
 
             self._commit_vals()
@@ -143,11 +143,11 @@ class GUIMathWatchable:
 
         return self._val
 
-    def get_var_fqn_map(self) -> Dict[str, Optional[FqnNamePair]]:
-        return {name: data.fqn_name for name, data in self._var_defs.items()}
+    def get_var_fqn_map(self) -> OrderedDict[str, Optional[FqnNamePair]]:
+        return OrderedDict((name, data.fqn_name) for name, data in self._var_defs.items())
 
-    def get_vars(self) -> Set[str]:
-        return set(self._var_defs.keys())
+    def get_vars(self) -> List[str]:
+        return list(self._var_defs.keys())  # Supposed to be ordered
 
     def get_val(self) -> ValueType:
         return self._val

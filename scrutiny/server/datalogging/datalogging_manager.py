@@ -683,7 +683,7 @@ class DataloggingManager:
             if not isinstance(signal, api_datalogging.MathSignalDefinition):
                 continue
             parser = MathParser(signal.expr)    # Validate syntax
-            variables = parser.get_vars()
+            variables = set(parser.get_vars())
             given_vars = set(signal.variables.keys())
             if variables != given_vars:
                 raise RuntimeError("Given variables incompatible with math expression")

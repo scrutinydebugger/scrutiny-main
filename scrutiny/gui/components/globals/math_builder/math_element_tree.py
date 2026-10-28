@@ -160,7 +160,7 @@ class MathTreeModel(BaseTreeModelWithStyle):
         math_item.removeRows(0, math_item.rowCount())
 
         name_fqn_map = math_watchable.get_var_fqn_map()
-        for var_name in sorted(name_fqn_map.keys()):
+        for var_name in name_fqn_map.keys():    # Ordered by formula appearance
             fqn_name = name_fqn_map[var_name]
             if fqn_name is None:
                 raise ValueError(f"No watchable element assigned to variable {var_name}")
