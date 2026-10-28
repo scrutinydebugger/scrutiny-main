@@ -223,7 +223,7 @@ class MathProxy(BaseRegistryStorable):
         now = datetime.now()
         server_time_delta = self.registry.get_server_timedelta()
         if server_time_delta is not None:
-            # The time delta doe snot need to be very precise.
+            # The time delta does not need to be very precise.
             # We want to avoid visible discrepancies in graphs mostly
             now += server_time_delta
 
