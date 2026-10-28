@@ -69,8 +69,8 @@ class MathWatchableEditor(QWidget):
         layout.addWidget(self._varlist_gb)
 
         self._txt_expr.textChanged.connect(self._expr_changed_slot)
-        self._txt_expr.editingFinished.connect(self._expr_edit_slot)
-        self._txt_expr.returnPressed.connect(self._expr_edit_slot)
+        self._txt_expr.editingFinished.connect(self._expr_edit_finished_slot)
+        self._txt_expr.returnPressed.connect(self._expr_edit_finished_slot)
         self._txt_name.textChanged.connect(self._name_edit_slot)
 
         self._txt_name.editingFinished.connect(self._signals.content_changed)
@@ -110,6 +110,11 @@ class MathWatchableEditor(QWidget):
             self._signals.content_changed.emit()
 
     def load(self, math_watchable: GUIMathWatchable, keep_unset_var: bool = False) -> None:
+        # Load delete UI elements, make sure their events are processed before deleting.
+        # Pending focus events can cause a segfault.
+        invoke_later(functools.partial(self._do_load, math_watchable, keep_unset_var))
+
+    def _do_load(self, math_watchable: GUIMathWatchable, keep_unset_var: bool = False) -> None:
         self._txt_name.setText(math_watchable.get_name())
         self._txt_expr.setText(math_watchable.get_expr())
 
@@ -131,10 +136,12 @@ class MathWatchableEditor(QWidget):
         for var_name in var_fqn_map.keys():
             wline_edit = self._add_var_row(var_name)
             fqn_name_pair = var_fqn_map[var_name]
-            if fqn_name_pair is not None:
+            if fqn_name_pair is not None:   # Variable is bound to a FQN
                 parsed_fqn = FQN.parse(fqn_name_pair.fqn)
                 wline_edit.set_watchable_mode(node_type=parsed_fqn.node_type, string_id=parsed_fqn.path, name=fqn_name_pair.name)
             elif var_name in saved_watchables and keep_unset_var:
+                # Previous layout had a variable with same name. Auto-rebind them
+                # Useful when editing a formula. we don't want to clear the editor and loose binding.
                 saved = saved_watchables[var_name]
                 if saved is not None:
                     parsed_fqn = FQN.parse(saved.fqn)
@@ -218,9 +225,9 @@ class MathWatchableEditor(QWidget):
         else:
             self._lbl_expr_validity.clear()
 
-    def _expr_edit_slot(self) -> None:
+    def _expr_edit_finished_slot(self) -> None:
         w = GUIMathWatchable(name=self._txt_name.text(), expr=self._txt_expr.text())
-        invoke_later(functools.partial(self.load, w, keep_unset_var=True))  # Load later, after focus events are processed. Segfault otherwise.
+        self.load(w, keep_unset_var=True)
 
     def _name_edit_slot(self) -> None:
         self._txt_name.validate_expect_not_wrong()

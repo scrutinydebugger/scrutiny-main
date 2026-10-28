@@ -144,10 +144,10 @@ class GUIMathWatchable:
         return self._val
 
     def get_var_fqn_map(self) -> OrderedDict[str, Optional[FqnNamePair]]:
-        return OrderedDict({name: data.fqn_name for name, data in self._var_defs.items()})
+        return OrderedDict((name, data.fqn_name) for name, data in self._var_defs.items())
 
     def get_vars(self) -> List[str]:
-        return list(self._var_defs.keys())  # Supposed to eb ordered
+        return list(self._var_defs.keys())  # Supposed to be ordered
 
     def get_val(self) -> ValueType:
         return self._val
