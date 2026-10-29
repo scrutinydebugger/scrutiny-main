@@ -1,3 +1,11 @@
+#    test_components_interaction.py
+#        Tests for cross-component interactions (drag & drop between components)
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
+
 from dataclasses import dataclass
 
 from PySide6.QtWidgets import QWidget

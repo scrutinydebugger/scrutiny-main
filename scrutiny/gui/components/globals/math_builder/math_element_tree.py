@@ -1,6 +1,6 @@
 #    math_element_tree.py
 #        Contains the TreeView dedicated to MathBuilder. Allow to insert Math element and
-#        nested watchable to bound variables. Supports folder organization.
+#        nested watchable to bound variables.
 #
 #   - License : MIT - See LICENSE file
 #   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
