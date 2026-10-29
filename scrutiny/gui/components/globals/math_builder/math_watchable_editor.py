@@ -16,8 +16,6 @@ from scrutiny.gui.core.gui_math_watchable import GUIMathWatchable
 from scrutiny.gui.core.watchable_registry.fqn import FQN
 from scrutiny.gui.tools.validators import NotEmptyValidator
 from scrutiny.gui.widgets.validable_line_edit import ValidableLineEdit
-from scrutiny.gui.core.fqn_name_pair import FqnNamePair
-from scrutiny.gui.tools.invoker import invoke_later
 
 from scrutiny.tools.typing import *
 
@@ -73,7 +71,9 @@ class MathWatchableEditor(QWidget):
         self._txt_expr.returnPressed.connect(self._expr_edit_finished_slot)
         self._txt_name.textChanged.connect(self._name_edit_slot)
 
+        self._txt_name.textChanged.connect(self._signals.content_changed)
         self._txt_name.editingFinished.connect(self._signals.content_changed)
+        self._txt_expr.textChanged.connect(self._signals.content_changed)
         self._txt_expr.editingFinished.connect(self._signals.content_changed)
         self._txt_expr.returnPressed.connect(self._signals.content_changed)
 
@@ -89,11 +89,15 @@ class MathWatchableEditor(QWidget):
 
         if len(self._txt_name.text()) > 0:
             changed = True
-        self._txt_name.clear()
-
         if len(self._txt_expr.text()) > 0:
             changed = True
+
+        self._txt_name.blockSignals(True)
+        self._txt_expr.blockSignals(True)
+        self._txt_name.clear()
         self._txt_expr.clear()
+        self._txt_name.blockSignals(False)
+        self._txt_expr.blockSignals(False)
 
         if len(self._var_to_wlineedit_map) > 0:
             changed = True
@@ -111,8 +115,12 @@ class MathWatchableEditor(QWidget):
 
     def load(self, math_watchable: GUIMathWatchable, reload_var_if_unset: bool = False) -> None:
         math_watchable = math_watchable.copy()
+        self._txt_name.blockSignals(True)
+        self._txt_expr.blockSignals(True)
         self._txt_name.setText(math_watchable.get_name())
         self._txt_expr.setText(math_watchable.get_expr())
+        self._txt_name.blockSignals(False)
+        self._txt_expr.blockSignals(False)
 
         if reload_var_if_unset:
             # Fill the input (copy) with what's in the layout
@@ -252,6 +260,7 @@ class MathWatchableEditor(QWidget):
             widget = item.widget()
             if widget is wline_edit:
                 row_to_delete = row_index
+                break
 
         if row_to_delete is None:
             raise ValueError(f"Could not find variable {var_name} in the layout.")

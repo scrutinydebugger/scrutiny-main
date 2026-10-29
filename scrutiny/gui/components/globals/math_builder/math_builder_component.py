@@ -81,7 +81,7 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
         self._btn_edit.setEnabled(False)
         self._btn_commit = QPushButton("Commit")
         self._btn_commit.setEnabled(False)
-        self._btn_close = QPushButton("Close")
+        self._btn_close = QPushButton("Discard")
         self._btn_close.setEnabled(True)
         self._splitter = QSplitter(Qt.Orientation.Vertical)
         self._splitter.setContentsMargins(0, 0, 0, 0)
@@ -136,7 +136,7 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
         self._connect_signal(self.app.watchable_registry.signals.content_changed, self._registry_changed_slot)
 
     def ready(self) -> None:
-        self._show_editor(True)
+        self._show_editor(False)
 
     def teardown(self) -> None:
         for sig, slot in self._signals_connected:
@@ -206,7 +206,7 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
             else:
                 self.app.watchable_registry.update_math_watchable_fqn(self._watchable_being_edited_fqn, math_watchable)
             self._lbl_commit_error.clear()
-            self._stop_edit()
+            self._stop_edit_and_hide()
         except WatchableRegistryError as e:
             self._lbl_commit_error.set_error(str(e))
 
@@ -303,7 +303,7 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
         self.app.watchable_registry.remove_math_watchable_list_fqn(fqn_to_remove)
         if self._watchable_being_edited_fqn is not None:
             if self._watchable_being_edited_fqn in fqn_to_remove:
-                self._stop_edit()
+                self._stop_edit_and_hide()
 
     def _start_edit(self, math_watchable: GUIMathWatchable) -> None:
         """Loads a math watchable into the editor and tracks it for update on commit"""
