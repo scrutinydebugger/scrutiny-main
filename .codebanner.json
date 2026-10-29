@@ -91,7 +91,7 @@
             "docstring": "Stubbed API connector to make API requests in unit tests without relying on the network"
         },
         "scrutiny/server/api/value_streamer.py": {
-            "docstring": "Take the data from the Datastore and sends it to all clients by respecting bitrate limits and avoiding duplicate date."
+            "docstring": "Take the data from the Datastore and sends it to all clients by respecting bitrate limits and avoiding duplicate data."
         },
         "scrutiny/server/datastore/datastore.py": {
             "docstring": "This class is a container that will hold all the data read from a device (e.g. the variables).\n It's the meeting point of the API (with ValueStreamer) and the DeviceHandler"
@@ -163,7 +163,7 @@
             "docstring": "Scrutiny protocol command to read some specific configuration in the device"
         },
         "scrutiny/server/protocol/commands/memory_control.py": {
-            "docstring": "Scrutiny protocol command to read and wrie memory"
+            "docstring": "Scrutiny protocol command to read and write memory"
         },
         "scrutiny/server/protocol/commands/user_command.py": {
             "docstring": "Scrutiny protocol command to launch user defined functions in the device. \n It's a way of leveraging the existing communication protocol for other purpose than Scrutiny debugging."
@@ -256,7 +256,7 @@
             "docstring": "Test serial port link. Require an external serial loopback.\nMake the link object talk with a serial port."
         },
         "test/server/links/test_udp_link.py": {
-            "docstring": "Test UDP link.\nnMake the link object talk with a socket"
+            "docstring": "Test UDP link.\nMake the link object talk with a socket"
         },
         "scrutiny/server/device/links/serial_link.py": {
             "docstring": "Represent a Serial Link that can be used to communicate with a device"
@@ -442,7 +442,7 @@
             "docstring": "Contains the definition for an enum on the embedded side"
         },
         "scrutiny/server/api/tcp_client_handler.py": {
-            "docstring": "The connection manager used by the aPI that manages multi-clients. Listen on TCP sockets"
+            "docstring": "The connection manager used by the API that manages multi-clients. Listen on TCP sockets"
         },
         "scrutiny/tools/stream_datagrams.py": {
             "docstring": "Internal tool to transmit datagrams over a stream. Used by the server and the clients to exchange JSON objects over TCP"
@@ -478,7 +478,7 @@
             "docstring": "A component to configure, trigger, view and browse embedded datalogging."
         },
         "scrutiny/gui/components/globals/varlist/varlist_component.py": {
-            "docstring": "A component that shows the content of the watchable registry, a copy og what's available on the server"
+            "docstring": "A component that shows the content of the watchable registry, a copy of what's available on the server"
         },
         "scrutiny/gui/components/locals/watch/watch_component.py": {
             "docstring": "A component to look at the value of watchable items broadcast by the server"
@@ -532,7 +532,7 @@
             "docstring": "The data model used by the Watch component treeview"
         },
         "test/gui/fake_server_manager.py": {
-            "docstring": "A stubbed Server MAnager for unit test purpose"
+            "docstring": "A stubbed Server Manager for unit test purpose"
         },
         "test/gui/test_drag_data.py": {
             "docstring": "A test suite to test the tools that revolves around drag & drop"
@@ -598,7 +598,7 @@
             "docstring": "A generic timebase object that can be used to follow relative time interval and map them to real datetime"
         },
         "scrutiny/gui/widgets/feedback_label.py": {
-            "docstring": "A label that can display messages to the suer with success/warning/info/error facilities"
+            "docstring": "A label that can display messages to the user with success/warning/info/error facilities"
         },
         "scrutiny/sdk/listeners/csv_logger.py": {
             "docstring": "Logger that dumps the values of the watchables into either one or multiple CSV files"
@@ -685,7 +685,7 @@
             "docstring": "Declaration of the server-wide SFD storage"
         },
         "scrutiny/gui/components/globals/base_global_component.py": {
-            "docstring": "A base class for a component that are embedded in the gUI, not the dashboard"
+            "docstring": "A base class for a component that are embedded in the GUI, not the dashboard"
         },
         "scrutiny/gui/components/locals/base_local_component.py": {
             "docstring": "A base class for a component that can be added to the dashboard multiple times"
@@ -817,7 +817,7 @@
             "docstring": "Type hint definitions for link configurations that are passed across the application"
         },
         "scrutiny/gui/dialogs/device_config/rtt.py": {
-            "docstring": "A Widget to configure a Seger RTT communication"
+            "docstring": "A Widget to configure a Segger RTT communication"
         },
         "scrutiny/gui/dialogs/device_config/device_config_dialog.py": {
             "docstring": "A dialog to configure the communication between the server and the device"
@@ -925,7 +925,7 @@
             "docstring": "Test suite for the CSVLogger class"
         },
         "test/server/test_subscribe_to_prebuilt_bins.py": {
-            "docstring": "A test suite that tries to load premade SFD and fill teh datastore without crashing "
+            "docstring": "A test suite that tries to load premade SFD and fill the datastore without crashing "
         },
         "test/cli/test_makevarmap_demo_stm32f4_gcc10_3.py": {
             "docstring": "Test suite parse the debug symbols of the STM32F4 demo"
@@ -937,7 +937,7 @@
             "docstring": "Test suite parse the debug symbols of the Aurix TC344 demo"
         },
         "test/gui/manual/manual_test_chart_grid_config.py": {
-            "docstring": "A test fil to check how the grid config dialog behaves"
+            "docstring": "A test file to check how the grid config dialog behaves"
         },
         "scrutiny/gui/dialogs/chart_grid_config_dialog.py": {
             "docstring": "A dialog to configure the grid on a ScrutinyChart"
@@ -955,7 +955,7 @@
             "docstring": "A custom implementation of a sorted set"
         },
         "test/gui/test_serializable_value_set.py": {
-            "docstring": "A test suite for the value set fil"
+            "docstring": "A test suite for the value set file"
         },
         "scrutiny/gui/core/serializable_value_set.py": {
             "docstring": "A class that represent the content of a .scval file. It's a set of values tied to a server path."
@@ -1009,13 +1009,13 @@
             "docstring": "A workzone where HMI widgets lives visually. Can be shown in display mode or dragged/edited in Edit mode"
         },
         "scrutiny/gui/components/locals/hmi/hmi_theme.py": {
-            "docstring": "An abstraction layer to get the theming proeprties of the dashboard. Reduce possibilities, ensure higher changes of uniformization"
+            "docstring": "An abstraction layer to get the theming properties of the dashboard. Reduce possibilities, ensure higher changes of uniformization"
         },
         "scrutiny/gui/widgets/scrutiny_hoverable_widget.py": {
             "docstring": "A widget that can be hovered and style according to the stylesheets"
         },
         "scrutiny/gui/widgets/scrutiny_qmenu.py": {
-            "docstring": "An extension of the QMenu used for right click menus. Has a method to destroy cleanly the menu and avoid memmory leaks with closures"
+            "docstring": "An extension of the QMenu used for right click menus. Has a method to destroy cleanly the menu and avoid memory leaks with closures"
         },
         "test/gui/manual/manual_test_hmi_library.py": {
             "docstring": "A manual test suite to test the HMI library rendering"
@@ -1024,7 +1024,7 @@
             "docstring": "A manual test to check the color span editor widget."
         },
         "scrutiny/gui/components/locals/hmi/hmi_status_bar.py": {
-            "docstring": "The status bar showned at the bottom of the GMI work zone when in edit mode"
+            "docstring": "The status bar shown at the bottom of the HMI work zone when in edit mode"
         },
         "scrutiny/gui/components/locals/hmi/common/brush_config.py": {
             "docstring": "A widget to configure a fill color (QBrush)"
@@ -1060,7 +1060,7 @@
             "docstring": "A layout that behaves like a Flex layout in CSS. Make a grid by laying out from left to right, starting from top"
         },
         "test/gui/test_hmi_component.py": {
-            "docstring": "A test suite to the the HMI component"
+            "docstring": "A test suite to test the HMI component"
         },
         "scrutiny/gui/components/locals/hmi/common/hmi_colors.py": {
             "docstring": "Colors defined by their role in the HMI dashboard"
@@ -1093,7 +1093,7 @@
             "docstring": "An extension of the QFormLayout that can easily add tooltips on the label"
         },
         "scrutiny/gui/core/server_manager/qt_buffered_listener.py": {
-            "docstring": "A custom sdk.Listener meant to broadcast value upadtes the the QT GUI."
+            "docstring": "A custom sdk.Listener meant to broadcast value updates to the QT GUI."
         },
         "scrutiny/gui/core/server_manager/server_manager.py": {
             "docstring": "Object that handles the communication with the server and inform the rest of the GUI about what's happening on the other side of the socket. Based on the SDK ScrutinyClient"
@@ -1126,7 +1126,7 @@
             "docstring": "Test suite for symbol extraction. GCC for Leon3 dwarf V4"
         },
         "test/cli/test_makevarmap_Linux_LE_x64_Gcc_11_4_0_dwarf5.py": {
-            "docstring": "Test suite for symbol extraction. GCC dwarf V3"
+            "docstring": "Test suite for symbol extraction. GCC dwarf V5"
         },
         "test/gui/test_tools.py": {
             "docstring": "A test suite for GUI tools"
@@ -1162,10 +1162,10 @@
             "docstring": "A test suite for the GUIMathWatchable"
         },
         "scrutiny/gui/core/gui_math_watchable.py": {
-            "docstring": "Represent a Math Watchable that can be carried across GUI components. Analogous to Variables/Alaises/RPVs, but defined fully from the GUI side"
+            "docstring": "Represent a Math Watchable that can be carried across GUI components. Analogous to Variables/Aliases/RPVs, but defined fully from the GUI side"
         },
         "scrutiny/gui/core/fqn_name_pair.py": {
-            "docstring": "Simple container used across the GUI to carry a display name an a Fully Qualified Name pointing to an item int he registry"
+            "docstring": "Simple container used across the GUI to carry a display name and a Fully Qualified Name pointing to an item in the registry"
         },
         "test/gui/test_math_builder_component.py": {
             "docstring": "A test suite for the MathBuilder component"

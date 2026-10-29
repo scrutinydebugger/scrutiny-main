@@ -1,5 +1,5 @@
 #    base_global_component.py
-#        A base class for a component that are embedded in the gUI, not the dashboard
+#        A base class for a component that are embedded in the GUI, not the dashboard
 #
 #   - License : MIT - See LICENSE file
 #   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)

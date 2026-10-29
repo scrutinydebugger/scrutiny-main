@@ -1,6 +1,6 @@
 #    gui_math_watchable.py
 #        Represent a Math Watchable that can be carried across GUI components. Analogous to
-#        Variables/Alaises/RPVs, but defined fully from the GUI side
+#        Variables/Aliases/RPVs, but defined fully from the GUI side
 #
 #   - License : MIT - See LICENSE file
 #   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)

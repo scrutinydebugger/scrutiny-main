@@ -1,5 +1,5 @@
 #    manual_test_chart_grid_config.py
-#        A test fil to check how the grid config dialog behaves
+#        A test file to check how the grid config dialog behaves
 #
 #   - License : MIT - See LICENSE file
 #   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)

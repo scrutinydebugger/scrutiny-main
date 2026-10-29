@@ -1,5 +1,5 @@
 #    varlist_component.py
-#        A component that shows the content of the watchable registry, a copy og what's available
+#        A component that shows the content of the watchable registry, a copy of what's available
 #        on the server
 #
 #   - License : MIT - See LICENSE file

@@ -1,5 +1,5 @@
 #    rtt.py
-#        A Widget to configure a Seger RTT communication
+#        A Widget to configure a Segger RTT communication
 #
 #   - License : MIT - See LICENSE file
 #   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)

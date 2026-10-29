@@ -1,5 +1,5 @@
 #    hmi_theme.py
-#        An abstraction layer to get the theming proeprties of the dashboard. Reduce possibilities,
+#        An abstraction layer to get the theming properties of the dashboard. Reduce possibilities,
 #        ensure higher changes of uniformization
 #
 #   - License : MIT - See LICENSE file
