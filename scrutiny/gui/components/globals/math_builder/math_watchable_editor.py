@@ -16,8 +16,6 @@ from scrutiny.gui.core.gui_math_watchable import GUIMathWatchable
 from scrutiny.gui.core.watchable_registry.fqn import FQN
 from scrutiny.gui.tools.validators import NotEmptyValidator
 from scrutiny.gui.widgets.validable_line_edit import ValidableLineEdit
-from scrutiny.gui.core.fqn_name_pair import FqnNamePair
-from scrutiny.gui.tools.invoker import invoke_later
 
 from scrutiny.tools.typing import *
 
@@ -262,6 +260,7 @@ class MathWatchableEditor(QWidget):
             widget = item.widget()
             if widget is wline_edit:
                 row_to_delete = row_index
+                break
 
         if row_to_delete is None:
             raise ValueError(f"Could not find variable {var_name} in the layout.")

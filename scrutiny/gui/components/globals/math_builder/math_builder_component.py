@@ -303,7 +303,7 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
         self.app.watchable_registry.remove_math_watchable_list_fqn(fqn_to_remove)
         if self._watchable_being_edited_fqn is not None:
             if self._watchable_being_edited_fqn in fqn_to_remove:
-                self._stop_edit()
+                self._stop_edit_and_hide()
 
     def _start_edit(self, math_watchable: GUIMathWatchable) -> None:
         """Loads a math watchable into the editor and tracks it for update on commit"""
