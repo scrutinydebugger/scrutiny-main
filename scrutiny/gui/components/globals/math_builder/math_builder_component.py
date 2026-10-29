@@ -136,7 +136,7 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
         self._connect_signal(self.app.watchable_registry.signals.content_changed, self._registry_changed_slot)
 
     def ready(self) -> None:
-        self._show_editor(True)
+        self._show_editor(False)
 
     def teardown(self) -> None:
         for sig, slot in self._signals_connected:

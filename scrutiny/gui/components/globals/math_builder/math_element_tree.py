@@ -11,7 +11,7 @@ import functools
 
 from PySide6.QtCore import QMimeData, QModelIndex, QObject, Signal, Qt
 from PySide6.QtWidgets import QHeaderView, QAbstractItemView
-from PySide6.QtGui import QContextMenuEvent, QStandardItem
+from PySide6.QtGui import QContextMenuEvent, QPaintEvent, QPainter, QStandardItem
 from scrutiny.gui.tools.drag_and_drop import make_watchable_list_dragdata_if_possible
 from scrutiny.gui.widgets.base_tree import BaseTreeModelWithStyle, BaseTreeView
 from scrutiny.gui.widgets.watchable_tree import WatchableStandardItem
@@ -253,6 +253,14 @@ class MathTreeView(BaseTreeView):
 
     def update_availabilities(self) -> None:
         self._model.update_availabilities()
+
+    def paintEvent(self, event: QPaintEvent) -> None:
+        super().paintEvent(event)
+        if self._model.rowCount() == 0:
+            painter = QPainter(self.viewport())
+            painter.setPen(self.palette().placeholderText().color())
+            painter.drawText(self.viewport().rect(), Qt.AlignmentFlag.AlignCenter, "No math elements defined")
+            painter.end()
 
 
 # region Private
