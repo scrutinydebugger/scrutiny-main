@@ -15,7 +15,7 @@ from PySide6.QtGui import (QContextMenuEvent, QKeyEvent, QMouseEvent, QPaintEven
                            QStandardItem, QDragEnterEvent, QDragMoveEvent, QDropEvent)
 from scrutiny.gui.tools.drag_and_drop import make_watchable_list_dragdata_if_possible
 from scrutiny.gui.widgets.base_tree import BaseTreeModelWithStyle, BaseTreeView, SerializableItemIndexDescriptor
-from scrutiny.gui.widgets.watchable_tree import WatchableStandardItem, FolderStandardItem, BaseWatchableRegistryTreeStandardItem
+from scrutiny.gui.widgets.watchable_tree import WatchableStandardItem, FolderStandardItem, BaseWatchableRegistryTreeStandardItem, SerializableTreeDescriptor
 from scrutiny.gui.widgets.scrutiny_qmenu import ScrutinyQMenu
 from scrutiny.gui.core.watchable_registry.common import RegistryNodeType
 from scrutiny.gui.core.watchable_registry.fqn import FQN
@@ -170,6 +170,24 @@ class MathTreeModel(BaseTreeModelWithStyle):
             row.append(filler)
         return row
 
+    def _make_serializable_tree_descriptor(self, item: BaseWatchableRegistryTreeStandardItem, sortkey: int = 0) -> SerializableTreeDescriptor:
+        """Serialize an item as a tree descriptor for watch components.
+        MathStandardItems are treated as leaf watchables (variable bindings are not included)."""
+        descriptor: SerializableTreeDescriptor = {
+            'node': item.to_serialized_data(),
+            'sortkey': sortkey,
+            'children': [],
+        }
+
+        if isinstance(item, FolderStandardItem):
+            nesting_col = self.nesting_col()
+            for row_index in range(item.rowCount()):
+                child = item.child(row_index, nesting_col)
+                if isinstance(child, (MathStandardItem, FolderStandardItem)):
+                    descriptor['children'].append(self._make_serializable_tree_descriptor(child, sortkey=row_index))
+
+        return descriptor
+
     def mimeData(self, indexes: Sequence[QModelIndex]) -> QMimeData:
         """Generate drag data. Folders produce a FullTree, individual math items produce a WatchableList."""
         nesting_col = self.nesting_col()
@@ -193,9 +211,10 @@ class MathTreeModel(BaseTreeModelWithStyle):
 
             drag_data = make_watchable_list_dragdata_if_possible(items, data_move=move_data)
             if drag_data is None:
+                copy_data = [self._make_serializable_tree_descriptor(item, sortkey=i) for i, item in enumerate(items)]
                 drag_data = ScrutinyDragData(
                     type=ScrutinyDragData.DataType.WatchableFullTree,
-                    data_copy=None,
+                    data_copy=copy_data,
                     data_move=move_data
                 )
 

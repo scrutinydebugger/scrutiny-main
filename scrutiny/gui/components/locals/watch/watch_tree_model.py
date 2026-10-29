@@ -34,6 +34,7 @@ from scrutiny.gui.widgets.watchable_tree import (
     WatchableTreeWidget,
     WatchableTreeModel,
     NodeSerializableData,
+    SerializableTreeDescriptor,
     FolderStandardItem,
     WatchableStandardItem,
     BaseWatchableRegistryTreeStandardItem,
@@ -209,13 +210,6 @@ class EnumNameStandardItem(QStandardItem):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.setEditable(False)
-
-
-class SerializableTreeDescriptor(TypedDict):
-    """A serializable description of a node (not the path to it). Used to describe a tree when doing a copy"""
-    node: NodeSerializableData
-    sortkey: int
-    children: List["SerializableTreeDescriptor"]
 
 
 class RawDataEditDelegate(QStyledItemDelegate):
