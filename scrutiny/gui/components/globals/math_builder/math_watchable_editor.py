@@ -91,11 +91,15 @@ class MathWatchableEditor(QWidget):
 
         if len(self._txt_name.text()) > 0:
             changed = True
-        self._txt_name.clear()
-
         if len(self._txt_expr.text()) > 0:
             changed = True
+
+        self._txt_name.blockSignals(True)
+        self._txt_expr.blockSignals(True)
+        self._txt_name.clear()
         self._txt_expr.clear()
+        self._txt_name.blockSignals(False)
+        self._txt_expr.blockSignals(False)
 
         if len(self._var_to_wlineedit_map) > 0:
             changed = True
@@ -113,8 +117,12 @@ class MathWatchableEditor(QWidget):
 
     def load(self, math_watchable: GUIMathWatchable, reload_var_if_unset: bool = False) -> None:
         math_watchable = math_watchable.copy()
+        self._txt_name.blockSignals(True)
+        self._txt_expr.blockSignals(True)
         self._txt_name.setText(math_watchable.get_name())
         self._txt_expr.setText(math_watchable.get_expr())
+        self._txt_name.blockSignals(False)
+        self._txt_expr.blockSignals(False)
 
         if reload_var_if_unset:
             # Fill the input (copy) with what's in the layout
