@@ -1,5 +1,5 @@
 #    tcp_client_handler.py
-#        The connection manager used by the aPI that manages multi-clients. Listen on TCP
+#        The connection manager used by the API that manages multi-clients. Listen on TCP
 #        sockets
 #
 #   - License : MIT - See LICENSE file

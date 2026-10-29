@@ -1,5 +1,5 @@
 #    test_makevarmap_Linux_LE_x64_Gcc_11_4_0_dwarf5.py
-#        Test suite for symbol extraction. GCC dwarf V3
+#        Test suite for symbol extraction. GCC dwarf V5
 #
 #   - License : MIT - See LICENSE file
 #   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)

@@ -1,5 +1,5 @@
 #    test_subscribe_to_prebuilt_bins.py
-#        A test suite that tries to load premade SFD and fill teh datastore without crashing
+#        A test suite that tries to load premade SFD and fill the datastore without crashing
 #
 #
 #   - License : MIT - See LICENSE file

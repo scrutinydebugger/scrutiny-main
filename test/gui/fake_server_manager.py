@@ -1,5 +1,5 @@
 #    fake_server_manager.py
-#        A stubbed Server MAnager for unit test purpose
+#        A stubbed Server Manager for unit test purpose
 #
 #   - License : MIT - See LICENSE file
 #   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)

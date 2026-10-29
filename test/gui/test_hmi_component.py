@@ -1,5 +1,5 @@
 #    test_hmi_component.py
-#        A test suite to the the HMI component
+#        A test suite to test the HMI component
 #
 #   - License : MIT - See LICENSE file
 #   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)

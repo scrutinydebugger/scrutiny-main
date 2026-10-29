@@ -1,6 +1,6 @@
 #    watchable_registry.py
 #        The Watchable Registry, a class analog to the server datastore. It stores the available
-#        watchables and allows a subscribe/broadcast mechanism. Data is stored in a tree
+#        watchables and allow a subscribe/broadcast mechanism. Data is stored in a tree
 #
 #   - License : MIT - See LICENSE file
 #   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)

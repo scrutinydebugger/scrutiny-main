@@ -1,6 +1,6 @@
 #    fqn_name_pair.py
-#        Simple container used across the GUI to carry a display name an a Fully Qualified
-#        Name pointing to an item int he registry
+#        Simple container used across the GUI to carry a display name and a Fully Qualified
+#        Name pointing to an item in the registry
 #
 #   - License : MIT - See LICENSE file
 #   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)

@@ -1,5 +1,5 @@
 #    hmi_status_bar.py
-#        The status bar showned at the bottom of the GMI work zone when in edit mode
+#        The status bar shown at the bottom of the HMI work zone when in edit mode
 #
 #   - License : MIT - See LICENSE file
 #   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)

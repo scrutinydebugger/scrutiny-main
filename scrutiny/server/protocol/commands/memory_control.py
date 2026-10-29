@@ -1,5 +1,5 @@
 #    memory_control.py
-#        Scrutiny protocol command to read and wrie memory
+#        Scrutiny protocol command to read and write memory
 #
 #   - License : MIT - See LICENSE file
 #   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)

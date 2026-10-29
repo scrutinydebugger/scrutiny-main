@@ -1,6 +1,6 @@
 #    test_udp_link.py
 #        Test UDP link.
-#        nMake the link object talk with a socket
+#        Make the link object talk with a socket
 #
 #   - License : MIT - See LICENSE file
 #   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)

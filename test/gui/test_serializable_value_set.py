@@ -1,5 +1,5 @@
 #    test_serializable_value_set.py
-#        A test suite for the value set fil
+#        A test suite for the value set file
 #
 #   - License : MIT - See LICENSE file
 #   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
