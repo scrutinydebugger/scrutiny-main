@@ -251,6 +251,11 @@ class MathTreeModel(BaseTreeModelWithStyle):
             return False
         return self.handle_internal_move(parent, row_index, cast(List[SerializableItemIndexDescriptor], drag_data.data_move))
 
+    def append_math_watchable(self, math_watchable: GUIMathWatchable, parent: Optional[QStandardItem] = None) -> None:
+        """Build a math row and append it to the given parent (or root)"""
+        row = self._make_row(math_watchable)
+        self.add_row_to_parent(parent, -1, row)
+
     def _make_row(self, math_watchable: GUIMathWatchable) -> List[QStandardItem]:
         """Build a new empty Math row"""
         fqn = FQN.make(RegistryNodeType.Math, math_watchable.signature())
@@ -398,7 +403,7 @@ class MathTreeView(BaseTreeView):
                 if isinstance(item, FolderStandardItem):
                     self.edit(index)
                     return
-        elif event.key() == Qt.Key.Key_N and event.modifiers() == Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier:
+        elif event.key() == Qt.Key.Key_N and event.modifiers() == (Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier):
             parent, insert_row = self._find_new_folder_position_from_selection()
             self._new_folder(self.NEW_FOLDER_DEFAULT_NAME, parent, insert_row)
             return

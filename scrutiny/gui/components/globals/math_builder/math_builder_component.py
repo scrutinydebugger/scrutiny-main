@@ -221,8 +221,7 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
             for _, mw in self.app.watchable_registry.get_all_math_watchables():
                 fqn = mw.make_fqn()
                 if fqn not in referenced_fqns:
-                    row = model._make_row(mw)
-                    model.appendRow(row)
+                    model.append_math_watchable(mw)
 
             self._expand_saved_folders()
         else:
@@ -420,8 +419,7 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
                 if mw is None:
                     continue
                 referenced_fqns.add(fqn)
-                row = model._make_row(mw)
-                model.add_row_to_parent(parent, -1, row)
+                model.append_math_watchable(mw, parent)
             elif node_type == State.TYPE_FOLDER:
                 text = node.get(State.KEY_TEXT, "Folder")
                 expanded = node.get(State.KEY_EXPANDED, False)
