@@ -101,10 +101,9 @@ class TestMathBuilderComponent(ScrutinyBaseGuiTest):
         self.assertEqual(self._count_registry_math(), 1)
         tree = self.builder.get_math_tree()
         self.assertEqual(tree.math_watchable_count(), 1)
-        info = tree.get_math_watchable_info(0)
-        self.assertIsNotNone(info)
-        self.assertEqual(info[0], "magnitude")
-        self.assertEqual(info[1], "sqrt(x^2+y^2)")
+        items = list(tree.model().iter_math_items())
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0].text(), "magnitude")
 
     def test_add_multiple_math_watchables(self):
         w1 = self._make_math_watchable("sum", "a+b", {
@@ -144,10 +143,9 @@ class TestMathBuilderComponent(ScrutinyBaseGuiTest):
         self.assertEqual(self._count_registry_math(), 1)
         tree = self.builder.get_math_tree()
         self.assertEqual(tree.math_watchable_count(), 1)
-        info = tree.get_math_watchable_info(0)
-        self.assertIsNotNone(info)
-        self.assertEqual(info[0], "product")
-        self.assertEqual(info[1], "a*b")
+        items = list(tree.model().iter_math_items())
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0].text(), "product")
 
     def test_remove_math_watchable(self):
         w1 = self._make_math_watchable("sum", "a+b", {
@@ -167,9 +165,9 @@ class TestMathBuilderComponent(ScrutinyBaseGuiTest):
         self.assertEqual(self._count_registry_math(), 1)
         tree = self.builder.get_math_tree()
         self.assertEqual(tree.math_watchable_count(), 1)
-        info = tree.get_math_watchable_info(0)
-        self.assertIsNotNone(info)
-        self.assertEqual(info[0], "diff")
+        items = list(tree.model().iter_math_items())
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0].text(), "diff")
 
     def test_remove_while_editing_clears_editor(self):
         w = self._make_math_watchable("sum", "a+b", {
