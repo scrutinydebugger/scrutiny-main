@@ -192,6 +192,8 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
     """The undo stack used to undo changes in edit mode"""
     _undo_shortcut: QShortcut
     """The shortcut to trigger undo in edit mode"""
+    _redo_shortcut: QShortcut
+    """The shortcut to trigger redo in edit mode"""
 
 
 # region inherited methods
@@ -212,6 +214,8 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         self._undo_stack = QUndoStack(self)
         self._undo_shortcut = QShortcut(QKeySequence(QKeySequence.StandardKey.Undo), self)
         self._undo_shortcut.activated.connect(self._undo_slot)
+        self._redo_shortcut = QShortcut(QKeySequence(QKeySequence.StandardKey.Redo), self)
+        self._redo_shortcut.activated.connect(self._redo_slot)
 
         config_scroll = VerticalScrollArea()
         config_scroll.setWidget(self._config_widget_container)
@@ -284,6 +288,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         self._workzone.signals.widgets_moved.disconnect(self._widgets_moved_slot)
         self._workzone.signals.widget_resized.disconnect(self._widget_resized_slot)
         self._undo_shortcut.activated.disconnect(self._undo_slot)
+        self._redo_shortcut.activated.disconnect(self._redo_slot)
         self._undo_stack.clear()
 
         self.app.watchable_registry.signals.content_changed.disconnect(self._registry_changed_slot)
@@ -415,6 +420,10 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
     def undo(self) -> None:
         """Undo the last action in edit mode"""
         self._undo_slot()
+
+    def redo(self) -> None:
+        """Redo the last undone action in edit mode"""
+        self._redo_slot()
 
 
     def selected_widgets(self) -> List[BaseHMIWidget]:
@@ -646,6 +655,10 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
     def _undo_slot(self) -> None:
         if self.is_edit_mode() and self._undo_stack.canUndo():
             self._undo_stack.undo()
+
+    def _redo_slot(self) -> None:
+        if self.is_edit_mode() and self._undo_stack.canRedo():
+            self._undo_stack.redo()
 
     def _workzone_right_click_slot(self, widgets: List[BaseHMIWidget], event: QMouseEvent) -> None:
         """Right click on an HMI widget in the workzone"""
