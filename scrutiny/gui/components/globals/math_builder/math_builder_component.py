@@ -81,7 +81,7 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
         self._btn_edit.setEnabled(False)
         self._btn_commit = QPushButton("Commit")
         self._btn_commit.setEnabled(False)
-        self._btn_close = QPushButton("Close")
+        self._btn_close = QPushButton("Discard")
         self._btn_close.setEnabled(True)
         self._splitter = QSplitter(Qt.Orientation.Vertical)
         self._splitter.setContentsMargins(0, 0, 0, 0)
@@ -206,7 +206,7 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
             else:
                 self.app.watchable_registry.update_math_watchable_fqn(self._watchable_being_edited_fqn, math_watchable)
             self._lbl_commit_error.clear()
-            self._stop_edit()
+            self._stop_edit_and_hide()
         except WatchableRegistryError as e:
             self._lbl_commit_error.set_error(str(e))
 

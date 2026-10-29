@@ -11,7 +11,7 @@ import functools
 
 from PySide6.QtCore import QMimeData, QModelIndex, QObject, Signal, Qt
 from PySide6.QtWidgets import QHeaderView, QAbstractItemView
-from PySide6.QtGui import QContextMenuEvent, QPaintEvent, QPainter, QStandardItem
+from PySide6.QtGui import QContextMenuEvent, QKeyEvent, QMouseEvent, QPaintEvent, QPainter, QStandardItem
 from scrutiny.gui.tools.drag_and_drop import make_watchable_list_dragdata_if_possible
 from scrutiny.gui.widgets.base_tree import BaseTreeModelWithStyle, BaseTreeView
 from scrutiny.gui.widgets.watchable_tree import WatchableStandardItem
@@ -253,6 +253,24 @@ class MathTreeView(BaseTreeView):
 
     def update_availabilities(self) -> None:
         self._model.update_availabilities()
+
+    def keyPressEvent(self, event: QKeyEvent) -> None:
+        if event.key() == Qt.Key.Key_Delete:
+            selected = self.selected_math_items()
+            if len(selected) > 0:
+                fqns = set(item.fqn for item in selected)
+                self._signals.remove_requested.emit(fqns)
+                return
+        super().keyPressEvent(event)
+
+    def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:
+        index = self.indexAt(event.pos())
+        if index.isValid() and index.parent() == QModelIndex():
+            item = self._model.item(index.row(), Cols.ItemOrVar)
+            if isinstance(item, MathStandardItem):
+                self._signals.edit_requested.emit(item.fqn)
+                return
+        super().mouseDoubleClickEvent(event)
 
     def paintEvent(self, event: QPaintEvent) -> None:
         super().paintEvent(event)

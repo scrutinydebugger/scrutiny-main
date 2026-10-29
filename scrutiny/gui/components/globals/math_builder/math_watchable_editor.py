@@ -73,7 +73,9 @@ class MathWatchableEditor(QWidget):
         self._txt_expr.returnPressed.connect(self._expr_edit_finished_slot)
         self._txt_name.textChanged.connect(self._name_edit_slot)
 
+        self._txt_name.textChanged.connect(self._signals.content_changed)
         self._txt_name.editingFinished.connect(self._signals.content_changed)
+        self._txt_expr.textChanged.connect(self._signals.content_changed)
         self._txt_expr.editingFinished.connect(self._signals.content_changed)
         self._txt_expr.returnPressed.connect(self._signals.content_changed)
 
