@@ -17,14 +17,14 @@ from PySide6.QtGui import QIcon
 from scrutiny.gui import assets
 from scrutiny.gui.themes import scrutiny_get_theme
 from scrutiny.gui.widgets.watchable_tree import FolderItemSerializableData, WatchableItemSerializableData
-from scrutiny.gui.widgets.watchable_tree import WatchableTreeWidget, WatchableStandardItem, FolderStandardItem, BaseWatchableRegistryTreeStandardItem
+from scrutiny.gui.widgets.watchable_tree import WatchableTreeWidget, WatchableStandardItem, FolderStandardItem, BaseWatchableRegistryTreeStandardItem, SerializableTreeDescriptor
 from scrutiny.gui.core.serializable_value_set import SerializableValueSet
 from scrutiny.gui.core.watchable_registry.common import RegistryValueUpdate, RegistryNodeType
 from scrutiny.gui.core.watchable_registry.fqn import FQN
 from scrutiny.gui.core.watchable_registry.errors import WatchableRegistryNodeNotFoundError, WatcherNotFoundError
 from scrutiny.gui.components.locals.base_local_component import ScrutinyGUIBaseLocalComponent
 from scrutiny.gui.components.locals.watch.watch_tree_model import (
-    WatchComponentTreeModel, ValueStandardItem, RawDataStandardItem, WatchComponentTreeWidget, SerializableTreeDescriptor, NumericFormat,
+    WatchComponentTreeModel, ValueStandardItem, RawDataStandardItem, WatchComponentTreeWidget, NumericFormat,
     SERIALIZATION_CUSTOM_DATA_NUMERIC_FORMAT_KEY)
 from scrutiny.gui.dialogs.value_export_dialog import ValueExportDialog
 from scrutiny.gui.tools import prompt
