@@ -20,7 +20,7 @@ from scrutiny.gui.components.locals.hmi.hmi_library import HMILibrary
 
 from PySide6.QtCore import Qt, QPoint, QSize, QRect, QMimeData, QByteArray, QPointF, QRectF
 from PySide6.QtWidgets import QVBoxLayout, QSplitter, QTabWidget, QWidget, QStackedLayout, QGroupBox, QApplication
-from PySide6.QtGui import QIcon, QKeyEvent, QMouseEvent
+from PySide6.QtGui import QIcon, QKeyEvent, QMouseEvent, QUndoStack, QUndoCommand, QShortcut, QKeySequence
 
 from scrutiny.gui import assets
 from scrutiny.gui.themes import scrutiny_get_theme
@@ -94,6 +94,62 @@ class StateParser:
         return QPoint(pair[0], pair[1])
 
 
+class MoveHMIWidgetsCommand(QUndoCommand):
+    """Command that encapsulates moving one or more HMI widgets."""
+
+    _workzone: HMIWorkZone
+    _move_records: List[Tuple[BaseHMIWidget, QPoint, QPoint]]
+
+    def __init__(self, workzone: HMIWorkZone, move_records: List[Tuple[BaseHMIWidget, QPoint, QPoint]]) -> None:
+        super().__init__("Move Widgets")
+        self._workzone = workzone
+        self._move_records = move_records
+
+    def undo(self) -> None:
+        for widget, old_pos, _ in self._move_records:
+            widget.setPos(old_pos)
+        self._workzone._resize_scene()
+        self._workzone.signals.modified.emit()
+
+    def redo(self) -> None:
+        for widget, _, new_pos in self._move_records:
+            widget.setPos(new_pos)
+        self._workzone._resize_scene()
+        self._workzone.signals.modified.emit()
+
+
+class ResizeHMIWidgetCommand(QUndoCommand):
+    """Command that encapsulates resizing an HMI widget."""
+
+    _workzone: HMIWorkZone
+    _widget: BaseHMIWidget
+    _old_pos: QPoint
+    _old_size: QSize
+    _new_pos: QPoint
+    _new_size: QSize
+
+    def __init__(self, workzone: HMIWorkZone, widget: BaseHMIWidget, old_pos: QPoint, old_size: QSize, new_pos: QPoint, new_size: QSize) -> None:
+        super().__init__("Resize Widget")
+        self._workzone = workzone
+        self._widget = widget
+        self._old_pos = old_pos
+        self._old_size = old_size
+        self._new_pos = new_pos
+        self._new_size = new_size
+
+    def undo(self) -> None:
+        self._widget.setPos(self._old_pos)
+        self._widget.set_size(self._old_size)
+        self._workzone._resize_scene()
+        self._workzone.signals.modified.emit()
+
+    def redo(self) -> None:
+        self._widget.setPos(self._new_pos)
+        self._widget.set_size(self._new_size)
+        self._workzone._resize_scene()
+        self._workzone.signals.modified.emit()
+
+
 class HMIComponent(ScrutinyGUIBaseLocalComponent):
     instance_name: str
 
@@ -132,6 +188,10 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
     """A flag enabling some unit test behavior"""
     _has_unsaved_changes: bool
     """A flag used to prompt the user for a confirmation on close if there are modifications """
+    _undo_stack: QUndoStack
+    """The undo stack used to undo changes in edit mode"""
+    _undo_shortcut: QShortcut
+    """The shortcut to trigger undo in edit mode"""
 
 
 # region inherited methods
@@ -149,6 +209,9 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         self._library = HMILibrary()
         self._config_widget_container = QWidget()
         self._has_unsaved_changes = False
+        self._undo_stack = QUndoStack(self)
+        self._undo_shortcut = QShortcut(QKeySequence(QKeySequence.StandardKey.Undo), self)
+        self._undo_shortcut.activated.connect(self._undo_slot)
 
         config_scroll = VerticalScrollArea()
         config_scroll.setWidget(self._config_widget_container)
@@ -191,6 +254,8 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         self._workzone.signals.drop_widget_class.connect(self._workzone_drop_widget_class_slot)
         self._workzone.signals.selection_changed.connect(self._workzone_selection_changed_slot)
         self._workzone.signals.modified.connect(self._invalidate_save)
+        self._workzone.signals.widgets_moved.connect(self._widgets_moved_slot)
+        self._workzone.signals.widget_resized.connect(self._widget_resized_slot)
         self._show_edit_menu(False)  # Necessary to set the menu to a size of 0, used for state checking
 
         self._show_config_of(None)
@@ -216,6 +281,10 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         self._workzone.signals.drop_widget_class.disconnect(self._workzone_drop_widget_class_slot)
         self._workzone.signals.selection_changed.disconnect(self._workzone_selection_changed_slot)
         self._workzone.signals.modified.disconnect(self._invalidate_save)
+        self._workzone.signals.widgets_moved.disconnect(self._widgets_moved_slot)
+        self._workzone.signals.widget_resized.disconnect(self._widget_resized_slot)
+        self._undo_shortcut.activated.disconnect(self._undo_slot)
+        self._undo_stack.clear()
 
         self.app.watchable_registry.signals.content_changed.disconnect(self._registry_changed_slot)
         self._status_bar.signals.exit_edit_mode.disconnect(self._exit_edit_mode_slot)
@@ -295,6 +364,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         self._reassign_packed_zvalues()
         self._resubscribe_all_hmi_widgets()
         self.set_mode(HMIInteractionMode.Display)
+        self._undo_stack.clear()
         self._has_unsaved_changes = False
         return fully_loaded_ok
 
@@ -311,16 +381,24 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         self._has_unsaved_changes = False
 
     def keyPressEvent(self, event: QKeyEvent) -> None:
+        if not self.is_edit_mode():
+            return super().keyPressEvent(event)
 
         if event.modifiers() == Qt.KeyboardModifier.ControlModifier:
             if event.key() == Qt.Key.Key_C:
                 self.copy_widgets_to_clipboard(self._workzone.selected_widgets())
+                event.accept()
+                return
             elif event.key() == Qt.Key.Key_V:
                 self.paste_widgets_from_clipboard(scene_pos=None)
+                event.accept()
+                return
 
         elif event.modifiers() == Qt.KeyboardModifier.NoModifier:
             if event.key() == Qt.Key.Key_Delete:
                 self.delete_hmi_widgets(self._workzone.selected_widgets())
+                event.accept()
+                return
 
         return super().keyPressEvent(event)
 
@@ -330,6 +408,14 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
 
     def get_workzone(self) -> HMIWorkZone:
         return self._workzone
+
+    def get_undo_stack(self) -> QUndoStack:
+        return self._undo_stack
+
+    def undo(self) -> None:
+        """Undo the last action in edit mode"""
+        self._undo_slot()
+
 
     def selected_widgets(self) -> List[BaseHMIWidget]:
         return self._workzone.selected_widgets()
@@ -548,6 +634,18 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
             self._show_config_of(widgets[0])
         else:
             self._show_config_of(None)
+
+    def _widgets_moved_slot(self, move_records: List[Tuple[BaseHMIWidget, QPoint, QPoint]]) -> None:
+        cmd = MoveHMIWidgetsCommand(self._workzone, move_records)
+        self._undo_stack.push(cmd)
+
+    def _widget_resized_slot(self, widget: BaseHMIWidget, old_pos: QPoint, old_size: QSize, new_pos: QPoint, new_size: QSize) -> None:
+        cmd = ResizeHMIWidgetCommand(self._workzone, widget, old_pos, old_size, new_pos, new_size)
+        self._undo_stack.push(cmd)
+
+    def _undo_slot(self) -> None:
+        if self.is_edit_mode() and self._undo_stack.canUndo():
+            self._undo_stack.undo()
 
     def _workzone_right_click_slot(self, widgets: List[BaseHMIWidget], event: QMouseEvent) -> None:
         """Right click on an HMI widget in the workzone"""

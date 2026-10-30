@@ -10,12 +10,12 @@ import gc
 
 from PySide6.QtWidgets import QWidget
 from PySide6.QtCore import QPoint, QSize, Qt, QEvent, QPointF, QRectF, qVersion
-from PySide6.QtGui import QPen, QBrush, QColor, QMouseEvent, QDragEnterEvent, QDragMoveEvent, QDropEvent, QDragLeaveEvent, QResizeEvent, QPainter, QImage
+from PySide6.QtGui import QPen, QBrush, QColor, QMouseEvent, QDragEnterEvent, QDragMoveEvent, QDropEvent, QDragLeaveEvent, QResizeEvent, QPainter, QImage, QKeyEvent, QKeySequence
 
 from scrutiny import sdk
 from scrutiny.gui import QT_VERSION
 from scrutiny.gui.core.scrutiny_drag_data import ScrutinyDragData
-from scrutiny.gui.components.locals.hmi.hmi_component import HMIComponent
+from scrutiny.gui.components.locals.hmi.hmi_component import HMIComponent, HMIInteractionMode
 from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget
 from scrutiny.gui.components.locals.hmi.hmi_widgets.graphics.circle_hmi_widget import CircleHMIWidget
 from scrutiny.gui.components.locals.hmi.hmi_widgets.graphics.rectangle_hmi_widget import RectangleHMIWidget
@@ -1447,6 +1447,172 @@ class TestHMIComponent(HMIComponentBaseTest):
 
         self.assertEqual(new_circle1.get_implementation_config_dict(), circle1.get_implementation_config_dict())
         self.assertEqual(new_rect1.get_implementation_config_dict(), rect1.get_implementation_config_dict())
+
+    def test_undo_move_widget(self):
+        workzone = self.hmi_component.get_workzone()
+        self.hmi_component.set_mode(HMIInteractionMode.Edit)
+        circle = CircleHMIWidget(self.app_interface)
+        initial_size = QSize(64, 64)
+        initial_pos = QPoint(32, 32)
+        circle.set_size(initial_size)
+        self.hmi_component.add_hmi_widget(circle, initial_pos)
+
+        undo_stack = self.hmi_component.get_undo_stack()
+        self.assertFalse(undo_stack.canUndo())
+
+        def apply_move(start_pos: QPoint, delta_move: QPoint):
+            down_event = QMouseEvent(QEvent.Type.MouseButtonPress, start_pos, start_pos,
+                                     Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier)
+            move_event = QMouseEvent(QEvent.Type.MouseMove, start_pos + delta_move, start_pos + delta_move,
+                                     Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier)
+            up_event = QMouseEvent(QEvent.Type.MouseButtonRelease, start_pos + delta_move, start_pos + delta_move,
+                                   Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier)
+
+            workzone.mousePressEvent(down_event)
+            workzone.mouseMoveEvent(move_event)
+            workzone.mouseReleaseEvent(up_event)
+
+        apply_move(QPoint(50, 50), QPoint(16, 32))
+        expected_moved_pos = initial_pos + QPoint(16, 32)
+        self.assertEqual(circle.pos().toPoint(), expected_moved_pos)
+        self.assertTrue(undo_stack.canUndo())
+
+        # Trigger undo via shortcut
+        self.assertEqual(self.hmi_component._undo_shortcut.key(), QKeySequence(QKeySequence.StandardKey.Undo))
+        self.hmi_component._undo_shortcut.activated.emit()
+
+        self.assertEqual(circle.pos().toPoint(), initial_pos)
+        self.assertFalse(undo_stack.canUndo())
+
+    def test_undo_multi_widget_move(self):
+        workzone = self.hmi_component.get_workzone()
+        self.hmi_component.set_mode(HMIInteractionMode.Edit)
+        circle = CircleHMIWidget(self.app_interface)
+        rect = RectangleHMIWidget(self.app_interface)
+        circle.set_size(QSize(64, 64))
+        rect.set_size(QSize(64, 64))
+        pos1 = QPoint(32, 32)
+        pos2 = QPoint(128, 32)
+        self.hmi_component.add_hmi_widget(circle, pos1)
+        self.hmi_component.add_hmi_widget(rect, pos2)
+
+        undo_stack = self.hmi_component.get_undo_stack()
+        self.assertFalse(undo_stack.canUndo())
+
+        workzone.select_widgets([circle, rect])
+
+        down_event = QMouseEvent(QEvent.Type.MouseButtonPress, QPoint(50, 50), QPoint(50, 50),
+                                 Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier)
+        move_event = QMouseEvent(QEvent.Type.MouseMove, QPoint(66, 82), QPoint(66, 82),
+                                 Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier)
+        up_event = QMouseEvent(QEvent.Type.MouseButtonRelease, QPoint(66, 82), QPoint(66, 82),
+                               Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier)
+
+        workzone.mousePressEvent(down_event)
+        workzone.mouseMoveEvent(move_event)
+        workzone.mouseReleaseEvent(up_event)
+
+        self.assertEqual(circle.pos().toPoint(), pos1 + QPoint(16, 32))
+        self.assertEqual(rect.pos().toPoint(), pos2 + QPoint(16, 32))
+        self.assertTrue(undo_stack.canUndo())
+
+        self.hmi_component.undo()
+
+        self.assertEqual(circle.pos().toPoint(), pos1)
+        self.assertEqual(rect.pos().toPoint(), pos2)
+        self.assertFalse(undo_stack.canUndo())
+
+    def test_undo_resize_widget(self):
+        workzone = self.hmi_component.get_workzone()
+        self.hmi_component.set_mode(HMIInteractionMode.Edit)
+        circle = CircleHMIWidget(self.app_interface)
+        initial_size = QSize(64, 64)
+        initial_pos = QPoint(128, 128)
+        circle.set_size(initial_size)
+        self.hmi_component.add_hmi_widget(circle, initial_pos)
+
+        undo_stack = self.hmi_component.get_undo_stack()
+        self.assertFalse(undo_stack.canUndo())
+
+        # Click bottom-right handle and resize
+        start_pos = initial_pos + QPoint(64, 64) + QPoint(-1, -1)
+        delta_move = QPoint(32, 32)
+        down_event = QMouseEvent(QEvent.Type.MouseButtonPress, start_pos, start_pos,
+                                 Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier)
+        move_event = QMouseEvent(QEvent.Type.MouseMove, start_pos + delta_move, start_pos + delta_move,
+                                 Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier)
+        up_event = QMouseEvent(QEvent.Type.MouseButtonRelease, start_pos + delta_move, start_pos + delta_move,
+                               Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier)
+
+        workzone.mousePressEvent(down_event)
+        workzone.mouseMoveEvent(move_event)
+        workzone.mouseReleaseEvent(up_event)
+
+        resized_size = circle.get_size()
+        self.assertNotEqual(resized_size, initial_size)
+        self.assertTrue(undo_stack.canUndo())
+
+        # Undo resize
+        self.hmi_component.undo()
+
+        self.assertEqual(circle.get_size(), initial_size)
+        self.assertEqual(circle.pos().toPoint(), initial_pos)
+        self.assertFalse(undo_stack.canUndo())
+
+    def test_undo_disabled_in_display_mode(self):
+        workzone = self.hmi_component.get_workzone()
+        self.hmi_component.set_mode(HMIInteractionMode.Edit)
+        circle = CircleHMIWidget(self.app_interface)
+        circle.set_size(QSize(64, 64))
+        initial_pos = QPoint(32, 32)
+        self.hmi_component.add_hmi_widget(circle, initial_pos)
+
+        down_event = QMouseEvent(QEvent.Type.MouseButtonPress, QPoint(50, 50), QPoint(50, 50),
+                                 Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier)
+        move_event = QMouseEvent(QEvent.Type.MouseMove, QPoint(66, 82), QPoint(66, 82),
+                                 Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier)
+        up_event = QMouseEvent(QEvent.Type.MouseButtonRelease, QPoint(66, 82), QPoint(66, 82),
+                               Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier)
+
+        workzone.mousePressEvent(down_event)
+        workzone.mouseMoveEvent(move_event)
+        workzone.mouseReleaseEvent(up_event)
+
+        moved_pos = initial_pos + QPoint(16, 32)
+        self.assertEqual(circle.pos().toPoint(), moved_pos)
+
+        # Switch to Display mode
+        self.hmi_component.set_mode(HMIInteractionMode.Display)
+
+        # Send Undo
+        self.hmi_component.undo()
+
+        # Widget remains at moved position because undo is ignored in Display mode
+        self.assertEqual(circle.pos().toPoint(), moved_pos)
+
+    def test_undo_cleared_on_load_state(self):
+        workzone = self.hmi_component.get_workzone()
+        self.hmi_component.set_mode(HMIInteractionMode.Edit)
+        circle = CircleHMIWidget(self.app_interface)
+        circle.set_size(QSize(64, 64))
+        self.hmi_component.add_hmi_widget(circle, QPoint(32, 32))
+
+        down_event = QMouseEvent(QEvent.Type.MouseButtonPress, QPoint(50, 50), QPoint(50, 50),
+                                 Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier)
+        move_event = QMouseEvent(QEvent.Type.MouseMove, QPoint(66, 82), QPoint(66, 82),
+                                 Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier)
+        up_event = QMouseEvent(QEvent.Type.MouseButtonRelease, QPoint(66, 82), QPoint(66, 82),
+                               Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier)
+
+        workzone.mousePressEvent(down_event)
+        workzone.mouseMoveEvent(move_event)
+        workzone.mouseReleaseEvent(up_event)
+
+        self.assertTrue(self.hmi_component.get_undo_stack().canUndo())
+
+        state = self.hmi_component.get_state()
+        self.hmi_component.load_state(state)
+        self.assertFalse(self.hmi_component.get_undo_stack().canUndo())
 
 
 class TestHMIWidgets(HMIComponentBaseTest):
