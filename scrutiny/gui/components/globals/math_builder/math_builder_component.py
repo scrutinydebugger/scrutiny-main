@@ -595,7 +595,7 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
                 else:
                     folder_row = model.make_folder_row(text, expanded=expanded)
                     model.add_row_to_parent(parent, -1, folder_row)
-                    folder_item = folder_row[0]
+                    folder_item = cast(FolderStandardItem, folder_row[0])
                 children = folder_node.get(State.KEY_CHILDREN, [])
                 if isinstance(children, list):
                     self._load_tree_state_recursive_merge(children, folder_item, key_to_signature, existing_signatures, signature_to_watchable)
