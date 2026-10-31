@@ -11,7 +11,7 @@ from PySide6.QtWidgets import QVBoxLayout, QPushButton, QWidget, QHBoxLayout, QS
 from PySide6.QtCore import Qt, QModelIndex, QItemSelection, SignalInstance, QItemSelectionModel
 from PySide6.QtGui import QIcon, QStandardItem
 from scrutiny.gui.widgets.feedback_label import FeedbackLabel
-from scrutiny.gui.core.gui_math_watchable import GUIMathWatchable
+from scrutiny.gui.core.gui_math_watchable import GUIMathWatchable, GUIMathWatchableDictDef
 from scrutiny.gui.core.watchable_registry.common import RegistryNodeType
 from scrutiny.gui.core.watchable_registry.fqn import FQN
 from scrutiny.gui.core.watchable_registry.errors import WatchableRegistryError
@@ -35,6 +35,7 @@ class State:
     KEY_TYPE: Literal['type'] = 'type'
     KEY_TEXT: Literal['txt'] = 'txt'
     KEY_FQN: Literal['fqn'] = 'fqn'
+    KEY_ID: Literal['id'] = 'id'
     KEY_EXPANDED: Literal['expand'] = 'expand'
     KEY_CHILDREN: Literal['children'] = 'children'
 
@@ -46,7 +47,7 @@ class State:
 
     class MathElement(TypedDict):
         type: str
-        fqn: str
+        id: str
 
 
 class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
@@ -176,25 +177,34 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
         pass
 
     def get_state(self) -> Dict[Any, Any]:
-        all_math = [o[1] for o in self.app.watchable_registry.get_all_math_watchables()]
+        all_math = list(self.app.watchable_registry.get_all_math_watchables())
+        fqn_to_key: Dict[str, str] = {}
+        definitions: Dict[str, GUIMathWatchableDictDef] = {}
+        for i, (signature, mw) in enumerate(all_math):
+            key = str(i)
+            fqn = FQN.make(RegistryNodeType.Math, signature)
+            fqn_to_key[fqn] = key
+            definitions[key] = mw.to_dict()
+
         return {
-            State.MATH_WATCHABLE_KEY: [m.serialize() for m in all_math],
-            State.TREE_KEY: list(self._get_tree_state_recursive())
+            State.MATH_WATCHABLE_KEY: definitions,
+            State.TREE_KEY: list(self._get_tree_state_recursive(fqn_to_key=fqn_to_key))
         }
 
     def load_state(self, state: Dict[Any, Any]) -> bool:
         all_good = True
         math_watchables: List[GUIMathWatchable] = []
+        key_to_signature: Dict[str, str] = {}
         try:
             if State.MATH_WATCHABLE_KEY not in state:
                 raise Exception(f"Missing key {State.MATH_WATCHABLE_KEY}")
 
-            if not isinstance(state[State.MATH_WATCHABLE_KEY], list):
-                raise Exception("Wrong data type")
-
-            for element in state[State.MATH_WATCHABLE_KEY]:
+            raw_definitions = state[State.MATH_WATCHABLE_KEY]
+            for key, element in raw_definitions.items():
                 try:
-                    math_watchables.append(GUIMathWatchable.deserialize(element))
+                    mw = GUIMathWatchable.from_dict(element)
+                    math_watchables.append(mw)
+                    key_to_signature[key] = mw.signature()
                 except Exception as e:
                     tools.log_exception(self.logger, e, "Failed to deserialize math watchable", str_level=logging.WARNING)
                     all_good = False
@@ -212,7 +222,7 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
             model.removeRows(0, model.rowCount())
             referenced_fqns: Set[str] = set()
             try:
-                self._load_tree_state_recursive(tree_data, None, referenced_fqns)
+                self._load_tree_state_recursive(tree_data, None, referenced_fqns, key_to_signature)
             except Exception as e:
                 tools.log_exception(self.logger, e, "Failed to load tree structure", str_level=logging.WARNING)
                 all_good = False
@@ -379,7 +389,10 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
     def _update_availability(self) -> None:
         self._math_tree.update_availabilities()
 
-    def _get_tree_state_recursive(self, parent: Optional[FolderStandardItem] = None) -> Generator[Union[State.Folder, State.MathElement], None, None]:
+    def _get_tree_state_recursive(self,
+                                   fqn_to_key: Dict[str, str],
+                                   parent: Optional[FolderStandardItem] = None
+                                   ) -> Generator[Union[State.Folder, State.MathElement], None, None]:
         """Walk the tree and produce a serializable state representation"""
         model = self._math_tree.model()
         nesting_col = model.nesting_col()
@@ -393,32 +406,43 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
         for i in range(row_count):
             child = get_child(i)
             if isinstance(child, MathStandardItem):
-                yield {State.KEY_TYPE: State.TYPE_MATH_ELEMENT, State.KEY_FQN: child.fqn}
+                key = fqn_to_key.get(child.fqn)
+                if key is not None:
+                    yield {State.KEY_TYPE: State.TYPE_MATH_ELEMENT, State.KEY_ID: key}
             elif isinstance(child, FolderStandardItem):
                 yield {
                     State.KEY_TYPE: State.TYPE_FOLDER,
                     State.KEY_TEXT: child.text(),
                     State.KEY_EXPANDED: self._math_tree.isExpanded(child.index()),
-                    State.KEY_CHILDREN: list(self._get_tree_state_recursive(child))
+                    State.KEY_CHILDREN: list(self._get_tree_state_recursive(fqn_to_key, child))
                 }
 
     def _load_tree_state_recursive(self,
                                    tree_data: List[Dict[str, Any]],
                                    parent: Optional[QStandardItem],
-                                   referenced_fqns: Set[str]) -> None:
+                                   referenced_fqns: Set[str],
+                                   key_to_signature: Dict[str, str]) -> None:
         """Rebuild the tree from a saved state"""
         model = self._math_tree.model()
         for node in tree_data:
             node_type = node.get(State.KEY_TYPE)
             if node_type == State.TYPE_MATH_ELEMENT:
-                fqn = node.get(State.KEY_FQN)
-                if fqn is None:
+                signature: Optional[str] = None
+                key = node.get(State.KEY_ID)
+                if key is not None:
+                    signature = key_to_signature.get(key)
+                else:
+                    # Backward compat: old format stored fqn directly
+                    fqn = node.get(State.KEY_FQN)
+                    if fqn is not None:
+                        signature = FQN.parse(fqn).string_id
+
+                if signature is None:
                     continue
-                signature = FQN.parse(fqn).string_id
                 mw = self.app.watchable_registry.get_math_watchable_node(signature)
                 if mw is None:
                     continue
-                referenced_fqns.add(fqn)
+                referenced_fqns.add(mw.make_fqn())
                 model.append_math_watchable(mw, parent)
             elif node_type == State.TYPE_FOLDER:
                 text = node.get(State.KEY_TEXT, "Folder")
@@ -430,7 +454,7 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
                 folder_item = folder_row[0]
                 children = node.get(State.KEY_CHILDREN, [])
                 if isinstance(children, list):
-                    self._load_tree_state_recursive(children, folder_item, referenced_fqns)
+                    self._load_tree_state_recursive(children, folder_item, referenced_fqns, key_to_signature)
 
     def _expand_saved_folders(self, parent: Optional[QStandardItem] = None) -> None:
         """Expand all folders that were saved as expanded"""
