@@ -138,7 +138,7 @@ When an SFD is loaded, the project name (taken from the SFD metadata) is display
 Clicking the label opens a dialog that displays the SFD metadata.
 
 .. figure:: _static/ui/sfd_details_dialog.png
-    :height: 6cm
+    :height: 8cm
 
     Loaded SFD metadata dialog
 
@@ -158,6 +158,9 @@ There are two types of dashboard components: those that allow only a single inst
    :width: 32px
 
 .. |VarListIcon| image:: _static/ui/icons/varlist.png
+   :width: 32px
+
+.. |MathBuilderIcon| image:: _static/ui/icons/math_builder.png
    :width: 32px
 
 .. |ContinuousGraphIcon| image:: _static/ui/icons/continuous-graph.png
@@ -181,12 +184,47 @@ There are two types of dashboard components: those that allow only a single inst
     "Icon",                 "Component Name",          "Instance", "Description"
     "|VarListIcon|",        "Variable List",            "Single",   "Displays the available watchable elements (Variables, Aliases, :ref:`RPVs<glossary>`)."
     "|InternalMetricIcon|", "Internal Metrics",         "Single",   "Displays statistics about current Scrutiny performances, including polling data rates."
+    "|MathBuilderIcon|",    "Math Expressions",         "Single",   "Defines and edit mathematical expressions that depends on other watchables."
     "|WatchIcon|",          "Watch Window",             "Multiple", "Displays the real-time values of watchable elements dropped into it via drag & drop. The layout can be reorganized as needed."
     "|ContinuousGraphIcon|", "Continuous Graph",        "Multiple", "Creates a graph of the real-time values of the selected watchable elements. The sampling rate is configurable, and the acquisition length is unlimited."
     "|EmbeddedGraphIcon|",  "Embedded Graph",           "Multiple", "Configures and displays graphs obtained through the datalogging feature. The sampling rate depends on the device and is typically stable. The acquisition length depends on the size of the datalogging buffer."
     "|HMIIcon|",            "Human Machine Interface",  "Multiple", "Creates a customizable dashboard with user defined widgets tied to watchables. This dashboard can serve as Human Machine Interface with buttons, sliders, gauges, etc."
 
 
+The watchables
+##############
+
+The server exposes the content of a firmware through watchable elements. The Scrutiny GUI presents them as drag-and-droppable items, each identified by an icon, as shown in the table below.
+
+.. |VariableWatchable| image:: _static/ui/icons/var.png
+   :width: 32px
+
+.. |AliasWatchable| image:: _static/ui/icons/alias.png
+   :width: 32px
+
+.. |RPVWatchable| image:: _static/ui/icons/rpv.png
+   :width: 32px
+
+.. |MathWatchable| image:: _static/ui/icons/math.png
+   :width: 32px
+
+.. tabularcolumns:: >{\centering}m{0.05\linewidth}  m{0.075\linewidth} m{0.075\linewidth} m{0.8\linewidth}
+
+.. csv-table:: Available Watchables
+    :header-rows: 1
+
+    "Icon", 	            "Type",     "Source", 	"Description"
+    "|VariableWatchable|", 	"Variable", "Server", 	"Variables discovered in the firmware binary by the Scrutiny toolchain using the compiler debug symbols."
+    "|RPVWatchable|", 	    "RPV",      "Server",   "Runtime Published Values. Readable and writable elements defined by the embedded firmware and identified by a 16-bit ID. They are published during the handshake phase with the server, and reading or writing them triggers a user-defined callback.
+    RPVs are available even when no SFD matching the firmware is installed on the server, since they are declared by the device upon connection."
+    "|AliasWatchable|",     "Alias",    "Server",   "An abstract watchable that points to a variable or an RPV. Aliases are useful for maintaining a consistent interface across different versions of the same firmware when a user (human or script) expects a variable to exist at a fixed path.
+    They are particularly useful for automated testing."
+    "|MathWatchable|",      "Math",     "GUI",      "A watchable defined entirely in the GUI; the server has no knowledge of it. Its value is computed from a mathematical expression that can reference other watchables.
+    See the :ref:`Math Expression Editor<math_builder>`."
+
+
+
+.. include:: _gui/gui_math_builder_component.rst.txt
 
 .. include:: _gui/gui_watch_component.rst.txt
 

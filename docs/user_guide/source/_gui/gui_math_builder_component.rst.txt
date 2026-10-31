@@ -1,0 +1,39 @@
+.. _math_builder:
+
+Math Expression Editor
+######################
+
+The Math Expression Editor is used to define watchables whose values are derived from a mathematical expression
+that depends on other watchables (Variables, RPVs, Aliases).
+Math watchables can be dragged and dropped almost anywhere, just like any other watchable.
+
+.. figure:: _static/ui/dashboard/math-builder-window.png
+    :height: 12cm
+
+    Math Expression Editor
+
+Each math watchable has a name and an expression. The expression is a mathematical formula evaluated whenever a new value is needed.
+Variables in the expression must be bound to another watchable before the expression can be evaluated.
+
+- Supported operators: ``+``, ``-``, ``*``, ``/``, ``^``, ``()``
+- Supported functions: ``abs``, ``exp``, ``pow``, ``sqrt``, ``mod``, ``ceil``, ``floor``, ``round``,
+  ``log``, ``ln``, ``log10``, ``hypot``, ``degrees``, ``radians``, ``cos``, ``cosh``, ``acos``, ``sin``,
+  ``sinh``, ``asin``, ``tan``, ``tanh``, ``atan``, ``atan2``
+- Supported constants: ``pi``
+- Variable names: alphanumeric characters, underscore (``_``), and dollar sign (``$``)
+
+When a math watchable is subscribed to (in a :ref:`Watch Window<watch_window_component>`,
+a :ref:`Continuous Graph<continuous_graph_component>`, or an :ref:`HMI dashboard<hmi_component>`),
+the expression is re-evaluated each time a dependent variable receives a new value, and the result is broadcast immediately.
+When used in an :ref:`Embedded Graph<embedded_graph_component>`, the expression definition is sent to the server,
+which handles acquiring the dependent variables and reconstructs the math plot line before returning it to the client.
+
+The following limitations apply to math watchables:
+
+1. A math watchable cannot depend on another math watchable.
+2. A math watchable cannot be used as an :ref:`Embedded Graph<embedded_graph_component>` operand or trigger condition.
+
+Math watchables are saved as part of the dashboard. When a dashboard is reloaded, the saved math
+watchables replace any previously defined ones.
+They can also be exported to a ``.scmat`` file for sharing or later reuse. Importing a ``.scmat``
+file merges its contents into the existing set of math watchables.
