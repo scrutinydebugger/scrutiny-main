@@ -1170,6 +1170,9 @@
         "test/gui/test_math_builder_component.py": {
             "docstring": "A test suite for the MathBuilder component"
         },
+        "test/gui/test_components_interaction.py": {
+            "docstring": "Tests for cross-component interactions (drag & drop between components)"
+        },
         "test/gui/manual/manual_test_math_watchable_editor.py": {
             "docstring": "A manual test application to test the math editor in standalone"
         },

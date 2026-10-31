@@ -13,6 +13,7 @@ from PySide6.QtWidgets import QWidget
 from test.gui.fake_server_manager import FakeServerManager
 from test.gui.base_gui_test import ScrutinyBaseGuiTest
 from scrutiny.gui.components.globals.math_builder.math_element_tree import MathStandardItem, Cols
+from scrutiny.gui.widgets.watchable_tree import FolderStandardItem
 from scrutiny.gui.components.globals.math_builder.math_builder_component import MathBuilderComponent
 from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
 from scrutiny.gui.component_app_interface import AbstractComponentAppInterface
@@ -101,10 +102,9 @@ class TestMathBuilderComponent(ScrutinyBaseGuiTest):
         self.assertEqual(self._count_registry_math(), 1)
         tree = self.builder.get_math_tree()
         self.assertEqual(tree.math_watchable_count(), 1)
-        info = tree.get_math_watchable_info(0)
-        self.assertIsNotNone(info)
-        self.assertEqual(info[0], "magnitude")
-        self.assertEqual(info[1], "sqrt(x^2+y^2)")
+        items = list(tree.model().iter_math_items())
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0].text(), "magnitude")
 
     def test_add_multiple_math_watchables(self):
         w1 = self._make_math_watchable("sum", "a+b", {
@@ -144,10 +144,9 @@ class TestMathBuilderComponent(ScrutinyBaseGuiTest):
         self.assertEqual(self._count_registry_math(), 1)
         tree = self.builder.get_math_tree()
         self.assertEqual(tree.math_watchable_count(), 1)
-        info = tree.get_math_watchable_info(0)
-        self.assertIsNotNone(info)
-        self.assertEqual(info[0], "product")
-        self.assertEqual(info[1], "a*b")
+        items = list(tree.model().iter_math_items())
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0].text(), "product")
 
     def test_remove_math_watchable(self):
         w1 = self._make_math_watchable("sum", "a+b", {
@@ -167,9 +166,9 @@ class TestMathBuilderComponent(ScrutinyBaseGuiTest):
         self.assertEqual(self._count_registry_math(), 1)
         tree = self.builder.get_math_tree()
         self.assertEqual(tree.math_watchable_count(), 1)
-        info = tree.get_math_watchable_info(0)
-        self.assertIsNotNone(info)
-        self.assertEqual(info[0], "diff")
+        items = list(tree.model().iter_math_items())
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0].text(), "diff")
 
     def test_remove_while_editing_clears_editor(self):
         w = self._make_math_watchable("sum", "a+b", {
@@ -312,3 +311,178 @@ class TestMathBuilderComponent(ScrutinyBaseGuiTest):
         ratio_vars = restored["ratio"].get_var_fqn_map()
         self.assertEqual(ratio_vars["p"].fqn, FQN.make(RegistryNodeType.RuntimePublishedValue, "/rpv/p"))
         self.assertEqual(ratio_vars["q"].fqn, FQN.make(RegistryNodeType.Variable, "/e/f/q"))
+
+    def test_edit_preserves_position_in_folder(self):
+        # Build 3 math watchables: w1, w2 (target), w3
+        bindings = {
+            "a": VarBinding("var_a", RegistryNodeType.Variable, "/a/b/a"),
+            "b": VarBinding("var_b", RegistryNodeType.Variable, "/a/b/b"),
+        }
+        w1 = self._make_math_watchable("first", "a+b", bindings)
+        w2 = self._make_math_watchable("middle", "a-b", bindings)
+        w3 = self._make_math_watchable("last", "a*b", bindings)
+
+        fqn1 = self._add_to_registry(w1)
+        fqn2 = self._add_to_registry(w2)
+        fqn3 = self._add_to_registry(w3)
+
+        # Build tree: root > folder_outer > folder_inner > [w1, w2, w3]
+        model = self.builder.get_math_tree().model()
+        model.removeRows(0, model.rowCount())
+
+        outer_row = model.make_folder_row("outer")
+        model.add_row_to_parent(None, -1, outer_row)
+        outer = outer_row[0]
+
+        inner_row = model.make_folder_row("inner")
+        model.add_row_to_parent(outer, -1, inner_row)
+        inner = inner_row[0]
+
+        model.append_math_watchable(w1, inner)
+        model.append_math_watchable(w2, inner)
+        model.append_math_watchable(w3, inner)
+
+        self.assertEqual(model.math_watchable_count(), 3)
+
+        # Edit w2 (the middle one) into a replacement
+        self.builder.start_edit_by_fqn(fqn2)
+        w2_replaced = self._make_math_watchable("replaced", "a/b", bindings)
+        self.builder.get_editor().load(w2_replaced)
+        self.builder.commit()
+        self.process_events()
+
+        # Tree count should match registry count
+        self.assertEqual(self._count_registry_math(), 3)
+        self.assertEqual(model.math_watchable_count(), 3)
+
+        # The replaced item should be at row 1 inside inner, between first and last
+        items_in_inner = [inner.child(i, Cols.ItemOrVar) for i in range(inner.rowCount())]
+        math_items = [item for item in items_in_inner if isinstance(item, MathStandardItem)]
+        self.assertEqual(len(math_items), 3)
+        self.assertEqual(math_items[0].text(), "first")
+        self.assertEqual(math_items[1].text(), "replaced")
+        self.assertEqual(math_items[2].text(), "last")
+
+    def test_state_reload_with_folders(self):
+        # Create tree: root > [w1, folder_A > [w2, folder_B > [w3]]]
+        bindings = {
+            "a": VarBinding("var_a", RegistryNodeType.Variable, "/a/b/a"),
+            "b": VarBinding("var_b", RegistryNodeType.Variable, "/a/b/b"),
+        }
+        w1 = self._make_math_watchable("at_root", "a+b", bindings)
+        w2 = self._make_math_watchable("in_A", "a-b", bindings)
+        w3 = self._make_math_watchable("in_B", "a*b", bindings)
+
+        self._add_to_registry(w1)
+        self._add_to_registry(w2)
+        self._add_to_registry(w3)
+
+        model = self.builder.get_math_tree().model()
+        model.removeRows(0, model.rowCount())
+
+        model.append_math_watchable(w1)
+
+        folder_a_row = model.make_folder_row("folder_A", expanded=True)
+        model.add_row_to_parent(None, -1, folder_a_row)
+        folder_a = folder_a_row[0]
+
+        model.append_math_watchable(w2, folder_a)
+
+        folder_b_row = model.make_folder_row("folder_B", expanded=False)
+        model.add_row_to_parent(folder_a, -1, folder_b_row)
+        folder_b = folder_b_row[0]
+
+        model.append_math_watchable(w3, folder_b)
+
+        # Expand folder_A so the expanded state is saved
+        tree = self.builder.get_math_tree()
+        tree.expand(folder_a.index())
+
+        state = self.builder.get_state()
+        serialized = json.dumps(state)
+
+        # Clear and reload
+        self._registry().clear()
+        self.process_events()
+        self.assertEqual(self._count_registry_math(), 0)
+
+        deserialized = json.loads(serialized)
+        result = self.builder.load_state(deserialized)
+        self.process_events()
+
+        self.assertTrue(result)
+        self.assertEqual(self._count_registry_math(), 3)
+        self.assertEqual(model.math_watchable_count(), 3)
+
+        # Verify tree structure: root has 2 children (w1 + folder_A)
+        nesting_col = model.nesting_col()
+        self.assertEqual(model.rowCount(), 2)
+        root_item0 = model.item(0, nesting_col)
+        root_item1 = model.item(1, nesting_col)
+        self.assertIsInstance(root_item0, MathStandardItem)
+        self.assertEqual(root_item0.text(), "at_root")
+        self.assertIsInstance(root_item1, FolderStandardItem)
+        self.assertEqual(root_item1.text(), "folder_A")
+
+        # folder_A has 2 children (w2 + folder_B)
+        restored_a = root_item1
+        math_children_a = []
+        folder_children_a = []
+        for i in range(restored_a.rowCount()):
+            child = restored_a.child(i, nesting_col)
+            if isinstance(child, MathStandardItem):
+                math_children_a.append(child)
+            elif isinstance(child, FolderStandardItem):
+                folder_children_a.append(child)
+        self.assertEqual(len(math_children_a), 1)
+        self.assertEqual(math_children_a[0].text(), "in_A")
+        self.assertEqual(len(folder_children_a), 1)
+        self.assertEqual(folder_children_a[0].text(), "folder_B")
+
+        # folder_B has 1 child (w3)
+        restored_b = folder_children_a[0]
+        self.assertEqual(restored_b.rowCount(), 1)
+        child_in_b = restored_b.child(0, nesting_col)
+        self.assertIsInstance(child_in_b, MathStandardItem)
+        self.assertEqual(child_in_b.text(), "in_B")
+
+    def test_remove_folder_removes_contained_math(self):
+        # Create tree: root > [w1, folder > [w2, w3]]
+        bindings = {
+            "a": VarBinding("var_a", RegistryNodeType.Variable, "/a/b/a"),
+            "b": VarBinding("var_b", RegistryNodeType.Variable, "/a/b/b"),
+        }
+        w1 = self._make_math_watchable("outside", "a+b", bindings)
+        w2 = self._make_math_watchable("inside1", "a-b", bindings)
+        w3 = self._make_math_watchable("inside2", "a*b", bindings)
+
+        self._add_to_registry(w1)
+        self._add_to_registry(w2)
+        self._add_to_registry(w3)
+
+        model = self.builder.get_math_tree().model()
+        model.removeRows(0, model.rowCount())
+
+        model.append_math_watchable(w1)
+
+        folder_row = model.make_folder_row("my_folder")
+        model.add_row_to_parent(None, -1, folder_row)
+        folder = folder_row[0]
+
+        model.append_math_watchable(w2, folder)
+        model.append_math_watchable(w3, folder)
+
+        self.assertEqual(self._count_registry_math(), 3)
+        self.assertEqual(model.math_watchable_count(), 3)
+
+        # Remove the folder through the tree view
+        tree = self.builder.get_math_tree()
+        tree._handle_remove([folder])
+        self.process_events()
+
+        # w2 and w3 should be removed from registry, w1 should remain
+        self.assertEqual(self._count_registry_math(), 1)
+        self.assertEqual(model.math_watchable_count(), 1)
+        remaining = list(model.iter_math_items())
+        self.assertEqual(len(remaining), 1)
+        self.assertEqual(remaining[0].text(), "outside")

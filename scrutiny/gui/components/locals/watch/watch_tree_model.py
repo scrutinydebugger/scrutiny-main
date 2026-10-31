@@ -34,6 +34,7 @@ from scrutiny.gui.widgets.watchable_tree import (
     WatchableTreeWidget,
     WatchableTreeModel,
     NodeSerializableData,
+    SerializableTreeDescriptor,
     FolderStandardItem,
     WatchableStandardItem,
     BaseWatchableRegistryTreeStandardItem,
@@ -209,13 +210,6 @@ class EnumNameStandardItem(QStandardItem):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.setEditable(False)
-
-
-class SerializableTreeDescriptor(TypedDict):
-    """A serializable description of a node (not the path to it). Used to describe a tree when doing a copy"""
-    node: NodeSerializableData
-    sortkey: int
-    children: List["SerializableTreeDescriptor"]
 
 
 class RawDataEditDelegate(QStyledItemDelegate):
@@ -491,7 +485,7 @@ class WatchComponentTreeWidget(WatchableTreeWidget):
                     self.setCurrentIndex(value_item.index())
                     self.edit(value_item.index())
 
-        elif event.key() == Qt.Key.Key_N and event.modifiers() == Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier:
+        elif event.key() == Qt.Key.Key_N and event.modifiers() == (Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier):
             parent, insert_row = self._find_new_folder_position_from_selection()
             self._new_folder(self.NEW_FOLDER_DEFAULT_NAME, parent, insert_row)
         else:

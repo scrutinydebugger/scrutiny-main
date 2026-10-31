@@ -18,7 +18,8 @@ __all__ = [
     'item_from_serializable_data',
     'WatchableTreeModel',
     'WatchableTreeWidget',
-    'custom_data_from_serializable_data'
+    'custom_data_from_serializable_data',
+    'SerializableTreeDescriptor'
 ]
 
 from PySide6.QtGui import QStandardItem, QIcon, QKeyEvent
@@ -72,6 +73,13 @@ class WatchableItemSerializableData(NodeSerializableData):
 class FolderItemSerializableData(NodeSerializableData):
     """A serializable dict that represent a Folder tree node"""
     expanded: bool
+
+
+class SerializableTreeDescriptor(TypedDict):
+    """A serializable description of a node (not the path to it). Used to describe a tree when doing a copy"""
+    node: NodeSerializableData
+    sortkey: int
+    children: List["SerializableTreeDescriptor"]
 
 
 class BaseWatchableRegistryTreeStandardItem(QStandardItem):
