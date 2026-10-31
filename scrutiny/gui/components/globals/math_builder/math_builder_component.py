@@ -172,6 +172,7 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
     def teardown(self) -> None:
         for sig, slot in self._signals_connected:
             sig.disconnect(slot)
+        self._signals_connected.clear()
 
     def visibilityChanged(self, visible: bool) -> None:
         pass
@@ -390,9 +391,9 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
         self._math_tree.update_availabilities()
 
     def _get_tree_state_recursive(self,
-                                   fqn_to_key: Dict[str, str],
-                                   parent: Optional[FolderStandardItem] = None
-                                   ) -> Generator[Union[State.Folder, State.MathElement], None, None]:
+                                  fqn_to_key: Dict[str, str],
+                                  parent: Optional[FolderStandardItem] = None
+                                  ) -> Generator[Union[State.Folder, State.MathElement], None, None]:
         """Walk the tree and produce a serializable state representation"""
         model = self._math_tree.model()
         nesting_col = model.nesting_col()
