@@ -7,6 +7,9 @@
 #    Copyright (c) 2026 Scrutiny Debugger
 
 import logging
+import json
+
+from dataclasses import dataclass
 from PySide6.QtWidgets import QVBoxLayout, QPushButton, QWidget, QHBoxLayout, QSplitter, QGroupBox
 from PySide6.QtCore import Qt, QModelIndex, QItemSelection, SignalInstance, QItemSelectionModel
 from PySide6.QtGui import QIcon, QStandardItem
@@ -20,14 +23,19 @@ from scrutiny.gui.components.globals.math_builder.math_element_tree import MathT
 from scrutiny.gui.components.globals.math_builder.math_watchable_editor import MathWatchableEditor
 from scrutiny.gui.widgets.watchable_tree import FolderStandardItem
 from scrutiny.gui.themes import scrutiny_get_theme
+from scrutiny.gui.tools import prompt
 from scrutiny.gui import assets
 from scrutiny import tools
+from scrutiny.tools import validation
 from scrutiny.tools.typing import *
+
+MATH_EXPORT_FILE_EXT = '.scmat'
 
 
 class State:
-    MATH_WATCHABLE_KEY = 'math_watchables'
-    TREE_KEY = 'tree'
+    MATH_WATCHABLE_KEY: Literal['math_watchables'] = 'math_watchables'
+    TREE_KEY: Literal['math_tree'] = 'math_tree'
+    MATH_DEFINITION_KEY: Literal['math_def'] = 'math_def'
 
     TYPE_FOLDER = 'f'
     TYPE_MATH_ELEMENT = 'm'
@@ -39,15 +47,26 @@ class State:
     KEY_EXPANDED: Literal['expand'] = 'expand'
     KEY_CHILDREN: Literal['children'] = 'children'
 
+    class MathElement(TypedDict):
+        type: str
+        id: str
+
     class Folder(TypedDict):
         type: str
         txt: str
         expand: bool
         children: List[Union["State.Folder", "State.MathElement"]]
 
-    class MathElement(TypedDict):
-        type: str
-        id: str
+    class MathDefinition(TypedDict):
+        math_watchables: Dict[str, GUIMathWatchableDictDef]
+        math_tree: List[Union["State.Folder", "State.MathElement"]]
+
+
+@dataclass
+class MathReloadStats:
+    total: int = 0
+    fail_count: int = 0
+    has_error: bool = False
 
 
 class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
@@ -73,6 +92,10 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
     """A state variable keeping track of what registry entry was put in the editor for modification."""
     _signals_connected: List[Tuple[SignalInstance, object]]
     """A list of signals to disconnect in teardown"""
+    _btn_export: QPushButton
+    """Button to export math watchables to a file"""
+    _btn_import: QPushButton
+    """Button to reload math watchables from a file"""
     _lbl_commit_error: FeedbackLabel
 
 # region Public
@@ -114,6 +137,9 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
         self._btn_commit.setEnabled(False)
         self._btn_close = QPushButton("Discard")
         self._btn_close.setEnabled(True)
+        self._btn_import = QPushButton("Reload from file")
+        self._btn_export = QPushButton("Export to file")
+        self._btn_export.setEnabled(False)
         self._splitter = QSplitter(Qt.Orientation.Vertical)
         self._splitter.setContentsMargins(0, 0, 0, 0)
         self._lbl_commit_error = FeedbackLabel()
@@ -135,6 +161,13 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
         upper_part_layout.setContentsMargins(0, 0, 0, 0)
         upper_part_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
+        file_button_container = QWidget()
+        file_button_container_layout = QHBoxLayout(file_button_container)
+        file_button_container_layout.setContentsMargins(0, 0, 0, 0)
+        file_button_container_layout.addWidget(self._btn_import)
+        file_button_container_layout.addWidget(self._btn_export)
+
+        upper_part_layout.addWidget(file_button_container)
         upper_part_layout.addWidget(self._math_tree)
         upper_part_layout.addWidget(upper_button_container)
 
@@ -156,6 +189,8 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
         layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         layout.addWidget(self._splitter)
 
+        self._connect_signal(self._btn_import.clicked, self.import_math_from_file)
+        self._connect_signal(self._btn_export.clicked, self.export_math_to_file)
         self._connect_signal(self._btn_new.clicked, self._btn_new_clicked_slot)
         self._connect_signal(self._btn_edit.clicked, self._btn_edit_clicked_slot)
         self._connect_signal(self._btn_commit.clicked, self._btn_commit_clicked_slot)
@@ -167,6 +202,7 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
         self._connect_signal(self.app.watchable_registry.signals.content_changed, self._registry_changed_slot)
 
     def ready(self) -> None:
+        self._math_tree.sync_with_registry()
         self._show_editor(False)
 
     def teardown(self) -> None:
@@ -178,67 +214,46 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
         pass
 
     def get_state(self) -> Dict[Any, Any]:
-        all_math = list(self.app.watchable_registry.get_all_math_watchables())
-        fqn_to_key: Dict[str, str] = {}
-        definitions: Dict[str, GUIMathWatchableDictDef] = {}
-        for i, (signature, mw) in enumerate(all_math):
-            key = str(i)
-            fqn = FQN.make(RegistryNodeType.Math, signature)
-            fqn_to_key[fqn] = key
-            definitions[key] = mw.to_dict()
-
         return {
-            State.MATH_WATCHABLE_KEY: definitions,
-            State.TREE_KEY: list(self._get_tree_state_recursive(fqn_to_key=fqn_to_key))
+            State.MATH_DEFINITION_KEY: self._get_math_export_def()
         }
 
     def load_state(self, state: Dict[Any, Any]) -> bool:
-        all_good = True
-        math_watchables: List[GUIMathWatchable] = []
-        key_to_signature: Dict[str, str] = {}
-        try:
-            if State.MATH_WATCHABLE_KEY not in state:
-                raise Exception(f"Missing key {State.MATH_WATCHABLE_KEY}")
+        validation.assert_dict_key(state, State.MATH_DEFINITION_KEY, dict)
+        math_def = cast(State.MathDefinition, state[State.MATH_DEFINITION_KEY])
+        reload_stats = self._load_math_expressions_replace(math_def)
+        return not reload_stats.has_error
 
-            raw_definitions = state[State.MATH_WATCHABLE_KEY]
-            for key, element in raw_definitions.items():
-                try:
-                    mw = GUIMathWatchable.from_dict(element)
-                    math_watchables.append(mw)
-                    key_to_signature[key] = mw.signature()
-                except Exception as e:
-                    tools.log_exception(self.logger, e, "Failed to deserialize math watchable", str_level=logging.WARNING)
-                    all_good = False
+    def export_math_to_file(self) -> None:
+        filepath = prompt.get_save_filepath_from_last_save_dir(MATH_EXPORT_FILE_EXT, "Export math expression")
+        if filepath is None:
+            return
+
+        try:
+            math_export_data = self._get_math_export_def()
+            with open(filepath, 'wb') as f:
+                f.write(json.dumps(math_export_data).encode('utf8'))
+        except Exception as e:
+            prompt.exception_msgbox(e, "Failed", "Failed to export the math expressions")
+
+    def import_math_from_file(self) -> None:
+        filepath = prompt.get_open_filepath_from_last_save_dir(MATH_EXPORT_FILE_EXT, "Import math expression")
+        if filepath is None:
+            return
+
+        try:
+            with open(filepath, 'rb') as f:
+                math_def = cast(State.MathDefinition, json.loads(f.read().decode('utf8')))
+            stats = self._load_math_expressions_additive(math_def)
+            if not stats.has_error:
+                prompt.success_msgbox("Success", f"Successfully loaded {stats.total} math expressions")
+            else:
+                prompt.success_msgbox(
+                    "Problem", f"Reloaded {stats.total - stats.fail_count} / {stats.total} math expressions. Some error were encountered while parsing the file.")
 
         except Exception as e:
-            tools.log_exception(self.logger, e, "Failed to load math elements", str_level=logging.WARNING)
-            all_good = False
+            prompt.exception_msgbox(e, "Failed", "Failed to import the math expressions")
 
-        to_add = [mw for mw in math_watchables if self.app.watchable_registry.get_math_watchable_node(mw.signature()) is None]
-        self.app.watchable_registry.add_math_watchables(to_add)
-
-        tree_data = state.get(State.TREE_KEY, None)
-        if tree_data is not None and isinstance(tree_data, list):
-            model = self._math_tree.model()
-            model.removeRows(0, model.rowCount())
-            referenced_fqns: Set[str] = set()
-            try:
-                self._load_tree_state_recursive(tree_data, None, referenced_fqns, key_to_signature)
-            except Exception as e:
-                tools.log_exception(self.logger, e, "Failed to load tree structure", str_level=logging.WARNING)
-                all_good = False
-
-            # Add math watchables not referenced in the tree at root
-            for _, mw in self.app.watchable_registry.get_all_math_watchables():
-                fqn = mw.make_fqn()
-                if fqn not in referenced_fqns:
-                    model.append_math_watchable(mw)
-
-            self._expand_saved_folders()
-        else:
-            self._math_tree.sync_with_registry()
-
-        return all_good
 
 # end region
 
@@ -287,6 +302,79 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
 # end region
 
 # region Private
+
+    def _get_math_export_def(self) -> State.MathDefinition:
+        all_math = list(self.app.watchable_registry.get_all_math_watchables())
+        fqn_to_key: Dict[str, str] = {}
+        definitions: Dict[str, GUIMathWatchableDictDef] = {}
+        for i, (signature, mw) in enumerate(all_math):
+            key = str(i)
+            fqn = FQN.make(RegistryNodeType.Math, signature)
+            fqn_to_key[fqn] = key
+            definitions[key] = mw.to_dict()
+
+        return {
+            State.MATH_WATCHABLE_KEY: definitions,
+            State.TREE_KEY: list(self._get_tree_state_recursive(fqn_to_key=fqn_to_key))
+        }
+
+    def _parse_math_definitions(self, math_export: State.MathDefinition, stats: MathReloadStats) -> Tuple[List[GUIMathWatchable], Dict[str, str]]:
+        """Parse math watchable definitions from the export data. Returns (watchables, key_to_signature)."""
+        math_watchables: List[GUIMathWatchable] = []
+        key_to_signature: Dict[str, str] = {}
+        try:
+            validation.assert_dict_key(math_export, State.MATH_WATCHABLE_KEY, dict)
+            raw_definitions = math_export[State.MATH_WATCHABLE_KEY]
+            for key, element in raw_definitions.items():
+                stats.total += 1
+                try:
+                    mw = GUIMathWatchable.from_dict(element)
+                    math_watchables.append(mw)
+                    key_to_signature[key] = mw.signature()
+                except Exception as e:
+                    tools.log_exception(self.logger, e, "Failed to deserialize math watchable", str_level=logging.WARNING)
+                    stats.has_error = True
+                    stats.fail_count += 1
+        except Exception as e:
+            tools.log_exception(self.logger, e, "Failed to load math elements", str_level=logging.WARNING)
+            stats.has_error = True
+        return math_watchables, key_to_signature
+
+    def _load_math_expressions_replace(self, math_export: State.MathDefinition) -> MathReloadStats:
+        """Clear everything and rebuild from the export data. Used by load_state."""
+        self.app.watchable_registry.clear_all_math_content()
+        self._math_tree.model().removeRows(0, self._math_tree.model().rowCount())
+        return self._load_math_expressions_additive(math_export)
+
+    def _load_math_expressions_additive(self, math_export: State.MathDefinition) -> MathReloadStats:
+        """Merge imported content into existing content. No duplicates, folders are merged by name."""
+        stats = MathReloadStats()
+        math_watchables, key_to_signature = self._parse_math_definitions(math_export, stats)
+
+        # Build a lookup of parsed watchables by signature
+        signature_to_watchable: Dict[str, GUIMathWatchable] = {}
+        for mw in math_watchables:
+            signature_to_watchable[mw.signature()] = mw
+
+        tree_data = math_export.get(State.TREE_KEY, None)
+        if tree_data is not None and isinstance(tree_data, list):
+            existing_signatures: Set[str] = set()
+            for item in self._math_tree.model().iter_math_items():
+                existing_signatures.add(FQN.parse(item.fqn).string_id)
+
+            try:
+                self._load_tree_state_recursive_merge(tree_data, None, key_to_signature, existing_signatures, signature_to_watchable)
+            except Exception as e:
+                tools.log_exception(self.logger, e, "Failed to load tree structure", str_level=logging.WARNING)
+                stats.has_error = True
+
+            self._expand_saved_folders()
+
+        # Add to registry at the end so sync_with_registry doesn't flatten the tree during merge
+        to_add = [mw for mw in math_watchables if self.app.watchable_registry.get_math_watchable_node(mw.signature()) is None]
+        self.app.watchable_registry.add_math_watchables(to_add)
+
+        return stats
 
     def _connect_signal(self, sig: SignalInstance, slot: object) -> None:
         """Connects a signal to a slot and registers it for teardown disconnection"""
@@ -389,6 +477,8 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
 
     def _update_availability(self) -> None:
         self._math_tree.update_availabilities()
+        has_math = any(True for _ in self.app.watchable_registry.get_all_math_watchables())
+        self._btn_export.setEnabled(has_math)
 
     def _get_tree_state_recursive(self,
                                   fqn_to_key: Dict[str, str],
@@ -409,17 +499,17 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
             if isinstance(child, MathStandardItem):
                 key = fqn_to_key.get(child.fqn)
                 if key is not None:
-                    yield {State.KEY_TYPE: State.TYPE_MATH_ELEMENT, State.KEY_ID: key}
+                    yield State.MathElement(type=State.TYPE_MATH_ELEMENT, id=key)
             elif isinstance(child, FolderStandardItem):
-                yield {
-                    State.KEY_TYPE: State.TYPE_FOLDER,
-                    State.KEY_TEXT: child.text(),
-                    State.KEY_EXPANDED: self._math_tree.isExpanded(child.index()),
-                    State.KEY_CHILDREN: list(self._get_tree_state_recursive(fqn_to_key, child))
-                }
+                yield State.Folder(
+                    type=State.TYPE_FOLDER,
+                    txt=child.text(),
+                    expand=self._math_tree.isExpanded(child.index()),
+                    children=list(self._get_tree_state_recursive(fqn_to_key, child))
+                )
 
     def _load_tree_state_recursive(self,
-                                   tree_data: List[Dict[str, Any]],
+                                   tree_data: List[Union[State.Folder, State.MathElement]],
                                    parent: Optional[QStandardItem],
                                    referenced_fqns: Set[str],
                                    key_to_signature: Dict[str, str]) -> None:
@@ -428,16 +518,11 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
         for node in tree_data:
             node_type = node.get(State.KEY_TYPE)
             if node_type == State.TYPE_MATH_ELEMENT:
+                math_node = cast(State.MathElement, node)
                 signature: Optional[str] = None
-                key = node.get(State.KEY_ID)
+                key = math_node.get(State.KEY_ID)
                 if key is not None:
                     signature = key_to_signature.get(key)
-                else:
-                    # Backward compat: old format stored fqn directly
-                    fqn = node.get(State.KEY_FQN)
-                    if fqn is not None:
-                        signature = FQN.parse(fqn).string_id
-
                 if signature is None:
                     continue
                 mw = self.app.watchable_registry.get_math_watchable_node(signature)
@@ -446,16 +531,74 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
                 referenced_fqns.add(mw.make_fqn())
                 model.append_math_watchable(mw, parent)
             elif node_type == State.TYPE_FOLDER:
-                text = node.get(State.KEY_TEXT, "Folder")
-                expanded = node.get(State.KEY_EXPANDED, False)
+                folder_node = cast(State.Folder, node)
+                text = folder_node.get(State.KEY_TEXT, "Folder")
+                expanded = folder_node.get(State.KEY_EXPANDED, False)
                 if not isinstance(expanded, bool):
                     expanded = False
                 folder_row = model.make_folder_row(text, expanded=expanded)
                 model.add_row_to_parent(parent, -1, folder_row)
                 folder_item = folder_row[0]
-                children = node.get(State.KEY_CHILDREN, [])
+                children = folder_node.get(State.KEY_CHILDREN, [])
                 if isinstance(children, list):
                     self._load_tree_state_recursive(children, folder_item, referenced_fqns, key_to_signature)
+
+    def _find_folder_in_parent(self, parent: Optional[QStandardItem], name: str) -> Optional[FolderStandardItem]:
+        """Find an existing folder by name under the given parent (or root)."""
+        model = self._math_tree.model()
+        nesting_col = model.nesting_col()
+        if parent is None:
+            count = model.rowCount()
+            get_child: Callable[[int], Optional[QStandardItem]] = lambda i: model.item(i, nesting_col)
+        else:
+            count = parent.rowCount()
+            get_child = lambda i: parent.child(i, nesting_col)
+
+        for i in range(count):
+            child = get_child(i)
+            if isinstance(child, FolderStandardItem) and child.text() == name:
+                return child
+        return None
+
+    def _load_tree_state_recursive_merge(self,
+                                         tree_data: List[Union[State.Folder, State.MathElement]],
+                                         parent: Optional[QStandardItem],
+                                         key_to_signature: Dict[str, str],
+                                         existing_signatures: Set[str],
+                                         signature_to_watchable: Dict[str, GUIMathWatchable]) -> None:
+        """Merge imported tree nodes into the existing tree. Folders are merged by name, duplicates are skipped."""
+        model = self._math_tree.model()
+        for node in tree_data:
+            node_type = node.get(State.KEY_TYPE)
+            if node_type == State.TYPE_MATH_ELEMENT:
+                math_node = cast(State.MathElement, node)
+                key = math_node.get(State.KEY_ID)
+                if key is None:
+                    continue
+                signature = key_to_signature.get(key)
+                if signature is None or signature in existing_signatures:
+                    continue
+                mw = signature_to_watchable.get(signature)
+                if mw is None:
+                    continue
+                model.append_math_watchable(mw, parent)
+                existing_signatures.add(signature)
+            elif node_type == State.TYPE_FOLDER:
+                folder_node = cast(State.Folder, node)
+                text = folder_node.get(State.KEY_TEXT, "Folder")
+                expanded = folder_node.get(State.KEY_EXPANDED, False)
+                if not isinstance(expanded, bool):
+                    expanded = False
+                existing_folder = self._find_folder_in_parent(parent, text)
+                if existing_folder is not None:
+                    folder_item = existing_folder
+                else:
+                    folder_row = model.make_folder_row(text, expanded=expanded)
+                    model.add_row_to_parent(parent, -1, folder_row)
+                    folder_item = cast(FolderStandardItem, folder_row[0])
+                children = folder_node.get(State.KEY_CHILDREN, [])
+                if isinstance(children, list):
+                    self._load_tree_state_recursive_merge(children, folder_item, key_to_signature, existing_signatures, signature_to_watchable)
 
     def _expand_saved_folders(self, parent: Optional[QStandardItem] = None) -> None:
         """Expand all folders that were saved as expanded"""
