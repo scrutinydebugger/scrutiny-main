@@ -377,6 +377,7 @@ class Dashboard(QWidget):
 
 # region Public API
 
+
     @property
     def signals(self) -> _Signals:
         return self._signals
@@ -547,6 +548,7 @@ class Dashboard(QWidget):
         The ADS internal map maps object name to the widget. title is used if no object name is explicitly set before registration.
         Colliding names may cause this map to not return all the references, leaving some stray widget after clear.
         """
+        self._component_app_interface.watchable_registry.clear_all_math_content()
         dock_widgets = self._dock_manager.dockWidgetsMap()
         for title, dock_widget in dock_widgets.items():
             self._dock_manager.removeDockWidget(dock_widget)
@@ -600,6 +602,7 @@ class Dashboard(QWidget):
 # endregion
 
 # region Internal
+
 
     def _is_autohide(self, dock_widget: QtAds.CDockWidget) -> bool:
         # Workaround for bug #739 : https://github.com/githubuser0xFFFF/Qt-Advanced-Docking-System/issues/739
@@ -819,7 +822,7 @@ class Dashboard(QWidget):
                 raise e
             return
 
-        self.clear()
+        self.clear()    # Also clear all math watchables
         self._restore_splitpane_recursive(serialized_dashboard.main_container.root_splitter)
         self._restore_sidebar_components(self._dock_manager, serialized_dashboard.main_container.sidebar_components)
 

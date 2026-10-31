@@ -92,6 +92,10 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
     """A state variable keeping track of what registry entry was put in the editor for modification."""
     _signals_connected: List[Tuple[SignalInstance, object]]
     """A list of signals to disconnect in teardown"""
+    _btn_export: QPushButton
+    """Button to export math watchables to a file"""
+    _btn_import: QPushButton
+    """Button to reload math watchables from a file"""
     _lbl_commit_error: FeedbackLabel
 
 # region Public
@@ -133,6 +137,9 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
         self._btn_commit.setEnabled(False)
         self._btn_close = QPushButton("Discard")
         self._btn_close.setEnabled(True)
+        self._btn_import = QPushButton("Reload from file")
+        self._btn_export = QPushButton("Export to file")
+        self._btn_export.setEnabled(False)
         self._splitter = QSplitter(Qt.Orientation.Vertical)
         self._splitter.setContentsMargins(0, 0, 0, 0)
         self._lbl_commit_error = FeedbackLabel()
@@ -154,6 +161,13 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
         upper_part_layout.setContentsMargins(0, 0, 0, 0)
         upper_part_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
+        file_button_container = QWidget()
+        file_button_container_layout = QHBoxLayout(file_button_container)
+        file_button_container_layout.setContentsMargins(0, 0, 0, 0)
+        file_button_container_layout.addWidget(self._btn_import)
+        file_button_container_layout.addWidget(self._btn_export)
+
+        upper_part_layout.addWidget(file_button_container)
         upper_part_layout.addWidget(self._math_tree)
         upper_part_layout.addWidget(upper_button_container)
 
@@ -175,6 +189,8 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
         layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         layout.addWidget(self._splitter)
 
+        self._connect_signal(self._btn_import.clicked, self.import_math_from_file)
+        self._connect_signal(self._btn_export.clicked, self.export_math_to_file)
         self._connect_signal(self._btn_new.clicked, self._btn_new_clicked_slot)
         self._connect_signal(self._btn_edit.clicked, self._btn_edit_clicked_slot)
         self._connect_signal(self._btn_commit.clicked, self._btn_commit_clicked_slot)
@@ -186,6 +202,7 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
         self._connect_signal(self.app.watchable_registry.signals.content_changed, self._registry_changed_slot)
 
     def ready(self) -> None:
+        self._math_tree.sync_with_registry()
         self._show_editor(False)
 
     def teardown(self) -> None:
@@ -204,7 +221,8 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
     def load_state(self, state: Dict[Any, Any]) -> bool:
         validation.assert_dict_key(state, State.MATH_DEFINITION_KEY, dict)
         math_def = cast(State.MathDefinition, state[State.MATH_DEFINITION_KEY])
-        reload_stats = self._reload_math_export(math_def)
+        # self.app.watchable_registry.clear_all_math_content()
+        reload_stats = self._load_math_expression_additive(math_def)
         return not reload_stats.has_error
 
     def export_math_to_file(self) -> None:
@@ -218,6 +236,24 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
                 f.write(json.dumps(math_export_data).encode('utf8'))
         except Exception as e:
             prompt.exception_msgbox(e, "Failed", "Failed to export the math expressions")
+
+    def import_math_from_file(self) -> None:
+        filepath = prompt.get_open_filepath_from_last_save_dir(MATH_EXPORT_FILE_EXT, "Import math expression")
+        if filepath is None:
+            return
+
+        try:
+            with open(filepath, 'rb') as f:
+                math_def = cast(State.MathDefinition, json.loads(f.read().decode('utf8')))
+            stats = self._load_math_expression_additive(math_def)
+            if not stats.has_error:
+                prompt.success_msgbox("Success", f"Successfully loaded {stats.total} math expressions")
+            else:
+                prompt.success_msgbox(
+                    "Problem", f"Reloaded {stats.total - stats.fail_count} / {stats.total} math expressions. Some error were encountered while parsing the file.")
+
+        except Exception as e:
+            prompt.exception_msgbox(e, "Failed", "Failed to import the math expressions")
 
 
 # end region
@@ -283,7 +319,8 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
             State.TREE_KEY: list(self._get_tree_state_recursive(fqn_to_key=fqn_to_key))
         }
 
-    def _reload_math_export(self, math_export: State.MathDefinition) -> MathReloadStats:
+    def _load_math_expression_additive(self, math_export: State.MathDefinition) -> MathReloadStats:
+        """Load the math expression from a state dictionary. Add to the registry"""
         stats = MathReloadStats()
         math_watchables: List[GUIMathWatchable] = []
         key_to_signature: Dict[str, str] = {}
@@ -432,6 +469,8 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
 
     def _update_availability(self) -> None:
         self._math_tree.update_availabilities()
+        has_math = any(True for _ in self.app.watchable_registry.get_all_math_watchables())
+        self._btn_export.setEnabled(has_math)
 
     def _get_tree_state_recursive(self,
                                   fqn_to_key: Dict[str, str],
