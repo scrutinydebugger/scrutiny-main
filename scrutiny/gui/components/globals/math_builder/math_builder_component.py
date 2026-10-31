@@ -221,8 +221,7 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
     def load_state(self, state: Dict[Any, Any]) -> bool:
         validation.assert_dict_key(state, State.MATH_DEFINITION_KEY, dict)
         math_def = cast(State.MathDefinition, state[State.MATH_DEFINITION_KEY])
-        # self.app.watchable_registry.clear_all_math_content()
-        reload_stats = self._load_math_expression_additive(math_def)
+        reload_stats = self._load_math_expressions_replace(math_def)
         return not reload_stats.has_error
 
     def export_math_to_file(self) -> None:
@@ -245,7 +244,7 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
         try:
             with open(filepath, 'rb') as f:
                 math_def = cast(State.MathDefinition, json.loads(f.read().decode('utf8')))
-            stats = self._load_math_expression_additive(math_def)
+            stats = self._load_math_expressions_additive(math_def)
             if not stats.has_error:
                 prompt.success_msgbox("Success", f"Successfully loaded {stats.total} math expressions")
             else:
@@ -319,9 +318,8 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
             State.TREE_KEY: list(self._get_tree_state_recursive(fqn_to_key=fqn_to_key))
         }
 
-    def _load_math_expression_additive(self, math_export: State.MathDefinition) -> MathReloadStats:
-        """Load the math expression from a state dictionary. Add to the registry"""
-        stats = MathReloadStats()
+    def _parse_math_definitions(self, math_export: State.MathDefinition, stats: MathReloadStats) -> Tuple[List[GUIMathWatchable], Dict[str, str]]:
+        """Parse math watchable definitions from the export data. Returns (watchables, key_to_signature)."""
         math_watchables: List[GUIMathWatchable] = []
         key_to_signature: Dict[str, str] = {}
         try:
@@ -337,34 +335,44 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
                     tools.log_exception(self.logger, e, "Failed to deserialize math watchable", str_level=logging.WARNING)
                     stats.has_error = True
                     stats.fail_count += 1
-
         except Exception as e:
             tools.log_exception(self.logger, e, "Failed to load math elements", str_level=logging.WARNING)
             stats.has_error = True
+        return math_watchables, key_to_signature
 
-        to_add = [mw for mw in math_watchables if self.app.watchable_registry.get_math_watchable_node(mw.signature()) is None]
-        self.app.watchable_registry.add_math_watchables(to_add)
+    def _load_math_expressions_replace(self, math_export: State.MathDefinition) -> MathReloadStats:
+        """Clear everything and rebuild from the export data. Used by load_state."""
+        self.app.watchable_registry.clear_all_math_content()
+        self._math_tree.model().removeRows(0, self._math_tree.model().rowCount())
+        return self._load_math_expressions_additive(math_export)
+
+    def _load_math_expressions_additive(self, math_export: State.MathDefinition) -> MathReloadStats:
+        """Merge imported content into existing content. No duplicates, folders are merged by name."""
+        stats = MathReloadStats()
+        math_watchables, key_to_signature = self._parse_math_definitions(math_export, stats)
+
+        # Build a lookup of parsed watchables by signature
+        signature_to_watchable: Dict[str, GUIMathWatchable] = {}
+        for mw in math_watchables:
+            signature_to_watchable[mw.signature()] = mw
 
         tree_data = math_export.get(State.TREE_KEY, None)
         if tree_data is not None and isinstance(tree_data, list):
-            model = self._math_tree.model()
-            model.removeRows(0, model.rowCount())
-            referenced_fqns: Set[str] = set()
+            existing_signatures: Set[str] = set()
+            for item in self._math_tree.model().iter_math_items():
+                existing_signatures.add(FQN.parse(item.fqn).string_id)
+
             try:
-                self._load_tree_state_recursive(tree_data, None, referenced_fqns, key_to_signature)
+                self._load_tree_state_recursive_merge(tree_data, None, key_to_signature, existing_signatures, signature_to_watchable)
             except Exception as e:
                 tools.log_exception(self.logger, e, "Failed to load tree structure", str_level=logging.WARNING)
                 stats.has_error = True
 
-            # Add math watchables not referenced in the tree at root
-            for _, mw in self.app.watchable_registry.get_all_math_watchables():
-                fqn = mw.make_fqn()
-                if fqn not in referenced_fqns:
-                    model.append_math_watchable(mw)
-
             self._expand_saved_folders()
-        else:
-            self._math_tree.sync_with_registry()
+
+        # Add to registry at the end so sync_with_registry doesn't flatten the tree during merge
+        to_add = [mw for mw in math_watchables if self.app.watchable_registry.get_math_watchable_node(mw.signature()) is None]
+        self.app.watchable_registry.add_math_watchables(to_add)
 
         return stats
 
@@ -534,6 +542,63 @@ class MathBuilderComponent(ScrutinyGUIBaseGlobalComponent):
                 children = folder_node.get(State.KEY_CHILDREN, [])
                 if isinstance(children, list):
                     self._load_tree_state_recursive(children, folder_item, referenced_fqns, key_to_signature)
+
+    def _find_folder_in_parent(self, parent: Optional[QStandardItem], name: str) -> Optional[FolderStandardItem]:
+        """Find an existing folder by name under the given parent (or root)."""
+        model = self._math_tree.model()
+        nesting_col = model.nesting_col()
+        if parent is None:
+            count = model.rowCount()
+            get_child: Callable[[int], Optional[QStandardItem]] = lambda i: model.item(i, nesting_col)
+        else:
+            count = parent.rowCount()
+            get_child = lambda i: parent.child(i, nesting_col)
+
+        for i in range(count):
+            child = get_child(i)
+            if isinstance(child, FolderStandardItem) and child.text() == name:
+                return child
+        return None
+
+    def _load_tree_state_recursive_merge(self,
+                                         tree_data: List[Union[State.Folder, State.MathElement]],
+                                         parent: Optional[QStandardItem],
+                                         key_to_signature: Dict[str, str],
+                                         existing_signatures: Set[str],
+                                         signature_to_watchable: Dict[str, GUIMathWatchable]) -> None:
+        """Merge imported tree nodes into the existing tree. Folders are merged by name, duplicates are skipped."""
+        model = self._math_tree.model()
+        for node in tree_data:
+            node_type = node.get(State.KEY_TYPE)
+            if node_type == State.TYPE_MATH_ELEMENT:
+                math_node = cast(State.MathElement, node)
+                key = math_node.get(State.KEY_ID)
+                if key is None:
+                    continue
+                signature = key_to_signature.get(key)
+                if signature is None or signature in existing_signatures:
+                    continue
+                mw = signature_to_watchable.get(signature)
+                if mw is None:
+                    continue
+                model.append_math_watchable(mw, parent)
+                existing_signatures.add(signature)
+            elif node_type == State.TYPE_FOLDER:
+                folder_node = cast(State.Folder, node)
+                text = folder_node.get(State.KEY_TEXT, "Folder")
+                expanded = folder_node.get(State.KEY_EXPANDED, False)
+                if not isinstance(expanded, bool):
+                    expanded = False
+                existing_folder = self._find_folder_in_parent(parent, text)
+                if existing_folder is not None:
+                    folder_item = existing_folder
+                else:
+                    folder_row = model.make_folder_row(text, expanded=expanded)
+                    model.add_row_to_parent(parent, -1, folder_row)
+                    folder_item = folder_row[0]
+                children = folder_node.get(State.KEY_CHILDREN, [])
+                if isinstance(children, list):
+                    self._load_tree_state_recursive_merge(children, folder_item, key_to_signature, existing_signatures, signature_to_watchable)
 
     def _expand_saved_folders(self, parent: Optional[QStandardItem] = None) -> None:
         """Expand all folders that were saved as expanded"""
