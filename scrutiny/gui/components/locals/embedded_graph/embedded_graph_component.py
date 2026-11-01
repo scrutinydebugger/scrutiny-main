@@ -766,6 +766,7 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
 
 # region Chart handling
 
+
     def _clear_graph(self) -> None:
         """Remove the acquisition presently displayed in the chartview"""
         self._clear_graph_error()
@@ -1187,21 +1188,18 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
         # Check that we have watchables in the signal tree
         self._acquire_feedback_label.clear()
         axes_signal = self._signal_tree.get_signals()
-        if len(axes_signal) == 0:   # check for axes
-            self._acquire_feedback_label.set_error("No signals to acquire")
-            return
-
-        nb_signals = 0
+        nb_server_signals = 0
+        nb_math_signals = 0
         for axis in axes_signal:    # Check for axes content
             if len(axis.signal_items) == 0:
                 continue
-            nb_signals += len(axis.signal_items)
             sdk_axis = result.config.add_axis(axis.axis_name)
             for signal_item in axis.signal_items:
                 parsed_fqn = FQN.parse(signal_item.fqn)
                 signal: Union[str, MathSignalConfig]
                 if parsed_fqn.node_type.is_server_node():
                     signal = parsed_fqn.path
+                    nb_server_signals += 1
                 elif parsed_fqn.node_type == RegistryNodeType.Math:
                     math_watchable = self.app.watchable_registry.get_math_watchable_node(parsed_fqn.math_signature)
                     if math_watchable is None:
@@ -1213,7 +1211,14 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
                         self._acquire_feedback_label.set_error(f"Math item {signal_item.text()} is not complete")
                         return
 
+                    nb_math_signals += 1
                     signal = datalogging_math
+
+                    math_watchable = self.app.watchable_registry.get_math_watchable_node(parsed_fqn.math_signature)
+                    if math_watchable is not None:
+                        for name_fqn_pair in math_watchable.get_var_fqn_map().values():
+                            if name_fqn_pair is not None:
+                                nb_server_signals += 1
                 else:
                     raise NotImplementedError("Unsupported node type")
 
@@ -1223,8 +1228,11 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
                     signal=signal
                 )
 
-        if nb_signals == 0:
-            self._acquire_feedback_label.set_error("No signals to acquire")
+        if nb_server_signals == 0:
+            if nb_math_signals > 0:
+                self._acquire_feedback_label.set_error("No device signals to acquire. Math constants are excluded")
+            else:
+                self._acquire_feedback_label.set_error("No device signals to acquire")
             return
 
         # Starting form here,  the config given by the user is valid. We need to request the server now

@@ -19,6 +19,7 @@ from PySide6.QtCore import Qt
 from scrutiny.gui.widgets.validable_line_edit import FloatValidableLineEdit
 from scrutiny.gui.widgets.watchable_line_edit import WatchableLineEdit
 from scrutiny.gui.core.watchable_registry.watchable_registry import WatchableRegistry
+from scrutiny.gui.core.watchable_registry.common import RegistryNodeType
 from scrutiny.gui.core.watchable_registry.fqn import FQN
 from scrutiny.gui.tools.validators import QStandardNotationDoubleValidator
 from scrutiny.sdk.datalogging import (TriggerCondition, SamplingRate, FixedFreqSamplingRate, DataloggingEncoding, XAxisType,
@@ -175,16 +176,21 @@ class GraphConfigWidget(QWidget):
         timeout_hard_validator = QStandardNotationDoubleValidator(0, MAX_TIMEOUT_SEC, 7)
         self._txt_acquisition_timeout = FloatValidableLineEdit(hard_validator=timeout_hard_validator)
 
+        server_node_types = [nt for nt in RegistryNodeType.all() if nt.is_server_node()]
         self._cmb_trigger_condition = QComboBox()
         self._txtw_trigger_operand1 = WatchableLineEdit("")
         self._txtw_trigger_operand1.setValidator(QStandardNotationDoubleValidator())
+        self._txtw_trigger_operand1.set_allowed_types(server_node_types)
         self._txtw_trigger_operand2 = WatchableLineEdit("")
         self._txtw_trigger_operand2.setValidator(QStandardNotationDoubleValidator())
+        self._txtw_trigger_operand2.set_allowed_types(server_node_types)
         self._txtw_trigger_operand3 = WatchableLineEdit("")
         self._txtw_trigger_operand3.setValidator(QStandardNotationDoubleValidator())
+        self._txtw_trigger_operand3.set_allowed_types(server_node_types)
         self._cmb_xaxis_type = QComboBox()
         self._txtw_xaxis_signal = WatchableLineEdit("")
         self._txtw_xaxis_signal.set_text_mode_enabled(False)    # No literal allowed, just watchables
+        self._txtw_xaxis_signal.set_allowed_types(server_node_types)
 
         hold_time_hard_validator = QStandardNotationDoubleValidator(0, MAX_HOLD_TIME_MS, 4)
         self._txt_hold_time_ms = FloatValidableLineEdit(hard_validator=hold_time_hard_validator)

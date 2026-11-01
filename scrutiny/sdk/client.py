@@ -2895,7 +2895,7 @@ class ScrutinyClient:
 
         if future.state != CallbackState.OK:
             raise sdk.exceptions.OperationFailure(
-                f"Failed to request the datalogging acquisition'. {future.error_str}")
+                f"Failed to request the datalogging acquisition. {future.error_str}")
         assert cb_data.request is not None
         return cb_data.request
 

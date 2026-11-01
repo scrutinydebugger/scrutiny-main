@@ -108,7 +108,8 @@ class DataloggingManager:
 
         self._check_request_math_consistency(request)
         config, entry_signal_map = self.make_device_config_from_request(request)  # Can raise an exception
-
+        if len(config.get_signals()) == 0:
+            raise RuntimeError("No signal to log")
         sampling_rate = self.get_sampling_rate(request.rate_identifier)
         if sampling_rate.rate_type == ExecLoopType.VARIABLE_FREQ and request.x_axis_type == api_datalogging.XAxisType.IdealTime:
             raise ValueError("Cannot use Ideal Time on variable sampling rate")
