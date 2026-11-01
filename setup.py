@@ -96,7 +96,7 @@ setup(
         'dev': ['mypy', 'ipdb', 'autopep8', 'coverage'] + doc_dependencies,
         'doc': doc_dependencies,
         'build': [
-            'nuitka==2.6.9',    # 2.7.3- is broken on Linux/Mac.
+            'nuitka==4.3.3',
             'imageio==2.37.0',
             'build==1.2.2',
             'pip-licenses==5.0.0'
