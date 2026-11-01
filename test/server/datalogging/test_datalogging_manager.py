@@ -670,6 +670,45 @@ class TestDataloggingManager(ScrutinyUnitTest):
         data = DataloggingManager.make_xaxis_measured_time(raw_data)
         self.assertEqual(data, [0, 0.001, 0.002, 0.003, 0.004])
 
+    def test_reject_constant_only_math_request(self):
+        # A request with only constant math signals (no device variables) should be rejected
+        with DataloggingStorage.use_temp_storage():
+            self.device_handler.set_connection_status(DeviceHandler.ConnectionStatus.CONNECTED_READY)
+            self.device_handler.set_ready_for_datalogging_acquisition_request(True)
+            self.device_handler.set_datalogger_state(device_datalogging.DataloggerState.IDLE)
+
+            self._wait_connected_with_datalogging()
+
+            yaxis_list = [
+                core_datalogging.AxisDefinition("Axis1", axis_id=100),
+            ]
+
+            req = api_datalogging.AcquisitionRequest(
+                name="constant_only",
+                decimation=1,
+                probe_location=0.5,
+                rate_identifier=0,
+                timeout=0,
+                trigger_hold_time=0,
+                trigger_condition=api_datalogging.TriggerCondition(
+                    condition_id=api_datalogging.TriggerConditionID.AlwaysTrue,
+                    operands=[]
+                ),
+                x_axis_type=api_datalogging.XAxisType.IdealTime,
+                x_axis_signal=None,
+                signals=[
+                    api_datalogging.MathSignalDefinitionWithAxis(
+                        name="const_math",
+                        expr="1+2",
+                        variables={},
+                        axis=yaxis_list[0]
+                    )
+                ]
+            )
+
+            with self.assertRaises(RuntimeError):
+                self.datalogging_manager.request_acquisition(req, lambda *args: None)
+
 
 if __name__ == '__main__':
     import unittest

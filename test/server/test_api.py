@@ -3895,6 +3895,15 @@ class TestAPI(ScrutinyUnitTest):
             self.assertEqual(len(math_signals), 1)
             self.assertIs(math_signals[0].variables['x'], var_entries[4])
 
+            # Only constant math signals (no variables) should be rejected
+            req = create_default_request()
+            req['signals'] = []
+            req['math_signals'] = [
+                dict(name='const_math', expr='1+2', variables={}, axis_id=0)
+            ]
+            self.send_request(req)
+            self.assert_is_error(self.wait_and_load_response())
+
     def test_user_command(self):
         def base() -> api_typing.C2S.UserCommand:
             return {
