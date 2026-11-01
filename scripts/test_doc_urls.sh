@@ -24,8 +24,11 @@ for url in $ALL_URLS; do
     info "Testing URL: $url"
     wget "${url}" \
         --tries=3 \
+        --waitretry=5 \
         --spider \
         --no-dns-cache \
+        --server-response \
+        --timeout=15 \
         --quiet \
         --user-agent="$USERAGENT" \
          || fatal "The following URL does not return a success code: $url" &
