@@ -35,6 +35,7 @@ from scrutiny import tools
 from scrutiny.gui import assets
 from scrutiny.gui.themes import scrutiny_get_theme_prop, ScrutinyThemeProperties, scrutiny_get_theme
 from scrutiny.gui.tools.min_max import MinMax
+from scrutiny.gui.tools.invoker import invoke_later
 from scrutiny.gui.widgets.scrutiny_qmenu import ScrutinyQMenu
 
 from scrutiny.tools import validation
@@ -1313,7 +1314,9 @@ class ScrutinyChartView(QChartView):
 
     def _invalidate_forground(self) -> None:
         # self.invalidateScene(self.geometry(), QGraphicsScene.SceneLayer.ForegroundLayer)   # Does not work??
-        self.chart().update(QRect(0, 0, 0, 0))   # Best workaround I found...
+
+        # Invoke later to make sure it works if the plot has not been drawn yet.
+        invoke_later(lambda: self.chart().update(QRect(0, 0, 0, 0)))   # Best workaround I found...
 
     def _is_in_plotarea(self, p: Union[QPointF, QPoint]) -> bool:
         chart = self.chart()
