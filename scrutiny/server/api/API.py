@@ -1905,8 +1905,17 @@ class API:
                 variables=vars_with_entry
             ))
 
-        if len(signals_to_log) == 0:
-            raise InvalidRequestException(req, 'Missing watchable to log')
+        nb_signal_rquested = 0
+        for signal in signals_to_log:
+            if isinstance(signal, api_datalogging.SignalDefinition):
+                nb_signal_rquested += 1
+            elif isinstance(signal, api_datalogging.MathSignalDefinition):
+                nb_signal_rquested += len(signal.variables)
+            else:
+                raise InvalidRequestException(req, 'Unsupported signal type')
+
+        if nb_signal_rquested == 0:
+            raise InvalidRequestException(req, 'No watchable to log in the request')
 
         acq_name: Optional[str] = None
         if 'name' in req:
