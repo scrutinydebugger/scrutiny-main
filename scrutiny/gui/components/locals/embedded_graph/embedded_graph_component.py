@@ -55,6 +55,7 @@ from scrutiny.gui.tools.invoker import invoke_in_qt_thread
 from scrutiny.gui.core.export_chart_csv import export_chart_csv_threaded
 from scrutiny.gui.core.watchable_registry.fqn import FQN
 from scrutiny.gui.core.watchable_registry.common import RegistryNodeType
+from scrutiny.gui.core.watchable_registry.nodes import ServerStorageEntryNode
 from scrutiny.gui.core.gui_math_watchable import GUIMathWatchable
 
 
@@ -666,12 +667,30 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
 
         outlist: List[EmbeddedDataType] = []
         axes = self._signal_tree.get_signals()
+        seen_fqn: Set[str] = set()
+
+        def maybe_add_server_node_to_list(fqn: str) -> None:
+            node = self.app.watchable_registry.get_server_watchable_node_fqn(fqn)
+            if node is None:
+                return
+            if fqn in seen_fqn:
+                return
+            seen_fqn.add(fqn)
+            outlist.append(node.configuration.datatype)
+
         for axis in axes:
             for item in axis.signal_items:
-                watchable_node = self.app.watchable_registry.get_server_watchable_node_fqn(item.fqn)  # Might be unavailable
-                if watchable_node is None:
-                    return []
-                outlist.append(watchable_node.configuration.datatype)
+                parsed_fqn = FQN.parse(item.fqn)
+                if parsed_fqn.node_type.is_server_node():
+                    maybe_add_server_node_to_list(item.fqn)
+                elif parsed_fqn.node_type == RegistryNodeType.Math:
+                    math_watchable = self.app.watchable_registry.get_math_watchable_node(parsed_fqn.math_signature)
+                    if math_watchable is not None:
+                        for fqn_name_pair in math_watchable.get_var_fqn_map().values():
+                            if fqn_name_pair is not None:
+                                maybe_add_server_node_to_list(fqn_name_pair.fqn)
+                else:
+                    raise NotImplementedError("Unsupported node type")
 
         return outlist
 
@@ -746,7 +765,6 @@ class EmbeddedGraphComponent(ScrutinyGUIBaseLocalComponent):
 
 
 # region Chart handling
-
 
     def _clear_graph(self) -> None:
         """Remove the acquisition presently displayed in the chartview"""
