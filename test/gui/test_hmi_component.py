@@ -1483,6 +1483,21 @@ class TestHMIComponent(HMIComponentBaseTest):
 
         self.assertEqual(circle.pos().toPoint(), initial_pos)
         self.assertFalse(undo_stack.canUndo())
+        self.assertTrue(undo_stack.canRedo())
+
+        # Trigger redo via shortcut
+        self.assertEqual(self.hmi_component._redo_shortcut.key(), QKeySequence(QKeySequence.StandardKey.Redo))
+        self.hmi_component._redo_shortcut.activated.emit()
+
+        self.assertEqual(circle.pos().toPoint(), expected_moved_pos)
+        self.assertTrue(undo_stack.canUndo())
+        self.assertFalse(undo_stack.canRedo())
+
+        # Test redo method
+        self.hmi_component.undo()
+        self.assertEqual(circle.pos().toPoint(), initial_pos)
+        self.hmi_component.redo()
+        self.assertEqual(circle.pos().toPoint(), expected_moved_pos)
 
     def test_undo_multi_widget_move(self):
         workzone = self.hmi_component.get_workzone()
@@ -1558,6 +1573,14 @@ class TestHMIComponent(HMIComponentBaseTest):
         self.assertEqual(circle.get_size(), initial_size)
         self.assertEqual(circle.pos().toPoint(), initial_pos)
         self.assertFalse(undo_stack.canUndo())
+        self.assertTrue(undo_stack.canRedo())
+
+        # Redo resize
+        self.hmi_component.redo()
+
+        self.assertEqual(circle.get_size(), resized_size)
+        self.assertTrue(undo_stack.canUndo())
+        self.assertFalse(undo_stack.canRedo())
 
     def test_undo_disabled_in_display_mode(self):
         workzone = self.hmi_component.get_workzone()
@@ -1589,6 +1612,17 @@ class TestHMIComponent(HMIComponentBaseTest):
 
         # Widget remains at moved position because undo is ignored in Display mode
         self.assertEqual(circle.pos().toPoint(), moved_pos)
+
+        # Switch to Edit mode and undo
+        self.hmi_component.set_mode(HMIInteractionMode.Edit)
+        self.hmi_component.undo()
+        self.assertEqual(circle.pos().toPoint(), initial_pos)
+
+        # Switch to Display mode and try redo
+        self.hmi_component.set_mode(HMIInteractionMode.Display)
+        self.hmi_component.redo()
+        # Widget remains at initial position because redo is ignored in Display mode
+        self.assertEqual(circle.pos().toPoint(), initial_pos)
 
     def test_undo_cleared_on_load_state(self):
         workzone = self.hmi_component.get_workzone()
