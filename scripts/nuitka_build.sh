@@ -120,6 +120,9 @@ if [ "$PLATFORM" = "darwin" ]; then
     BIN_FOLDER="${APP_DIR}/Contents/MacOS/bin"
     mkdir "$BIN_FOLDER" # For the user to put in their path.
     ln -s ../${OUTPUT_FILENAME} $BIN_FOLDER/scrutiny
+
+    # Re-sign after modifying the bundle
+    codesign --force --deep -s - "${APP_DIR}"
 fi
 
 success "Nuitka compilation completed"
