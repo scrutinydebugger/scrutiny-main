@@ -16,7 +16,7 @@ from pathlib import Path
 
 from scrutiny.tools.typing import *
 
-SERVER_STORAGE = Path(appdirs.user_data_dir(appname='server', appauthor='scrutiny'))
+SERVER_STORAGE = Path(appdirs.user_data_dir(appname='scrutiny.server', appauthor='scrutiny'))
 
 
 def set_server_storage(val: Path) -> None:
