@@ -1648,6 +1648,222 @@ class TestHMIComponent(HMIComponentBaseTest):
         self.hmi_component.load_state(state)
         self.assertFalse(self.hmi_component.get_undo_stack().canUndo())
 
+    def test_undo_redo_add_widget_from_library(self):
+        workzone = self.hmi_component.get_workzone()
+        self.hmi_component.set_mode(HMIInteractionMode.Edit)
+        undo_stack = self.hmi_component.get_undo_stack()
+        self.assertFalse(undo_stack.canUndo())
+
+        mimedata = ScrutinyDragData(ScrutinyDragData.DataType.HMIWidgetClass, {'class': CircleHMIWidget.__name__}).to_mime()
+        assert mimedata is not None
+        drop_event = QDropEvent(QPoint(16, 32), Qt.DropAction.CopyAction, mimedata, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier)
+        workzone.dropEvent(drop_event)
+
+        self.assertEqual(workzone.count_hmi_widgets(), 1)
+        self.assertTrue(undo_stack.canUndo())
+        self.assertFalse(undo_stack.canRedo())
+
+        # Undo add
+        self.hmi_component.undo()
+        self.assertEqual(workzone.count_hmi_widgets(), 0)
+        self.assertFalse(undo_stack.canUndo())
+        self.assertTrue(undo_stack.canRedo())
+
+        # Redo add
+        self.hmi_component.redo()
+        self.assertEqual(workzone.count_hmi_widgets(), 1)
+        self.assertTrue(undo_stack.canUndo())
+        self.assertFalse(undo_stack.canRedo())
+
+        # Undo again, then drop rectangle to clear redo history
+        self.hmi_component.undo()
+        self.assertEqual(workzone.count_hmi_widgets(), 0)
+        self.assertTrue(undo_stack.canRedo())
+
+        mimedata2 = ScrutinyDragData(ScrutinyDragData.DataType.HMIWidgetClass, {'class': RectangleHMIWidget.__name__}).to_mime()
+        assert mimedata2 is not None
+        drop_event2 = QDropEvent(QPoint(64, 64), Qt.DropAction.CopyAction, mimedata2, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier)
+        workzone.dropEvent(drop_event2)
+
+        self.assertEqual(workzone.count_hmi_widgets(), 1)
+        self.assertFalse(undo_stack.canRedo())
+        widget = list(self.hmi_component.iterate_hmi_widgets())[0]
+        self.assertIsInstance(widget, RectangleHMIWidget)
+
+    def test_undo_redo_delete_widget(self):
+        workzone = self.hmi_component.get_workzone()
+        self.hmi_component.set_mode(HMIInteractionMode.Edit)
+        circle = CircleHMIWidget(self.app_interface)
+        initial_pos = QPoint(32, 48)
+        self.hmi_component.add_hmi_widget(circle, initial_pos)
+        self.assertEqual(self.hmi_component.hmi_widget_count(), 1)
+
+        undo_stack = self.hmi_component.get_undo_stack()
+        self.assertFalse(undo_stack.canUndo())
+
+        # Select circle and delete via Delete key
+        workzone.select_widgets([circle])
+        del_event = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_Delete, Qt.KeyboardModifier.NoModifier)
+        self.hmi_component.keyPressEvent(del_event)
+
+        self.assertEqual(self.hmi_component.hmi_widget_count(), 0)
+        self.assertTrue(undo_stack.canUndo())
+        self.assertFalse(undo_stack.canRedo())
+
+        # Undo delete
+        self.hmi_component.undo()
+        self.assertEqual(self.hmi_component.hmi_widget_count(), 1)
+        restored = list(self.hmi_component.iterate_hmi_widgets())[0]
+        self.assertIs(restored, circle)
+        self.assertEqual(circle.pos().toPoint(), initial_pos)
+        self.assertIn(circle, self.hmi_component.selected_widgets())
+        self.assertFalse(undo_stack.canUndo())
+        self.assertTrue(undo_stack.canRedo())
+
+        # Redo delete
+        self.hmi_component.redo()
+        self.assertEqual(self.hmi_component.hmi_widget_count(), 0)
+        self.assertTrue(undo_stack.canUndo())
+        self.assertFalse(undo_stack.canRedo())
+
+        # Undo delete again
+        self.hmi_component.undo()
+        self.assertEqual(self.hmi_component.hmi_widget_count(), 1)
+
+    def test_undo_redo_multi_widget_delete(self):
+        workzone = self.hmi_component.get_workzone()
+        self.hmi_component.set_mode(HMIInteractionMode.Edit)
+        w1 = CircleHMIWidget(self.app_interface)
+        w2 = RectangleHMIWidget(self.app_interface)
+        w3 = LineHMIWidget(self.app_interface)
+
+        self.hmi_component.add_hmi_widget(w1, QPoint(10, 10))
+        self.hmi_component.add_hmi_widget(w2, QPoint(50, 50))
+        self.hmi_component.add_hmi_widget(w3, QPoint(100, 100))
+
+        self.assertEqual(self.hmi_component.hmi_widget_count(), 3)
+        self.assertEqual(int(w1.zValue()), 0)
+        self.assertEqual(int(w2.zValue()), 1)
+        self.assertEqual(int(w3.zValue()), 2)
+
+        # Select w1 and w3, delete them
+        workzone.select_widgets([w1, w3])
+        self.hmi_component.delete_hmi_widgets(self.hmi_component.selected_widgets())
+
+        self.assertEqual(self.hmi_component.hmi_widget_count(), 1)
+        remaining = list(self.hmi_component.iterate_hmi_widgets())
+        self.assertEqual(remaining, [w2])
+        self.assertEqual(int(w2.zValue()), 0)
+
+        # Undo delete
+        self.hmi_component.undo()
+        self.assertEqual(self.hmi_component.hmi_widget_count(), 3)
+        self.assertEqual(int(w1.zValue()), 0)
+        self.assertEqual(int(w2.zValue()), 1)
+        self.assertEqual(int(w3.zValue()), 2)
+        selected = self.hmi_component.selected_widgets()
+        self.assertIn(w1, selected)
+        self.assertIn(w3, selected)
+
+        # Redo delete
+        self.hmi_component.redo()
+        self.assertEqual(self.hmi_component.hmi_widget_count(), 1)
+        self.assertEqual(list(self.hmi_component.iterate_hmi_widgets()), [w2])
+
+    def test_undo_redo_add_move_delete_chain(self):
+        workzone = self.hmi_component.get_workzone()
+        self.hmi_component.set_mode(HMIInteractionMode.Edit)
+        undo_stack = self.hmi_component.get_undo_stack()
+
+        # Step 1: Add widget from library
+        mimedata = ScrutinyDragData(ScrutinyDragData.DataType.HMIWidgetClass, {'class': CircleHMIWidget.__name__}).to_mime()
+        assert mimedata is not None
+        drop_event = QDropEvent(QPoint(32, 32), Qt.DropAction.CopyAction, mimedata, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier)
+        workzone.dropEvent(drop_event)
+        self.assertEqual(workzone.count_hmi_widgets(), 1)
+        circle = list(self.hmi_component.iterate_hmi_widgets())[0]
+        initial_pos = circle.pos().toPoint()
+
+        # Step 2: Move widget
+        workzone.select_widgets([circle])
+        start_pos = circle.pos().toPoint() + QPoint(10, 10)
+        delta_move = QPoint(20, 30)
+        down_event = QMouseEvent(QEvent.Type.MouseButtonPress, start_pos, start_pos,
+                                 Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier)
+        move_event = QMouseEvent(QEvent.Type.MouseMove, start_pos + delta_move, start_pos + delta_move,
+                                 Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier)
+        up_event = QMouseEvent(QEvent.Type.MouseButtonRelease, start_pos + delta_move, start_pos + delta_move,
+                               Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier)
+        workzone.mousePressEvent(down_event)
+        workzone.mouseMoveEvent(move_event)
+        workzone.mouseReleaseEvent(up_event)
+        moved_pos = circle.pos().toPoint()
+        self.assertNotEqual(moved_pos, initial_pos)
+
+        # Step 3: Delete widget
+        workzone.select_widgets([circle])
+        del_event = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_Delete, Qt.KeyboardModifier.NoModifier)
+        self.hmi_component.keyPressEvent(del_event)
+        self.assertEqual(workzone.count_hmi_widgets(), 0)
+
+        # Undo Step 3 (Delete): Widget restored at moved_pos
+        self.hmi_component.undo()
+        self.assertEqual(workzone.count_hmi_widgets(), 1)
+        self.assertEqual(circle.pos().toPoint(), moved_pos)
+
+        # Undo Step 2 (Move): Widget moved back to initial_pos
+        self.hmi_component.undo()
+        self.assertEqual(workzone.count_hmi_widgets(), 1)
+        self.assertEqual(circle.pos().toPoint(), initial_pos)
+
+        # Undo Step 1 (Add): Widget removed from workzone
+        self.hmi_component.undo()
+        self.assertEqual(workzone.count_hmi_widgets(), 0)
+        self.assertFalse(undo_stack.canUndo())
+
+        # Redo Step 1 (Add): Widget restored to workzone at initial_pos
+        self.hmi_component.redo()
+        self.assertEqual(workzone.count_hmi_widgets(), 1)
+        self.assertEqual(circle.pos().toPoint(), initial_pos)
+
+        # Redo Step 2 (Move): Widget moved to moved_pos
+        self.hmi_component.redo()
+        self.assertEqual(workzone.count_hmi_widgets(), 1)
+        self.assertEqual(circle.pos().toPoint(), moved_pos)
+
+        # Redo Step 3 (Delete): Widget removed from workzone
+        self.hmi_component.redo()
+        self.assertEqual(workzone.count_hmi_widgets(), 0)
+        self.assertFalse(undo_stack.canRedo())
+
+    def test_undo_redo_paste_widgets(self):
+        self.hmi_component.set_mode(HMIInteractionMode.Edit)
+        circle = CircleHMIWidget(self.app_interface)
+        rect = RectangleHMIWidget(self.app_interface)
+        circle.set_size(QSize(32, 32))
+        rect.set_size(QSize(48, 48))
+        self.hmi_component.add_hmi_widget(circle, QPoint(0, 0))
+        self.hmi_component.add_hmi_widget(rect, QPoint(64, 0))
+        self.assertEqual(self.hmi_component.hmi_widget_count(), 2)
+
+        self.hmi_component.copy_widgets_to_clipboard([circle, rect])
+        self.hmi_component.paste_widgets_from_clipboard(scene_pos=QPointF(128, 128))
+        self.assertEqual(self.hmi_component.hmi_widget_count(), 4)
+
+        undo_stack = self.hmi_component.get_undo_stack()
+        self.assertTrue(undo_stack.canUndo())
+
+        # Undo paste: both pasted widgets removed in one step
+        self.hmi_component.undo()
+        self.assertEqual(self.hmi_component.hmi_widget_count(), 2)
+        remaining = list(self.hmi_component.iterate_hmi_widgets())
+        self.assertIn(circle, remaining)
+        self.assertIn(rect, remaining)
+
+        # Redo paste: both restored
+        self.hmi_component.redo()
+        self.assertEqual(self.hmi_component.hmi_widget_count(), 4)
+
 
 class TestHMIWidgets(HMIComponentBaseTest):
 
