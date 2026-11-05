@@ -1714,9 +1714,9 @@ class TestHMIComponent(HMIComponentBaseTest):
         self.hmi_component.undo()
         self.assertEqual(self.hmi_component.hmi_widget_count(), 1)
         restored = list(self.hmi_component.iterate_hmi_widgets())[0]
-        self.assertIs(restored, circle)
-        self.assertEqual(circle.pos().toPoint(), initial_pos)
-        self.assertIn(circle, self.hmi_component.selected_widgets())
+        self.assertIsInstance(restored, CircleHMIWidget)
+        self.assertEqual(restored.pos().toPoint(), initial_pos)
+        self.assertIn(restored, self.hmi_component.selected_widgets())
         self.assertFalse(undo_stack.canUndo())
         self.assertTrue(undo_stack.canRedo())
 
@@ -1752,23 +1752,26 @@ class TestHMIComponent(HMIComponentBaseTest):
 
         self.assertEqual(self.hmi_component.hmi_widget_count(), 1)
         remaining = list(self.hmi_component.iterate_hmi_widgets())
-        self.assertEqual(remaining, [w2])
-        self.assertEqual(int(w2.zValue()), 0)
+        self.assertEqual(len(remaining), 1)
+        self.assertIsInstance(remaining[0], RectangleHMIWidget)
+        self.assertEqual(int(remaining[0].zValue()), 0)
 
         # Undo delete
         self.hmi_component.undo()
         self.assertEqual(self.hmi_component.hmi_widget_count(), 3)
-        self.assertEqual(int(w1.zValue()), 0)
-        self.assertEqual(int(w2.zValue()), 1)
-        self.assertEqual(int(w3.zValue()), 2)
+        widgets = sorted(list(self.hmi_component.iterate_hmi_widgets()), key=lambda w: w.zValue())
+        self.assertEqual(int(widgets[0].zValue()), 0)
+        self.assertEqual(int(widgets[1].zValue()), 1)
+        self.assertEqual(int(widgets[2].zValue()), 2)
         selected = self.hmi_component.selected_widgets()
-        self.assertIn(w1, selected)
-        self.assertIn(w3, selected)
+        self.assertIn(widgets[0], selected)
+        self.assertIn(widgets[2], selected)
 
         # Redo delete
         self.hmi_component.redo()
         self.assertEqual(self.hmi_component.hmi_widget_count(), 1)
-        self.assertEqual(list(self.hmi_component.iterate_hmi_widgets()), [w2])
+        remaining = list(self.hmi_component.iterate_hmi_widgets())
+        self.assertIsInstance(remaining[0], RectangleHMIWidget)
 
     def test_undo_redo_add_move_delete_chain(self):
         workzone = self.hmi_component.get_workzone()
@@ -1809,12 +1812,14 @@ class TestHMIComponent(HMIComponentBaseTest):
         # Undo Step 3 (Delete): Widget restored at moved_pos
         self.hmi_component.undo()
         self.assertEqual(workzone.count_hmi_widgets(), 1)
-        self.assertEqual(circle.pos().toPoint(), moved_pos)
+        w = list(self.hmi_component.iterate_hmi_widgets())[0]
+        self.assertEqual(w.pos().toPoint(), moved_pos)
 
         # Undo Step 2 (Move): Widget moved back to initial_pos
         self.hmi_component.undo()
         self.assertEqual(workzone.count_hmi_widgets(), 1)
-        self.assertEqual(circle.pos().toPoint(), initial_pos)
+        w = list(self.hmi_component.iterate_hmi_widgets())[0]
+        self.assertEqual(w.pos().toPoint(), initial_pos)
 
         # Undo Step 1 (Add): Widget removed from workzone
         self.hmi_component.undo()
@@ -1824,12 +1829,14 @@ class TestHMIComponent(HMIComponentBaseTest):
         # Redo Step 1 (Add): Widget restored to workzone at initial_pos
         self.hmi_component.redo()
         self.assertEqual(workzone.count_hmi_widgets(), 1)
-        self.assertEqual(circle.pos().toPoint(), initial_pos)
+        w = list(self.hmi_component.iterate_hmi_widgets())[0]
+        self.assertEqual(w.pos().toPoint(), initial_pos)
 
         # Redo Step 2 (Move): Widget moved to moved_pos
         self.hmi_component.redo()
         self.assertEqual(workzone.count_hmi_widgets(), 1)
-        self.assertEqual(circle.pos().toPoint(), moved_pos)
+        w = list(self.hmi_component.iterate_hmi_widgets())[0]
+        self.assertEqual(w.pos().toPoint(), moved_pos)
 
         # Redo Step 3 (Delete): Widget removed from workzone
         self.hmi_component.redo()
@@ -1857,8 +1864,9 @@ class TestHMIComponent(HMIComponentBaseTest):
         self.hmi_component.undo()
         self.assertEqual(self.hmi_component.hmi_widget_count(), 2)
         remaining = list(self.hmi_component.iterate_hmi_widgets())
-        self.assertIn(circle, remaining)
-        self.assertIn(rect, remaining)
+        positions = [w.pos().toPoint() for w in remaining]
+        self.assertIn(QPoint(0, 0), positions)
+        self.assertIn(QPoint(64, 0), positions)
 
         # Redo paste: both restored
         self.hmi_component.redo()

@@ -9,6 +9,7 @@
 
 __all__ = ['HMIComponent']
 
+import copy
 import enum
 import functools
 import gc
@@ -94,156 +95,36 @@ class StateParser:
         return QPoint(pair[0], pair[1])
 
 
-class MoveHMIWidgetsCommand(QUndoCommand):
-    """Command that encapsulates moving one or more HMI widgets."""
-
-    _workzone: HMIWorkZone
-    _move_records: List[Tuple[BaseHMIWidget, QPoint, QPoint]]
-
-    def __init__(self, workzone: HMIWorkZone, move_records: List[Tuple[BaseHMIWidget, QPoint, QPoint]]) -> None:
-        super().__init__("Move Widgets")
-        self._workzone = workzone
-        self._move_records = move_records
-
-    def undo(self) -> None:
-        for widget, old_pos, _ in self._move_records:
-            widget.setPos(old_pos)
-        self._workzone._resize_scene()
-        self._workzone.signals.modified.emit()
-
-    def redo(self) -> None:
-        for widget, _, new_pos in self._move_records:
-            widget.setPos(new_pos)
-        self._workzone._resize_scene()
-        self._workzone.signals.modified.emit()
+@dataclass
+class HMISnapshot:
+    """Snapshot representing the full state and selection of an HMI dashboard."""
+    state: HMIComponentStateDict
+    selected_indices: List[int]
 
 
-class ResizeHMIWidgetCommand(QUndoCommand):
-    """Command that encapsulates resizing an HMI widget."""
-
-    _workzone: HMIWorkZone
-    _widget: BaseHMIWidget
-    _old_pos: QPoint
-    _old_size: QSize
-    _new_pos: QPoint
-    _new_size: QSize
-
-    def __init__(self, workzone: HMIWorkZone, widget: BaseHMIWidget, old_pos: QPoint, old_size: QSize, new_pos: QPoint, new_size: QSize) -> None:
-        super().__init__("Resize Widget")
-        self._workzone = workzone
-        self._widget = widget
-        self._old_pos = old_pos
-        self._old_size = old_size
-        self._new_pos = new_pos
-        self._new_size = new_size
-
-    def undo(self) -> None:
-        self._widget.setPos(self._old_pos)
-        self._widget.set_size(self._old_size)
-        self._workzone._resize_scene()
-        self._workzone.signals.modified.emit()
-
-    def redo(self) -> None:
-        self._widget.setPos(self._new_pos)
-        self._widget.set_size(self._new_size)
-        self._workzone._resize_scene()
-        self._workzone.signals.modified.emit()
-
-
-class AddHMIWidgetsCommand(QUndoCommand):
-    """Command that encapsulates adding one or more HMI widgets."""
+class SnapshotHMICommand(QUndoCommand):
+    """Command that encapsulates an undoable HMI dashboard state transition."""
 
     _component: "HMIComponent"
-    _widgets: List[BaseHMIWidget]
-    _positions: List[QPoint]
-    _zvalues: List[int]
+    _old_snapshot: HMISnapshot
+    _new_snapshot: HMISnapshot
     _first_execution: bool
 
-    def __init__(self, component: "HMIComponent", widgets: List[BaseHMIWidget]) -> None:
-        super().__init__("Add Widgets" if len(widgets) > 1 else "Add Widget")
+    def __init__(self, component: "HMIComponent", old_snapshot: HMISnapshot, new_snapshot: HMISnapshot, text: str) -> None:
+        super().__init__(text)
         self._component = component
-        self._widgets = list(widgets)
-        self._positions = [w.pos().toPoint() for w in self._widgets]
-        self._zvalues = [int(w.zValue()) for w in self._widgets]
+        self._old_snapshot = old_snapshot
+        self._new_snapshot = new_snapshot
         self._first_execution = True
 
     def redo(self) -> None:
         if self._first_execution:
             self._first_execution = False
             return
-        for widget, pos, zval in zip(self._widgets, self._positions, self._zvalues):
-            self._component.restore_hmi_widget(widget, pos, zval)
-        self._component.get_workzone().select_widgets(self._widgets)
-        self._component._reassign_packed_zvalues()
-        self._component.get_workzone()._resize_scene()
-        self._component.get_workzone().signals.modified.emit()
+        self._component._apply_state_snapshot(self._new_snapshot)
 
     def undo(self) -> None:
-        for widget in self._widgets:
-            self._component.remove_hmi_widget_for_undo(widget)
-        self._component._reassign_packed_zvalues()
-        self._component.get_workzone()._resize_scene()
-        self._component.get_workzone().signals.modified.emit()
-
-    def __del__(self) -> None:
-        try:
-            comp = getattr(self, "_component", None)
-            if comp is not None:
-                for widget in self._widgets:
-                    if widget.scene() is None:
-                        comp.permanently_destroy_widget(widget)
-        except Exception:
-            pass
-
-
-class DeleteHMIWidgetsCommand(QUndoCommand):
-    """Command that encapsulates deleting one or more HMI widgets."""
-
-    _component: "HMIComponent"
-    _widgets: List[BaseHMIWidget]
-    _positions: List[QPoint]
-    _zvalues: List[int]
-    _other_widgets_z: List[Tuple[BaseHMIWidget, int]]
-
-    def __init__(self, component: "HMIComponent", widgets: List[BaseHMIWidget]) -> None:
-        super().__init__("Delete Widgets" if len(widgets) > 1 else "Delete Widget")
-        self._component = component
-        self._widgets = list(widgets)
-        self._positions = [w.pos().toPoint() for w in self._widgets]
-        self._zvalues = [int(w.zValue()) for w in self._widgets]
-        self._other_widgets_z = [
-            (w, int(w.zValue()))
-            for w in component.get_workzone().iterate_hmi_widgets()
-            if w not in self._widgets
-        ]
-
-    def redo(self) -> None:
-        for widget in self._widgets:
-            self._component.remove_hmi_widget_for_undo(widget)
-        self._component._reassign_packed_zvalues()
-        self._component.get_workzone()._resize_scene()
-        self._component.get_workzone().signals.modified.emit()
-
-    def undo(self) -> None:
-        for w, z in self._other_widgets_z:
-            if w.scene() is not None:
-                w.setZValue(z)
-        for widget, pos, zval in zip(self._widgets, self._positions, self._zvalues):
-            self._component.restore_hmi_widget(widget, pos, zval)
-        self._component.get_workzone().select_widgets(self._widgets)
-        self._component._reassign_packed_zvalues()
-        self._component.get_workzone()._resize_scene()
-        self._component.get_workzone().signals.modified.emit()
-
-    def __del__(self) -> None:
-        try:
-            comp = getattr(self, "_component", None)
-            if comp is not None:
-                for widget in self._widgets:
-                    if widget.scene() is None:
-                        comp.permanently_destroy_widget(widget)
-        except Exception:
-            pass
+        self._component._apply_state_snapshot(self._old_snapshot)
 
 
 class HMIComponent(ScrutinyGUIBaseLocalComponent):
@@ -290,8 +171,8 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
     """The shortcut to trigger undo in edit mode"""
     _redo_shortcut: QShortcut
     """The shortcut to trigger redo in edit mode"""
-    _widgets_in_undo: Set[BaseHMIWidget]
-    """Widgets temporarily removed from the workzone by undo/delete commands"""
+    _is_restoring_state: bool
+    """Flag set to True while applying an undo/redo snapshot to prevent re-recording checkpoints"""
     _connected_modified_widgets: Set[int]
     """Set of widget ids whose modified signal is currently connected to _invalidate_save"""
 
@@ -305,7 +186,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         self._unittest_mode = False
         self._config_widgets = {}
         self._awaiting_delete_set = set()
-        self._widgets_in_undo = set()
+        self._is_restoring_state = False
         self._connected_modified_widgets = set()
         self._mode = HMIInteractionMode.Display
         self._status_bar = HMIStatusBar()
@@ -381,7 +262,6 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         self._show_config_of(None)
 
         self.delete_hmi_widgets(list(self._workzone.iterate_hmi_widgets()), no_undo=True)
-        self._clear_widgets_in_undo()
 
         self._workzone.signals.right_click.disconnect(self._workzone_right_click_slot)
         self._workzone.signals.double_click_edit_widget.disconnect(self._workzone_double_click_edit_widget_slot)
@@ -449,7 +329,6 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         self.set_mode(HMIInteractionMode.Edit)
 
         self.delete_hmi_widgets(list(self._workzone.iterate_hmi_widgets()), no_undo=True)
-        self._clear_widgets_in_undo()
 
         state_cast = cast(HMIComponentStateDict, state)
         validation.assert_dict_key(state_cast, 'hmi_widgets', list)
@@ -542,7 +421,7 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
     def set_unittest_mode(self, val: bool) -> None:
         self._unittest_mode = val
 
-    def add_hmi_widget(self, widget: BaseHMIWidget, scene_pos: Optional[QPoint] = None, zval: Optional[int] = None, undoable: bool = False) -> None:
+    def add_hmi_widget(self, widget: BaseHMIWidget, scene_pos: Optional[QPoint] = None, zval: Optional[int] = None) -> None:
         """Add an HMI Widget to the workzone at the given position"""
         existing_widgets = sorted(list(self._workzone.iterate_hmi_widgets()), key=lambda w: w.zValue())
         self._workzone.add_widget(widget, scene_pos)    # Will emit "modified"
@@ -563,122 +442,146 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
             widget.signals.modified.connect(self._invalidate_save)
             self._connected_modified_widgets.add(id(widget))
 
-        if undoable and self.is_edit_mode():
-            self._undo_stack.push(AddHMIWidgetsCommand(self, [widget]))
-
     def delete_hmi_widgets(self, widgets: List[BaseHMIWidget], no_undo: bool = False) -> None:
         """Delete multiple HMI widget from the work zone."""
         if len(widgets) == 0:
             return
 
-        if self.is_edit_mode() and not no_undo:
-            self._undo_stack.push(DeleteHMIWidgetsCommand(self, widgets))
-            return
+        old_snapshot = self._make_snapshot() if (self.is_edit_mode() and not no_undo and not self._is_restoring_state) else None
 
         for widget in widgets:
-            self.permanently_destroy_widget(widget)
+            if id(widget) in self._connected_modified_widgets:
+                self._connected_modified_widgets.discard(id(widget))
+                try:
+                    widget.signals.modified.disconnect(self._invalidate_save)
+                except Exception:
+                    pass
+
+            self._workzone.remove_widget(widget)    # Will emit "modified"
+            widget.destroy()
+
+            # Remove the config pane
+            if self._config_widget_container_layout.currentWidget() is self._config_widgets.get(id(widget)):
+                self._config_widget_container_layout.setCurrentIndex(0)
+            config_widget = self._config_widgets.pop(id(widget), None)
+            if config_widget is not None:
+                config_widget.setParent(None)
+
+            # Try to find memory leaks. Not bulletproof
+            # A closure in the server manager could keep the object alive temporarily.
+            # Still efficient when developing
+            self._awaiting_delete_set.add(widget.instance_id)
+            widget.add_del_callback(functools.partial(self._hmi_widget_del_callback, widget.instance_id))
+
+            fn = functools.partial(self._check_is_deleted, widget.instance_id, widget.get_display_name())
+            invoke_later(fn)
 
         self._reassign_packed_zvalues()
         gc.collect()
 
-    def remove_hmi_widget_for_undo(self, widget: BaseHMIWidget) -> None:
-        """Temporarily remove a widget from the workzone for undo without destroying it."""
-        if id(widget) in self._connected_modified_widgets:
-            self._connected_modified_widgets.discard(id(widget))
-            try:
-                widget.signals.modified.disconnect(self._invalidate_save)
-            except Exception:
-                pass
+        if old_snapshot is not None:
+            new_snapshot = self._make_snapshot()
+            cmd = SnapshotHMICommand(self, old_snapshot, new_snapshot, "Delete Widgets" if len(widgets) > 1 else "Delete Widget")
+            self._undo_stack.push(cmd)
 
-        widget.unwatch_all_vslots()
+    def _make_snapshot(self) -> HMISnapshot:
+        state = cast(HMIComponentStateDict, self.get_state())
+        selected = self.selected_widgets()
+        widgets = list(self.iterate_hmi_widgets())
+        selected_indices = [i for i, w in enumerate(widgets) if w in selected]
+        return HMISnapshot(state=copy.deepcopy(state), selected_indices=selected_indices)
 
-        if self._config_widget_container_layout.currentWidget() is self._config_widgets.get(id(widget)):
-            self._config_widget_container_layout.setCurrentIndex(0)
+    def _apply_state_snapshot(self, snapshot: HMISnapshot) -> None:
+        self._is_restoring_state = True
+        try:
+            current_widgets = list(self.iterate_hmi_widgets())
+            target_states = snapshot.state.get("hmi_widgets", [])
 
-        self._workzone.remove_widget(widget)
-        self._widgets_in_undo.add(widget)
+            can_update_in_place = (
+                len(current_widgets) == len(target_states)
+                and all(w.get_unique_name() == s.get("unique_name") for w, s in zip(current_widgets, target_states))
+            )
 
-    def restore_hmi_widget(self, widget: BaseHMIWidget, pos: QPoint, zval: int) -> None:
-        """Restore a previously removed widget back to the workzone."""
-        self._widgets_in_undo.discard(widget)
-        self._workzone.scene().addItem(widget)
-        widget.setPos(pos)
-        widget.setZValue(zval)
+            if can_update_in_place:
+                for widget, state_dict in zip(current_widgets, target_states):
+                    pos = StateParser.read_pos(state_dict, 'pos')
+                    size = StateParser.read_size(state_dict, 'size')
+                    zval = state_dict.get('zval', 0)
+                    widget.setPos(pos)
+                    widget.set_size(size)
+                    widget.setZValue(zval)
+                    widget.apply_value_slots_state(state_dict.get('value_slots', {}))
+                    widget.apply_implementation_config_dict(state_dict.get('implementation_config', {}))
+                restored_widgets = current_widgets
+            else:
+                self.delete_hmi_widgets(list(self._workzone.iterate_hmi_widgets()), no_undo=True)
 
-        if id(widget) not in self._config_widgets:
-            self._create_config_widget_of(widget)
+                workzone_size = StateParser.read_size(snapshot.state, 'workzone_size')
+                self._workzone.setSceneRect(QRect(QPoint(0, 0), workzone_size))
+                self._workzone.resize(workzone_size)
 
-        self.update_hmi_widget_state(widget)
+                restored_widgets = []
+                for widget_state in target_states:
+                    try:
+                        hmi_widget = self._create_hmi_widget_from_state_dict(widget_state)
+                        self.add_hmi_widget(hmi_widget.instance, scene_pos=hmi_widget.pos, zval=hmi_widget.zval)
+                        restored_widgets.append(hmi_widget.instance)
+                    except Exception as e:
+                        self.logger.warning(f"Failed to restore HMI widget from snapshot: {e}")
 
-        if id(widget) not in self._connected_modified_widgets:
-            widget.signals.modified.connect(self._invalidate_save)
-            self._connected_modified_widgets.add(id(widget))
+            self._reassign_packed_zvalues()
+            self._workzone._resize_scene()
 
-        if not self.is_edit_mode():
-            widget.try_watch_all_vslots()
+            to_select = [restored_widgets[i] for i in snapshot.selected_indices if i < len(restored_widgets)]
+            self._workzone.select_widgets(to_select)
 
-    def permanently_destroy_widget(self, widget: BaseHMIWidget) -> None:
-        """Permanently destroy a widget and its configuration pane."""
-        if widget.instance_id in self._awaiting_delete_set:
-            return
-        self._widgets_in_undo.discard(widget)
-        if id(widget) in self._connected_modified_widgets:
-            self._connected_modified_widgets.discard(id(widget))
-            try:
-                widget.signals.modified.disconnect(self._invalidate_save)
-            except Exception:
-                pass
-
-        if widget.scene() is not None:
-            self._workzone.remove_widget(widget)
-
-        widget.destroy()
-
-        if self._config_widget_container_layout.currentWidget() is self._config_widgets.get(id(widget)):
-            self._config_widget_container_layout.setCurrentIndex(0)
-        config_widget = self._config_widgets.pop(id(widget), None)
-        if config_widget is not None:
-            config_widget.setParent(None)
-
-        self._awaiting_delete_set.add(widget.instance_id)
-        widget.add_del_callback(functools.partial(self._hmi_widget_del_callback, widget.instance_id))
-
-        fn = functools.partial(self._check_is_deleted, widget.instance_id, widget.get_display_name())
-        invoke_later(fn)
-
-    def _clear_widgets_in_undo(self) -> None:
-        """Permanently destroy all widgets currently tracked in undo."""
-        widgets_to_destroy = list(self._widgets_in_undo)
-        self._widgets_in_undo.clear()
-        for widget in widgets_to_destroy:
-            if widget.scene() is None:
-                self.permanently_destroy_widget(widget)
+            self._workzone.signals.modified.emit()
+        finally:
+            self._is_restoring_state = False
 
     def move_to_back(self, widget: BaseHMIWidget) -> None:
+        old_snapshot = self._make_snapshot() if self.is_edit_mode() else None
         all_z = [w.zValue() for w in self._workzone.iterate_hmi_widgets()]
         if len(all_z) > 0:
             widget.setZValue(min(all_z) - 1)
         self._reassign_packed_zvalues()
+        if old_snapshot is not None:
+            new_snapshot = self._make_snapshot()
+            self._undo_stack.push(SnapshotHMICommand(self, old_snapshot, new_snapshot, "Move to Back"))
 
     def move_to_front(self, widget: BaseHMIWidget) -> None:
+        old_snapshot = self._make_snapshot() if self.is_edit_mode() else None
         all_z = [w.zValue() for w in self._workzone.iterate_hmi_widgets()]
         if len(all_z) > 0:
             widget.setZValue(max(all_z) + 1)
         self._reassign_packed_zvalues()
+        if old_snapshot is not None:
+            new_snapshot = self._make_snapshot()
+            self._undo_stack.push(SnapshotHMICommand(self, old_snapshot, new_snapshot, "Move to Front"))
 
     def move_backward(self, widget: BaseHMIWidget) -> None:
+        old_snapshot = self._make_snapshot() if self.is_edit_mode() else None
         previous = sorted([w for w in self._workzone.iterate_hmi_widgets() if w.zValue() < widget.zValue()], key=lambda w: w.zValue())
         if len(previous) > 0:   # swap
             temp = previous[-1].zValue()
             previous[-1].setZValue(widget.zValue())
             widget.setZValue(temp)
+        self._reassign_packed_zvalues()
+        if old_snapshot is not None:
+            new_snapshot = self._make_snapshot()
+            self._undo_stack.push(SnapshotHMICommand(self, old_snapshot, new_snapshot, "Move Backward"))
 
     def move_forward(self, widget: BaseHMIWidget) -> None:
+        old_snapshot = self._make_snapshot() if self.is_edit_mode() else None
         nexts = sorted([w for w in self._workzone.iterate_hmi_widgets() if w.zValue() > widget.zValue()], key=lambda w: w.zValue())
         if len(nexts) > 0:   # swap
             temp = nexts[0].zValue()
             nexts[0].setZValue(widget.zValue())
             widget.setZValue(temp)
+        self._reassign_packed_zvalues()
+        if old_snapshot is not None:
+            new_snapshot = self._make_snapshot()
+            self._undo_stack.push(SnapshotHMICommand(self, old_snapshot, new_snapshot, "Move Forward"))
 
     def is_edit_mode(self) -> bool:
         return self._mode == HMIInteractionMode.Edit
@@ -806,8 +709,12 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
 
     def _workzone_drop_widget_class_slot(self, widget_class: Type[BaseHMIWidget], scene_pos: QPoint) -> None:
         """Callback invoked when a HMI widget is dropped on the workzone from the Library"""
+        old_snapshot = self._make_snapshot()
         instance = widget_class(self.app)
-        self.add_hmi_widget(instance, scene_pos, undoable=True)
+        self.add_hmi_widget(instance, scene_pos)
+        if self.is_edit_mode():
+            new_snapshot = self._make_snapshot()
+            self._undo_stack.push(SnapshotHMICommand(self, old_snapshot, new_snapshot, "Add Widget"))
 
     def _workzone_selection_changed_slot(self, widgets: List[BaseHMIWidget]) -> None:
         """When the user changes the selection"""
@@ -817,12 +724,28 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
             self._show_config_of(None)
 
     def _widgets_moved_slot(self, move_records: List[Tuple[BaseHMIWidget, QPoint, QPoint]]) -> None:
-        cmd = MoveHMIWidgetsCommand(self._workzone, move_records)
-        self._undo_stack.push(cmd)
+        if not self.is_edit_mode() or self._is_restoring_state:
+            return
+        new_snapshot = self._make_snapshot()
+        old_snapshot = copy.deepcopy(new_snapshot)
+        widgets = list(self.iterate_hmi_widgets())
+        for widget, old_pos, _ in move_records:
+            if widget in widgets:
+                idx = widgets.index(widget)
+                old_snapshot.state['hmi_widgets'][idx]['pos'] = (old_pos.x(), old_pos.y())
+        self._undo_stack.push(SnapshotHMICommand(self, old_snapshot, new_snapshot, "Move Widgets"))
 
     def _widget_resized_slot(self, widget: BaseHMIWidget, old_pos: QPoint, old_size: QSize, new_pos: QPoint, new_size: QSize) -> None:
-        cmd = ResizeHMIWidgetCommand(self._workzone, widget, old_pos, old_size, new_pos, new_size)
-        self._undo_stack.push(cmd)
+        if not self.is_edit_mode() or self._is_restoring_state:
+            return
+        new_snapshot = self._make_snapshot()
+        old_snapshot = copy.deepcopy(new_snapshot)
+        widgets = list(self.iterate_hmi_widgets())
+        if widget in widgets:
+            idx = widgets.index(widget)
+            old_snapshot.state['hmi_widgets'][idx]['pos'] = (old_pos.x(), old_pos.y())
+            old_snapshot.state['hmi_widgets'][idx]['size'] = (old_size.width(), old_size.height())
+        self._undo_stack.push(SnapshotHMICommand(self, old_snapshot, new_snapshot, "Resize Widget"))
 
     def _undo_slot(self) -> None:
         if self.is_edit_mode() and self._undo_stack.canUndo():
@@ -963,6 +886,8 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         if scene_pos is not None:
             top_left_insert_offset = scene_pos - bounding_box.topLeft()
 
+        old_snapshot = self._make_snapshot() if self.is_edit_mode() else None
+
         for hmi_widget in hmi_widgets:
             new_pos = hmi_widget.pos + top_left_insert_offset.toPoint()
             self.add_hmi_widget(hmi_widget.instance, scene_pos=new_pos, zval=max_zval)
@@ -973,8 +898,9 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
 
         self._workzone.select_widgets([w.instance for w in hmi_widgets])
 
-        if self.is_edit_mode():
-            self._undo_stack.push(AddHMIWidgetsCommand(self, [w.instance for w in hmi_widgets]))
+        if old_snapshot is not None:
+            new_snapshot = self._make_snapshot()
+            self._undo_stack.push(SnapshotHMICommand(self, old_snapshot, new_snapshot, "Paste"))
 
     def _show_config_of(self, widget: Optional[BaseHMIWidget]) -> None:
         """Make the HMI Widget configuration pane visible by swapping the QStackedLayout index. show an empty widget if None"""
