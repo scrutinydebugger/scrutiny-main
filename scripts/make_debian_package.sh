@@ -53,9 +53,10 @@ cp -r "${SOURCE_DIR}" "${PKG_FOLDER}/opt/scrutinydebugger"                  # Th
 cp  "${PROJECT_ROOT}/deploy/debian/scrutiny.gui.default.desktop" "${PKG_FOLDER}/usr/share/applications/"        # Desktop Icon : Scrutiny GUI
 cp  "${PROJECT_ROOT}/deploy/debian/scrutiny.gui.local-server.desktop" "${PKG_FOLDER}/usr/share/applications/"   # Desktop Icon : Scrutiny GUI (Local)
 
-mkdir -p "${PKG_FOLDER}/usr/share/pixmaps" "${PKG_FOLDER}/usr/share/doc/scrutinydebugger"
+mkdir -p "${PKG_FOLDER}/usr/share/pixmaps" "${PKG_FOLDER}/usr/share/doc/scrutinydebugger" "${PKG_FOLDER}/usr/share/metainfo"
 cp "${PROJECT_ROOT}/deploy/scrutiny-icon.png" "${PKG_FOLDER}/usr/share/pixmaps/scrutinydebugger.png"
 cp "${PROJECT_ROOT}/deploy/debian/copyright" "${PKG_FOLDER}/usr/share/doc/scrutinydebugger/copyright"
+cp "${PROJECT_ROOT}/deploy/debian/scrutinydebugger.metainfo.xml" "${PKG_FOLDER}/usr/share/metainfo/"
 
 ln -s "/opt/scrutinydebugger/scrutiny.bin" "${PKG_FOLDER}/usr/local/bin/scrutiny"   # CLI launcher
 
