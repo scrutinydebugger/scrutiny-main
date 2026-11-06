@@ -32,7 +32,7 @@ info "Scrutiny version: $SCRUTINY_VERSION"
 # Prepare package
 ARCH="$(dpkg-architecture -qDEB_BUILD_ARCH)"
 TEMP_FOLDER="$(mktemp -d)"
-PKG_NAME="scrutinydebugger_v${SCRUTINY_VERSION}_$(uname -m)"
+PKG_NAME="scrutinydebugger_${SCRUTINY_VERSION}_${ARCH}"
 
 PKG_FOLDER="${TEMP_FOLDER}/${PKG_NAME}"
 info "Creating debian package: ${PKG_NAME}"
@@ -44,12 +44,25 @@ mkdir -p "${PKG_FOLDER}/DEBIAN" "${PKG_FOLDER}/opt" "${PKG_FOLDER}/usr/local/bin
 cp "${PROJECT_ROOT}/deploy/debian/control" "${PKG_FOLDER}/DEBIAN/control"   # Copy the template
 sed -i "s/<VERSION>/${SCRUTINY_VERSION}/g"  "${PKG_FOLDER}/DEBIAN/control"  # Set the version in the control file
 sed -i "s/<ARCH>/$ARCH/g"  ${PKG_FOLDER}/DEBIAN/control                     # Set the arch in the control file
+cp "${PROJECT_ROOT}/deploy/debian/postinst" "${PKG_FOLDER}/DEBIAN/postinst"
+chmod 755 "${PKG_FOLDER}/DEBIAN/postinst"
+cp "${PROJECT_ROOT}/deploy/debian/postrm" "${PKG_FOLDER}/DEBIAN/postrm"
+chmod 755 "${PKG_FOLDER}/DEBIAN/postrm"
 
 cp -r "${SOURCE_DIR}" "${PKG_FOLDER}/opt/scrutinydebugger"                  # The program
 cp  "${PROJECT_ROOT}/deploy/debian/scrutiny.gui.default.desktop" "${PKG_FOLDER}/usr/share/applications/"        # Desktop Icon : Scrutiny GUI
 cp  "${PROJECT_ROOT}/deploy/debian/scrutiny.gui.local-server.desktop" "${PKG_FOLDER}/usr/share/applications/"   # Desktop Icon : Scrutiny GUI (Local)
 
+mkdir -p "${PKG_FOLDER}/usr/share/pixmaps" "${PKG_FOLDER}/usr/share/doc/scrutinydebugger" "${PKG_FOLDER}/usr/share/metainfo"
+cp "${PROJECT_ROOT}/deploy/scrutiny-icon.png" "${PKG_FOLDER}/usr/share/pixmaps/scrutinydebugger.png"
+cp "${PROJECT_ROOT}/deploy/debian/copyright" "${PKG_FOLDER}/usr/share/doc/scrutinydebugger/copyright"
+cp "${PROJECT_ROOT}/deploy/debian/scrutinydebugger.metainfo.xml" "${PKG_FOLDER}/usr/share/metainfo/"
+
 ln -s "/opt/scrutinydebugger/scrutiny.bin" "${PKG_FOLDER}/usr/local/bin/scrutiny"   # CLI launcher
+
+INSTALLED_SIZE=$(du -sk --exclude="${PKG_FOLDER}/DEBIAN" "${PKG_FOLDER}" | cut -f1)
+sed -i "s/<INSTALLED_SIZE>/${INSTALLED_SIZE}/g" "${PKG_FOLDER}/DEBIAN/control"
+
 dpkg-deb --root-owner-group --build "${PKG_FOLDER}"                                 # Pack
 
 # Move the package in the wnated output folder

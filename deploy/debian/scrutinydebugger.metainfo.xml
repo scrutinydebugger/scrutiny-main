@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>scrutinydebugger</id>
+  <name>Scrutiny Debugger</name>
+  <summary>Debug and test embedded C/C++ applications</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <description>
+    <p>
+      Scrutiny is an open source debugging, development and testing tool for C/C++
+      embedded applications that works through source-level instrumentation.
+    </p>
+    <p>
+      It provides real-time variable inspection, graph plotting, and test automation
+      via a GUI and CLI interface. The CLI and server run without a display on
+      headless systems.
+    </p>
+  </description>
+  <url type="homepage">https://scrutinydebugger.com</url>
+  <url type="bugtracker">https://github.com/scrutinydebugger/scrutiny-main/issues</url>
+  <categories>
+    <category>Development</category>
+    <category>Debugger</category>
+  </categories>
+  <keywords>
+    <keyword>debugger</keyword>
+    <keyword>embedded</keyword>
+    <keyword>C</keyword>
+    <keyword>C++</keyword>
+    <keyword>instrumentation</keyword>
+    <keyword>testing</keyword>
+    <keyword>HIL</keyword>
+  </keywords>
+  <provides>
+    <binary>scrutiny</binary>
+  </provides>
+  <content_rating type="oars-1.1"/>
+</component>
