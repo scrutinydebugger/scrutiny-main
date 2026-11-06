@@ -5,7 +5,8 @@ Priority: optional
 Architecture: <ARCH>
 Maintainer: Scrutiny Debugger <scrutinydebugger@gmail.com>
 Homepage: https://scrutinydebugger.com
-Recommends: libxcb1, libxcb-cursor0, libxcb-icccm4, libxcb-image0, libxcb-keysyms1, libxcb-randr0, libxcb-render-util0, libxcb-shape0, libxcb-xfixes0, libxcb-xinerama0, libxcb-xkb1, libxkbcommon-x11-0
+Installed-Size: <INSTALLED_SIZE>
+Depends: libxcb1, libxcb-cursor0, libxcb-icccm4, libxcb-image0, libxcb-keysyms1, libxcb-randr0, libxcb-render-util0, libxcb-shape0, libxcb-xfixes0, libxcb-xinerama0, libxcb-xkb1, libxkbcommon-x11-0
 Description: An open source debugging, development and testing tool for C/C++ embedded applications.
  Scrutiny works through source-level instrumentation and provides real-time
  variable inspection, graph plotting, and test automation via a GUI and CLI.

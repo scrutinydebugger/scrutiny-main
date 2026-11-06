@@ -7,23 +7,24 @@ set -e
 MISSING=""
 
 check_lib() {
-    if ! ldconfig -p | grep -q "$1"; then
-        MISSING="${MISSING}  $2 (provides $1)\n"
+    if ! ldconfig -p | grep -qF "$1"; then
+        MISSING="${MISSING}  $2 (provides $1)
+"
     fi
 }
 
-check_lib "libxcb\.so"           "libxcb1"
-check_lib "libxcb-cursor\.so"    "libxcb-cursor0"
-check_lib "libxcb-icccm\.so"     "libxcb-icccm4"
-check_lib "libxcb-image\.so"     "libxcb-image0"
-check_lib "libxcb-keysyms\.so"   "libxcb-keysyms1"
-check_lib "libxcb-randr\.so"     "libxcb-randr0"
-check_lib "libxcb-render-util\.so" "libxcb-render-util0"
-check_lib "libxcb-shape\.so"     "libxcb-shape0"
-check_lib "libxcb-xfixes\.so"    "libxcb-xfixes0"
-check_lib "libxcb-xinerama\.so"  "libxcb-xinerama0"
-check_lib "libxcb-xkb\.so"       "libxcb-xkb1"
-check_lib "libxkbcommon-x11\.so" "libxkbcommon-x11-0"
+check_lib "libxcb.so"            "libxcb1"
+check_lib "libxcb-cursor.so"     "libxcb-cursor0"
+check_lib "libxcb-icccm.so"      "libxcb-icccm4"
+check_lib "libxcb-image.so"      "libxcb-image0"
+check_lib "libxcb-keysyms.so"    "libxcb-keysyms1"
+check_lib "libxcb-randr.so"      "libxcb-randr0"
+check_lib "libxcb-render-util.so" "libxcb-render-util0"
+check_lib "libxcb-shape.so"      "libxcb-shape0"
+check_lib "libxcb-xfixes.so"     "libxcb-xfixes0"
+check_lib "libxcb-xinerama.so"   "libxcb-xinerama0"
+check_lib "libxcb-xkb.so"        "libxcb-xkb1"
+check_lib "libxkbcommon-x11.so"  "libxkbcommon-x11-0"
 
 if [ -n "$MISSING" ]; then
     echo ""

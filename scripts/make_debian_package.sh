@@ -58,6 +58,10 @@ cp "${PROJECT_ROOT}/deploy/scrutiny-icon.png" "${PKG_FOLDER}/usr/share/pixmaps/s
 cp "${PROJECT_ROOT}/deploy/debian/copyright" "${PKG_FOLDER}/usr/share/doc/scrutinydebugger/copyright"
 
 ln -s "/opt/scrutinydebugger/scrutiny.bin" "${PKG_FOLDER}/usr/local/bin/scrutiny"   # CLI launcher
+
+INSTALLED_SIZE=$(du -sk --exclude="${PKG_FOLDER}/DEBIAN" "${PKG_FOLDER}" | cut -f1)
+sed -i "s/<INSTALLED_SIZE>/${INSTALLED_SIZE}/g" "${PKG_FOLDER}/DEBIAN/control"
+
 dpkg-deb --root-owner-group --build "${PKG_FOLDER}"                                 # Pack
 
 # Move the package in the wnated output folder
