@@ -1,0 +1,41 @@
+#!/bin/sh
+set -e
+
+# Check that the xcb libraries required by the Qt GUI are available.
+# These are listed as Recommends, so they may be absent on headless systems.
+
+MISSING=""
+
+check_lib() {
+    if ! ldconfig -p | grep -q "$1"; then
+        MISSING="${MISSING}  $2 (provides $1)\n"
+    fi
+}
+
+check_lib "libxcb\.so"           "libxcb1"
+check_lib "libxcb-cursor\.so"    "libxcb-cursor0"
+check_lib "libxcb-icccm\.so"     "libxcb-icccm4"
+check_lib "libxcb-image\.so"     "libxcb-image0"
+check_lib "libxcb-keysyms\.so"   "libxcb-keysyms1"
+check_lib "libxcb-randr\.so"     "libxcb-randr0"
+check_lib "libxcb-render-util\.so" "libxcb-render-util0"
+check_lib "libxcb-shape\.so"     "libxcb-shape0"
+check_lib "libxcb-xfixes\.so"    "libxcb-xfixes0"
+check_lib "libxcb-xinerama\.so"  "libxcb-xinerama0"
+check_lib "libxcb-xkb\.so"       "libxcb-xkb1"
+check_lib "libxkbcommon-x11\.so" "libxkbcommon-x11-0"
+
+if [ -n "$MISSING" ]; then
+    echo ""
+    echo "WARNING: The following libraries required by the Scrutiny GUI are missing:"
+    printf "$MISSING"
+    echo ""
+    echo "The CLI and server will work normally, but the GUI may fail to start."
+    echo "To install the missing libraries run:"
+    echo "  sudo apt-get install $(echo "$MISSING" | awk '{print $1}' | tr '\n' ' ')"
+    echo ""
+fi
+
+if command -v update-desktop-database > /dev/null 2>&1; then
+    update-desktop-database /usr/share/applications
+fi
