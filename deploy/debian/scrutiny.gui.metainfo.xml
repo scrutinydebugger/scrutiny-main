@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
-  <id>scrutiny.gui.default</id>
-  <launchable type="desktop-id">scrutiny.gui.default.desktop</launchable>
+  <id>scrutiny.gui</id>
+  <launchable type="desktop-id">scrutiny.gui.desktop</launchable>
   <launchable type="desktop-id">scrutiny.gui.local-server.desktop</launchable>
   <name>Scrutiny Debugger</name>
   <summary>Debug and test embedded C/C++ applications</summary>

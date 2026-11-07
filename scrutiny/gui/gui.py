@@ -174,6 +174,7 @@ class ScrutinyQtGUI:
                         "Using X11 on WSL. An improper X11 configuration may prevent this app from starting. Make sure you can run a basic application (e.g. xeyes).")
 
         app = make_qt_app(args)
+        app.setDesktopFileName("scrutiny.gui")
         app.setAttribute(Qt.ApplicationAttribute.AA_DontShowIconsInMenus, False)  # Mac OS doesn't display the icon by default.
 
         if self._settings.theme == SupportedTheme.Default:

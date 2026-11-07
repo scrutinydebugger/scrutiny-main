@@ -52,16 +52,16 @@ cp "${PROJECT_ROOT}/deploy/debian/postrm" "${PKG_FOLDER}/DEBIAN/postrm"
 chmod 755 "${PKG_FOLDER}/DEBIAN/postrm"
 
 cp -r "${SOURCE_DIR}" "${PKG_FOLDER}/opt/scrutinydebugger"                  # The program
-cp  "${PROJECT_ROOT}/deploy/debian/scrutiny.gui.default.desktop" "${PKG_FOLDER}/usr/share/applications/"        # Desktop Icon : Scrutiny GUI
+cp  "${PROJECT_ROOT}/deploy/debian/scrutiny.gui.desktop" "${PKG_FOLDER}/usr/share/applications/"                 # Desktop Icon : Scrutiny GUI
 cp  "${PROJECT_ROOT}/deploy/debian/scrutiny.gui.local-server.desktop" "${PKG_FOLDER}/usr/share/applications/"   # Desktop Icon : Scrutiny GUI (Local)
 
 mkdir -p "${PKG_FOLDER}/usr/share/icons/hicolor/512x512/apps" "${PKG_FOLDER}/usr/share/doc/scrutinydebugger" "${PKG_FOLDER}/usr/share/metainfo"
 cp "${PROJECT_ROOT}/deploy/scrutiny-icon.png" "${PKG_FOLDER}/usr/share/icons/hicolor/512x512/apps/scrutinydebugger.png"
 cp "${PROJECT_ROOT}/deploy/debian/copyright" "${PKG_FOLDER}/usr/share/doc/scrutinydebugger/copyright"
 sed -i "s/<YEAR>/$(date +%Y)/g" "${PKG_FOLDER}/usr/share/doc/scrutinydebugger/copyright"
-cp "${PROJECT_ROOT}/deploy/debian/scrutiny.gui.default.metainfo.xml" "${PKG_FOLDER}/usr/share/metainfo/"
-sed -i "s/<VERSION>/${SCRUTINY_VERSION}/g" "${PKG_FOLDER}/usr/share/metainfo/scrutiny.gui.default.metainfo.xml"
-sed -i "s/<DATE>/${RELEASE_DATE}/g"        "${PKG_FOLDER}/usr/share/metainfo/scrutiny.gui.default.metainfo.xml"
+cp "${PROJECT_ROOT}/deploy/debian/scrutiny.gui.metainfo.xml" "${PKG_FOLDER}/usr/share/metainfo/"
+sed -i "s/<VERSION>/${SCRUTINY_VERSION}/g" "${PKG_FOLDER}/usr/share/metainfo/scrutiny.gui.metainfo.xml"
+sed -i "s/<DATE>/${RELEASE_DATE}/g"        "${PKG_FOLDER}/usr/share/metainfo/scrutiny.gui.metainfo.xml"
 
 ln -s "/opt/scrutinydebugger/scrutiny.bin" "${PKG_FOLDER}/usr/local/bin/scrutiny"   # CLI launcher
 
