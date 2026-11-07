@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Scrutiny GUI
+Type=Application
+Exec=/opt/scrutinydebugger/scrutiny.bin gui --auto-connect
+Terminal=false
+Icon=scrutinydebugger
+Comment=Debug and test embedded C/C++ applications through instrumentation
+NoDisplay=false
+Categories=Development;Debugger;
+Keywords=debugger;embedded;C;C++;instrumentation;testing;oscilloscope;baremetal;programming;
+StartupNotify=true
