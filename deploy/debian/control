@@ -11,5 +11,5 @@ Description: An open source debugging, development and testing tool for C/C++ em
  Scrutiny works through source-level instrumentation and provides real-time
  variable inspection, graph plotting, and test automation via a GUI and CLI.
  .
- The GUI requires XCB libraries (listed under Recommends). The CLI and server
+ The GUI requires the XCB libraries listed under Depends. The CLI and server
  run without a display on headless systems.

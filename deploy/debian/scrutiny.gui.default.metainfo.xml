@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>scrutiny.gui.default</id>
+  <launchable type="desktop-id">scrutiny.gui.default.desktop</launchable>
+  <launchable type="desktop-id">scrutiny.gui.local-server.desktop</launchable>
+  <name>Scrutiny Debugger</name>
+  <summary>Debug and test embedded C/C++ applications</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <description>
+    <p>
+      Scrutiny is an open source debugging, development and testing tool for C/C++
+      embedded applications that works through source-level instrumentation.
+    </p>
+    <p>
+      It provides real-time variable inspection, graph plotting, and test automation
+      via a GUI and CLI interface. The CLI and server run without a display on
+      headless systems.
+    </p>
+  </description>
+  <icon type="stock">scrutinydebugger</icon>
+  <icon type="remote">https://scrutinydebugger.com/images/logos/scrutiny-logo-square-512x512.png</icon>
+
+  <developer id="com.scrutinydebugger">
+    <name>Scrutiny Debugger</name>
+  </developer>
+
+  <screenshots>
+    <screenshot type="default">
+      <image>https://scrutinydebugger.com/images/debian-screenshot.png</image>
+      <caption>Real-time variable inspection and graph plotting</caption>
+    </screenshot>
+  </screenshots>
+
+  <url type="homepage">https://scrutinydebugger.com</url>
+  <url type="bugtracker">https://github.com/scrutinydebugger/scrutiny-main/issues</url>
+  <categories>
+    <category>Development</category>
+    <category>Debugger</category>
+  </categories>
+  <keywords>
+    <keyword>debugger</keyword>
+    <keyword>embedded</keyword>
+    <keyword>C</keyword>
+    <keyword>C++</keyword>
+    <keyword>instrumentation</keyword>
+    <keyword>testing</keyword>
+    <keyword>HIL</keyword>
+  </keywords>
+  <provides>
+    <binary>scrutiny</binary>
+  </provides>
+  <releases>
+    <release version="<VERSION>" date="<DATE>"/>
+  </releases>
+  <content_rating type="oars-1.1"/>
+</component>
