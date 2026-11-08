@@ -277,9 +277,9 @@ class HMIWorkZone(QGraphicsView):
         return None
 
     def resizeEvent(self, event: QResizeEvent) -> None:
-        self._resize_scene()
+        self.resize_scene()
 
-    def _resize_scene(self) -> None:
+    def resize_scene(self) -> None:
         """Resize the scene to the fill the containing widget. Will refuse to shrink if an HMI widget is outside of the bounds (will add a scrollbar)"""
         width = self.viewport().size().width()
         height = self.viewport().size().height()
@@ -570,7 +570,7 @@ class HMIWorkZone(QGraphicsView):
                                     has_resized = True
 
                         if has_moved:
-                            self._resize_scene()
+                            self.resize_scene()
                             if self._mouse_edit_data is not None and self._mouse_edit_data.move_data is not None:
                                 move_records: List[Tuple[BaseHMIWidget, QPoint, QPoint]] = []
                                 for widget in self._selected_widgets:
@@ -582,7 +582,7 @@ class HMIWorkZone(QGraphicsView):
                                     self._signals.widgets_moved.emit(move_records)
 
                         elif has_resized:
-                            self._resize_scene()
+                            self.resize_scene()
                             if self._mouse_edit_data is not None and self._mouse_edit_data.resize_data is not None:
                                 rdata = self._mouse_edit_data.resize_data
                                 old_pos = rdata.original_pos

@@ -1872,6 +1872,96 @@ class TestHMIComponent(HMIComponentBaseTest):
         self.hmi_component.redo()
         self.assertEqual(self.hmi_component.hmi_widget_count(), 4)
 
+    def test_undo_stack_limit(self):
+        self.assertEqual(self.hmi_component.get_undo_stack().undoLimit(), HMIComponent.UNDO_STACK_LIMIT)
+
+    def test_undo_redo_delete_resubscribes_watchables(self):
+        self.app_interface.watchable_registry.write_server_content({
+            sdk.WatchableType.Variable: {
+                '/var/aaa': sdk.BriefWatchableConfiguration(sdk.WatchableType.Variable, sdk.EmbeddedDataType.float32, enum=None)
+            }
+        })
+        self.hmi_component.set_mode(HMIInteractionMode.Edit)
+        display = NumericalDisplayHMIWidget(self.app_interface)
+        self.hmi_component.add_hmi_widget(display, QPoint(0, 0))
+        fqn = FQN.make(RegistryNodeType.Variable, '/var/aaa')
+        display.configure_vslot_watchable('val', fqn, 'test')
+        self.assertEqual(self.app_interface.watchable_registry.node_watcher_count(RegistryNodeType.Variable, '/var/aaa'), 1)
+
+        # Delete widget
+        self.hmi_component.delete_hmi_widgets([display])
+        self.assertEqual(self.hmi_component.hmi_widget_count(), 0)
+        self.assertEqual(self.app_interface.watchable_registry.node_watcher_count(RegistryNodeType.Variable, '/var/aaa'), 0)
+
+        # Undo delete -> restored widget should resubscribe watchables
+        self.hmi_component.undo()
+        self.assertEqual(self.hmi_component.hmi_widget_count(), 1)
+        self.assertEqual(self.app_interface.watchable_registry.node_watcher_count(RegistryNodeType.Variable, '/var/aaa'), 1)
+
+        # Redo delete -> unsubscribed again
+        self.hmi_component.redo()
+        self.assertEqual(self.hmi_component.hmi_widget_count(), 0)
+        self.assertEqual(self.app_interface.watchable_registry.node_watcher_count(RegistryNodeType.Variable, '/var/aaa'), 0)
+
+    def test_undo_redo_property_edit(self):
+        self.hmi_component.set_mode(HMIInteractionMode.Edit)
+        label = TextLabelHMIWidget(self.app_interface)
+        label.set_text("Original")
+        self.hmi_component.add_hmi_widget(label, QPoint(0, 0))
+        undo_stack = self.hmi_component.get_undo_stack()
+        undo_stack.clear()
+        self.hmi_component._last_snapshot = self.hmi_component.make_snapshot()
+
+        # Edit property (text)
+        label.set_text("Modified")
+        self.assertEqual(label.get_text(), "Modified")
+        self.assertTrue(undo_stack.canUndo())
+
+        # Undo property edit
+        self.hmi_component.undo()
+        self.assertEqual(label.get_text(), "Original")
+
+        # Redo property edit
+        self.hmi_component.redo()
+        self.assertEqual(label.get_text(), "Modified")
+
+        # Edit property twice on same widget (should merge into one undo command)
+        label.set_text("Edit 1")
+        count_after_first = undo_stack.count()
+        label.set_text("Edit 2")
+        count_after_second = undo_stack.count()
+        self.assertEqual(count_after_first, count_after_second)
+
+        # Undo reverts back to "Modified"
+        self.hmi_component.undo()
+        self.assertEqual(label.get_text(), "Modified")
+
+    def test_undo_redo_configure_watchable(self):
+        self.app_interface.watchable_registry.write_server_content({
+            sdk.WatchableType.Variable: {
+                '/var/aaa': sdk.BriefWatchableConfiguration(sdk.WatchableType.Variable, sdk.EmbeddedDataType.float32, enum=None)
+            }
+        })
+        self.hmi_component.set_mode(HMIInteractionMode.Edit)
+        display = NumericalDisplayHMIWidget(self.app_interface)
+        self.hmi_component.add_hmi_widget(display, QPoint(0, 0))
+        undo_stack = self.hmi_component.get_undo_stack()
+        undo_stack.clear()
+        self.hmi_component._last_snapshot = self.hmi_component.make_snapshot()
+
+        fqn = FQN.make(RegistryNodeType.Variable, '/var/aaa')
+        display.configure_vslot_watchable('val', fqn, 'test')
+        self.assertEqual(self.app_interface.watchable_registry.node_watcher_count(RegistryNodeType.Variable, '/var/aaa'), 1)
+        self.assertTrue(undo_stack.canUndo())
+
+        # Undo watchable configuration
+        self.hmi_component.undo()
+        self.assertEqual(self.app_interface.watchable_registry.node_watcher_count(RegistryNodeType.Variable, '/var/aaa'), 0)
+
+        # Redo watchable configuration
+        self.hmi_component.redo()
+        self.assertEqual(self.app_interface.watchable_registry.node_watcher_count(RegistryNodeType.Variable, '/var/aaa'), 1)
+
 
 class TestHMIWidgets(HMIComponentBaseTest):
 
