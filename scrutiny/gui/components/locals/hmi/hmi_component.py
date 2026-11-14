@@ -438,7 +438,6 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
         """Redo the last undone action in edit mode"""
         self._redo_slot()
 
-
     def selected_widgets(self) -> List[BaseHMIWidget]:
         return self._workzone.selected_widgets()
 
@@ -545,7 +544,8 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
                     widget.apply_implementation_config_dict(state_dict.get('implementation_config', {}))
                 restored_widgets = current_widgets
             else:
-                self.delete_hmi_widgets(list(self._workzone.iterate_hmi_widgets()), no_undo=True)
+                self.delete_hmi_widgets(current_widgets, no_undo=True)
+                del current_widgets
 
                 workzone_size = StateParser.read_size(snapshot.state, 'workzone_size')
                 self._workzone.setSceneRect(QRect(QPoint(0, 0), workzone_size))
@@ -674,7 +674,6 @@ class HMIComponent(ScrutinyGUIBaseLocalComponent):
 # endregion
 
 # region Private
-
 
     def _invalidate_save(self) -> None:
         self._has_unsaved_changes = True
