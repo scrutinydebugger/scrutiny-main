@@ -9,7 +9,7 @@
 import gc
 
 from PySide6.QtWidgets import QWidget
-from PySide6.QtCore import QPoint, QSize, Qt, QEvent, QPointF, QRectF, qVersion
+from PySide6.QtCore import QPoint, QSize, Qt, QEvent, QPointF, QRectF
 from PySide6.QtGui import QPen, QBrush, QColor, QMouseEvent, QDragEnterEvent, QDragMoveEvent, QDropEvent, QDragLeaveEvent, QResizeEvent, QPainter, QImage, QKeyEvent, QKeySequence
 
 from scrutiny import sdk
