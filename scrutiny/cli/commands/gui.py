@@ -14,8 +14,6 @@ import os
 from .base_command import BaseCommand
 from scrutiny.tools.typing import *
 
-from scrutiny.gui import DEFAULT_SERVER_PORT
-
 
 class GUI(BaseCommand):
     _cmd_name_ = 'gui'
@@ -26,6 +24,7 @@ class GUI(BaseCommand):
     parser: argparse.ArgumentParser
 
     def __init__(self, args: List[str], requested_log_level: Optional[str] = None):
+        from scrutiny.gui import DEFAULT_SERVER_PORT
         self.args = args
         self.parser = argparse.ArgumentParser(prog=self.get_prog())
         self.parser.add_argument("--debug-layout", action='store_true', default=False, help="Enable GUI diagnostic rendering")

@@ -9,11 +9,11 @@
 import gc
 
 from PySide6.QtWidgets import QWidget
-from PySide6.QtCore import QPoint, QSize, Qt, QEvent, QPointF, QRectF, qVersion
+from PySide6.QtCore import QPoint, QSize, Qt, QEvent, QPointF, QRectF
 from PySide6.QtGui import QPen, QBrush, QColor, QMouseEvent, QDragEnterEvent, QDragMoveEvent, QDropEvent, QDragLeaveEvent, QResizeEvent, QPainter, QImage, QKeyEvent, QKeySequence
 
 from scrutiny import sdk
-from scrutiny.gui import QT_VERSION
+from scrutiny.gui import get_qt_version
 from scrutiny.gui.core.scrutiny_drag_data import ScrutinyDragData
 from scrutiny.gui.components.locals.hmi.hmi_component import HMIComponent, HMIInteractionMode
 from scrutiny.gui.components.locals.hmi.hmi_widgets.base_hmi_widget import BaseHMIWidget
@@ -99,7 +99,7 @@ class HMIComponentBaseTest(ScrutinyBaseGuiTest):
         return super().tearDown()
 
     def _drag_event_location(self, p):
-        if QT_VERSION >= (6, 12):
+        if get_qt_version() >= (6, 12):
             return QPointF(p)
         else:
             return QPoint(p)
