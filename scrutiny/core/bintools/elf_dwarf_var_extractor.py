@@ -205,6 +205,7 @@ class Compiler(Enum):
     GCC = auto()
     Tasking = auto()
     IAR_ICC = auto()
+    RUSTC = auto()
 
 # endregion
 
@@ -934,6 +935,8 @@ class ElfDwarfVarExtractor:
             producer = str(cu_die.attributes[Attrs.DW_AT_producer].value).strip().lower()
             if 'ti' in producer and 'c2000' in producer:
                 return Compiler.TI_C28_CGT
+            if 'rustc'.lower() in producer:
+                return Compiler.RUSTC
             if 'clang' in producer:
                 return Compiler.CLANG
             if 'gnu' in producer:
@@ -2068,6 +2071,9 @@ class ElfDwarfVarExtractor:
 
         if linkage_name is not None:
             use_linkage_name = True
+            if self._context.cu_compiler == Compiler.RUSTC:
+                use_linkage_name = False
+
             if die.tag == Tags.DW_TAG_variable and name is not None:    # C2000 behavior mostly, but should apply to others
                 parent_subprogram_die = self._find_parent_die_of_type(die, Tags.DW_TAG_subprogram)
                 if parent_subprogram_die is not None:
@@ -2092,7 +2098,7 @@ class ElfDwarfVarExtractor:
             func_name = self._make_func_signature(die)
             if func_name is not None:
                 name = func_name
-                
+
 
         # Try to get the name of the die and use it as a level of the path
         if name is None:
