@@ -22,6 +22,7 @@ from scrutiny.core.variable_location import ResolvedPathPointedLocation
 from test import logger
 from test import ScrutinyUnitTest
 from scrutiny.core.bintools.elf_dwarf_var_extractor import ElfDwarfVarExtractor
+from scrutiny.core.bintools.demangled_name_parser import CppDemangledNameParser, RustDemangledNameParser
 from scrutiny.core.basic_types import *
 
 from scrutiny.tools.typing import *
@@ -66,7 +67,7 @@ class TestElf2VarMapBasics(ScrutinyUnitTest):
         ]
         for case in cases:
             strin, expected = case[0], case[1]
-            segments = ElfDwarfVarExtractor.split_cpp_demangled_name(strin)
+            segments = CppDemangledNameParser.parse_demangled_name(strin)
             self.assertEqual(segments, expected)
 
     def test_split_rust_demangled_name(self):
@@ -99,7 +100,7 @@ class TestElf2VarMapBasics(ScrutinyUnitTest):
         ]
         for case in cases:
             strin, expected = case[0], case[1]
-            segments = ElfDwarfVarExtractor.split_rust_demangled_name(strin)
+            segments = RustDemangledNameParser.parse_demangled_name(strin)
             self.assertEqual(segments, expected, strin)
 
 

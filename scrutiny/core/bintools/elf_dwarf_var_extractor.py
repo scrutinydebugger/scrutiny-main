@@ -16,7 +16,6 @@ from elftools.elf.elffile import ELFFile
 
 
 import os
-import re
 import logging
 import inspect
 from pathlib import PurePosixPath, PureWindowsPath
@@ -26,6 +25,7 @@ from inspect import currentframe
 from fnmatch import fnmatch
 
 from scrutiny.core.bintools.demangler import GccDemangler, BaseDemangler
+from scrutiny.core.bintools.demangled_name_parser import CppDemangledNameParser, RustDemangledNameParser
 from scrutiny.core.varmap import VarMap
 from scrutiny.core.basic_types import *
 from scrutiny.core.variable_location import AbsoluteLocation, UnresolvedPathPointedLocation
@@ -217,8 +217,6 @@ class Compiler(Enum):
 
 # region Helper classes
 
-# Crate disambiguator, ex: rust_testapp[3f7a14bcb36fbfb0]. Only an identifier can precede it. Arrays/slices are always preceded by a non-word char.
-RUST_CRATE_HASH_REGEX: re.Pattern[str] = re.compile(r'(?<=\w)\[[a-fA-F0-9]+\]')
 @dataclass(slots=True)
 class PointeeTypeDescriptor:
     """Describe the type pointed by a pointer. Same as TypeDescriptor,
@@ -642,118 +640,6 @@ class ElfDwarfVarExtractor:
         return outmap
 
     @classmethod
-    def split_rust_demangled_name(cls, name: str) -> List[str]:
-        """Transform a Rust demangled path to a path like structure.
-        crate[hash]::module::func::STATIC                     --> crate/module/func/STATIC
-        <crate[hash]::module::Type>::method::STATIC           --> crate/module/Type/method/STATIC
-        <crate[hash]::module::Type as crate[hash]::Trait>::method::STATIC --> crate/module/Type/Trait/method/STATIC
-        """
-        name = RUST_CRATE_HASH_REGEX.sub('', name)
-        segments = cls._split_rust_top_level(name, '::')
-        first_segment = segments[0]
-        # rustc only emits a qualified path <Type> or <Type as Trait> as the first segment. It identifies the impl block.
-        if first_segment.startswith('<') and first_segment.endswith('>'):
-            root_segments = cls._expand_rust_qualified_root(first_segment[1:-1])
-            segments = root_segments + segments[1:]
-        return segments
-
-    @classmethod
-    def _expand_rust_qualified_root(cls, root: str) -> List[str]:
-        """Converts the content of a <Type> or <Type as Trait> root to a list of segments"""
-        as_parts = cls._split_rust_top_level(root, ' as ')
-        self_type = as_parts[0]
-
-        if cls._is_rust_path_type(self_type):
-            segments = cls._split_rust_top_level(self_type, '::')
-        else:
-            segments = [self_type]  # Arrays, tuples, references, dyn, fn pointers, etc. are kept as a single segment
-
-        if len(as_parts) > 1:
-            trait_path_segments = cls._split_rust_top_level(as_parts[1], '::')
-            segments.append(trait_path_segments[-1])
-
-        return segments
-
-    @classmethod
-    def _is_rust_path_type(cls, type_str: str) -> bool:
-        """Tells if a demangled Rust type is a path (crate::module::Type<T>) as opposed to a structural type ([T; N], (A, B), &T, dyn T, fn(), etc.)"""
-        if len(type_str) == 0:
-            return False
-
-        if type_str[0] in '[(&*<!':
-            return False
-
-        for prefix in ('dyn ', 'fn(', 'unsafe ', 'extern ', 'for<', 'impl '):
-            if type_str.startswith(prefix):
-                return False
-
-        return True
-
-    @classmethod
-    def _split_rust_top_level(cls, text: str, separator: str) -> List[str]:
-        """Split a string on a separator, ignoring the occurrences that are inside brackets of any kind"""
-        parts: List[str] = []
-        depth = 0
-        start = 0
-        i = 0
-        while i < len(text):
-            if text.startswith('->', i):  # Return type of a fn pointer. Not a closing bracket
-                i += 2
-                continue
-
-            c = text[i]
-            if c in '<([{':
-                depth += 1
-            elif c in '>)]}':
-                depth -= 1
-            elif depth == 0 and text.startswith(separator, i):
-                parts.append(text[start:i])
-                i += len(separator)
-                start = i
-                continue
-            i += 1
-
-        parts.append(text[start:])
-        return parts
-
-    @classmethod
-    def split_cpp_demangled_name(cls, name: str) -> List[str]:
-        """Transform a C++ nesting name to a path like structure
-        namespace1::class2<T>::enum3::HELLO --> namespace1/class2<T>/enum3/HELLO
-        """
-        paranthesis_level = 0
-        ducky_bracket_level = 0
-
-        outname = ''
-        is_in_bracket = False
-        bracket_exit_pos = 0
-        bracket_enter_pos = 0
-        for i in range(len(name)):
-            c = name[i]
-
-            was_in_bracket = is_in_bracket
-            if c == '(':
-                paranthesis_level += 1
-            elif c == ')':
-                paranthesis_level -= 1
-            elif c == '<':
-                ducky_bracket_level += 1
-            elif c == '>':
-                ducky_bracket_level -= 1
-            is_in_bracket = (paranthesis_level > 0 or ducky_bracket_level > 0)
-
-            if not was_in_bracket and is_in_bracket:  # entering bracket
-                bracket_enter_pos = i
-                outname += name[bracket_exit_pos:i].replace('::', ';')
-
-            if was_in_bracket and not is_in_bracket:    # exiting bracket
-                bracket_exit_pos = i
-                outname += name[bracket_enter_pos:i]    # No replace on purpose
-
-        outname += name[bracket_exit_pos:].replace('::', ';')
-        return outname.split(';')
-
-    @classmethod
     def get_core_base_type(cls, encoding: DwarfEncoding, bytesize: int, char_bit: Literal[8, 16]) -> EmbeddedDataType:
         """Convert a DWARF encoding into a Scrutiny EmbeddedDataType"""
         if encoding not in ENCODING_2_DTYPE_MAP:
@@ -926,8 +812,8 @@ class ElfDwarfVarExtractor:
     def _split_demangled_name(self, name: str) -> List[str]:
         """Split a demangled name into path segments using the logic that matches the compiler of the compile unit"""
         if self._context.cu_compiler == Compiler.RUSTC:
-            return self.split_rust_demangled_name(name)
-        return self.split_cpp_demangled_name(name)
+            return RustDemangledNameParser.parse_demangled_name(name)
+        return CppDemangledNameParser.parse_demangled_name(name)
 
     def _post_process_splitted_demangled_name(self, parts: List[str]) -> List[str]:
         """To be called on the result of ``_split_demangled_name`` to apply some context specific transformation"""
