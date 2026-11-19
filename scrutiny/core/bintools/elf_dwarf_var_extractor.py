@@ -43,6 +43,9 @@ from scrutiny.tools.typing import *
 
 
 # region Constant definitions
+
+RUST_NAMESPACES_TO_SKIP = ['core', 'alloc']
+
 class Attrs:
     DW_AT_declaration = 'DW_AT_declaration'
     DW_AT_comp_dir = 'DW_AT_comp_dir'
@@ -87,6 +90,7 @@ class Tags:
     DW_TAG_subprogram = 'DW_TAG_subprogram'
     DW_TAG_unspecified_type = 'DW_TAG_unspecified_type'
     DW_TAG_formal_parameter = 'DW_TAG_formal_parameter'
+    DW_TAG_namespace = 'DW_TAG_namespace'
 
 
 class DwarfEncoding(Enum):
@@ -725,12 +729,11 @@ class ElfDwarfVarExtractor:
             pad = '|  ' * (stack_depth - 1) + '|--'
             self._logger.debug(f"{pad}{funcname}({self._make_name_for_log(die)})")
 
-    def _make_cu_name_map(self, dwarfinfo: DWARFInfo) -> None:
+    def _make_cu_name_map(self, cus:Iterable[CompileUnit]) -> None:
         """ Builds a dictionary that maps a CompileUnit object to a unique displayable name """
 
         fullpath_cu_map: Dict[str, List[CompileUnit]] = {}
-        cu: CompileUnit
-        for cu in dwarfinfo.iter_CUs():
+        for cu in cus:
             topdie: DIE = cu.get_top_DIE()
             if topdie.tag != Tags.DW_TAG_compile_unit:
                 raise ElfParsingError('Top die should be a compile unit')
@@ -888,14 +891,32 @@ class ElfDwarfVarExtractor:
             self._varmap.set_endianness(self._context.endianess)
             self._varmap.set_char_bit(self._context.get_char_bit())
 
-            self._make_cu_name_map(self._dwarfinfo)
+
             self._demangler = GccDemangler(self._cppfilt)  # todo : adapt according to compile unit producer
 
             if not self._demangler.can_run():
                 raise EnvionmentNotSetUpException("Demangler cannot be used. %s" % self._demangler.get_error())
 
             bad_support_warning_written = False  # Prevent spamming the console
+
+            cu_to_process:Set[CompileUnit] = set()
+
             for cu in self._dwarfinfo.iter_CUs():
+                must_process = True
+                compiler = self._identify_compiler(cu)
+                if compiler == Compiler.RUSTC:
+                    die = cu.get_top_DIE()
+                    first_child = next(die.iter_children(), None)
+                    if first_child is not None:
+                        if first_child.tag == Tags.DW_TAG_namespace and self._get_die_name(first_child) in RUST_NAMESPACES_TO_SKIP:
+                            must_process = False
+
+                if must_process:
+                    cu_to_process.add(cu)
+
+            self._make_cu_name_map(cu_to_process)
+
+            for cu in cu_to_process:
                 die = cu.get_top_DIE()
                 # Check if we need to skip the Compile Unit
                 cu_raw_name = cast(str, self._get_die_name(die, ''))
