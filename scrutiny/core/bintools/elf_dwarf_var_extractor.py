@@ -217,7 +217,8 @@ class Compiler(Enum):
 
 # region Helper classes
 
-RUST_CU_HASH_REGEX:re.Pattern[str]=re.compile(r'^(.+)(\[([a-fA-F0-9]+)\])$')
+# Crate disambiguator, ex: rust_testapp[3f7a14bcb36fbfb0]. Only an identifier can precede it. Arrays/slices are always preceded by a non-word char.
+RUST_CRATE_HASH_REGEX: re.Pattern[str] = re.compile(r'(?<=\w)\[[a-fA-F0-9]+\]')
 @dataclass(slots=True)
 class PointeeTypeDescriptor:
     """Describe the type pointed by a pointer. Same as TypeDescriptor,
@@ -317,15 +318,13 @@ class VarPath:
     """Represent a path of a variable. This class exists to edit efficiently the path with meaningful methods.
     To be used while constructing the path"""
 
-    __slots__ = ('segments', 'from_linkage_name')
+    __slots__ = ('segments', )
 
-    from_linkage_name:bool
     segments: List[VarPathSegment]
     """The segments of the path. Each element contains a string and array information that goes with that segment"""
 
     def __init__(self) -> None:
         self.segments = []
-        self.from_linkage_name = False
 
     def prepend_segment(self, name: str, array: Optional[TypedArray] = None) -> None:
         """Add a path segment at the beginning"""
@@ -344,17 +343,6 @@ class VarPath:
                 segment_str = [x.name for x in self.segments[:i + 1]]
                 out.add(segment_str, array)
         return out
-
-    def try_remove_rust_hash(self, segment_pos:int=0) -> None:
-        if segment_pos >= len(self.segments):
-            return
-
-        if self.segments[segment_pos].array is not None:
-            raise ElfParsingError("Rust hash removal is supposed to be done on CU name")
-
-        m = RUST_CU_HASH_REGEX.match(self.segments[segment_pos].name)
-        if m:
-            self.segments[segment_pos].name = m.group(1)
 
 def _split_path_crossplatform(fullpath: str) -> Tuple[str, List[str]]:
     is_windows_path = (
@@ -654,7 +642,82 @@ class ElfDwarfVarExtractor:
         return outmap
 
     @classmethod
-    def split_demangled_name(cls, name: str) -> List[str]:
+    def split_rust_demangled_name(cls, name: str) -> List[str]:
+        """Transform a Rust demangled path to a path like structure.
+        crate[hash]::module::func::STATIC                     --> crate/module/func/STATIC
+        <crate[hash]::module::Type>::method::STATIC           --> crate/module/Type/method/STATIC
+        <crate[hash]::module::Type as crate[hash]::Trait>::method::STATIC --> crate/module/Type/Trait/method/STATIC
+        """
+        name = RUST_CRATE_HASH_REGEX.sub('', name)
+        segments = cls._split_rust_top_level(name, '::')
+        first_segment = segments[0]
+        # rustc only emits a qualified path <Type> or <Type as Trait> as the first segment. It identifies the impl block.
+        if first_segment.startswith('<') and first_segment.endswith('>'):
+            root_segments = cls._expand_rust_qualified_root(first_segment[1:-1])
+            segments = root_segments + segments[1:]
+        return segments
+
+    @classmethod
+    def _expand_rust_qualified_root(cls, root: str) -> List[str]:
+        """Converts the content of a <Type> or <Type as Trait> root to a list of segments"""
+        as_parts = cls._split_rust_top_level(root, ' as ')
+        self_type = as_parts[0]
+
+        if cls._is_rust_path_type(self_type):
+            segments = cls._split_rust_top_level(self_type, '::')
+        else:
+            segments = [self_type]  # Arrays, tuples, references, dyn, fn pointers, etc. are kept as a single segment
+
+        if len(as_parts) > 1:
+            trait_path_segments = cls._split_rust_top_level(as_parts[1], '::')
+            segments.append(trait_path_segments[-1])
+
+        return segments
+
+    @classmethod
+    def _is_rust_path_type(cls, type_str: str) -> bool:
+        """Tells if a demangled Rust type is a path (crate::module::Type<T>) as opposed to a structural type ([T; N], (A, B), &T, dyn T, fn(), etc.)"""
+        if len(type_str) == 0:
+            return False
+
+        if type_str[0] in '[(&*<!':
+            return False
+
+        for prefix in ('dyn ', 'fn(', 'unsafe ', 'extern ', 'for<', 'impl '):
+            if type_str.startswith(prefix):
+                return False
+
+        return True
+
+    @classmethod
+    def _split_rust_top_level(cls, text: str, separator: str) -> List[str]:
+        """Split a string on a separator, ignoring the occurrences that are inside brackets of any kind"""
+        parts: List[str] = []
+        depth = 0
+        start = 0
+        i = 0
+        while i < len(text):
+            if text.startswith('->', i):  # Return type of a fn pointer. Not a closing bracket
+                i += 2
+                continue
+
+            c = text[i]
+            if c in '<([{':
+                depth += 1
+            elif c in '>)]}':
+                depth -= 1
+            elif depth == 0 and text.startswith(separator, i):
+                parts.append(text[start:i])
+                i += len(separator)
+                start = i
+                continue
+            i += 1
+
+        parts.append(text[start:])
+        return parts
+
+    @classmethod
+    def split_cpp_demangled_name(cls, name: str) -> List[str]:
         """Transform a C++ nesting name to a path like structure
         namespace1::class2<T>::enum3::HELLO --> namespace1/class2<T>/enum3/HELLO
         """
@@ -860,8 +923,14 @@ class ElfDwarfVarExtractor:
 
         return self._demangler.demangle(mangled_name, self._context.get_demangle_format())
 
+    def _split_demangled_name(self, name: str) -> List[str]:
+        """Split a demangled name into path segments using the logic that matches the compiler of the compile unit"""
+        if self._context.cu_compiler == Compiler.RUSTC:
+            return self.split_rust_demangled_name(name)
+        return self.split_cpp_demangled_name(name)
+
     def _post_process_splitted_demangled_name(self, parts: List[str]) -> List[str]:
-        """To be called on the result of ``split_demangled_name`` to apply some context specific transformation"""
+        """To be called on the result of ``_split_demangled_name`` to apply some context specific transformation"""
         if self._context.cu_compiler == Compiler.Tasking:
             # Tasking do something like that : /static/file1.cpp/_INTERNAL_9_file1_cpp_49335e60/NamespaceInFile1/NamespaceInFile1Nested1/file1StaticNestedVar1
             return [x for x in parts if not x.startswith('_INTERNAL_')]
@@ -1195,7 +1264,7 @@ class ElfDwarfVarExtractor:
                     # cl2000 embeds the full mangled path in the DW_AT_NAME attribute,
                     # ex :_ZN13FileNamespace14File3TestClass3BBBE = FileNamespace::File3TestClass::BBB
                     demangled_name = self._demangler.demangle(enumerator_name, self._context.get_demangle_format())
-                    parts = self.split_demangled_name(demangled_name)
+                    parts = self._split_demangled_name(demangled_name)
                     parts = self._post_process_splitted_demangled_name(parts)
                     enumerator_name = parts[-1]
 
@@ -1355,7 +1424,7 @@ class ElfDwarfVarExtractor:
 
         if mangled_name is not None:
             demangled_name = self._demangler.demangle(mangled_name, self._context.get_demangle_format())
-            parts = self.split_demangled_name(demangled_name)
+            parts = self._split_demangled_name(demangled_name)
             parts = self._post_process_splitted_demangled_name(parts)
             name = parts[-1]
 
@@ -2118,8 +2187,7 @@ class ElfDwarfVarExtractor:
                         use_linkage_name = False
 
             if use_linkage_name:
-                varpath.from_linkage_name = True
-                parts = self.split_demangled_name(linkage_name)
+                parts = self._split_demangled_name(linkage_name)
                 parts = self._post_process_splitted_demangled_name(parts)
                 for i in range(len(parts) - 1, -1, -1):   # Need to prepend in reverse order to keep the order correct.
                     if array is not None and i == len(parts) - 1:
@@ -2164,15 +2232,8 @@ class ElfDwarfVarExtractor:
             varpath.prepend_segment(self.GLOBAL)
         else:
             if self._context.cu_compiler == Compiler.RUSTC:
-                # in rust, the compile unit name is meaningless.
-                if varpath.from_linkage_name:
-                    # The mangled name name provide a meaningful compile unit name
-                    # but has a random hash in it.
-                    varpath.try_remove_rust_hash(0)
-                else:
-                    # Leave blank
-                    # Maybe we need to do better in the future.
-                    pass
+                # In rust, the compile unit name is meaningless. The crate name comes from the linkage name.
+                pass
             else:
                 # For other compiler, we use the filename to make the CU name
                 varpath.prepend_segment(self._get_cu_name(die))
