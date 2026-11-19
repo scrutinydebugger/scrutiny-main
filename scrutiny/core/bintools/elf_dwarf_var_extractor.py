@@ -16,6 +16,7 @@ from elftools.elf.elffile import ELFFile
 
 
 import os
+import re
 import logging
 import inspect
 from pathlib import PurePosixPath, PureWindowsPath
@@ -211,7 +212,7 @@ class Compiler(Enum):
 
 # region Helper classes
 
-
+RUST_CU_HASH_REGEX:re.Pattern[str]=re.compile(r'^(.+)(\[([a-fA-F0-9]+)\])$')
 @dataclass(slots=True)
 class PointeeTypeDescriptor:
     """Describe the type pointed by a pointer. Same as TypeDescriptor,
@@ -311,13 +312,15 @@ class VarPath:
     """Represent a path of a variable. This class exists to edit efficiently the path with meaningful methods.
     To be used while constructing the path"""
 
-    __slots__ = ('segments', )
+    __slots__ = ('segments', 'from_linkage_name')
 
+    from_linkage_name:bool
     segments: List[VarPathSegment]
     """The segments of the path. Each element contains a string and array information that goes with that segment"""
 
     def __init__(self) -> None:
         self.segments = []
+        self.from_linkage_name = False
 
     def prepend_segment(self, name: str, array: Optional[TypedArray] = None) -> None:
         """Add a path segment at the beginning"""
@@ -337,6 +340,16 @@ class VarPath:
                 out.add(segment_str, array)
         return out
 
+    def try_remove_rust_hash(self, segment_pos:int=0) -> None:
+        if segment_pos >= len(self.segments):
+            return
+
+        if self.segments[segment_pos].array is not None:
+            raise ElfParsingError("Rust hash removal is supposed to be done on CU name")
+
+        m = RUST_CU_HASH_REGEX.match(self.segments[segment_pos].name)
+        if m:
+            self.segments[segment_pos].name = m.group(1)
 
 def _split_path_crossplatform(fullpath: str) -> Tuple[str, List[str]]:
     is_windows_path = (
@@ -2083,6 +2096,7 @@ class ElfDwarfVarExtractor:
                         use_linkage_name = False
 
             if use_linkage_name:
+                varpath.from_linkage_name = True
                 parts = self.split_demangled_name(linkage_name)
                 parts = self._post_process_splitted_demangled_name(parts)
                 for i in range(len(parts) - 1, -1, -1):   # Need to prepend in reverse order to keep the order correct.
@@ -2127,7 +2141,19 @@ class ElfDwarfVarExtractor:
         if self._is_external(die):
             varpath.prepend_segment(self.GLOBAL)
         else:
-            varpath.prepend_segment(self._get_cu_name(die))
+            if self._context.cu_compiler == Compiler.RUSTC:
+                # in rust, the compile unit name is meaningless.
+                if varpath.from_linkage_name:
+                    # The mangled name name provide a meaningful compile unit name
+                    # but has a random hash in it.
+                    varpath.try_remove_rust_hash(0)
+                else:
+                    # Leave blank
+                    # Maybe we need to do better in the future.
+                    pass
+            else:
+                # For other compiler, we use the filename to make the CU name
+                varpath.prepend_segment(self._get_cu_name(die))
             varpath.prepend_segment(self.STATIC)
 
         return varpath
