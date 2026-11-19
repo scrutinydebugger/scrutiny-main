@@ -443,6 +443,11 @@ class Context:
             return 16
         return 8
 
+    def get_demangle_format(self) -> BaseDemangler.Format:
+        if self.cu_compiler == Compiler.RUSTC:
+            return BaseDemangler.Format.Rust
+        return BaseDemangler.Format.GnuV3
+
 
 class ElfParsingError(Exception):
     pass
@@ -836,7 +841,7 @@ class ElfDwarfVarExtractor:
         if mangled_name is None:
             return None
 
-        return self._demangler.demangle(mangled_name)
+        return self._demangler.demangle(mangled_name, self._context.get_demangle_format())
 
     def _post_process_splitted_demangled_name(self, parts: List[str]) -> List[str]:
         """To be called on the result of ``split_demangled_name`` to apply some context specific transformation"""
@@ -879,7 +884,6 @@ class ElfDwarfVarExtractor:
             bad_support_warning_written = False  # Prevent spamming the console
             for cu in self._dwarfinfo.iter_CUs():
                 die = cu.get_top_DIE()
-
                 # Check if we need to skip the Compile Unit
                 cu_raw_name = cast(str, self._get_die_name(die, ''))
                 if cu_raw_name != '':
@@ -935,7 +939,7 @@ class ElfDwarfVarExtractor:
             producer = str(cu_die.attributes[Attrs.DW_AT_producer].value).strip().lower()
             if 'ti' in producer and 'c2000' in producer:
                 return Compiler.TI_C28_CGT
-            if 'rustc'.lower() in producer:
+            if 'rustc' in producer:
                 return Compiler.RUSTC
             if 'clang' in producer:
                 return Compiler.CLANG
@@ -1155,7 +1159,7 @@ class ElfDwarfVarExtractor:
                 if self._context.cu_compiler in [Compiler.TI_C28_CGT, Compiler.Tasking]:
                     # cl2000 embeds the full mangled path in the DW_AT_NAME attribute,
                     # ex :_ZN13FileNamespace14File3TestClass3BBBE = FileNamespace::File3TestClass::BBB
-                    demangled_name = self._demangler.demangle(enumerator_name)
+                    demangled_name = self._demangler.demangle(enumerator_name, self._context.get_demangle_format())
                     parts = self.split_demangled_name(demangled_name)
                     parts = self._post_process_splitted_demangled_name(parts)
                     enumerator_name = parts[-1]
@@ -1315,7 +1319,7 @@ class ElfDwarfVarExtractor:
                 mangled_name = cast(str, die.attributes[Attrs.DW_AT_linkage_name].value.decode('ascii'))
 
         if mangled_name is not None:
-            demangled_name = self._demangler.demangle(mangled_name)
+            demangled_name = self._demangler.demangle(mangled_name, self._context.get_demangle_format())
             parts = self.split_demangled_name(demangled_name)
             parts = self._post_process_splitted_demangled_name(parts)
             name = parts[-1]
@@ -2071,8 +2075,6 @@ class ElfDwarfVarExtractor:
 
         if linkage_name is not None:
             use_linkage_name = True
-            if self._context.cu_compiler == Compiler.RUSTC:
-                use_linkage_name = False
 
             if die.tag == Tags.DW_TAG_variable and name is not None:    # C2000 behavior mostly, but should apply to others
                 parent_subprogram_die = self._find_parent_die_of_type(die, Tags.DW_TAG_subprogram)
