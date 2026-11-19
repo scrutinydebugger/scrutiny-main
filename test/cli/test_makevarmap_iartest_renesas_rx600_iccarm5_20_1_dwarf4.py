@@ -3,11 +3,15 @@ import unittest
 from test.artifacts import get_artifact
 from test.cli.base_makevarmap_iar import BaseMakeVarmapIAR
 from test import ScrutinyUnitTest
+from scrutiny.sdk import EmbeddedDataType
 
 
 class TestMakevarmapIartestRenesasRx600_iccarm5_20_1_dwarf4(BaseMakeVarmapIAR, ScrutinyUnitTest):
     bin_filename = get_artifact('20261015_iartest_iccarm_5_20_1_renesas_rx600-dwarf4.elf')
     memdump_filename = get_artifact('20261015_iartest_iccarm_5_20_1_renesas_rx600-dwarf4.memdump')
+
+    def get_double_type(self):
+        return EmbeddedDataType.float32
 
     def test_dwarf_version(self):
         self.assert_dwarf_version(self.bin_filename, 4)

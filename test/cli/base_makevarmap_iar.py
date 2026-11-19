@@ -1,5 +1,5 @@
 import unittest
-
+import struct
 from scrutiny.core.basic_types import *
 from scrutiny.core.variable import *
 
@@ -33,6 +33,18 @@ class BaseMakeVarmapIAR(BaseVarmapTest):
     # char is uint8
     # long is int32
 
+    def get_double_type(self):
+        return EmbeddedDataType.float64
+
+    def to_double(self, v:float) -> float:
+        dtype = self.get_double_type()
+        if dtype == EmbeddedDataType.float32:
+            return struct.unpack('f', struct.pack('f', v))[0]
+        if dtype == EmbeddedDataType.float64:
+            return struct.unpack('d', struct.pack('d', v))[0]
+
+        return v
+
     def test_file1_globals_basic_types(self):
         self.assert_var('/global/file1GlobalChar', EmbeddedDataType.uint8, value_at_loc=0xF6)   # -10 = 0xF6 in uint8
         self.assert_var('/global/file1GlobalInt', EmbeddedDataType.sint32, value_at_loc=-1000)
@@ -43,7 +55,7 @@ class BaseMakeVarmapIAR(BaseVarmapTest):
         self.assert_var('/global/file1GlobalUnsignedShort', EmbeddedDataType.uint16, value_at_loc=50000)
         self.assert_var('/global/file1GlobalUnsignedLong', EmbeddedDataType.uint32, value_at_loc=100002)
         self.assert_var('/global/file1GlobalFloat', EmbeddedDataType.float32, value_at_loc=3.1415926)
-        self.assert_var('/global/file1GlobalDouble', EmbeddedDataType.float64, value_at_loc=1.71)
+        self.assert_var('/global/file1GlobalDouble', self.get_double_type(), value_at_loc=self.to_double(1.71))
         self.assert_var('/global/file1GlobalBool', EmbeddedDataType.bool8, value_at_loc=True)
 
     def test_file2_globals_basic_types(self):
@@ -56,7 +68,7 @@ class BaseMakeVarmapIAR(BaseVarmapTest):
         self.assert_var('/global/file2GlobalUnsignedShort', EmbeddedDataType.uint16, value_at_loc=12345)
         self.assert_var('/global/file2GlobalUnsignedLong', EmbeddedDataType.uint32, value_at_loc=1234567)
         self.assert_var('/global/file2GlobalFloat', EmbeddedDataType.float32, value_at_loc=0.1)
-        self.assert_var('/global/file2GlobalDouble', EmbeddedDataType.float64, value_at_loc=0.11111111111111)
+        self.assert_var('/global/file2GlobalDouble', self.get_double_type(), value_at_loc=self.to_double(0.11111111111111))
         self.assert_var('/global/file2GlobalBool', EmbeddedDataType.bool8, value_at_loc=False)
 
     def test_file1_static_basic_types(self):
@@ -69,7 +81,7 @@ class BaseMakeVarmapIAR(BaseVarmapTest):
         self.assert_var('/static/file1.cpp/file1StaticUnsignedShort', EmbeddedDataType.uint16, value_at_loc=22222)
         self.assert_var('/static/file1.cpp/file1StaticUnsignedLong', EmbeddedDataType.uint32, value_at_loc=321321)
         self.assert_var('/static/file1.cpp/file1StaticFloat', EmbeddedDataType.float32, value_at_loc=1.23456789)
-        self.assert_var('/static/file1.cpp/file1StaticDouble', EmbeddedDataType.float64, value_at_loc=9.87654321)
+        self.assert_var('/static/file1.cpp/file1StaticDouble', self.get_double_type(), value_at_loc=self.to_double(9.87654321))
         self.assert_var('/static/file1.cpp/file1StaticBool', EmbeddedDataType.bool8, value_at_loc=True)
 
     def test_file2_static_basic_types(self):
@@ -82,12 +94,12 @@ class BaseMakeVarmapIAR(BaseVarmapTest):
         self.assert_var('/static/file2.cpp/file2StaticUnsignedShort', EmbeddedDataType.uint16, value_at_loc=56)
         self.assert_var('/static/file2.cpp/file2StaticUnsignedLong', EmbeddedDataType.uint32, value_at_loc=78)
         self.assert_var('/static/file2.cpp/file2StaticFloat', EmbeddedDataType.float32, value_at_loc=2.22222)
-        self.assert_var('/static/file2.cpp/file2StaticDouble', EmbeddedDataType.float64, value_at_loc=3.3333)
+        self.assert_var('/static/file2.cpp/file2StaticDouble', self.get_double_type(), value_at_loc=self.to_double(3.3333))
         self.assert_var('/static/file2.cpp/file2StaticBool', EmbeddedDataType.bool8, value_at_loc=True)
 
     def test_func_static(self):
         self.assert_var('/static/file2.cpp/file2func1()/file2func1Var', EmbeddedDataType.sint32, value_at_loc=-88778877)
-        self.assert_var('/static/file2.cpp/file2func1(int)/file2func1Var', EmbeddedDataType.float64, value_at_loc=963258741.123)
+        self.assert_var('/static/file2.cpp/file2func1(int)/file2func1Var', self.get_double_type(), value_at_loc=self.to_double(963258741.123))
         self.assert_var('/static/file1.cpp/funcInFile1(int, int)/staticLongInFuncFile1',
                         EmbeddedDataType.sint64, value_at_loc=-0x123456789abcdef)  # long long
 
@@ -100,8 +112,8 @@ class BaseMakeVarmapIAR(BaseVarmapTest):
         v = self.assert_var('/global/file1StructAInstance/structAMemberInt', EmbeddedDataType.sint32, value_at_loc=-654)
         self.assert_var('/global/file1StructAInstance/structAMemberUInt', EmbeddedDataType.uint32, addr=v.get_address() + 4, value_at_loc=258147)
         self.assert_var('/global/file1StructAInstance/structAMemberFloat', EmbeddedDataType.float32, addr=v.get_address() + 8, value_at_loc=77.77)
-        self.assert_var('/global/file1StructAInstance/structAMemberDouble', EmbeddedDataType.float64, addr=v.get_address() + 12, value_at_loc=66.66)
-        self.assert_var('/global/file1StructAInstance/structAMemberBool', EmbeddedDataType.bool8, addr=v.get_address() + 20, value_at_loc=False)
+        self.assert_var('/global/file1StructAInstance/structAMemberDouble', self.get_double_type(), addr=v.get_address() + 12, value_at_loc=self.to_double(66.66))
+        self.assert_var('/global/file1StructAInstance/structAMemberBool', EmbeddedDataType.bool8, addr=v.get_address() + 12 + self.get_double_type().get_size_8bits(), value_at_loc=False)
 
     def test_structB(self):
         v = self.assert_var('/global/file1StructBInstance/structBMemberInt', EmbeddedDataType.sint32, value_at_loc=55555)
@@ -112,9 +124,9 @@ class BaseMakeVarmapIAR(BaseVarmapTest):
         self.assert_var('/global/file1StructBInstance/structBMemberStructA/structAMemberFloat',
                         EmbeddedDataType.float32, addr=v.get_address() + 12, value_at_loc=33.33)
         self.assert_var('/global/file1StructBInstance/structBMemberStructA/structAMemberDouble',
-                        EmbeddedDataType.float64, addr=v.get_address() + 16, value_at_loc=22.22)
+                       self.get_double_type(), addr=v.get_address() + 16, value_at_loc=22.22)
         self.assert_var('/global/file1StructBInstance/structBMemberStructA/structAMemberBool',
-                        EmbeddedDataType.bool8, addr=v.get_address() + 24, value_at_loc=True)
+                        EmbeddedDataType.bool8, addr=v.get_address() + 16 + self.get_double_type().get_size_8bits(), value_at_loc=True)
 
     def test_structC(self):
         v = self.assert_var('/global/file1StructCInstance/structCMemberInt', EmbeddedDataType.sint32, value_at_loc=888874)
@@ -123,7 +135,7 @@ class BaseMakeVarmapIAR(BaseVarmapTest):
         self.assert_var('/global/file1StructCInstance/nestedStructInstance/nestedStructMemberFloat',
                         EmbeddedDataType.float32, addr=v.get_address() + 8, value_at_loc=-147.55)
         self.assert_var('/global/file1StructCInstance/nestedStructInstance/nestedStructInstance2/nestedStructInstance2MemberDouble',
-                        EmbeddedDataType.float64, addr=v.get_address() + 12, value_at_loc=654.654)
+                       self.get_double_type(), addr=v.get_address() + 12, value_at_loc=654.654)
 
     def test_structD(self):
         v = self.assert_var('/global/file1StructDInstance/bitfieldA', EmbeddedDataType.uint32, bitoffset=0, bitsize=4, value_at_loc=13)
