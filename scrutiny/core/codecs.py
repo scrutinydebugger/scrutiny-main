@@ -11,6 +11,8 @@ __all__ = [
     'BaseCodec',
     'SIntCodec',
     'UIntCodec',
+    'SInt128Codec',
+    'UInt128Codec',
     'FloatCodec',
     'BoolCodec',
     'Codecs'
@@ -54,13 +56,17 @@ class SIntCodec(BaseCodec):
         if size not in self.str_map:
             raise NotImplementedError(f'Does not support signed int of {size} bytes')
         endianness_char = '<' if endianness == Endianness.Little else '>'
-        self.packstr = endianness_char + self.str_map[size]
+        packer = struct.Struct(endianness_char + self.str_map[size])
+        # Precompiled struct with bound methods kept on the instance. Measured faster than struct.pack(fmt) and int.from_bytes
+        self._unpack = packer.unpack
+        self._pack = packer.pack
 
     def decode(self, data: Union[bytes, bytearray]) -> int:
-        return int(struct.unpack(self.packstr, data)[0])
+        value: int = self._unpack(data)[0]
+        return value
 
     def encode(self, value: Encodable) -> bytes:
-        return struct.pack(self.packstr, value)
+        return self._pack(value)
 
 
 class UIntCodec(BaseCodec):
@@ -78,13 +84,52 @@ class UIntCodec(BaseCodec):
         if size not in self.str_map:
             raise NotImplementedError(f'Does not support unsigned int of {size} bytes')
         endianness_char = '<' if endianness == Endianness.Little else '>'
-        self.packstr = endianness_char + self.str_map[size]
+        packer = struct.Struct(endianness_char + self.str_map[size])
+        # Precompiled struct with bound methods kept on the instance. Measured faster than struct.pack(fmt) and int.from_bytes
+        self._unpack = packer.unpack
+        self._pack = packer.pack
 
     def decode(self, data: Union[bytes, bytearray]) -> int:
-        return int(struct.unpack(self.packstr, data)[0])
+        value: int = self._unpack(data)[0]
+        return value
 
     def encode(self, value: Encodable) -> bytes:
-        return struct.pack(self.packstr, value)
+        return self._pack(value)
+
+
+class SInt128Codec(SIntCodec):
+    """A codec for signed 128 bits integer. struct has no 128 bits format, int.from_bytes/to_bytes is the fastest option"""
+
+    def __init__(self, size: int, endianness: Endianness) -> None:
+        BaseCodec.__init__(self)    # Skip SIntCodec.__init__ which only supports struct formats
+        if size != 16:
+            raise NotImplementedError(f'SInt128Codec only supports 16 bytes. Got {size}')
+        self.byteorder: Literal['little', 'big'] = 'little' if endianness == Endianness.Little else 'big'
+
+    def decode(self, data: Union[bytes, bytearray]) -> int:
+        return int.from_bytes(data, self.byteorder, signed=True)
+
+    def encode(self, value: Encodable) -> bytes:
+        # Floats are rejected at runtime (AttributeError), same as struct.pack would reject them.
+        return value.to_bytes(16, self.byteorder, signed=True)  # type: ignore[union-attr]
+
+
+class UInt128Codec(UIntCodec):
+    """A codec for unsigned 128 bits integer. struct has no 128 bits format, int.from_bytes/to_bytes is the fastest option"""
+
+    def __init__(self, size: int, endianness: Endianness) -> None:
+        BaseCodec.__init__(self)    # Skip UIntCodec.__init__ which only supports struct formats
+        if size != 16:
+            raise NotImplementedError(f'UInt128Codec only supports 16 bytes. Got {size}')
+        self.byteorder: Literal['little', 'big'] = 'little' if endianness == Endianness.Little else 'big'
+
+    def decode(self, data: Union[bytes, bytearray]) -> int:
+        # signed=False is the default. Not passing the keyword is measurably faster
+        return int.from_bytes(data, self.byteorder)
+
+    def encode(self, value: Encodable) -> bytes:
+        # Floats are rejected at runtime (AttributeError), same as struct.pack would reject them.
+        return value.to_bytes(16, self.byteorder)  # type: ignore[union-attr]
 
 
 class FloatCodec(BaseCodec):
@@ -127,12 +172,27 @@ class Codecs:
     """
     @staticmethod
     def get(vartype: EmbeddedDataType, endianness: Endianness) -> BaseCodec:
+        """Return a shared codec instance, created at module load. Codecs are stateless and can be shared."""
+        # Keyed by _value_ (int) instead of the Enum member: Enum.__hash__ is a Python function, int hash is native.
+        try:
+            if endianness is Endianness.Little:
+                return _CODECS_LITTLE_ENDIAN[vartype._value_]
+            return _CODECS_BIG_ENDIAN[vartype._value_]
+        except KeyError:
+            raise NotImplementedError(f"No codec defined for variable type {vartype.name}") from None
+
+    @staticmethod
+    def _create(vartype: EmbeddedDataType, endianness: Endianness) -> BaseCodec:
         datasize = vartype.get_size_8bits()
 
         if vartype in (EmbeddedDataType.sint8, EmbeddedDataType.sint16, EmbeddedDataType.sint32, EmbeddedDataType.sint64):
             return SIntCodec(datasize, endianness=endianness)
         elif vartype in (EmbeddedDataType.uint8, EmbeddedDataType.uint16, EmbeddedDataType.uint32, EmbeddedDataType.uint64):
             return UIntCodec(datasize, endianness=endianness)
+        elif vartype == EmbeddedDataType.sint128:
+            return SInt128Codec(datasize, endianness=endianness)
+        elif vartype == EmbeddedDataType.uint128:
+            return UInt128Codec(datasize, endianness=endianness)
         elif vartype in (EmbeddedDataType.float64, EmbeddedDataType.float32):
             return FloatCodec(datasize, endianness=endianness)
         elif vartype.is_bool():
@@ -178,3 +238,17 @@ class Codecs:
                 raise ValueError("Float values must be finite")
 
         return val
+
+
+def _build_codec_cache(endianness: Endianness) -> Dict[int, BaseCodec]:
+    cache: Dict[int, BaseCodec] = {}
+    for vartype in EmbeddedDataType:
+        try:
+            cache[vartype._value_] = Codecs._create(vartype, endianness)
+        except NotImplementedError:
+            pass    # Unsupported type. Codecs.get() will raise when requested
+    return cache
+
+
+_CODECS_LITTLE_ENDIAN = _build_codec_cache(Endianness.Little)
+_CODECS_BIG_ENDIAN = _build_codec_cache(Endianness.Big)

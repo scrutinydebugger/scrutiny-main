@@ -10,6 +10,7 @@ from scrutiny.core.basic_types import *
 from scrutiny.core.codecs import *
 from test import ScrutinyUnitTest
 import math
+import struct
 
 
 class TestTypes(ScrutinyUnitTest):
@@ -208,6 +209,75 @@ class TestCodecs(ScrutinyUnitTest):
                 Codecs.make_value_valid(dtype, math.inf)
             with self.assertRaises(ValueError):
                 Codecs.make_value_valid(dtype, -math.inf)
+
+    def test_int_codecs_encode_decode(self):
+        # Covers both the struct based codecs and the 128 bits codecs, in both endianness
+        all_types = [
+            EmbeddedDataType.sint8, EmbeddedDataType.sint16, EmbeddedDataType.sint32, EmbeddedDataType.sint64, EmbeddedDataType.sint128,
+            EmbeddedDataType.uint8, EmbeddedDataType.uint16, EmbeddedDataType.uint32, EmbeddedDataType.uint64, EmbeddedDataType.uint128,
+        ]
+        for dtype in all_types:
+            size = dtype.get_size_8bits()
+            signed = dtype.is_signed()
+            if signed:
+                values = [0, 1, -1, (1 << (size * 8 - 1)) - 1, -(1 << (size * 8 - 1))]
+            else:
+                values = [0, 1, (1 << (size * 8)) - 1, 0x0102030405060708090A0B0C0D0E0F10 & ((1 << (size * 8)) - 1)]
+            for endianness in (Endianness.Little, Endianness.Big):
+                byteorder = 'little' if endianness == Endianness.Little else 'big'
+                codec = Codecs.get(dtype, endianness)
+                for value in values:
+                    with self.subTest(dtype=dtype.name, endianness=endianness.name, value=value):
+                        expected = value.to_bytes(size, byteorder, signed=signed)
+                        self.assertEqual(codec.encode(value), expected)
+                        self.assertEqual(codec.decode(expected), value)
+                        self.assertEqual(codec.decode(bytearray(expected)), value)
+
+    def test_int128_codecs_types(self):
+        self.assertIsInstance(Codecs.get(EmbeddedDataType.uint128, Endianness.Little), UInt128Codec)
+        self.assertIsInstance(Codecs.get(EmbeddedDataType.uint128, Endianness.Little), UIntCodec)
+        self.assertIsInstance(Codecs.get(EmbeddedDataType.sint128, Endianness.Big), SInt128Codec)
+        self.assertIsInstance(Codecs.get(EmbeddedDataType.sint128, Endianness.Big), SIntCodec)
+
+        with self.assertRaises(NotImplementedError):
+            UInt128Codec(8, Endianness.Little)
+        with self.assertRaises(NotImplementedError):
+            SInt128Codec(8, Endianness.Little)
+        with self.assertRaises(NotImplementedError):
+            UIntCodec(16, Endianness.Little)
+
+    def test_codecs_get_cached(self):
+        # Every supported type returns the same instance on each call, and a distinct one per endianness
+        for dtype in EmbeddedDataType:
+            try:
+                Codecs._create(dtype, Endianness.Little)
+            except NotImplementedError:
+                with self.assertRaises(NotImplementedError):
+                    Codecs.get(dtype, Endianness.Little)
+                with self.assertRaises(NotImplementedError):
+                    Codecs.get(dtype, Endianness.Big)
+                continue
+
+            with self.subTest(dtype=dtype.name):
+                little = Codecs.get(dtype, Endianness.Little)
+                big = Codecs.get(dtype, Endianness.Big)
+                self.assertIs(little, Codecs.get(dtype, Endianness.Little))
+                self.assertIs(big, Codecs.get(dtype, Endianness.Big))
+                self.assertIsNot(little, big)
+                self.assertIs(type(little), type(Codecs._create(dtype, Endianness.Little)))
+
+        self.assertEqual(Codecs.get(EmbeddedDataType.uint32, Endianness.Little).encode(0x12345678), b'\x78\x56\x34\x12')
+        self.assertEqual(Codecs.get(EmbeddedDataType.uint32, Endianness.Big).encode(0x12345678), b'\x12\x34\x56\x78')
+
+    def test_int_codecs_out_of_range(self):
+        with self.assertRaises(struct.error):
+            Codecs.get(EmbeddedDataType.uint8, Endianness.Little).encode(256)
+        with self.assertRaises(OverflowError):
+            Codecs.get(EmbeddedDataType.uint128, Endianness.Little).encode(1 << 128)
+        with self.assertRaises(OverflowError):
+            Codecs.get(EmbeddedDataType.uint128, Endianness.Little).encode(-1)
+        with self.assertRaises(OverflowError):
+            Codecs.get(EmbeddedDataType.sint128, Endianness.Little).encode(1 << 127)
 
     def test_make_valid_bool(self):
         self.assertEqual(Codecs.make_value_valid(EmbeddedDataType.bool8, 1), True)

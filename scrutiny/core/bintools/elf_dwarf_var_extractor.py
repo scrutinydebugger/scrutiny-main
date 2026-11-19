@@ -191,9 +191,10 @@ ENCODING_2_DTYPE_MAP: Dict[DwarfEncoding, Dict[int, EmbeddedDataType]] = {
         32: EmbeddedDataType.uint256
     },
     DwarfEncoding.DW_ATE_UTF: {
-        1: EmbeddedDataType.sint8,
-        2: EmbeddedDataType.sint16,
-        4: EmbeddedDataType.sint32,
+        1: EmbeddedDataType.uint8,
+        2: EmbeddedDataType.uint16,
+        4: EmbeddedDataType.uint32,
+        8: EmbeddedDataType.uint64,
     }
 }
 
