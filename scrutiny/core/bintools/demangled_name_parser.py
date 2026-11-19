@@ -85,7 +85,9 @@ class RustDemangledNameParser:
         if RustDemangledNameParser._is_path_type(self_type):
             segments = RustDemangledNameParser._split_top_level(self_type, '::')
         else:
-            segments = [self_type]  # Arrays, tuples, references, dyn, fn pointers, etc. are kept as a single segment
+            # Arrays, tuples, references, dyn, fn pointers, etc. are kept as a single segment.
+            # Brackets prevent a leading character from being interpreted by the path parser. ex: *const T would be a dereference.
+            segments = ['<' + self_type + '>']
 
         if len(as_parts) > 1:
             trait_path_segments = RustDemangledNameParser._split_top_level(as_parts[1], '::')

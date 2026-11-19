@@ -18,6 +18,8 @@ from scrutiny.core.varmap import VarMap
 from scrutiny.core.codecs import Codecs
 from scrutiny.core.embedded_enum import EmbeddedEnum
 from scrutiny.core.variable_location import ResolvedPathPointedLocation
+from scrutiny.core.scrutiny_path import ScrutinyPath
+from scrutiny.core import path_tools
 
 from test import logger
 from test import ScrutinyUnitTest
@@ -92,16 +94,36 @@ class TestElf2VarMapBasics(ScrutinyUnitTest):
             ("<std[68c81ae915296b05]::collections::hash::map::HashMap<u8, alloc[c23e483dde3f7cfb]::vec::Vec<(u8, [u16; 2: usize])>> as probe[7cc48b8033570ecf]::m::Tr>::t::X",
              ['std', 'collections', 'hash', 'map', 'HashMap<u8, alloc::vec::Vec<(u8, [u16; 2: usize])>>', 'Tr', 't', 'X']),
             # Trait impls on non-path types
-            ("<[u8; 4: usize] as probe[7cc48b8033570ecf]::m::Tr>::t::X", ['[u8; 4: usize]', 'Tr', 't', 'X']),
-            ("<(u8, i16) as probe[7cc48b8033570ecf]::m::Tr>::t::X", ['(u8, i16)', 'Tr', 't', 'X']),
-            ("<fn(u8) -> u32 as probe[7cc48b8033570ecf]::m::Tr>::t::X", ['fn(u8) -> u32', 'Tr', 't', 'X']),
-            ("<&str as probe[7cc48b8033570ecf]::m::Tr>::t::X", ['&str', 'Tr', 't', 'X']),
-            ("<dyn core[efd5e57aef94d71e]::any::Any as probe[7cc48b8033570ecf]::m::Tr>::t::X", ['dyn core::any::Any', 'Tr', 't', 'X']),
+            ("<[u8; 4: usize] as probe[7cc48b8033570ecf]::m::Tr>::t::X", ['<[u8; 4: usize]>', 'Tr', 't', 'X']),
+            ("<(u8, i16) as probe[7cc48b8033570ecf]::m::Tr>::t::X", ['<(u8, i16)>', 'Tr', 't', 'X']),
+            ("<fn(u8) -> u32 as probe[7cc48b8033570ecf]::m::Tr>::t::X", ['<fn(u8) -> u32>', 'Tr', 't', 'X']),
+            ("<&str as probe[7cc48b8033570ecf]::m::Tr>::t::X", ['<&str>', 'Tr', 't', 'X']),
+            ("<dyn core[efd5e57aef94d71e]::any::Any as probe[7cc48b8033570ecf]::m::Tr>::t::X", ['<dyn core::any::Any>', 'Tr', 't', 'X']),
+            ("<*const u8 as rawptr[4e5606bf4f6ccd1]::Tr>::t::X", ['<*const u8>', 'Tr', 't', 'X']),
+            ("<*mut u16 as rawptr[4e5606bf4f6ccd1]::Tr>::t::X", ['<*mut u16>', 'Tr', 't', 'X']),
         ]
         for case in cases:
             strin, expected = case[0], case[1]
             segments = RustDemangledNameParser.parse_demangled_name(strin)
             self.assertEqual(segments, expected, strin)
+
+    def test_rust_demangled_name_is_valid_scrutiny_path(self):
+        # Segments made from non-path types must not be interpreted by the path parser (dereference '*', array index '[n]')
+        cases: List[str] = [
+            "<*const u8 as rawptr[4e5606bf4f6ccd1]::Tr>::t::X",
+            "<*mut u16 as rawptr[4e5606bf4f6ccd1]::Tr>::t::X",
+            "<[u8; 4: usize] as probe[7cc48b8033570ecf]::m::Tr>::t::X",
+            "<(u8, i16) as probe[7cc48b8033570ecf]::m::Tr>::t::X",
+            "<fn(u8) -> u32 as probe[7cc48b8033570ecf]::m::Tr>::t::X",
+            "<&str as probe[7cc48b8033570ecf]::m::Tr>::t::X",
+            "<dyn core[efd5e57aef94d71e]::any::Any as probe[7cc48b8033570ecf]::m::Tr>::t::X",
+        ]
+        for strin in cases:
+            segments = ['static'] + RustDemangledNameParser.parse_demangled_name(strin)
+            path = ScrutinyPath.from_string(path_tools.join_segments(segments))
+            self.assertFalse(path.has_pointer_dereferencer(), strin)
+            self.assertFalse(path.has_array_information(), strin)
+            self.assertEqual(path.get_raw_segments(), segments, strin)
 
 
 def has_elf_toolchain(compiler, cppfilt) -> bool:
