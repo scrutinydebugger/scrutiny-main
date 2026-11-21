@@ -25,6 +25,7 @@ from inspect import currentframe
 from fnmatch import fnmatch
 
 from scrutiny.core.bintools.demangler import GccDemangler, BaseDemangler
+from scrutiny.core.bintools.demangled_name_parser import CppDemangledNameParser, RustDemangledNameParser
 from scrutiny.core.varmap import VarMap
 from scrutiny.core.basic_types import *
 from scrutiny.core.variable_location import AbsoluteLocation, UnresolvedPathPointedLocation
@@ -42,6 +43,9 @@ from scrutiny.tools.typing import *
 
 
 # region Constant definitions
+
+RUST_NAMESPACES_TO_SKIP = ['core', 'alloc']
+
 class Attrs:
     DW_AT_declaration = 'DW_AT_declaration'
     DW_AT_comp_dir = 'DW_AT_comp_dir'
@@ -86,6 +90,7 @@ class Tags:
     DW_TAG_subprogram = 'DW_TAG_subprogram'
     DW_TAG_unspecified_type = 'DW_TAG_unspecified_type'
     DW_TAG_formal_parameter = 'DW_TAG_formal_parameter'
+    DW_TAG_namespace = 'DW_TAG_namespace'
 
 
 class DwarfEncoding(Enum):
@@ -186,9 +191,10 @@ ENCODING_2_DTYPE_MAP: Dict[DwarfEncoding, Dict[int, EmbeddedDataType]] = {
         32: EmbeddedDataType.uint256
     },
     DwarfEncoding.DW_ATE_UTF: {
-        1: EmbeddedDataType.sint8,
-        2: EmbeddedDataType.sint16,
-        4: EmbeddedDataType.sint32,
+        1: EmbeddedDataType.uint8,
+        2: EmbeddedDataType.uint16,
+        4: EmbeddedDataType.uint32,
+        8: EmbeddedDataType.uint64,
     }
 }
 
@@ -205,11 +211,11 @@ class Compiler(Enum):
     GCC = auto()
     Tasking = auto()
     IAR_ICC = auto()
+    RUSTC = auto()
 
 # endregion
 
 # region Helper classes
-
 
 @dataclass(slots=True)
 class PointeeTypeDescriptor:
@@ -336,7 +342,6 @@ class VarPath:
                 out.add(segment_str, array)
         return out
 
-
 def _split_path_crossplatform(fullpath: str) -> Tuple[str, List[str]]:
     is_windows_path = (
         (len(fullpath) >= 3 and fullpath[1] == ':' and fullpath[2] in '/\\')  # drive letter: C:\ or C:/
@@ -441,6 +446,11 @@ class Context:
         if self.arch == Architecture.TI_C28x:
             return 16
         return 8
+
+    def get_demangle_format(self) -> BaseDemangler.Format:
+        if self.cu_compiler == Compiler.RUSTC:
+            return BaseDemangler.Format.Rust
+        return BaseDemangler.Format.GnuV3
 
 
 class ElfParsingError(Exception):
@@ -630,43 +640,6 @@ class ElfDwarfVarExtractor:
         return outmap
 
     @classmethod
-    def split_demangled_name(cls, name: str) -> List[str]:
-        """Transform a C++ nesting name to a path like structure
-        namespace1::class2<T>::enum3::HELLO --> namespace1/class2<T>/enum3/HELLO
-        """
-        paranthesis_level = 0
-        ducky_bracket_level = 0
-
-        outname = ''
-        is_in_bracket = False
-        bracket_exit_pos = 0
-        bracket_enter_pos = 0
-        for i in range(len(name)):
-            c = name[i]
-
-            was_in_bracket = is_in_bracket
-            if c == '(':
-                paranthesis_level += 1
-            elif c == ')':
-                paranthesis_level -= 1
-            elif c == '<':
-                ducky_bracket_level += 1
-            elif c == '>':
-                ducky_bracket_level -= 1
-            is_in_bracket = (paranthesis_level > 0 or ducky_bracket_level > 0)
-
-            if not was_in_bracket and is_in_bracket:  # entering bracket
-                bracket_enter_pos = i
-                outname += name[bracket_exit_pos:i].replace('::', ';')
-
-            if was_in_bracket and not is_in_bracket:    # exiting bracket
-                bracket_exit_pos = i
-                outname += name[bracket_enter_pos:i]    # No replace on purpose
-
-        outname += name[bracket_exit_pos:].replace('::', ';')
-        return outname.split(';')
-
-    @classmethod
     def get_core_base_type(cls, encoding: DwarfEncoding, bytesize: int, char_bit: Literal[8, 16]) -> EmbeddedDataType:
         """Convert a DWARF encoding into a Scrutiny EmbeddedDataType"""
         if encoding not in ENCODING_2_DTYPE_MAP:
@@ -706,12 +679,11 @@ class ElfDwarfVarExtractor:
             pad = '|  ' * (stack_depth - 1) + '|--'
             self._logger.debug(f"{pad}{funcname}({self._make_name_for_log(die)})")
 
-    def _make_cu_name_map(self, dwarfinfo: DWARFInfo) -> None:
+    def _make_cu_name_map(self, cus:Iterable[CompileUnit]) -> None:
         """ Builds a dictionary that maps a CompileUnit object to a unique displayable name """
 
         fullpath_cu_map: Dict[str, List[CompileUnit]] = {}
-        cu: CompileUnit
-        for cu in dwarfinfo.iter_CUs():
+        for cu in cus:
             topdie: DIE = cu.get_top_DIE()
             if topdie.tag != Tags.DW_TAG_compile_unit:
                 raise ElfParsingError('Top die should be a compile unit')
@@ -835,10 +807,16 @@ class ElfDwarfVarExtractor:
         if mangled_name is None:
             return None
 
-        return self._demangler.demangle(mangled_name)
+        return self._demangler.demangle(mangled_name, self._context.get_demangle_format())
+
+    def _split_demangled_name(self, name: str) -> List[str]:
+        """Split a demangled name into path segments using the logic that matches the compiler of the compile unit"""
+        if self._context.cu_compiler == Compiler.RUSTC:
+            return RustDemangledNameParser.parse_demangled_name(name)
+        return CppDemangledNameParser.parse_demangled_name(name)
 
     def _post_process_splitted_demangled_name(self, parts: List[str]) -> List[str]:
-        """To be called on the result of ``split_demangled_name`` to apply some context specific transformation"""
+        """To be called on the result of ``_split_demangled_name`` to apply some context specific transformation"""
         if self._context.cu_compiler == Compiler.Tasking:
             # Tasking do something like that : /static/file1.cpp/_INTERNAL_9_file1_cpp_49335e60/NamespaceInFile1/NamespaceInFile1Nested1/file1StaticNestedVar1
             return [x for x in parts if not x.startswith('_INTERNAL_')]
@@ -869,16 +847,33 @@ class ElfDwarfVarExtractor:
             self._varmap.set_endianness(self._context.endianess)
             self._varmap.set_char_bit(self._context.get_char_bit())
 
-            self._make_cu_name_map(self._dwarfinfo)
+
             self._demangler = GccDemangler(self._cppfilt)  # todo : adapt according to compile unit producer
 
             if not self._demangler.can_run():
                 raise EnvionmentNotSetUpException("Demangler cannot be used. %s" % self._demangler.get_error())
 
             bad_support_warning_written = False  # Prevent spamming the console
-            for cu in self._dwarfinfo.iter_CUs():
-                die = cu.get_top_DIE()
 
+            cu_to_process:Set[CompileUnit] = set()
+
+            for cu in self._dwarfinfo.iter_CUs():
+                must_process = True
+                compiler = self._identify_compiler(cu)
+                if compiler == Compiler.RUSTC:
+                    die = cu.get_top_DIE()
+                    first_child = next(die.iter_children(), None)
+                    if first_child is not None:
+                        if first_child.tag == Tags.DW_TAG_namespace and self._get_die_name(first_child) in RUST_NAMESPACES_TO_SKIP:
+                            must_process = False
+
+                if must_process:
+                    cu_to_process.add(cu)
+
+            self._make_cu_name_map(cu_to_process)
+
+            for cu in cu_to_process:
+                die = cu.get_top_DIE()
                 # Check if we need to skip the Compile Unit
                 cu_raw_name = cast(str, self._get_die_name(die, ''))
                 if cu_raw_name != '':
@@ -934,6 +929,8 @@ class ElfDwarfVarExtractor:
             producer = str(cu_die.attributes[Attrs.DW_AT_producer].value).strip().lower()
             if 'ti' in producer and 'c2000' in producer:
                 return Compiler.TI_C28_CGT
+            if 'rustc' in producer:
+                return Compiler.RUSTC
             if 'clang' in producer:
                 return Compiler.CLANG
             if 'gnu' in producer:
@@ -1152,8 +1149,8 @@ class ElfDwarfVarExtractor:
                 if self._context.cu_compiler in [Compiler.TI_C28_CGT, Compiler.Tasking]:
                     # cl2000 embeds the full mangled path in the DW_AT_NAME attribute,
                     # ex :_ZN13FileNamespace14File3TestClass3BBBE = FileNamespace::File3TestClass::BBB
-                    demangled_name = self._demangler.demangle(enumerator_name)
-                    parts = self.split_demangled_name(demangled_name)
+                    demangled_name = self._demangler.demangle(enumerator_name, self._context.get_demangle_format())
+                    parts = self._split_demangled_name(demangled_name)
                     parts = self._post_process_splitted_demangled_name(parts)
                     enumerator_name = parts[-1]
 
@@ -1312,8 +1309,8 @@ class ElfDwarfVarExtractor:
                 mangled_name = cast(str, die.attributes[Attrs.DW_AT_linkage_name].value.decode('ascii'))
 
         if mangled_name is not None:
-            demangled_name = self._demangler.demangle(mangled_name)
-            parts = self.split_demangled_name(demangled_name)
+            demangled_name = self._demangler.demangle(mangled_name, self._context.get_demangle_format())
+            parts = self._split_demangled_name(demangled_name)
             parts = self._post_process_splitted_demangled_name(parts)
             name = parts[-1]
 
@@ -2068,6 +2065,7 @@ class ElfDwarfVarExtractor:
 
         if linkage_name is not None:
             use_linkage_name = True
+
             if die.tag == Tags.DW_TAG_variable and name is not None:    # C2000 behavior mostly, but should apply to others
                 parent_subprogram_die = self._find_parent_die_of_type(die, Tags.DW_TAG_subprogram)
                 if parent_subprogram_die is not None:
@@ -2075,7 +2073,7 @@ class ElfDwarfVarExtractor:
                         use_linkage_name = False
 
             if use_linkage_name:
-                parts = self.split_demangled_name(linkage_name)
+                parts = self._split_demangled_name(linkage_name)
                 parts = self._post_process_splitted_demangled_name(parts)
                 for i in range(len(parts) - 1, -1, -1):   # Need to prepend in reverse order to keep the order correct.
                     if array is not None and i == len(parts) - 1:
@@ -2092,7 +2090,7 @@ class ElfDwarfVarExtractor:
             func_name = self._make_func_signature(die)
             if func_name is not None:
                 name = func_name
-                
+
 
         # Try to get the name of the die and use it as a level of the path
         if name is None:
@@ -2119,7 +2117,12 @@ class ElfDwarfVarExtractor:
         if self._is_external(die):
             varpath.prepend_segment(self.GLOBAL)
         else:
-            varpath.prepend_segment(self._get_cu_name(die))
+            if self._context.cu_compiler == Compiler.RUSTC:
+                # In rust, the compile unit name is meaningless. The crate name comes from the linkage name.
+                pass
+            else:
+                # For other compiler, we use the filename to make the CU name
+                varpath.prepend_segment(self._get_cu_name(die))
             varpath.prepend_segment(self.STATIC)
 
         return varpath

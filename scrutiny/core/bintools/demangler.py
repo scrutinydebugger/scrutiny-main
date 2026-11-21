@@ -11,18 +11,23 @@ __all__ = ['BaseDemangler', 'GccDemangler']
 import subprocess
 import shutil
 import abc
+import enum
 
 from scrutiny.tools.typing import *
 
 
 class BaseDemangler(abc.ABC):
+    class Format(enum.Enum):
+        GnuV3 = 'gnu-v3'
+        Rust = 'rust'
+
     def can_run(self) -> bool:
         return False
 
     def get_error(self) -> str:
         return "virtual class"
 
-    def demangle(self, mangled: str) -> str:
+    def demangle(self, mangled: str, format:Format) -> str:
         raise NotImplementedError('Trying to demangle with base class')
 
 
@@ -55,11 +60,17 @@ class GccDemangler(BaseDemangler):
         """Returns why the demangler cannot run"""
         return self.error_details
 
-    def demangle(self, mangled: str) -> str:
+    def demangle(self, mangled: str, format:BaseDemangler.Format) -> str:
         """Perform demangling on a mangled symbol name"""
         if not self.can_run():
             raise Exception('Cannot run demangler. %s' % self.get_error())
 
-        self.process = subprocess.Popen([self.binary_name, '--format', 'gnu-v3', '-n'],
+        format_args = []
+        if format==self.Format.GnuV3:
+            format_args = ['--format', 'gnu-v3']
+        elif format==self.Format.Rust:
+            format_args = ['--format', 'rust']
+
+        self.process = subprocess.Popen([self.binary_name, '-n'] + format_args,
                                         stdout=subprocess.PIPE, stdin=subprocess.PIPE, universal_newlines=True)
         return self.process.communicate(input=mangled)[0]
