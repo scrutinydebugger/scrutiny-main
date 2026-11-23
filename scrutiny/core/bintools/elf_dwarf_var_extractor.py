@@ -1450,7 +1450,7 @@ class ElfDwarfVarExtractor:
             elif child.tag == Tags.DW_TAG_inheritance:
                 offset = 0
                 if self._has_member_byte_offset(child):
-                    offset = self._get_member_byte_offset(child)gs
+                    offset = self._get_member_byte_offset(child)
                 typedie = child.get_DIE_from_attribute(Attrs.DW_AT_type)
                 if typedie.tag not in [Tags.DW_TAG_structure_type, Tags.DW_TAG_class_type]:   # Add union here?
                     self._logger.warning(f"Line {get_linenumber()}: Inheritance to a type die {self._make_name_for_log(typedie)}. Not supported yet")
