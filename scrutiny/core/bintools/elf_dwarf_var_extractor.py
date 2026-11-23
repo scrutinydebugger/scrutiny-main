@@ -14,7 +14,7 @@ from elftools.dwarf.compileunit import CompileUnit
 from elftools.dwarf.dwarfinfo import DWARFInfo
 from elftools.elf.elffile import ELFFile
 
-
+import math
 import os
 import logging
 import inspect
@@ -212,6 +212,11 @@ class Compiler(Enum):
     Tasking = auto()
     IAR_ICC = auto()
     RUSTC = auto()
+
+    def linkage_name_gives_path(self) -> bool:
+        if self == Compiler.RUSTC:
+            return False
+        return True
 
 # endregion
 
@@ -1042,14 +1047,20 @@ class ElfDwarfVarExtractor:
             if not isinstance(dieloc, list):
                 return None
 
-            if len(dieloc) < 2:
-                self._logger.warning(f'die location is too small: {dieloc}')
+            if len(dieloc) < 1:
+                self._logger.warning(f'Empty location: {dieloc}')
                 return None
 
             if dieloc[0] == self.DW_OP_addr:
+                if len(dieloc) < 2:
+                    self._logger.warning(f'die location is too small: {dieloc}')
+                    return None
                 return AbsoluteLocation.from_bytes(dieloc[1:], self._context.endianess)
 
             elif dieloc[0] == self.DW_OP_addrx:
+                if len(dieloc) < 2:
+                    self._logger.warning(f'die location is too small: {dieloc}')
+                    return None
                 addr_index, bytesize = tools.uleb128_parse(bytes(dieloc[1:]))
                 if bytesize != len(dieloc) - 1:
                     # Data encoded after the uleb128 constant.
@@ -1439,7 +1450,7 @@ class ElfDwarfVarExtractor:
             elif child.tag == Tags.DW_TAG_inheritance:
                 offset = 0
                 if self._has_member_byte_offset(child):
-                    offset = self._get_member_byte_offset(child)
+                    offset = self._get_member_byte_offset(child)gs
                 typedie = child.get_DIE_from_attribute(Attrs.DW_AT_type)
                 if typedie.tag not in [Tags.DW_TAG_structure_type, Tags.DW_TAG_class_type]:   # Add union here?
                     self._logger.warning(f"Line {get_linenumber()}: Inheritance to a type die {self._make_name_for_log(typedie)}. Not supported yet")
@@ -1493,6 +1504,9 @@ class ElfDwarfVarExtractor:
             dims.append(nb_element)
         # We have the dims!
 
+        if math.prod(dims) == 0:    # Array of 0 elements. Nothing to do with thaté
+            return None
+        
         element_type = self._get_type_of_var(die)
         if element_type is None:
             return None
@@ -1714,7 +1728,7 @@ class ElfDwarfVarExtractor:
     def _register_struct_var(self, die: DIE, struct: Struct, type_desc: TypeDescriptor, location: Union[AbsoluteLocation, UnresolvedPathPointedLocation]) -> None:
         """Register an instance of a struct at a given location"""
         if isinstance(location, AbsoluteLocation) and location.is_null():
-            self._logger.warning(f"Line {get_linenumber()}: Skipping structure {struct.name} at location NULL address.")
+            self._logger.debug(f"Line {get_linenumber()}: Skipping structure {struct.name} at location NULL address.")
             self._logger.debug(f"{die}")
             return
         array_segments = ArraySegments()
@@ -1907,7 +1921,7 @@ class ElfDwarfVarExtractor:
 
         if location.is_null():  # Ignore nullptr
             name = self._get_die_name(die, default="<no-name>")
-            self._logger.warning(f"Line {get_linenumber()}: Skipping array {name} at location NULL address.")
+            self._logger.debug(f"Line {get_linenumber()}: Skipping array {name} at location NULL address.")
             self._logger.debug(f"{die}")
             return
 
@@ -1997,7 +2011,7 @@ class ElfDwarfVarExtractor:
         fullname = path_tools.join_segments(path_segments)
         if isinstance(location, AbsoluteLocation):
             if location.is_null():
-                self._logger.warning(f"Line {get_linenumber()}: Skipping variable {fullname} at location NULL address.")
+                self._logger.debug(f"Line {get_linenumber()}: Skipping variable {fullname} at location NULL address.")
                 return False
 
         if self._allowed_by_filters(fullname):
@@ -2059,29 +2073,30 @@ class ElfDwarfVarExtractor:
                 array = self._get_array_def(var_typedesc.type_die, allow_dereferencing=True)
 
         # Check if we have a linkage name. Those are complete and no further scan is required if available.
-        linkage_name = self._get_demangled_linkage_name(die)
         name = self._get_die_name(die)
         parent = die.get_parent()
 
-        if linkage_name is not None:
-            use_linkage_name = True
+        if self._context.cu_compiler.linkage_name_gives_path():
+            linkage_name = self._get_demangled_linkage_name(die)
+            if linkage_name is not None:
+                use_linkage_name = True
 
-            if die.tag == Tags.DW_TAG_variable and name is not None:    # C2000 behavior mostly, but should apply to others
-                parent_subprogram_die = self._find_parent_die_of_type(die, Tags.DW_TAG_subprogram)
-                if parent_subprogram_die is not None:
-                    if self._has_linkage_name(parent_subprogram_die):
-                        use_linkage_name = False
+                if die.tag == Tags.DW_TAG_variable and name is not None:    # C2000 behavior mostly, but should apply to others
+                    parent_subprogram_die = self._find_parent_die_of_type(die, Tags.DW_TAG_subprogram)
+                    if parent_subprogram_die is not None:
+                        if self._has_linkage_name(parent_subprogram_die):
+                            use_linkage_name = False
 
-            if use_linkage_name:
-                parts = self._split_demangled_name(linkage_name)
-                parts = self._post_process_splitted_demangled_name(parts)
-                for i in range(len(parts) - 1, -1, -1):   # Need to prepend in reverse order to keep the order correct.
-                    if array is not None and i == len(parts) - 1:
-                        varpath.prepend_segment(name=parts[i], array=array)
-                        varpath.prepend_segment(name=parts[i])   # Add a level to group the array elements together /aaa/bbb/ccc/ccc[0]
-                    else:
-                        varpath.prepend_segment(name=parts[i])
-                return varpath
+                if use_linkage_name:
+                    parts = self._split_demangled_name(linkage_name)
+                    parts = self._post_process_splitted_demangled_name(parts)
+                    for i in range(len(parts) - 1, -1, -1):   # Need to prepend in reverse order to keep the order correct.
+                        if array is not None and i == len(parts) - 1:
+                            varpath.prepend_segment(name=parts[i], array=array)
+                            varpath.prepend_segment(name=parts[i])   # Add a level to group the array elements together /aaa/bbb/ccc/ccc[0]
+                        else:
+                            varpath.prepend_segment(name=parts[i])
+                    return varpath
 
         if die.tag in (Tags.DW_TAG_subprogram, Tags.DW_TAG_subroutine_type):
             # GCC, Clang, tasking sets the linkage name on static inside functions.
