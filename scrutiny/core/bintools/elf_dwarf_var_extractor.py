@@ -25,7 +25,7 @@ from inspect import currentframe
 from fnmatch import fnmatch
 
 from scrutiny.core.bintools.demangler import GccDemangler, BaseDemangler
-from scrutiny.core.bintools.demangled_name_parser import CppDemangledNameParser, RustDemangledNameParser
+from scrutiny.core.bintools.demangled_name_parser import CppDemangledNameParser
 from scrutiny.core.varmap import VarMap
 from scrutiny.core.basic_types import *
 from scrutiny.core.variable_location import AbsoluteLocation, UnresolvedPathPointedLocation
@@ -817,7 +817,7 @@ class ElfDwarfVarExtractor:
     def _split_demangled_name(self, name: str) -> List[str]:
         """Split a demangled name into path segments using the logic that matches the compiler of the compile unit"""
         if self._context.cu_compiler == Compiler.RUSTC:
-            return RustDemangledNameParser.parse_demangled_name(name)
+            raise RuntimeError("We should not parse a Rust mangled name.")
         return CppDemangledNameParser.parse_demangled_name(name)
 
     def _post_process_splitted_demangled_name(self, parts: List[str]) -> List[str]:
@@ -2133,7 +2133,7 @@ class ElfDwarfVarExtractor:
             varpath.prepend_segment(self.GLOBAL)
         else:
             if self._context.cu_compiler == Compiler.RUSTC:
-                # In rust, the compile unit name is meaningless. The crate name comes from the linkage name.
+                # In rust, the compile unit name is meaningless.
                 pass
             else:
                 # For other compiler, we use the filename to make the CU name
