@@ -13,6 +13,7 @@ from elftools.dwarf.die import DIE
 from elftools.dwarf.compileunit import CompileUnit
 from elftools.dwarf.dwarfinfo import DWARFInfo
 from elftools.elf.elffile import ELFFile
+from elftools.elf.constants import SH_FLAGS
 
 import math
 import os
@@ -570,6 +571,8 @@ class ElfDwarfVarExtractor:
     """The demangler to use while scanning"""
     _allow_dereference_pointer: bool
     """Global flag disabling or enabling pointer dereferencing. This may come from user with a CLI parameter"""
+    _valid_memory_ranges: List[Tuple[int, int]]
+    """List of (start, end) address ranges, end excluded, of the sections that occupy memory on the target (SHF_ALLOC flag)"""
 
     def __init__(self, filename: str,
                  cppfilt: Optional[str] = None,
@@ -598,6 +601,7 @@ class ElfDwarfVarExtractor:
         )
         self._parse_errors = ParseErrors()
         self._allow_dereference_pointer = dereference_pointers
+        self._valid_memory_ranges = []
 
         self._scan_elf_file(filename)
 
@@ -846,6 +850,7 @@ class ElfDwarfVarExtractor:
                 raise ElfParsingError('File has no DWARF info')
 
             self._dwarfinfo = elffile.get_dwarf_info()
+            self._valid_memory_ranges = self._read_valid_memory_ranges(elffile)
 
             self._context.arch = self._identify_arch()
             self._context.endianess = self._identify_endianness(elffile)
@@ -910,6 +915,29 @@ class ElfDwarfVarExtractor:
 
                 self._build_typedef_map_recursive(die)   # Scan every typedef to know where they point
                 self._extract_var_recursive(die)         # Recursion start point. We find the variables in here
+
+    def _read_valid_memory_ranges(self, elffile: ELFFile) -> List[Tuple[int, int]]:
+        """Return the address ranges of all the sections that occupy memory on the target. Sections without SHF_ALLOC
+        (debug info, defmt strings, etc.) do not exist on the target"""
+        memory_ranges: List[Tuple[int, int]] = []
+        for section in elffile.iter_sections():
+            is_alloc = (section['sh_flags'] & SH_FLAGS.SHF_ALLOC) != 0
+            if not is_alloc:
+                continue
+            size = section['sh_size']
+            if size == 0:
+                continue
+            start = section['sh_addr']
+            end = start + size
+            memory_ranges.append((start, end))
+            self._logger.debug(f"Valid memory range: section {section.name} [0x{start:x}, 0x{end:x})")
+        return memory_ranges
+
+    def _is_in_valid_memory_range(self, address: int) -> bool:
+        for start, end in self._valid_memory_ranges:
+            if address >= start and address < end:
+                return True
+        return False
 
     def _identify_arch(self) -> Architecture:
         """Identify we're building for what architecture. Unknown uses the default behaviors that works on most platforms."""
@@ -2012,6 +2040,11 @@ class ElfDwarfVarExtractor:
         if isinstance(location, AbsoluteLocation):
             if location.is_null():
                 self._logger.debug(f"Line {get_linenumber()}: Skipping variable {fullname} at location NULL address.")
+                return False
+            address = location.get_address()
+            if not self._is_in_valid_memory_range(address):
+                self._logger.debug(
+                    f"Line {get_linenumber()}: Skipping variable {fullname} at address 0x{address:x}. Not in an allocated section.")
                 return False
 
         if self._allowed_by_filters(fullname):
