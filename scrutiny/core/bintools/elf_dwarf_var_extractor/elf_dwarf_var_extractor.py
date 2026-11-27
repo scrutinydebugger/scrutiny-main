@@ -388,7 +388,7 @@ class ElfDwarfVarExtractor:
             self._dwarfinfo = elffile.get_dwarf_info()
             self._valid_memory_ranges = self._read_valid_memory_ranges(elffile)
 
-            self._context.arch = self._identify_arch()
+            self._context.arch = DwarfHelper.identify_arch(self._dwarfinfo)
             self._context.endianess = DwarfHelper.identify_endianness(elffile)
             self._varmap.set_endianness(self._context.endianess)
             self._varmap.set_char_bit(self._context.get_char_bit())
@@ -474,14 +474,6 @@ class ElfDwarfVarExtractor:
             if address >= start and address < end:
                 return True
         return False
-
-    def _identify_arch(self) -> Architecture:
-        """Identify we're building for what architecture. Unknown uses the default behaviors that works on most platforms."""
-        machine_arch = self._dwarfinfo.config.machine_arch.lower().strip()
-        if 'c2000' in machine_arch and 'ti' in machine_arch:
-            return Architecture.TI_C28x
-
-        return Architecture.UNKNOWN
 
     def _get_char_bit(self) -> Literal[8, 16]:
         if self._context.arch == Architecture.TI_C28x:

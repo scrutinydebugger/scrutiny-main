@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from pathlib import PurePosixPath, PureWindowsPath
 from elftools.dwarf.die import DIE
 from elftools.dwarf.compileunit import CompileUnit
+from elftools.dwarf.dwarfinfo import DWARFInfo
 from elftools.elf.elffile import ELFFile
 
 from scrutiny.core.bintools.demangler import BaseDemangler
@@ -410,6 +411,15 @@ class DwarfHelper:
             return Endianness.Little
         else:
             return Endianness.Big
+
+    @staticmethod
+    def identify_arch(dwarfinfo: DWARFInfo) -> Architecture:
+        """Identify we're building for what architecture. Unknown uses the default behaviors that works on most platforms."""
+        machine_arch = dwarfinfo.config.machine_arch.lower().strip()
+        if 'c2000' in machine_arch and 'ti' in machine_arch:
+            return Architecture.TI_C28x
+
+        return Architecture.UNKNOWN
 
     @staticmethod
     def is_external(die: DIE) -> bool:
