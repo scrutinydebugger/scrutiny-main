@@ -19,11 +19,19 @@ import math
 import os
 import logging
 import inspect
-from pathlib import PurePosixPath, PureWindowsPath
-from enum import Enum, auto
+
 from dataclasses import dataclass
 from inspect import currentframe
 from fnmatch import fnmatch
+
+from scrutiny.core.bintools.elf_dwarf_var_extractor.definitions import (
+    Attrs, Tags, DwarfEncoding, TypeOfVar, Architecture, Compiler
+)
+
+from scrutiny.core.bintools.elf_dwarf_var_extractor.helpers import (
+    ElfParsingError, get_core_base_type, PointeeTypeDescriptor, TypeDescriptor, 
+    ArraySegments, VarPath, CuName, Context
+)
 
 from scrutiny.core.bintools.demangler import GccDemangler, BaseDemangler
 from scrutiny.core.bintools.demangled_name_parser import CppDemangledNameParser
@@ -47,421 +55,8 @@ from scrutiny.tools.typing import *
 
 RUST_NAMESPACES_TO_SKIP = ['core', 'alloc']
 
-class Attrs:
-    DW_AT_declaration = 'DW_AT_declaration'
-    DW_AT_comp_dir = 'DW_AT_comp_dir'
-    DW_AT_specification = 'DW_AT_specification'
-    DW_AT_abstract_origin = 'DW_AT_abstract_origin'
-    DW_AT_name = 'DW_AT_name'
-    DW_AT_linkage_name = 'DW_AT_linkage_name'
-    DW_AT_MIPS_linkage_name = 'DW_AT_MIPS_linkage_name'
-    DW_AT_external = 'DW_AT_external'
-    DW_AT_byte_size = 'DW_AT_byte_size'
-    DW_AT_encoding = 'DW_AT_encoding'
-    DW_AT_const_value = 'DW_AT_const_value'
-    DW_AT_type = 'DW_AT_type'
-    DW_AT_data_member_location = 'DW_AT_data_member_location'
-    DW_AT_bit_offset = 'DW_AT_bit_offset'
-    DW_AT_bit_size = 'DW_AT_bit_size'
-    DW_AT_data_bit_offset = 'DW_AT_data_bit_offset'
-    DW_AT_location = 'DW_AT_location'
-    DW_AT_MIPS_fde = 'DW_AT_MIPS_fde'
-    DW_AT_producer = 'DW_AT_producer'
-    DW_AT_count = 'DW_AT_count'
-    DW_AT_upper_bound = 'DW_AT_upper_bound'
-    DW_AT_lower_bound = 'DW_AT_lower_bound'
-
-
-class Tags:
-    DW_TAG_structure_type = 'DW_TAG_structure_type'
-    DW_TAG_enumeration_type = 'DW_TAG_enumeration_type'
-    DW_TAG_union_type = 'DW_TAG_union_type'
-    DW_TAG_compile_unit = 'DW_TAG_compile_unit'
-    DW_TAG_variable = 'DW_TAG_variable'
-    DW_TAG_enumerator = 'DW_TAG_enumerator'
-    DW_TAG_base_type = 'DW_TAG_base_type'
-    DW_TAG_class_type = 'DW_TAG_class_type'
-    DW_TAG_array_type = 'DW_TAG_array_type'
-    DW_TAG_pointer_type = 'DW_TAG_pointer_type'
-    DW_TAG_member = 'DW_TAG_member'
-    DW_TAG_inheritance = 'DW_TAG_inheritance'
-    DW_TAG_typedef = 'DW_TAG_typedef'
-    DW_TAG_subrange_type = 'DW_TAG_subrange_type'
-    DW_TAG_subroutine_type = 'DW_TAG_subroutine_type'
-    DW_TAG_subprogram = 'DW_TAG_subprogram'
-    DW_TAG_unspecified_type = 'DW_TAG_unspecified_type'
-    DW_TAG_formal_parameter = 'DW_TAG_formal_parameter'
-    DW_TAG_namespace = 'DW_TAG_namespace'
-
-
-class DwarfEncoding(Enum):
-    DW_ATE_address = 0x1
-    DW_ATE_boolean = 0x2
-    DW_ATE_complex_float = 0x3
-    DW_ATE_float = 0x4
-    DW_ATE_signed = 0x5
-    DW_ATE_signed_char = 0x6
-    DW_ATE_unsigned = 0x7
-    DW_ATE_unsigned_char = 0x8
-    DW_ATE_imaginary_float = 0x9
-    DW_ATE_packed_decimal = 0xa
-    DW_ATE_numeric_string = 0xb
-    DW_ATE_edited = 0xc
-    DW_ATE_signed_fixed = 0xd
-    DW_ATE_unsigned_fixed = 0xe
-    DW_ATE_decimal_float = 0xf
-    DW_ATE_UTF = 0x10
-    DW_ATE_lo_user = 0x80
-    DW_ATE_hi_user = 0xff
-
-
-class TypeOfVar(Enum):
-    BaseType = auto()
-    Struct = auto()
-    Class = auto()
-    Union = auto()
-    Pointer = auto()
-    Array = auto()
-    EnumOnly = auto()  # Clang dwarf v2
-    Subroutine = auto()  # Clang dwarf v2
-    Void = auto()
-
-
-ENCODING_2_DTYPE_MAP: Dict[DwarfEncoding, Dict[int, EmbeddedDataType]] = {
-    DwarfEncoding.DW_ATE_address: {
-        1: EmbeddedDataType.ptr8,
-        2: EmbeddedDataType.ptr16,
-        4: EmbeddedDataType.ptr32,
-        8: EmbeddedDataType.ptr64,
-        16: EmbeddedDataType.ptr128,
-        32: EmbeddedDataType.ptr256
-    },
-    DwarfEncoding.DW_ATE_boolean: {
-        1: EmbeddedDataType.bool8,
-        2: EmbeddedDataType.bool16,
-        4: EmbeddedDataType.bool32,
-        8: EmbeddedDataType.bool64
-    },
-    DwarfEncoding.DW_ATE_complex_float: {
-        1: EmbeddedDataType.cfloat8,
-        2: EmbeddedDataType.cfloat16,
-        4: EmbeddedDataType.cfloat32,
-        8: EmbeddedDataType.cfloat64,
-        16: EmbeddedDataType.cfloat128,
-        32: EmbeddedDataType.cfloat256
-    },
-    DwarfEncoding.DW_ATE_float: {
-        1: EmbeddedDataType.float8,
-        2: EmbeddedDataType.float16,
-        4: EmbeddedDataType.float32,
-        8: EmbeddedDataType.float64,
-        16: EmbeddedDataType.float128,
-        32: EmbeddedDataType.float256
-
-    },
-    DwarfEncoding.DW_ATE_signed: {
-        1: EmbeddedDataType.sint8,
-        2: EmbeddedDataType.sint16,
-        4: EmbeddedDataType.sint32,
-        8: EmbeddedDataType.sint64,
-        16: EmbeddedDataType.sint128,
-        32: EmbeddedDataType.sint256
-    },
-    DwarfEncoding.DW_ATE_signed_char: {
-        1: EmbeddedDataType.sint8,
-        2: EmbeddedDataType.sint16,
-        4: EmbeddedDataType.sint32,
-        8: EmbeddedDataType.sint64,
-        16: EmbeddedDataType.sint128,
-        32: EmbeddedDataType.sint256
-    },
-    DwarfEncoding.DW_ATE_unsigned: {
-        1: EmbeddedDataType.uint8,
-        2: EmbeddedDataType.uint16,
-        4: EmbeddedDataType.uint32,
-        8: EmbeddedDataType.uint64,
-        16: EmbeddedDataType.uint128,
-        32: EmbeddedDataType.uint256
-    },
-    DwarfEncoding.DW_ATE_unsigned_char: {
-        1: EmbeddedDataType.uint8,
-        2: EmbeddedDataType.uint16,
-        4: EmbeddedDataType.uint32,
-        8: EmbeddedDataType.uint64,
-        16: EmbeddedDataType.uint128,
-        32: EmbeddedDataType.uint256
-    },
-    DwarfEncoding.DW_ATE_UTF: {
-        1: EmbeddedDataType.uint8,
-        2: EmbeddedDataType.uint16,
-        4: EmbeddedDataType.uint32,
-        8: EmbeddedDataType.uint64,
-    }
-}
-
-
-class Architecture(Enum):
-    UNKNOWN = auto()
-    TI_C28x = auto()
-
-
-class Compiler(Enum):
-    UNKNOWN = auto()
-    TI_C28_CGT = auto()
-    CLANG = auto()
-    GCC = auto()
-    Tasking = auto()
-    IAR_ICC = auto()
-    RUSTC = auto()
-
-    def linkage_name_gives_path(self) -> bool:
-        if self == Compiler.RUSTC:
-            return False
-        return True
-
-# endregion
 
 # region Helper classes
-
-@dataclass(slots=True)
-class PointeeTypeDescriptor:
-    """Describe the type pointed by a pointer. Same as TypeDescriptor,
-    but the type_die is optional since we can have a pointer to void"""
-    type: TypeOfVar
-    enum_die: Optional[DIE]
-    type_die: Optional[DIE]
-
-    def to_typedesc(self) -> "TypeDescriptor":
-        """Convert to a TypeDescriptor. Only possible if there is a typedie associated with the pointee.
-        We can't get convert if we point to void"""
-        if self.type_die is None:
-            raise ValueError("Missing type_die to make a full type descriptor")
-
-        return TypeDescriptor(
-            type=self.type,
-            enum_die=self.enum_die,
-            type_die=self.type_die,
-            pointee=None
-        )
-
-
-@dataclass(slots=True)
-class TypeDescriptor:
-    """A class that contains multiple information about the type of a variable"""
-    type: TypeOfVar
-    """Type of variable. BaseType, Struct, Union, Pointer etc."""
-    enum_die: Optional[DIE]
-    """The enum associated with the type. Applies only for BaseType"""
-    type_die: DIE
-    """The DIE that define this type"""
-    pointee: Optional[PointeeTypeDescriptor]
-    """Pointee type when type=Pointer"""
-
-
-@dataclass(slots=True)
-class VarPathSegment:
-    """When building a path, represent a segment added to the path. Keeps track of the array of that path node for later"""
-    name: str
-    """The name of the path segment"""
-    array: Optional[TypedArray] = None
-    """The array associated with that segment, if applicable"""
-
-
-@dataclass(slots=True, init=False)
-class ArraySegments:
-    """Class that wraps a dict of arrays that represent every segments that has an array.
-    Has the helper method to edit that array meaningfully"""
-
-    _storage: Dict[str, TypedArray]
-    """The array that we edit"""
-
-    def __init__(self) -> None:
-        self._storage = {}
-
-    def add(self, segments: List[str], array: TypedArray) -> None:
-        """Add a path node that has an array"""
-        path = path_tools.join_segments(segments)
-        if path in self._storage:
-            raise KeyError(f"Duplicate array definition for {path}")
-        self._storage[path] = array
-
-    def rename_path(self, old: List[str], new: List[str]) -> None:
-        """Change the path of an array"""
-        old_path = path_tools.join_segments(old)
-        new_path = path_tools.join_segments(new)
-
-        if old_path not in self._storage:
-            raise KeyError(f"Cannot rename missing array definition for {old_path}.")
-
-        if new_path in self._storage:
-            raise KeyError(f"Duplicate array definition for {new_path}")
-
-        v = self._storage[old_path]
-        del self._storage[old_path]
-        self._storage[new_path] = v
-
-    def to_varmap_format(self) -> Dict[str, Array]:
-        """Return a dictionary that gives the array information in the format required by the VarMap class"""
-        # We use the same format here. Just future proofing the code.
-        return {
-            path: arr.to_untyped_array() for path, arr in self._storage.items()    # Make a copy
-        }
-
-    def shallow_copy(self) -> "ArraySegments":
-        """Create a shallow copy of the storage. Returns a new dict that points to the same arrays"""
-        o = ArraySegments()
-        o._storage = self._storage.copy()
-        return o
-
-    def clear(self) -> None:
-        """Clear the storage"""
-        self._storage.clear()
-
-
-class VarPath:
-    """Represent a path of a variable. This class exists to edit efficiently the path with meaningful methods.
-    To be used while constructing the path"""
-
-    __slots__ = ('segments', )
-
-    segments: List[VarPathSegment]
-    """The segments of the path. Each element contains a string and array information that goes with that segment"""
-
-    def __init__(self) -> None:
-        self.segments = []
-
-    def prepend_segment(self, name: str, array: Optional[TypedArray] = None) -> None:
-        """Add a path segment at the beginning"""
-        self.segments.insert(0, VarPathSegment(name=name, array=array))
-
-    def get_segments_name(self) -> List[str]:
-        """Return an array of all the segments names"""
-        return [segment.name for segment in self.segments]
-
-    def get_array_segments(self) -> ArraySegments:
-        """Return the definition of all the array nodes that we have found so far"""
-        out = ArraySegments()
-        for i in range(len(self.segments)):
-            array = self.segments[i].array
-            if array is not None:
-                segment_str = [x.name for x in self.segments[:i + 1]]
-                out.add(segment_str, array)
-        return out
-
-def _split_path_crossplatform(fullpath: str) -> Tuple[str, List[str]]:
-    is_windows_path = (
-        (len(fullpath) >= 3 and fullpath[1] == ':' and fullpath[2] in '/\\')  # drive letter: C:\ or C:/
-        or fullpath.startswith('\\\\')   # UNC: \\server\share
-        or '\\' in fullpath              # any backslash
-    )
-    p = PureWindowsPath(fullpath) if is_windows_path else PurePosixPath(fullpath)
-    filename = p.name
-    parts: List[str] = list(p.parent.parts)
-    if parts and parts[0] == p.anchor:
-        parts[0] = ''
-    return filename, parts
-
-
-class CuName:
-    """
-    Handles a compile unit name. Useful to build a unique name as small as possible.
-    """
-    PATH_JOIN_CHAR = '_'
-
-    _fullpath: str
-    """the full path of the compile unit gotten from the dwarf symbol"""
-    _filename: str
-    """The basename of ``_fullpath``"""
-    _display_name: str
-    """The name displayed to the user. Subsection of the fullpath"""
-    _segments: List[str]
-    """The fullpath broken down in string segments"""
-    _numbered_name: Optional[str]
-    """A numbered name autogenerated to overcome name collisions"""
-
-    def __hash__(self) -> int:
-        return self._fullpath.__hash__()
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, CuName):
-            return False
-        return self._fullpath == other._fullpath
-
-    def __lt__(self, other: object) -> bool:
-        if not isinstance(other, CuName):
-            return False
-        return self._fullpath < other._fullpath
-
-    def __gt__(self, other: object) -> bool:
-        if not isinstance(other, CuName):
-            return False
-        return self._fullpath > other._fullpath
-
-    def __init__(self, fullpath: str) -> None:
-        self._fullpath = fullpath    # Must stay untouched.
-        self._filename, self._segments = _split_path_crossplatform(fullpath)
-        self._display_name = self._filename
-        self._numbered_name = None
-
-    def get_display_name(self) -> str:
-        """Return a name that can be shown to the user"""
-        if self._numbered_name is not None:
-            return self._numbered_name
-        return self._display_name.replace('/', '-')
-
-    def get_fullpath(self) -> str:
-        """Return the fullpath to the source file gotten from the ELF file"""
-        return self._fullpath
-
-    def go_up(self) -> None:
-        """Add the closest directory name to the display name.
-        /aaa/bbb/ccc, ddd -->  /aaa/bbb, ccc_ddd"""
-        if len(self._segments) > 0:
-            last_dir = self._segments.pop()
-            if last_dir == '':
-                raise ElfParsingError('Cannot go up')
-            self._display_name = self.PATH_JOIN_CHAR.join([last_dir, self._display_name])
-        else:
-            raise ElfParsingError('Cannot go up')
-
-    def make_unique_numbered_name(self, name_set: Set[str]) -> None:
-        """Fallback solution to naming.
-        We can generate a numbered name if there are collisions with the source file naming"""
-        i = 0
-        while True:
-            candidate = 'cu%d_%s' % (i, self._filename)
-            if candidate not in name_set:
-                self._numbered_name = candidate
-                return
-            i += 1
-
-
-@dataclass(slots=True)
-class Context:
-    """The context object that contains the parsing parameters. These are globals when parsing"""
-    arch: Architecture
-    """The architecture the target the file is compiled for"""
-    endianess: Endianness
-    """The endianness of the firmware"""
-    cu_compiler: Compiler
-    """The compiler of the actual CompileUnit"""
-    address_size: Optional[int]
-    """The size of a pointer. Sometimes available at the CU level, sometimes on the var itself. Acts as a fallback when not specified on a var"""
-
-    def get_char_bit(self) -> Literal[8, 16]:
-        if self.arch == Architecture.TI_C28x:
-            return 16
-        return 8
-
-    def get_demangle_format(self) -> BaseDemangler.Format:
-        if self.cu_compiler == Compiler.RUSTC:
-            return BaseDemangler.Format.Rust
-        return BaseDemangler.Format.GnuV3
-
-
-class ElfParsingError(Exception):
-    pass
-
 
 class ParseErrors:
     """A class that represent a parsing error.
@@ -647,18 +242,6 @@ class ElfDwarfVarExtractor:
                     cuname.make_unique_numbered_name(display_name_set)
 
         return outmap
-
-    @classmethod
-    def get_core_base_type(cls, encoding: DwarfEncoding, bytesize: int, char_bit: Literal[8, 16]) -> EmbeddedDataType:
-        """Convert a DWARF encoding into a Scrutiny EmbeddedDataType"""
-        if encoding not in ENCODING_2_DTYPE_MAP:
-            raise ValueError(f'Unknown encoding {encoding}')
-
-        eight_bit_size = bytesize * (char_bit // 8)
-        if eight_bit_size not in ENCODING_2_DTYPE_MAP[encoding]:
-            raise ValueError(f'Encoding {encoding} with {eight_bit_size} 8bits bytes')
-
-        return ENCODING_2_DTYPE_MAP[encoding][eight_bit_size]
 
     def get_errors(self) -> ParseErrors:
         """Returns all the errors registered during the parsing"""
@@ -1134,8 +717,6 @@ class ElfDwarfVarExtractor:
             return False
         return True
 
-
-
     def _die_process_base_type(self, die: DIE) -> None:
         """Process die of type "base type". Register the type in the global index and maps it to a known type."""
 
@@ -1147,7 +728,7 @@ class ElfDwarfVarExtractor:
             name = self._get_typename_from_die(die)
             encoding = DwarfEncoding(cast(int, die.attributes[Attrs.DW_AT_encoding].value))
             bytesize = self._get_size_from_type_die(die)
-            basetype = self.get_core_base_type(encoding, bytesize, self._context.get_char_bit())
+            basetype = get_core_base_type(encoding, bytesize, self._context.get_char_bit())
             self._logger.debug(f"Registering base type: {name} as {basetype.name}")
             self._varmap.register_base_type(name, basetype)
 
@@ -1213,7 +794,7 @@ class ElfDwarfVarExtractor:
             encoding = DwarfEncoding(cast(int, enum_die.attributes[Attrs.DW_AT_encoding].value))
         except Exception:
             encoding = DwarfEncoding.DW_ATE_signed if enum.has_signed_value() else DwarfEncoding.DW_ATE_unsigned
-        basetype = self.get_core_base_type(encoding, bytesize, self._context.get_char_bit())
+        basetype = get_core_base_type(encoding, bytesize, self._context.get_char_bit())
         fakename = 'enum_default_'
         fakename += 's' if basetype.is_signed() else 'u'
         fakename += str(basetype.get_size_bit())
@@ -1821,7 +1402,8 @@ class ElfDwarfVarExtractor:
                                           member: Struct.Member,
                                           base_location: Union[AbsoluteLocation, UnresolvedPathPointedLocation],
                                           offset: int,
-                                          array_segments: ArraySegments) -> None:
+                                          array_segments: ArraySegments,
+                                          freeze_segment:bool=False) -> None:
         """Recursive function that digs through structure member and create entries in the varmap
 
             :param path_segments: Path segments of the actual member
@@ -1830,14 +1412,24 @@ class ElfDwarfVarExtractor:
             :param offset: Offset to apply to the base location
             :param array_segments: Array segments matching the path segments so far
         """
+
+        if member.name == 'main_loop_counter':
+            pass
+
         if member.member_type == Struct.Member.MemberType.SubStruct:
             assert member.substruct is not None
             struct = member.substruct
+
+            if struct.name == 'VolatileCell<u32>':
+                pass
+                freeze_segment = True
+
             # The actual member is a struct. For each submember, adjust the path and location then recurse
             for name, submember in struct.members.items():
                 location = base_location.copy()
                 new_path_segments = path_segments.copy()
-                new_path_segments.append(name)
+                if not freeze_segment:
+                    new_path_segments.append(name)
 
                 if submember.member_type in (Struct.Member.MemberType.SubStruct, Struct.Member.MemberType.SubArray):
                     assert submember.byte_offset is not None
@@ -1845,7 +1437,10 @@ class ElfDwarfVarExtractor:
                 elif submember.byte_offset is not None:
                     offset = submember.byte_offset
 
-                self._register_member_as_var_recursive(new_path_segments, submember, location, offset, array_segments)
+
+
+
+                self._register_member_as_var_recursive(new_path_segments, submember, location, offset, array_segments, freeze_segment)
         elif member.member_type == Struct.Member.MemberType.SubArray:
             array = member.get_array()
             # We group arrays element together.  /aaa/bbb/ccc/ccc[0].
@@ -2139,18 +1734,19 @@ class ElfDwarfVarExtractor:
             if func_name is not None:
                 name = func_name
 
-
+        attached_die = die
         # Try to get the name of the die and use it as a level of the path
         if name is None:
             if Attrs.DW_AT_specification in die.attributes:
                 spec_die = die.get_DIE_from_attribute(Attrs.DW_AT_specification)
                 name = self._get_die_name(spec_die)
+                attached_die = spec_die
 
         # There is a name available, we add it to the path and keep going
         if name is not None:
-            varpath.prepend_segment(name=name, array=array)
+            varpath.prepend_segment(name=name, array=array, die=attached_die)
             if array is not None:
-                varpath.prepend_segment(name=name)  # Add a level to group the array elements together /aaa/bbb/ccc/ccc[0]
+                varpath.prepend_segment(name=name, die=attached_die)  # Add a level to group the array elements together /aaa/bbb/ccc/ccc[0]
 
             if parent is not None:
                 return self._make_varpath_recursive(parent, varpath)
