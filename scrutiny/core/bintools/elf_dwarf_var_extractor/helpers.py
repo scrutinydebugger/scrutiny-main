@@ -12,9 +12,11 @@ __all__ = [
     'split_path_crossplatform',
     'make_unique_display_name',
     'make_ptr_typename',
+    'get_linenumber',
 ]
 
 from dataclasses import dataclass
+from inspect import currentframe
 from pathlib import PurePosixPath, PureWindowsPath
 from elftools.dwarf.die import DIE
 from elftools.dwarf.compileunit import CompileUnit
@@ -402,6 +404,19 @@ def make_ptr_typename(bytesize: int) -> str:
     return f'ptr{bytesize * 8}'
 
 
+def get_linenumber() -> int:
+    """Return the line number of the caller. For debugging purpose"""
+    cf = currentframe()
+    if cf is None:
+        return -1
+    if cf.f_back is None:
+        return -1
+    if cf.f_back.f_lineno is None:
+        return -1
+
+    return int(cf.f_back.f_lineno)
+
+
 class DwarfHelper:
     """Functions that interpret DWARF debug information entries"""
 
@@ -490,7 +505,7 @@ class DwarfHelper:
     def get_typename_from_die(die: DIE) -> str:
         """Reads the name out of a base type DIE"""
         if die.tag == Tags.DW_TAG_base_type:
-            return cast(bytes, die.attributes[Attrs.DW_AT_name].value).decode('ascii')
+            return cast(bytes, die.attributes[Attrs.DW_AT_name].value).decode('utf8')
         raise ElfParsingError(f"Cannot extract type name from die {die}")
 
     @staticmethod

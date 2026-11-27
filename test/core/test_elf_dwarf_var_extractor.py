@@ -1857,6 +1857,59 @@ int main(int argc, char* argv[])
                 self.assertFalse(varmap.has_var('/global/my_cell'))
                 self.assertFalse(varmap.has_var('/global/my_atomic'))
 
+    @unittest.skipIf(
+        not has_elf_toolchain(compiler='g++', cppfilt='c++filt')
+        or not has_elf_toolchain(compiler='clang++', cppfilt='c++filt'),
+        "No toolchain available")
+    def test_utf8_names_cpp(self):
+        # Identifiers with non-ASCII characters are stored as UTF-8 in the DWARF names.
+        code = """
+#include <cstdint>
+%s
+struct Données
+{
+    uint32_t été;
+    int16_t 計數器;
+};
+
+Données var_é;
+
+int main(int argc, char* argv[])
+{
+    var_é.été = 0x12345678;
+    var_é.計數器 = -1234;
+    %s
+    return 0;
+}
+""" % (memdump_declare, memdump_invocation)
+        for compiler in ['g++', 'clang++']:
+            with self.subTest(compiler):
+                varmap, memdump = self._make_varmap_and_memdump(code, dwarf_version=4, compiler=compiler, cppfilt='c++filt')
+                self.assert_value_at_path('/global/var_é/été', varmap, memdump, 0x12345678)
+                self.assert_value_at_path('/global/var_é/計數器', varmap, memdump, -1234)
+
+    @unittest.skipIf(not has_rust_toolchain(), "No Rust toolchain available")
+    def test_utf8_names_rust(self):
+        # Identifiers with non-ASCII characters are stored as UTF-8 in the DWARF names
+        code = """
+#![allow(static_mut_refs, dead_code, non_upper_case_globals, non_camel_case_types, non_snake_case)]
+pub struct Données { été: u32, 計數器: i16 }
+
+#[used] pub static mut var_é: Données = Données { été: 0x12345678, 計數器: -1234 };
+
+pub mod module_é {
+    #[used] pub static mut compteur_é: u32 = 0xAABBCCDD;
+}
+
+fn main() {}
+"""
+        for dwarf_version in [4, 5]:
+            with self.subTest(f"rustc-dwarf{dwarf_version}"):
+                varmap, memdump = self._make_rust_varmap_and_memdump(code, crate_name='utf8_test', dwarf_version=dwarf_version)
+                self.assert_value_at_path('/static/utf8_test/var_é/été', varmap, memdump, 0x12345678)
+                self.assert_value_at_path('/static/utf8_test/var_é/計數器', varmap, memdump, -1234)
+                self.assert_value_at_path('/static/utf8_test/module_é/compteur_é', varmap, memdump, 0xAABBCCDD)
+
 
 if __name__ == '__main__':
     import unittest

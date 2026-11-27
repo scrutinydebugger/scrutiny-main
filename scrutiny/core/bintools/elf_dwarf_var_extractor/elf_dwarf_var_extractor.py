@@ -19,7 +19,6 @@ import os
 import logging
 import inspect
 
-from inspect import currentframe
 from fnmatch import fnmatch
 
 from scrutiny.core.bintools.elf_dwarf_var_extractor.definitions import (
@@ -29,9 +28,10 @@ from scrutiny.core.bintools.elf_dwarf_var_extractor.definitions import (
 from scrutiny.core.bintools.elf_dwarf_var_extractor.helpers import (
     ElfParsingError, PointeeTypeDescriptor, TypeDescriptor, 
     ArraySegments, VarPath, Context, ElfSectionNameAndRange,
-    make_unique_display_name, make_ptr_typename, DwarfHelper
+    make_unique_display_name, make_ptr_typename, get_linenumber, DwarfHelper
 )
 from scrutiny.core.bintools.elf_dwarf_var_extractor.simplification_rules import SimplificationRules
+from scrutiny.core.bintools.elf_dwarf_var_extractor.parse_errors import ParseErrors
 
 from scrutiny.core.bintools.demangler import GccDemangler, BaseDemangler
 from scrutiny.core.bintools.demangled_name_parser import CppDemangledNameParser
@@ -53,63 +53,6 @@ from scrutiny.tools.typing import *
 # region Constant definitions
 
 RUST_NAMESPACES_TO_SKIP = ['core', 'alloc']
-
-
-# region Helper classes
-
-class ParseErrors:
-    """A class that represent a parsing error.
-    We keep track of all the error we find so that we can fail unit tests without stopping the parsing"""
-    __slots__ = ('_exceptions', )
-
-    _exceptions: List[Exception]
-    """List of exception registered"""
-
-    def __init__(self) -> None:
-        self._exceptions = []
-
-    def register_error(self, e: Exception) -> None:
-        """Add a catched exception"""
-        self._exceptions.append(e)
-
-    def total_count(self, exclude: Optional[List[Type[Exception]]] = None) -> int:
-        """Return the number of exception that are not excluded by ``exclude``"""
-        if exclude is None:
-            return len(self._exceptions)
-
-        count = 0
-        for e in self.iter_exc(exclude):
-            count += 1
-        return count
-
-    def iter_exc(self, exclude: Optional[List[Type[Exception]]] = None) -> Generator[Exception, None, None]:
-        """Iterate every exception registered with an exclude list"""
-        exclude2 = tuple(exclude) if exclude is not None else tuple()
-        for e in self._exceptions:
-            if not isinstance(e, exclude2):
-                yield e
-
-    def get_first_exc(self, exclude: Optional[List[Type[Exception]]] = None) -> Optional[Exception]:
-        """Return the first exception"""
-        if exclude is None:
-            exclude = []
-        gen = self.iter_exc(exclude)
-        return next(gen, None)
-
-
-# endregion
-
-def get_linenumber() -> int:
-    """Return the line number of the caller. For debugging purpose"""
-    cf = currentframe()
-    if cf is None:
-        return -1
-    if cf.f_back is None:
-        return -1
-    if cf.f_back.f_lineno is None:
-        return -1
-
-    return int(cf.f_back.f_lineno)
 
 
 class ElfDwarfVarExtractor:
@@ -292,7 +235,7 @@ class ElfDwarfVarExtractor:
         if not nolog:
             self._log_debug_process_die(die)
         if Attrs.DW_AT_name in die.attributes:
-            return cast(str, die.attributes[Attrs.DW_AT_name].value.decode('ascii'))
+            return cast(str, die.attributes[Attrs.DW_AT_name].value.decode('utf8'))
 
         if default is not None:
             return default
@@ -339,12 +282,12 @@ class ElfDwarfVarExtractor:
         if mangled_encoded is None:
             if self._context.cu_compiler == Compiler.Tasking:
                 if Attrs.DW_AT_name in die.attributes:
-                    name = cast(bytes, die.attributes[Attrs.DW_AT_name].value).decode('ascii')
+                    name = cast(bytes, die.attributes[Attrs.DW_AT_name].value).decode('utf8')
                     if name.startswith('_Z'):   # Speed optimization to avoid invoking the demangler for everything
                         return name
 
         if isinstance(mangled_encoded, bytes):
-            return mangled_encoded.decode('ascii')
+            return mangled_encoded.decode('utf8')
 
         if isinstance(mangled_encoded, str):
             return mangled_encoded
@@ -765,10 +708,10 @@ class ElfDwarfVarExtractor:
                 if Attrs.DW_AT_name in die.attributes:
                     # cl2000 embeds the full mangled path in the DW_AT_NAME attribute,
                     # ex : _ZN13FileNamespace14File3TestClass16File3EnumInClassE = FileNamespace::File3TestClass::File3EnumInClass
-                    mangled_name = cast(str, die.attributes[Attrs.DW_AT_name].value.decode('ascii'))
+                    mangled_name = cast(str, die.attributes[Attrs.DW_AT_name].value.decode('utf8'))
         else:
             if Attrs.DW_AT_linkage_name in die.attributes:
-                mangled_name = cast(str, die.attributes[Attrs.DW_AT_linkage_name].value.decode('ascii'))
+                mangled_name = cast(str, die.attributes[Attrs.DW_AT_linkage_name].value.decode('utf8'))
 
         if mangled_name is not None:
             demangled_name = self._demangler.demangle(mangled_name, self._context.get_demangle_format())

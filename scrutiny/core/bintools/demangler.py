@@ -72,5 +72,5 @@ class GccDemangler(BaseDemangler):
             format_args = ['--format', 'rust']
 
         self.process = subprocess.Popen([self.binary_name, '-n'] + format_args,
-                                        stdout=subprocess.PIPE, stdin=subprocess.PIPE, universal_newlines=True)
+                                        stdout=subprocess.PIPE, stdin=subprocess.PIPE, universal_newlines=True, encoding='utf8')
         return self.process.communicate(input=mangled)[0]
