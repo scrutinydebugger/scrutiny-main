@@ -1,6 +1,6 @@
 __all__ = [
-    'ElfParsingError', 
-    'get_core_base_type', 
+    'DwarfHelper',
+    'ElfParsingError',
     'PointeeTypeDescriptor', 
     'TypeDescriptor', 
     'VarPathSegment', 
@@ -10,17 +10,7 @@ __all__ = [
     'Context',
     'split_path_crossplatform',
     'make_unique_display_name',
-    'is_external',
-    'identify_compiler',
-    'identify_endianness',
-    'get_typename_from_die',
-    'get_size_from_type_die',
-    'has_member_byte_offset',
-    'get_member_byte_offset',
-    'is_forward_declaration',
     'make_ptr_typename',
-    'is_supported_base_type',
-    'find_parent_die_of_type',
 ]
 
 from dataclasses import dataclass
@@ -41,7 +31,6 @@ from scrutiny.core.bintools.elf_dwarf_var_extractor.definitions import Attrs, Ta
 from scrutiny.tools.typing import *
 
 MAX_CU_DISPLAY_NAME_LENGTH = 64
-DW_OP_plus_uconst = 0x23
 
 class ElfParsingError(Exception):
     pass
@@ -117,17 +106,6 @@ ENCODING_2_DTYPE_MAP: Dict[DwarfEncoding, Dict[int, EmbeddedDataType]] = {
         8: EmbeddedDataType.uint64,
     }
 }
-
-def get_core_base_type(encoding: DwarfEncoding, bytesize: int, char_bit: Literal[8, 16]) -> EmbeddedDataType:
-    """Convert a DWARF encoding into a Scrutiny EmbeddedDataType"""
-    if encoding not in ENCODING_2_DTYPE_MAP:
-        raise ValueError(f'Unknown encoding {encoding}')
-
-    eight_bit_size = bytesize * (char_bit // 8)
-    if eight_bit_size not in ENCODING_2_DTYPE_MAP[encoding]:
-        raise ValueError(f'Encoding {encoding} with {eight_bit_size} 8bits bytes')
-
-    return ENCODING_2_DTYPE_MAP[encoding][eight_bit_size]
 
 def split_path_crossplatform(fullpath: str) -> Tuple[str, List[str]]:
     is_windows_path = (
@@ -402,117 +380,135 @@ def make_unique_display_name(fullpath_list: List[str]) -> Dict[str, str]:
     return outmap
 
 
-def is_external(die: DIE) -> bool:
-    """Tells if the die is accessible from outside the compile unit. If it is, it's global, otherwise it's static."""
-    try:
-        return bool(die.attributes[Attrs.DW_AT_external].value)
-    except Exception:
-        return False
-
-
-def identify_compiler(cu: CompileUnit) -> Compiler:
-    """Identify what compiler produced a compile unit. We can handle their little quirks"""
-    cu_die = cu.get_top_DIE()
-    if cu_die.tag != Tags.DW_TAG_compile_unit:
-        return Compiler.UNKNOWN
-
-    if Attrs.DW_AT_producer in cu_die.attributes:
-        producer = str(cu_die.attributes[Attrs.DW_AT_producer].value).strip().lower()
-        if 'ti' in producer and 'c2000' in producer:
-            return Compiler.TI_C28_CGT
-        if 'rustc' in producer:
-            return Compiler.RUSTC
-        if 'clang' in producer:
-            return Compiler.CLANG
-        if 'gnu' in producer:
-            return Compiler.GCC
-        if 'tasking' in producer:
-            return Compiler.Tasking
-        if 'IAR ANSI C/C++ Compiler'.lower() in producer:
-            return Compiler.IAR_ICC
-
-    return Compiler.UNKNOWN
-
-
-def identify_endianness(elffile: ELFFile) -> Endianness:
-    """Identify the endianness. Based on the elffile"""
-    # The endianness of an ELF file should match the target architecture in 99.99% of cases.
-
-    if elffile.little_endian:
-        return Endianness.Little
-    else:
-        return Endianness.Big
-
-
-def get_typename_from_die(die: DIE) -> str:
-    """Reads the name out of a base type DIE"""
-    if die.tag == Tags.DW_TAG_base_type:
-        return cast(bytes, die.attributes[Attrs.DW_AT_name].value).decode('ascii')
-    raise ElfParsingError(f"Cannot extract type name from die {die}")
-
-
-def get_size_from_type_die(die: DIE) -> int:
-    """Return the size in multiple of 8 bits bytes of a given type DIE"""
-    if Attrs.DW_AT_byte_size not in die.attributes:
-        raise ElfParsingError(f'Missing DW_AT_byte_size on type die {die}')
-    val = cast(int, die.attributes[Attrs.DW_AT_byte_size].value)
-
-    return val
-
-
-def has_member_byte_offset(die: DIE) -> bool:
-    """Tells if an offset relative to the structure base is available on this member die"""
-    return Attrs.DW_AT_data_member_location in die.attributes
-
-
-def get_member_byte_offset(die: DIE) -> int:
-    """Tell the offset at which this member is located relative to the structure base"""
-    if Attrs.DW_AT_data_member_location not in die.attributes:
-        # DWARF V4. 5.5.6: If the beginning of the data member is the same as the beginning of the containing entity then neither attribute is required.
-        return 0
-
-    val = die.attributes[Attrs.DW_AT_data_member_location].value
-    if isinstance(val, int):
-        return val
-
-    if isinstance(val, list):
-        if len(val) < 2:
-            raise ElfParsingError(f"Invalid member offset data length for die {die}")
-
-        if val[0] != DW_OP_plus_uconst:
-            raise ElfParsingError(f"Does not know how to read member location for die {die}. Operator is unsupported")
-
-        return tools.uleb128_decode(bytes(val[1:]))
-
-    raise ElfParsingError(f"Does not know how to read member location for die {die}")
-
-
-def is_forward_declaration(die: DIE) -> bool:
-    return Attrs.DW_AT_declaration in die.attributes and bool(die.attributes[Attrs.DW_AT_declaration].value) == True
-
-
 def make_ptr_typename(bytesize: int) -> str:
     return f'ptr{bytesize * 8}'
 
 
-def is_supported_base_type(die:DIE) -> bool:
-    try:
-        bytesize = get_size_from_type_die(die)
-    except ElfParsingError:
-        return False
+class DwarfHelper:
+    """Functions that interpret DWARF debug information entries"""
 
-    if bytesize == 0:   # IAR can do that with void*
-        return False
-    return True
+    DW_OP_plus_uconst = 0x23
 
+    @staticmethod
+    def get_core_base_type(encoding: DwarfEncoding, bytesize: int, char_bit: Literal[8, 16]) -> EmbeddedDataType:
+        """Convert a DWARF encoding into a Scrutiny EmbeddedDataType"""
+        if encoding not in ENCODING_2_DTYPE_MAP:
+            raise ValueError(f'Unknown encoding {encoding}')
 
-def find_parent_die_of_type(die: DIE, tag: str) -> Optional[DIE]:
+        eight_bit_size = bytesize * (char_bit // 8)
+        if eight_bit_size not in ENCODING_2_DTYPE_MAP[encoding]:
+            raise ValueError(f'Encoding {encoding} with {eight_bit_size} 8bits bytes')
 
-    parent = die.get_parent()
-    if parent is None:
-        return None
-    else:
-        if die.tag == tag:
-            return die
+        return ENCODING_2_DTYPE_MAP[encoding][eight_bit_size]
+
+    @staticmethod
+    def identify_endianness(elffile: ELFFile) -> Endianness:
+        """Identify the endianness. Based on the elffile"""
+        # The endianness of an ELF file should match the target architecture in 99.99% of cases.
+
+        if elffile.little_endian:
+            return Endianness.Little
         else:
-            return find_parent_die_of_type(parent, tag)
+            return Endianness.Big
+
+    @staticmethod
+    def is_external(die: DIE) -> bool:
+        """Tells if the die is accessible from outside the compile unit. If it is, it's global, otherwise it's static."""
+        try:
+            return bool(die.attributes[Attrs.DW_AT_external].value)
+        except Exception:
+            return False
+
+    @staticmethod
+    def identify_compiler(cu: CompileUnit) -> Compiler:
+        """Identify what compiler produced a compile unit. We can handle their little quirks"""
+        cu_die = cu.get_top_DIE()
+        if cu_die.tag != Tags.DW_TAG_compile_unit:
+            return Compiler.UNKNOWN
+
+        if Attrs.DW_AT_producer in cu_die.attributes:
+            producer = str(cu_die.attributes[Attrs.DW_AT_producer].value).strip().lower()
+            if 'ti' in producer and 'c2000' in producer:
+                return Compiler.TI_C28_CGT
+            if 'rustc' in producer:
+                return Compiler.RUSTC
+            if 'clang' in producer:
+                return Compiler.CLANG
+            if 'gnu' in producer:
+                return Compiler.GCC
+            if 'tasking' in producer:
+                return Compiler.Tasking
+            if 'IAR ANSI C/C++ Compiler'.lower() in producer:
+                return Compiler.IAR_ICC
+
+        return Compiler.UNKNOWN
+
+    @staticmethod
+    def get_typename_from_die(die: DIE) -> str:
+        """Reads the name out of a base type DIE"""
+        if die.tag == Tags.DW_TAG_base_type:
+            return cast(bytes, die.attributes[Attrs.DW_AT_name].value).decode('ascii')
+        raise ElfParsingError(f"Cannot extract type name from die {die}")
+
+    @staticmethod
+    def get_size_from_type_die(die: DIE) -> int:
+        """Return the size in multiple of 8 bits bytes of a given type DIE"""
+        if Attrs.DW_AT_byte_size not in die.attributes:
+            raise ElfParsingError(f'Missing DW_AT_byte_size on type die {die}')
+        val = cast(int, die.attributes[Attrs.DW_AT_byte_size].value)
+
+        return val
+
+    @staticmethod
+    def has_member_byte_offset(die: DIE) -> bool:
+        """Tells if an offset relative to the structure base is available on this member die"""
+        return Attrs.DW_AT_data_member_location in die.attributes
+
+    @staticmethod
+    def get_member_byte_offset(die: DIE) -> int:
+        """Tell the offset at which this member is located relative to the structure base"""
+        if Attrs.DW_AT_data_member_location not in die.attributes:
+            # DWARF V4. 5.5.6: If the beginning of the data member is the same as the beginning of the containing entity then neither attribute is required.
+            return 0
+
+        val = die.attributes[Attrs.DW_AT_data_member_location].value
+        if isinstance(val, int):
+            return val
+
+        if isinstance(val, list):
+            if len(val) < 2:
+                raise ElfParsingError(f"Invalid member offset data length for die {die}")
+
+            if val[0] != DwarfHelper.DW_OP_plus_uconst:
+                raise ElfParsingError(f"Does not know how to read member location for die {die}. Operator is unsupported")
+
+            return tools.uleb128_decode(bytes(val[1:]))
+
+        raise ElfParsingError(f"Does not know how to read member location for die {die}")
+
+    @staticmethod
+    def is_forward_declaration(die: DIE) -> bool:
+        return Attrs.DW_AT_declaration in die.attributes and bool(die.attributes[Attrs.DW_AT_declaration].value) == True
+
+    @staticmethod
+    def is_supported_base_type(die:DIE) -> bool:
+        try:
+            bytesize = DwarfHelper.get_size_from_type_die(die)
+        except ElfParsingError:
+            return False
+
+        if bytesize == 0:   # IAR can do that with void*
+            return False
+        return True
+
+    @staticmethod
+    def find_parent_die_of_type(die: DIE, tag: str) -> Optional[DIE]:
+
+        parent = die.get_parent()
+        if parent is None:
+            return None
+        else:
+            if die.tag == tag:
+                return die
+            else:
+                return DwarfHelper.find_parent_die_of_type(parent, tag)
