@@ -29,7 +29,10 @@ from scrutiny.core.bintools.elf_dwarf_var_extractor.definitions import (
 
 from scrutiny.core.bintools.elf_dwarf_var_extractor.helpers import (
     ElfParsingError, get_core_base_type, PointeeTypeDescriptor, TypeDescriptor, 
-    ArraySegments, VarPath, CuName, Context
+    ArraySegments, VarPath, CuName, Context,
+    make_unique_display_name, is_external, identify_compiler, identify_endianness, get_typename_from_die,
+    get_size_from_type_die, has_member_byte_offset, get_member_byte_offset, is_forward_declaration,
+    make_ptr_typename, is_supported_base_type, find_parent_die_of_type
 )
 from scrutiny.core.bintools.elf_dwarf_var_extractor.simplification_rules import SimplificationRules
 
@@ -46,7 +49,6 @@ from scrutiny.core.embedded_enum import *
 from scrutiny.core.logging import DUMPDATA_LOGLEVEL
 from scrutiny.exceptions import EnvionmentNotSetUpException
 from scrutiny import tools
-from scrutiny.tools.sorted_set import SortedSet
 
 from scrutiny.tools.typing import *
 
@@ -125,9 +127,7 @@ class ElfDwarfVarExtractor:
 
     STATIC = 'static'
     GLOBAL = 'global'
-    MAX_CU_DISPLAY_NAME_LENGTH = 64
     DW_OP_addr = 3
-    DW_OP_plus_uconst = 0x23
     DW_OP_addrx = 0xa1
 
     _varmap: VarMap
@@ -205,47 +205,6 @@ class ElfDwarfVarExtractor:
 
     # region Public
 
-    @classmethod
-    def make_unique_display_name(cls, fullpath_list: List[str]) -> Dict[str, str]:
-        """Build a unique name for a CompileUnit. Do some extensive effort to keep a meaningful name, as short as possible
-        and avoid collisions if 2 files has the same name."""
-        cuname_set = SortedSet([CuName(x) for x in sorted(fullpath_list)])
-        outmap: Dict[str, str] = {}
-
-        display_name_set: Set[str] = set()
-        while len(cuname_set) > 0:
-            consumed_set: Set[CuName] = set()
-            for cuname in cuname_set:
-                display_name = cuname.get_display_name()
-
-                identical_name_set: Set[CuName] = set()
-                for cuname2 in cuname_set:
-                    if cuname2.get_display_name() == display_name:
-                        identical_name_set.add(cuname2)
-
-                if len(identical_name_set) == 1:
-                    display_name_set.add(display_name)
-                    consumed_set.add(cuname)
-                    outmap[cuname.get_fullpath()] = display_name
-
-            for consumed in consumed_set:
-                cuname_set.remove(consumed)
-
-            # Those that are left had duplicate name.
-            # Change the name and try again
-            for cuname in cuname_set:
-                try:
-                    cuname.go_up()
-                    if len(cuname.get_display_name()) > cls.MAX_CU_DISPLAY_NAME_LENGTH:
-                        raise ElfParsingError('Name too long')
-                except Exception:
-                    # Does not affect the given set.
-                    # Only mark the Compile Unit as using a numbered name.
-                    # This numbered name will be consumed on next loop iteration.
-                    cuname.make_unique_numbered_name(display_name_set)
-
-        return outmap
-
     def get_errors(self) -> ParseErrors:
         """Returns all the errors registered during the parsing"""
         return self._parse_errors
@@ -295,7 +254,7 @@ class ElfDwarfVarExtractor:
                 fullpath_cu_map[fullpath] = []
             fullpath_cu_map[fullpath].append(cu)
 
-        fullpath_to_displayname_map = self.make_unique_display_name(list(fullpath_cu_map.keys()))
+        fullpath_to_displayname_map = make_unique_display_name(list(fullpath_cu_map.keys()))
 
         for fullpath, cu_list in fullpath_cu_map.items():
             for cu in cu_list:
@@ -417,13 +376,6 @@ class ElfDwarfVarExtractor:
             return [x for x in parts if not x.startswith('_INTERNAL_')]
         return parts
 
-    def _is_external(self, die: DIE) -> bool:
-        """Tells if the die is accessible from outside the compile unit. If it is, it's global, otherwise it's static."""
-        try:
-            return bool(die.attributes[Attrs.DW_AT_external].value)
-        except Exception:
-            return False
-
     def _scan_elf_file(self, filename: str) -> None:
         """Reads an ELF file and builds the varmap. Main entry point for scanning"""
         self._initial_stack_depth = len(inspect.stack())
@@ -439,7 +391,7 @@ class ElfDwarfVarExtractor:
             self._valid_memory_ranges = self._read_valid_memory_ranges(elffile)
 
             self._context.arch = self._identify_arch()
-            self._context.endianess = self._identify_endianness(elffile)
+            self._context.endianess = identify_endianness(elffile)
             self._varmap.set_endianness(self._context.endianess)
             self._varmap.set_char_bit(self._context.get_char_bit())
 
@@ -455,7 +407,7 @@ class ElfDwarfVarExtractor:
 
             for cu in self._dwarfinfo.iter_CUs():
                 must_process = True
-                compiler = self._identify_compiler(cu)
+                compiler = identify_compiler(cu)
                 if compiler == Compiler.RUSTC:
                     die = cu.get_top_DIE()
                     first_child = next(die.iter_children(), None)
@@ -484,7 +436,7 @@ class ElfDwarfVarExtractor:
                         continue
 
                 # Process the Compile Unit
-                self._context.cu_compiler = self._identify_compiler(cu)
+                self._context.cu_compiler = identify_compiler(cu)
                 self._context.address_size = cu.header.address_size
                 if cu.header.version not in (2, 3, 4, 5):
                     if not bad_support_warning_written:
@@ -538,38 +490,6 @@ class ElfDwarfVarExtractor:
             return 16
         return 8
 
-    def _identify_compiler(self, cu: CompileUnit) -> Compiler:
-        """Identify what compiler produced a compile unit. We can handle their little quirks"""
-        cu_die = cu.get_top_DIE()
-        if cu_die.tag != Tags.DW_TAG_compile_unit:
-            return Compiler.UNKNOWN
-
-        if Attrs.DW_AT_producer in cu_die.attributes:
-            producer = str(cu_die.attributes[Attrs.DW_AT_producer].value).strip().lower()
-            if 'ti' in producer and 'c2000' in producer:
-                return Compiler.TI_C28_CGT
-            if 'rustc' in producer:
-                return Compiler.RUSTC
-            if 'clang' in producer:
-                return Compiler.CLANG
-            if 'gnu' in producer:
-                return Compiler.GCC
-            if 'tasking' in producer:
-                return Compiler.Tasking
-            if 'IAR ANSI C/C++ Compiler'.lower() in producer:
-                return Compiler.IAR_ICC
-
-        return Compiler.UNKNOWN
-
-    def _identify_endianness(self, elffile: ELFFile) -> Endianness:
-        """Identify the endianness. Based on the elffile"""
-        # The endianness of an ELF file should match the target architecture in 99.99% of cases.
-
-        if elffile.little_endian:
-            return Endianness.Little
-        else:
-            return Endianness.Big
-
     def _allowed_by_filters(self, fullname: str) -> bool:
         """Tells if we can register a variable to the varmap and log the reason for not allowing if applicable."""
         allow = True
@@ -600,7 +520,7 @@ class ElfDwarfVarExtractor:
             """
         if die.tag == Tags.DW_TAG_pointer_type:
             bytesize = self._get_size_from_pointer_die(die)
-            return self._make_ptr_typename(bytesize)
+            return make_ptr_typename(bytesize)
         raise ElfParsingError(f"Cannot extract pointer name from die {die}")
 
     def _get_size_from_pointer_die(self, die: DIE) -> int:
@@ -613,45 +533,6 @@ class ElfDwarfVarExtractor:
             raise ElfParsingError(f'Cannot find the pointer size on die {die}')
         val = cast(int, die.attributes[Attrs.DW_AT_byte_size].value)
         return val
-
-    def _get_typename_from_die(self, die: DIE) -> str:
-        """Reads the name out of a base type DIE"""
-        if die.tag == Tags.DW_TAG_base_type:
-            return cast(bytes, die.attributes[Attrs.DW_AT_name].value).decode('ascii')
-        raise ElfParsingError(f"Cannot extract type name from die {die}")
-
-    def _get_size_from_type_die(self, die: DIE) -> int:
-        """Return the size in multiple of 8 bits bytes of a given type DIE"""
-        if Attrs.DW_AT_byte_size not in die.attributes:
-            raise ElfParsingError(f'Missing DW_AT_byte_size on type die {die}')
-        val = cast(int, die.attributes[Attrs.DW_AT_byte_size].value)
-
-        return val
-
-    def _has_member_byte_offset(self, die: DIE) -> bool:
-        """Tells if an offset relative to the structure base is available on this member die"""
-        return Attrs.DW_AT_data_member_location in die.attributes
-
-    def _get_member_byte_offset(self, die: DIE) -> int:
-        """Tell the offset at which this member is located relative to the structure base"""
-        if Attrs.DW_AT_data_member_location not in die.attributes:
-            # DWARF V4. 5.5.6: If the beginning of the data member is the same as the beginning of the containing entity then neither attribute is required.
-            return 0
-
-        val = die.attributes[Attrs.DW_AT_data_member_location].value
-        if isinstance(val, int):
-            return val
-
-        if isinstance(val, list):
-            if len(val) < 2:
-                raise ElfParsingError(f"Invalid member offset data length for die {die}")
-
-            if val[0] != self.DW_OP_plus_uconst:
-                raise ElfParsingError(f"Does not know how to read member location for die {die}. Operator is unsupported")
-
-            return tools.uleb128_decode(bytes(val[1:]))
-
-        raise ElfParsingError(f"Does not know how to read member location for die {die}")
 
     def _get_location(self, die: DIE) -> Optional[AbsoluteLocation]:
         """Try to extract the location from a die. Returns ``None`` if not available"""
@@ -686,12 +567,6 @@ class ElfDwarfVarExtractor:
 
         return None
 
-    def _is_forward_declaration(self, die: DIE) -> bool:
-        return Attrs.DW_AT_declaration in die.attributes and bool(die.attributes[Attrs.DW_AT_declaration].value) == True
-
-    def _make_ptr_typename(self, bytesize: int) -> str:
-        return f'ptr{bytesize * 8}'
-
     def _extract_var_recursive(self, die: DIE) -> None:
         """Finds all "variable" tags and create an entry in the varmap.
         Types / structures / enums are discovered as we go. We only take
@@ -710,27 +585,17 @@ class ElfDwarfVarExtractor:
                 tools.log_exception(self._logger, e, f"Failed to extract var under {child}.")
 
 # region DIE specific
-    def _is_supported_base_type(self, die:DIE) -> bool:
-        try:
-            bytesize = self._get_size_from_type_die(die)
-        except ElfParsingError:
-            return False
-
-        if bytesize == 0:   # IAR can do that with void*
-            return False
-        return True
-
     def _die_process_base_type(self, die: DIE) -> None:
         """Process die of type "base type". Register the type in the global index and maps it to a known type."""
 
         self._log_debug_process_die(die)
-        if not self._is_supported_base_type(die):
+        if not is_supported_base_type(die):
             return
 
         if die not in self._die2vartype_map:
-            name = self._get_typename_from_die(die)
+            name = get_typename_from_die(die)
             encoding = DwarfEncoding(cast(int, die.attributes[Attrs.DW_AT_encoding].value))
-            bytesize = self._get_size_from_type_die(die)
+            bytesize = get_size_from_type_die(die)
             basetype = get_core_base_type(encoding, bytesize, self._context.get_char_bit())
             self._logger.debug(f"Registering base type: {name} as {basetype.name}")
             self._varmap.register_base_type(name, basetype)
@@ -753,7 +618,7 @@ class ElfDwarfVarExtractor:
             if address_size not in typemap:
                 raise ElfParsingError(f"Pointer with unsupported byte size {address_size}")
             self._die2vartype_map[die] = typemap[address_size]
-            self._varmap.register_base_type(self._make_ptr_typename(address_size), typemap[address_size])
+            self._varmap.register_base_type(make_ptr_typename(address_size), typemap[address_size])
 
     def _die_process_enum(self, die: DIE) -> None:
         """Process a DIE of type Enum. Get a full definition and register an EmbeddedEnum structure in a global cache"""
@@ -791,7 +656,7 @@ class ElfDwarfVarExtractor:
         if Attrs.DW_AT_byte_size not in enum_die.attributes:
             raise ElfParsingError(f"Cannot determine enum size {enum_die}")
 
-        bytesize = self._get_size_from_type_die(enum_die)
+        bytesize = get_size_from_type_die(enum_die)
 
         try:
             encoding = DwarfEncoding(cast(int, enum_die.attributes[Attrs.DW_AT_encoding].value))
@@ -995,7 +860,7 @@ class ElfDwarfVarExtractor:
                 break
             elif nextdie.tag == Tags.DW_TAG_base_type:
                 val_out = TypeDescriptor(TypeOfVar.BaseType, enum, nextdie, None)
-                if not self._is_supported_base_type(nextdie):
+                if not is_supported_base_type(nextdie):
                     self._logger.debug("Skipping unsupported base type %s", nextdie)
                     return None
                 break
@@ -1061,8 +926,8 @@ class ElfDwarfVarExtractor:
                     struct.add_member(member)
             elif child.tag == Tags.DW_TAG_inheritance:
                 offset = 0
-                if self._has_member_byte_offset(child):
-                    offset = self._get_member_byte_offset(child)
+                if has_member_byte_offset(child):
+                    offset = get_member_byte_offset(child)
                 typedie = child.get_DIE_from_attribute(Attrs.DW_AT_type)
                 if typedie.tag not in [Tags.DW_TAG_structure_type, Tags.DW_TAG_class_type]:   # Add union here?
                     self._logger.warning(f"Line {get_linenumber()}: Inheritance to a type die {self._make_name_for_log(typedie)}. Not supported yet")
@@ -1243,7 +1108,7 @@ class ElfDwarfVarExtractor:
 
             if type_desc.type == TypeOfVar.BaseType:
                 self._die_process_base_type(type_desc.type_die)    # Just in case it is unknown yet
-                typename = self._get_typename_from_die(type_desc.type_die)
+                typename = get_typename_from_die(type_desc.type_die)
             elif type_desc.type == TypeOfVar.EnumOnly:    # clang dwarf v2 may do that for enums
                 assert type_desc.enum_die is type_desc.type_die
                 typename = self._die_process_enum_only_type_and_make_name(type_desc.enum_die)
@@ -1263,15 +1128,15 @@ class ElfDwarfVarExtractor:
                 f"Line {get_linenumber()}: Found a member with a type die {self._make_name_for_log(type_desc.type_die)} (type={type_desc.type.name}). Not supported yet")
             return None
 
-        if self._is_forward_declaration(die):    # We are looking at a forward declared member.
+        if is_forward_declaration(die):    # We are looking at a forward declared member.
             return None
 
         if is_in_union:
-            if self._has_member_byte_offset(die) and self._get_member_byte_offset(die) != 0:
+            if has_member_byte_offset(die) and get_member_byte_offset(die) != 0:
                 raise ElfParsingError("Encountered an union with a non-zero member location.")
             byte_offset = 0
         else:
-            byte_offset = self._get_member_byte_offset(die)
+            byte_offset = get_member_byte_offset(die)
 
         is_bitfield = Attrs.DW_AT_bit_offset in die.attributes or Attrs.DW_AT_bit_size in die.attributes
 
@@ -1288,7 +1153,7 @@ class ElfDwarfVarExtractor:
             if Attrs.DW_AT_byte_size in die.attributes:
                 bytesize = int(die.attributes[Attrs.DW_AT_byte_size].value)
             elif type_desc.type in [TypeOfVar.BaseType, TypeOfVar.EnumOnly]:
-                bytesize = self._get_size_from_type_die(type_desc.type_die)
+                bytesize = get_size_from_type_die(type_desc.type_die)
             else:
                 raise ElfParsingError(f'Cannot get byte size for bitfield {name}')
 
@@ -1500,7 +1365,7 @@ class ElfDwarfVarExtractor:
 
             was_added = self._maybe_register_variable(  # Create the pointer entry first
                 path_segments=path_segments,
-                original_type_name=self._make_ptr_typename(ptr.get_size_byte()),
+                original_type_name=make_ptr_typename(ptr.get_size_byte()),
                 location=location,
                 bitoffset=member.bitoffset,
                 bitsize=member.bitsize,
@@ -1667,7 +1532,7 @@ class ElfDwarfVarExtractor:
         Handle real base type + Clang anonymous enums"""
         if type_desc.type == TypeOfVar.BaseType:   # Most common case
             self._die_process_base_type(type_desc.type_die)    # Just in case it is unknown yet
-            typename = self._get_typename_from_die(type_desc.type_die)
+            typename = get_typename_from_die(type_desc.type_die)
         elif type_desc.type == TypeOfVar.EnumOnly:    # clang dwarf v2 may do that for enums
             assert type_desc.enum_die is type_desc.type_die
             assert type_desc.enum_die is not None
@@ -1675,17 +1540,6 @@ class ElfDwarfVarExtractor:
         else:
             raise ElfParsingError("Impossible to process base type")
         return typename
-
-    def _find_parent_die_of_type(self, die: DIE, tag: str) -> Optional[DIE]:
-
-        parent = die.get_parent()
-        if parent is None:
-            return None
-        else:
-            if die.tag == tag:
-                return die
-            else:
-                return self._find_parent_die_of_type(parent, tag)
 
     def _make_varpath_recursive(self, die: DIE, varpath: Optional[VarPath] = None) -> VarPath:
         """Start from a variable DIE and go up the DWARF structure to build a path"""
@@ -1715,7 +1569,7 @@ class ElfDwarfVarExtractor:
                 use_linkage_name = True
 
                 if die.tag == Tags.DW_TAG_variable and name is not None:    # C2000 behavior mostly, but should apply to others
-                    parent_subprogram_die = self._find_parent_die_of_type(die, Tags.DW_TAG_subprogram)
+                    parent_subprogram_die = find_parent_die_of_type(die, Tags.DW_TAG_subprogram)
                     if parent_subprogram_die is not None:
                         if self._has_linkage_name(parent_subprogram_die):
                             use_linkage_name = False
@@ -1763,7 +1617,7 @@ class ElfDwarfVarExtractor:
         """Generate the display path for a die, either from the hierarchy or the linkage name"""
         varpath = self._make_varpath_recursive(die)  # Stops at the compile unit (without including it)
 
-        if self._is_external(die):
+        if is_external(die):
             varpath.prepend_segment(self.GLOBAL)
         else:
             if self._context.cu_compiler == Compiler.RUSTC:

@@ -22,6 +22,7 @@ from scrutiny.core.variable_location import ResolvedPathPointedLocation
 from test import logger
 from test import ScrutinyUnitTest
 from scrutiny.core.bintools.elf_dwarf_var_extractor import ElfDwarfVarExtractor
+from scrutiny.core.bintools.elf_dwarf_var_extractor.helpers import make_unique_display_name
 from scrutiny.core.bintools.demangled_name_parser import CppDemangledNameParser
 from scrutiny.core.basic_types import *
 
@@ -48,7 +49,7 @@ class TestElf2VarMapBasics(ScrutinyUnitTest):
             path6,
         ]
 
-        fullpath_2_displaypath_map = ElfDwarfVarExtractor.make_unique_display_name(fullpath_list)
+        fullpath_2_displaypath_map = make_unique_display_name(fullpath_list)
 
         self.assertEqual(len(fullpath_2_displaypath_map), 5)
 
