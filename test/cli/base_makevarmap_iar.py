@@ -1,3 +1,11 @@
+#    base_makevarmap_iar.py
+#        Base test for symbol extraction based on the IAR test application
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2022 Scrutiny Debugger
+
 import unittest
 import struct
 from scrutiny.core.basic_types import *

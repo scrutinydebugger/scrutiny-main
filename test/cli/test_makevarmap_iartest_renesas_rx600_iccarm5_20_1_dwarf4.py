@@ -1,3 +1,10 @@
+#    test_makevarmap_iartest_renesas_rx600_iccarm5_20_1_dwarf4.py
+#        Test suite for symbol extraction. IAR 5.20.1 on Renesas RX600, dwarf V4
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
 
 import unittest
 from test.artifacts import get_artifact

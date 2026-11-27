@@ -1,3 +1,12 @@
+#    simplification_rules.py
+#        Rules deciding if a struct should be registered as one of its submembers instead
+#        of its full member tree
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
+
 __all__ = ['SimplificationRules']
 
 import re

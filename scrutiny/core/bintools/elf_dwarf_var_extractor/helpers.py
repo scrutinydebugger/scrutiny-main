@@ -1,3 +1,11 @@
+#    helpers.py
+#        Helper types and functions used by the DWARF variable extractor
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
+
 __all__ = [
     'DwarfHelper',
     'ElfParsingError',

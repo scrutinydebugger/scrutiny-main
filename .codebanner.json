@@ -75,9 +75,6 @@
         "scrutiny/core/bintools/demangler.py": {
             "docstring": "Converts mangled linkage names to readable symbols names"
         },
-        "scrutiny/core/bintools/elf_dwarf_var_extractor.py": {
-            "docstring": "Reads a .elf file, extract the DWARF debugging symbols and make a VarMap object out of it."
-        },
         "scrutiny/core/bintools/get_var_memrange.py": {
             "docstring": "Simple tool to get the memory ranges of the .elf sections that contains the variables. \nUsed to generate Memdumps for unit testing"
         },
@@ -1190,6 +1187,48 @@
         },
         "scrutiny/gui/tools/drag_and_drop.py": {
             "docstring": "Some drag&drop tools shared across the GUI"
+        },
+        "test/cli/test_makevarmap_Linux_LE_x64_rustc_1_99_1_dwarf3.py": {
+            "docstring": "Test suite for symbol extraction. rustc dwarf V3"
+        },
+        "test/cli/test_makevarmap_Linux_LE_x64_rustc_1_99_1_dwarf2.py": {
+            "docstring": "Test suite for symbol extraction. rustc dwarf V2"
+        },
+        "test/cli/test_makevarmap_iartest_renesas_rx600_iccarm5_20_1_dwarf4.py": {
+            "docstring": "Test suite for symbol extraction. IAR 5.20.1 on Renesas RX600, dwarf V4"
+        },
+        "test/cli/base_makevarmap_rust_testapp.py": {
+            "docstring": "Base test for symbol extraction based on the Rust TestApp"
+        },
+        "test/cli/test_makevarmap_Linux_LE_x64_rustc_1_99_1_dwarf4.py": {
+            "docstring": "Test suite for symbol extraction. rustc dwarf V4"
+        },
+        "test/cli/base_makevarmap_iar.py": {
+            "docstring": "Base test for symbol extraction based on the IAR test application"
+        },
+        "test/cli/test_makevarmap_Linux_LE_x64_rustc_1_99_1_dwarf5.py": {
+            "docstring": "Test suite for symbol extraction. rustc dwarf V5"
+        },
+        "test/cli/test_makevarmap_iartest_arm32_m3_iccarm10_10_2_dwarf4.py": {
+            "docstring": "Test suite for symbol extraction. IAR 10.10.2 on ARM Cortex-M3, dwarf V4"
+        },
+        "scrutiny/core/bintools/demangled_name_parser.py": {
+            "docstring": "Converts demangled linkage names to a list of path segments"
+        },
+        "scrutiny/core/bintools/elf_dwarf_var_extractor/parse_errors.py": {
+            "docstring": "Keeps track of the errors encountered while parsing the DWARF symbols"
+        },
+        "scrutiny/core/bintools/elf_dwarf_var_extractor/elf_dwarf_var_extractor.py": {
+            "docstring": "Reads a .elf file, extract the DWARF debugging symbols and make a VarMap object out of it."
+        },
+        "scrutiny/core/bintools/elf_dwarf_var_extractor/simplification_rules.py": {
+            "docstring": "Rules deciding if a struct should be registered as one of its submembers instead of its full member tree"
+        },
+        "scrutiny/core/bintools/elf_dwarf_var_extractor/helpers.py": {
+            "docstring": "Helper types and functions used by the DWARF variable extractor"
+        },
+        "scrutiny/core/bintools/elf_dwarf_var_extractor/definitions.py": {
+            "docstring": "DWARF constants and enums used by the DWARF variable extractor"
         }
     },
     "authors": {}

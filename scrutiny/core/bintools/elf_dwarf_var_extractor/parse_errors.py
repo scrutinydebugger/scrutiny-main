@@ -1,3 +1,11 @@
+#    parse_errors.py
+#        Keeps track of the errors encountered while parsing the DWARF symbols
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
+
 __all__ = ['ParseErrors']
 
 from scrutiny.tools.typing import *
