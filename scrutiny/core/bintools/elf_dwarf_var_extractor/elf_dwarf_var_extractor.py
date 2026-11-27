@@ -23,6 +23,7 @@ import inspect
 from dataclasses import dataclass
 from inspect import currentframe
 from fnmatch import fnmatch
+from copy import copy
 
 from scrutiny.core.bintools.elf_dwarf_var_extractor.definitions import (
     Attrs, Tags, DwarfEncoding, TypeOfVar, Architecture, Compiler
@@ -140,6 +141,8 @@ class ElfDwarfVarExtractor:
     """Cache mapping an enum die to a Scrutiny EmbeddedEnum object"""
     _struct_die_cache_map: Dict[Tuple[DIE, bool], Struct]
     """Cache mapping a struct die to a Scrutiny Struct"""
+    _struct_replacement_map: Dict[Struct, Struct.Member]
+    """Maps a Struct to the member registered in its place. The member byte_offset is relative to the start of the struct"""
     _array_die_cache_map: Dict[Tuple[DIE, bool], TypedArray]
     """Cache mapping an array die to a Scrutiny TypedArray"""
     _type_of_var_cache: Dict[DIE, Optional[TypeDescriptor]]
@@ -181,6 +184,7 @@ class ElfDwarfVarExtractor:
         self._cu_name_map = {}   # maps a CompileUnit object to its unique display name
         self._enum_die_map = {}
         self._struct_die_cache_map = {}
+        self._struct_replacement_map = {}
         self._array_die_cache_map = {}
         self._type_of_var_cache = {}
         self._cppfilt = cppfilt
@@ -1067,8 +1071,44 @@ class ElfDwarfVarExtractor:
                 parent_struct = self._get_composite_type_def(typedie, allow_dereferencing)
                 struct.inherit(parent_struct, offset=offset)
 
+        self._apply_struct_replacement_rules(struct)
         self._struct_die_cache_map[cache_key] = struct
         return struct
+
+    def _apply_struct_replacement_rules(self, struct: Struct) -> None:
+        """Decide if a fully built struct should be replaced by one of its submembers when registered as a variable.
+        Calls ``_set_struct_replacement()`` when a rule matches. Example: Rust ``AtomicU32`` -> ``['v', 'value']``"""
+        # TODO: Rules based on struct name, number of members, compiler, etc.
+        pass
+
+    def _set_struct_replacement(self, struct: Struct, member_path: List[str]) -> None:
+        """Make a struct be registered as one of its submembers, possibly many levels deep.
+
+        :param struct: The struct to replace
+        :param member_path: Names of the members to go through, starting from the struct. Example: ``['value', 'value', '__0']``
+        """
+        if len(member_path) == 0:
+            raise ValueError("Empty member path")
+
+        current_struct: Optional[Struct] = struct
+        member: Optional[Struct.Member] = None
+        total_byte_offset = 0
+        for name in member_path:
+            if current_struct is None:
+                raise ValueError(f"Cannot go through member {name}. Parent is not a struct")
+            if name not in current_struct.members:
+                raise KeyError(f"No member {name} in struct {current_struct.name}")
+            member = current_struct.members[name]
+            if member.byte_offset is None:
+                raise ElfParsingError(f"Member {name} has no byte_offset")
+            total_byte_offset += member.byte_offset
+            current_struct = member.substruct
+
+        assert member is not None
+        # Copy because the original byte_offset is relative to the member's own parent, not to the replaced struct
+        replacement = copy(member)
+        replacement.byte_offset = total_byte_offset
+        self._struct_replacement_map[struct] = replacement
 
     def _get_array_def(self, die: DIE, allow_dereferencing: bool) -> Optional[TypedArray]:
         """Reads a DIE of type array and return a Scrutiny TypedArray object
@@ -1402,8 +1442,7 @@ class ElfDwarfVarExtractor:
                                           member: Struct.Member,
                                           base_location: Union[AbsoluteLocation, UnresolvedPathPointedLocation],
                                           offset: int,
-                                          array_segments: ArraySegments,
-                                          freeze_segment:bool=False) -> None:
+                                          array_segments: ArraySegments) -> None:
         """Recursive function that digs through structure member and create entries in the varmap
 
             :param path_segments: Path segments of the actual member
@@ -1413,23 +1452,26 @@ class ElfDwarfVarExtractor:
             :param array_segments: Array segments matching the path segments so far
         """
 
-        if member.name == 'main_loop_counter':
-            pass
-
         if member.member_type == Struct.Member.MemberType.SubStruct:
             assert member.substruct is not None
             struct = member.substruct
 
-            if struct.name == 'VolatileCell<u32>':
-                pass
-                freeze_segment = True
+            if struct in self._struct_replacement_map:
+                # Register the struct as its replacement member, under the same path. base_location points to the start of the struct.
+                replacement = self._struct_replacement_map[struct]
+                location = base_location.copy()
+                # SubStruct and SubArray offsets are applied by the parent, BaseType and Pointer apply their own.
+                if replacement.member_type in (Struct.Member.MemberType.SubStruct, Struct.Member.MemberType.SubArray):
+                    assert replacement.byte_offset is not None
+                    location.add_offset(replacement.byte_offset)
+                self._register_member_as_var_recursive(path_segments, replacement, location, offset, array_segments)
+                return
 
             # The actual member is a struct. For each submember, adjust the path and location then recurse
             for name, submember in struct.members.items():
                 location = base_location.copy()
                 new_path_segments = path_segments.copy()
-                if not freeze_segment:
-                    new_path_segments.append(name)
+                new_path_segments.append(name)
 
                 if submember.member_type in (Struct.Member.MemberType.SubStruct, Struct.Member.MemberType.SubArray):
                     assert submember.byte_offset is not None
@@ -1437,10 +1479,7 @@ class ElfDwarfVarExtractor:
                 elif submember.byte_offset is not None:
                     offset = submember.byte_offset
 
-
-
-
-                self._register_member_as_var_recursive(new_path_segments, submember, location, offset, array_segments, freeze_segment)
+                self._register_member_as_var_recursive(new_path_segments, submember, location, offset, array_segments)
         elif member.member_type == Struct.Member.MemberType.SubArray:
             array = member.get_array()
             # We group arrays element together.  /aaa/bbb/ccc/ccc[0].
