@@ -19,6 +19,7 @@ import math
 import os
 import logging
 import inspect
+import re
 
 from dataclasses import dataclass
 from inspect import currentframe
@@ -130,6 +131,36 @@ class ElfDwarfVarExtractor:
     DW_OP_addr = 3
     DW_OP_plus_uconst = 0x23
     DW_OP_addrx = 0xa1
+
+    # Rust wrapper types that are collapsed to their single descendant. Matched against the struct name (DW_AT_name, no namespace).
+    # bool, f16, fixed-point and arbitrary-int types are left out on purpose: their leaf is a raw storage type that loses the meaning.
+    RUST_COLLAPSIBLE_STRUCT_REGEXES: List[re.Pattern[str]] = [
+        # core
+        re.compile(r'^Atomic<([ui](8|16|32|64|128|size)|f(32|64)|\*mut .+)>$'),  # core::sync::atomic and the atomic crate
+        re.compile(r'^Align\d+<'),          # core::sync::atomic::private, internal to Atomic
+        re.compile(r'^UnsafeCell<'),
+        re.compile(r'^Cell<'),
+        re.compile(r'^ManuallyDrop<'),
+        re.compile(r'^MaybeDangling<'),     # Internal to ManuallyDrop
+        re.compile(r'^MaybeUninit<'),
+        re.compile(r'^Wrapping<'),
+        re.compile(r'^Saturating<'),
+        re.compile(r'^Reverse<'),
+        re.compile(r'^NonZero<'),
+        re.compile(r'^NonZero\w+Inner$'),   # core::num::niche_types, internal to NonZero
+        re.compile(r'^NonNull<'),
+        re.compile(r'^Pin<'),
+        # crates
+        re.compile(r'^VolatileCell<'),      # vcell
+        re.compile(r'^(RW|RO|WO)<'),        # volatile_register
+        re.compile(r'^Mutex<'),             # critical_section, bare_metal, embassy_sync. spin and std have many descendants
+        re.compile(r'^Atomic([UI](8|16|32|64|128|size)|F(32|64))$'),  # portable_atomic, atomic_float
+        re.compile(r'^GroundedCell<'),      # grounded
+        re.compile(r'^(InMemoryRegister|ReadWrite|ReadOnly|WriteOnly)<'),  # tock_registers
+        re.compile(r'^CachePadded<'),       # crossbeam_utils
+        re.compile(r'^(OrderedFloat|NotNan)<'),  # ordered_float
+        re.compile(r'^InternalBitFlags$'),  # bitflags
+    ]
 
     _varmap: VarMap
     """The VarMap that we try to build"""
@@ -1078,8 +1109,45 @@ class ElfDwarfVarExtractor:
     def _apply_struct_replacement_rules(self, struct: Struct) -> None:
         """Decide if a fully built struct should be replaced by one of its submembers when registered as a variable.
         Calls ``_set_struct_replacement()`` when a rule matches. Example: Rust ``AtomicU32`` -> ``['v', 'value']``"""
-        # TODO: Rules based on struct name, number of members, compiler, etc.
-        pass
+        if self._context.cu_compiler == Compiler.RUSTC:
+            self._apply_rust_collapse_rule(struct)
+
+    def _apply_rust_collapse_rule(self, struct: Struct) -> None:
+        """Collapse a known Rust wrapper type to its single descendant. Example: ``Atomic<u32>`` -> ``['v', 'value', '__0']``"""
+        name_matches = False
+        for regex in self.RUST_COLLAPSIBLE_STRUCT_REGEXES:
+            if regex.match(struct.name):
+                name_matches = True
+                break
+        if not name_matches:
+            return
+
+        leaves: List[Tuple[List[str], Struct.Member]] = []
+        self._collect_struct_leaves(struct, [], leaves)
+        if len(leaves) != 1:
+            return
+
+        leaf_path, leaf_member = leaves[0]
+        # Arrays are left out. The array registration appends a path segment, which would not give a collapsed name.
+        if leaf_member.member_type not in (Struct.Member.MemberType.BaseType, Struct.Member.MemberType.Pointer):
+            return
+
+        self._set_struct_replacement(struct, leaf_path)
+
+    def _collect_struct_leaves(self, struct: Struct, prefix: List[str], output: List[Tuple[List[str], Struct.Member]]) -> None:
+        """Find every non-struct member of a struct, recursively. Zero-sized members (PhantomData, ()) are not part of the struct and produce no leaf.
+
+        :param struct: The struct to scan
+        :param prefix: The member path leading to this struct
+        :param output: List where (member_path, member) are appended
+        """
+        for name, member in struct.members.items():
+            member_path = prefix + [name]
+            if member.member_type == Struct.Member.MemberType.SubStruct:
+                assert member.substruct is not None
+                self._collect_struct_leaves(member.substruct, member_path, output)
+            else:
+                output.append((member_path, member))
 
     def _set_struct_replacement(self, struct: Struct, member_path: List[str]) -> None:
         """Make a struct be registered as one of its submembers, possibly many levels deep.
