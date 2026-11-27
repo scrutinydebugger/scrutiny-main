@@ -13,7 +13,6 @@ from elftools.dwarf.die import DIE
 from elftools.dwarf.compileunit import CompileUnit
 from elftools.dwarf.dwarfinfo import DWARFInfo
 from elftools.elf.elffile import ELFFile
-from elftools.elf.constants import SH_FLAGS
 
 import math
 import os
@@ -29,7 +28,7 @@ from scrutiny.core.bintools.elf_dwarf_var_extractor.definitions import (
 
 from scrutiny.core.bintools.elf_dwarf_var_extractor.helpers import (
     ElfParsingError, PointeeTypeDescriptor, TypeDescriptor, 
-    ArraySegments, VarPath, Context,
+    ArraySegments, VarPath, Context, ElfSectionNameAndRange,
     make_unique_display_name, make_ptr_typename, DwarfHelper
 )
 from scrutiny.core.bintools.elf_dwarf_var_extractor.simplification_rules import SimplificationRules
@@ -166,8 +165,8 @@ class ElfDwarfVarExtractor:
     """The demangler to use while scanning"""
     _allow_dereference_pointer: bool
     """Global flag disabling or enabling pointer dereferencing. This may come from user with a CLI parameter"""
-    _valid_memory_ranges: List[Tuple[int, int]]
-    """List of (start, end) address ranges, end excluded, of the sections that occupy memory on the target (SHF_ALLOC flag)"""
+    _valid_memory_ranges: List[ElfSectionNameAndRange]
+    """Address ranges of the sections that occupy memory on the target (SHF_ALLOC flag)"""
 
     def __init__(self, filename: str,
                  cppfilt: Optional[str] = None,
@@ -386,7 +385,9 @@ class ElfDwarfVarExtractor:
                 raise ElfParsingError('File has no DWARF info')
 
             self._dwarfinfo = elffile.get_dwarf_info()
-            self._valid_memory_ranges = self._read_valid_memory_ranges(elffile)
+            self._valid_memory_ranges = DwarfHelper.get_allocated_memory_ranges(elffile)
+            for memory_range in self._valid_memory_ranges:
+                self._logger.debug(f"Valid memory range: section {memory_range.name} start=0x{memory_range.start:x} size=0x{memory_range.size:x}")
 
             self._context.arch = DwarfHelper.identify_arch(self._dwarfinfo)
             self._context.endianess = DwarfHelper.identify_endianness(elffile)
@@ -452,26 +453,9 @@ class ElfDwarfVarExtractor:
                 self._build_typedef_map_recursive(die)   # Scan every typedef to know where they point
                 self._extract_var_recursive(die)         # Recursion start point. We find the variables in here
 
-    def _read_valid_memory_ranges(self, elffile: ELFFile) -> List[Tuple[int, int]]:
-        """Return the address ranges of all the sections that occupy memory on the target. Sections without SHF_ALLOC
-        (debug info, defmt strings, etc.) do not exist on the target"""
-        memory_ranges: List[Tuple[int, int]] = []
-        for section in elffile.iter_sections():
-            is_alloc = (section['sh_flags'] & SH_FLAGS.SHF_ALLOC) != 0
-            if not is_alloc:
-                continue
-            size = section['sh_size']
-            if size == 0:
-                continue
-            start = section['sh_addr']
-            end = start + size
-            memory_ranges.append((start, end))
-            self._logger.debug(f"Valid memory range: section {section.name} [0x{start:x}, 0x{end:x})")
-        return memory_ranges
-
     def _is_in_valid_memory_range(self, address: int) -> bool:
-        for start, end in self._valid_memory_ranges:
-            if address >= start and address < end:
+        for memory_range in self._valid_memory_ranges:
+            if memory_range.contains(address):
                 return True
         return False
 
