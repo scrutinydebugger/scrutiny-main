@@ -1,2 +1,2 @@
-__all__=['ElfDwarfVarExtractor']
+__all__ = ['ElfDwarfVarExtractor']
 from .elf_dwarf_var_extractor import ElfDwarfVarExtractor

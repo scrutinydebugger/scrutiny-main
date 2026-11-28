@@ -9,13 +9,12 @@
 __all__ = [
     'DwarfHelper',
     'ElfParsingError',
-    'PointeeTypeDescriptor', 
-    'TypeDescriptor', 
+    'PointeeTypeDescriptor',
+    'TypeDescriptor',
     'VarPathSegment',
-    'ElfSectionNameAndRange',
-    'ArraySegments', 
-    'VarPath', 
-    'CuName', 
+    'ArraySegments',
+    'VarPath',
+    'CuName',
     'Context',
     'split_path_crossplatform',
     'make_unique_display_name',
@@ -30,7 +29,6 @@ from elftools.dwarf.die import DIE
 from elftools.dwarf.compileunit import CompileUnit
 from elftools.dwarf.dwarfinfo import DWARFInfo
 from elftools.elf.elffile import ELFFile
-from elftools.elf.constants import SH_FLAGS
 
 from scrutiny.core.bintools.demangler import BaseDemangler
 from scrutiny.core.basic_types import *
@@ -173,23 +171,7 @@ class VarPathSegment:
     """The name of the path segment"""
     array: Optional[TypedArray] = None
     """The array associated with that segment, if applicable"""
-    die: Optional[DIE] = None
-    """The die that created that segments None if unavailable."""
 
-
-@dataclass(slots=True, frozen=True)
-class ElfSectionNameAndRange:
-    """An ELF section that occupies memory on the target"""
-    name: str
-    """Name of the ELF section"""
-    start: int
-    """First address of the section"""
-    size: int
-    """Size of the section in bytes"""
-
-    def contains(self, address: int) -> bool:
-        """Tells if an address is inside the section"""
-        return address >= self.start and address < self.start + self.size
 
 @dataclass(slots=True, init=False)
 class ArraySegments:
@@ -253,9 +235,9 @@ class VarPath:
     def __init__(self) -> None:
         self.segments = []
 
-    def prepend_segment(self, name: str, array: Optional[TypedArray] = None, die:Optional[DIE]=None) -> None:
+    def prepend_segment(self, name: str, array: Optional[TypedArray] = None) -> None:
         """Add a path segment at the beginning"""
-        self.segments.insert(0, VarPathSegment(name=name, array=array, die=die))
+        self.segments.insert(0, VarPathSegment(name=name, array=array))
 
     def get_segments_name(self) -> List[str]:
         """Return an array of all the segments names"""
@@ -362,9 +344,7 @@ class Context:
         return 8
 
     def get_demangle_format(self) -> BaseDemangler.Format:
-        if self.cu_compiler == Compiler.RUSTC:
-            return BaseDemangler.Format.Rust
-        return BaseDemangler.Format.GnuV3    
+        return BaseDemangler.Format.GnuV3
 
 
 def make_unique_display_name(fullpath_list: List[str]) -> Dict[str, str]:
@@ -460,22 +440,6 @@ class DwarfHelper:
             return Architecture.TI_C28x
 
         return Architecture.UNKNOWN
-
-    @staticmethod
-    def get_allocated_memory_ranges(elffile: ELFFile) -> List[ElfSectionNameAndRange]:
-        """Return the address ranges of all the sections that occupy memory on the target. Sections without SHF_ALLOC
-        (debug info, defmt strings, etc.) do not exist on the target"""
-        memory_ranges: List[ElfSectionNameAndRange] = []
-        for section in elffile.iter_sections():
-            is_alloc = (section['sh_flags'] & SH_FLAGS.SHF_ALLOC) != 0
-            if not is_alloc:
-                continue
-            size = section['sh_size']
-            if size == 0:
-                continue
-            start = section['sh_addr']
-            memory_ranges.append(ElfSectionNameAndRange(name=section.name, start=start, size=size))
-        return memory_ranges
 
     @staticmethod
     def is_external(die: DIE) -> bool:

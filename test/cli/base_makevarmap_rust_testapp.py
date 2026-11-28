@@ -146,7 +146,7 @@ class BaseMakeVarmapRustTestApp(BaseVarmapTest):
         self.assert_var('/static/rust_testapp/file1/func_in_file1/STATIC_LONG_IN_FUNC_FILE1', EmbeddedDataType.sint64, value_at_loc=-0x123456789abcdef)
 
     def test_method_static(self):
-        # Expected path is an assumption: impl block treated like a module level
+        # rustc names impl blocks {impl#N} in the DWARF namespace hierarchy
         self.assert_var('/static/rust_testapp/file6/{impl#0}/method_with_static/STATIC_IN_METHOD', EmbeddedDataType.uint32, value_at_loc=0x600DF00D)
 
     def test_interactive_data(self):

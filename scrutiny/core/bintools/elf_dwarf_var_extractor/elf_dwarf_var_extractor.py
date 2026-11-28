@@ -26,8 +26,8 @@ from scrutiny.core.bintools.elf_dwarf_var_extractor.definitions import (
 )
 
 from scrutiny.core.bintools.elf_dwarf_var_extractor.helpers import (
-    ElfParsingError, PointeeTypeDescriptor, TypeDescriptor, 
-    ArraySegments, VarPath, Context, ElfSectionNameAndRange,
+    ElfParsingError, PointeeTypeDescriptor, TypeDescriptor,
+    ArraySegments, VarPath, Context,
     make_unique_display_name, make_ptr_typename, get_linenumber, DwarfHelper
 )
 from scrutiny.core.bintools.elf_dwarf_var_extractor.simplification_rules import SimplificationRules
@@ -108,8 +108,6 @@ class ElfDwarfVarExtractor:
     """The demangler to use while scanning"""
     _allow_dereference_pointer: bool
     """Global flag disabling or enabling pointer dereferencing. This may come from user with a CLI parameter"""
-    _valid_memory_ranges: List[ElfSectionNameAndRange]
-    """Address ranges of the sections that occupy memory on the target (SHF_ALLOC flag)"""
 
     def __init__(self, filename: str,
                  cppfilt: Optional[str] = None,
@@ -139,7 +137,6 @@ class ElfDwarfVarExtractor:
         )
         self._parse_errors = ParseErrors()
         self._allow_dereference_pointer = dereference_pointers
-        self._valid_memory_ranges = []
 
         self._scan_elf_file(filename)
 
@@ -328,9 +325,6 @@ class ElfDwarfVarExtractor:
                 raise ElfParsingError('File has no DWARF info')
 
             self._dwarfinfo = elffile.get_dwarf_info()
-            self._valid_memory_ranges = DwarfHelper.get_allocated_memory_ranges(elffile)
-            for memory_range in self._valid_memory_ranges:
-                self._logger.debug(f"Valid memory range: section {memory_range.name} start=0x{memory_range.start:x} size=0x{memory_range.size:x}")
 
             self._context.arch = DwarfHelper.identify_arch(self._dwarfinfo)
             self._context.endianess = DwarfHelper.identify_endianness(elffile)
@@ -395,17 +389,6 @@ class ElfDwarfVarExtractor:
 
                 self._build_typedef_map_recursive(die)   # Scan every typedef to know where they point
                 self._extract_var_recursive(die)         # Recursion start point. We find the variables in here
-
-    def _is_in_valid_memory_range(self, address: int) -> bool:
-        for memory_range in self._valid_memory_ranges:
-            if memory_range.contains(address):
-                return True
-        return False
-
-    def _get_char_bit(self) -> Literal[8, 16]:
-        if self._context.arch == Architecture.TI_C28x:
-            return 16
-        return 8
 
     def _allowed_by_filters(self, fullname: str) -> bool:
         """Tells if we can register a variable to the varmap and log the reason for not allowing if applicable."""
@@ -713,7 +696,7 @@ class ElfDwarfVarExtractor:
             if Attrs.DW_AT_linkage_name in die.attributes:
                 mangled_name = cast(str, die.attributes[Attrs.DW_AT_linkage_name].value.decode('utf8'))
 
-        if mangled_name is not None:
+        if mangled_name is not None and self._context.cu_compiler.linkage_name_gives_path():
             demangled_name = self._demangler.demangle(mangled_name, self._context.get_demangle_format())
             parts = self._split_demangled_name(demangled_name)
             parts = self._post_process_splitted_demangled_name(parts)
@@ -901,9 +884,9 @@ class ElfDwarfVarExtractor:
             dims.append(nb_element)
         # We have the dims!
 
-        if math.prod(dims) == 0:    # Array of 0 elements. Nothing to do with thaté
+        if math.prod(dims) == 0:    # Array of 0 elements. Nothing to do with that
             return None
-        
+
         element_type = self._get_type_of_var(die)
         if element_type is None:
             return None
@@ -1207,12 +1190,9 @@ class ElfDwarfVarExtractor:
             if struct in self._struct_replacement_map:
                 # Register the struct as its replacement member, under the same path. base_location points to the start of the struct.
                 replacement = self._struct_replacement_map[struct]
-                location = base_location.copy()
-                # SubStruct and SubArray offsets are applied by the parent, BaseType and Pointer apply their own.
-                if replacement.member_type in (Struct.Member.MemberType.SubStruct, Struct.Member.MemberType.SubArray):
-                    assert replacement.byte_offset is not None
-                    location.add_offset(replacement.byte_offset)
-                self._register_member_as_var_recursive(path_segments, replacement, location, offset, array_segments)
+                # BaseType and Pointer apply their own byte_offset
+                assert replacement.member_type in (Struct.Member.MemberType.BaseType, Struct.Member.MemberType.Pointer)
+                self._register_member_as_var_recursive(path_segments, replacement, base_location, offset, array_segments)
                 return
 
             # The actual member is a struct. For each submember, adjust the path and location then recurse
@@ -1423,11 +1403,6 @@ class ElfDwarfVarExtractor:
             if location.is_null():
                 self._logger.debug(f"Line {get_linenumber()}: Skipping variable {fullname} at location NULL address.")
                 return False
-            address = location.get_address()
-            if not self._is_in_valid_memory_range(address):
-                self._logger.debug(
-                    f"Line {get_linenumber()}: Skipping variable {fullname} at address 0x{address:x}. Not in an allocated section.")
-                return False
 
         if self._allowed_by_filters(fullname):
             self._varmap.add_variable(
@@ -1510,19 +1485,17 @@ class ElfDwarfVarExtractor:
             if func_name is not None:
                 name = func_name
 
-        attached_die = die
         # Try to get the name of the die and use it as a level of the path
         if name is None:
             if Attrs.DW_AT_specification in die.attributes:
                 spec_die = die.get_DIE_from_attribute(Attrs.DW_AT_specification)
                 name = self._get_die_name(spec_die)
-                attached_die = spec_die
 
         # There is a name available, we add it to the path and keep going
         if name is not None:
-            varpath.prepend_segment(name=name, array=array, die=attached_die)
+            varpath.prepend_segment(name=name, array=array)
             if array is not None:
-                varpath.prepend_segment(name=name, die=attached_die)  # Add a level to group the array elements together /aaa/bbb/ccc/ccc[0]
+                varpath.prepend_segment(name=name)  # Add a level to group the array elements together /aaa/bbb/ccc/ccc[0]
 
             if parent is not None:
                 return self._make_varpath_recursive(parent, varpath)

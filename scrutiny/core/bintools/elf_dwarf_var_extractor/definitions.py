@@ -6,10 +6,9 @@
 #
 #    Copyright (c) 2026 Scrutiny Debugger
 
-__all__ = [ 'Attrs', 'Tags', 'DwarfEncoding', 'TypeOfVar', 'Architecture', 'Compiler']
+__all__ = ['Attrs', 'Tags', 'DwarfEncoding', 'TypeOfVar', 'Architecture', 'Compiler']
 
 from enum import Enum, auto
-from scrutiny.core.basic_types import *
 from scrutiny.tools.typing import *
 
 class Attrs:
@@ -110,6 +109,3 @@ class Compiler(Enum):
         if self == Compiler.RUSTC:
             return False
         return True
-
-    
-# endregion
