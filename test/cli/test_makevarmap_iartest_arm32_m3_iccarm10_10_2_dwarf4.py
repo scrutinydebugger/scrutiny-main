@@ -1,3 +1,10 @@
+#    test_makevarmap_iartest_arm32_m3_iccarm10_10_2_dwarf4.py
+#        Test suite for symbol extraction. IAR 10.10.2 on ARM Cortex-M3, dwarf V4
+#
+#   - License : MIT - See LICENSE file
+#   - Project : Scrutiny Debugger (github.com/scrutinydebugger/scrutiny-main)
+#
+#    Copyright (c) 2026 Scrutiny Debugger
 
 import unittest
 from test.artifacts import get_artifact
